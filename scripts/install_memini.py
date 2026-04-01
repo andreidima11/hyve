@@ -25,6 +25,8 @@ CONFIG_FILE = ROOT / "config.json"
 PID_FILE = ROOT / ".memini_server.pid"
 LOG_DIR = ROOT / "logs"
 LOG_FILE = LOG_DIR / "install-server.log"
+REQUIREMENTS_FILE = ROOT / "requirements.txt"
+REQUIREMENTS_DEV_FILE = ROOT / "requirements-dev.txt"
 DEFAULT_PORT = 8082
 
 
@@ -47,8 +49,13 @@ def ensure_venv() -> None:
 
 def install_python_dependencies() -> None:
     print_step("Installing Python dependencies")
+    if not REQUIREMENTS_FILE.exists():
+        raise SystemExit(
+            f"Missing required file: {REQUIREMENTS_FILE}. "
+            "The repository clone is incomplete or the file was deleted."
+        )
     run([str(VENV_PYTHON), "-m", "pip", "install", "--upgrade", "pip"])
-    run([str(VENV_PYTHON), "-m", "pip", "install", "-r", "requirements.txt"])
+    run([str(VENV_PYTHON), "-m", "pip", "install", "-r", str(REQUIREMENTS_FILE)])
 
 
 def install_node_dependencies(skip_npm: bool) -> None:
