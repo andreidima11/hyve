@@ -38,7 +38,7 @@ This project is currently in alpha.
 - a valid `config.json` for your local environment
 - a local or remote model configuration if you want chat features
 
-## Install on a New PC
+## Installation
 
 This is the recommended flow for a clean machine.
 
