@@ -37,3 +37,4 @@ secrets/firebase-service-account.json
 secrets/*.service-account.json
 secrets/*.json
 .secret_key
+.memini_server.pid
