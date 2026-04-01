@@ -1,15 +1,15 @@
 # Memini Bridge
 
-Memini Bridge este o aplicație local-first pentru orchestrarea unui asistent personal cu memorie, integrare Home Assistant, automatizări și o interfață web proprie. Proiectul combină un backend FastAPI, stocare locală pentru context și un frontend modular pentru chat, conferințe și administrare.
+Memini Bridge is a local-first application for running a personal assistant with memory, Home Assistant integration, automations, and a dedicated web interface. The project combines a FastAPI backend, local context storage, and a modular frontend for chat, conferences, and administration.
 
-## Ce face
+## What It Does
 
-- oferă o interfață web pentru chat, memorie și administrare
-- poate integra Home Assistant pentru control și context din casă
-- rulează fluxuri de automatizare și reminder-e programate
-- păstrează context semantic local pentru căutare și reutilizare
-- include mod de conferință pentru fluxuri multi-agent și task orchestration
-- suportă modele locale sau remote, în funcție de configurare
+- provides a web interface for chat, memory, and administration
+- can integrate with Home Assistant for control and home context
+- runs automation flows and scheduled reminders
+- keeps local semantic context for search and reuse
+- includes a conference mode for multi-agent workflows and task orchestration
+- supports local or remote models depending on configuration
 
 ## Stack
 
@@ -20,18 +20,18 @@ Memini Bridge este o aplicație local-first pentru orchestrarea unui asistent pe
 - APScheduler
 - httpx
 - Tailwind CSS
-- JavaScript modular în `static/js`
+- modular JavaScript in `static/js`
 
-## Cerințe
+## Requirements
 
 - Python 3.12
-- Node.js doar pentru rebuild-ul CSS
-- un `config.json` valid pentru mediul local
-- un model configurat local sau remote, dacă vrei funcțiile de chat
+- Node.js only if you want to rebuild the CSS
+- a valid `config.json` for your local environment
+- a local or remote model configuration if you want chat features
 
-## Pornire rapidă
+## Quick Start
 
-### 1. Creează mediul Python
+### 1. Create the Python environment
 
 ```bash
 python3 -m venv venv
@@ -41,86 +41,86 @@ pip install -r requirements.txt
 pip install -r requirements-dev.txt
 ```
 
-### 2. Configurează mediul
+### 2. Configure the environment
 
-- pornește de la `.env.example`
-- completează `config.json` cu valorile locale necesare
-- vezi [CONFIG.md](CONFIG.md) pentru opțiunile de configurare
+- start from `.env.example`
+- complete `config.json` with the required local values
+- see [CONFIG.md](CONFIG.md) for configuration details
 
-Pentru startup strict sau medii de release:
+For strict startup or release-oriented environments:
 
-- `MEMINI_SECRET_KEY` trebuie setat explicit
-- endpoint-ul modelului și numele modelului trebuie configurate
-- accesul anonim trebuie să rămână dezactivat
+- `MEMINI_SECRET_KEY` must be set explicitly
+- the model endpoint and model name must be configured
+- anonymous access must remain disabled
 
-### 3. Rulează aplicația
+### 3. Run the application
 
 ```bash
 source venv/bin/activate
 python main.py
 ```
 
-Alternativ:
+Alternatively:
 
 ```bash
 ./start.sh
 ```
 
-Implicit, aplicația pornește pe `http://localhost:8082`.
+By default, the application starts on `http://localhost:8082`.
 
-## Testare
+## Testing
 
-Rulează testele:
+Run the test suite:
 
 ```bash
 source venv/bin/activate
 python -m pytest
 ```
 
-Rulează verificările de release:
+Run the release checks:
 
 ```bash
 source venv/bin/activate
 python scripts/release_gate.py
 ```
 
-## Frontend și CSS
+## Frontend and CSS
 
-Pentru build CSS:
+To build the CSS:
 
 ```bash
 npm install
 npm run css:build
 ```
 
-Pentru watch:
+For watch mode:
 
 ```bash
 npm run css:watch
 ```
 
-## Structură
+## Structure
 
-- `main.py` — entrypoint FastAPI și wiring principal
-- `auth.py` — autentificare, token-uri și politici de acces
-- `settings.py` — configurare, overlay din environment și validare
-- `routers/` — endpoint-uri FastAPI
-- `brain/` — logică de orchestrare, tool-uri și memorie
-- `static/js/` — frontend modular
-- `static/css/` — stiluri și build output
-- `templates/` — template-uri HTML
-- `tests/` — teste și regresii
+- `main.py` — FastAPI entrypoint and main application wiring
+- `auth.py` — authentication, tokens, and access policies
+- `settings.py` — configuration, environment overlays, and validation
+- `routers/` — FastAPI endpoints
+- `brain/` — orchestration logic, tools, and memory handling
+- `static/js/` — modular frontend code
+- `static/css/` — styles and build output
+- `templates/` — HTML templates
+- `tests/` — tests and regressions
 
-## Note pentru publicare
+## Publishing Notes
 
-- repo-ul nu include date locale, baze sqlite, sesiuni, loguri sau chei sensibile
-- valorile secrete trebuie injectate prin environment, nu păstrate în repo
-- fișierele de runtime și datele generate local sunt excluse prin `.gitignore`
+- the repository does not include local data, sqlite databases, sessions, logs, or sensitive keys
+- secret values should be injected through environment variables, not stored in the repository
+- runtime files and locally generated data are excluded through `.gitignore`
 
-## Documentație utilă
+## Useful Documentation
 
 - [CONFIG.md](CONFIG.md)
 
 ## Status
 
-Proiect activ, orientat pe uz local și integrare practică între automation, memory tooling și interfață web.
+Active project focused on local use and practical integration between automation, memory tooling, and a web interface.
