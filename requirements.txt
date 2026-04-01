@@ -12,7 +12,7 @@ PyYAML>=6.0.2
 
 # -- Auth / security --
 python-jose[cryptography]>=3.3.0
-passlib[bcrypt]>=1.7.4
+bcrypt>=4.0.0
 
 # -- Database / persistence --
 sqlalchemy>=2.0.0
@@ -21,13 +21,9 @@ chromadb>=0.5.0
 
 # -- HTTP / integrations --
 httpx[http2]>=0.28.0
-requests>=2.31.0
 
 # Yahoo Finance stock quotes skill
 yfinance>=0.2.40
-
-# Natural-language date/time parsing
-dateparser>=1.2.0
 
 # Rate limiting for API endpoints
 slowapi>=0.1.9
