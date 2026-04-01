@@ -1,0 +1,73 @@
+{
+    "slug": "piper",
+    "name": "Piper TTS",
+    "description": "Text-to-Speech local cu voci de înaltă calitate. Folosește protocolul Wyoming pentru sinteză vocală offline, fără cloud.",
+    "long_description": "Piper este un motor TTS rapid și de înaltă calitate care rulează local. Suportă zeci de limbi și voci, inclusiv română. Se conectează prin protocolul Wyoming pe TCP, la fel ca Whisper.",
+    "version": "2024.11.0",
+    "icon": "fas fa-volume-up",
+    "color": "cyan",
+    "author": "rhasspy",
+    "url": "https://github.com/rhasspy/piper",
+    "category": "voice",
+
+    "install": {
+        "method": "wyoming",
+        "packages": ["wyoming-piper"],
+        "notes": "După instalare, pornește serverul Piper cu: wyoming-piper --voice ro_RO-mihai-medium --data-dir ./piper_models --download-dir ./piper_models"
+    },
+
+    "config_schema": [
+        {
+            "key": "host",
+            "label": "Host",
+            "type": "text",
+            "default": "localhost",
+            "placeholder": "localhost",
+            "description": "Adresa serverului Piper (Wyoming)."
+        },
+        {
+            "key": "port",
+            "label": "Port",
+            "type": "number",
+            "default": 10200,
+            "placeholder": "10200",
+            "description": "Portul TCP pentru protocolul Wyoming."
+        },
+        {
+            "key": "voice",
+            "label": "Voce",
+            "type": "text",
+            "default": "ro_RO-mihai-medium",
+            "placeholder": "ro_RO-mihai-medium",
+            "description": "Numele vocii Piper (ex: ro_RO-mihai-medium, en_US-lessac-medium)."
+        },
+        {
+            "key": "speaker_id",
+            "label": "Speaker ID",
+            "type": "number",
+            "default": 0,
+            "placeholder": "0",
+            "description": "ID-ul vorbitorului pentru vocile multi-speaker (0 = implicit)."
+        },
+        {
+            "key": "length_scale",
+            "label": "Viteză vorbire",
+            "type": "text",
+            "default": "1.0",
+            "placeholder": "1.0",
+            "description": "Factor de viteză (< 1.0 = mai rapid, > 1.0 = mai lent)."
+        }
+    ],
+
+    "health_check": {
+        "type": "tcp",
+        "host_key": "host",
+        "port_key": "port"
+    },
+
+    "start_command": {
+        "command": "wyoming-piper",
+        "args": ["--voice", "{voice}", "--data-dir", "./piper_models", "--download-dir", "./piper_models", "--uri", "tcp://0.0.0.0:{port}"],
+        "description": "Pornește serverul Piper cu vocea configurată."
+    }
+}

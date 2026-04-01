@@ -1,0 +1,1214 @@
+/* base.css — Root variables, global resets, typography, layout, responsive, native app */
+
+/* ═══════════════════════════════════════════════════════
+   THEME SYSTEM — Variables are set by theme CSS files
+   loaded from static/css/themes/{name}.css
+   :root holds only layout constants + safe-area insets.
+   All color variables are defined in theme files.
+   ═══════════════════════════════════════════════════════ */
+:root {
+    /* Layout constants (theme-independent) */
+    --transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    --radius-xl: 32px;
+    --radius-lg: 20px;
+    --radius-md: 12px;
+    
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+
+    /* ── Fallback defaults (dark) — overridden by theme CSS ── */
+    --accent: #38bdf8;
+    --accent-hover: #7dd3fc;
+    --accent-glow: rgba(56, 189, 248, 0.25);
+    --accent-soft: rgba(56, 189, 248, 0.08);
+    --accent-border: rgba(56, 189, 248, 0.15);
+    --accent-rgb: 56, 189, 248;
+    --secondary-accent: rgba(168, 85, 247, 0.6);
+    --secondary-accent-rgb: 168, 85, 247;
+    --msg-user: linear-gradient(135deg, #0c4a6e 0%, #0284c7 50%, #38bdf8 100%);
+    --logo-gradient: linear-gradient(135deg, #38bdf8, #a78bfa);
+
+    --bg-main: #030712;
+    --surface-0: #030712;
+    --surface-1: rgba(15, 23, 42, 0.6);
+    --surface-2: rgba(30, 41, 59, 0.4);
+    --surface-3: rgba(51, 65, 85, 0.3);
+    --surface-glass: rgba(15, 23, 42, 0.5);
+    --surface-glass-heavy: rgba(7, 10, 18, 0.97);
+    --surface-sidebar: rgba(3, 7, 18, 0.95);
+    --surface-menu: rgba(15, 23, 42, 0.97);
+    --surface-menu-heavy: rgba(15, 23, 42, 0.98);
+    --surface-code: #080d1a;
+    --surface-code-soft: rgba(0, 0, 0, 0.2);
+    --surface-input: rgba(0, 0, 0, 0.3);
+    --surface-overlay: rgba(0, 0, 0, 0.5);
+    --surface-overlay-heavy: rgba(0, 0, 0, 0.85);
+    --surface-tooltip: rgba(30, 32, 40, 0.95);
+    --surface-card: rgba(255, 255, 255, 0.035);
+    --surface-card-hover: rgba(255, 255, 255, 0.06);
+    --surface-chat-input: rgba(3, 7, 18, 0.85);
+
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-tertiary: #475569;
+    --text-heading: #ffffff;
+    --text-on-accent: #ffffff;
+    --text-code: #93c5fd;
+    --text-inline-code: #93c5fd;
+    --text-link: #60a5fa;
+    --text-bubble: rgba(233, 237, 244, 0.92);
+    --text-bubble-heading: rgba(248, 250, 252, 0.97);
+
+    --border-subtle: rgba(255, 255, 255, 0.04);
+    --border-light: rgba(255, 255, 255, 0.07);
+    --border-medium: rgba(255, 255, 255, 0.1);
+    --border-hover: rgba(255, 255, 255, 0.12);
+    --border-accent: rgba(56, 189, 248, 0.15);
+    --glass-border: rgba(255, 255, 255, 0.06);
+    --input-focus-bg: rgba(255, 255, 255, 0.03);
+
+    --overlay-2: rgba(255, 255, 255, 0.02);
+    --overlay-3: rgba(255, 255, 255, 0.03);
+    --overlay-4: rgba(255, 255, 255, 0.04);
+    --overlay-5: rgba(255, 255, 255, 0.05);
+    --overlay-6: rgba(255, 255, 255, 0.06);
+    --overlay-8: rgba(255, 255, 255, 0.08);
+    --overlay-10: rgba(255, 255, 255, 0.10);
+    --overlay-15: rgba(255, 255, 255, 0.15);
+
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+    --shadow-xl: 0 20px 50px rgba(0, 0, 0, 0.5);
+
+    --glow-primary: rgba(56, 189, 248, 0.12);
+    --glow-secondary: rgba(168, 85, 247, 0.08);
+
+    --danger: #dc2626;
+    --danger-hover: #b91c1c;
+    --danger-soft: #f87171;
+    --danger-bg: rgba(220, 38, 38, 0.08);
+    --danger-bg-hover: rgba(220, 38, 38, 0.12);
+    --success: #22c55e;
+    --success-hover: #16a34a;
+    --success-soft: #4ade80;
+    --success-bg: rgba(34, 197, 94, 0.1);
+    --warning: #f59e0b;
+    --warning-hover: #d97706;
+    --warning-soft: #fbbf24;
+    --warning-text: #fef3c7;
+    --info: #3b82f6;
+
+    --user-bubble-bg: #38bdf8;
+    --user-bubble-shadow: 0 1px 6px rgba(56, 189, 248, 0.2);
+    --user-bubble-shadow-hover: 0 2px 10px rgba(56, 189, 248, 0.3);
+
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: rgba(255, 255, 255, 0.08);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.15);
+
+    --chat-input-bg: var(--surface-1);
+    --chat-input-wrapper-bg: var(--surface-0);
+
+    --sidebar-active-bg: rgba(56, 189, 248, 0.06);
+    --sidebar-active-border: rgba(56, 189, 248, 0.1);
+    --sidebar-active-shadow: rgba(56, 189, 248, 0.03);
+
+    --send-btn-bg: linear-gradient(145deg, #38bdf8, #0ea5e9);
+    --send-btn-streaming-bg: linear-gradient(145deg, #ef4444, #dc2626);
+
+    --voice-btn-bg: linear-gradient(145deg, #1e293b, #0f172a);
+    --voice-btn-recording-bg: linear-gradient(145deg, #b45309, #92400e);
+    --voice-btn-cancelled-bg: linear-gradient(145deg, #dc2626, #991b1b);
+
+    --conf-accent: rgba(139, 92, 246, 0.5);
+    --conf-accent-soft: rgba(139, 92, 246, 0.06);
+    --conf-particle: #ec4899;
+
+    --selector-accent: #38bdf8;
+    --img-card-bg: rgba(0, 0, 0, 0.25);
+    --noise-opacity: 0.5;
+    --logo-shadow: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+    --meta-theme-color: #030712;
+}
+
+body { 
+    background-color: var(--bg-main); 
+    color: var(--text-primary); 
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+    /* PERF FIX: was 'transition: all' which transitioned background gradients on every class change */
+    transition: color 0.3s ease, background-color 0.3s ease;
+    background-image: 
+        radial-gradient(ellipse 120% 60% at 50% -30%, var(--accent-glow), transparent 60%),
+        radial-gradient(ellipse 80% 50% at 100% 100%, var(--glow-secondary), transparent 50%),
+        radial-gradient(ellipse 60% 40% at 0% 80%, var(--glow-primary), transparent 50%);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+/* REPARAȚIE LOGO: Textul logo-ului acum are contrast și gradient definit per temă */
+.gemini-text {
+    background: var(--logo-gradient);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 700;
+    /* Umbră subtilă ca să nu dispară pe niciun fundal */
+    filter: var(--logo-shadow);
+}
+
+/* Iconița creierului urmează culoarea de accent */
+.fa-brain.text-white, .fa-brain.text-accent {
+    color: var(--accent) !important;
+    filter: drop-shadow(0 0 8px var(--accent-glow));
+}
+
+/* Glassmorphism */
+.glass-card {
+    background: var(--surface-glass);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    box-shadow: 
+        0 0 0 1px var(--overlay-2) inset,
+        var(--shadow-xl);
+}
+
+/* PERF FIX: reduce glass-card blur on mobile devices */
+@media (max-width: 768px) {
+    .glass-card {
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+}
+
+/* Sidebar & Items */
+aside {
+    background: var(--surface-glass-heavy) !important;
+    /* PERF FIX: was blur(60px) — extreme GPU cost on mobile during sidebar slide.
+       The 0.97 opacity background already obscures content, blur is barely visible. */
+    backdrop-filter: blur(16px) saturate(120%);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
+    border-right-color: var(--border-subtle) !important;
+}
+
+.sidebar-item {
+    border-radius: var(--radius-md);
+    margin: 3px 10px;
+    border: 1px solid transparent;
+    /* PERF FIX: 'transition: all' animates margin, padding etc. triggering layout */
+    transition: background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+}
+
+/* Stil pentru conversația selectată */
+.sidebar-item.active {
+    background: var(--sidebar-active-bg) !important;
+    border-color: var(--sidebar-active-border) !important;
+    box-shadow: 
+        inset 0 0 20px var(--sidebar-active-shadow),
+        0 0 20px var(--sidebar-active-shadow);
+}
+
+.sidebar-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 60%;
+    background: linear-gradient(180deg, var(--accent), var(--secondary-accent));
+    border-radius: 0 4px 4px 0;
+}
+
+.sidebar-item.active i, .sidebar-item.active span {
+    color: var(--accent) !important;
+}
+
+/* Butonul de ștergere (trash) din sidebar */
+.fa-trash-alt {
+    transition: color 0.2s ease;
+}
+
+/* Sidebar polish — app-like premium */
+#sidebar {
+    background: var(--surface-sidebar) !important;
+    border-right: 1px solid var(--glass-border) !important;
+    overflow: hidden;
+    /* GPU layer promotion without overriding Tailwind transforms */
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    /* Optimized transition: faster, GPU-accelerated */
+    transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+    /* PERF FIX: layout containment prevents sidebar changes from triggering reflows outside */
+    contain: layout style;
+}
+
+/* Subtle drifting aura — fades softly at edges, never looks cut off */
+#sidebar::before {
+    content: '';
+    position: absolute;
+    inset: -30% -40% -30% -40%;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse 50% 35% at 25% 50%, var(--glow-primary), transparent 60%),
+        radial-gradient(ellipse 45% 30% at 80% 45%, var(--glow-secondary), transparent 55%);
+    animation: sidebarAuraDrift 10s ease-in-out infinite alternate;
+    will-change: auto; /* PERF FIX: was 'transform, opacity' — reduces permanent GPU memory reservation */
+    filter: blur(12px);
+    /* Asymmetric fade — very aggressive at top, gentle everywhere else */
+    -webkit-mask-image:
+        linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.15) 10%, rgba(0,0,0,0.6) 22%, black 38%, black 75%, transparent 95%);
+    mask-image:
+        linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.15) 10%, rgba(0,0,0,0.6) 22%, black 38%, black 75%, transparent 95%);
+}
+
+/* PERF FIX: on mobile, disable the expensive sidebar aura entirely */
+@media (max-width: 1023px) {
+    #sidebar::before {
+        display: none !important;
+    }
+}
+
+@keyframes sidebarAuraDrift {
+    0%   { transform: translate(0, 0)       scale(1);    opacity: 0.7;  }
+    25%  { transform: translate(12%, 15%)    scale(1.08); opacity: 1;    }
+    50%  { transform: translate(-8%, 10%)    scale(0.94); opacity: 0.8;  }
+    75%  { transform: translate(6%, -8%)     scale(1.06); opacity: 0.95; }
+    100% { transform: translate(-5%, -12%)   scale(1.02); opacity: 0.75; }
+}
+
+/* Utility: duration-250 for Tailwind */
+.duration-250 {
+    transition-duration: 250ms !important;
+}
+
+/* Accessibility: respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    #sidebar,
+    #sidebar::before,
+    #sidebar-backdrop,
+    .transition-transform,
+    .transition-all {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* PERF FIX: aura is now fully disabled on mobile via display:none above,
+   so the .transitioning pause rule is no longer needed */
+/* @media (max-width: 1023px) { #sidebar.transitioning::before { animation: none; } } */
+
+/* Soft inner light — starts below the status bar zone */
+#sidebar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent 0%, var(--overlay-2) 15%, transparent 35%);
+    opacity: 0.7;
+}
+
+#sidebar .nav-btn {
+    border: 1px solid transparent;
+    /* PERF FIX: 'transition: all' replaced with specific properties */
+    transition: background-color 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s cubic-bezier(0.16, 1, 0.3, 1), color 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#sidebar .nav-btn:hover {
+    border-color: var(--overlay-8);
+    background: var(--overlay-4) !important;
+}
+
+#sidebar .nav-btn.text-accent {
+    border-color: var(--accent-border) !important;
+    background: linear-gradient(135deg, var(--accent-soft), rgba(var(--accent-rgb), 0.04)) !important;
+    box-shadow: inset 0 0 0 1px var(--accent-soft), 0 6px 18px var(--accent-soft);
+}
+
+#sessions-list .session-item {
+    border: 1px solid transparent;
+    /* PERF FIX: 'transition: all' replaced with specific properties */
+    transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#sessions-list .session-item:hover {
+    border-color: var(--overlay-8);
+    background: var(--overlay-4) !important;
+}
+
+#sessions-list .session-item.text-accent {
+    border-color: var(--accent-border);
+    background: linear-gradient(135deg, var(--accent-soft), rgba(var(--accent-rgb), 0.04)) !important;
+}
+
+/* Input-uri & Butoane */
+.input-field {
+    background: var(--surface-input) !important;
+    border: 1px solid var(--glass-border) !important;
+    color: var(--text-primary) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 16px 20px !important;
+}
+
+.input-field:focus {
+    background: var(--input-focus-bg) !important;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 30px var(--accent-glow) !important;
+}
+
+.btn-primary {
+    background: var(--msg-user) !important;
+    border: none !important;
+    border-radius: var(--radius-md) !important;
+    font-weight: 600 !important;
+}
+
+/* ─── Memini branding: logo, hero, galaxy, particles ─── */
+.memini-logo {
+    display: inline-block;
+    letter-spacing: -0.04em;
+    white-space: nowrap;
+}
+.memini-me {
+    color: var(--text-bubble-heading);
+}
+.memini-mini {
+    color: var(--accent);
+}
+.memini-nav-bridge {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 0.7em;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary, #64748b);
+    vertical-align: baseline;
+    margin-left: 0.35em;
+}
+.memini-sidebar-wordmark .memini-me,
+.memini-sidebar-wordmark .memini-mini {
+    font-size: 1.25em;
+    line-height: 1;
+}
+.memini-sidebar-wordmark {
+    line-height: 1;
+}
+.memini-sidebar-wordmark .memini-nav-bridge {
+    font-size: 0.7875rem;
+    margin-left: 0.45em;
+}
+@media (min-width: 640px) {
+    .memini-sidebar-wordmark .memini-nav-bridge {
+        font-size: 0.875rem;
+    }
+}
+.memini-logo--center {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    animation: meminiLogoFloat 4s ease-in-out infinite;
+}
+@media (min-width: 640px) {
+    .memini-logo--center {
+        font-size: 1.875rem;
+    }
+}
+.memini-logo--hero {
+    font-size: 3rem;
+    font-weight: 800;
+    letter-spacing: -0.05em;
+    animation: meminiLogoFloat 5s ease-in-out infinite;
+}
+/* Hero: particule în stil galaxie, în jurul logo-ului */
+.memini-hero-wrap {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 0.5rem;
+}
+.memini-hero-wrap--greeting {
+    margin-bottom: 0;
+}
+.memini-hero-wrap--greeting .memini-hero-galaxy {
+    inset: -60%;
+}
+.memini-hero-wrap--greeting .memini-hero-galaxy::before {
+    display: none;
+}
+.memini-hero-wrap--greeting .chat-empty-title {
+    position: relative;
+    z-index: 1;
+}
+/* Login variant — slightly smaller galaxy */
+.memini-hero-wrap--login {
+    margin-bottom: 0;
+}
+.memini-hero-wrap--login .memini-hero-galaxy {
+    inset: -20%;
+}
+/* Compact variant — for settings sections */
+.memini-hero-wrap--compact {
+    margin-bottom: 0.25rem;
+}
+.memini-hero-wrap--compact .memini-hero-galaxy {
+    inset: -30%;
+}
+.memini-hero-galaxy {
+    position: absolute;
+    inset: -15%;
+    pointer-events: none;
+    overflow: visible;
+}
+.memini-hero-galaxy::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 120%;
+    height: 120%;
+    margin-left: -60%;
+    margin-top: -60%;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center, rgba(var(--accent-rgb), 0.06) 0%, rgba(var(--secondary-accent-rgb), 0.03) 30%, transparent 55%);
+    filter: blur(18px);
+    animation: meminiNebulaPulse 10s ease-in-out infinite;
+}
+.memini-particle {
+    position: absolute;
+    border-radius: 50%;
+    background: var(--overlay-15);
+    animation: meminiParticleDrift 8s ease-in-out infinite;
+}
+.memini-particle:nth-child(odd) { background: rgba(var(--accent-rgb), 0.5); }
+.memini-particle:nth-child(3n) { background: rgba(var(--secondary-accent-rgb), 0.4); }
+.memini-particle:nth-child(1)  { left: 15%; top: 20%; width: 2px; height: 2px; animation-duration: 10s; animation-delay: 0s; }
+.memini-particle:nth-child(2)  { left: 85%; top: 25%; width: 3px; height: 3px; animation-duration: 12s; animation-delay: -1s; }
+.memini-particle:nth-child(3)  { left: 50%; top: 5%; width: 2px; height: 2px; animation-duration: 9s; animation-delay: -2s; }
+.memini-particle:nth-child(4)  { left: 25%; top: 70%; width: 2px; height: 2px; animation-duration: 11s; animation-delay: -0.5s; }
+.memini-particle:nth-child(5)  { left: 75%; top: 75%; width: 3px; height: 3px; animation-duration: 13s; animation-delay: -3s; }
+.memini-particle:nth-child(6)  { left: 10%; top: 45%; width: 2px; height: 2px; animation-duration: 8s; animation-delay: -1.5s; }
+.memini-particle:nth-child(7)  { left: 90%; top: 50%; width: 2px; height: 2px; animation-duration: 10s; animation-delay: -2.5s; }
+.memini-particle:nth-child(8)  { left: 35%; top: 15%; width: 3px; height: 3px; animation-duration: 14s; animation-delay: 0s; }
+.memini-particle:nth-child(9)  { left: 65%; top: 80%; width: 2px; height: 2px; animation-duration: 9s; animation-delay: -1s; }
+.memini-particle:nth-child(10) { left: 5%; top: 80%; width: 2px; height: 2px; animation-duration: 11s; animation-delay: -2s; }
+.memini-particle:nth-child(11) { left: 95%; top: 15%; width: 3px; height: 3px; animation-duration: 12s; animation-delay: -0.8s; }
+.memini-particle:nth-child(12) { left: 55%; top: 35%; width: 2px; height: 2px; animation-duration: 8s; animation-delay: -3s; }
+.memini-particle:nth-child(13) { left: 40%; top: 85%; width: 2px; height: 2px; animation-duration: 10s; animation-delay: -1.2s; }
+.memini-particle:nth-child(14) { left: 70%; top: 40%; width: 2px; height: 2px; animation-duration: 13s; animation-delay: -2.2s; }
+.memini-particle:nth-child(15) { left: 20%; top: 55%; width: 3px; height: 3px; animation-duration: 9s; animation-delay: -0.3s; }
+.memini-particle:nth-child(16) { left: 80%; top: 60%; width: 2px; height: 2px; animation-duration: 11s; animation-delay: -1.8s; }
+.memini-particle:nth-child(17) { left: 45%; top: 10%; width: 2px; height: 2px; animation-duration: 15s; animation-delay: -2.8s; }
+.memini-particle:nth-child(18) { left: 60%; top: 70%; width: 2px; height: 2px; animation-duration: 8s; animation-delay: -0.6s; }
+.memini-particle:nth-child(19) { left: 12%; top: 30%; width: 3px; height: 3px; animation-duration: 12s; animation-delay: -1.4s; }
+.memini-particle:nth-child(20) { left: 88%; top: 65%; width: 2px; height: 2px; animation-duration: 10s; animation-delay: -2.1s; }
+.memini-particle:nth-child(21) { left: 30%; top: 40%; width: 2px; height: 2px; animation-duration: 14s; animation-delay: -0.9s; }
+.memini-particle:nth-child(22) { left: 50%; top: 90%; width: 2px; height: 2px; animation-duration: 9s; animation-delay: -2.4s; }
+.memini-particle:nth-child(23) { left: 8%; top: 60%; width: 3px; height: 3px; animation-duration: 11s; animation-delay: -0.2s; }
+.memini-particle:nth-child(24) { left: 92%; top: 35%; width: 2px; height: 2px; animation-duration: 13s; animation-delay: -1.6s; }
+.memini-particle:nth-child(25) { left: 18%; top: 8%; width: 2px; height: 2px; animation-duration: 8s; animation-delay: -2.9s; }
+@keyframes meminiNebulaPulse {
+    0%, 100% { opacity: 0.7; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
+}
+@keyframes meminiParticleDrift {
+    0%, 100% { transform: translate(0, 0); opacity: 0.6; }
+    25% { transform: translate(4px, -6px); opacity: 1; }
+    50% { transform: translate(-5px, 3px); opacity: 0.5; }
+    75% { transform: translate(3px, 5px); opacity: 0.9; }
+}
+.memini-logo--hero {
+    position: relative;
+    z-index: 1;
+}
+
+/* ─── Range slider (cfg-range) ─── */
+.cfg-range {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--overlay-10, rgba(255,255,255,0.1));
+    outline: none;
+    cursor: pointer;
+}
+.cfg-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent, #6366f1);
+    border: 2px solid var(--bg-primary, #0f172a);
+    box-shadow: 0 0 6px rgba(99, 102, 241, 0.4);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.cfg-range::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.6);
+}
+.cfg-range::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent, #6366f1);
+    border: 2px solid var(--bg-primary, #0f172a);
+    box-shadow: 0 0 6px rgba(99, 102, 241, 0.4);
+    cursor: pointer;
+}
+.cfg-range::-moz-range-track {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--overlay-10, rgba(255,255,255,0.1));
+}
+.memini-logo--hero::after {
+    content: '';
+    position: absolute;
+    inset: -20%;
+    z-index: -1;
+    background: radial-gradient(ellipse at center, rgba(var(--accent-rgb), 0.08) 0%, transparent 70%);
+    pointer-events: none;
+    animation: meminiLogoGlow 6s ease-in-out infinite;
+}
+@keyframes meminiLogoFloat {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-6px) scale(1.02); }
+}
+@keyframes meminiLogoGlow {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+
+/* ========== MOBILE & TOUCH ========== */
+
+html {
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+body {
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+@media (max-width: 1023px) {
+    body {
+        position: fixed;
+        width: 100%;
+        top: 0;
+        left: 0;
+    }
+}
+
+.touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Config tab pills ─────────────────────────────────── */
+.config-tabs-track {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 2px 2px 4px;
+    margin-bottom: 8px;
+    scroll-padding-inline: 20px;
+    cursor: grab;
+}
+.config-tabs-track::-webkit-scrollbar { display: none; }
+.config-tabs-track.is-dragging {
+    cursor: grabbing;
+}
+
+.config-native-app-only {
+    display: none !important;
+}
+
+.config-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--text-secondary, #94a3b8);
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+.config-tab-btn i {
+    font-size: 11px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+.config-tab-btn:hover {
+    color: var(--text-primary, #e2e8f0);
+    background: var(--bg-hover, rgba(255,255,255,0.05));
+}
+.config-tabs-track.is-dragging .config-tab-btn {
+    pointer-events: none;
+}
+.config-tab-btn--active {
+    color: var(--accent) !important;
+    background: rgba(var(--accent-rgb, 56,189,248), 0.1) !important;
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.2);
+}
+.config-tab-btn--active i { opacity: 1; }
+
+@media (min-width: 640px) {
+    .config-tab-btn {
+        padding: 7px 16px;
+        font-size: 13px;
+        gap: 7px;
+    }
+    .config-tabs-track {
+        gap: 6px;
+    }
+}
+@media (min-width: 1024px) {
+    .config-tabs-track {
+        flex-wrap: wrap;
+        overflow-x: visible;
+    }
+}
+
+/* Jurnal / consola log: înălțime limitată + scrollbar */
+#log-terminal {
+    max-height: min(60vh, 500px);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+main.flex-1 {
+    min-width: 0;
+    overflow: hidden;
+}
+
+#notification-area {
+    bottom: calc(1rem + var(--safe-bottom));
+}
+
+/* Sidebar overlay on mobile */
+@media (max-width: 1023px) {
+    #sidebar:not(.-translate-x-full) {
+        box-shadow: 8px 0 24px rgba(0,0,0,0.4);
+    }
+}
+
+
+/* ========== MOBILE-FIRST RESPONSIVE ========== */
+
+@media (max-width: 639px) {
+    /* Compact header */
+    header.flex-shrink-0 {
+        height: 3rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+
+    /* Compact current view title */
+    #current-view-title {
+        font-size: 0.65rem !important;
+        letter-spacing: 0.12em !important;
+    }
+
+    /* Chat view — bară jos (10dvh), doar clearance minim */
+    .chat-view {
+        height: 100% !important;
+        padding-bottom: calc(var(--safe-bottom) + max(1rem, 10dvh)) !important;
+        box-sizing: border-box;
+    }
+
+    .chat-messages-wrapper {
+        padding: 0.75rem 0.5rem 0.5rem !important;
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+    }
+
+    .chat-container {
+        gap: 1rem !important;
+    }
+
+    /* Input bar — fixed above the bottom nav so it’s always visible */
+    .chat-input-wrapper {
+        padding: 0.5rem 0.5rem !important;
+        padding-bottom: calc(var(--safe-bottom) + max(1rem, 10dvh)) !important;
+        flex-shrink: 0 !important;
+        background: color-mix(in srgb, var(--surface-0) 28%, transparent) !important;
+        border-top: 0 !important;
+        backdrop-filter: blur(22px) saturate(140%);
+        -webkit-backdrop-filter: blur(22px) saturate(140%);
+        box-shadow: none !important;
+    }
+
+    .chat-messages-wrapper {
+        padding-bottom: 1.5rem !important;
+        scroll-padding-bottom: 1rem !important;
+    }
+
+    /* Leave space at bottom of messages so last message isn’t under the fixed input */
+    .chat-input-inner {
+        border-radius: 9999px !important;
+        padding: 0.35rem 0.4rem 0.35rem 0.875rem !important;
+        gap: 0.35rem !important;
+    }
+
+    .chat-input-field {
+        font-size: 1rem !important;
+        min-height: 2.25rem !important;
+    }
+
+    .chat-send-btn {
+        width: 2.25rem !important;
+        height: 2.25rem !important;
+        border-radius: 0.75rem !important;
+        font-size: 0.75rem !important;
+    }
+
+    .chat-voice-btn {
+        width: 2.25rem !important;
+        height: 2.25rem !important;
+        border-radius: 0.75rem !important;
+        font-size: 0.75rem !important;
+    }
+
+    .chat-attach-btn {
+        width: 2rem !important;
+        height: 2rem !important;
+        border-radius: 0.625rem !important;
+        font-size: 0.7rem !important;
+    }
+
+    /* Model selector — compact on small screens */
+    .model-selector-btn {
+        width: 2rem !important;
+        height: 2rem !important;
+        font-size: 0.75rem !important;
+    }
+    .model-selector-balloon {
+        min-width: 12rem !important;
+    }
+
+    /* Welcome screen — compact on mobile */
+    .chat-empty-icon {
+        width: 4.5rem !important;
+        height: 4.5rem !important;
+        border-radius: 1.25rem !important;
+        font-size: 1.35rem !important;
+        margin-bottom: 1.5rem !important;
+    }
+
+    .chat-empty-title {
+        font-size: 2rem !important;
+    }
+
+    /* Chat bubbles — wider on mobile */
+    .chat-msg {
+        max-width: 96% !important;
+        gap: 0.4rem !important;
+    }
+
+    /* AI messages — slight left padding on mobile for breathing room */
+    .chat-row:not(.chat-row-user) {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    .chat-msg-user {
+        max-width: 85% !important;
+    }
+
+    .chat-avatar {
+        display: none !important;
+    }
+
+    .user-bubble {
+        padding: 0.75rem 1rem !important;
+        border-radius: 1rem !important;
+    }
+
+    /* AI bubble stays transparent/unstyled on mobile */
+    .ai-bubble:not(.chat-bubble-reminder):not(.chat-bubble-automation) {
+        padding: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+    }
+
+    .chat-bubble-content {
+        font-size: 0.875rem !important;
+        line-height: 1.65 !important;
+    }
+
+    /* Code blocks — full width on mobile */
+    .chat-code-block pre {
+        font-size: 0.7rem !important;
+        padding: 0.75rem !important;
+        max-height: 18rem !important;
+        line-height: 1.55 !important;
+    }
+
+    /* Thinking blocks compact */
+    .chat-thinking-content {
+        font-size: 0.75rem !important;
+        max-height: 12rem !important;
+    }
+
+    /* Image cards — full width on mobile, always show actions */
+    .chat-image-card {
+        max-width: 100% !important;
+    }
+    .chat-image-card-actions {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+
+    /* Status steps — hidden (inline icons now) */
+    .chat-step {
+        display: none !important;
+    }
+
+    /* Stats bar — single line on mobile */
+    .chat-intelligence-bar {
+        flex-wrap: nowrap !important;
+        gap: 0.15rem 0.35rem !important;
+        font-size: 0.6rem !important;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .chat-intelligence-bar::-webkit-scrollbar { display: none; }
+    .chat-msg-actions { gap: 0 !important; }
+    .chat-msg-action-btn { width: 1.5rem !important; height: 1.5rem !important; font-size: 0.65rem !important; }
+    .chat-actions-sep { margin: 0 0.125rem !important; height: 0.75rem !important; }
+    .chat-stats { gap: 0.2rem !important; font-size: 0.575rem !important; }
+    .chat-stats > .chat-stat-chip { padding: 0.1rem 0.25rem !important; }
+    .chat-bar-model-label { font-size: 0.575rem !important; padding: 0.1rem 0.25rem !important; }
+    .chat-tool-indicators { gap: 0.15rem !important; }
+    .chat-tool-indicator { width: 1.25rem !important; height: 1.25rem !important; font-size: 0.55rem !important; }
+
+    /* Settings/config pages — better mobile spacing */
+    .cfg-section {
+        padding: 1rem !important;
+        border-radius: 1rem !important;
+    }
+
+    /* Intelligence page — single column */
+    .intel-grid {
+        grid-template-columns: 1fr !important;
+        gap: 0.75rem !important;
+    }
+
+    .ha-device-card {
+        padding: 1rem 1.1rem !important;
+    }
+
+    .intel-filter-pill {
+        padding: 0.45rem 0.7rem !important;
+        font-size: 0.7rem !important;
+    }
+
+    /* Memory page — single column */
+    #mem-container {
+        grid-template-columns: 1fr !important;
+        gap: 0.5rem !important;
+    }
+
+    /* Login overlay — mobile-friendly */
+    #login-overlay .glass {
+        padding: 1.5rem !important;
+        border-radius: 1.25rem !important;
+    }
+
+    #login-overlay h1 {
+        font-size: 1.5rem !important;
+    }
+
+    #login-overlay input[type="text"],
+    #login-overlay input[type="password"] {
+        padding: 0.875rem 1rem !important;
+        border-radius: 1rem !important;
+        font-size: 1rem !important;
+    }
+
+    #login-overlay button[type="submit"] {
+        padding: 0.875rem !important;
+        border-radius: 1rem !important;
+    }
+
+    #user-initials {
+        width: 2rem !important;
+        height: 2rem !important;
+        border-radius: 0.5rem !important;
+        font-size: 0.65rem !important;
+    }
+
+    /* Sidebar full-width on mobile */
+    #sidebar {
+        width: 100% !important;
+        max-width: 100vw !important;
+    }
+
+    /* Toast notifications - wider on mobile */
+    .toast-notification {
+        left: 0.5rem !important;
+        right: 0.5rem !important;
+        max-width: none !important;
+    }
+}
+
+/* Bara de jos (mobile) — scoasă; doar meniul lateral (hamburger) pe mobil */
+.mobile-nav-bar {
+    display: none !important;
+}
+
+/* Mobil/tablet: spațiu la bottom adaptat automat (dvh = % din înălțimea vizibilă, include bara browserului) */
+@media (max-width: 1023px) {
+    /* Chat: bară de input jos, doar spațiu minim ca să nu fie sub bara browserului */
+    .chat-view {
+        padding-bottom: calc(var(--safe-bottom) + max(1rem, 10dvh)) !important;
+    }
+    .chat-input-wrapper {
+        padding-bottom: calc(var(--safe-bottom) + max(1rem, 10dvh)) !important;
+    }
+    /* Pagini scrollabile (Settings, HA, etc.): spațiu mai mare ca ultimele rânduri să fie vizibile */
+    #view-memory,
+    #view-smarthome,
+    #view-skills,
+    #view-config {
+        padding-bottom: calc(var(--safe-bottom) + max(2rem, 20dvh)) !important;
+    }
+}
+
+/* Tablet tweaks */
+@media (min-width: 640px) and (max-width: 1023px) {
+    .chat-view {
+        box-sizing: border-box;
+    }
+
+    .cfg-section {
+        padding: 1.25rem !important;
+    }
+
+    #sidebar {
+        width: 20rem !important;
+    }
+}
+
+/* Sidebar backdrop for mobile — PERF FIX: use opacity transition instead of display toggle
+   to avoid expensive compositor layer creation/destruction on every toggle.
+   Removed backdrop-filter blur on mobile (background opacity is sufficient for overlay). */
+#sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 39;
+    background: var(--surface-overlay);
+    will-change: opacity;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#sidebar-backdrop.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Desktop: add subtle blur only on large screens where GPU can handle it */
+@media (min-width: 1024px) {
+    #sidebar-backdrop {
+        backdrop-filter: blur(8px) saturate(120%);
+        -webkit-backdrop-filter: blur(8px) saturate(120%);
+    }
+}
+
+@media (max-width: 639px) {
+    #notification-area {
+        bottom: 5dvh;
+    }
+
+    /* Scrollable views — 20dvh ca ultimele rânduri (ex. Settings) să fie deasupra barei browserului */
+    #view-memory,
+    #view-smarthome,
+    #view-skills,
+    #view-config {
+        padding-bottom: calc(var(--safe-bottom) + max(2rem, 20dvh)) !important;
+    }
+}
+
+/* Prevent iOS rubber-band bouncing */
+#view-chat {
+    overscroll-behavior: none;
+}
+
+/* Două flashuri în exteriorul barei la schimbarea modelului (același stil ca la bulele AI la streaming) */
+.chat-input-inner.chat-input-bar-flash {
+    animation: chat-input-bar-flash 1.4s ease-in-out 1 forwards;
+}
+@keyframes chat-input-bar-flash {
+    0%, 100% {
+        box-shadow: 0 0 14px -4px color-mix(in srgb, var(--chat-bar-flash-color, var(--accent)) 28%, transparent), 0 0 28px -8px color-mix(in srgb, var(--chat-bar-flash-color, var(--accent)) 14%, transparent);
+    }
+    25% {
+        box-shadow: 0 0 20px -4px color-mix(in srgb, var(--chat-bar-flash-color, var(--accent)) 44%, transparent), 0 0 40px -8px color-mix(in srgb, var(--chat-bar-flash-color, var(--accent)) 24%, transparent);
+    }
+    50% {
+        box-shadow: 0 0 14px -4px color-mix(in srgb, var(--chat-bar-flash-color, var(--accent)) 28%, transparent), 0 0 28px -8px color-mix(in srgb, var(--chat-bar-flash-color, var(--accent)) 14%, transparent);
+    }
+    75% {
+        box-shadow: 0 0 20px -4px color-mix(in srgb, var(--chat-bar-flash-color, var(--accent)) 44%, transparent), 0 0 40px -8px color-mix(in srgb, var(--chat-bar-flash-color, var(--accent)) 24%, transparent);
+    }
+}
+
+
+/* ========== NATIVE APP (Android WebView) ========== */
+/* The Android app handles system-bar insets natively via contentRoot padding.
+   Remove the dvh-based bottom compensation designed for mobile browser chrome
+   (address bar / toolbar) — it's not needed in the app and causes a large gap. */
+
+.memini-native-app {
+    --safe-bottom: 0px;
+}
+
+.memini-native-app .chat-view {
+    padding-bottom: 0 !important;
+}
+
+.memini-native-app .chat-input-wrapper {
+    padding-bottom: 0.5rem !important;
+}
+
+.memini-native-app .chat-empty-state {
+    justify-content: center;
+    padding-bottom: 0;
+}
+
+@media (max-width: 1023px) {
+    .memini-native-app .chat-view {
+        padding-bottom: 0 !important;
+    }
+    .memini-native-app .chat-input-wrapper {
+        padding-bottom: 0.5rem !important;
+    }
+    .memini-native-app #view-memory,
+    .memini-native-app #view-smarthome,
+    .memini-native-app #view-skills,
+    .memini-native-app #view-config {
+        padding-bottom: 1rem !important;
+    }
+}
+
+@media (max-width: 639px) {
+    .memini-native-app .chat-view {
+        padding-bottom: 0 !important;
+    }
+    .memini-native-app .chat-input-wrapper {
+        padding-bottom: 0.5rem !important;
+    }
+    .memini-native-app .chat-messages-wrapper {
+        padding-bottom: 0.75rem !important;
+    }
+    .memini-native-app #view-memory,
+    .memini-native-app #view-smarthome,
+    .memini-native-app #view-skills,
+    .memini-native-app #view-config {
+        padding-bottom: 1rem !important;
+    }
+    .memini-native-app #notification-area {
+        bottom: 1rem;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════
+   INLINE AUTOCOMPLETE DROPDOWN (automation builder)
+   ═══════════════════════════════════════════════════════ */
+.automation-inline-ac {
+    position: relative;
+}
+.automation-inline-ac-dropdown {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    z-index: 60;
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: var(--surface-menu, rgba(15, 23, 42, 0.97));
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    margin-top: 4px;
+    padding: 4px;
+}
+.automation-inline-ac-dropdown.open {
+    display: block;
+}
+.automation-inline-ac-dropdown .ac-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.automation-inline-ac-dropdown .ac-item:hover,
+.automation-inline-ac-dropdown .ac-item.ac-highlighted {
+    background: rgba(255, 255, 255, 0.06);
+}
+.automation-inline-ac-dropdown .ac-item-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-main, #e2e8f0);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.automation-inline-ac-dropdown .ac-item-id {
+    font-size: 10px;
+    font-family: var(--font-mono, monospace);
+    color: var(--text-muted, #64748b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.automation-inline-ac-dropdown .ac-item-badge {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #7dd3fc;
+    background: rgba(56, 189, 248, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+.automation-inline-ac-dropdown .ac-empty {
+    padding: 12px 10px;
+    font-size: 11px;
+    color: var(--text-muted, #64748b);
+    text-align: center;
+}
+

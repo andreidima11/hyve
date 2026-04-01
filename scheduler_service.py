@@ -1,0 +1,1199 @@
+import time
+import uuid
+import httpx
+import os
+import json
+import re
+import sqlite3
+import threading
+import asyncio
+from datetime import datetime, timedelta
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+import settings as settings_mod
+from storage import collection
+from logger import log_detail, log_line
+import home_assistant
+import push_fcm
+from device_resolver import resolve_target_sync
+
+# --- CONFIGURARE PERSISTENTĂ ---
+jobstores = {
+    'default': SQLAlchemyJobStore(url='sqlite:///jobs.sqlite')
+}
+
+scheduler = BackgroundScheduler(jobstores=jobstores)
+
+# --- JOB METADATA STORAGE (SQLite, replaces separate JSON files) ---
+_META_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scheduler_meta.sqlite")
+_meta_conn = None
+_meta_lock = threading.Lock()
+
+# Throttle config reload in scheduler (run_automation / trigger_notification)
+_CONFIG_RELOAD_INTERVAL = 30
+_last_config_reload = 0.0
+
+
+def _reload_config_if_needed():
+    """Reload settings at most every _CONFIG_RELOAD_INTERVAL seconds to avoid repeated file I/O."""
+    global _last_config_reload
+    now = time.time()
+    if now - _last_config_reload >= _CONFIG_RELOAD_INTERVAL:
+        try:
+            import settings as _s
+            _s.reload_config()
+            _last_config_reload = now
+        except Exception as e:
+            log_detail("scheduler", "CONFIG_RELOAD_ERROR", error=str(e))
+
+def _get_meta_conn():
+    global _meta_conn
+    if _meta_conn is None:
+        with _meta_lock:
+            if _meta_conn is None:
+                _meta_conn = sqlite3.connect(_META_DB_PATH, check_same_thread=False)
+                _meta_conn.execute("PRAGMA journal_mode=WAL")
+                _meta_conn.execute("PRAGMA busy_timeout=5000")
+                _meta_conn.execute("""
+                    CREATE TABLE IF NOT EXISTS reminder_display (
+                        job_id TEXT PRIMARY KEY,
+                        display_text TEXT NOT NULL
+                    )
+                """)
+                _meta_conn.execute("""
+                    CREATE TABLE IF NOT EXISTS automation_specs (
+                        job_id TEXT PRIMARY KEY,
+                        spec_json TEXT NOT NULL
+                    )
+                """)
+                _meta_conn.execute("""
+                    CREATE TABLE IF NOT EXISTS life_events (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id TEXT NOT NULL,
+                        description TEXT NOT NULL,
+                        event_time_iso TEXT,
+                        session_id TEXT,
+                        created_at REAL NOT NULL
+                    )
+                """)
+                _meta_conn.commit()
+                _migrate_json_to_sqlite()
+    return _meta_conn
+
+def _migrate_json_to_sqlite():
+    """One-time migration from old JSON files to SQLite."""
+    _root = os.path.dirname(os.path.abspath(__file__))
+    rd_path = os.path.join(_root, "reminders_display.json")
+    as_path = os.path.join(_root, "automation_specs.json")
+    conn = _meta_conn
+    migrated = False
+    if os.path.isfile(rd_path):
+        try:
+            with open(rd_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            for job_id, text in data.items():
+                conn.execute("INSERT OR IGNORE INTO reminder_display (job_id, display_text) VALUES (?, ?)", (str(job_id), str(text)))
+            conn.commit()
+            os.rename(rd_path, rd_path + ".migrated")
+            migrated = True
+        except Exception as e:
+            log_detail("scheduler", "MIGRATION_REMINDERS_ERROR", error=str(e))
+    if os.path.isfile(as_path):
+        try:
+            with open(as_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            for job_id, spec in data.items():
+                conn.execute("INSERT OR IGNORE INTO automation_specs (job_id, spec_json) VALUES (?, ?)", (str(job_id), json.dumps(spec, ensure_ascii=False)))
+            conn.commit()
+            os.rename(as_path, as_path + ".migrated")
+            migrated = True
+        except Exception as e:
+            log_detail("scheduler", "MIGRATION_AUTOMATIONS_ERROR", error=str(e))
+    if migrated:
+        log_detail("scheduler", "MIGRATED_JSON_TO_SQLITE")
+
+def set_reminder_display(job_id, text):
+    """Store display message for list (instruction form). Notification text is in job args."""
+    conn = _get_meta_conn()
+    with _meta_lock:
+        if text is not None and str(text).strip():
+            conn.execute("INSERT OR REPLACE INTO reminder_display (job_id, display_text) VALUES (?, ?)", (str(job_id), str(text)))
+        else:
+            conn.execute("DELETE FROM reminder_display WHERE job_id = ?", (str(job_id),))
+        conn.commit()
+
+def get_reminder_display(job_id):
+    """Display message for list; if none, use notification message from job args."""
+    conn = _get_meta_conn()
+    row = conn.execute("SELECT display_text FROM reminder_display WHERE job_id = ?", (str(job_id),)).fetchone()
+    return row[0] if row else None
+
+
+def get_reminder_displays_bulk(job_ids):
+    """Return dict job_id -> display_text for listing. Avoids N+1 queries."""
+    if not job_ids:
+        return {}
+    conn = _get_meta_conn()
+    placeholders = ",".join("?" * len(job_ids))
+    rows = conn.execute(
+        "SELECT job_id, display_text FROM reminder_display WHERE job_id IN (" + placeholders + ")",
+        list(job_ids),
+    ).fetchall()
+    return {r[0]: r[1] for r in rows}
+
+
+def get_automation_spec(job_id):
+    conn = _get_meta_conn()
+    row = conn.execute("SELECT spec_json FROM automation_specs WHERE job_id = ?", (str(job_id),)).fetchone()
+    if row:
+        try:
+            return json.loads(row[0])
+        except Exception as e:
+            log_detail("scheduler", "SPEC_JSON_INVALID", job_id=str(job_id), error=str(e))
+            return None
+    return None
+
+def set_automation_spec(job_id, spec):
+    conn = _get_meta_conn()
+    with _meta_lock:
+        conn.execute("INSERT OR REPLACE INTO automation_specs (job_id, spec_json) VALUES (?, ?)",
+                      (str(job_id), json.dumps(spec, ensure_ascii=False)))
+        conn.commit()
+
+def delete_automation_spec(job_id):
+    conn = _get_meta_conn()
+    with _meta_lock:
+        conn.execute("DELETE FROM automation_specs WHERE job_id = ?", (str(job_id),))
+        conn.commit()
+
+
+def get_automation_specs_bulk(job_ids):
+    """Return dict job_id -> spec (dict) for listing. Avoids N+1 queries."""
+    if not job_ids:
+        return {}
+    conn = _get_meta_conn()
+    placeholders = ",".join("?" * len(job_ids))
+    rows = conn.execute(
+        "SELECT job_id, spec_json FROM automation_specs WHERE job_id IN (" + placeholders + ")",
+        list(job_ids),
+    ).fetchall()
+    out = {}
+    for job_id, spec_json in rows:
+        try:
+            out[job_id] = json.loads(spec_json)
+        except Exception as e:
+            log_detail("scheduler", "SPEC_PARSE_ERROR", job_id=str(job_id), error=str(e))
+    return out
+
+
+# --- EXECUTARE AUTOMATIZARE (la trigger) ---
+def run_automation(job_id):
+    """Rulează acțiunile pentru job_id: HA (commands) sau skill (run_skill + notify cu rezultat). Optimizat: config reload throttle, un singur client HA, device list încărcat o dată."""
+    spec = get_automation_spec(job_id)
+    if not spec:
+        log_detail("scheduler", "AUTO_RUN_NO_SPEC", job_id=job_id)
+        # Job orfan (spec șters la delete): îl scoatem din scheduler ca să nu mai ruleze la următoarea trigger
+        try:
+            scheduler.remove_job(str(job_id))
+            log_detail("scheduler", "JOB_REMOVE_ORPHAN", job_id=job_id)
+        except Exception:
+            pass  # already removed by APScheduler; harmless
+        return
+    _reload_config_if_needed()
+    user_id = spec.get("user_id", "")
+    channel = spec.get("channel", "web")
+    action_type = (spec.get("action_type") or "ha").strip().lower()
+
+    if action_type == "skill":
+        skill_name = (spec.get("skill_name") or "").strip()
+        skill_input = spec.get("skill_input") or {}
+        if not skill_name:
+            log_detail("scheduler", "AUTO_RUN_SKILL_NO_NAME", job_id=job_id)
+            return
+        try:
+            import skills as skills_mod
+            # Inject SearXNG URL so sandboxed skills can make web requests
+            allow_network = False
+            searxng = settings_mod.CFG.get("searxng") or {}
+            if searxng.get("enabled") and (searxng.get("url") or "").strip():
+                skill_input["_searxng_url"] = searxng["url"].strip()
+                allow_network = True
+            result = skills_mod.run_skill(skill_name, skill_input, allow_network=allow_network)
+            msg = _format_skill_result(skill_name, result)
+            log_detail("scheduler", "AUTO_RUN_SKILL_OK", job_id=job_id, skill=skill_name)
+            trigger_notification(user_id, msg, channel, notification_type="automation")
+        except Exception as e:
+            log_detail("scheduler", "AUTO_RUN_SKILL_ERROR", job_id=job_id, skill=skill_name, error=str(e))
+            trigger_notification(user_id, f"⚠️ Automatizare {skill_name}: eroare — {e}", channel, notification_type="automation")
+        return
+
+    # HA automation: resolve all targets once (single device list load), then run all commands with one HTTP client
+    if not settings_mod.CFG.get("home_assistant", {}).get("enabled"):
+        log_detail("scheduler", "AUTO_RUN_HA_DISABLED", job_id=job_id)
+        if spec.get("notify_message"):
+            trigger_notification(user_id, spec.get("notify_message", ""), channel)
+        return
+    raw_commands = spec.get("commands") or []
+    devices = home_assistant.load_config()
+    service_calls = []
+    for cmd in raw_commands:
+        action = (cmd.get("action") or "toggle").strip().lower()
+        if action not in ("turn_on", "turn_off", "toggle"):
+            continue
+        target = cmd.get("target") or ""
+        entity_id = resolve_target_sync(target, devices=devices) or target
+        if not entity_id or "." not in entity_id:
+            log_detail("scheduler", "AUTO_RUN_SKIP", target=target, reason="no_entity_id")
+            continue
+        domain = entity_id.split(".")[0]
+        sc_entry = {"domain": domain, "service": action, "entity_id": entity_id}
+        # Pass service_data (brightness, color_temp_kelvin) if present
+        svc_data = {}
+        if cmd.get("brightness") is not None:
+            try:
+                bri = int(cmd["brightness"])
+                svc_data["brightness"] = max(0, min(255, bri))
+                if bri == 0:
+                    sc_entry["service"] = "turn_off"
+                    svc_data = {}
+                elif action != "turn_on":
+                    sc_entry["service"] = "turn_on"
+            except (ValueError, TypeError):
+                pass
+        if cmd.get("color_temp_kelvin") is not None:
+            try:
+                ct = int(cmd["color_temp_kelvin"])
+                if 1000 <= ct <= 10000:
+                    svc_data["color_temp_kelvin"] = ct
+                    if sc_entry["service"] != "turn_on":
+                        sc_entry["service"] = "turn_on"
+            except (ValueError, TypeError):
+                pass
+        if svc_data:
+            sc_entry["service_data"] = svc_data
+        service_calls.append(sc_entry)
+    log_detail("scheduler", "AUTO_RUN_START", job_id=job_id, commands_count=len(service_calls))
+    ok_names, fail_names = [], []
+    if service_calls:
+        results = home_assistant.call_services_sync(service_calls)
+        for sc, ok in zip(service_calls, results):
+            log_detail("scheduler", "AUTO_RUN_CMD", entity_id=sc["entity_id"], action=sc["service"], ok=ok)
+            friendly = sc["entity_id"].split(".", 1)[-1].replace("_", " ").title()
+            if ok:
+                ok_names.append(friendly)
+            else:
+                fail_names.append(friendly)
+    # Always notify with execution summary
+    display = spec.get("display_message") or spec.get("notify_message") or "Automatizare HA"
+    parts = [f"🤖 **{display}**"]
+    if ok_names:
+        parts.append(f"✅ {', '.join(ok_names)}")
+    if fail_names:
+        parts.append(f"❌ {', '.join(fail_names)}")
+    if not ok_names and not fail_names:
+        parts.append("Nicio comandă executată.")
+    msg = "\n".join(parts)
+    trigger_notification(user_id, msg, channel, notification_type="automation")
+
+def _format_skill_result(skill_name, result):
+    """Format a skill execution result into a readable notification message.
+    Prefers rich 'summary' field (e.g. news_summary markdown) over raw key-value dumps."""
+    if not result or not isinstance(result, dict):
+        return f"Skill {skill_name} ran (no result)."
+    msg = result.get("message") or ""
+    data = result.get("data") or {}
+    if not result.get("success"):
+        return msg or f"Skill {skill_name} failed."
+    if isinstance(data, dict):
+        # Prefer rich summary field (news_summary, etc.)
+        if data.get("summary"):
+            return data["summary"]
+        if data.get("result"):
+            r = data["result"]
+            return r if isinstance(r, str) else str(r)
+        # Structured key-value fallback — format nicely with markdown
+        if data:
+            parts = []
+            for k, v in data.items():
+                if v is not None and k not in ("symbol", "name", "raw"):
+                    parts.append(f"**{k}**: {v}")
+            if parts:
+                return "\n".join(parts)
+    return msg or f"Skill {skill_name} ran."
+
+def _sanitize_text_for_waha(text):
+    """Strip <think>/</think> and escape < > so WAHA (Puppeteer evaluate) doesn't 500."""
+    if not text or not isinstance(text, str):
+        return (text or "").strip()
+    s = re.sub(r"<think>\s*.*?\s*</think>", " ", text, flags=re.DOTALL | re.IGNORECASE)
+    s = re.sub(r"<thinking>\s*.*?\s*</thinking>", " ", s, flags=re.DOTALL | re.IGNORECASE)
+    s = re.sub(r"\s*<think>\s*|\s*<thinking>\s*", " ", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s*</think>\s*|\s*</thinking>\s*", " ", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s+", " ", s).strip()
+    s = s.replace("<", "«").replace(">", "»")
+    return s or "Reminder"
+
+# --- NOTIFICATION DEDUPLICATION ---
+_notification_dedup_lock = threading.Lock()
+_notification_dedup_cache = {}  # key: (user_id, message_hash) -> last_sent_time
+_DEDUP_WINDOW_SECONDS = 30
+
+def _should_send_notification(user_id, message):
+    """Return True if this notification should be sent (not a duplicate within the dedup window)."""
+    import hashlib
+    key = (str(user_id), hashlib.md5((message or "").encode()).hexdigest())
+    now = time.time()
+    with _notification_dedup_lock:
+        last_sent = _notification_dedup_cache.get(key, 0)
+        if now - last_sent < _DEDUP_WINDOW_SECONDS:
+            log_line("job", "🔇", "DEDUP", f"Skipped duplicate notification for {user_id} (within {_DEDUP_WINDOW_SECONDS}s window)")
+            return False
+        _notification_dedup_cache[key] = now
+        # Evict expired entries when cache grows large (proper LRU instead of clearing all)
+        if len(_notification_dedup_cache) > 500:
+            cutoff = now - _DEDUP_WINDOW_SECONDS * 2
+            expired_keys = [k for k, ts in _notification_dedup_cache.items() if ts < cutoff]
+            for k in expired_keys:
+                del _notification_dedup_cache[k]
+        return True
+
+# --- WEBSOCKET NOTIFICATION HELPER ---
+def _try_send_websocket_notification(user_id, message, notification_id=None, session_id=None, notification_type="reminder"):
+    """Try to send notification via WebSocket if connection exists (non-blocking).
+    APScheduler runs jobs in a thread pool, so we need to get the main asyncio loop.
+    Returns True if WebSocket delivery succeeded, False otherwise."""
+    try:
+        from routers.notifications_ws import send_reminder_via_websocket, manager
+        
+        # Quick check: skip if no active connection for this user
+        if not manager.has_active_connection(str(user_id)):
+            log_line("websocket", "📵", "REMINDER_WS", f"No WS connection for {user_id}, skipping")
+            return False
+        
+        # APScheduler runs in a thread — we need the main event loop
+        loop = None
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+        
+        _kwargs = dict(notification_id=notification_id, session_id=session_id, notification_type=notification_type)
+        
+        if loop and loop.is_running():
+            # We're somehow in the async context — schedule it (can't wait for result)
+            from task_utils import create_tracked_task
+            create_tracked_task(send_reminder_via_websocket(str(user_id), message, **_kwargs), name="reminder_ws_send")
+            return True  # Optimistic — connection exists
+        else:
+            # We're in a thread (APScheduler) — use run_coroutine_threadsafe on the main loop
+            try:
+                import main as main_module
+                main_loop = getattr(main_module, '_main_loop', None)
+                if main_loop and main_loop.is_running():
+                    future = asyncio.run_coroutine_threadsafe(
+                        send_reminder_via_websocket(str(user_id), message, **_kwargs),
+                        main_loop
+                    )
+                    result = future.result(timeout=5)  # Wait max 5s
+                    return bool(result)
+                else:
+                    new_loop = asyncio.new_event_loop()
+                    try:
+                        result = new_loop.run_until_complete(send_reminder_via_websocket(str(user_id), message, **_kwargs))
+                        return bool(result)
+                    finally:
+                        new_loop.close()
+            except Exception as inner_e:
+                log_line("error", "⚠️", "REMINDER_WS", f"Loop fallback: {inner_e}")
+                new_loop = asyncio.new_event_loop()
+                try:
+                    result = new_loop.run_until_complete(send_reminder_via_websocket(str(user_id), message, **_kwargs))
+                    return bool(result)
+                finally:
+                    new_loop.close()
+    except Exception as e:
+        log_line("error", "❌", "REMINDER_WS", f"WebSocket send failed: {e}")
+        log_detail("scheduler", "WEBSOCKET_SEND_ERROR", error=str(e))
+    return False
+
+# --- FUNCȚIA EXECUTATĂ CÂND SONĂ CEASUL ---
+
+def _get_user_notification_prefs(user_id: str) -> dict:
+    """Load notification preferences for a user from DB. Returns defaults if not set."""
+    defaults = {"app": True, "whatsapp": True}
+    try:
+        import database, models, json
+        db = next(database.get_db())
+        try:
+            # user_id is "user_N" — extract N
+            uid_num = int(user_id.replace("user_", "")) if user_id.startswith("user_") else None
+            if uid_num is None:
+                return defaults
+            user = db.query(models.User).filter(models.User.id == uid_num).first()
+            if user and user.notification_preferences:
+                return json.loads(user.notification_preferences)
+        finally:
+            db.close()
+    except Exception as e:
+        log_line("error", "⚠️", "NOTIF_PREFS", f"Error loading prefs for {user_id}: {e}")
+    return defaults
+
+def trigger_notification(user_id, message, channel, notification_type="reminder"):
+    """Send reminder/automation result to user. Saves to session history (persistent), sends via WS (real-time), WhatsApp (optional).
+    Dedup: skips if same user+message within 30s."""
+    # --- Strip think tags from ALL notification channels ---
+    from brain.cortex import strip_think
+    message = strip_think(message or "")
+    if not message:
+        message = "Notification"
+    # --- DEDUP CHECK: prevent duplicate notifications within short window ---
+    if not _should_send_notification(user_id, message):
+        log_detail("scheduler", "TRIGGER_DEDUP_SKIP", user_id=user_id, message_preview=(message or "")[:80])
+        return
+
+    log_detail("scheduler", "TRIGGER_START", user_id=user_id, channel=channel, message_len=len(message or ""), message_preview=(message or "")[:80])
+    _reload_config_if_needed()
+    cfg = settings_mod.CFG
+    log_line("job", "⏰", "REMINDER", f"{user_id}: {(message or '')[:120]}")
+
+    # Generate unique notification ID for dedup across channels
+    notification_id = f"notif_{user_id}_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+
+    # --- PERSIST: Save notification to session history (makes it survive refresh + gives AI context) ---
+    session_id = None
+    try:
+        import storage as _storage
+        # Extract numeric user_id from "user_N" format
+        uid_num = int(user_id.replace("user_", "")) if str(user_id).startswith("user_") else None
+        session_id = _storage.append_notification_to_session(
+            user_id=uid_num,
+            message=message,
+            notification_id=notification_id,
+            notification_type=notification_type,
+        )
+        log_detail("scheduler", "TRIGGER_SESSION_SAVED", user_id=user_id, session_id=session_id)
+    except Exception as e:
+        log_line("error", "⚠️", "REMINDER", f"Error saving to session: {e}")
+        log_detail("scheduler", "TRIGGER_SESSION_ERROR", error=str(e))
+
+    # Load user notification preferences
+    notif_prefs = _get_user_notification_prefs(str(user_id))
+    log_detail("scheduler", "NOTIF_PREFS", user_id=str(user_id), prefs=str(notif_prefs))
+
+    fcm_cfg = cfg.get("fcm") or {}
+    transport_mode = str(fcm_cfg.get("transport_mode") or "hybrid").strip().lower()
+    if transport_mode not in ("websocket", "firebase", "hybrid"):
+        transport_mode = "hybrid"
+    websocket_enabled = bool(fcm_cfg.get("websocket_enabled", True))
+
+    ws_allowed = transport_mode in ("websocket", "hybrid") and websocket_enabled
+    fcm_allowed = transport_mode in ("firebase", "hybrid") and bool(fcm_cfg.get("enabled"))
+
+    # 0. WEBSOCKET NOTIFICATION (real-time if app is open)
+    ws_delivered = False
+    if notif_prefs.get("app", True) and ws_allowed:
+        ws_delivered = _try_send_websocket_notification(user_id, message, notification_id=notification_id, session_id=session_id, notification_type=notification_type)
+
+    # 1. FCM PUSH NOTIFICATION
+    should_send_fcm = False
+    if notif_prefs.get("app", True) and fcm_allowed:
+        if transport_mode == "firebase":
+            should_send_fcm = True
+        elif transport_mode == "hybrid":
+            if fcm_cfg.get("send_when_ws_disconnected", True):
+                should_send_fcm = not ws_delivered
+            else:
+                should_send_fcm = True
+
+    if should_send_fcm:
+        try:
+            push_fcm.send_push_notification(
+                user_id=user_id,
+                title="Memini",
+                message=message,
+                notification_id=notification_id,
+                session_id=session_id,
+                notification_type=notification_type,
+            )
+        except Exception as e:
+            log_line("error", "❌", "FCM", f"Push send failed: {e}")
+            log_detail("scheduler", "TRIGGER_FCM_EXCEPTION", error=str(e))
+
+    # 2. WHATSAPP NOTIFICATION
+    if notif_prefs.get("whatsapp", True) and cfg.get("waha", {}).get("enabled"):
+        try:
+            # Dacă user_id este simbolic (user_1), trimitem la primul număr din whitelist
+            target_phone = str(user_id)
+            if target_phone == "user_1" or not target_phone.isdigit():
+                allowed = cfg.get("security", {}).get("allowed_numbers", [])
+                if allowed:
+                    target_phone = allowed[0]
+                else:
+                    log_line("error", "⚠️", "REMINDER", "No whitelist numbers found for WhatsApp reminder!")
+                    return
+
+            # Formatare chatId pentru WAHA (WEBJS engine)
+            target_chat = target_phone if "@c.us" in target_phone else f"{target_phone}@c.us"
+
+            url = f"{cfg['waha']['api_url']}/api/sendText"
+            safe_text = _sanitize_text_for_waha(message)
+            payload = {
+                "chatId": target_chat,
+                "text": f"🤖 *Reminder:*\n{safe_text}",
+                "session": "default"
+            }
+            headers = {
+                "X-Api-Key": cfg["waha"].get("api_key", ""), 
+                "Content-Type": "application/json"
+            }
+            
+            with httpx.Client(timeout=5) as client:
+                r = client.post(url, json=payload, headers=headers, timeout=10)
+                if r.status_code == 200 or r.status_code == 201:
+                    log_line("whatsapp", "✅", "REMINDER", f"WhatsApp sent to {target_chat[:20]}")
+                    log_detail("scheduler", "TRIGGER_WHATSAPP_OK", chat=target_chat[:20])
+                else:
+                    log_line("error", "❌", "REMINDER", f"WAHA Error {r.status_code}: {(r.text or '')[:80]}")
+                    log_detail("scheduler", "TRIGGER_WHATSAPP_ERROR", status=r.status_code, body=(r.text or "")[:200])
+        except Exception as e:
+            log_line("error", "❌", "REMINDER", f"Error sending WAHA: {e}")
+            log_detail("scheduler", "TRIGGER_WHATSAPP_EXCEPTION", error=str(e))
+
+# --- FUNCȚIILE DE MANAGEMENT ---
+
+def start_scheduler():
+    """Funcția chemată de main.py la startup_event"""
+    if not scheduler.running:
+        scheduler.start()
+        log_line("success", "✅", "SCHEDULER", "Started (Database Backed)")
+
+
+def stop_scheduler():
+    """Oprește scheduler-ul la shutdown (Ctrl+C sau stop normal)."""
+    if scheduler.running:
+        try:
+            scheduler.shutdown(wait=False)
+        except Exception:
+            pass  # shutdown errors are expected during process exit
+
+def _to_naive_local(dt):
+    if dt is None or dt.tzinfo is None:
+        return dt
+    try:
+        return dt.astimezone().replace(tzinfo=None)
+    except Exception:
+        return datetime.now()
+
+
+def _run_biweekly_reminder(user_id, message, channel, weekday, recurrence_time):
+    """Trigger notification then schedule next run in 14 days (same weekday)."""
+    trigger_notification(user_id, message, channel)
+    next_run = datetime.now() + timedelta(days=14)
+    schedule_reminder(user_id, message, channel, run_at=next_run, recurrence="biweekly", weekday=weekday, recurrence_time=recurrence_time)
+
+
+def _run_biweekly_automation(job_id, weekday, recurrence_time):
+    """Run automation then reschedule in 14 days. Old job_id is one-shot so spec is removed after copy."""
+    run_automation(job_id)
+    spec = get_automation_spec(job_id)
+    if not spec:
+        return
+    next_run = datetime.now() + timedelta(days=14)
+    if (spec.get("action_type") or "ha") == "skill":
+        schedule_automation(
+            spec.get("user_id", ""),
+            channel=spec.get("channel", "web"),
+            run_at=next_run,
+            recurrence="biweekly",
+            weekday=weekday,
+            recurrence_time=recurrence_time,
+            display_message=spec.get("display_message"),
+            skill_name=spec.get("skill_name"),
+            skill_input=spec.get("skill_input") or {},
+        )
+    else:
+        schedule_automation(
+            spec.get("user_id", ""),
+            spec.get("commands", []),
+            channel=spec.get("channel", "web"),
+            run_at=next_run,
+            recurrence="biweekly",
+            weekday=weekday,
+            recurrence_time=recurrence_time,
+            notify_message=spec.get("notify_message"),
+            display_message=spec.get("display_message"),
+        )
+    delete_automation_spec(job_id)  # one-shot job finished; new job has its own id and spec
+
+
+def schedule_automation(
+    user_id,
+    commands=None,
+    channel="web",
+    run_at=None,
+    recurrence="none",
+    weekday=None,
+    recurrence_time="09:00",
+    notify_message=None,
+    display_message=None,
+    skill_name=None,
+    skill_input=None,
+):
+    """
+    Programează o automatizare: HA (commands) sau skill (skill_name + skill_input).
+    La trigger: HA = rulează comenzile; skill = rulează skill-ul și trimite rezultatul utilizatorului.
+    recurrence/weekday/recurrence_time: ca la schedule_reminder.
+    Returns human-readable when it will run.
+    """
+    recurrence = (recurrence or "none").strip().lower()
+    recurrence_time = (recurrence_time or "09:00").strip()
+    parts = recurrence_time.replace(".", ":").split(":")
+    hour = int(parts[0]) if parts else 9
+    minute = int(parts[1]) if len(parts) > 1 else 0
+    minute = min(59, max(0, minute))
+    hour = min(23, max(0, hour))
+    commands = list(commands) if commands else []
+    job_id = f"auto_{user_id}_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+    if (skill_name or "").strip():
+        action_type = "skill"
+        spec = {
+            "user_id": user_id,
+            "channel": channel,
+            "action_type": "skill",
+            "skill_name": (skill_name or "").strip(),
+            "skill_input": skill_input if isinstance(skill_input, dict) else {},
+            "display_message": (display_message or "").strip() or f"Skill: {skill_name}",
+        }
+    else:
+        action_type = "ha"
+        spec = {
+            "user_id": user_id,
+            "channel": channel,
+            "action_type": "ha",
+            "commands": commands,
+            "notify_message": notify_message or "",
+            "display_message": (display_message or "").strip() or _automation_display_summary(commands),
+        }
+    set_automation_spec(job_id, spec)
+    log_detail("scheduler", "AUTO_ADD_START", job_id=job_id, recurrence=recurrence)
+
+    if recurrence == "daily":
+        scheduler.add_job(
+            run_automation,
+            "cron",
+            hour=hour,
+            minute=minute,
+            args=[job_id],
+            id=job_id,
+            replace_existing=True,
+        )
+        eta_str = f"daily at {hour:02d}:{minute:02d}"
+        log_detail("scheduler", "AUTO_ADD_DONE", job_id=job_id, trigger="cron_daily", eta=eta_str)
+        return eta_str
+
+    if recurrence == "weekly" and weekday:
+        dow = weekday.strip().lower()[:3]
+        scheduler.add_job(
+            run_automation,
+            "cron",
+            day_of_week=dow,
+            hour=hour,
+            minute=minute,
+            args=[job_id],
+            id=job_id,
+            replace_existing=True,
+        )
+        eta_str = f"every {weekday} at {hour:02d}:{minute:02d}"
+        log_detail("scheduler", "AUTO_ADD_DONE", job_id=job_id, trigger="cron_weekly", eta=eta_str)
+        return eta_str
+
+    if recurrence == "biweekly" and weekday and run_at is not None:
+        run_date = _to_naive_local(run_at)
+        scheduler.add_job(
+            _run_biweekly_automation,
+            "date",
+            run_date=run_date,
+            args=[job_id, weekday.strip().lower(), recurrence_time],
+            id=job_id,
+            replace_existing=True,
+        )
+        eta_str = run_date.strftime("%Y-%m-%d %H:%M") + " (every 2 weeks)"
+        log_detail("scheduler", "AUTO_ADD_DONE", job_id=job_id, trigger="date_biweekly", eta=eta_str)
+        return eta_str
+
+    # One-off
+    if run_at is not None:
+        run_date = _to_naive_local(run_at)
+    else:
+        run_date = datetime.now()
+    scheduler.add_job(
+        run_automation,
+        "date",
+        run_date=run_date,
+        args=[job_id],
+        id=job_id,
+        replace_existing=True,
+    )
+    eta_str = run_date.strftime("%Y-%m-%d %H:%M")
+    log_detail("scheduler", "AUTO_ADD_DONE", job_id=job_id, trigger="date", eta=eta_str)
+    return eta_str
+
+
+def _automation_display_summary(commands):
+    """Short text for list: e.g. 'Aprinde light.living, închide cover.blind'."""
+    if not commands:
+        return "Automatizare HA"
+    out = []
+    for c in commands:
+        act = (c.get("action") or "toggle").strip().lower()
+        t = (c.get("target") or "?").strip()
+        if act == "turn_on":
+            out.append(f"Aprinde {t}")
+        elif act == "turn_off":
+            out.append(f"Stinge {t}")
+        else:
+            out.append(f"Toggle {t}")
+    return ", ".join(out)[:200]
+
+
+def schedule_reminder(
+    user_id,
+    message,
+    channel="web",
+    run_at=None,
+    recurrence="none",
+    weekday=None,
+    recurrence_time="09:00",
+    display_message=None,
+    job_id=None,
+):
+    """
+    Schedule a reminder: one-off (run_at), daily (cron), weekly (cron), or biweekly (self-rescheduling).
+    message: text sent to user when reminder fires (e.g. "Nu uita să bei apă").
+    display_message: optional text shown in reminders list (e.g. "Amintește-i utilizatorului să bea apă"). If omitted, message is used.
+    weekday: lowercase english (monday..sunday). recurrence_time: "HH:MM" 24h.
+    Returns human-readable description of when it will run.
+    """
+    recurrence = (recurrence or "none").strip().lower()
+    recurrence_time = (recurrence_time or "09:00").strip()
+    parts = recurrence_time.replace(".", ":").split(":")
+    hour = int(parts[0]) if parts else 9
+    minute = int(parts[1]) if len(parts) > 1 else 0
+    minute = min(59, max(0, minute))
+    hour = min(23, max(0, hour))
+
+    if not job_id:
+        job_id = f"remind_{user_id}_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+    log_detail("scheduler", "JOB_ADD_START", job_id=job_id, recurrence=recurrence, weekday=weekday, recurrence_time=recurrence_time, run_at=str(run_at) if run_at else None)
+
+    if recurrence == "daily":
+        scheduler.add_job(
+            trigger_notification,
+            "cron",
+            hour=hour,
+            minute=minute,
+            args=[user_id, message, channel],
+            id=job_id,
+            replace_existing=True,
+        )
+        if display_message:
+            set_reminder_display(job_id, display_message)
+        eta_str = f"daily at {hour:02d}:{minute:02d}"
+        log_detail("scheduler", "JOB_ADD_DONE", job_id=job_id, trigger="cron_daily", eta=eta_str)
+        return eta_str
+
+    if recurrence == "weekly" and weekday:
+        dow = weekday.strip().lower()[:3]  # mon, tue, ...
+        scheduler.add_job(
+            trigger_notification,
+            "cron",
+            day_of_week=dow,
+            hour=hour,
+            minute=minute,
+            args=[user_id, message, channel],
+            id=job_id,
+            replace_existing=True,
+        )
+        if display_message:
+            set_reminder_display(job_id, display_message)
+        eta_str = f"every {weekday} at {hour:02d}:{minute:02d}"
+        log_detail("scheduler", "JOB_ADD_DONE", job_id=job_id, trigger="cron_weekly", eta=eta_str)
+        return eta_str
+
+    if recurrence == "biweekly" and weekday and run_at is not None:
+        run_date = _to_naive_local(run_at)
+        scheduler.add_job(
+            _run_biweekly_reminder,
+            "date",
+            run_date=run_date,
+            args=[user_id, message, channel, weekday.strip().lower(), recurrence_time],
+            id=job_id,
+            replace_existing=True,
+        )
+        if display_message:
+            set_reminder_display(job_id, display_message)
+        eta_str = run_date.strftime("%Y-%m-%d %H:%M") + " (every 2 weeks)"
+        log_detail("scheduler", "JOB_ADD_DONE", job_id=job_id, trigger="date_biweekly", eta=eta_str)
+        return eta_str
+
+    # One-off
+    if run_at is not None:
+        run_date = _to_naive_local(run_at)
+    else:
+        run_date = datetime.now()
+    scheduler.add_job(
+        trigger_notification,
+        "date",
+        run_date=run_date,
+        args=[user_id, message, channel],
+        id=job_id,
+        replace_existing=True,
+    )
+    if display_message:
+        set_reminder_display(job_id, display_message)
+    eta_str = run_date.strftime("%Y-%m-%d %H:%M")
+    log_detail("scheduler", "JOB_ADD_DONE", job_id=job_id, trigger="date", eta=eta_str)
+    return eta_str
+
+
+def schedule_at(user_id, message, channel, date_ymd, time_hm, timezone_str=None, display_message=None):
+    """
+    Schedule a one-off reminder at an exact calendar date and time (cron-like).
+    message: text sent when reminder fires. display_message: optional text for list.
+    date_ymd: "YYYY-MM-DD", time_hm: "HH:MM" or "H:MM". No parsing, no LLM — exact values.
+    Returns human-readable when it will run, or None if date/time invalid.
+    """
+    try:
+        y, mo, d = [int(x) for x in str(date_ymd).strip().split("-")]
+        parts = str(time_hm).strip().replace(".", ":").split(":")
+        h = int(parts[0]) if parts else 0
+        m = int(parts[1]) if len(parts) > 1 else 0
+        h, m = min(23, max(0, h)), min(59, max(0, m))
+        run = datetime(y, mo, d, h, m, 0, 0)
+        if timezone_str and str(timezone_str).strip():
+            try:
+                from zoneinfo import ZoneInfo
+                run = run.replace(tzinfo=ZoneInfo(str(timezone_str).strip()))
+            except Exception as e:
+                log_detail("scheduler", "INVALID_TIMEZONE", tz=str(timezone_str), error=str(e))
+        run_naive = _to_naive_local(run) if run.tzinfo else run
+        if run_naive <= datetime.now():
+            return None
+        return schedule_reminder(user_id, message, channel, run_at=run, display_message=display_message)
+    except Exception as e:
+        log_detail("scheduler", "SCHEDULE_AT_ERROR", error=str(e))
+        return None
+
+
+def schedule_event_notification(user_id, entry_id, title, run_at, channel="web", minutes_before=0):
+    """Schedule a one-off planner event reminder notification. Returns job_id or None."""
+    try:
+        if run_at is None:
+            return None
+        run_date = _to_naive_local(run_at)
+        if run_date <= datetime.now():
+            return None
+        uid = str(user_id)
+        job_id = f"evt_notify_{uid}_{int(entry_id)}"
+        message = f"Eveniment: {title}" if title else "Eveniment"
+        display = f"{title} ({int(minutes_before)} min înainte)" if title else "Event reminder"
+        schedule_reminder(
+            uid,
+            message,
+            channel=channel,
+            run_at=run_date,
+            recurrence="none",
+            display_message=display,
+            job_id=job_id,
+        )
+        return job_id
+    except Exception as e:
+        log_detail("scheduler", "EVENT_NOTIFY_SCHEDULE_ERROR", entry_id=str(entry_id), error=str(e))
+        return None
+
+
+def schedule_event_action(user_id, entry_id, run_at, entity_id, action="turn_on", channel="web"):
+    """Schedule a one-off HA action tied to a planner event reminder. Returns job_id or None."""
+    try:
+        if run_at is None:
+            return None
+        run_date = _to_naive_local(run_at)
+        if run_date <= datetime.now():
+            return None
+        uid = str(user_id)
+        target = str(entity_id or "").strip()
+        if not target:
+            return None
+        act = str(action or "turn_on").strip().lower()
+        if act not in ("turn_on", "turn_off", "toggle"):
+            act = "turn_on"
+        job_id = f"evt_action_{uid}_{int(entry_id)}"
+        set_automation_spec(job_id, {
+            "user_id": uid,
+            "channel": channel,
+            "action_type": "ha",
+            "commands": [{"target": target, "action": act}],
+            "notify_message": "",
+            "display_message": f"Event action: {act} {target}",
+        })
+        scheduler.add_job(
+            run_automation,
+            "date",
+            run_date=run_date,
+            args=[job_id],
+            id=job_id,
+            replace_existing=True,
+        )
+        return job_id
+    except Exception as e:
+        log_detail("scheduler", "EVENT_ACTION_SCHEDULE_ERROR", entry_id=str(entry_id), error=str(e))
+        return None
+
+
+def list_automation_jobs(user_id=None):
+    """Return list of automation jobs (id, run_at, message, user_id, channel, recurring). Bulk DB read for performance."""
+    out = []
+    try:
+        jobs = scheduler.get_jobs()
+        auto_jobs = [j for j in jobs if j.id and j.id.startswith("auto_")]
+        if not auto_jobs:
+            return out
+        job_ids = [j.id for j in auto_jobs]
+        specs_by_id = get_automation_specs_bulk(job_ids)
+        for job in auto_jobs:
+            spec = specs_by_id.get(job.id)
+            if not spec:
+                continue
+            uid = spec.get("user_id", "")
+            if user_id is not None and str(uid) != str(user_id):
+                continue
+            atype = spec.get("action_type") or "ha"
+            msg = spec.get("display_message") or (_automation_display_summary(spec.get("commands") or []) if atype == "ha" else f"Skill: {spec.get('skill_name', '?')}")
+            run_at = None
+            if job.next_run_time:
+                run_at = job.next_run_time.strftime("%Y-%m-%dT%H:%M:%S") if hasattr(job.next_run_time, "strftime") else str(job.next_run_time)
+            recurring = getattr(job.trigger, "__class__", None) and "cron" in job.trigger.__class__.__name__.lower()
+            item = {
+                "id": job.id,
+                "run_at": run_at,
+                "message": msg,
+                "user_id": uid,
+                "channel": spec.get("channel", "web"),
+                "recurring": recurring,
+                "action_type": atype,
+            }
+            if atype == "skill":
+                item["skill_name"] = spec.get("skill_name", "")
+                item["skill_input"] = spec.get("skill_input") or {}
+            out.append(item)
+    except Exception as e:
+        log_line("error", "⚠️", "SCHEDULER", f"list_automation_jobs error: {e}")
+    return out
+
+
+def get_automation_job(job_id):
+    """Get one automation job by id. Returns dict or None."""
+    if not job_id or not str(job_id).startswith("auto_"):
+        return None
+    try:
+        job = scheduler.get_job(str(job_id))
+        if not job:
+            return None
+        spec = get_automation_spec(job_id)
+        if not spec:
+            return None
+        run_at = None
+        if job.next_run_time:
+            run_at = job.next_run_time.strftime("%Y-%m-%dT%H:%M:%S") if hasattr(job.next_run_time, "strftime") else str(job.next_run_time)
+        recurring = getattr(job.trigger, "__class__", None) and "cron" in job.trigger.__class__.__name__.lower()
+        atype = spec.get("action_type") or "ha"
+        msg = spec.get("display_message") or (_automation_display_summary(spec.get("commands") or []) if atype == "ha" else f"Skill: {spec.get('skill_name', '?')}")
+        out = {
+            "id": job.id,
+            "run_at": run_at,
+            "message": msg,
+            "user_id": spec.get("user_id"),
+            "channel": spec.get("channel", "web"),
+            "recurring": recurring,
+            "action_type": atype,
+        }
+        if atype == "skill":
+            out["skill_name"] = spec.get("skill_name", "")
+            out["skill_input"] = spec.get("skill_input") or {}
+        return out
+    except Exception as e:
+        log_line("error", "⚠️", "SCHEDULER", f"get_automation_job error: {e}")
+        return None
+
+
+def list_reminder_jobs(user_id=None):
+    """Return list of reminder jobs (id, run_at, message, user_id, channel, recurring). Bulk DB read for performance."""
+    out = []
+    try:
+        jobs = scheduler.get_jobs()
+        remind_jobs = [j for j in jobs if j.id and j.id.startswith("remind_")]
+        if not remind_jobs:
+            return out
+        displays = get_reminder_displays_bulk([j.id for j in remind_jobs])
+        for job in remind_jobs:
+            args = list(job.args) if job.args else []
+            if len(args) >= 3:
+                uid, notif_msg, ch = args[0], args[1], args[2]
+            else:
+                uid, notif_msg, ch = "", "?", "web"
+            if user_id is not None and str(uid) != str(user_id):
+                continue
+            msg = displays.get(job.id) or notif_msg
+            run_at = None
+            if job.next_run_time:
+                run_at = job.next_run_time.strftime("%Y-%m-%dT%H:%M:%S") if hasattr(job.next_run_time, "strftime") else str(job.next_run_time)
+            recurring = getattr(job.trigger, "trigger", None) is not None and job.trigger.__class__.__name__.lower() == "crontrigger"
+            if not recurring and hasattr(job, "trigger") and hasattr(job.trigger, "__class__"):
+                recurring = "cron" in job.trigger.__class__.__name__.lower()
+            out.append({
+                "id": job.id,
+                "run_at": run_at,
+                "message": msg,
+                "user_id": uid,
+                "channel": ch,
+                "recurring": recurring,
+            })
+    except Exception as e:
+        log_line("error", "⚠️", "SCHEDULER", f"list_reminder_jobs error: {e}")
+    return out
+
+
+def remove_reminder_job(job_id):
+    """Remove a reminder or automation job by id. Returns True if removed."""
+    if not job_id:
+        return False
+    s = str(job_id)
+    if not (s.startswith("remind_") or s.startswith("auto_") or s.startswith("evt_notify_") or s.startswith("evt_action_")):
+        return False
+    try:
+        log_detail("scheduler", "JOB_REMOVE", job_id=job_id)
+        # Pentru automatizări: ștergem spec-ul ÎNAINTE de remove_job, ca la orice trigger ulterior
+        # (inclusiv după restart, dacă job-ul a rămas în jobs.sqlite) să nu se mai trimită notificarea.
+        if s.startswith("auto_") or s.startswith("evt_action_"):
+            delete_automation_spec(job_id)
+        scheduler.remove_job(s)
+        if s.startswith("remind_") or s.startswith("evt_notify_"):
+            set_reminder_display(job_id, None)
+        return True
+    except Exception as e:
+        log_detail("scheduler", "JOB_REMOVE_ERROR", job_id=job_id, error=str(e))
+        return False
+
+
+def bulk_remove_reminder_jobs(job_ids, user_id=None):
+    """Remove multiple reminder/automation jobs. If user_id is set, only remove jobs belonging to that user. Returns number removed."""
+    removed = 0
+    for jid in job_ids or []:
+        if not jid:
+            continue
+        s = str(jid)
+        if not (s.startswith("remind_") or s.startswith("auto_")):
+            continue
+        job = get_reminder_job(jid) or get_automation_job(jid)
+        if job and (user_id is None or str(job.get("user_id")) == str(user_id)):
+            if remove_reminder_job(jid):
+                removed += 1
+    return removed
+
+
+def get_reminder_job(job_id):
+    """Get one reminder job by id. Returns dict or None. message = display text for list."""
+    if not job_id or not str(job_id).startswith("remind_"):
+        return None
+    try:
+        job = scheduler.get_job(str(job_id))
+        if not job or not job.args or len(job.args) < 3:
+            return None
+        uid, notif_msg, ch = job.args[0], job.args[1], job.args[2]
+        msg = get_reminder_display(job.id) or notif_msg
+        run_at = None
+        if job.next_run_time:
+            run_at = job.next_run_time.strftime("%Y-%m-%dT%H:%M:%S") if hasattr(job.next_run_time, "strftime") else str(job.next_run_time)
+        recurring = getattr(job.trigger, "__class__", None) and "cron" in job.trigger.__class__.__name__.lower()
+        return {"id": job.id, "run_at": run_at, "message": msg, "user_id": uid, "channel": ch, "recurring": recurring}
+    except Exception as e:
+        log_line("error", "⚠️", "SCHEDULER", f"get_reminder_job error: {e}")
+        return None
+
+
+def update_reminder_job(job_id, user_id, message=None, channel="web", run_at=None):
+    """Edit a one-off reminder: remove old and add new with same or new message/run_at. Returns new eta or None."""
+    job = get_reminder_job(job_id)
+    if not job or job.get("recurring"):
+        return None
+    msg = message if message is not None else job.get("message", "Reminder")
+    uid = user_id or job.get("user_id", "user_1")
+    ch = channel or job.get("channel", "web")
+    next_run = run_at
+    if next_run is None and job.get("run_at"):
+        try:
+            from datetime import datetime
+            next_run = datetime.fromisoformat(job["run_at"].replace("Z", "+00:00"))
+            if next_run.tzinfo:
+                next_run = _to_naive_local(next_run)
+        except Exception as e:
+            log_line("error", "⚠️", "SCHEDULER", f"update_reminder_job date parse error: {e}")
+            return None
+    if next_run is None:
+        return None
+    remove_reminder_job(job_id)
+    return schedule_reminder(uid, msg, ch, run_at=next_run, display_message=msg)
+
+
+# --- CONSOLIDARE MEMORII (la oră setată) ---
+CONSOLIDATION_JOB_ID = "memory_consolidation"
+
+
+def _run_consolidation_job():
+    """Wrapper: dedupe + opțional AI prune (LLM decide ce fapte să șteargă)."""
+    try:
+        import settings as settings_mod
+        settings_mod.reload_config()
+        cfg = settings_mod.CFG.get("intelligence", {}).get("consolidation", {})
+        if not cfg.get("enabled"):
+            return
+        threshold = float(cfg.get("similarity_threshold", 0.92))
+        from core.memory_maintenance import run_consolidation, run_ai_prune, consolidate_all_sessions_daily_mvp
+        run_consolidation(threshold=threshold)
+        daily_out = consolidate_all_sessions_daily_mvp(max_sessions=300)
+        log_line("mem", "🗂️", "MEMORY_DAILY", f"processed={daily_out.get('processed', 0)} consolidated={daily_out.get('consolidated', 0)} errors={daily_out.get('errors', 0)}")
+        if cfg.get("ai_prune"):
+            aux = settings_mod.CFG.get("intelligence", {}).get("aux_llm") or {}
+            llm = settings_mod.CFG.get("llm") or {}
+            llm_url = (aux.get("target_url") or "").strip() or (llm.get("target_url") or "").strip()
+            llm_model = (aux.get("model_name") or "").strip() or (llm.get("model_name") or "").strip()
+            if llm_url and llm_model:
+                run_ai_prune(cfg, llm_url, llm_model)
+    except Exception as e:
+        log_line("error", "❌", "CONSOLIDATION", str(e))
+
+
+def schedule_consolidation_job():
+    """Programează consolidarea memoriilor la ora configurată (cron)."""
+    try:
+        import settings as settings_mod
+        settings_mod.reload_config()
+        cfg = settings_mod.CFG.get("intelligence", {}).get("consolidation", {})
+        if scheduler.get_job(CONSOLIDATION_JOB_ID):
+            scheduler.remove_job(CONSOLIDATION_JOB_ID)
+        if not cfg.get("enabled") or not cfg.get("time"):
+            return
+        time_str = str(cfg.get("time", "03:00")).strip()
+        parts = time_str.replace(".", ":").split(":")
+        hour = int(parts[0]) if parts else 3
+        minute = int(parts[1]) if len(parts) > 1 else 0
+        interval = (cfg.get("interval") or "daily").lower()
+        if interval == "weekly":
+            scheduler.add_job(_run_consolidation_job, "cron", day_of_week="sun", hour=hour, minute=minute, id=CONSOLIDATION_JOB_ID, replace_existing=True)
+        else:
+            scheduler.add_job(_run_consolidation_job, "cron", hour=hour, minute=minute, id=CONSOLIDATION_JOB_ID, replace_existing=True)
+        log_line("job", "✅", "CONSOLIDATION", f"Scheduled at {hour:02d}:{minute:02d} ({interval})")
+    except Exception as e:
+        log_line("error", "❌", "CONSOLIDATION", f"Schedule error: {e}")
+
+

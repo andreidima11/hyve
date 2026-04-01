@@ -1,0 +1,456 @@
+/* ha-panel.css — Home Assistant page, entity table, filters, bulk actions */
+
+/* ========== HA PAGE (Casa inteligentă) — List layout ========== */
+.ha-page {
+    padding: 1rem;
+}
+@media (min-width: 640px) {
+    .ha-page { padding: 1.25rem 1.5rem; }
+}
+.ha-page-inner {
+    max-width: 64rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.ha-header { margin-bottom: 0; }
+.ha-title {
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: var(--text-heading);
+    margin: 0;
+}
+.ha-subtitle {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    margin: 0.2rem 0 0;
+}
+.ha-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+.ha-search-wrap {
+    flex: 1;
+    min-width: 0;
+    max-width: 18rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--overlay-4);
+    border: 1px solid var(--overlay-6);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+}
+.ha-search-wrap:focus-within {
+    border-color: var(--accent);
+}
+.ha-search-icon { color: var(--text-tertiary); font-size: 0.75rem; }
+.ha-search-input {
+    flex: 1;
+    min-width: 0;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    outline: none;
+    box-shadow: none;
+    appearance: none;
+    -webkit-appearance: none;
+    border-radius: 0;
+}
+.ha-search-input::placeholder { color: var(--text-tertiary); }
+
+.ha-search-input:focus,
+.ha-search-input:focus-visible {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    -webkit-focus-ring-color: transparent;
+}
+.ha-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.ha-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+.ha-btn-ghost {
+    background: var(--overlay-6);
+    color: var(--text-secondary);
+}
+.ha-btn-ghost:hover { background: var(--overlay-10); color: var(--text-primary); }
+.ha-btn-ghost.active { background: var(--accent); color: var(--bg-main); }
+.ha-btn-primary { background: var(--accent); color: var(--bg-main); }
+.ha-btn-primary:hover { background: var(--accent-hover); }
+.ha-btn-danger { background: var(--danger); color: var(--text-on-accent); font-size: 0.7rem; }
+.ha-btn-danger:hover { background: var(--danger-hover); }
+
+.ha-stats {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.2rem 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+.ha-stat {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 0.15rem 0.3rem;
+    border-radius: 0.25rem;
+}
+.ha-stat:hover { color: var(--text-primary); background: var(--overlay-5); }
+.ha-stat strong { color: var(--text-heading); margin-left: 0.15rem; }
+.ha-stat-sep { color: var(--text-tertiary); user-select: none; }
+
+.ha-filters {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
+    scrollbar-width: none;
+}
+.ha-filters::-webkit-scrollbar { display: none; }
+.ha-page .ha-domain-btn {
+    flex-shrink: 0;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    background: var(--overlay-4);
+    border: 1px solid var(--overlay-6);
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.ha-page .ha-domain-btn:hover { background: var(--overlay-8); color: var(--text-primary); }
+.ha-page .ha-domain-btn.active { background: var(--accent); border-color: var(--accent); color: var(--bg-main); }
+.ha-filter-sep {
+    flex-shrink: 0;
+    width: 1px;
+    height: 0.875rem;
+    background: var(--overlay-10);
+    margin: 0 0.1rem;
+}
+
+#ha-bulk-panel.hidden {
+    display: none !important;
+}
+.ha-bulk-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    background: var(--danger-bg);
+    border: 1px solid rgba(220, 38, 38, 0.25);
+    border-radius: 0.5rem;
+    font-size: 0.8rem;
+}
+.ha-bulk-info { display: flex; align-items: center; gap: 0.4rem; }
+
+.ha-list-wrap {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--overlay-6);
+    border-radius: 0.5rem;
+    background: var(--overlay-2);
+}
+.ha-list-table {
+    width: 100%;
+    min-width: 580px;
+    table-layout: auto;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+.ha-list-table th,
+.ha-list-table td {
+    padding: 0.35rem 0.5rem;
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.ha-list-table thead th {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    background: var(--overlay-2);
+}
+.ha-col-bulk {
+    width: 2.25rem;
+    padding-left: 0.5rem !important;
+    display: none;
+}
+.ha-list-wrap.ha-bulk-mode .ha-col-bulk { display: table-cell; }
+.ha-col-icon { width: 2rem; }
+.ha-col-name {
+    min-width: 14rem;
+    max-width: none;
+}
+.ha-col-name .ha-row-name { display: block; }
+.ha-col-name .ha-row-entity { display: block; }
+.ha-col-alias {
+    width: 6rem;
+    min-width: 6rem;
+    text-align: center;
+    vertical-align: middle;
+}
+.ha-col-alias .ha-row-alias-btn {
+    margin-left: 0;
+}
+.ha-table-header {
+    background: linear-gradient(to bottom, var(--overlay-5) 0%, var(--overlay-2) 60px, transparent 100%);
+    border: 1px solid var(--overlay-6);
+    border-bottom: none;
+    border-radius: 0.5rem 0.5rem 0 0;
+    padding: 0.75rem 0.5rem 0 0.5rem;
+    margin-bottom: 0;
+}
+.ha-table-caption {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    margin: 0 0 0.5rem 0;
+    padding: 0 0.25rem 0 0;
+}
+.ha-table-header .ha-list-table thead th {
+    background: var(--overlay-3);
+    padding: 0.5rem 0.5rem;
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--overlay-6);
+}
+.ha-col-state { width: 8rem; min-width: 8rem; white-space: nowrap; }
+.ha-row-state-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.ha-row-state-wrap .ha-row-state { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ha-col-ai { width: 2.5rem; min-width: 2.5rem; text-align: center; }
+.ha-col-actions {
+    width: 2.5rem;
+    min-width: 2.5rem;
+    white-space: nowrap;
+    text-align: right;
+    box-sizing: border-box;
+}
+.ha-col-menu { width: 2.5rem; min-width: 2.5rem; text-align: center; }
+.ha-col-menu-only { display: none; }
+.ha-row-menu-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    border: none;
+    border-radius: 0.35rem;
+    background: var(--overlay-6);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s;
+}
+.ha-row-menu-btn:hover { background: var(--overlay-10); color: var(--text-heading); }
+.ha-actions-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.15rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+.ha-row-toggle-placeholder {
+    width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    margin-left: 0.15rem;
+    display: inline-block;
+}
+.ha-filter-num { margin-left: 0.2rem; font-weight: 700; }
+
+.ha-row:hover { background: var(--overlay-3); }
+.ha-row-clickable { cursor: pointer; }
+.ha-row-unavailable { opacity: 0.6; }
+.ha-row-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+}
+.ha-col-name .ha-row-name {
+    font-weight: 600;
+    color: var(--text-heading);
+    font-size: 0.8125rem;
+    line-height: 1.3;
+    margin-bottom: 0.15rem;
+}
+.ha-col-name .ha-row-entity {
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+    font-weight: normal;
+    line-height: 1.2;
+    word-break: break-word;
+}
+.ha-row-alias-btn {
+    min-width: 5.5rem;
+    white-space: nowrap;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.65rem;
+    background: var(--overlay-8);
+    border: 1px solid var(--border-medium);
+    border-radius: 0.35rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    vertical-align: middle;
+    transition: border-color 0.15s, color 0.15s;
+    font-weight: 500;
+}
+.ha-row-alias-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.08);
+}
+.ha-row-alias::placeholder { color: var(--text-tertiary); }
+.ha-row-state { font-weight: 600; font-size: 0.75rem; }
+.ha-col-ai .ha-row-ai {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    cursor: pointer;
+}
+.ha-col-ai .ha-row-ai input { width: 1rem; height: 1rem; }
+.ha-col-actions { padding-right: 0.35rem !important; }
+.ha-row-toggle,
+.ha-row-remove {
+    width: 1.75rem;
+    height: 1.75rem;
+    min-width: 1.75rem;
+    min-height: 1.75rem;
+    border: none;
+    border-radius: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.65rem;
+    transition: background 0.2s, color 0.2s;
+    margin-left: 0.15rem;
+}
+.ha-row-toggle.ha-toggle-on { background: var(--accent); color: var(--bg-main); }
+.ha-row-toggle.ha-toggle-off { background: var(--overlay-6); color: var(--text-tertiary); }
+.ha-row-toggle:hover.ha-toggle-off { background: var(--overlay-10); color: var(--text-secondary); }
+.ha-row-remove { background: transparent; color: var(--text-tertiary); }
+.ha-row-remove:hover { background: var(--danger-bg-hover); color: var(--danger-soft); }
+
+/* --- Tabel smarthome: mobile / portrait — un singur buton meniu, modal cu acțiuni --- */
+@media (max-width: 768px) {
+    .ha-list-wrap {
+        margin-left: -0.5rem;
+        margin-right: -0.5rem;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+    }
+    .ha-list-table { min-width: 0; }
+    .ha-table-header {
+        padding: 0.5rem 0.25rem 0 0.25rem;
+        border-radius: 0;
+    }
+    .ha-list-table,
+    .ha-list-table th,
+    .ha-list-table td {
+        padding: 0.5rem 0.4rem;
+    }
+    .ha-col-alias,
+    .ha-col-state,
+    .ha-col-ai,
+    .ha-col-actions,
+    .ha-col-menu-only { display: none !important; }
+    .ha-col-name { min-width: 0; }
+    .ha-col-name .ha-row-name { font-size: 0.8rem; }
+    .ha-col-name .ha-row-entity { font-size: 0.65rem; }
+}
+
+.ha-row-action-btn { transition: background 0.15s; }
+
+.ha-row-actions-state-block {
+    background: var(--overlay-5);
+    border: 1px solid var(--overlay-8);
+    border-radius: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+.ha-row-actions-state-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+}
+.ha-row-actions-state-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+}
+
+.ha-list-placeholder {
+    padding: 2rem 1rem !important;
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+}
+
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Add Devices modal list items */
+.add-device-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 0.625rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    border: 1px solid transparent;
+}
+.add-device-item:hover {
+    background: var(--overlay-4);
+}
+.add-device-item.selected {
+    background: var(--sidebar-active-bg);
+    border-color: var(--accent-border);
+}
+

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CiolacuCovrigs - Covriguri proaspete</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5e6d3 0%, #e8d4b8 100%);
+            color: #4a4a4a;
+            line-height: 1.6;
+        }
+
+        header {
+            background: #8b4513;
+            color: white;
+            padding: 1rem 0;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        nav {
+            background: #a0522d;
+            padding: 0.5rem;
+            text-align: center;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin: 0 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        nav a:hover {
+            background: #8b4513;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 3rem 1rem;
+            background: white;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .hero h2 {
+            color: #8b4513;
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .menu {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .menu-item {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+
+        .menu-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .menu-item h3 {
+            color: #8b4513;
+            margin-bottom: 0.5rem;
+        }
+
+        .menu-item .price {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #d35400;
+            margin: 0.5rem 0;
+        }
+
+        .menu-item p {
+            font-size: 0.95rem;
+            color: #666;
+        }
+
+        .contact {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .contact h2 {
+            color: #8b4513;
+            margin-bottom: 1rem;
+        }
+
+        .contact-info {
+            margin-top: 1rem;
+        }
+
+        .contact-info p {
+            margin: 0.5rem 0;
+            font-size: 1.1rem;
+        }
+
+        footer {
+            background: #8b4513;
+            color: white;
+            text-align: center;
+            padding: 1rem 0;
+            margin-top: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8rem;
+            }
+            
+            nav a {
+                display: block;
+                margin: 0.5rem 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🍕 CiolacuCovrigs</h1>
+        <p>Covriguri proaspete, calde și delicioase</p>
+    </header>
+    
+    <nav>
+        <a href="#acasa">Acasă</a>
+        <a href="#meniu">Meniu</a>
+        <a href="#contact">Contact</a>
+    </nav>
+    
+    <div class="container">
+        <section id="acasa" class="hero">
+            <h2>Bine ați venit la CiolacuCovrigs!</h2>
+            <p>Preparăm covriguri proaspete, calde și cu ingrediente de calitate. Fie că doriți covrigi clasici, cu brânză, cu cârnați sau cu orice altă combinație delicioasă - suntem aici pentru dumneavoastră!</p>
+        </section>
+        
+        <section id="meniu" class="menu">
+            <div class="menu-item">
+                <h3>🥯 Covrig Clasic</h3>
+                <div class="price">5 RON</div>
+                <p>Covrig proaspăt, copt la cuptor</p>
+            </div>
+            
+            <div class="menu-item">
+                <h3>🧀 Covrig cu Brânză</h3>
+                <div class="price">7 RON</div>
+                <p>Covrig cu brânză topită și mărar</p>
+            </div>
+            
+            <div class="menu-item">
+                <h3>🌭 Covrig cu Cârnați</h3>
+                <div class="price">8 RON</div>
+                <p>Covrig cu cârnat afumat și maioneză</p>
+            </div>
+            
+            <div class="menu-item">
+                <h3>🥓 Covrig cu Bacon</h3>
+                <div class="price">9 RON</div>
+                <p>Covrig cu bacon crocant și brânză</p>
+            </div>
+            
+            <div class="menu-item">
+                <h3>🧅 Covrig cu Ceapă</h3>
+                <div class="price">6 RON</div>
+                <p>Covrig cu ceapă prăjită și ulei</p>
+            </div>
+            
+            <div class="menu-item">
+                <h3>🥚 Covrig cu Ou</h3>
+                <div class="price">8 RON</div>
+                <p>Covrig cu ou fiert și maioneză</p>
+            </div>
+        </section>
+        
+        <section id="contact" class="contact">
+            <h2>📞 Contact</h2>
+            <div class="contact-info">
+                <p>📍 Locație: [Adresa ta]</p>
+                <p>⏰ Program: [Ora de deschidere - ora de închidere]</p>
+                <p>📱 Telefon: [Numărul tău]</p>
+                <p>📧 Email: [Email-ul tău]</p>
+            </div>
+        </section>
+    </div>
+    
+    <footer>
+        <p>© 2026 CiolacuCovrigs - Toate drepturile rezervate</p>
+    </footer>
+</body>
+</html>

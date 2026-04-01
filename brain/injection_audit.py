@@ -1,0 +1,75 @@
+"""Audit log for prompt injection detections from external/untrusted sources."""
+import os
+import sqlite3
+import time
+from typing import List, Optional
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+INJECTION_AUDIT_DB = os.path.join(_ROOT, "injection_audit.sqlite")
+_CONN = None
+
+
+def _get_conn():
+    global _CONN
+    if _CONN is None:
+        _CONN = sqlite3.connect(INJECTION_AUDIT_DB)
+        _CONN.execute("PRAGMA journal_mode=WAL")
+        _CONN.row_factory = sqlite3.Row
+        _CONN.execute(
+            """
+            CREATE TABLE IF NOT EXISTS injection_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts REAL NOT NULL,
+                source_label TEXT NOT NULL,
+                risk_score INTEGER NOT NULL,
+                primary_category TEXT,
+                action TEXT NOT NULL,
+                snippet TEXT,
+                content_len INTEGER NOT NULL,
+                details_json TEXT
+            )
+            """
+        )
+        _CONN.execute("CREATE INDEX IF NOT EXISTS idx_injection_events_ts ON injection_events(ts DESC)")
+        _CONN.execute("CREATE INDEX IF NOT EXISTS idx_injection_events_source ON injection_events(source_label, ts DESC)")
+        _CONN.commit()
+    return _CONN
+
+
+def append_event(
+    source_label: str,
+    risk_score: int,
+    action: str,
+    primary_category: Optional[str] = None,
+    snippet: str = "",
+    content_len: int = 0,
+    details_json: str = "",
+) -> None:
+    try:
+        conn = _get_conn()
+        conn.execute(
+            """INSERT INTO injection_events (ts, source_label, risk_score, primary_category, action, snippet, content_len, details_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (time.time(), source_label[:80], int(risk_score), (primary_category or "")[:80], action[:40], (snippet or "")[:500], int(content_len), (details_json or "")[:4000]),
+        )
+        conn.commit()
+    except Exception:
+        pass
+
+
+def get_recent(limit: int = 50, source_label: Optional[str] = None) -> List[dict]:
+    try:
+        conn = _get_conn()
+        if source_label:
+            rows = conn.execute(
+                "SELECT id, ts, source_label, risk_score, primary_category, action, snippet, content_len, details_json FROM injection_events WHERE source_label = ? ORDER BY ts DESC LIMIT ?",
+                (source_label, int(limit)),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT id, ts, source_label, risk_score, primary_category, action, snippet, content_len, details_json FROM injection_events ORDER BY ts DESC LIMIT ?",
+                (int(limit),),
+            ).fetchall()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []

@@ -1,0 +1,11 @@
+/* styles.css — DEPRECATED: CSS split into domain files.
+   This file is kept empty for backwards-compatibility with any
+   hardcoded references.  All styles live in:
+     base.css         — variables, resets, responsive, native-app
+     chat.css         — chat view, bubbles, input bar, code blocks
+     intelligence.css — intelligence/devices page
+     ha-panel.css     — HA entity table, filters, bulk
+     components.css   — profile cards, settings page
+     conference.css   — multi-AI conference room
+   Theme files remain in themes/{name}.css
+*/

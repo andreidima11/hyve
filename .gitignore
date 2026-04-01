@@ -1,0 +1,39 @@
+node_modules/
+venv/
+__pycache__/
+*.pyc
+.env
+config.json
+ha_entities.json
+assist_keys.json
+.DS_Store
+.pytest_cache/
+
+# Local app output
+logs/
+output/
+
+# Local runtime databases and WAL/SHM files
+*.db
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# App runtime data
+chroma_db/
+sessions/
+conferences/
+automations/user_*/
+piper_models/
+
+# Android local/build artifacts
+android/MeminiBridge/.gradle/
+android/MeminiBridge/build/
+android/MeminiBridge/app/build/
+android/MeminiBridge/.idea/
+android/MeminiBridge/local.properties
+android/MeminiBridge/app/google-services.json
+secrets/firebase-service-account.json
+secrets/*.service-account.json
+secrets/*.json
+.secret_key

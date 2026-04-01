@@ -1,0 +1,565 @@
+@import url("./obsidian.css");
+
+/* ═══════════════════════════════════════════════════════
+   CANVAS — centered conversational dark theme
+   Inspired by modern assistant UIs with a calm black stage.
+   ═══════════════════════════════════════════════════════ */
+
+[data-theme="canvas"] {
+    color-scheme: dark;
+
+    --accent: #a8c7fa;
+    --accent-hover: #c6dafc;
+    --accent-glow: rgba(168, 199, 250, 0.2);
+    --accent-soft: rgba(168, 199, 250, 0.1);
+    --accent-border: rgba(168, 199, 250, 0.24);
+    --accent-rgb: 168, 199, 250;
+    --secondary-accent: rgba(196, 168, 255, 0.5);
+    --secondary-accent-rgb: 196, 168, 255;
+    --msg-user: linear-gradient(135deg, #0b57d0 0%, #1a73e8 100%);
+    --logo-gradient: linear-gradient(135deg, #8ab4f8, #c4b5fd);
+
+    --bg-main: #0d0f12;
+    --surface-0: #0d0f12;
+    --surface-1: #1d2024;
+    --surface-2: #24272c;
+    --surface-3: #31353b;
+    --surface-glass: rgba(29, 32, 36, 0.92);
+    --surface-glass-heavy: rgba(22, 24, 28, 0.98);
+    --surface-sidebar: #1b1e22;
+    --surface-menu: rgba(30, 33, 38, 0.98);
+    --surface-menu-heavy: rgba(25, 27, 31, 0.99);
+    --surface-code: #15181c;
+    --surface-code-soft: rgba(255, 255, 255, 0.03);
+    --surface-input: #1a1c1f;
+    --surface-overlay: rgba(0, 0, 0, 0.62);
+    --surface-overlay-heavy: rgba(0, 0, 0, 0.84);
+    --surface-tooltip: rgba(32, 33, 36, 0.98);
+    --surface-card: rgba(255, 255, 255, 0.03);
+    --surface-card-hover: rgba(255, 255, 255, 0.05);
+    --surface-chat-input: #1d2024;
+
+    --text-primary: #f1f3f4;
+    --text-secondary: #bdc1c6;
+    --text-tertiary: #9aa0a6;
+    --text-heading: #ffffff;
+    --text-on-accent: #ffffff;
+    --text-code: #c6dafc;
+    --text-inline-code: #c6dafc;
+    --text-link: #a8c7fa;
+    --text-bubble: #f1f3f4;
+    --text-bubble-heading: #ffffff;
+
+    --border-subtle: rgba(255, 255, 255, 0.04);
+    --border-light: rgba(255, 255, 255, 0.07);
+    --border-medium: rgba(255, 255, 255, 0.11);
+    --border-hover: rgba(255, 255, 255, 0.14);
+    --glass-border: rgba(255, 255, 255, 0.06);
+
+    --overlay-2: rgba(255, 255, 255, 0.02);
+    --overlay-3: rgba(255, 255, 255, 0.03);
+    --overlay-4: rgba(255, 255, 255, 0.04);
+    --overlay-5: rgba(255, 255, 255, 0.05);
+    --overlay-6: rgba(255, 255, 255, 0.06);
+    --overlay-8: rgba(255, 255, 255, 0.08);
+    --overlay-10: rgba(255, 255, 255, 0.10);
+    --overlay-15: rgba(255, 255, 255, 0.15);
+
+    --shadow-color: rgba(0, 0, 0, 0.45);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.22);
+    --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.28);
+    --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.34);
+    --shadow-xl: 0 28px 56px rgba(0, 0, 0, 0.42);
+
+    --glow-primary: transparent;
+    --glow-secondary: transparent;
+
+    --danger: #f28b82;
+    --danger-hover: #f6aea9;
+    --danger-soft: #f8c7c2;
+    --danger-bg: rgba(242, 139, 130, 0.12);
+    --danger-bg-hover: rgba(242, 139, 130, 0.18);
+    --success: #81c995;
+    --success-hover: #9ad8ab;
+    --success-soft: #b7e4c0;
+    --success-bg: rgba(129, 201, 149, 0.12);
+    --warning: #fbc02d;
+    --warning-hover: #ffd45a;
+    --warning-soft: #ffe28a;
+    --warning-text: #fff7df;
+    --info: #a8c7fa;
+
+    --user-bubble-bg: #1a73e8;
+    --user-bubble-shadow: none;
+    --user-bubble-shadow-hover: none;
+
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: rgba(255, 255, 255, 0.12);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
+
+    --chat-input-bg: #1d2024;
+    --chat-input-wrapper-bg: transparent;
+
+    --sidebar-active-bg: rgba(255, 255, 255, 0.06);
+    --sidebar-active-border: rgba(255, 255, 255, 0.1);
+    --sidebar-active-shadow: transparent;
+
+    --send-btn-bg: linear-gradient(135deg, #a8c7fa 0%, #c4b5fd 100%);
+    --send-btn-streaming-bg: #a8c7fa;
+
+    --voice-btn-bg: rgba(255, 255, 255, 0.04);
+    --voice-btn-recording-bg: #a8c7fa;
+    --voice-btn-cancelled-bg: #f28b82;
+
+    --conf-accent: rgba(168, 199, 250, 0.42);
+    --conf-accent-soft: rgba(168, 199, 250, 0.1);
+    --conf-particle: #a8c7fa;
+
+    --selector-accent: #a8c7fa;
+    --img-card-bg: rgba(255, 255, 255, 0.04);
+    --noise-opacity: 0;
+    --logo-shadow: none;
+    --meta-theme-color: #0d0f12;
+}
+
+[data-theme="canvas"] body,
+[data-theme="canvas"] #app-main-wrap > main,
+[data-theme="canvas"] #app-main-wrap > main > .flex-1,
+[data-theme="canvas"] [id^="view-"],
+[data-theme="canvas"] .chat-view {
+    background: #0d0f12 !important;
+}
+
+[data-theme="canvas"] body::before,
+[data-theme="canvas"] body::after,
+[data-theme="canvas"] .chat-view::before,
+[data-theme="canvas"] #sidebar::before,
+[data-theme="canvas"] #sidebar::after {
+    display: none !important;
+}
+
+[data-theme="canvas"] #sidebar {
+    background: linear-gradient(180deg, #1b1e22 0%, #23262b 100%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+[data-theme="canvas"] #sidebar .nav-btn,
+[data-theme="canvas"] .sidebar-item {
+    color: var(--text-secondary) !important;
+    border-radius: 1rem !important;
+}
+
+[data-theme="canvas"] #sidebar .nav-btn:hover,
+[data-theme="canvas"] .sidebar-item:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.045) !important;
+    color: var(--text-primary) !important;
+    border-color: transparent !important;
+}
+
+[data-theme="canvas"] .sidebar-item.active,
+[data-theme="canvas"] #sidebar .nav-btn.text-accent {
+    background: rgba(255, 255, 255, 0.055) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: none !important;
+}
+
+[data-theme="canvas"] .sidebar-item.active::before {
+    display: none !important;
+}
+
+[data-theme="canvas"] .sidebar-item.active i,
+[data-theme="canvas"] .sidebar-item.active span,
+[data-theme="canvas"] #sidebar .nav-btn.text-accent,
+[data-theme="canvas"] .group:hover .group-hover\:text-accent,
+[data-theme="canvas"] .hover\:text-accent:hover,
+[data-theme="canvas"] .text-accent {
+    color: var(--accent) !important;
+}
+
+[data-theme="canvas"] .app-version {
+    color: color-mix(in srgb, var(--accent) 44%, #d8e6ff 56%) !important;
+}
+
+[data-theme="canvas"] .app-version-text {
+    color: var(--accent-strong) !important;
+    text-shadow: 0 0 18px rgba(138, 180, 248, 0.16);
+}
+
+[data-theme="canvas"] header {
+    background: transparent !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+[data-theme="canvas"] #current-view-title {
+    color: rgba(255, 255, 255, 0.9) !important;
+    text-transform: none !important;
+    letter-spacing: -0.02em !important;
+    font-size: 0.9rem !important;
+}
+
+[data-theme="canvas"] .chat-view {
+    isolation: isolate;
+}
+
+[data-theme="canvas"] .chat-messages-wrapper {
+    padding-top: 1rem;
+}
+
+[data-theme="canvas"] .chat-empty-state {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 2rem;
+    padding-bottom: 12rem;
+}
+
+[data-theme="canvas"] .memini-hero-wrap {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.7rem;
+}
+
+[data-theme="canvas"] .memini-hero-galaxy {
+    inset: -22%;
+    opacity: 0.55;
+    filter: saturate(0.78);
+}
+
+[data-theme="canvas"] .memini-hero-galaxy::before {
+    background: radial-gradient(ellipse at center, rgba(138, 180, 248, 0.11) 0%, rgba(156, 188, 255, 0.05) 36%, transparent 72%);
+}
+
+[data-theme="canvas"] .memini-logo--hero {
+    font-size: clamp(2.45rem, 4vw, 3.2rem);
+    animation: meminiLogoFloat 6.5s ease-in-out infinite;
+}
+
+[data-theme="canvas"] .memini-logo--hero::after {
+    background: radial-gradient(ellipse at center, rgba(138, 180, 248, 0.12) 0%, transparent 72%);
+    opacity: 0.82;
+}
+
+[data-theme="canvas"] .memini-hero-bridge {
+    display: block !important;
+    color: rgba(138, 180, 248, 0.72) !important;
+    margin-bottom: 1rem;
+}
+
+[data-theme="canvas"] .chat-empty-title {
+    color: #f1f3f4 !important;
+}
+
+@media (max-width: 639px) {
+    [data-theme="canvas"] .memini-hero-wrap {
+        margin-bottom: 0.55rem;
+    }
+
+    [data-theme="canvas"] .memini-logo--hero {
+        font-size: 2.3rem;
+    }
+
+    [data-theme="canvas"] .memini-hero-bridge {
+        margin-bottom: 0.85rem;
+    }
+}
+
+[data-theme="canvas"] .chat-input-wrapper {
+    background: transparent !important;
+}
+
+[data-theme="canvas"] .chat-input-inner {
+    background: #202328 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: none !important;
+}
+
+[data-theme="canvas"] .chat-input-inner:focus-within {
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.03) !important;
+}
+
+[data-theme="canvas"] .chat-input-field,
+[data-theme="canvas"] .chat-input-field:focus,
+[data-theme="canvas"] .chat-input-field:focus-visible {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    color: #e8eaed !important;
+    font-size: 1rem !important;
+}
+
+[data-theme="canvas"] .chat-input-field::placeholder {
+    color: #9aa0a6 !important;
+}
+
+[data-theme="canvas"] .chat-attach-btn,
+[data-theme="canvas"] .model-selector-btn,
+[data-theme="canvas"] .chat-voice-btn {
+    background: transparent !important;
+    border: none !important;
+    color: #bdc1c6 !important;
+    box-shadow: none !important;
+}
+
+[data-theme="canvas"] .chat-attach-btn:hover,
+[data-theme="canvas"] .model-selector-btn:hover,
+[data-theme="canvas"] .chat-voice-btn:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #f1f3f4 !important;
+}
+
+[data-theme="canvas"] .chat-send-btn,
+[data-theme="canvas"] .bg-accent,
+[data-theme="canvas"] #conf-create-btn,
+[data-theme="canvas"] button[onclick="saveConfig(event)"] {
+    background: var(--send-btn-bg) !important;
+    color: #0d1117 !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+[data-theme="canvas"] .chat-send-btn i,
+[data-theme="canvas"] .bg-accent i,
+[data-theme="canvas"] .bg-accent .text-white {
+    color: #0d1117 !important;
+}
+
+[data-theme="canvas"] .chat-send-btn:hover,
+[data-theme="canvas"] .bg-accent:hover {
+    background: linear-gradient(135deg, #c6dafc 0%, #d4c3ff 100%) !important;
+}
+
+[data-theme="canvas"] .model-selector-balloon,
+[data-theme="canvas"] .chat-attach-balloon,
+[data-theme="canvas"] .glass,
+[data-theme="canvas"] .cfg-section,
+[data-theme="canvas"] .theme-option,
+[data-theme="canvas"] .conf-persona-card,
+[data-theme="canvas"] .conf-list-item,
+[data-theme="canvas"] .chat-shell-card,
+[data-theme="canvas"] .chat-proposal-card {
+    background: #202328 !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    border-radius: 1.45rem !important;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.2) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+[data-theme="canvas"] .model-selector-item:hover,
+[data-theme="canvas"] .chat-attach-balloon-item:hover,
+[data-theme="canvas"] .glass:hover,
+[data-theme="canvas"] .cfg-section:hover,
+[data-theme="canvas"] .theme-option:hover,
+[data-theme="canvas"] .conf-persona-card:hover,
+[data-theme="canvas"] .conf-list-item:hover {
+    background: #25292f !important;
+    border-color: rgba(168, 199, 250, 0.16) !important;
+    transform: none !important;
+}
+
+[data-theme="canvas"] .chat-row-ai .chat-msg {
+    gap: 0 !important;
+}
+
+[data-theme="canvas"] .chat-row-ai .chat-msg-ai {
+    max-width: 46rem !important;
+}
+
+[data-theme="canvas"] .chat-row-ai .ai-bubble:not(.chat-bubble-reminder):not(.chat-bubble-automation) {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+[data-theme="canvas"] .chat-row-ai .ai-bubble:not(.chat-bubble-reminder):not(.chat-bubble-automation)::before {
+    display: none !important;
+}
+
+[data-theme="canvas"] .chat-row-ai .chat-bubble-content {
+    color: #eef2f6 !important;
+    font-size: 1rem !important;
+    line-height: 1.8 !important;
+}
+
+[data-theme="canvas"] .chat-row-ai .chat-bubble-main {
+    margin-top: 0.1rem;
+}
+
+[data-theme="canvas"] .chat-row-ai .chat-bubble-steps,
+[data-theme="canvas"] .chat-row-ai .chat-bubble-thinking,
+[data-theme="canvas"] .chat-row-ai .chat-bubble-preview,
+[data-theme="canvas"] .chat-row-ai .chat-bubble-cards {
+    margin-top: 0.85rem;
+}
+
+[data-theme="canvas"] .chat-row-user .user-bubble {
+    background: linear-gradient(135deg, #8fb8fb 0%, #b9cbff 100%) !important;
+    border-radius: 1.45rem !important;
+    box-shadow: 0 12px 28px rgba(71, 114, 190, 0.22) !important;
+    color: #0d1117 !important;
+}
+
+[data-theme="canvas"] .chat-row-user .user-bubble * {
+    color: #0d1117 !important;
+}
+
+[data-theme="canvas"] .cfg-section {
+    background: linear-gradient(180deg, rgba(34, 38, 44, 0.96) 0%, rgba(28, 31, 36, 0.96) 100%) !important;
+    border-radius: 1.55rem !important;
+    border-color: rgba(168, 199, 250, 0.12) !important;
+}
+
+[data-theme="canvas"] .conf-persona-card {
+    border-radius: 1.25rem !important;
+}
+
+[data-theme="canvas"] .theme-option {
+    border-radius: 1.25rem !important;
+}
+
+[data-theme="canvas"] .model-selector-item {
+    border-radius: 0.95rem !important;
+}
+
+[data-theme="canvas"] .chat-shell-card,
+[data-theme="canvas"] .chat-proposal-card {
+    background: rgba(31, 34, 39, 0.9) !important;
+    border-color: rgba(168, 199, 250, 0.1) !important;
+    border-radius: 1.2rem !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14) !important;
+}
+
+[data-theme="canvas"] .chat-shell-card-header {
+    color: #d6dde6 !important;
+}
+
+[data-theme="canvas"] .chat-sources-row {
+    padding: 0 !important;
+}
+
+[data-theme="canvas"] .chat-source-card {
+    background: rgba(31, 34, 39, 0.9) !important;
+    border-color: rgba(168, 199, 250, 0.12) !important;
+    border-radius: 999px !important;
+    padding: 0.38rem 0.78rem !important;
+    box-shadow: none !important;
+}
+
+[data-theme="canvas"] .chat-source-card:hover {
+    background: rgba(37, 41, 47, 0.98) !important;
+    border-color: rgba(168, 199, 250, 0.22) !important;
+}
+
+[data-theme="canvas"] .theme-option-preview {
+    background: #17191d !important;
+}
+
+[data-theme="canvas"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(.chat-input-field):not(.intel-search-input):not(.ha-search-input),
+[data-theme="canvas"] select,
+[data-theme="canvas"] textarea:not(.chat-input-field) {
+    background: #17191d !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    color: #f1f3f4 !important;
+    box-shadow: none !important;
+}
+
+[data-theme="canvas"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(.chat-input-field):not(.intel-search-input):not(.ha-search-input):focus,
+[data-theme="canvas"] select:focus,
+[data-theme="canvas"] textarea:not(.chat-input-field):focus {
+    border-color: rgba(138, 180, 248, 0.35) !important;
+    box-shadow: 0 0 0 2px rgba(138, 180, 248, 0.08) !important;
+    outline: none !important;
+}
+
+[data-theme="canvas"] .config-tabs-track,
+[data-theme="canvas"] .intelligence-tabs-track {
+    background: #17191d !important;
+    border: 1px solid rgba(168, 199, 250, 0.12) !important;
+    border-radius: 1rem !important;
+    padding: 0.3rem !important;
+}
+
+[data-theme="canvas"] .config-tab-btn,
+[data-theme="canvas"] .intelligence-tab-btn {
+    color: #aeb4bb !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+}
+
+[data-theme="canvas"] .config-tab-btn:hover,
+[data-theme="canvas"] .intelligence-tab-btn:hover {
+    color: var(--accent) !important;
+    background: rgba(168, 199, 250, 0.08) !important;
+    border-color: rgba(168, 199, 250, 0.16) !important;
+}
+
+[data-theme="canvas"] .config-tab-btn--active,
+[data-theme="canvas"] .intelligence-tab-btn.border-accent,
+[data-theme="canvas"] .intelligence-tab-btn.text-accent {
+    color: var(--accent) !important;
+    background: rgba(168, 199, 250, 0.14) !important;
+    border-color: rgba(168, 199, 250, 0.28) !important;
+    box-shadow: 0 0 0 1px rgba(168, 199, 250, 0.08), 0 0 18px rgba(168, 199, 250, 0.1) !important;
+}
+
+[data-theme="canvas"] .config-tab-btn--active i {
+    color: var(--accent) !important;
+    opacity: 1 !important;
+}
+
+[data-theme="canvas"] .intelligence-tabs-track {
+    gap: 0.35rem !important;
+    border-bottom: none !important;
+    padding-bottom: 0.3rem !important;
+}
+
+[data-theme="canvas"] .intelligence-tab-btn {
+    border-bottom-width: 1px !important;
+}
+
+[data-theme="canvas"] .intelligence-tab-btn.border-accent,
+[data-theme="canvas"] .intelligence-tab-btn.text-accent {
+    border-bottom-color: rgba(168, 199, 250, 0.28) !important;
+}
+
+[data-theme="canvas"] .profile-card.profile-card-in-selector {
+    border-color: rgba(138, 180, 248, 0.42) !important;
+    box-shadow:
+        0 0 0 1px rgba(138, 180, 248, 0.24),
+        0 0 10px rgba(138, 180, 248, 0.12) !important;
+}
+
+[data-theme="canvas"] .profile-card.profile-card-in-selector:hover {
+    border-color: rgba(168, 199, 250, 0.52) !important;
+    box-shadow:
+        0 0 0 1px rgba(168, 199, 250, 0.3),
+        0 0 12px rgba(138, 180, 248, 0.16) !important;
+}
+
+[data-theme="canvas"] .profile-card-menu-modal-btn-visibility.is-in-selector {
+    color: #8ab4f8 !important;
+}
+
+[data-theme="canvas"] .profile-card-menu-modal-btn-visibility.is-in-selector:hover {
+    background: rgba(138, 180, 248, 0.12) !important;
+    color: #c6dafc !important;
+}
+
+/* Center the composer when the chat is empty */
+
+@media (max-width: 1023px) {
+    [data-theme="canvas"] #sidebar {
+        width: 17rem !important;
+    }
+}

@@ -1,0 +1,466 @@
+/* intelligence.css — Intelligence/Devices page */
+
+/* ========== INTELLIGENCE (Inteligenta) — Page & Devices ========== */
+.intel-page {
+    padding: 1.5rem 1rem 2rem;
+}
+@media (min-width: 640px) {
+    .intel-page { padding: 2rem 1.5rem 2.5rem; }
+}
+@media (min-width: 1024px) {
+    .intel-page { padding: 2.5rem 2rem 3rem; }
+}
+
+.intel-page-inner {
+    max-width: 72rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+@media (min-width: 640px) {
+    .intel-page-inner { gap: 1.75rem; }
+}
+@media (min-width: 1024px) {
+    .intel-page-inner { gap: 2rem; }
+}
+
+.intel-header {
+    margin-bottom: 0.25rem;
+}
+.intel-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-heading);
+    letter-spacing: -0.02em;
+    margin: 0;
+}
+@media (min-width: 640px) {
+    .intel-title { font-size: 1.75rem; }
+}
+.intel-subtitle {
+    font-size: 0.8125rem;
+    color: var(--text-tertiary);
+    margin: 0.25rem 0 0;
+}
+
+.intel-stats-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+.intel-stat-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.2rem 0.35rem;
+    border-radius: 0.375rem;
+    transition: color 0.15s, background 0.15s;
+}
+.intel-stat-btn:hover {
+    color: var(--text-primary);
+    background: var(--overlay-5);
+}
+.intel-stat-num {
+    font-size: 0.8125rem;
+}
+.intel-stat-sep {
+    color: var(--text-tertiary);
+    margin: 0 0.15rem;
+    user-select: none;
+}
+
+.intel-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+.intel-search-wrap {
+    flex: 1;
+    min-width: 0;
+    max-width: 20rem;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    background: var(--overlay-4);
+    border: 1px solid var(--overlay-6);
+    border-radius: 0.75rem;
+    padding: 0.625rem 0.875rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.intel-search-wrap:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.12);
+}
+
+.mem-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.625rem;
+    padding: 0.4rem 0.75rem !important;
+    border-radius: 0.75rem !important;
+}
+
+.mem-search-shell {
+    flex: 0 1 20rem !important;
+    width: 20rem !important;
+    max-width: 20rem !important;
+    min-width: 10rem !important;
+    min-height: 2rem !important;
+    height: 2rem !important;
+    padding: 0 0.6rem !important;
+}
+
+.mem-toolbar-actions {
+    margin-left: auto;
+    min-width: 0;
+}
+
+.mem-toolbar-nav {
+    flex-shrink: 0;
+}
+
+.mem-select-label {
+    min-height: 1.75rem;
+    padding: 0 0.5rem;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--overlay-6);
+    white-space: nowrap;
+}
+
+.mem-search-shell.flex-1,
+.mem-search-shell.min-w-\[200px\] {
+    flex: 0 1 20rem !important;
+    min-width: 10rem !important;
+}
+
+@media (max-width: 767px) {
+    .mem-toolbar {
+        gap: 0.5rem;
+        padding: 0.45rem 0.5rem !important;
+        align-items: stretch;
+    }
+
+    .mem-search-shell {
+        flex-basis: 100% !important;
+        width: 100% !important;
+        max-width: none !important;
+        min-width: 0 !important;
+        height: 2.125rem !important;
+        min-height: 2.125rem !important;
+        padding: 0 0.625rem !important;
+    }
+
+    .mem-toolbar-actions {
+        width: 100%;
+        margin-left: 0;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: nowrap;
+        min-width: 0;
+    }
+
+    .mem-select-label {
+        font-size: 0.6875rem !important;
+        line-height: 1;
+        min-height: 2rem;
+        padding: 0 0.625rem;
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .mem-select-label span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .mem-select-label input {
+        width: 0.875rem;
+        height: 0.875rem;
+        flex-shrink: 0;
+    }
+
+    #mem-bulk-delete-btn button {
+        min-height: 2rem;
+        padding: 0 0.75rem;
+        border-radius: 0.75rem;
+        font-size: 0.6875rem;
+        white-space: nowrap;
+    }
+
+    .mem-toolbar-nav,
+    .mem-toolbar-actions > button[title="Refresh"] {
+        flex-shrink: 0;
+    }
+
+    .mem-toolbar-nav {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.125rem;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--overlay-6);
+    }
+
+    .mem-toolbar-nav button,
+    .mem-toolbar-actions > button[title="Refresh"] {
+        width: 2rem !important;
+        height: 2rem !important;
+        border-radius: 9999px !important;
+    }
+
+    .mem-toolbar-actions > button[title="Refresh"] {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--overlay-6);
+    }
+}
+.intel-search-icon {
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+.intel-search-input {
+    flex: 1;
+    min-width: 0;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    outline: none;
+    box-shadow: none;
+    appearance: none;
+    -webkit-appearance: none;
+    border-radius: 0;
+}
+.intel-search-input::placeholder {
+    color: var(--text-tertiary);
+}
+
+.intel-search-input:focus,
+.intel-search-input:focus-visible {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    -webkit-focus-ring-color: transparent;
+}
+
+.intel-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border-radius: 0.75rem;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, transform 0.1s;
+}
+.intel-btn:active {
+    transform: scale(0.98);
+}
+.intel-btn-ghost {
+    background: var(--overlay-6);
+    color: var(--text-secondary);
+    border: 1px solid var(--overlay-8);
+}
+.intel-btn-ghost:hover {
+    background: var(--overlay-10);
+    color: var(--text-primary);
+}
+.intel-btn-primary {
+    background: var(--accent);
+    color: var(--bg-main);
+}
+.intel-btn-primary:hover {
+    background: var(--accent-hover);
+}
+.intel-btn-label {
+    display: none;
+}
+@media (min-width: 640px) {
+    .intel-btn-label { display: inline; }
+}
+.intel-btn-danger {
+    background: var(--danger);
+    color: var(--text-on-accent);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.intel-btn-danger:hover {
+    background: var(--danger-hover);
+}
+
+.intel-filters {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+.intel-filters::-webkit-scrollbar {
+    display: none;
+}
+.ha-domain-btn.intel-filter-pill {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 0.875rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    background: var(--overlay-4);
+    border: 1px solid var(--overlay-6);
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.ha-domain-btn.intel-filter-pill:hover {
+    background: var(--overlay-8);
+    color: var(--text-primary);
+}
+.ha-domain-btn.intel-filter-pill.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg-main);
+}
+.intel-filter-sep {
+    flex-shrink: 0;
+    width: 1px;
+    height: 1rem;
+    background: var(--overlay-10);
+    margin: 0 0.15rem;
+}
+
+.intel-bulk-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.875rem 1rem;
+    background: var(--danger-bg);
+    border: 1px solid rgba(220, 38, 38, 0.2);
+    border-radius: 0.75rem;
+}
+.intel-bulk-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.intel-bulk-info i {
+    font-size: 0.875rem;
+}
+
+.intel-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+}
+@media (min-width: 640px) {
+    .intel-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+}
+@media (min-width: 1024px) {
+    .intel-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.25rem;
+    }
+}
+@media (min-width: 1280px) {
+    .intel-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.25rem;
+    }
+}
+.intel-grid-placeholder {
+    padding: 3rem 1.5rem;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+/* Device cards — clean tile style */
+.ha-device-card {
+    background: var(--surface-card);
+    border: 1px solid var(--border-light);
+    border-radius: 1rem;
+    padding: 1.125rem 1.25rem;
+    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+.ha-device-card:hover {
+    background: var(--surface-card-hover);
+    border-color: var(--border-medium);
+}
+.ha-device-card.ha-card-on {
+    border-color: var(--accent-border);
+    box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.1);
+}
+.ha-device-card.ha-card-unavailable {
+    opacity: 0.55;
+}
+
+.ha-card-toggle {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.625rem;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, transform 0.1s;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+.ha-card-toggle.ha-toggle-on {
+    background: var(--accent);
+    color: var(--bg-main);
+}
+.ha-card-toggle.ha-toggle-off {
+    background: var(--overlay-6);
+    color: var(--text-tertiary);
+}
+.ha-card-toggle:active {
+    transform: scale(0.92);
+}
+
+.ha-card-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+.ha-card-checkbox {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+}
+

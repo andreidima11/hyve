@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CreamPies SRL - Patiserie Artizanală</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+        h1, h2, h3 {
+            font-family: 'Playfair Display', serif;
+        }
+    </style>
+</head>
+<body class="bg-amber-50 text-gray-800">
+    <!-- Header -->
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <span class="text-3xl">🍰</span>
+                <h1 class="text-2xl font-bold text-amber-700">CreamPies SRL</h1>
+            </div>
+            <nav class="hidden md:flex space-x-8">
+                <a href="#acasa" class="text-gray-600 hover:text-amber-700 transition">Acasă</a>
+                <a href="#despre" class="text-gray-600 hover:text-amber-700 transition">Despre Noi</a>
+                <a href="#produse" class="text-gray-600 hover:text-amber-700 transition">Produse</a>
+                <a href="#contact" class="text-gray-600 hover:text-amber-700 transition">Contact</a>
+            </nav>
+            <button class="md:hidden text-gray-600" onclick="toggleMenu()">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+            </button>
+        </div>
+        <!-- Mobile Menu -->
+        <div id="mobileMenu" class="hidden md:hidden bg-white border-t">
+            <nav class="flex flex-col px-6 py-4 space-y-3">
+                <a href="#acasa" class="text-gray-600 hover:text-amber-700">Acasă</a>
+                <a href="#despre" class="text-gray-600 hover:text-amber-700">Despre Noi</a>
+                <a href="#produse" class="text-gray-600 hover:text-amber-700">Produse</a>
+                <a href="#contact" class="text-gray-600 hover:text-amber-700">Contact</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="acasa" class="relative h-screen flex items-center justify-center overflow-hidden">
+        <div class="absolute inset-0">
+            <img src="https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=1920&q=80" 
+                 alt="Patiserie" 
+                 class="w-full h-full object-cover">
+            <div class="absolute inset-0 bg-black/50"></div>
+        </div>
+        <div class="relative z-10 text-center text-white px-6">
+            <h2 class="text-5xl md:text-7xl font-bold mb-6">CreamPies SRL</h2>
+            <p class="text-xl md:text-2xl mb-8 max-w-2xl mx-auto">Patiserie artizanală cu ingrediente proaspete și pasiune pentru detalii</p>
+            <a href="#produse" class="inline-block bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-8 rounded-full transition transform hover:scale-105">
+                Vezi Produsele Noastre
+            </a>
+        </div>
+    </section>
+
+    <!-- Despre Noi -->
+    <section id="despre" class="py-20 bg-white">
+        <div class="container mx-auto px-6">
+            <div class="max-w-3xl mx-auto text-center">
+                <h2 class="text-4xl font-bold text-amber-700 mb-8">Despre CreamPies SRL</h2>
+                <p class="text-lg text-gray-600 mb-6">
+                    Cu peste 10 ani de experiență în domeniu, CreamPies SRL este sinonimă cu calitate și tradiție în patiseria românească. 
+                    Fiecare produs este preparat manual, cu ingrediente premium și multă dragoste.
+                </p>
+                <p class="text-lg text-gray-600">
+                    De la prăjiturile clasice la crenguțe moderne, oferim o gamă variată de delicii pentru toate gusturile și ocazii.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Produse -->
+    <section id="produse" class="py-20 bg-amber-50">
+        <div class="container mx-auto px-6">
+            <h2 class="text-4xl font-bold text-amber-700 text-center mb-4">Produsele Noastre</h2>
+            <p class="text-gray-600 text-center mb-12 max-w-2xl mx-auto">Descoperă selecția noastră de delicii artizanale</p>
+            
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Produs 1 -->
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden transform hover:scale-105 transition duration-300">
+                    <img src="https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=600&q=80" 
+                         alt="Prăjitură Ciocolată" 
+                         class="w-full h-56 object-cover">
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">Prăjitură Ciocolată</h3>
+                        <p class="text-gray-600 mb-4">Straturi delicioase de ciocolată neagră și cremă de vanilie</p>
+                        <span class="text-amber-600 font-semibold">45 RON</span>
+                    </div>
+                </div>
+
+                <!-- Produs 2 -->
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden transform hover:scale-105 transition duration-300">
+                    <img src="https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=600&q=80" 
+                         alt="Tort Fructe" 
+                         class="w-full h-56 object-cover">
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">Tort Fructe de Pădure</h3>
+                        <p class="text-gray-600 mb-4">Tort cu fructe proaspete și crema de mascarpone</p>
+                        <span class="text-amber-600 font-semibold">85 RON</span>
+                    </div>
+                </div>
+
+                <!-- Produs 3 -->
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden transform hover:scale-105 transition duration-300">
+                    <img src="https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600&q=80" 
+                         alt="Croissant" 
+                         class="w-full h-56 object-cover">
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">Croissant cu Cacao</h3>
+                        <p class="text-gray-600 mb-4">Croissant crocant cu pudră de cacao și zahăr vanilat</p>
+                        <span class="text-amber-600 font-semibold">18 RON</span>
+                    </div>
+                </div>
+
+                <!-- Produs 4 -->
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden transform hover:scale-105 transition duration-300">
+                    <img src="https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=600&q=80" 
+                         alt="Macarons" 
+                         class="w-full h-56 object-cover">
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">Macarons Variate</h3>
+                        <p class="text-gray-600 mb-4">Set de 6 macarons cu diverse arome: vanilie, ciocolată, fructe</p>
+                        <span class="text-amber-600 font-semibold">35 RON</span>
+                    </div>
+                </div>
+
+                <!-- Produs 5 -->
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden transform hover:scale-105 transition duration-300">
+                    <img src="https://images.unsplash.com/photo-1488477181946-6428a0291777?w=600&q=80" 
+                         alt="Cheesecake" 
+                         class="w-full h-56 object-cover">
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">New York Cheesecake</h3>
+                        <p class="text-gray-600 mb-4">Cheesecake cremos cu sos de fructe de pădure</p>
+                        <span class="text-amber-600 font-semibold">55 RON</span>
+                    </div>
+                </div>
+
+                <!-- Produs 6 -->
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden transform hover:scale-105 transition duration-300">
+                    <img src="https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=600&q=80" 
+                         alt="Donuts" 
+                         class="w-full h-56 object-cover">
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">Donuts Glazurați</h3>
+                        <p class="text-gray-600 mb-4">Donuts proaspuți cu glazură variată și toppinguri</p>
+                        <span class="text-amber-600 font-semibold">25 RON</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact -->
+    <section id="contact" class="py-20 bg-white">
+        <div class="container mx-auto px-6">
+            <h2 class="text-4xl font-bold text-amber-700 text-center mb-12">Contactează-ne</h2>
+            
+            <div class="max-w-4xl mx-auto grid md:grid-cols-2 gap-12">
+                <div>
+                    <h3 class="text-2xl font-semibold text-gray-800 mb-6">Informații</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-start space-x-3">
+                            <span class="text-2xl">📍</span>
+                            <div>
+                                <p class="font-semibold">Adresa</p>
+                                <p class="text-gray-600">Strada Pădurii nr. 123, București</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3">
+                            <span class="text-2xl">📞</span>
+                            <div>
+                                <p class="font-semibold">Telefon</p>
+                                <p class="text-gray-600">+40 721 234 567</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3">
+                            <span class="text-2xl">📧</span>
+                            <div>
+                                <p class="font-semibold">Email</p>
+                                <p class="text-gray-600">contact@creampies.ro</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3">
+                            <span class="text-2xl">🕐</span>
+                            <div>
+                                <p class="font-semibold">Program</p>
+                                <p class="text-gray-600">Luni - Vineri: 08:00 - 20:00<br>Sâmbătă - Duminică: 09:00 - 18:00</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <h3 class="text-2xl font-semibold text-gray-800 mb-6">Trimite-ne un mesaj</h3>
+                    <form class="space-y-4">
+                        <div>
+                            <input type="text" placeholder="Nume" 
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div>
+                            <input type="email" placeholder="Email" 
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div>
+                            <textarea placeholder="Mesajul tău" rows="4"
+                                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"></textarea>
+                        </div>
+                        <button type="submit" 
+                                class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-6 rounded-lg transition">
+                            Trimite Mesajul
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white py-12">
+        <div class="container mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="flex items-center space-x-2 mb-6 md:mb-0">
+                    <span class="text-3xl">🍰</span>
+                    <h3 class="text-2xl font-bold">CreamPies SRL</h3>
+                </div>
+                <div class="flex space-x-6">
+                    <a href="#" class="text-gray-400 hover:text-white transition">Facebook</a>
+                    <a href="#" class="text-gray-400 hover:text-white transition">Instagram</a>
+                    <a href="#" class="text-gray-400 hover:text-white transition">WhatsApp</a>
+                </div>
+            </div>
+            <div class="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+                <p>&copy; 2024 CreamPies SRL. Toate drepturile rezervate.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function toggleMenu() {
+            const menu = document.getElementById('mobileMenu');
+            menu.classList.toggle('hidden');
+        }
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                    // Close mobile menu if open
+                    document.getElementById('mobileMenu').classList.add('hidden');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

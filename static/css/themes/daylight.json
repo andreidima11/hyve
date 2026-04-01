@@ -1,0 +1,13 @@
+{
+    "id": "daylight",
+    "name": "Daylight",
+    "description": "Clean and bright — easy on the eyes during the day",
+    "author": "Memini",
+    "version": "1.0.0",
+    "preview": {
+        "bg": "#f1f5f9",
+        "surface": "#ffffff",
+        "accent": "#2563eb",
+        "text": "#0f172a"
+    }
+}

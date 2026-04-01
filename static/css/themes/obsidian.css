@@ -1,0 +1,137 @@
+/*  ╔══════════════════════════════════════════════════════╗
+    ║  OBSIDIAN — Default Dark Theme                       ║
+    ║  Deep space premium, the original Memini look        ║
+    ╚══════════════════════════════════════════════════════╝  */
+
+[data-theme="dark"] {
+    color-scheme: dark;
+
+    /* ── Accent ── */
+    --accent: #38bdf8;
+    --accent-hover: #7dd3fc;
+    --accent-glow: rgba(56, 189, 248, 0.25);
+    --accent-soft: rgba(56, 189, 248, 0.08);
+    --accent-border: rgba(56, 189, 248, 0.15);
+    --accent-rgb: 56, 189, 248;
+    --secondary-accent: rgba(168, 85, 247, 0.6);
+    --secondary-accent-rgb: 168, 85, 247;
+    --msg-user: linear-gradient(135deg, #0c4a6e 0%, #0284c7 50%, #38bdf8 100%);
+    --logo-gradient: linear-gradient(135deg, #38bdf8, #a78bfa);
+
+    /* ── Surfaces / Backgrounds ── */
+    --bg-main: #030712;
+    --surface-0: #030712;
+    --surface-1: rgba(15, 23, 42, 0.6);
+    --surface-2: rgba(30, 41, 59, 0.4);
+    --surface-3: rgba(51, 65, 85, 0.3);
+    --surface-glass: rgba(15, 23, 42, 0.5);
+    --surface-glass-heavy: rgba(7, 10, 18, 0.97);
+    --surface-sidebar: rgba(3, 7, 18, 0.95);
+    --surface-menu: rgba(15, 23, 42, 0.97);
+    --surface-menu-heavy: rgba(15, 23, 42, 0.98);
+    --surface-code: #080d1a;
+    --surface-code-soft: rgba(0, 0, 0, 0.2);
+    --surface-input: rgba(0, 0, 0, 0.3);
+    --surface-overlay: rgba(0, 0, 0, 0.5);
+    --surface-overlay-heavy: rgba(0, 0, 0, 0.85);
+    --surface-tooltip: rgba(30, 32, 40, 0.95);
+    --surface-card: rgba(255, 255, 255, 0.035);
+    --surface-card-hover: rgba(255, 255, 255, 0.06);
+    --surface-chat-input: rgba(3, 7, 18, 0.85);
+
+    /* ── Text ── */
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-tertiary: #475569;
+    --text-heading: #ffffff;
+    --text-on-accent: #ffffff;
+    --text-code: #93c5fd;
+    --text-inline-code: #93c5fd;
+    --text-link: #60a5fa;
+    --text-bubble: rgba(233, 237, 244, 0.92);
+    --text-bubble-heading: rgba(248, 250, 252, 0.97);
+
+    /* ── Borders ── */
+    --border-subtle: rgba(255, 255, 255, 0.04);
+    --border-light: rgba(255, 255, 255, 0.07);
+    --border-medium: rgba(255, 255, 255, 0.1);
+    --border-hover: rgba(255, 255, 255, 0.12);
+    --glass-border: rgba(255, 255, 255, 0.06);
+
+    /* ── Contrast overlays (white on dark) ── */
+    --overlay-2: rgba(255, 255, 255, 0.02);
+    --overlay-3: rgba(255, 255, 255, 0.03);
+    --overlay-4: rgba(255, 255, 255, 0.04);
+    --overlay-5: rgba(255, 255, 255, 0.05);
+    --overlay-6: rgba(255, 255, 255, 0.06);
+    --overlay-8: rgba(255, 255, 255, 0.08);
+    --overlay-10: rgba(255, 255, 255, 0.10);
+    --overlay-15: rgba(255, 255, 255, 0.15);
+
+    /* ── Shadows ── */
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+    --shadow-xl: 0 20px 50px rgba(0, 0, 0, 0.5);
+
+    /* ── Glow ── */
+    --glow-primary: rgba(56, 189, 248, 0.12);
+    --glow-secondary: rgba(168, 85, 247, 0.08);
+
+    /* ── Semantic colors ── */
+    --danger: #dc2626;
+    --danger-hover: #b91c1c;
+    --danger-soft: #f87171;
+    --danger-bg: rgba(220, 38, 38, 0.08);
+    --danger-bg-hover: rgba(220, 38, 38, 0.12);
+    --success: #22c55e;
+    --success-hover: #16a34a;
+    --success-soft: #4ade80;
+    --success-bg: rgba(34, 197, 94, 0.1);
+    --warning: #f59e0b;
+    --warning-hover: #d97706;
+    --warning-soft: #fbbf24;
+    --warning-text: #fef3c7;
+    --info: #3b82f6;
+
+    /* ── User bubble ── */
+    --user-bubble-bg: #38bdf8;
+    --user-bubble-shadow: 0 1px 6px rgba(56, 189, 248, 0.2);
+    --user-bubble-shadow-hover: 0 2px 10px rgba(56, 189, 248, 0.3);
+
+    /* ── Scrollbar ── */
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: rgba(255, 255, 255, 0.08);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.15);
+
+    /* ── Chat input bar ── */
+    --chat-input-bg: var(--surface-1);
+    --chat-input-wrapper-bg: var(--surface-0);
+
+    /* ── Sidebar ── */
+    --sidebar-active-bg: rgba(56, 189, 248, 0.06);
+    --sidebar-active-border: rgba(56, 189, 248, 0.1);
+    --sidebar-active-shadow: rgba(56, 189, 248, 0.03);
+
+    /* ── Send button ── */
+    --send-btn-bg: linear-gradient(145deg, #38bdf8, #0ea5e9);
+    --send-btn-streaming-bg: linear-gradient(145deg, #ef4444, #dc2626);
+
+    /* ── Voice button ── */
+    --voice-btn-bg: linear-gradient(145deg, #1e293b, #0f172a);
+    --voice-btn-recording-bg: linear-gradient(145deg, #b45309, #92400e);
+    --voice-btn-cancelled-bg: linear-gradient(145deg, #dc2626, #991b1b);
+
+    /* ── Conference ── */
+    --conf-accent: rgba(139, 92, 246, 0.5);
+    --conf-accent-soft: rgba(139, 92, 246, 0.06);
+    --conf-particle: #ec4899;
+
+    /* ── Misc ── */
+    --selector-accent: #38bdf8;
+    --img-card-bg: rgba(0, 0, 0, 0.25);
+    --noise-opacity: 0.5;
+    --logo-shadow: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+    --meta-theme-color: #030712;
+}

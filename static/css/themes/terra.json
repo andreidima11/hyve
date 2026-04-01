@@ -1,0 +1,13 @@
+{
+    "id": "terra",
+    "name": "Terra",
+    "description": "Warm editorial dark theme with earthy surfaces, terracotta accents, and a grounded modern feel",
+    "author": "Memini",
+    "version": "1.0.0",
+    "preview": {
+        "bg": "#181615",
+        "surface": "#211f1e",
+        "accent": "#d97757",
+        "text": "#f4eee8"
+    }
+}

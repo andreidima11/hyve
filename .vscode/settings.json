@@ -1,0 +1,49 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^source /Users/andreidima/hass_memory/venv/bin/activate && python -c \"import brain\\.cortex; import brain\\.toolbox; print\\('OK'\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python -c \"\nfrom brain\\.cortex import generate_response_stream, generate_response\nfrom brain\\.toolbox import get_available_tools, set_lazy_history, clear_lazy_history, _exec_get_conversation_history\nprint\\('All functions accessible'\\)\n\n# Test tool list includes get_conversation_history when lazy_history is True\nimport settings\nsettings\\.CFG\\['intelligence'\\] = settings\\.CFG\\.get\\('intelligence', \\{\\}\\)\nsettings\\.CFG\\['intelligence'\\]\\['lazy_history'\\] = True\ntools = get_available_tools\\('test_user'\\)\ntool_names = \\[t\\['function'\\]\\['name'\\] for t in tools\\]\nassert 'get_conversation_history' in tool_names, f'get_conversation_history missing from tools: \\{tool_names\\}'\nassert 'recall_conversation' not in tool_names, f'recall_conversation should be removed'\nprint\\(f'Tools OK: \\{len\\(tools\\)\\} tools, get_conversation_history present'\\)\n\n# Test lazy history store\nset_lazy_history\\('test_user', \\[\\{'role': 'user', 'content': 'hello'\\}, \\{'role': 'assistant', 'content': 'hi'\\}\\]\\)\nresult = _exec_get_conversation_history\\(\\{\\}, 'test_user'\\)\nassert 'hello' in result\nclear_lazy_history\\('test_user'\\)\nresult2 = _exec_get_conversation_history\\(\\{\\}, 'test_user'\\)\nassert 'No earlier' in result2\nprint\\('Lazy history store OK'\\)\nprint\\('ALL TESTS PASSED'\\)\n\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/Users/andreidima/hass_memory/venv/bin/python": true,
+        "/^cd /Users/andreidima/hass_memory && python3 - <<'PY'\nfrom pathlib import Path\np=Path\\('main\\.py'\\)\ntext=p\\.read_text\\(\\)\nstart=text\\.find\\('# Metrici Auto router: câte cereri au mers la local vs API \\(în memorie; poate fi persistat mai târziu\\)'\\)\nend=text\\.find\\('# --- CCTV \\(camere RTSP \\+ descriere via model vision; pentru chat și automatizări\\)'\\)\nprint\\(start, end\\)\nif start!=-1 and end!=-1 and end>start:\n    new=text\\[:start\\]\\+text\\[end:\\]\n    p\\.write_text\\(new\\)\n    print\\('patched'\\)\nelse:\n    print\\('markers not found'\\)\nPY$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd /Users/andreidima/hass_memory && python3 -c \"\nwith open\\('main\\.py', 'r'\\) as f:\n    lines = f\\.readlines\\(\\)\n\n# Find line numbers for the markers\nstart_line = None\nend_line = None\n\nfor i, line in enumerate\\(lines\\):\n    if '# --- Reminders \\(Memento\\) \\+ Automations ---' in line:\n        start_line = i\n    if '@app\\.get\\(\\\\\"/api/sessions\\\\\"\\)' in line and end_line is None and start_line is not None:\n        end_line = i\n        break\n\nprint\\(f'Start: \\{start_line\\}, End: \\{end_line\\}'\\)\n\n# Remove the block \\(keep one blank line before sessions\\)\nif start_line is not None and end_line is not None:\n    # Find the position of previous blank line\\(s\\) before start \n    trim_start = start_line\n    while trim_start > 0 and lines\\[trim_start-1\\]\\.strip\\(\\) == '':\n        trim_start -= 1\n    \n    # Reconstruct keeping content before trim_start \\+ one blank line \\+ content from end_line onward\n    new_lines = lines\\[:trim_start\\] \\+ \\['\\\\n'\\] \\+ lines\\[end_line:\\]\n    \n    with open\\('main\\.py', 'w'\\) as f:\n        f\\.writelines\\(new_lines\\)\n    \n    print\\(f'Removed lines \\{trim_start\\} to \\{end_line\\}'\\)\n    print\\(f'Old total: \\{len\\(lines\\)\\}, New total: \\{len\\(new_lines\\)\\}'\\)\n\"\n$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python3 remove_endpoints\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd /Users/andreidima/hass_memory && source venv/bin/activate && python -c \"\nimport py_compile\nfiles = \\[\n    'ha_websocket\\.py',\n    'intent_router\\.py',\n    'home_assistant\\.py',\n    'forge\\.py',\n    'skills/__init__\\.py',\n    'settings\\.py',\n    'main\\.py',\n\\]\nerrors = \\[\\]\nfor f in files:\n    try:\n        py_compile\\.compile\\(f, doraise=True\\)\n        print\\(f'  OK \\{f\\}'\\)\n    except py_compile\\.PyCompileError as e:\n        print\\(f'  FAIL \\{f\\}: \\{e\\}'\\)\n        errors\\.append\\(f\\)\nprint\\(\\)\nif errors:\n    print\\(f'Errors in: \\{errors\\}'\\)\nelse:\n    print\\('All files compile OK'\\)\n\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python -c \"\nimport ha_websocket\nprint\\(f'ha_websocket: ha_ws=\\{type\\(ha_websocket\\.ha_ws\\)\\.__name__\\}'\\)\n\nimport intent_router\nprint\\(f'intent_router: categories=\\{intent_router\\._VALID_INTENTS\\}'\\)\n\n# Test quality scoring\nimport sys; sys\\.path\\.insert\\(0, '\\.'\\)\nfrom brain\\.cortex import _score_fact_quality\ntests = \\[\n    \\('ok', 0\\),\n    \\('My name is Andrei and I live in Bucharest', 1\\),\n    \\('The user prefers dark mode', 1\\),\n    \\('hello', 0\\),\n    \\('I was born on 1990-05-15 in Romania', 1\\),\n\\]\nfor fact, should_be_high in tests:\n    score = _score_fact_quality\\(fact\\)\n    status = 'OK' if \\(score > 0\\.3\\) == bool\\(should_be_high\\) else 'MISMATCH'\n    print\\(f'  \\{status\\} q=\\{score:\\.2f\\} \\\\\"\\{fact\\[:50\\]\\}\\\\\"'\\)\n\" 2>&1 \\| head -30$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python scripts/_test_sandbox\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python -c \"import httpx; c = httpx\\.AsyncClient\\(\\); print\\('follow_redirects:', c\\.follow_redirects\\); print\\('max_redirects:', c\\.max_redirects\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python -c \"import py_compile; py_compile\\.compile\\('forge\\.py', doraise=True\\); py_compile\\.compile\\('brain/toolbox\\.py', doraise=True\\); py_compile\\.compile\\('skills/__init__\\.py', doraise=True\\); py_compile\\.compile\\('skills/_sandbox_runner\\.py', doraise=True\\); print\\('ALL OK'\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd /Users/andreidima/hass_memory/static/css && for f in base\\.css chat\\.css intelligence\\.css ha-panel\\.css components\\.css conference\\.css; do python3 -c \"\nlines = open\\('\\$f'\\)\\.readlines\\(\\)\nd = 0\nstack = \\[\\]\nfor i, line in enumerate\\(lines, 1\\):\n    d \\+= line\\.count\\('\\{'\\) - line\\.count\\('\\}'\\)\n    for _ in range\\(line\\.count\\('\\{'\\)\\):\n        stack\\.append\\(\\(i, line\\.strip\\(\\)\\[:50\\]\\)\\)\n    for _ in range\\(line\\.count\\('\\}'\\)\\):\n        if stack: stack\\.pop\\(\\)\nif d != 0:\n    print\\(f'\\$f: depth=\\{d\\}'\\)\n    for ln, txt in stack:\n        print\\(f'  Line \\{ln\\}: \\{txt\\}'\\)\nelse:\n    print\\(f'\\$f: OK'\\)\n\"; done$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

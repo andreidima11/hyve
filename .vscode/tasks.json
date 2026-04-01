@@ -1,0 +1,61 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Memini: run server",
+      "type": "shell",
+      "command": "${workspaceFolder}/venv/bin/python",
+      "args": ["main.py"],
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Memini: run tests",
+      "type": "shell",
+      "command": "${workspaceFolder}/venv/bin/python",
+      "args": ["-m", "pytest"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Memini: release checks",
+      "type": "shell",
+      "command": "${workspaceFolder}/venv/bin/python",
+      "args": ["scripts/release_checks.py"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Memini: release gate",
+      "type": "shell",
+      "command": "${workspaceFolder}/venv/bin/python",
+      "args": ["scripts/release_gate.py"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Memini: FCM checks",
+      "type": "shell",
+      "command": "${workspaceFolder}/venv/bin/python",
+      "args": ["scripts/fcm_checks.py"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Memini: build CSS",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "css:build"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Memini: watch CSS",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "css:watch"],
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

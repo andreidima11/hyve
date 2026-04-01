@@ -1,0 +1,1237 @@
+/*  ╔══════════════════════════════════════════════════════╗
+    ║  MIDNIGHT — DeepSeek-inspired Clean Dark Theme       ║
+    ║  Flat neutral charcoal, zero glow, minimal style     ║
+    ╚══════════════════════════════════════════════════════╝  */
+
+[data-theme="midnight"] {
+    color-scheme: dark;
+
+    /* ── Accent — warm amber ── */
+    --accent: #f59e0b;
+    --accent-hover: #fbbf24;
+    --accent-glow: rgba(245, 158, 11, 0.15);
+    --accent-soft: rgba(245, 158, 11, 0.08);
+    --accent-border: rgba(245, 158, 11, 0.2);
+    --accent-rgb: 245, 158, 11;
+    --secondary-accent: rgba(251, 191, 36, 0.5);
+    --secondary-accent-rgb: 251, 191, 36;
+    --msg-user: #f59e0b;
+    --logo-gradient: linear-gradient(135deg, #f59e0b, #fbbf24);
+
+    /* ── Surfaces — true DeepSeek neutral gray ── */
+    --bg-main: #212121;
+    --surface-0: #212121;
+    --surface-1: #2f2f2f;
+    --surface-2: #373737;
+    --surface-3: #424242;
+    --surface-glass: rgba(47, 47, 47, 0.92);
+    --surface-glass-heavy: rgba(33, 33, 33, 0.97);
+    --surface-sidebar: #171717;
+    --surface-menu: rgba(47, 47, 47, 0.98);
+    --surface-menu-heavy: rgba(39, 39, 39, 0.99);
+    --surface-code: #1a1a1a;
+    --surface-code-soft: rgba(0, 0, 0, 0.18);
+    --surface-input: transparent;
+    --surface-overlay: rgba(0, 0, 0, 0.45);
+    --surface-overlay-heavy: rgba(0, 0, 0, 0.75);
+    --surface-tooltip: rgba(55, 55, 55, 0.96);
+    --surface-card: rgba(255, 255, 255, 0.03);
+    --surface-card-hover: rgba(255, 255, 255, 0.055);
+    --surface-chat-input: transparent;
+
+    /* ── Text ── */
+    --text-primary: #e8e8e8;
+    --text-secondary: #a0a0a0;
+    --text-tertiary: #707070;
+    --text-heading: #f5f5f5;
+    --text-on-accent: #ffffff;
+    --text-code: #fcd34d;
+    --text-inline-code: #fcd34d;
+    --text-link: #fbbf24;
+    --text-bubble: rgba(232, 232, 232, 0.92);
+    --text-bubble-heading: rgba(245, 245, 245, 0.97);
+
+    /* ── Borders ── */
+    --border-subtle: rgba(255, 255, 255, 0.06);
+    --border-light: rgba(255, 255, 255, 0.09);
+    --border-medium: rgba(255, 255, 255, 0.13);
+    --border-hover: rgba(255, 255, 255, 0.18);
+    --glass-border: rgba(255, 255, 255, 0.07);
+
+    /* ── Overlays ── */
+    --overlay-2: rgba(255, 255, 255, 0.02);
+    --overlay-3: rgba(255, 255, 255, 0.03);
+    --overlay-4: rgba(255, 255, 255, 0.04);
+    --overlay-5: rgba(255, 255, 255, 0.05);
+    --overlay-6: rgba(255, 255, 255, 0.06);
+    --overlay-8: rgba(255, 255, 255, 0.08);
+    --overlay-10: rgba(255, 255, 255, 0.10);
+    --overlay-15: rgba(255, 255, 255, 0.15);
+
+    /* ── Shadows ── */
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.4);
+    --shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.45);
+
+    /* ── Glow — zero ── */
+    --glow-primary: transparent;
+    --glow-secondary: transparent;
+
+    /* ── Semantic colors ── */
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --danger-soft: #f87171;
+    --danger-bg: rgba(239, 68, 68, 0.1);
+    --danger-bg-hover: rgba(239, 68, 68, 0.15);
+    --success: #22c55e;
+    --success-hover: #16a34a;
+    --success-soft: #4ade80;
+    --success-bg: rgba(34, 197, 94, 0.1);
+    --warning: #f59e0b;
+    --warning-hover: #d97706;
+    --warning-soft: #fbbf24;
+    --warning-text: #fef3c7;
+    --info: #f59e0b;
+
+    /* ── User bubble — solid accent ── */
+    --user-bubble-bg: #f59e0b;
+    --user-bubble-shadow: none;
+    --user-bubble-shadow-hover: none;
+
+    /* ── Scrollbar ── */
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: rgba(255, 255, 255, 0.08);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.14);
+
+    /* ── Chat input bar ── */
+    --chat-input-bg: transparent;
+    --chat-input-wrapper-bg: var(--surface-0);
+
+    /* ── Sidebar ── */
+    --sidebar-active-bg: rgba(245, 158, 11, 0.08);
+    --sidebar-active-border: rgba(245, 158, 11, 0.15);
+    --sidebar-active-shadow: rgba(245, 158, 11, 0.04);
+
+    /* ── Send button ── */
+    --send-btn-bg: #f59e0b;
+    --send-btn-streaming-bg: linear-gradient(145deg, #ef4444, #dc2626);
+
+    /* ── Voice button ── */
+    --voice-btn-bg: linear-gradient(145deg, #373737, #2f2f2f);
+    --voice-btn-recording-bg: linear-gradient(145deg, #b45309, #92400e);
+    --voice-btn-cancelled-bg: linear-gradient(145deg, #dc2626, #991b1b);
+
+    /* ── Conference ── */
+    --conf-accent: rgba(245, 158, 11, 0.5);
+    --conf-accent-soft: rgba(245, 158, 11, 0.06);
+    --conf-particle: #fbbf24;
+
+    /* ── Misc ── */
+    --selector-accent: #f59e0b;
+    --img-card-bg: rgba(0, 0, 0, 0.2);
+    --noise-opacity: 0;
+    --logo-shadow: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+    --meta-theme-color: #212121;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   MIDNIGHT — Tailwind & Component Overrides
+   ══════════════════════════════════════════════════════════ */
+
+/* ─────────── TEXT COLORS ─────────── */
+
+[data-theme="midnight"] .text-slate-200 {
+    color: var(--text-primary) !important;
+}
+[data-theme="midnight"] .text-slate-300 {
+    color: var(--text-primary) !important;
+}
+[data-theme="midnight"] .text-slate-400 {
+    color: var(--text-secondary) !important;
+}
+[data-theme="midnight"] .text-slate-500 {
+    color: #808080 !important;
+}
+[data-theme="midnight"] .text-slate-600 {
+    color: var(--text-secondary) !important;
+}
+[data-theme="midnight"] .text-white {
+    color: var(--text-heading) !important;
+}
+
+/* Keep white text on accent buttons */
+[data-theme="midnight"] button[class*="bg-accent"].text-white,
+[data-theme="midnight"] button[class*="bg-gradient"].text-white,
+[data-theme="midnight"] [class*="bg-accent"] .text-white,
+[data-theme="midnight"] [class*="bg-gradient"] .text-white,
+[data-theme="midnight"] .chat-send-btn,
+[data-theme="midnight"] .chat-send-btn i,
+[data-theme="midnight"] button.bg-red-500.text-white,
+[data-theme="midnight"] #confirm-ok {
+    color: #ffffff !important;
+}
+
+[data-theme="midnight"] .hover\:text-white:hover {
+    color: var(--text-heading) !important;
+}
+[data-theme="midnight"] .hover\:text-slate-300:hover {
+    color: var(--text-primary) !important;
+}
+
+/* Version text in sidebar */
+[data-theme="midnight"] .text-accent\/60 {
+    color: rgba(245, 158, 11, 0.6) !important;
+}
+
+/* ─────────── BACKGROUNDS ─────────── */
+
+[data-theme="midnight"] .bg-slate-900 {
+    background-color: #2f2f2f !important;
+}
+[data-theme="midnight"] .bg-slate-800 {
+    background-color: #373737 !important;
+}
+[data-theme="midnight"] .bg-slate-900\/50 {
+    background-color: rgba(47, 47, 47, 0.5) !important;
+}
+[data-theme="midnight"] .bg-white\/5 {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+[data-theme="midnight"] .bg-white\/10 {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+}
+[data-theme="midnight"] .bg-white\/\[0\.02\] {
+    background-color: rgba(255, 255, 255, 0.02) !important;
+}
+[data-theme="midnight"] .bg-white\/\[0\.03\] {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+}
+[data-theme="midnight"] .bg-white\/\[0\.04\] {
+    background-color: rgba(255, 255, 255, 0.04) !important;
+}
+[data-theme="midnight"] .bg-bg-main {
+    background-color: var(--bg-main) !important;
+}
+[data-theme="midnight"] .bg-bg-side {
+    background-color: var(--surface-sidebar) !important;
+}
+[data-theme="midnight"] .bg-bg-card {
+    background-color: var(--surface-glass) !important;
+}
+
+/* Hover backgrounds */
+[data-theme="midnight"] .hover\:bg-white\/5:hover {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+}
+[data-theme="midnight"] .hover\:bg-white\/10:hover {
+    background-color: rgba(255, 255, 255, 0.10) !important;
+}
+[data-theme="midnight"] .hover\:bg-white\/\[0\.03\]:hover,
+[data-theme="midnight"] .hover\:bg-white\/\[0\.04\]:hover {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+}
+[data-theme="midnight"] .active\:bg-white\/\[0\.06\]:active {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ─────────── BORDERS ─────────── */
+
+[data-theme="midnight"] .border-white\/5,
+[data-theme="midnight"] .border-white\/10 {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+[data-theme="midnight"] .border-white\/\[0\.03\] {
+    border-color: rgba(255, 255, 255, 0.06) !important;
+}
+[data-theme="midnight"] .border-white\/\[0\.04\] {
+    border-color: rgba(255, 255, 255, 0.06) !important;
+}
+[data-theme="midnight"] .border-white\/\[0\.06\] {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+[data-theme="midnight"] .border-white\/20 {
+    border-color: rgba(255, 255, 255, 0.16) !important;
+}
+[data-theme="midnight"] .hover\:border-white\/10:hover {
+    border-color: rgba(255, 255, 255, 0.14) !important;
+}
+[data-theme="midnight"] .divide-white\/5 > :not([hidden]) ~ :not([hidden]) {
+    border-color: rgba(255, 255, 255, 0.06) !important;
+}
+[data-theme="midnight"] .border-slate-700\/50 {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ─────────── BODY ─────────── */
+
+[data-theme="midnight"] body {
+    background: #212121 !important;
+    background-image: none !important;
+}
+
+/* ─────────── SIDEBAR ─────────── */
+
+[data-theme="midnight"] #sidebar {
+    background: #171717 !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+[data-theme="midnight"] #sidebar::before {
+    display: none !important;
+}
+[data-theme="midnight"] #sidebar::after {
+    display: none !important;
+}
+
+[data-theme="midnight"] #sidebar .nav-btn {
+    color: #a0a0a0;
+}
+[data-theme="midnight"] #sidebar .nav-btn:hover {
+    color: #e8e8e8;
+    background: rgba(255, 255, 255, 0.06) !important;
+}
+
+[data-theme="midnight"] .session-item {
+    color: #a0a0a0 !important;
+}
+[data-theme="midnight"] .session-item:hover {
+    background: rgba(255, 255, 255, 0.04) !important;
+}
+[data-theme="midnight"] .session-item button {
+    color: #a0a0a0 !important;
+}
+
+/* ─────────── HEADER ─────────── */
+
+[data-theme="midnight"] header {
+    background: rgba(33, 33, 33, 0.95) !important;
+    border-color: rgba(255, 255, 255, 0.06) !important;
+}
+[data-theme="midnight"] header button {
+    color: #a0a0a0 !important;
+}
+[data-theme="midnight"] header button:hover {
+    color: #e8e8e8 !important;
+}
+
+/* ─────────── CONFIG TABS ─────────── */
+
+[data-theme="midnight"] .config-tab-btn {
+    color: #808080 !important;
+}
+[data-theme="midnight"] .config-tab-btn:hover {
+    color: #e8e8e8 !important;
+}
+[data-theme="midnight"] .config-tab-btn.border-accent,
+[data-theme="midnight"] .config-tab-btn.text-accent {
+    color: #f59e0b !important;
+}
+
+/* ─────────── CHAT INPUT ─────────── */
+
+[data-theme="midnight"] .chat-input-inner {
+    background: #2a2a2a !important;
+    border: 1.5px solid rgba(245, 158, 11, 0.15) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+[data-theme="midnight"] .chat-input-inner:focus-within {
+    border-color: rgba(245, 158, 11, 0.5) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(245, 158, 11, 0.08) !important;
+}
+[data-theme="midnight"] .chat-input-field {
+    background: transparent !important;
+}
+
+[data-theme="midnight"] .chat-send-btn {
+    background: #f59e0b !important;
+}
+
+[data-theme="midnight"] .chat-attach-btn {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    color: #a0a0a0 !important;
+}
+[data-theme="midnight"] .chat-attach-btn:hover {
+    color: #f59e0b !important;
+    background: rgba(245, 158, 11, 0.10) !important;
+    border-color: rgba(245, 158, 11, 0.25) !important;
+    box-shadow: none !important;
+}
+
+/* ─────────── USER BUBBLE ─────────── */
+
+[data-theme="midnight"] .user-bubble {
+    background: #f59e0b !important;
+    border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
+    box-shadow: none !important;
+}
+[data-theme="midnight"] .user-bubble .chat-bubble-content {
+    color: #ffffff !important;
+}
+
+/* ─────────── MODALS & GLASS ─────────── */
+
+[data-theme="midnight"] .glass {
+    background: rgba(47, 47, 47, 0.95) !important;
+    border-color: rgba(255, 255, 255, 0.07) !important;
+    backdrop-filter: blur(16px) saturate(120%) !important;
+}
+[data-theme="midnight"] .modal-overlay {
+    background: rgba(0, 0, 0, 0.55) !important;
+}
+[data-theme="midnight"] .cfg-section {
+    background: rgba(47, 47, 47, 0.5) !important;
+    border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* ─────────── INPUTS ─────────── */
+
+[data-theme="midnight"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not(.intel-search-input):not(.ha-search-input),
+[data-theme="midnight"] select,
+[data-theme="midnight"] textarea:not(.chat-input-field) {
+    background-color: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    color: var(--text-primary) !important;
+}
+[data-theme="midnight"] input:not(.intel-search-input):not(.ha-search-input):focus,
+[data-theme="midnight"] select:focus,
+[data-theme="midnight"] textarea:not(.chat-input-field):focus {
+    border-color: rgba(245, 158, 11, 0.45) !important;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.08) !important;
+}
+
+/* ─────────── SETTINGS BUTTONS ─────────── */
+
+[data-theme="midnight"] button[onclick="saveConfig(event)"] {
+    color: #ffffff !important;
+}
+[data-theme="midnight"] button[onclick="restartServer()"] {
+    color: rgba(239, 68, 68, 0.7) !important;
+}
+[data-theme="midnight"] button[onclick="restartServer()"]:hover {
+    color: #ef4444 !important;
+}
+[data-theme="midnight"] .bg-accent\/10 {
+    background-color: rgba(245, 158, 11, 0.10) !important;
+}
+[data-theme="midnight"] button[onclick*="openIntegrationConfigModal"] {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #a0a0a0 !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+[data-theme="midnight"] button[onclick*="openIntegrationConfigModal"]:hover {
+    background: rgba(245, 158, 11, 0.10) !important;
+    color: #f59e0b !important;
+    border-color: rgba(245, 158, 11, 0.25) !important;
+}
+[data-theme="midnight"] button[onclick="closeProfileEditor()"] {
+    color: #a0a0a0 !important;
+}
+[data-theme="midnight"] button[onclick="closeProfileEditor()"]:hover {
+    color: #e8e8e8 !important;
+}
+
+/* ─────────── CODE BLOCKS ─────────── */
+
+[data-theme="midnight"] .chat-bubble-content pre {
+    background: #1a1a1a !important;
+    border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* ─────────── TOGGLE SWITCH ─────────── */
+
+[data-theme="midnight"] .app-toggle-switch {
+    background: #424242 !important;
+}
+[data-theme="midnight"] .app-toggle-switch[data-on="true"] {
+    background: #f59e0b !important;
+}
+
+/* ─────────── MODEL SELECTOR ─────────── */
+
+[data-theme="midnight"] .model-selector-balloon {
+    background: #2f2f2f !important;
+    border-color: rgba(245, 158, 11, 0.15) !important;
+}
+
+/* ─────────── KILL AURA / GLOW / NOISE ─────────── */
+
+[data-theme="midnight"] .chat-view {
+    background-image: none !important;
+}
+[data-theme="midnight"] .chat-view::before {
+    display: none !important;
+}
+[data-theme="midnight"] .fa-brain.text-white,
+[data-theme="midnight"] .fa-brain.text-accent {
+    filter: none !important;
+}
+[data-theme="midnight"] .input-field:focus {
+    box-shadow: none !important;
+}
+
+/* ─────────── CONFIG LABELS ─────────── */
+
+[data-theme="midnight"] .cfg-section h4,
+[data-theme="midnight"] .cfg-section label {
+    color: #e8e8e8;
+}
+[data-theme="midnight"] .cfg-section p {
+    color: #808080;
+}
+
+/* ─────────── WELCOME STATE ─────────── */
+
+[data-theme="midnight"] .chat-empty-title {
+    color: #f5f5f5 !important;
+}
+
+
+/* ─────────── MEMORY / TABLE ─────────── */
+
+[data-theme="midnight"] thead {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* ─────────── SHADOWS ─────────── */
+
+[data-theme="midnight"] .shadow-accent\/15 {
+    --tw-shadow-color: rgba(245, 158, 11, 0.10);
+}
+[data-theme="midnight"] .shadow-accent\/20 {
+    --tw-shadow-color: rgba(245, 158, 11, 0.12);
+}
+
+/* ─────────── MISC POLISH ─────────── */
+
+[data-theme="midnight"] .text-red-400 {
+    color: #ef4444 !important;
+}
+[data-theme="midnight"] .hover\:text-red-400:hover {
+    color: #f87171 !important;
+}
+
+[data-theme="midnight"] .chat-stats {
+    color: #707070 !important;
+}
+[data-theme="midnight"] .chat-stats span:hover {
+    color: #a0a0a0 !important;
+}
+[data-theme="midnight"] .chat-model-label {
+    color: #707070 !important;
+}
+
+[data-theme="midnight"] .chat-msg-action-btn {
+    color: #606060 !important;
+}
+[data-theme="midnight"] .chat-msg-action-btn:hover {
+    color: #e8e8e8 !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ─────────── CONFERENCE — neutralize hardcoded colors ─────────── */
+
+/* Lobby header — replace purple/cyan/pink gradient with subtle neutral */
+[data-theme="midnight"] .conf-lobby-header {
+    background:
+        radial-gradient(ellipse 100% 80% at 50% 0%, rgba(245, 158, 11, 0.06), transparent 70%),
+        radial-gradient(ellipse 80% 60% at 20% 100%, rgba(251, 191, 36, 0.04), transparent 60%) !important;
+    border-color: rgba(255, 255, 255, 0.06) !important;
+    animation: none !important;
+    box-shadow: none !important;
+}
+
+/* Header icon — neutral with accent hint */
+[data-theme="midnight"] .conf-header-icon-main {
+    background: rgba(245, 158, 11, 0.10) !important;
+    border-color: rgba(245, 158, 11, 0.20) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+    animation: none !important;
+}
+[data-theme="midnight"] .conf-header-icon-glow {
+    display: none !important;
+}
+
+/* Header title — clean accent gradient */
+[data-theme="midnight"] .conf-header-title {
+    background: linear-gradient(135deg, #f59e0b, #fbbf24) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    animation: none !important;
+}
+
+/* Particles — muted to match neutral palette */
+[data-theme="midnight"] .conf-particle {
+    color: var(--text-tertiary) !important;
+    opacity: 0.04 !important;
+}
+[data-theme="midnight"] .conf-particle:nth-child(2) {
+    color: var(--text-tertiary) !important;
+}
+[data-theme="midnight"] .conf-particle:nth-child(3) {
+    color: var(--text-tertiary) !important;
+}
+[data-theme="midnight"] .conf-particle:nth-child(4) {
+    color: var(--text-tertiary) !important;
+}
+[data-theme="midnight"] .conf-particle:nth-child(5) {
+    color: var(--text-tertiary) !important;
+}
+
+/* Create section — clean border */
+[data-theme="midnight"] .conf-create-section {
+    border-left-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+/* Create button — solid accent */
+[data-theme="midnight"] #conf-create-btn {
+    background: #f59e0b !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+}
+[data-theme="midnight"] #conf-create-btn:hover {
+    background: #fbbf24 !important;
+}
+
+/* Persona cards */
+[data-theme="midnight"] .conf-persona-card {
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-color: rgba(255, 255, 255, 0.06) !important;
+}
+[data-theme="midnight"] .conf-persona-selected {
+    border-color: #f59e0b !important;
+    background: rgba(245, 158, 11, 0.06) !important;
+    box-shadow: none !important;
+}
+[data-theme="midnight"] .conf-persona-check {
+    background: #f59e0b !important;
+}
+[data-theme="midnight"] .conf-persona-avatar {
+    color: var(--persona-color, #f59e0b) !important;
+}
+[data-theme="midnight"] .conf-persona-edit:hover {
+    background: rgba(245, 158, 11, 0.12) !important;
+    color: #f59e0b !important;
+    border-color: rgba(245, 158, 11, 0.2) !important;
+}
+
+/* Mode buttons */
+[data-theme="midnight"] .conf-mode-btn:hover {
+    border-color: rgba(245, 158, 11, 0.2) !important;
+    color: #f59e0b !important;
+}
+
+/* List items */
+[data-theme="midnight"] .conf-list-item {
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-color: rgba(255, 255, 255, 0.05) !important;
+}
+[data-theme="midnight"] .conf-list-item:hover {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(255, 255, 255, 0.10) !important;
+}
+[data-theme="midnight"] .conf-list-icon {
+    background: rgba(245, 158, 11, 0.06) !important;
+    border-color: rgba(245, 158, 11, 0.1) !important;
+}
+
+/* Memory badges — use accent instead of violet */
+[data-theme="midnight"] .conf-persona-memory {
+    color: #fbbf24 !important;
+    background: rgba(245, 158, 11, 0.15) !important;
+    border-color: rgba(245, 158, 11, 0.25) !important;
+    box-shadow: none !important;
+}
+[data-theme="midnight"] .conf-persona-memory:hover {
+    background: rgba(245, 158, 11, 0.25) !important;
+    border-color: rgba(245, 158, 11, 0.4) !important;
+    box-shadow: none !important;
+}
+
+/* Memory section */
+[data-theme="midnight"] .conf-memories-header {
+    color: #fbbf24 !important;
+}
+[data-theme="midnight"] .conf-mem-card {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(245, 158, 11, 0.08) !important;
+}
+[data-theme="midnight"] .conf-mem-card:hover {
+    background: rgba(245, 158, 11, 0.08) !important;
+    border-color: rgba(245, 158, 11, 0.2) !important;
+    box-shadow: none !important;
+}
+
+/* Fork badge */
+[data-theme="midnight"] .conf-fork-badge {
+    color: #fbbf24 !important;
+    background: rgba(245, 158, 11, 0.1) !important;
+    border-color: rgba(245, 158, 11, 0.2) !important;
+}
+
+/* Header action buttons */
+[data-theme="midnight"] .conf-header-btn:hover {
+    background: rgba(245, 158, 11, 0.08) !important;
+    border-color: rgba(245, 158, 11, 0.2) !important;
+    color: #f59e0b !important;
+}
+
+/* AI bubble top accent line */
+[data-theme="midnight"] .conf-msg .ai-bubble::before {
+    background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.08), transparent) !important;
+}
+
+/* Conference reset btn */
+[data-theme="midnight"] .conf-reset-btn:hover {
+    color: #f59e0b !important;
+}
+
+/* Discussion progress */
+[data-theme="midnight"] .conf-progress-inner {
+    background: rgba(245, 158, 11, 0.06) !important;
+    border-color: rgba(245, 158, 11, 0.12) !important;
+}
+
+/* Phase indicator */
+[data-theme="midnight"] .conf-discussion-progress[data-phase="discussion"] .conf-progress-inner {
+    border-color: rgba(245, 158, 11, 0.2) !important;
+    background: rgba(245, 158, 11, 0.04) !important;
+}
+
+/* Summary cards (post-conference) */
+[data-theme="midnight"] .conf-summary-card {
+    background: #2a2a2a !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-radius: 1rem !important;
+    box-shadow: none !important;
+}
+[data-theme="midnight"] .conf-summary-header {
+    color: #e8e8e8 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Artifact panel */
+[data-theme="midnight"] .conf-artifact-panel {
+    background: #252525 !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-radius: 1rem !important;
+    box-shadow: none !important;
+}
+[data-theme="midnight"] .conf-artifact-header {
+    color: #e8e8e8 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Create button disabled */
+[data-theme="midnight"] #conf-create-btn:disabled {
+    background: #3a3a3a !important;
+    color: #707070 !important;
+    border-color: rgba(255, 255, 255, 0.04) !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+}
+
+/* Persona name text */
+[data-theme="midnight"] .conf-persona-name {
+    color: #e8e8e8 !important;
+}
+
+/* Icon picker hover */
+[data-theme="midnight"] .conf-icon-pick:hover {
+    border-color: #f59e0b !important;
+    background: rgba(245, 158, 11, 0.18) !important;
+    color: #f59e0b !important;
+    box-shadow: none !important;
+}
+
+/* Conference Tailwind overrides — text classes in conference JS */
+[data-theme="midnight"] .conference-view .text-slate-200 {
+    color: var(--text-primary) !important;
+}
+[data-theme="midnight"] .conference-view .text-slate-300 {
+    color: var(--text-primary) !important;
+}
+[data-theme="midnight"] .conference-view .text-slate-500 {
+    color: #808080 !important;
+}
+[data-theme="midnight"] .conference-view .text-slate-600 {
+    color: #707070 !important;
+}
+[data-theme="midnight"] .conference-view .bg-slate-900 {
+    background-color: rgba(255, 255, 255, 0.04) !important;
+}
+[data-theme="midnight"] .conference-view .border-white\/5 {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Conference modals — violet → accent */
+[data-theme="midnight"] .hover\:text-violet-400:hover {
+    color: #f59e0b !important;
+}
+[data-theme="midnight"] .text-violet-400 {
+    color: #fbbf24 !important;
+}
+
+/* ─────────── KILL ALL REMAINING BLUE/CYAN/SKY/INDIGO ─────────── */
+
+/* Tailwind blue- classes → amber */
+[data-theme="midnight"] .text-blue-300 {
+    color: #fbbf24 !important;
+}
+[data-theme="midnight"] .text-blue-400 {
+    color: #f59e0b !important;
+}
+[data-theme="midnight"] .bg-blue-400\/20 {
+    background-color: rgba(245, 158, 11, 0.2) !important;
+}
+[data-theme="midnight"] .bg-blue-500\/20 {
+    background-color: rgba(245, 158, 11, 0.2) !important;
+}
+[data-theme="midnight"] .bg-blue-600\/20 {
+    background-color: rgba(245, 158, 11, 0.2) !important;
+}
+[data-theme="midnight"] .bg-blue-600\/25 {
+    background-color: rgba(245, 158, 11, 0.25) !important;
+}
+[data-theme="midnight"] .hover\:bg-blue-400\/20:hover {
+    background-color: rgba(245, 158, 11, 0.25) !important;
+}
+[data-theme="midnight"] .hover\:bg-blue-500\/20:hover {
+    background-color: rgba(245, 158, 11, 0.25) !important;
+}
+[data-theme="midnight"] .hover\:bg-blue-600\/20:hover {
+    background-color: rgba(245, 158, 11, 0.25) !important;
+}
+[data-theme="midnight"] .hover\:text-blue-300:hover {
+    color: #fbbf24 !important;
+}
+[data-theme="midnight"] .hover\:text-blue-400:hover {
+    color: #f59e0b !important;
+}
+[data-theme="midnight"] .text-blue-300\/90 {
+    color: rgba(251, 191, 36, 0.9) !important;
+}
+
+/* Tailwind cyan- classes → amber */
+[data-theme="midnight"] .text-cyan-400 {
+    color: #f59e0b !important;
+}
+[data-theme="midnight"] .bg-cyan-500\/15 {
+    background-color: rgba(245, 158, 11, 0.15) !important;
+}
+[data-theme="midnight"] .bg-cyan-500\/20 {
+    background-color: rgba(245, 158, 11, 0.2) !important;
+}
+[data-theme="midnight"] .hover\:bg-cyan-500\/25:hover {
+    background-color: rgba(245, 158, 11, 0.25) !important;
+}
+[data-theme="midnight"] .border-cyan-500\/30 {
+    border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+/* Tailwind sky- classes → amber */
+[data-theme="midnight"] .to-sky-600 {
+    --tw-gradient-to: #f59e0b !important;
+}
+[data-theme="midnight"] .hover\:to-sky-500:hover {
+    --tw-gradient-to: #fbbf24 !important;
+}
+
+/* Tailwind violet overrides (more specific) */
+[data-theme="midnight"] .bg-violet-500\/20 {
+    background-color: rgba(245, 158, 11, 0.2) !important;
+}
+[data-theme="midnight"] .hover\:bg-violet-500\/20:hover {
+    background-color: rgba(245, 158, 11, 0.25) !important;
+}
+[data-theme="midnight"] .group:hover .group-hover\:text-violet-400 {
+    color: #fbbf24 !important;
+}
+
+/* accent-color for checkboxes */
+[data-theme="midnight"] [class*="accent-blue"] {
+    accent-color: #f59e0b !important;
+}
+
+/* Emerald in conference → amber */
+[data-theme="midnight"] .text-emerald-400 {
+    color: #fbbf24 !important;
+}
+
+/* ─────────── VIOLET/PURPLE COMPLETE KILL ─────────── */
+
+/* text-violet-500 (conference settings icons) */
+[data-theme="midnight"] .text-violet-500 {
+    color: #f59e0b !important;
+}
+[data-theme="midnight"] .text-violet-300 {
+    color: #fbbf24 !important;
+}
+
+/* border-violet-500 variants */
+[data-theme="midnight"] .border-violet-500 {
+    border-color: #f59e0b !important;
+}
+[data-theme="midnight"] .border-violet-500\/30 {
+    border-color: rgba(245, 158, 11, 0.3) !important;
+}
+[data-theme="midnight"] .border-violet-500\/40 {
+    border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+/* hover bg-violet */
+[data-theme="midnight"] .hover\:bg-violet-500\/10:hover {
+    background-color: rgba(245, 158, 11, 0.1) !important;
+}
+[data-theme="midnight"] .hover\:bg-violet-500\/30:hover {
+    background-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+/* text-purple → amber */
+[data-theme="midnight"] .text-purple-400 {
+    color: #f59e0b !important;
+}
+[data-theme="midnight"] .text-purple-300 {
+    color: #fbbf24 !important;
+}
+[data-theme="midnight"] .hover\:text-purple-400:hover {
+    color: #f59e0b !important;
+}
+
+/* bg-purple → amber */
+[data-theme="midnight"] .bg-purple-500\/20 {
+    background-color: rgba(245, 158, 11, 0.2) !important;
+}
+[data-theme="midnight"] .hover\:bg-purple-500\/20:hover {
+    background-color: rgba(245, 158, 11, 0.25) !important;
+}
+
+/* ─────────── ADDITIONAL BLUE-FAMILY KILLS (audit 2026-03-07) ─────────── */
+
+/* bg-blue-500/15 — HA domain badges (switch, input_boolean, automation) */
+[data-theme="midnight"] .bg-blue-500\/15 {
+    background-color: rgba(245, 158, 11, 0.15) !important;
+}
+
+/* text-blue-400/90 — HA automation badge text */
+[data-theme="midnight"] .text-blue-400\/90 {
+    color: rgba(245, 158, 11, 0.9) !important;
+}
+
+/* bg-purple-500/15 — media_player domain badge */
+[data-theme="midnight"] .bg-purple-500\/15 {
+    background-color: rgba(245, 158, 11, 0.15) !important;
+}
+
+/* bg-purple-500/10 — AUX profile badge */
+[data-theme="midnight"] .bg-purple-500\/10 {
+    background-color: rgba(245, 158, 11, 0.10) !important;
+}
+
+/* bg-violet-500/10 — VIS profile badge */
+[data-theme="midnight"] .bg-violet-500\/10 {
+    background-color: rgba(245, 158, 11, 0.10) !important;
+}
+
+/* bg-indigo-500/15 + text-indigo-400 — vacuum domain badge */
+[data-theme="midnight"] .bg-indigo-500\/15 {
+    background-color: rgba(245, 158, 11, 0.15) !important;
+}
+[data-theme="midnight"] .text-indigo-400 {
+    color: #f59e0b !important;
+}
+
+/* bg-sky-500/15 + text-sky-400 — weather domain badge */
+[data-theme="midnight"] .bg-sky-500\/15 {
+    background-color: rgba(245, 158, 11, 0.15) !important;
+}
+[data-theme="midnight"] .text-sky-400 {
+    color: #f59e0b !important;
+}
+
+/* focus:border-violet-400 — CCTV camera inputs */
+[data-theme="midnight"] .focus\:border-violet-400:focus {
+    border-color: rgba(245, 158, 11, 0.45) !important;
+}
+
+/* text-violet-400/80 — vision label */
+[data-theme="midnight"] .text-violet-400\/80 {
+    color: rgba(251, 191, 36, 0.8) !important;
+}
+
+/* model-selector-item-dot — override hardcoded #38bdf8 inline style */
+[data-theme="midnight"] .model-selector-item-dot[style*="#38bdf8"] {
+    background: #f59e0b !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   TAILWIND ACCENT UTILITY OVERRIDES
+   Tailwind compiled bg-accent / text-accent / border-accent
+   with hardcoded #38bdf8 from tailwind.config.js.
+   Override every variant to use amber.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Core accent ── */
+[data-theme="midnight"] .bg-accent {
+    background-color: #f59e0b !important;
+}
+[data-theme="midnight"] .text-accent {
+    color: #f59e0b !important;
+}
+[data-theme="midnight"] .border-accent {
+    border-color: #f59e0b !important;
+}
+[data-theme="midnight"] .text-bg-main {
+    color: #212121 !important;
+}
+[data-theme="midnight"] .bg-bg-main {
+    background-color: #212121 !important;
+}
+
+/* ── Accent hover ── */
+[data-theme="midnight"] .hover\:bg-accent-hover:hover {
+    background-color: #fbbf24 !important;
+}
+[data-theme="midnight"] .hover\:text-accent-hover:hover {
+    color: #fbbf24 !important;
+}
+[data-theme="midnight"] .text-accent-hover {
+    color: #fbbf24 !important;
+}
+[data-theme="midnight"] .text-accent-muted {
+    color: #d97706 !important;
+}
+[data-theme="midnight"] .hover\:text-accent:hover {
+    color: #f59e0b !important;
+}
+[data-theme="midnight"] .group:hover .group-hover\:text-accent {
+    color: #f59e0b !important;
+}
+
+/* ── Accent opacity variants ── */
+[data-theme="midnight"] .bg-accent\/5 {
+    background-color: rgba(245, 158, 11, 0.05) !important;
+}
+[data-theme="midnight"] .bg-accent\/10 {
+    background-color: rgba(245, 158, 11, 0.1) !important;
+}
+[data-theme="midnight"] .bg-accent\/15 {
+    background-color: rgba(245, 158, 11, 0.15) !important;
+}
+[data-theme="midnight"] .bg-accent\/20 {
+    background-color: rgba(245, 158, 11, 0.2) !important;
+}
+[data-theme="midnight"] .text-accent\/50 {
+    color: rgba(245, 158, 11, 0.5) !important;
+}
+[data-theme="midnight"] .text-accent\/60 {
+    color: rgba(245, 158, 11, 0.6) !important;
+}
+
+/* ── Accent hover opacity variants ── */
+[data-theme="midnight"] .hover\:bg-accent\/5:hover {
+    background-color: rgba(245, 158, 11, 0.08) !important;
+}
+[data-theme="midnight"] .hover\:bg-accent\/10:hover {
+    background-color: rgba(245, 158, 11, 0.12) !important;
+}
+[data-theme="midnight"] .hover\:bg-accent\/20:hover {
+    background-color: rgba(245, 158, 11, 0.25) !important;
+}
+[data-theme="midnight"] .hover\:bg-accent\/25:hover {
+    background-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+/* ── Accent border opacity ── */
+[data-theme="midnight"] .border-accent\/10 {
+    border-color: rgba(245, 158, 11, 0.1) !important;
+}
+[data-theme="midnight"] .border-accent\/20 {
+    border-color: rgba(245, 158, 11, 0.2) !important;
+}
+[data-theme="midnight"] .border-accent\/30 {
+    border-color: rgba(245, 158, 11, 0.3) !important;
+}
+[data-theme="midnight"] .hover\:border-accent\/20:hover {
+    border-color: rgba(245, 158, 11, 0.25) !important;
+}
+[data-theme="midnight"] .hover\:border-accent\/50:hover {
+    border-color: rgba(245, 158, 11, 0.5) !important;
+}
+
+/* ── Accent focus states ── */
+[data-theme="midnight"] .focus\:border-accent:focus {
+    border-color: #f59e0b !important;
+}
+[data-theme="midnight"] .focus\:border-accent\/40:focus {
+    border-color: rgba(245, 158, 11, 0.4) !important;
+}
+[data-theme="midnight"] .focus\:ring-accent:focus {
+    --tw-ring-color: #f59e0b !important;
+}
+[data-theme="midnight"] .focus\:shadow-accent\/5:focus {
+    --tw-shadow-color: rgba(245, 158, 11, 0.05) !important;
+}
+
+/* ── Accent shadows ── */
+[data-theme="midnight"] .shadow-accent\/15 {
+    --tw-shadow-color: rgba(245, 158, 11, 0.15) !important;
+}
+[data-theme="midnight"] .shadow-accent\/20 {
+    --tw-shadow-color: rgba(245, 158, 11, 0.2) !important;
+}
+[data-theme="midnight"] .hover\:shadow-accent\/25:hover {
+    --tw-shadow-color: rgba(245, 158, 11, 0.25) !important;
+}
+
+/* ── Accent checkbox ── */
+[data-theme="midnight"] .accent-accent {
+    accent-color: #f59e0b !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   FUCHSIA OVERRIDES (global — ComfyUI elements outside
+   the integrations tab, e.g. in other modals)
+   ══════════════════════════════════════════════════════════ */
+[data-theme="midnight"] .text-fuchsia-400 {
+    color: #f59e0b !important;
+}
+[data-theme="midnight"] .text-fuchsia-300 {
+    color: #fbbf24 !important;
+}
+[data-theme="midnight"] .bg-fuchsia-500\/20 {
+    background-color: rgba(245, 158, 11, 0.2) !important;
+}
+[data-theme="midnight"] .bg-fuchsia-500\/15 {
+    background-color: rgba(245, 158, 11, 0.15) !important;
+}
+[data-theme="midnight"] .bg-fuchsia-500\/25 {
+    background-color: rgba(245, 158, 11, 0.25) !important;
+}
+[data-theme="midnight"] .hover\:bg-fuchsia-500\/20:hover {
+    background-color: rgba(245, 158, 11, 0.25) !important;
+}
+[data-theme="midnight"] .hover\:bg-fuchsia-500\/25:hover {
+    background-color: rgba(245, 158, 11, 0.3) !important;
+}
+[data-theme="midnight"] .hover\:text-fuchsia-400:hover {
+    color: #f59e0b !important;
+}
+[data-theme="midnight"] .hover\:text-fuchsia-300:hover {
+    color: #fbbf24 !important;
+}
+[data-theme="midnight"] .border-fuchsia-500\/25 {
+    border-color: rgba(245, 158, 11, 0.25) !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   INTEGRATION TAB — Restore Obsidian colors
+   Each integration keeps its unique identity color.
+   Higher specificity (#cfg-tab-integrations) beats the
+   global amber overrides above.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Border-left per integration (beats cfg-section catch-all) ── */
+[data-theme="midnight"] #cfg-tab-integrations .cfg-section[style*="#60a5fa"] {
+    border-left-color: #60a5fa !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .cfg-section[style*="#10b981"] {
+    border-left-color: #10b981 !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .cfg-section[style*="#2563eb"] {
+    border-left-color: #2563eb !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .cfg-section[style*="#a78bfa"] {
+    border-left-color: #a78bfa !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .cfg-section[style*="#e879f9"] {
+    border-left-color: #e879f9 !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .cfg-section[style*="#f59e0b"] {
+    border-left-color: #f59e0b !important;
+}
+
+/* ── Home Assistant — blue ── */
+[data-theme="midnight"] #cfg-tab-integrations .text-blue-300 {
+    color: #93c5fd !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .bg-blue-400\/20 {
+    background-color: rgba(96, 165, 250, 0.2) !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .hover\:bg-blue-400\/20:hover {
+    background-color: rgba(96, 165, 250, 0.3) !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .hover\:text-blue-300:hover {
+    color: #93c5fd !important;
+}
+
+/* ── SearXNG — dark blue ── */
+[data-theme="midnight"] #cfg-tab-integrations .text-blue-400 {
+    color: #60a5fa !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .bg-blue-600\/25 {
+    background-color: rgba(37, 99, 235, 0.25) !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .hover\:bg-blue-600\/20:hover {
+    background-color: rgba(37, 99, 235, 0.25) !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .hover\:text-blue-400:hover {
+    color: #60a5fa !important;
+}
+
+/* ── CCTV — violet ── */
+[data-theme="midnight"] #cfg-tab-integrations .text-violet-400 {
+    color: #a78bfa !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .text-violet-300 {
+    color: #c4b5fd !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .bg-violet-500\/20 {
+    background-color: rgba(139, 92, 246, 0.2) !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .hover\:bg-violet-500\/20:hover {
+    background-color: rgba(139, 92, 246, 0.3) !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .hover\:bg-violet-500\/30:hover {
+    background-color: rgba(139, 92, 246, 0.35) !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .hover\:text-violet-400:hover {
+    color: #a78bfa !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .border-violet-500\/30 {
+    border-color: rgba(139, 92, 246, 0.3) !important;
+}
+
+/* ── ComfyUI — fuchsia ── */
+[data-theme="midnight"] #cfg-tab-integrations .text-fuchsia-400 {
+    color: #e879f9 !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .text-fuchsia-300 {
+    color: #f0abfc !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .bg-fuchsia-500\/20 {
+    background-color: rgba(217, 70, 239, 0.2) !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .bg-fuchsia-500\/15 {
+    background-color: rgba(217, 70, 239, 0.15) !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .bg-fuchsia-500\/25 {
+    background-color: rgba(217, 70, 239, 0.25) !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .hover\:bg-fuchsia-500\/20:hover {
+    background-color: rgba(217, 70, 239, 0.25) !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .hover\:bg-fuchsia-500\/25:hover {
+    background-color: rgba(217, 70, 239, 0.3) !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .hover\:text-fuchsia-400:hover {
+    color: #e879f9 !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .hover\:text-fuchsia-300:hover {
+    color: #f0abfc !important;
+}
+[data-theme="midnight"] #cfg-tab-integrations .border-fuchsia-500\/25 {
+    border-color: rgba(217, 70, 239, 0.25) !important;
+}

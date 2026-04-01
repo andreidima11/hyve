@@ -1,0 +1,509 @@
+/* components.css — Profile cards, settings page components */
+
+/* ─── Profile Cards (settings page) ──────────────────────────────── */
+.profile-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    background: var(--overlay-2);
+    border: 1px solid var(--overlay-4);
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    cursor: default;
+}
+
+.profile-card.drag-over {
+    border-color: var(--accent);
+    background: var(--sidebar-active-bg);
+}
+
+.profile-card.dragging {
+    opacity: 0.5;
+}
+
+/* Verde în jur când e în selector (activ) — ușor glow */
+.profile-card.profile-card-in-selector {
+    border-color: rgba(var(--accent-rgb), 0.45);
+    box-shadow:
+        0 0 0 1px rgba(var(--accent-rgb), 0.28),
+        0 0 8px rgba(var(--accent-rgb), 0.12);
+}
+
+.profile-card.profile-card-in-selector:hover {
+    border-color: rgba(var(--accent-rgb), 0.55);
+    box-shadow:
+        0 0 0 1px rgba(var(--accent-rgb), 0.35),
+        0 0 10px rgba(var(--accent-rgb), 0.15);
+}
+
+.profile-card-drag-handle {
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: grab;
+    border-radius: 0.375rem;
+    font-size: 0.65rem;
+    transition: color 0.15s ease;
+}
+.profile-card-drag-handle:hover {
+    color: var(--text-secondary);
+}
+.profile-card-drag-handle:active {
+    cursor: grabbing;
+}
+
+/* Butoane Sus/Jos pentru reordonare (funcționează și pe mobil) */
+.profile-card-order-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    flex-shrink: 0;
+}
+
+.profile-card-order-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.125rem;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    border-radius: 0.25rem;
+    font-size: 0.55rem;
+    transition: color 0.15s ease, background 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.profile-card-order-btn:hover {
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.08);
+    cursor: default;
+    opacity: 0.25;
+    pointer-events: none;
+}
+
+/* Pe ecrane mici ascundem drag handle (nu merge touch), butoanele Sus/Jos rămân */
+@media (max-width: 768px) {
+    .profile-card-drag-handle {
+        display: none;
+    }
+}
+
+.profile-card:hover {
+    background: var(--overlay-4);
+    border-color: var(--overlay-8);
+}
+
+.profile-card.active {
+    border-color: rgba(var(--accent-rgb), 0.2);
+    background: rgba(var(--accent-rgb), 0.04);
+}
+
+.profile-card-dot {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.profile-card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.profile-card-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-persona-override-badge {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    opacity: 0.9;
+}
+
+.profile-persona-override-badge i {
+    font-size: 0.65rem;
+}
+
+.profile-card-meta {
+    font-size: 0.6rem;
+    color: var(--text-tertiary);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.profile-card-meta-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-card-meta .profile-card-caps {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.profile-cap-icon {
+    font-size: 0.55rem;
+    opacity: 0.65;
+    color: var(--text-tertiary);
+}
+
+.profile-card-actions {
+    display: flex;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.profile-card-actions button {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.5rem;
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.profile-card-actions button:hover {
+    background: var(--overlay-6);
+    color: var(--text-primary);
+}
+
+.profile-card-actions button.danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger-soft);
+}
+
+/* Three-dots menu on profile card */
+.profile-card-menu-trigger {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.5rem;
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+.profile-card-menu-trigger:hover {
+    background: var(--overlay-6);
+    color: var(--text-primary);
+}
+
+.profile-card-menu-balloon {
+    position: fixed;
+    z-index: 70;
+    min-width: 10rem;
+    padding: 0.35rem;
+    border-radius: 0.75rem;
+    background: var(--surface-menu);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border: 1px solid var(--overlay-8);
+    box-shadow: var(--shadow-lg);
+}
+.profile-card-menu-balloon.hidden {
+    display: none !important;
+}
+.profile-card-menu-balloon button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.45rem 0.65rem;
+    border: none;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    cursor: pointer;
+    text-align: left;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+.profile-card-menu-balloon button:hover {
+    background: var(--overlay-6);
+    color: var(--text-primary);
+}
+.profile-card-menu-balloon button.profile-card-menu-danger:hover {
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--danger-soft);
+}
+
+/* Profile options modal (global app-modal system) */
+.profile-card-menu-modal-panel {
+    width: 100%;
+    min-width: min(18rem, 100%);
+}
+.profile-card-menu-modal-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.profile-card-menu-modal-btn {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+.profile-card-menu-modal-btn:hover {
+    background: var(--overlay-6);
+    border-color: var(--overlay-8);
+    color: var(--text-primary);
+}
+.profile-card-menu-modal-btn-danger:hover {
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--danger-soft);
+}
+
+.profile-card-menu-modal-btn-visibility.is-in-selector {
+    color: var(--success);
+}
+
+.profile-card-menu-modal-btn-visibility.is-in-selector:hover {
+    background: var(--success-bg);
+    color: var(--success-soft);
+}
+
+.profile-card-activate {
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--overlay-6);
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+    flex-shrink: 0;
+}
+
+.profile-card-activate:hover {
+    border-color: var(--border-accent);
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.06);
+}
+
+.profile-card.active .profile-card-activate {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.1);
+    pointer-events: none;
+}
+
+.chat-attach-balloon {
+    position: absolute;
+    bottom: calc(100% + 0.5rem);
+    left: 0;
+    right: auto;
+    min-width: 11rem;
+    max-width: min(90vw, 14rem);
+    padding: 0.3rem;
+    border-radius: 0.875rem;
+    background: var(--surface-menu);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border: 1px solid var(--overlay-6);
+    box-shadow: 
+        var(--shadow-lg), 
+        0 0 0 1px var(--overlay-2),
+        inset 0 1px 0 var(--overlay-4);
+    z-index: 50;
+}
+@media (min-width: 641px) {
+    .chat-attach-balloon {
+        left: auto;
+        right: 0;
+        max-width: 18rem;
+    }
+}
+
+.chat-attach-balloon.hidden {
+    display: none;
+}
+
+.chat-attach-balloon-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0.65rem;
+    border: none;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease;
+    text-align: left;
+}
+
+.chat-attach-balloon-item:hover {
+    background: rgba(var(--accent-rgb), 0.06);
+    width: 100%;
+    color: var(--text-primary);
+}
+
+.chat-attach-balloon-item:hover i {
+    color: var(--accent);
+}
+
+.chat-document-preview {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.chat-document-preview.hidden {
+    display: none;
+}
+
+.chat-document-preview .chat-document-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    max-width: 9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.5rem;
+    background: var(--overlay-6);
+    border: 1px solid var(--overlay-8);
+}
+
+.chat-document-preview .chat-document-name i {
+    flex-shrink: 0;
+    font-size: 0.9rem;
+}
+
+.chat-document-preview .chat-document-name i.fa-file-pdf {
+    color: var(--danger-soft);
+}
+
+.chat-document-preview .chat-document-name i.fa-file-word {
+    color: var(--accent);
+}
+
+.chat-document-preview .chat-document-name i.fa-file-lines {
+    color: var(--text-secondary);
+}
+
+.chat-document-preview .chat-document-name i.fa-file-alt {
+    color: var(--text-tertiary);
+}
+
+.chat-document-preview .chat-document-remove {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: var(--danger-bg);
+    border: none;
+    color: var(--danger-soft);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    transition: background 0.2s;
+}
+
+.chat-document-preview .chat-document-remove:hover {
+    background: rgba(248,113,113,0.35);
+}
+
+.chat-image-preview {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.chat-image-preview.hidden {
+    display: none;
+}
+
+.chat-image-preview img {
+    width: 2.75rem;
+    height: 2.75rem;
+    object-fit: cover;
+    border-radius: 0.5rem;
+    border: 1px solid var(--overlay-10);
+}
+
+.chat-image-preview .chat-image-remove {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: var(--danger-bg);
+    border: none;
+    color: var(--danger-soft);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    transition: background 0.2s;
+}
+
+.chat-image-preview .chat-image-remove:hover {
+    background: rgba(248,113,113,0.35);
+}
+
+.chat-user-uploaded-image {
+    max-width: 100%;
+    max-height: 280px;
+    width: auto;
+    height: auto;
+    border-radius: 0.75rem;
+    border: 1px solid var(--overlay-8);
+    display: block;
+}
+

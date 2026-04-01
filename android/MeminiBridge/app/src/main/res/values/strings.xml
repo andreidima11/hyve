@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Memini Bridge</string>
+
+    <!-- Settings screen -->
+    <string name="settings_subtitle">Server Configuration</string>
+    <string name="settings_external_url">External URL (internet)</string>
+    <string name="settings_local_url">Local URL (home network)</string>
+    <string name="settings_wifi_label">Home WiFi SSID</string>
+    <string name="settings_wifi_hint">WiFi network name</string>
+    <string name="settings_wifi_explanation">When connected to this WiFi, the app will automatically use the local URL.</string>
+    <string name="settings_detect">Detect</string>
+    <string name="settings_save">Save</string>
+
+    <!-- Biometric -->
+    <string name="biometric_title">Memini Bridge</string>
+    <string name="biometric_subtitle">Biometric Authentication</string>
+    <string name="biometric_cancel">Cancel</string>
+</resources>

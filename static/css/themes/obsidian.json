@@ -1,0 +1,13 @@
+{
+    "id": "obsidian",
+    "name": "Obsidian",
+    "description": "Deep dark premium theme — the default Memini experience",
+    "author": "Memini",
+    "version": "1.0.0",
+    "preview": {
+        "bg": "#030712",
+        "surface": "#0f172a",
+        "accent": "#38bdf8",
+        "text": "#f1f5f9"
+    }
+}

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Covrigăria Noastră</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+            color: #333;
+            line-height: 1.6;
+        }
+
+        header {
+            background: #8B4513;
+            color: white;
+            padding: 2rem 1rem;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        nav {
+            background: #A0522D;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin: 0 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        nav a:hover {
+            background: #8B4513;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .section {
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            color: #8B4513;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #8B4513;
+            padding-bottom: 0.5rem;
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .menu-item {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .menu-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .menu-item h3 {
+            color: #8B4513;
+            margin-bottom: 0.5rem;
+        }
+
+        .menu-item p {
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .price {
+            font-weight: bold;
+            color: #333;
+            margin-top: 0.5rem;
+            display: block;
+        }
+
+        .contact {
+            text-align: center;
+        }
+
+        .contact p {
+            margin: 0.5rem 0;
+        }
+
+        .contact a {
+            color: #8B4513;
+            text-decoration: none;
+        }
+
+        footer {
+            background: #8B4513;
+            color: white;
+            text-align: center;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2rem;
+            }
+            
+            .menu-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🥖 Covrigăria Noastră 🥖</h1>
+        <p>Frescuri, calde și proaspete, direct din cuptor!</p>
+    </header>
+
+    <nav>
+        <a href="#meniu">Meniu</a>
+        <a href="#despre">Despre Noi</a>
+        <a href="#contact">Contact</a>
+    </nav>
+
+    <div class="container">
+        <section id="despre" class="section">
+            <h2>Despre Noi</h2>
+            <p>Bine ați venit la Covrigăria Noastră! Facem covrigi proaspeți zilnic, cu ingrediente de calitate superioară. Fiecare covrig este preparat manual, cu drag și pasiune.</p>
+        </section>
+
+        <section id="meniu" class="section">
+            <h2>Meniul Nostru</h2>
+            <div class="menu-grid">
+                <div class="menu-item">
+                    <h3>Covrig Clasic</h3>
+                    <p>Covrig cu semințe, prăjit proaspăt</p>
+                    <span class="price">5 RON</span>
+                </div>
+                <div class="menu-item">
+                    <h3>Covrig cu Zmeură</h3>
+                    <p>Covrig cu zmeură proaspătă și unt</p>
+                    <span class="price">6 RON</span>
+                </div>
+                <div class="menu-item">
+                    <h3>Covrig cu Brânză</h3>
+                    <p>Covrig cu brânză de vaci și pătrunjel</p>
+                    <span class="price">6 RON</span>
+                </div>
+                <div class="menu-item">
+                    <h3>Covrig cu Sos</h3>
+                    <p>Covrig cu sos special de casa</p>
+                    <span class="price">4 RON</span>
+                </div>
+                <div class="menu-item">
+                    <h3>Covrig cu Bacon</h3>
+                    <p>Covrig cu bacon crocant</p>
+                    <span class="price">7 RON</span>
+                </div>
+                <div class="menu-item">
+                    <h3>Covrig cu Ciocolată</h3>
+                    <p>Covrig cu ciocolată topită</p>
+                    <span class="price">6 RON</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="contact" class="section contact">
+            <h2>Contact</h2>
+            <p>📍 Adresă: Strada Principală, Număr 123</p>
+            <p>📞 Telefon: 07XX XXX XXX</p>
+            <p>⏰ Ore de funcționare: 07:00 - 22:00</p>
+            <p>📧 Email: contact@covrigaria.ro</p>
+        </section>
+    </div>
+
+    <footer>
+        <p>© 2024 Covrigăria Noastră - Toate drepturile rezervate</p>
+    </footer>
+</body>
+</html>

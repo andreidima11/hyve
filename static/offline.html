@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memini Bridge – Offline</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=JetBrains+Mono:wght@600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #030712;
+    color: #f1f5f9;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+  }
+
+  .logo {
+    display: inline-block;
+    font-size: 2.4rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+  }
+  .logo .me  { color: #f1f5f9; }
+  .logo .mini { color: #38bdf8; }
+
+  .bridge {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #64748b;
+    letter-spacing: 0.04em;
+    margin-bottom: 2.5rem;
+  }
+
+  .icon {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 1.5rem;
+    color: #64748b;
+  }
+
+  .message {
+    font-size: 1.15rem;
+    color: #94a3b8;
+    margin-bottom: 2rem;
+    max-width: 320px;
+    line-height: 1.5;
+  }
+
+  .retry-btn {
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #030712;
+    background: #38bdf8;
+    border: none;
+    border-radius: 12px;
+    padding: 0.75rem 2rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .retry-btn:hover  { background: #7dd3fc; }
+  .retry-btn:active { transform: scale(0.97); }
+</style>
+</head>
+<body>
+
+  <div class="logo"><span class="me">Mĕ</span><span class="mini">mini</span></div>
+  <div class="bridge">Bridge</div>
+
+  <!-- wifi-off icon -->
+  <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+       stroke-width="1.5" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round"
+          d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+    <line x1="3" y1="3" x2="21" y2="21" stroke-linecap="round" />
+  </svg>
+
+  <p class="message">Nu există conexiune la internet.<br>Verifică rețeaua și încearcă din nou.</p>
+
+  <button class="retry-btn" onclick="location.reload()">Încearcă din nou</button>
+
+</body>
+</html>

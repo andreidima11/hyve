@@ -1,0 +1,1090 @@
+/*  ╔══════════════════════════════════════════════════════╗
+    ║  DAYLIGHT — Light Theme                              ║
+    ║  Clean whites and soft grays for daytime use         ║
+    ╚══════════════════════════════════════════════════════╝  */
+
+[data-theme="light"] {
+    color-scheme: light;
+
+    /* ── Accent ── */
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-glow: rgba(37, 99, 235, 0.12);
+    --accent-soft: rgba(37, 99, 235, 0.08);
+    --accent-border: rgba(37, 99, 235, 0.25);
+    --accent-rgb: 37, 99, 235;
+    --secondary-accent: rgba(124, 58, 237, 0.5);
+    --secondary-accent-rgb: 124, 58, 237;
+    --msg-user: linear-gradient(135deg, #2563eb 0%, #3b82f6 50%, #60a5fa 100%);
+    --logo-gradient: linear-gradient(135deg, #2563eb, #7c3aed);
+
+    /* ── Surfaces / Backgrounds ── */
+    --bg-main: #f1f5f9;
+    --surface-0: #f1f5f9;
+    --surface-1: #ffffff;
+    --surface-2: #f8fafc;
+    --surface-3: #e2e8f0;
+    --surface-glass: rgba(255, 255, 255, 0.75);
+    --surface-glass-heavy: rgba(255, 255, 255, 0.97);
+    --surface-sidebar: #ffffff;
+    --surface-menu: rgba(255, 255, 255, 0.98);
+    --surface-menu-heavy: rgba(255, 255, 255, 0.99);
+    --surface-code: #f1f5f9;
+    --surface-code-soft: rgba(0, 0, 0, 0.04);
+    --surface-input: #f1f5f9;
+    --surface-overlay: rgba(15, 23, 42, 0.25);
+    --surface-overlay-heavy: rgba(15, 23, 42, 0.5);
+    --surface-tooltip: rgba(15, 23, 42, 0.92);
+    --surface-card: rgba(0, 0, 0, 0.025);
+    --surface-card-hover: rgba(0, 0, 0, 0.05);
+    --surface-chat-input: rgba(255, 255, 255, 0.95);
+
+    /* ── Text ── */
+    --text-primary: #0f172a;
+    --text-secondary: #334155;
+    --text-tertiary: #64748b;
+    --text-heading: #0f172a;
+    --text-on-accent: #ffffff;
+    --text-code: #1d4ed8;
+    --text-inline-code: #1e40af;
+    --text-link: #2563eb;
+    --text-bubble: rgba(15, 23, 42, 0.9);
+    --text-bubble-heading: #0f172a;
+
+    /* ── Borders ── */
+    --border-subtle: rgba(0, 0, 0, 0.07);
+    --border-light: rgba(0, 0, 0, 0.1);
+    --border-medium: rgba(0, 0, 0, 0.15);
+    --border-hover: rgba(37, 99, 235, 0.3);
+    --glass-border: rgba(0, 0, 0, 0.08);
+
+    /* ── Contrast overlays (black on light) ── */
+    --overlay-2: rgba(0, 0, 0, 0.02);
+    --overlay-3: rgba(0, 0, 0, 0.03);
+    --overlay-4: rgba(0, 0, 0, 0.04);
+    --overlay-5: rgba(0, 0, 0, 0.05);
+    --overlay-6: rgba(0, 0, 0, 0.06);
+    --overlay-8: rgba(0, 0, 0, 0.08);
+    --overlay-10: rgba(0, 0, 0, 0.10);
+    --overlay-15: rgba(0, 0, 0, 0.13);
+
+    /* ── Shadows ── */
+    --shadow-color: rgba(0, 0, 0, 0.1);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.06);
+    --shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.06);
+
+    /* ── Glow (subtle on light) ── */
+    --glow-primary: rgba(37, 99, 235, 0.05);
+    --glow-secondary: rgba(124, 58, 237, 0.03);
+
+    /* ── Semantic colors ── */
+    --danger: #dc2626;
+    --danger-hover: #b91c1c;
+    --danger-soft: #ef4444;
+    --danger-bg: rgba(220, 38, 38, 0.08);
+    --danger-bg-hover: rgba(220, 38, 38, 0.12);
+    --success: #16a34a;
+    --success-hover: #15803d;
+    --success-soft: #22c55e;
+    --success-bg: rgba(22, 163, 74, 0.1);
+    --warning: #d97706;
+    --warning-hover: #b45309;
+    --warning-soft: #f59e0b;
+    --warning-text: #92400e;
+    --info: #2563eb;
+
+    /* ── User bubble ── */
+    --user-bubble-bg: #2563eb;
+    --user-bubble-shadow: 0 1px 4px rgba(37, 99, 235, 0.15);
+    --user-bubble-shadow-hover: 0 2px 8px rgba(37, 99, 235, 0.22);
+
+    /* ── Scrollbar ── */
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: rgba(0, 0, 0, 0.12);
+    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.22);
+
+    /* ── Chat input bar ── */
+    --chat-input-bg: #ffffff;
+    --chat-input-wrapper-bg: var(--surface-0);
+
+    /* ── Sidebar ── */
+    --sidebar-active-bg: rgba(37, 99, 235, 0.08);
+    --sidebar-active-border: rgba(37, 99, 235, 0.2);
+    --sidebar-active-shadow: rgba(37, 99, 235, 0.06);
+
+    /* ── Send button ── */
+    --send-btn-bg: linear-gradient(145deg, #2563eb, #1d4ed8);
+    --send-btn-streaming-bg: linear-gradient(145deg, #ef4444, #dc2626);
+
+    /* ── Voice button ── */
+    --voice-btn-bg: linear-gradient(145deg, #e2e8f0, #cbd5e1);
+    --voice-btn-recording-bg: linear-gradient(145deg, #b45309, #92400e);
+    --voice-btn-cancelled-bg: linear-gradient(145deg, #dc2626, #991b1b);
+
+    /* ── Conference ── */
+    --conf-accent: rgba(124, 58, 237, 0.5);
+    --conf-accent-soft: rgba(124, 58, 237, 0.08);
+    --conf-particle: #ec4899;
+
+    /* ── Misc ── */
+    --selector-accent: #2563eb;
+    --img-card-bg: rgba(0, 0, 0, 0.05);
+    --noise-opacity: 0.08;
+    --logo-shadow: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12));
+    --meta-theme-color: #f1f5f9;
+}
+
+/* ══════════════════════════════════════════════════════════
+   LIGHT THEME — Tailwind & Component Overrides
+   Everything below ensures hardcoded dark-mode Tailwind
+   utility classes look correct on a light background.
+   ══════════════════════════════════════════════════════════ */
+
+/* ─────────── TEXT COLORS ─────────── */
+
+/* Body default (was light gray for dark bg → dark for light bg) */
+[data-theme="light"] .text-slate-200 {
+    color: var(--text-primary) !important;
+}
+
+[data-theme="light"] .text-slate-300 {
+    color: var(--text-primary) !important;
+}
+
+[data-theme="light"] .text-slate-400 {
+    color: var(--text-secondary) !important;
+}
+
+/* Nav items, labels, captions – VISIBLE, not washed out */
+[data-theme="light"] .text-slate-500 {
+    color: #475569 !important;
+}
+
+[data-theme="light"] .text-slate-600 {
+    color: var(--text-secondary) !important;
+}
+
+/* White text → dark heading on light bg */
+[data-theme="light"] .text-white {
+    color: var(--text-heading) !important;
+}
+
+/* Keep white text on accent-colored buttons */
+[data-theme="light"] button[class*="bg-accent"].text-white,
+[data-theme="light"] button[class*="bg-gradient"].text-white,
+[data-theme="light"] button[class*="from-accent"].text-white,
+[data-theme="light"] [class*="bg-accent"] .text-white,
+[data-theme="light"] [class*="bg-gradient"] .text-white,
+[data-theme="light"] .chat-send-btn,
+[data-theme="light"] .chat-send-btn i,
+[data-theme="light"] button.bg-red-500.text-white,
+[data-theme="light"] #confirm-ok {
+    color: #ffffff !important;
+}
+
+/* Hover text states */
+[data-theme="light"] .hover\:text-white:hover {
+    color: var(--text-heading) !important;
+}
+
+[data-theme="light"] .hover\:text-slate-300:hover {
+    color: var(--text-primary) !important;
+}
+
+/* ─────────── BACKGROUNDS ─────────── */
+
+/* Surface overrides for dark Tailwind classes */
+[data-theme="light"] .bg-slate-900 {
+    background-color: #f1f5f9 !important;
+}
+[data-theme="light"] .bg-slate-800 {
+    background-color: #f1f5f9 !important;
+}
+[data-theme="light"] .bg-slate-900\/50 {
+    background-color: #f8fafc !important;
+}
+
+/* White-opacity backgrounds → subtle dark tints */
+[data-theme="light"] .bg-white\/5 {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+}
+[data-theme="light"] .bg-white\/10 {
+    background-color: rgba(0, 0, 0, 0.06) !important;
+}
+[data-theme="light"] .bg-white\/\[0\.02\] {
+    background-color: rgba(0, 0, 0, 0.02) !important;
+}
+[data-theme="light"] .bg-white\/\[0\.03\] {
+    background-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Tailwind custom color classes (from tailwind.config.js) */
+[data-theme="light"] .bg-bg-main {
+    background-color: var(--bg-main) !important;
+}
+[data-theme="light"] .bg-bg-side {
+    background-color: var(--surface-sidebar) !important;
+}
+[data-theme="light"] .bg-bg-card {
+    background-color: var(--surface-glass) !important;
+}
+[data-theme="light"] .bg-bg-main\/70 {
+    background-color: rgba(241, 245, 249, 0.85) !important;
+}
+
+/* Hover backgrounds */
+[data-theme="light"] .hover\:bg-white\/5:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+[data-theme="light"] .hover\:bg-white\/10:hover {
+    background-color: rgba(0, 0, 0, 0.08) !important;
+}
+[data-theme="light"] .hover\:bg-white\/\[0\.03\]:hover,
+[data-theme="light"] .hover\:bg-white\/\[0\.04\]:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+[data-theme="light"] .active\:bg-white\/\[0\.06\]:active {
+    background-color: rgba(0, 0, 0, 0.08) !important;
+}
+[data-theme="light"] .hover\:bg-amber-500\/10:hover {
+    background-color: rgba(245, 158, 11, 0.1) !important;
+}
+
+/* Focus backgrounds */
+[data-theme="light"] .focus\:bg-white\/\[0\.04\]:focus {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* ─────────── BORDERS ─────────── */
+
+[data-theme="light"] .border-white\/5,
+[data-theme="light"] .border-white\/10 {
+    border-color: rgba(0, 0, 0, 0.1) !important;
+}
+[data-theme="light"] .border-white\/\[0\.03\] {
+    border-color: rgba(0, 0, 0, 0.07) !important;
+}
+[data-theme="light"] .border-white\/\[0\.04\] {
+    border-color: rgba(0, 0, 0, 0.07) !important;
+}
+[data-theme="light"] .border-white\/\[0\.06\] {
+    border-color: rgba(0, 0, 0, 0.1) !important;
+}
+[data-theme="light"] .border-white\/20 {
+    border-color: rgba(0, 0, 0, 0.15) !important;
+}
+[data-theme="light"] .hover\:border-white\/10:hover {
+    border-color: rgba(0, 0, 0, 0.15) !important;
+}
+[data-theme="light"] .divide-white\/5 > :not([hidden]) ~ :not([hidden]) {
+    border-color: rgba(0, 0, 0, 0.07) !important;
+}
+
+/* Focus borders & shadow */
+[data-theme="light"] .focus\:border-accent\/40:focus {
+    border-color: rgba(37, 99, 235, 0.4) !important;
+}
+[data-theme="light"] .focus\:shadow-accent\/5:focus {
+    --tw-shadow-color: rgba(37, 99, 235, 0.08);
+}
+
+/* ─────────── SIDEBAR ─────────── */
+
+[data-theme="light"] #sidebar {
+    background: #ffffff !important;
+    border-right-color: rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 1px 0 8px rgba(0, 0, 0, 0.04);
+}
+
+/* Disable the dark aura glow on light theme */
+[data-theme="light"] #sidebar::before {
+    opacity: 0.3 !important;
+}
+[data-theme="light"] #sidebar::after {
+    display: none !important;
+}
+
+/* Nav buttons in sidebar — proper contrast */
+[data-theme="light"] #sidebar .nav-btn {
+    color: #334155 !important;
+}
+[data-theme="light"] #sidebar .nav-btn i {
+    color: #64748b !important;
+}
+[data-theme="light"] #sidebar .nav-btn:hover {
+    background: rgba(0, 0, 0, 0.05) !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    color: #0f172a !important;
+}
+[data-theme="light"] #sidebar .nav-btn:hover i {
+    color: var(--accent) !important;
+}
+
+/* Active nav button */
+[data-theme="light"] #sidebar .nav-btn.text-accent {
+    color: var(--accent) !important;
+}
+[data-theme="light"] #sidebar .nav-btn.text-accent i,
+[data-theme="light"] #sidebar .nav-btn.text-accent span {
+    color: var(--accent) !important;
+}
+
+/* Session list items */
+[data-theme="light"] .session-item {
+    color: #334155 !important;
+}
+[data-theme="light"] .session-item:hover {
+    background: rgba(0, 0, 0, 0.04) !important;
+}
+[data-theme="light"] .session-item button {
+    color: #334155 !important;
+}
+
+/* Sidebar close / new chat buttons */
+[data-theme="light"] #sidebar button[aria-label="Close"],
+[data-theme="light"] #sidebar button[aria-label="New chat"],
+[data-theme="light"] #sidebar button[aria-label="Clear context"] {
+    color: #64748b !important;
+}
+[data-theme="light"] #sidebar button[aria-label="Close"]:hover,
+[data-theme="light"] #sidebar button[aria-label="New chat"]:hover {
+    color: var(--accent) !important;
+    background: rgba(37, 99, 235, 0.06) !important;
+}
+
+/* Version text in sidebar */
+[data-theme="light"] #sidebar .text-accent\/60 {
+    color: rgba(37, 99, 235, 0.5) !important;
+}
+
+/* ─────────── HEADER ─────────── */
+
+[data-theme="light"] header {
+    border-color: rgba(0, 0, 0, 0.07) !important;
+    background-color: rgba(241, 245, 249, 0.9) !important;
+}
+
+/* Header title */
+[data-theme="light"] #current-view-title {
+    color: #334155 !important;
+}
+
+/* Hamburger & header buttons */
+[data-theme="light"] header button {
+    color: #64748b !important;
+}
+[data-theme="light"] header button:hover {
+    color: #0f172a !important;
+    background: rgba(0, 0, 0, 0.05) !important;
+}
+
+/* ─────────── CONFIG TABS ─────────── */
+
+[data-theme="light"] .config-tab-btn {
+    color: #475569 !important;
+    font-weight: 600;
+}
+[data-theme="light"] .config-tab-btn:hover {
+    color: #0f172a !important;
+    background: rgba(0, 0, 0, 0.04);
+}
+/* Active config tab */
+[data-theme="light"] .config-tab-btn.border-accent {
+    color: var(--accent) !important;
+}
+[data-theme="light"] .config-tab-btn.text-accent {
+    color: var(--accent) !important;
+}
+
+/* ─────────── WELCOME / EMPTY STATE ─────────── */
+
+[data-theme="light"] .chat-empty-title {
+    color: #0f172a !important;
+}
+
+
+/* ─────────── CHAT INPUT ─────────── */
+
+[data-theme="light"] .chat-input-wrapper {
+    background: linear-gradient(0deg, var(--bg-main) 0%, var(--bg-main) 50%, transparent 100%) !important;
+}
+[data-theme="light"] .chat-input-inner {
+    background: #ffffff !important;
+    border: 1.5px solid rgba(0, 0, 0, 0.10) !important;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.03) !important;
+}
+[data-theme="light"] .chat-input-inner:focus-within {
+    border-color: rgba(37, 99, 235, 0.45) !important;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06), 0 0 0 3px rgba(37, 99, 235, 0.10) !important;
+}
+[data-theme="light"] .chat-input-field {
+    color: #0f172a !important;
+}
+[data-theme="light"] .chat-input-field::placeholder {
+    color: #94a3b8 !important;
+}
+
+/* Attach button */
+[data-theme="light"] .chat-attach-btn {
+    color: #64748b !important;
+}
+[data-theme="light"] .chat-attach-btn:hover {
+    color: var(--accent) !important;
+}
+
+/* Model selector cog button */
+[data-theme="light"] .model-selector-btn {
+    color: color-mix(in srgb, var(--selector-accent) 80%, #000) !important;
+    background: color-mix(in srgb, var(--selector-accent) 8%, transparent) !important;
+    border-color: color-mix(in srgb, var(--selector-accent) 25%, transparent) !important;
+}
+[data-theme="light"] .model-selector-btn:hover {
+    color: var(--selector-accent) !important;
+    background: color-mix(in srgb, var(--selector-accent) 14%, transparent) !important;
+    border-color: color-mix(in srgb, var(--selector-accent) 40%, transparent) !important;
+    box-shadow: 0 0 14px color-mix(in srgb, var(--selector-accent) 18%, transparent) !important;
+}
+
+/* ─────────── MODALS & GLASS ─────────── */
+
+[data-theme="light"] .glass {
+    background: rgba(255, 255, 255, 0.88) !important;
+    border-color: rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .modal-overlay {
+    background: rgba(15, 23, 42, 0.25) !important;
+}
+
+[data-theme="light"] .cfg-section {
+    background: rgba(255, 255, 255, 0.65) !important;
+    border-color: rgba(0, 0, 0, 0.07) !important;
+}
+
+/* Login overlay */
+[data-theme="light"] #login-overlay {
+    background: var(--bg-main);
+}
+[data-theme="light"] #login-overlay .glass {
+    background: rgba(255, 255, 255, 0.92) !important;
+    border-color: rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.1);
+}
+
+/* ─────────── INPUTS ─────────── */
+
+[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not(.intel-search-input):not(.ha-search-input),
+[data-theme="light"] select,
+[data-theme="light"] textarea:not(.chat-input-field) {
+    background-color: transparent !important;
+    color: #0f172a !important;
+    border-color: rgba(0, 0, 0, 0.12) !important;
+}
+[data-theme="light"] input:not(.intel-search-input):not(.ha-search-input):focus,
+[data-theme="light"] select:focus,
+[data-theme="light"] textarea:not(.chat-input-field):focus {
+    border-color: rgba(37, 99, 235, 0.5) !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08) !important;
+}
+
+[data-theme="light"] input[type="checkbox"] {
+    accent-color: var(--accent);
+}
+
+/* ─────────── TOGGLE SWITCH ─────────── */
+
+[data-theme="light"] .app-toggle-switch {
+    background: #cbd5e1 !important;
+}
+[data-theme="light"] .app-toggle-switch[data-on="true"] {
+    background: var(--accent) !important;
+}
+
+/* ─────────── CONFIG SETTINGS ─────────── */
+
+/* Config section labels */
+[data-theme="light"] .cfg-section h4,
+[data-theme="light"] .cfg-section label {
+    color: #0f172a;
+}
+[data-theme="light"] .cfg-section p {
+    color: #475569;
+}
+
+/* Config save button — keep bright */
+[data-theme="light"] button[onclick="saveConfig(event)"] {
+    color: #ffffff !important;
+}
+
+/* Restart button */
+[data-theme="light"] button[onclick="restartServer()"] {
+    color: #dc2626 !important;
+}
+
+/* ─────────── INTEGRATION CARDS ─────────── */
+
+/* Settings buttons in integration section */
+[data-theme="light"] button[onclick*="openIntegrationConfigModal"] {
+    background: rgba(0, 0, 0, 0.04) !important;
+    color: #334155 !important;
+    border-color: rgba(0, 0, 0, 0.1) !important;
+}
+[data-theme="light"] button[onclick*="openIntegrationConfigModal"]:hover {
+    background: rgba(37, 99, 235, 0.08) !important;
+    color: var(--accent) !important;
+    border-color: rgba(37, 99, 235, 0.2) !important;
+}
+
+/* ─────────── MEMORY / INTELLIGENCE TAB ─────────── */
+
+/* Tab buttons */
+[data-theme="light"] #view-memory button {
+    color: #475569;
+}
+[data-theme="light"] #view-memory button:hover {
+    color: #0f172a;
+}
+
+/* Table header */
+[data-theme="light"] thead {
+    background-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+/* ─────────── SHADOWS ─────────── */
+
+[data-theme="light"] .shadow-2xl {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1) !important;
+}
+[data-theme="light"] .shadow-accent\/15 {
+    --tw-shadow-color: rgba(37, 99, 235, 0.12);
+}
+[data-theme="light"] .shadow-accent\/20 {
+    --tw-shadow-color: rgba(37, 99, 235, 0.15);
+}
+
+/* ─────────── MISC POLISH ─────────── */
+
+/* Sidebar mobile shadow */
+@media (max-width: 1023px) {
+    [data-theme="light"] #sidebar:not(.-translate-x-full) {
+        box-shadow: 8px 0 24px rgba(0, 0, 0, 0.1) !important;
+    }
+}
+
+/* Red accents keep their color */
+[data-theme="light"] .text-red-400 {
+    color: #ef4444 !important;
+}
+[data-theme="light"] .hover\:text-red-400:hover {
+    color: #dc2626 !important;
+}
+
+/* Accent text for version, badges */
+[data-theme="light"] .text-accent {
+    color: var(--accent) !important;
+}
+[data-theme="light"] .border-accent {
+    border-color: var(--accent) !important;
+}
+[data-theme="light"] .border-accent\/10 {
+    border-color: rgba(37, 99, 235, 0.15) !important;
+}
+
+/* Profile/notification colored accents */
+[data-theme="light"] .hover\:bg-blue-400\/20:hover {
+    background-color: rgba(37, 99, 235, 0.12) !important;
+}
+[data-theme="light"] .hover\:text-blue-300:hover {
+    color: var(--accent) !important;
+}
+
+/* Emerald accents */
+[data-theme="light"] .hover\:bg-emerald-500\/20:hover {
+    background-color: rgba(16, 185, 129, 0.12) !important;
+}
+[data-theme="light"] .hover\:text-emerald-400:hover {
+    color: #059669 !important;
+}
+
+/* Violet accents */
+[data-theme="light"] .hover\:bg-violet-500\/20:hover {
+    background-color: rgba(139, 92, 246, 0.12) !important;
+}
+[data-theme="light"] .hover\:text-violet-400:hover {
+    color: #7c3aed !important;
+}
+
+/* Fuchsia accents */
+[data-theme="light"] .hover\:bg-fuchsia-500\/20:hover {
+    background-color: rgba(217, 70, 239, 0.12) !important;
+}
+[data-theme="light"] .hover\:text-fuchsia-400:hover {
+    color: #c026d3 !important;
+}
+
+/* Amber accents */
+[data-theme="light"] .hover\:bg-amber-500\/20:hover {
+    background-color: rgba(245, 158, 11, 0.12) !important;
+}
+[data-theme="light"] .hover\:text-amber-400:hover {
+    color: #d97706 !important;
+}
+
+/* Blue accents */
+[data-theme="light"] .hover\:bg-blue-600\/20:hover {
+    background-color: rgba(37, 99, 235, 0.12) !important;
+}
+[data-theme="light"] .hover\:text-blue-400:hover {
+    color: var(--accent) !important;
+}
+
+/* ─────────── CHAT BUBBLES ─────────── */
+
+/* User bubble — clean solid blue, white text */
+[data-theme="light"] .user-bubble {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
+    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.15);
+}
+[data-theme="light"] .user-bubble .chat-bubble-content {
+    color: #ffffff !important;
+}
+[data-theme="light"] .chat-row-user:hover .user-bubble {
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.22);
+}
+
+/* AI text — proper dark on light */
+[data-theme="light"] .ai-bubble .chat-bubble-content {
+    color: #1e293b !important;
+}
+[data-theme="light"] .ai-bubble .chat-bubble-content h2,
+[data-theme="light"] .ai-bubble .chat-bubble-content h3 {
+    color: #0f172a !important;
+}
+
+/* Code bubbles / Forge preview — light editor surface with readable contrast */
+[data-theme="light"] .chat-code-block,
+[data-theme="light"] .chat-forge-preview {
+    background: linear-gradient(180deg, #ffffff, #f8fafc) !important;
+    border-color: rgba(148, 163, 184, 0.28) !important;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08) !important;
+}
+
+[data-theme="light"] .chat-code-header,
+[data-theme="light"] .chat-forge-preview .chat-code-header {
+    background: linear-gradient(180deg, #f8fafc, #eef2ff) !important;
+    border-bottom-color: rgba(148, 163, 184, 0.18) !important;
+    color: #475569 !important;
+}
+
+[data-theme="light"] .chat-code-lang,
+[data-theme="light"] .chat-forge-preview-title {
+    color: #0f172a !important;
+}
+
+[data-theme="light"] .chat-forge-preview-title i,
+[data-theme="light"] .chat-code-lang {
+    color: #2563eb !important;
+}
+
+[data-theme="light"] .chat-code-actions button,
+[data-theme="light"] .chat-forge-preview .chat-code-actions button {
+    background: rgba(37, 99, 235, 0.08) !important;
+    color: #334155 !important;
+}
+
+[data-theme="light"] .chat-code-actions button:hover,
+[data-theme="light"] .chat-forge-preview .chat-code-actions button:hover {
+    background: rgba(37, 99, 235, 0.16) !important;
+    color: #0f172a !important;
+}
+
+[data-theme="light"] .chat-code-block pre,
+[data-theme="light"] .chat-forge-preview pre,
+[data-theme="light"] .chat-code-block .hljs,
+[data-theme="light"] .chat-forge-preview .hljs {
+    background: transparent !important;
+    color: #1e293b !important;
+}
+
+[data-theme="light"] .chat-code-block .hljs-ln-numbers,
+[data-theme="light"] .chat-forge-preview .hljs-ln-numbers {
+    color: rgba(100, 116, 139, 0.8) !important;
+    border-right-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+[data-theme="light"] .chat-code-block .hljs-keyword,
+[data-theme="light"] .chat-forge-preview .hljs-keyword,
+[data-theme="light"] .chat-code-block .hljs-selector-tag,
+[data-theme="light"] .chat-forge-preview .hljs-selector-tag,
+[data-theme="light"] .chat-code-block .hljs-literal,
+[data-theme="light"] .chat-forge-preview .hljs-literal {
+    color: #7c3aed !important;
+}
+
+[data-theme="light"] .chat-code-block .hljs-string,
+[data-theme="light"] .chat-forge-preview .hljs-string,
+[data-theme="light"] .chat-code-block .hljs-attr,
+[data-theme="light"] .chat-forge-preview .hljs-attr {
+    color: #047857 !important;
+}
+
+[data-theme="light"] .chat-code-block .hljs-number,
+[data-theme="light"] .chat-forge-preview .hljs-number,
+[data-theme="light"] .chat-code-block .hljs-symbol,
+[data-theme="light"] .chat-forge-preview .hljs-symbol,
+[data-theme="light"] .chat-code-block .hljs-bullet,
+[data-theme="light"] .chat-forge-preview .hljs-bullet {
+    color: #b45309 !important;
+}
+
+[data-theme="light"] .chat-code-block .hljs-comment,
+[data-theme="light"] .chat-forge-preview .hljs-comment,
+[data-theme="light"] .chat-code-block .hljs-quote,
+[data-theme="light"] .chat-forge-preview .hljs-quote {
+    color: #64748b !important;
+}
+
+[data-theme="light"] .chat-code-block .hljs-title,
+[data-theme="light"] .chat-forge-preview .hljs-title,
+[data-theme="light"] .chat-code-block .hljs-function .hljs-title,
+[data-theme="light"] .chat-forge-preview .hljs-function .hljs-title,
+[data-theme="light"] .chat-code-block .hljs-title.class_,
+[data-theme="light"] .chat-forge-preview .hljs-title.class_ {
+    color: #1d4ed8 !important;
+}
+
+[data-theme="light"] .chat-code-block .hljs-variable,
+[data-theme="light"] .chat-forge-preview .hljs-variable,
+[data-theme="light"] .chat-code-block .hljs-params,
+[data-theme="light"] .chat-forge-preview .hljs-params,
+[data-theme="light"] .chat-code-block .hljs-built_in,
+[data-theme="light"] .chat-forge-preview .hljs-built_in {
+    color: #0f172a !important;
+}
+
+/* Message action buttons */
+[data-theme="light"] .chat-msg-action-btn {
+    color: #94a3b8 !important;
+}
+[data-theme="light"] .chat-msg-action-btn:hover {
+    color: #ffffff !important;
+    background: rgba(37, 99, 235, 0.88) !important;
+}
+
+/* Chat stats row */
+[data-theme="light"] .chat-stats {
+    color: #94a3b8 !important;
+}
+[data-theme="light"] .chat-stats span:hover {
+    color: #ffffff !important;
+    background: rgba(37, 99, 235, 0.88) !important;
+}
+
+[data-theme="light"] .chat-tool-indicator:hover {
+    color: #ffffff !important;
+    background: rgba(37, 99, 235, 0.88) !important;
+}
+
+[data-theme="light"] .chat-msg-action-btn .action-tooltip {
+    background: rgba(15, 23, 42, 0.96) !important;
+    border-color: rgba(37, 99, 235, 0.28) !important;
+    color: #ffffff !important;
+}
+
+[data-theme="light"] .chat-msg-action-btn .action-tooltip::after {
+    border-top-color: rgba(15, 23, 42, 0.96) !important;
+}
+
+[data-theme="light"] .chat-tool-popover {
+    background: rgba(15, 23, 42, 0.96) !important;
+    border-color: rgba(37, 99, 235, 0.28) !important;
+    color: #ffffff !important;
+}
+
+/* Chat model label */
+[data-theme="light"] .chat-model-label {
+    color: #94a3b8 !important;
+}
+
+[data-theme="light"] .chat-bar-model-label {
+    color: #94a3b8 !important;
+}
+
+[data-theme="light"] .chat-bar-model-label:hover {
+    color: #ffffff !important;
+    background: rgba(37, 99, 235, 0.88) !important;
+}
+
+[data-theme="light"] .chat-model-popover {
+    background: rgba(15, 23, 42, 0.96) !important;
+    border-color: rgba(37, 99, 235, 0.28) !important;
+    color: #ffffff !important;
+}
+
+[data-theme="light"] .chat-model-popover::after {
+    border-top-color: rgba(15, 23, 42, 0.96) !important;
+}
+
+/* ─────────── CONFERENCE — fix hardcoded dark-theme colors ─────────── */
+
+/* Lobby header — replace hardcoded purple/cyan/pink gradients */
+[data-theme="light"] .conf-lobby-header {
+    background:
+        radial-gradient(ellipse 100% 80% at 50% 0%, rgba(37, 99, 235, 0.06), transparent 70%),
+        radial-gradient(ellipse 80% 60% at 20% 100%, rgba(124, 58, 237, 0.04), transparent 60%) !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Header icon — use accent instead of hardcoded purple */
+[data-theme="light"] .conf-header-icon-main {
+    background: rgba(37, 99, 235, 0.08) !important;
+    border-color: rgba(37, 99, 235, 0.20) !important;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08) !important;
+}
+[data-theme="light"] .conf-header-icon-glow {
+    background: radial-gradient(ellipse at center, rgba(37, 99, 235, 0.08) 0%, transparent 70%) !important;
+}
+
+/* Header title gradient */
+[data-theme="light"] .conf-header-title {
+    background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+}
+
+/* Particles — subtle on light */
+[data-theme="light"] .conf-particle {
+    color: #94a3b8 !important;
+    opacity: 0.12 !important;
+}
+[data-theme="light"] .conf-particle:nth-child(2) {
+    color: #7c3aed !important;
+}
+[data-theme="light"] .conf-particle:nth-child(3) {
+    color: #ec4899 !important;
+}
+[data-theme="light"] .conf-particle:nth-child(4) {
+    color: #2563eb !important;
+}
+[data-theme="light"] .conf-particle:nth-child(5) {
+    color: #7c3aed !important;
+}
+
+/* Create section */
+[data-theme="light"] .conf-create-section {
+    border-left-color: var(--accent) !important;
+}
+[data-theme="light"] .conf-create-section.glass {
+    background: rgba(255, 255, 255, 0.85) !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Create button — solid accent with white text */
+[data-theme="light"] #conf-create-btn {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2) !important;
+}
+[data-theme="light"] #conf-create-btn:hover {
+    background: #1d4ed8 !important;
+}
+[data-theme="light"] #conf-create-btn:disabled {
+    background: #94a3b8 !important;
+    box-shadow: none !important;
+}
+
+/* Persona cards — clean on white */
+[data-theme="light"] .conf-persona-card {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .conf-persona-selected {
+    border-color: var(--accent) !important;
+    background: rgba(37, 99, 235, 0.04) !important;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.06) !important;
+}
+[data-theme="light"] .conf-persona-check {
+    background: var(--accent) !important;
+    color: #ffffff !important;
+}
+[data-theme="light"] .conf-persona-name {
+    color: #334155 !important;
+}
+[data-theme="light"] .conf-persona-edit:hover {
+    background: rgba(37, 99, 235, 0.08) !important;
+    color: var(--accent) !important;
+    border-color: rgba(37, 99, 235, 0.15) !important;
+}
+
+/* Mode buttons */
+[data-theme="light"] .conf-mode-btn {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border-color: rgba(0, 0, 0, 0.1) !important;
+    color: #475569 !important;
+}
+[data-theme="light"] .conf-mode-btn:hover {
+    border-color: rgba(37, 99, 235, 0.2) !important;
+    color: var(--accent) !important;
+}
+
+/* List items (previous conferences) */
+[data-theme="light"] .conf-list-item {
+    background: rgba(255, 255, 255, 0.85) !important;
+    border-color: rgba(0, 0, 0, 0.06) !important;
+}
+[data-theme="light"] .conf-list-item:hover {
+    background: rgba(255, 255, 255, 1) !important;
+    border-color: rgba(0, 0, 0, 0.12) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .conf-list-icon {
+    background: rgba(37, 99, 235, 0.06) !important;
+    border-color: rgba(37, 99, 235, 0.12) !important;
+}
+[data-theme="light"] .conf-list-title {
+    color: #0f172a !important;
+}
+
+/* Memory badge */
+[data-theme="light"] .conf-persona-memory {
+    color: #7c3aed !important;
+    background: rgba(124, 58, 237, 0.08) !important;
+    border-color: rgba(124, 58, 237, 0.2) !important;
+    box-shadow: none !important;
+}
+[data-theme="light"] .conf-persona-memory:hover {
+    background: rgba(124, 58, 237, 0.15) !important;
+    border-color: rgba(124, 58, 237, 0.3) !important;
+    box-shadow: none !important;
+}
+
+/* Memory section */
+[data-theme="light"] .conf-memories-header {
+    color: #7c3aed !important;
+}
+[data-theme="light"] .conf-mem-card {
+    background: rgba(255, 255, 255, 0.85) !important;
+    border-color: rgba(124, 58, 237, 0.1) !important;
+}
+[data-theme="light"] .conf-mem-card:hover {
+    background: rgba(124, 58, 237, 0.06) !important;
+    border-color: rgba(124, 58, 237, 0.2) !important;
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.06) !important;
+}
+
+/* Fork badge */
+[data-theme="light"] .conf-fork-badge {
+    color: #7c3aed !important;
+    background: rgba(124, 58, 237, 0.08) !important;
+    border-color: rgba(124, 58, 237, 0.15) !important;
+}
+
+/* Header action buttons */
+[data-theme="light"] .conf-header-btn {
+    background: rgba(0, 0, 0, 0.04) !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    color: #64748b !important;
+}
+[data-theme="light"] .conf-header-btn:hover {
+    background: rgba(37, 99, 235, 0.08) !important;
+    border-color: rgba(37, 99, 235, 0.15) !important;
+    color: var(--accent) !important;
+}
+
+/* AI bubble top accent line */
+[data-theme="light"] .conf-msg .ai-bubble {
+    background: rgba(255, 255, 255, 0.85) !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+}
+[data-theme="light"] .conf-msg .ai-bubble::before {
+    background: linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.06), rgba(124, 58, 237, 0.04), transparent) !important;
+}
+
+/* Discussion progress */
+[data-theme="light"] .conf-progress-inner {
+    background: rgba(37, 99, 235, 0.06) !important;
+    border-color: rgba(37, 99, 235, 0.12) !important;
+    color: #334155 !important;
+}
+
+/* Summary card */
+[data-theme="light"] .conf-summary-card {
+    background: rgba(37, 99, 235, 0.03) !important;
+    border-color: rgba(37, 99, 235, 0.12) !important;
+}
+[data-theme="light"] .conf-summary-header {
+    color: var(--accent) !important;
+    border-bottom-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Icon picker */
+[data-theme="light"] .conf-icon-grid {
+    background: rgba(0, 0, 0, 0.03) !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+}
+[data-theme="light"] .conf-icon-pick {
+    background: rgba(0, 0, 0, 0.04) !important;
+    color: #475569 !important;
+}
+[data-theme="light"] .conf-icon-pick:hover {
+    border-color: var(--accent) !important;
+    background: rgba(37, 99, 235, 0.1) !important;
+    color: var(--accent) !important;
+    box-shadow: none !important;
+}
+
+/* Color picker */
+[data-theme="light"] .conf-color-row {
+    background: rgba(0, 0, 0, 0.03) !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Artifact panel */
+[data-theme="light"] .conf-artifact-panel {
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-left-color: rgba(0, 0, 0, 0.08) !important;
+}
+[data-theme="light"] .conf-artifact-header {
+    border-bottom-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Conference labels in JS-rendered HTML */
+[data-theme="light"] .conference-view .text-slate-200 {
+    color: #0f172a !important;
+}
+[data-theme="light"] .conference-view .text-slate-300 {
+    color: #0f172a !important;
+}
+[data-theme="light"] .conference-view .text-slate-500 {
+    color: #475569 !important;
+}
+[data-theme="light"] .conference-view .text-slate-600 {
+    color: #64748b !important;
+}
+[data-theme="light"] .conference-view .bg-slate-900 {
+    background-color: transparent !important;
+    border-color: rgba(0, 0, 0, 0.12) !important;
+}
+[data-theme="light"] .conference-view .border-white\/5 {
+    border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Violet text overrides in conference context */
+[data-theme="light"] .conference-view .hover\:text-violet-400:hover,
+[data-theme="light"] .hover\:text-violet-400:hover {
+    color: #7c3aed !important;
+}
+[data-theme="light"] .conference-view .text-violet-400 {
+    color: #7c3aed !important;
+}
+[data-theme="light"] .conference-view .text-emerald-400 {
+    color: #059669 !important;
+}
