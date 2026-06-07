@@ -2,6 +2,7 @@ import { apiCall } from './api.js';
 import { t } from './lang/index.js';
 import { escapeHtml, showToast, showConfirm, setCodeEditorValue, getCodeEditorValue, refreshCodeEditor } from './utils.js';
 import { getIntegrationEntities } from './features_smarthome.js';
+import { initGenericCustomSelects, upgradeNativeSelects } from './features_custom_selects.js';
 
 // --- CONȘTIINȚĂ (tabs Memorii | Automatizări) ---
 export function switchIntelligenceTab(tabId) {
@@ -119,9 +120,7 @@ function _automationSetBuilderState(state) {
     });
     const enabledEl = document.getElementById('automation-builder-enabled');
     if (enabledEl) enabledEl.checked = !!next.enabled;
-    if (typeof window !== 'undefined' && typeof window.initGenericCustomSelects === 'function') {
-        window.initGenericCustomSelects(document.getElementById('automation-editor-modal') || document);
-    }
+    initGenericCustomSelects(document.getElementById('automation-editor-modal') || document);
 }
 
 function _automationGetBuilderState() {
@@ -413,9 +412,7 @@ function _acBindInputs(host) {
    and DOM readers keep working. */
 function _upgradeAutoBuilderSelects(host) {
     if (!host) return;
-    if (typeof window !== 'undefined' && typeof window.upgradeNativeSelects === 'function') {
-        window.upgradeNativeSelects(host);
-    }
+    upgradeNativeSelects(host);
 }
 
 // Legacy no-ops: older features.js facades still re-export these names.
@@ -2314,11 +2311,9 @@ export async function instantiateCurrentBlueprint() {
         const data = await res.json();
         showToast(t('blueprints.automation_created', { id: data.item?.id || '' }), 'success');
         closeBlueprintPicker();
-        if (typeof window.loadAutomations === 'function') {
-            await window.loadAutomations();
-        }
-        if (data.item?.id && typeof window.openAutomationEditor === 'function') {
-            await window.openAutomationEditor(data.item.id);
+        await loadAutomations();
+        if (data.item?.id) {
+            await openAutomationEditor(data.item.id);
         }
     } catch (e) {
         if (errEl) {

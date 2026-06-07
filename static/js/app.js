@@ -955,6 +955,7 @@ window.addEventListener('DOMContentLoaded', () => {
         copyPreflightFix: (text) => { if (text) navigator.clipboard.writeText(text).catch(() => {}); },
         toggleAddonWatchdog: (slug, enabled) => _lazyAction(_loadAppsModule, 'toggleAddonWatchdog')(slug, enabled),
     });
+    const debouncedFilterMemory = debounce(() => filterMemory(), 200);
     initMemoryEventBindings({
         switchIntelligenceTab: (tab) => switchIntelligenceTab(tab),
         switchMemorySubtab: (tab) => switchMemorySubtab(tab),
@@ -1005,7 +1006,7 @@ window.addEventListener('DOMContentLoaded', () => {
         deleteCurrentBlueprint: () => deleteCurrentBlueprint(),
         instantiateCurrentBlueprint: () => instantiateCurrentBlueprint(),
         addBlueprintCreatorInput: () => addBlueprintCreatorInput(),
-        filterMemory: () => filterMemory(),
+        filterMemory: () => debouncedFilterMemory(),
         toggleAllMem: (checked) => toggleAllMem(checked),
         autoSyncAutomationId: () => autoSyncAutomationId(),
         markAutomationIdManual: () => markAutomationIdManual(),
@@ -1362,7 +1363,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// --- EXPORTURI GLOBALE (Pentru acces din onclick/onkeyup în HTML) ---
+// --- Legacy window exports (shell, chat, planner lazy modules) ---
 window.setTheme = setTheme;
 window.switchTab = switchTab;
 window.switchConfigTab = switchConfigTab;
@@ -1386,22 +1387,6 @@ window.closeConfigSection = closeConfigSection;
 window.toggleSidebar = toggleSidebar;
 window.closeSidebar = closeSidebar;
 window.isSidebarOpen = isSidebarOpen;
-window.saveConfig = saveConfig;
-window.restartServer = restartServer;
-window.saveNotificationSettings = saveNotificationSettings;
-window.loadNotificationPrefs = loadNotificationPrefs;
-window.selectNotifTransport = selectNotifTransport;
-window.selectNotifChannel = selectNotifChannel;
-window.testWsNotification = testWsNotification;
-window.testFcmNotification = testFcmNotification;
-window.testNotification = testNotification;
-window.refreshNotifWsNativeStatus = refreshNotifWsNativeStatus;
-window.loadMemory = loadMemory;
-window.changeMemPage = changeMemPage;
-window.deleteMemBulk = deleteMemBulk;
-window.filterMemory = debounce(filterMemory, 200);
-window.toggleAllMem = toggleAllMem;
-window.updateMemBulkCount = updateMemBulkCount;
 _assignLazyGlobals(_loadPlannerModule, [
     'loadPlanner', 'plannerCreateList', 'plannerDeleteList', 'plannerSelectList',
     'plannerRequestDeleteList', 'plannerCancelDeleteList',
@@ -1416,67 +1401,6 @@ _assignLazyGlobals(_loadPlannerModule, [
     'plannerDrop', 'plannerDragEnd',
 ]);
 
-window.loadMemoryEvents = loadMemoryEvents;
-window.memLogPrevPage = memLogPrevPage;
-window.memLogNextPage = memLogNextPage;
-window.toggleMemLogDetails = toggleMemLogDetails;
-window.clearMemoryLog = clearMemoryLog;
-window.runConsolidationNow = runConsolidationNow;
-window.addExtractionExample = addExtractionExample;
-window.removeExtractionExample = removeExtractionExample;
-window.switchIntelligenceTab = switchIntelligenceTab;
-window.testAmbientNow = testAmbientNow;
-window.resetAmbientReasonerPrompt = resetAmbientReasonerPrompt;
-window.testBriefingNow = testBriefingNow;
-window.switchMemorySubtab = switchMemorySubtab;
-window.checkAddonUpdates = checkAddonUpdates;
-window.updateAllAddons = updateAllAddons;
-window.updateSingleAddon = updateSingleAddon;
-window.closeAddonConfigModal = closeAddonConfigModal;
-window.refreshUpdatesHeaderBadge = refreshUpdatesHeaderBadge;
-// Automation editor
-window.loadAutomations = loadAutomations;
-window.deleteAutomation = deleteAutomation;
-window.openAutomationEditor = openAutomationEditor;
-window.closeAutomationEditor = closeAutomationEditor;
-window.saveAutomationEditor = saveAutomationEditor;
-window.validateAutomationEditor = validateAutomationEditor;
-window.toggleAutomationDefinition = toggleAutomationDefinition;
-window.runAutomationDefinition = runAutomationDefinition;
-window.toggleAutoMenu = toggleAutoMenu;
-window.closeAutoMenu = closeAutoMenu;
-window.showAutoDotTooltip = showAutoDotTooltip;
-window.hideAutoDotTooltip = hideAutoDotTooltip;
-window.autoSyncAutomationId = autoSyncAutomationId;
-window.markAutomationIdManual = markAutomationIdManual;
-window.testAutomationEditor = testAutomationEditor;
-window.exportAutomationYaml = exportAutomationYaml;
-window.importAutomationYaml = importAutomationYaml;
-window.openBlueprintPicker = openBlueprintPicker;
-window.closeBlueprintPicker = closeBlueprintPicker;
-window.loadBlueprints = loadBlueprints;
-window.importBlueprintYaml = importBlueprintYaml;
-window.backToBlueprintList = backToBlueprintList;
-window.instantiateCurrentBlueprint = instantiateCurrentBlueprint;
-window.deleteCurrentBlueprint = deleteCurrentBlueprint;
-window.openBlueprintCreator = openBlueprintCreator;
-window.addBlueprintCreatorInput = addBlueprintCreatorInput;
-window.removeBlueprintCreatorInput = removeBlueprintCreatorInput;
-window.changeBlueprintCreatorInputType = changeBlueprintCreatorInputType;
-window.insertBlueprintCreatorPlaceholder = insertBlueprintCreatorPlaceholder;
-window.updateBlueprintCreatorYaml = updateBlueprintCreatorYaml;
-window.saveCreatedBlueprint = saveCreatedBlueprint;
-window.switchAutomationEditorMode = switchAutomationEditorMode;
-window.addAutomationBuilderAction = addAutomationBuilderAction;
-window.removeAutomationBuilderAction = removeAutomationBuilderAction;
-window.addAutomationBuilderTrigger = addAutomationBuilderTrigger;
-window.removeAutomationBuilderTrigger = removeAutomationBuilderTrigger;
-window.addAutomationBuilderCondition = addAutomationBuilderCondition;
-window.removeAutomationBuilderCondition = removeAutomationBuilderCondition;
-window.syncAutomationYamlFromBuilder = syncAutomationYamlFromBuilder;
-window.syncAutomationBuilderFromYaml = syncAutomationBuilderFromYaml;
-window.loadAutomationEditorHistory = loadAutomationEditorHistory;
-window.refreshAutomationEntityOptions = refreshAutomationEntityOptions;
 // doLogout e deja pe window (definit la început)
 // Multi-chat: expunem în window acțiunile pentru sesiuni
 window.newChatSession = newChatSession;
@@ -1485,22 +1409,6 @@ window.deleteSession = deleteSession;
 window.confirmDeleteSession = confirmDeleteSession;
 window.cancelDeleteSession = cancelDeleteSession;
 window.clearSessionContext = clearSessionContext;
-window.copyWebhook = copyWebhook;
-window.openIntegrationConfigModal = openIntegrationConfigModal;
-window.closeIntegrationConfigModal = closeIntegrationConfigModal;
-window.refreshIntegrationsSettingsView = refreshIntegrationsSettingsView;
-window.copyAssistOllamaUserUrl = copyAssistOllamaUserUrl;
-window.copyAssistKey = copyAssistKey;
-window.regenerateAssistKey = regenerateAssistKey;
-window.deleteUser = deleteUser;
-window.unlinkUserPhone = unlinkUserPhone;
-window.loadSkills = loadSkills;
-window.openSkillEdit = openSkillEdit;
-window.closeSkillEditModal = closeSkillEditModal;
-window.saveSkillEdit = saveSkillEdit;
-window.deleteSkill = deleteSkill;
-window.toggleSkillDesc = toggleSkillDesc;
-window.toggleSkillDisabled = toggleSkillDisabled;
 _assignLazyGlobals(_loadAppsModule, [
     'loadApps', 'appAction', 'openAppLogModal', 'closeAppLogModal', 'refreshAppLogs',
     'openAppDetail', 'closeAppDetail', 'installApp', 'updateApp', 'uninstallApp',
