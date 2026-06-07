@@ -8,6 +8,7 @@
  */
 import en from './en.js';
 import ro from './ro.js';
+import { initDashboardSidebarNav } from '../nav_bridge.js';
 
 // Registry: add new language by adding one entry here and creating <code>.js
 export const LANGUAGES = { en, ro };
@@ -256,7 +257,7 @@ export function applyTranslations() {
         }
     });
 
-    try { window.initDashboardSidebarNav?.(); } catch (_) {}
+    try { initDashboardSidebarNav?.(); } catch (_) {}
     document.querySelectorAll('hv-card-vacuum').forEach((el) => {
         if (typeof el.refreshI18n === 'function') el.refreshI18n();
     });

@@ -1064,7 +1064,6 @@ window.addEventListener('DOMContentLoaded', () => {
         openIntegrationDeviceModal: (idx, slug) => openIntegrationDeviceModal(idx, slug),
         renameIntegrationDevice: (...args) => renameIntegrationDevice(...args),
     });
-    window.initDashboardSidebarNav = initDashboardSidebarNav;
     try { initDashboardSidebarNav(); } catch (_) {}
     applyInitialGreeting();
 
@@ -1120,9 +1119,7 @@ window.addEventListener('DOMContentLoaded', () => {
             const isOpen = !balloon.classList.contains('hidden');
             balloon.classList.toggle('hidden', isOpen);
             btnAttach.setAttribute('aria-expanded', !isOpen);
-            if (!isOpen && typeof window.closeModelSelector === 'function') {
-                window.closeModelSelector();
-            }
+            if (!isOpen) closeModelSelector();
         };
         document.addEventListener('click', () => {
             balloon.classList.add('hidden');
@@ -1368,6 +1365,8 @@ registerNavBridge({
     switchUserProfileTab,
     loadUserProfilePage,
     populateAppTab,
+    loadSessionsList,
+    initDashboardSidebarNav,
     loadPlanner: _lazyAction(_loadPlannerModule, 'loadPlanner'),
     loadApps: _lazyAction(_loadAppsModule, 'loadApps'),
     loadScenes: _lazyAction(_loadScenesModule, 'loadScenes'),

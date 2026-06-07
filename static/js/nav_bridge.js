@@ -57,3 +57,11 @@ export function loadScenes() {
 export function loadAreas() {
     return _handlers.loadAreas?.();
 }
+
+export function loadSessionsList() {
+    return _handlers.loadSessionsList?.();
+}
+
+export function initDashboardSidebarNav() {
+    return _handlers.initDashboardSidebarNav?.();
+}

@@ -2,7 +2,7 @@ import { apiCall, authToken, suppressLogout } from './api.js';
 import { t, tRaw } from './lang/index.js';
 import { getThinkingMode } from './thinking_mode.js';
 import { escapeHtml, showToast, TOOL_ICONS, TOOL_ICON_FALLBACK, buildSourcesHtml, loadScriptOnce, loadStyleOnce } from './utils.js';
-import { switchUserProfileTab, switchTab } from './nav_bridge.js';
+import { switchUserProfileTab, switchTab, loadSessionsList } from './nav_bridge.js';
 import { isVoiceLoopActive, isVoiceInputPending, setVoiceInputPending } from './voice_state.js';
 
 if (typeof marked !== 'undefined') {
@@ -2509,7 +2509,7 @@ export async function sendMessage(optionalMessage) {
             const activeSessionId = newSessionId || currentSessionId;
             if (activeSessionId) {
                 try {
-                    if (window.loadSessionsList) await window.loadSessionsList();
+                    await loadSessionsList?.();
                     const res = await apiCall(`/api/sessions/${activeSessionId}`);
                     if (res.ok) {
                         const data = await res.json();

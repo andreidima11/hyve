@@ -19,10 +19,6 @@ export function closeModelSelector() {
     btn?.setAttribute('aria-expanded', 'false');
 }
 
-if (typeof window !== 'undefined') {
-    window.closeModelSelector = closeModelSelector;
-}
-
 document.addEventListener('click', (e) => {
     const wrap = document.querySelector('.model-selector-wrap');
     if (wrap && !wrap.contains(e.target)) closeModelSelector();
