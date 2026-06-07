@@ -142,22 +142,22 @@ async def update_users_me_security(
     current_user: models.User = Depends(auth.get_current_user),
 ):
     if not auth.verify_password(data.current_password, current_user.hashed_password):
-        raise HTTPException(status_code=403, detail='Parola curentă este incorectă')
+        raise HTTPException(status_code=403, detail={"key": "user.current_password_incorrect"})
 
     username = data.username.strip() if data.username is not None else current_user.username
     if not _USERNAME_RE.fullmatch(username):
-        raise HTTPException(status_code=400, detail='Username invalid. Folosește 2-64 caractere: litere, cifre, _, . sau -')
+        raise HTTPException(status_code=400, detail={"key": "user.invalid_username"})
 
     if username.lower() != current_user.username.lower():
         existing = db.query(models.User).filter(func.lower(models.User.username) == username.lower()).first()
         if existing:
-            raise HTTPException(status_code=400, detail='Username deja folosit')
+            raise HTTPException(status_code=400, detail={"key": "user.username_taken"})
 
     email = current_user.email
     if data.email is not None:
         email = _clean_text(data.email, 254)
         if email and not _EMAIL_RE.fullmatch(email):
-            raise HTTPException(status_code=400, detail='Email invalid')
+            raise HTTPException(status_code=400, detail={"key": "user.invalid_email"})
         if email:
             email = email.lower()
 
@@ -166,7 +166,7 @@ async def update_users_me_security(
     current_user.email = email
     if data.new_password:
         if data.new_password == data.current_password:
-            raise HTTPException(status_code=400, detail='Parola nouă trebuie să fie diferită de parola curentă')
+            raise HTTPException(status_code=400, detail={"key": "user.new_password_same_as_current"})
         current_user.hashed_password = auth.get_password_hash(data.new_password)
 
     db.commit()
@@ -205,7 +205,7 @@ async def create_user(
     admin_user: models.User = Depends(auth.get_current_admin)
 ):
     if db.query(models.User).filter(models.User.username == new_user_data.username).first():
-        raise HTTPException(status_code=400, detail='Username already registered')
+        raise HTTPException(status_code=400, detail={"key": "user.username_already_registered"})
     hashed_password = auth.get_password_hash(new_user_data.password)
     user = models.User(
         username=new_user_data.username,
@@ -228,7 +228,7 @@ async def link_whatsapp(
 ):
     phone = data.phone_number.replace(' ', '').strip()
     if not phone:
-        raise HTTPException(status_code=400, detail='Invalid phone')
+        raise HTTPException(status_code=400, detail={"key": "user.invalid_phone"})
 
     if phone.startswith('0'):
         waha_id = f'4{phone}@c.us'
@@ -241,7 +241,7 @@ async def link_whatsapp(
     if existing:
         if existing.user_id == current_user.id:
             return {'status': 'already_linked'}
-        raise HTTPException(status_code=400, detail='Number already linked to another account')
+        raise HTTPException(status_code=400, detail={"key": "user.phone_already_linked"})
 
     new_phone = models.PhoneNumber(number=phone, waha_id=waha_id, user_id=current_user.id)
     db.add(new_phone)
@@ -277,10 +277,10 @@ async def delete_user(
     admin_user: models.User = Depends(auth.get_current_admin)
 ):
     if user_id == admin_user.id:
-        raise HTTPException(status_code=400, detail='Cannot delete your own account')
+        raise HTTPException(status_code=400, detail={"key": "user.cannot_delete_self"})
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail='User not found')
+        raise HTTPException(status_code=404, detail={"key": "user.user_not_found"})
     db.delete(user)
     db.commit()
     log_line('sys', '👤', 'USER', f'Admin deleted user id={user_id}')
@@ -295,7 +295,7 @@ async def unlink_phone(
 ):
     number = data.number.strip().replace(' ', '')
     if not number:
-        raise HTTPException(status_code=400, detail='Invalid number')
+        raise HTTPException(status_code=400, detail={"key": "user.invalid_number"})
     if number.startswith('0'):
         waha_id = f'4{number}@c.us'
     elif number.startswith('+'):
@@ -308,7 +308,7 @@ async def unlink_phone(
         models.PhoneNumber.waha_id == waha_id
     ).first()
     if not entry:
-        raise HTTPException(status_code=404, detail='Number not linked to your account')
+        raise HTTPException(status_code=404, detail={"key": "user.phone_not_linked"})
 
     db.delete(entry)
     db.commit()

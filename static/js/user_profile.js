@@ -1,5 +1,5 @@
 import { showToast } from './utils.js';
-import { t } from './lang/index.js';
+import { t, translateApiDetail } from './lang/index.js';
 import { apiCall, setAuthToken, setRefreshToken } from './api.js';
 import { loadUserNotifications } from './notifications.js';
 
@@ -28,7 +28,7 @@ function _writeDraft(data) {
 
 function _titleCaseName(value) {
     const raw = String(value || '').trim();
-    if (!raw) return 'Utilizator';
+    if (!raw) return t('common.unknown');
     return raw
         .split(/([\s._-]+)/)
         .map((part) => /^[A-Za-zÀ-ž]/.test(part) ? part.charAt(0).toUpperCase() + part.slice(1).toLowerCase() : part)
@@ -87,9 +87,9 @@ function _populateFromProfileAndDraft() {
 async function _readApiError(res) {
     try {
         const data = await res.json();
-        return data?.detail || data?.message || 'Operația a eșuat.';
+        return translateApiDetail(data?.detail) || data?.message || t('common.unknown_error');
     } catch (_) {
-        return 'Operația a eșuat.';
+        return t('common.unknown_error');
     }
 }
 

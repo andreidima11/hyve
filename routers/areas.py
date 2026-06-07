@@ -227,7 +227,7 @@ async def sync_from_ha(
     and assign Z2M/Pago/derived entities through the area editor.
     """
     _require_admin(user)
-    raise HTTPException(status_code=410, detail="Importul extern a fost eliminat. Adăugaţi camerele manual.")
+    raise HTTPException(status_code=410, detail={"key": "areas.external_import_removed"})
 
 
 @router.get("/{area_id}/entities")

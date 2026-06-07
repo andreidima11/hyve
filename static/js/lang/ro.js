@@ -1678,7 +1678,19 @@ const ro = {
         current_password_required: "Introdu parola curentă pentru modificări de securitate.",
         password_mismatch: "Parolele nu coincid.",
         security_saved: "Setările de securitate au fost salvate.",
-        security_save_error: "Nu am putut salva setările de securitate."
+        security_save_error: "Nu am putut salva setările de securitate.",
+        current_password_incorrect: "Parola curentă este incorectă.",
+        invalid_username: "Username invalid. Folosește 2-64 caractere: litere, cifre, _, . sau -.",
+        username_taken: "Username deja folosit.",
+        invalid_email: "Email invalid.",
+        new_password_same_as_current: "Parola nouă trebuie să fie diferită de parola curentă.",
+        username_already_registered: "Username deja înregistrat.",
+        invalid_phone: "Număr de telefon invalid.",
+        phone_already_linked: "Numărul este deja legat de alt cont.",
+        cannot_delete_self: "Nu poți șterge propriul cont.",
+        user_not_found: "Utilizator negăsit.",
+        invalid_number: "Număr invalid.",
+        phone_not_linked: "Numărul nu este legat de contul tău.",
     },
     areas: {
         modal_missing: "Eroare UI: modalul nu există în pagină",
@@ -1688,7 +1700,8 @@ const ro = {
         saved: "Zonă salvată",
         save_error: "Nu am putut salva zona",
         sync_success: "Zone sincronizate",
-        sync_error: "Nu am putut sincroniza zonele"
+        sync_error: "Nu am putut sincroniza zonele",
+        external_import_removed: "Importul extern a fost eliminat. Adăugați camerele manual.",
     },
     hyveview: {
         no_schema_editor: "Nu există editor de schemă pentru acest tip de card.",

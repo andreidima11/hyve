@@ -1677,7 +1677,19 @@ const en = {
         current_password_required: "Enter your current password to change security settings.",
         password_mismatch: "Passwords do not match.",
         security_saved: "Security settings saved.",
-        security_save_error: "Could not save security settings."
+        security_save_error: "Could not save security settings.",
+        current_password_incorrect: "Current password is incorrect.",
+        invalid_username: "Invalid username. Use 2–64 characters: letters, digits, _, . or -.",
+        username_taken: "Username is already taken.",
+        invalid_email: "Invalid email address.",
+        new_password_same_as_current: "New password must differ from the current password.",
+        username_already_registered: "Username is already registered.",
+        invalid_phone: "Invalid phone number.",
+        phone_already_linked: "Number is already linked to another account.",
+        cannot_delete_self: "You cannot delete your own account.",
+        user_not_found: "User not found.",
+        invalid_number: "Invalid number.",
+        phone_not_linked: "Number is not linked to your account.",
     },
     areas: {
         modal_missing: "UI error: modal not found on page",
@@ -1687,7 +1699,8 @@ const en = {
         saved: "Area saved",
         save_error: "Could not save area",
         sync_success: "Areas synced",
-        sync_error: "Could not sync areas"
+        sync_error: "Could not sync areas",
+        external_import_removed: "External import was removed. Add rooms manually.",
     },
     hyveview: {
         no_schema_editor: "No schema editor for this card type.",
