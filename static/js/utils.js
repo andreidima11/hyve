@@ -620,8 +620,3 @@ function _resolveConfirm(result) {
     if (modal) modal.classList.add('hidden');
     if (_confirmResolve) { _confirmResolve(result); _confirmResolve = null; }
 }
-
-if (typeof window !== 'undefined') {
-    window.showSourcesModal = showSourcesModal;
-    window.hideSourcesModal = hideSourcesModal;
-}

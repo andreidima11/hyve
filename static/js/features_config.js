@@ -393,7 +393,7 @@ export async function loadConfig() {
             }).join('');
         ambProfileSel.value = amb.profile_id || '';
     }
-    if (typeof initGenericCustomSelects === 'function') initGenericCustomSelects();
+    initGenericCustomSelects();
 
     // Helper: populate a model-profile <select> (mirrors ambient_profile)
     const _fillProfileSelect = (selectId, selectedId) => {
@@ -416,7 +416,7 @@ export async function loadConfig() {
     _setChk('briefings_include_home_status', briefCfg.include_home_status !== false);
     _fillProfileSelect('briefings_profile', briefCfg.profile_id);
 
-    if (typeof initGenericCustomSelects === 'function') initGenericCustomSelects();
+    initGenericCustomSelects();
 
     // Pattern Detector
     const patternCfg = intel.pattern_detector || {};

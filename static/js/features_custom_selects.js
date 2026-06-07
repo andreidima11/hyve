@@ -39,8 +39,6 @@ export function initGenericCustomSelects(root) {
     scope.querySelectorAll('.dashboard-custom-select.js-generic-select[data-target]').forEach(dd => _rebuildGenericSelect(dd));
 }
 
-if (typeof window !== 'undefined') window.initGenericCustomSelects = initGenericCustomSelects;
-
 // The open menu must escape any ancestor `overflow` clipping and `transform`
 // stacking context (e.g. scroll panes / animated views), otherwise it gets cut
 // off or rendered BEHIND sibling panels (like the live-logs view). We "portal"
@@ -109,8 +107,10 @@ function _closeAllGenericSelects(except) {
     document.querySelectorAll('.dashboard-custom-select.js-generic-select[data-open="true"]').forEach(o => { if (o !== except) _closeGenericSelect(o); });
 }
 
-if (typeof document !== 'undefined' && !window.__genericSelectBound) {
-    window.__genericSelectBound = true;
+let _genericSelectBound = false;
+
+if (typeof document !== 'undefined' && !_genericSelectBound) {
+    _genericSelectBound = true;
     // NOTE: capture phase. Many converted selects live inside rows/cards that
     // carry their own inline `onclick` (e.g. open entity card, navigate). In the
     // bubble phase those ancestor handlers fire BEFORE a document-level listener,
@@ -205,10 +205,11 @@ export function upgradeNativeSelects(root) {
     if (scope.tagName === 'SELECT') { upgradeNativeSelect(scope); return; }
     scope.querySelectorAll && scope.querySelectorAll('select').forEach(upgradeNativeSelect);
 }
-if (typeof window !== 'undefined') window.upgradeNativeSelects = upgradeNativeSelects;
 
-if (typeof document !== 'undefined' && !window.__nativeSelectAutoUpgrade) {
-    window.__nativeSelectAutoUpgrade = true;
+let _nativeSelectAutoUpgrade = false;
+
+if (typeof document !== 'undefined' && !_nativeSelectAutoUpgrade) {
+    _nativeSelectAutoUpgrade = true;
     const runAll = () => upgradeNativeSelects(document);
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', runAll, { once: true });
