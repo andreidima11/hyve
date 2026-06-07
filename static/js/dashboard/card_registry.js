@@ -20,8 +20,9 @@
 //   });
 //
 // Cardurile rămase încă în dashboard.js continuă să funcționeze prin
-// fallback-ul de mai jos până sunt migrate aici. Vezi și dashboard/debug.js,
-// hyveview_setup.js, yaml_editor.js, pull_refresh.js, live_ws.js, entity_patch.js.
+// fallback-ul de mai jos până sunt migrate aici. Module extrase: constants.js,
+// helpers.js, widget_actions.js; vezi și debug.js, hyveview_setup.js,
+// yaml_editor.js, pull_refresh.js, live_ws.js, entity_patch.js.
 
 const _registry = new Map();
 

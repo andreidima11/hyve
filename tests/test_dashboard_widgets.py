@@ -717,7 +717,7 @@ def test_delete_dashboard_page_rejects_last_remaining_page():
         asyncio.run(dashboard.delete_dashboard_page("dashboard_home", None))
 
     assert exc_info.value.status_code == 400
-    assert exc_info.value.detail == "Ultima pagină nu poate fi ștearsă."
+    assert exc_info.value.detail == {"key": "dashboard.min_one_page"}
 
 
 def test_delete_dashboard_page_keeps_current_page_when_deleting_another():

@@ -35,7 +35,7 @@ import {
     autoSyncAutomationId, markAutomationIdManual,
     openBlueprintPicker, closeBlueprintPicker, loadBlueprints, importBlueprintYaml, backToBlueprintList, instantiateCurrentBlueprint, deleteCurrentBlueprint,
     openBlueprintCreator, addBlueprintCreatorInput, removeBlueprintCreatorInput, changeBlueprintCreatorInputType, insertBlueprintCreatorPlaceholder, updateBlueprintCreatorYaml, saveCreatedBlueprint,
-    switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, syncAutomationBuilderFromYaml, loadAutomationEditorHistory, refreshAutomationEntityOptions, setAutomationEntityPickerTarget, pickAutomationEntity, filterAutomationEntityPicker, setAutomationServicePickerTarget, pickAutomationService, filterAutomationServicePicker, updateAutomationStructuredServiceData,
+    switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, syncAutomationBuilderFromYaml, loadAutomationEditorHistory, refreshAutomationEntityOptions, updateAutomationStructuredServiceData,
     loadNotificationPrefs, saveNotificationSettings, selectNotifTransport, selectNotifChannel, testWsNotification, testFcmNotification, testNotification, refreshNotifWsNativeStatus,
     testAmbientNow, resetAmbientReasonerPrompt, testBriefingNow, switchMemorySubtab, checkAddonUpdates, updateAllAddons, updateSingleAddon, closeAddonConfigModal, refreshUpdatesHeaderBadge,
 } from './features.js?v=phase4-config-9';
@@ -51,7 +51,7 @@ import {
     openDashboardWidgetEditor, closeDashboardWidgetEditor,
     setDashboardWidgetEditorMode, saveDashboardWidgetEdit,
     updateDashboardTypeUI, updateDashboardEditTypeUI,
-    startDashboardDrag, startDashboardPanelDrag, allowDashboardDrop, dropDashboardWidget, endDashboardDrag,
+    startDashboardDrag, startDashboardPanelDrag,
     startDashboardResize,
     handleDashboardCardClick, handleDashboardCardKeydown,
     selectDashboardPage, createDashboardPage, openDashboardPageNav,
@@ -65,7 +65,7 @@ import {
     openDashboardEntityPicker, closeDashboardEntityPicker, handleDashboardEntityPickerKeydown, pickDashboardEntityOption,
     addSelectedDashboardClimateEntity, removeDashboardClimateEntity, updateDashboardClimateEntityMeta,
     setDashboardAddEditorMode, toggleDashboardVisibilityEditor, addDashboardVisibilityCondition
-} from './dashboard.js?v=hyveview-cards-51';
+} from './dashboard.js?v=hyveview-cards-54';
 
 const _lazyModulePromises = new Map();
 
@@ -1108,9 +1108,6 @@ window.updateDashboardTypeUI = updateDashboardTypeUI;
 window.updateDashboardEditTypeUI = updateDashboardEditTypeUI;
 window.startDashboardDrag = startDashboardDrag;
 window.startDashboardPanelDrag = startDashboardPanelDrag;
-window.allowDashboardDrop = allowDashboardDrop;
-window.dropDashboardWidget = dropDashboardWidget;
-window.endDashboardDrag = endDashboardDrag;
 window.startDashboardResize = startDashboardResize;
 window.selectDashboardPage = selectDashboardPage;
 window.createDashboardPage = createDashboardPage;

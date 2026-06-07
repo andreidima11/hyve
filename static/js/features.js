@@ -69,12 +69,6 @@ export {
 
 export {
     switchIntelligenceTab,
-    setAutomationEntityPickerTarget,
-    pickAutomationEntity,
-    filterAutomationEntityPicker,
-    setAutomationServicePickerTarget,
-    pickAutomationService,
-    filterAutomationServicePicker,
     loadAutomationEditorHistory,
     switchAutomationEditorMode,
     autoSyncAutomationId,

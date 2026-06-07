@@ -418,14 +418,6 @@ function _upgradeAutoBuilderSelects(host) {
     }
 }
 
-// Legacy exports kept as no-ops so onclick attributes in templates don't throw
-export function setAutomationEntityPickerTarget() {}
-export function pickAutomationEntity() {}
-export function filterAutomationEntityPicker() {}
-export function setAutomationServicePickerTarget() {}
-export function pickAutomationService() {}
-export function filterAutomationServicePicker() {}
-
 function _automationBuilderActionTemplate(kind = 'notify') {
     if (kind === 'service') {
         return { kind: 'service', service: 'light.turn_on', entity_id: '', data: '{}' };

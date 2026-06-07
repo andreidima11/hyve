@@ -15,23 +15,33 @@ import { createDashboardEntityPatcher } from './dashboard/entity_patch.js';
 import { fusionSolarEntityIdsFromPower, fusionSolarWidgetEntityIds } from '/static/hyveview/cards/fusion_solar.js';
 import { widgetTitle } from '/static/hyveview/host.js';
 import { normalizeIconClass, widgetIconSpec } from './icon_utils.js';
+import {
+    DEFAULT_PREFS,
+    DEFAULT_META,
+    DASHBOARD_LOCAL_KEY,
+    DASHBOARD_PAGES_NAV_KEY,
+    DASHBOARD_LAST_PAGE_KEY,
+    DASHBOARD_STANDALONE_PANEL_ID,
+    DASHBOARD_OPTIMISTIC_GUARD_MS,
+    DASHBOARD_PENDING_VISUAL_MS,
+    SECTION_COLS,
+    DASHBOARD_COL_POINTS_MIN,
+    DASHBOARD_COL_POINTS_MAX,
+    DEFAULT_CAMERA_INTERVAL,
+    DASHBOARD_GRID_COLS,
+    DASHBOARD_CUSTOM_SELECT_IDS,
+} from './dashboard/constants.js';
+import { dashApiError as _dashApiError, escapeHtml as _escape, stateOn as _stateOn } from './dashboard/helpers.js';
+import { initDashboardWidgetActions } from './dashboard/widget_actions.js';
+export {
+    onDashboardBrightnessInput,
+    onDashboardBrightnessChange,
+    onDashboardLockAction,
+    onDashboardVacuumAction,
+} from './dashboard/widget_actions.js';
 
 const _effectiveWidgetCardType = (widget) =>
     HVBridge.effectiveCardType(widget) || String(widget?.type || widget?.renderer || 'button').toLowerCase();
-
-function _dashApiError(detail, fallbackKey) {
-    return translateApiDetail(detail) || t(fallbackKey);
-}
-
-const DEFAULT_PREFS = {
-    layout_mode: 'comfortable',
-    show_unavailable: true,
-    filter_mode: 'all',
-};
-const DEFAULT_META = {
-    title: 'Dashboard',
-    subtitle: 'Acasă',
-};
 
 let _dashboardCache = {
     widgets: [],
@@ -58,36 +68,14 @@ let _dashboardTouchReordered = false;
 let _currentPageId = null;
 let _hashRouterBound = false;
 let _dashboardSortableLoadPromise = null;
-const DASHBOARD_LOCAL_KEY = 'hyve_dashboard_local';
-const DASHBOARD_PAGES_NAV_KEY = 'hyve.dashboardPagesNav';
-const DASHBOARD_LAST_PAGE_KEY = 'hyve.lastDashboardPageId';
-const DASHBOARD_STANDALONE_PANEL_ID = '__standalone__';
 const _dashboardPendingControls = new Map();
 const _dashboardOptimisticGuards = new Map();
-const DASHBOARD_OPTIMISTIC_GUARD_MS = 3500;
-const DASHBOARD_PENDING_VISUAL_MS = 260;
 const _dashboardClimateSlideIndex = new Map();
 let _dashboardClimateSwipeState = null;
 let _dashboardClimateEntitySelection = [];
 let _dashboardPanelModalMode = 'add';
 let _dashboardPanelModalPanelId = null;
 let _dashboardPanelModalPages = [];
-const SECTION_COLS = 4;
-const DASHBOARD_COL_POINTS_MIN = 1;
-const DASHBOARD_COL_POINTS_MAX = 4;
-const DEFAULT_CAMERA_INTERVAL = 10;
-const DASHBOARD_CUSTOM_SELECT_IDS = new Set([
-    'dashboard-widget-type',
-    'dashboard-widget-size',
-    'dashboard-widget-col-span',
-    'dashboard-widget-row-span',
-    'dashboard-widget-camera-mode',
-    'dashboard-visibility-logic',
-    'dashboard-panel-size-input',
-    'dashboard-page-columns',
-    'dashboard-page-layout-mode',
-    'dashboard-page-theme',
-]);
 const _dashboardCustomSelects = new WeakMap();
 let _dashboardCustomSelectOutsideBound = false;
 
@@ -107,15 +95,6 @@ function _ensureDashboardSortable() {
             });
     }
     return _dashboardSortableLoadPromise;
-}
-
-function _escape(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
 }
 
 function _dashboardSelectLabel(option) {
@@ -571,11 +550,6 @@ async function _fetchDashboardLayoutJson(url, timeoutMs = 8000, externalSignal =
             try { externalSignal.removeEventListener('abort', onExternalAbort); } catch (_) {}
         }
     }
-}
-
-function _stateOn(state) {
-    const value = String(state || '').toLowerCase();
-    return ['on', 'open', 'playing', 'unlocked', 'heat', 'cool', 'home'].includes(value);
 }
 
 function _dashboardControlPending(widgetId) {
@@ -2828,140 +2802,6 @@ function _weatherIcon(cond, isNight = false) {
     if (c.includes('storm') || c.includes('thunder')|| c.includes('furtună') || c.includes('furtuna')) return 'fas fa-bolt';
     if (c.includes('fog')   || c.includes('mist')   || c.includes('ceață') || c.includes('ceata'))    return 'fas fa-smog';
     return isNight ? 'fas fa-cloud-moon' : 'fas fa-cloud-sun';
-}
-
-// ===== Phase 2: control actions =====
-
-let _brightnessDebounceTimer = null;
-let _brightnessLastSent = new Map();
-
-export function onDashboardBrightnessInput(event, widgetId) {
-    // Visual update only — debounce real send to onChange or after 200ms idle.
-    const slider = event && event.target;
-    if (!slider) return;
-    const pct = Number(slider.value);
-    const wrap = slider.closest('.hyve-dashboard-card__brightness');
-    if (wrap) wrap.style.setProperty('--brightness-pct', `${pct}%`);
-    const valueEl = wrap?.querySelector('.hyve-dashboard-card__brightness-value');
-    if (valueEl) valueEl.textContent = `${pct}%`;
-
-    if (_brightnessDebounceTimer) clearTimeout(_brightnessDebounceTimer);
-    _brightnessDebounceTimer = setTimeout(() => _sendBrightness(widgetId, pct), 220);
-}
-
-export function onDashboardBrightnessChange(event, widgetId) {
-    if (_brightnessDebounceTimer) { clearTimeout(_brightnessDebounceTimer); _brightnessDebounceTimer = null; }
-    const slider = event && event.target;
-    const pct = Number(slider?.value || 0);
-    _sendBrightness(widgetId, pct);
-}
-
-async function _sendBrightness(widgetId, pct) {
-    const widget = _findWidget(widgetId);
-    if (!widget) return;
-    if (_brightnessLastSent.get(widgetId) === pct) return;
-    _brightnessLastSent.set(widgetId, pct);
-    const attrs = widget.attributes || {};
-    const caps = attrs.capabilities || {};
-    const scale = Number(caps.brightness_scale) || 254;
-    const value = Math.round((pct / 100) * scale);
-    try {
-        // Try generic widget control endpoint first; fall back to integration control.
-        const slug = widget.source || 'zigbee2mqtt';
-        const res = await apiCall(`/api/integrations/${encodeURIComponent(slug)}/control`, {
-            method: 'POST',
-            body: { entity_id: widget.entity_id, action: 'set_brightness', data: { brightness: value, brightness_pct: pct } },
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(_dashApiError(err.detail, 'dashboard.brightness_failed'));
-        }
-        // Optimistic local cache update
-        widget.current_state = pct > 0 ? 'on' : 'off';
-        widget.attributes = { ...attrs, brightness: value };
-    } catch (e) {
-        showToast(e.message || t('dashboard.brightness_failed'), 'error');
-    }
-}
-
-export async function onDashboardLockAction(widgetId, action) {
-    const widget = _findWidget(widgetId);
-    if (!widget) return;
-    try {
-        const slug = widget.source || 'zigbee2mqtt';
-        const res = await apiCall(`/api/integrations/${encodeURIComponent(slug)}/control`, {
-            method: 'POST',
-            body: { entity_id: widget.entity_id, action, data: {} },
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(_dashApiError(err.detail, 'dashboard.action_failed'));
-        }
-        widget.current_state = action === 'lock' ? 'locked' : 'unlocked';
-        if (!_tryFastPathForEntities([widget.entity_id])) _renderDashboard();
-    } catch (e) {
-        showToast(e.message || t('dashboard.action_failed'), 'error');
-    }
-}
-
-const _VACUUM_OPTIMISTIC_STATE = {
-    start: 'cleaning',
-    pause: 'paused',
-    stop: 'idle',
-    return_to_base: 'returning',
-    locate: null,
-};
-
-// Status label shown immediately for the optimistic state is derived from
-// hyveview.vacuum.status.* via tVacuumStatus after clearing attrs.status.
-
-// Pending re-sync timers per integration slug so rapid taps don't pile up
-// dozens of background syncs.
-const _vacuumResyncTimers = new Map();
-
-function _scheduleVacuumResync(slug) {
-    if (!slug) return;
-    // The device takes a few seconds to actually change its reported status,
-    // and the Xiaomi sync interval is ~60s, so without a nudge the card would
-    // sit on the optimistic state for a long time. Trigger a couple of delayed
-    // syncs so the real status lands within a few seconds.
-    const existing = _vacuumResyncTimers.get(slug);
-    if (existing) existing.forEach(id => clearTimeout(id));
-    const fire = async () => {
-        try { await apiCall(`/api/integrations/sync/${encodeURIComponent(slug)}`, { method: 'POST' }); }
-        catch (_) { /* best effort */ }
-    };
-    const timers = [setTimeout(fire, 3000), setTimeout(fire, 9000)];
-    _vacuumResyncTimers.set(slug, timers);
-}
-
-export async function onDashboardVacuumAction(widgetId, action) {
-    const widget = _findWidget(widgetId);
-    if (!widget) return;
-    try {
-        const slug = widget.source || 'xiaomi_home';
-        const res = await apiCall(`/api/integrations/${encodeURIComponent(slug)}/control`, {
-            method: 'POST',
-            body: { entity_id: widget.entity_id, action, data: {} },
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(_dashApiError(err.detail, 'dashboard.action_failed'));
-        }
-        const optimistic = _VACUUM_OPTIMISTIC_STATE[action];
-        if (optimistic) {
-            widget.current_state = optimistic;
-            const attrs = { ...(widget.attributes || {}) };
-            delete attrs.status;
-            widget.attributes = attrs;
-            if (!_tryFastPathForEntities([widget.entity_id])) _renderDashboard();
-        }
-        // Nudge the real device status to refresh quickly instead of waiting
-        // for the next scheduled integration sync.
-        _scheduleVacuumResync(slug);
-    } catch (e) {
-        showToast(e.message || t('dashboard.action_failed'), 'error');
-    }
 }
 
 // ===== Add picker (single entry point for all "Adaugă …" actions) =====
@@ -6224,14 +6064,7 @@ function _moveWidgetBetweenPanelsLocal(widgetId, fromPanelId, toPanelId) {
     to.widgets.push(moved);
 }
 
-// Legacy stubs kept for backward-compat (HTML5 drag attrs no longer emitted,
-// but `window.allowDashboardDrop` etc. may still be referenced by old caches).
-export function allowDashboardDrop(event) { event?.preventDefault?.(); }
-export async function dropDashboardWidget(_event, _targetId) { /* no-op */ }
-export function endDashboardDrag() { /* no-op */ }
-
 // ── Collision resolution: push overlapping widgets downward ──────────
-const _GRID_COLS = 12;
 
 /** Return a flat list of widget objects for a given panel id (cache lookup). */
 function _panelWidgets(panelId) {
@@ -6266,7 +6099,7 @@ function _clampColStartForSpan(colStart, colSpan) {
     const parsedSpan = parseInt(colSpan, 10);
     const start = Number.isFinite(parsedStart) ? parsedStart : 1;
     const span = Number.isFinite(parsedSpan) ? parsedSpan : 1;
-    return Math.max(1, Math.min(start, _GRID_COLS - Math.max(1, span) + 1));
+    return Math.max(1, Math.min(start, DASHBOARD_GRID_COLS - Math.max(1, span) + 1));
 }
 
 function _findDashboardSwapCandidate(movingRect, panelWidgets, panelGridEl) {
@@ -6723,7 +6556,7 @@ export async function toggleDashboardWidget(widgetId, btn) {
         dashDebug('toggle.res', { status: res.status });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            throw new Error(err.detail || 'Comutarea a eșuat');
+            throw new Error(_dashApiError(err.detail, 'dashboard.toggle_failed'));
         }
         _dashboardPendingControls.delete(String(widgetId));
         _dashboardOptimisticGuards.set(String(widget.entity_id || ''), {
@@ -6801,7 +6634,7 @@ async function _controlDashboardClimate(widgetId, action, data, attrsPatch = {},
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            throw new Error(err.detail || 'Comanda climate a eșuat');
+            throw new Error(_dashApiError(err.detail, 'dashboard.action_failed'));
         }
         window.setTimeout(() => {
             _dashboardPendingControls.delete(String(widgetId));
@@ -7649,4 +7482,13 @@ initDashboardPullToRefresh({
     showToast,
     t,
     getCurrentPageId: () => _currentPageId || _dashboardCache.page_id || _dashboardCache.current_page_id,
+});
+
+initDashboardWidgetActions({
+    apiCall,
+    t,
+    showToast,
+    findWidget: _findWidget,
+    tryFastPathForEntities: _tryFastPathForEntities,
+    renderDashboard: _renderDashboard,
 });
