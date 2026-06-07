@@ -22,7 +22,30 @@ def test_startup_migrations_idempotent():
     assert "about_me" in user_cols
     assert "default_profile_id" in user_cols
     assert "event_color" in entry_cols
-    assert version == "002_users_default_profile_id"
+    assert version == "003_entity_store"
+
+
+def test_entity_store_tables_from_migrations():
+    run_startup_migrations()
+
+    with database.engine.connect() as conn:
+        override_cols = {
+            row[1] for row in conn.execute(text("PRAGMA table_info(integration_entity_overrides)"))
+        }
+        tables = {
+            row[0]
+            for row in conn.execute(
+                text(
+                    "SELECT name FROM sqlite_master WHERE type='table' "
+                    "AND name LIKE 'integration_%'"
+                )
+            )
+        }
+
+    assert "integration_entities" in tables
+    assert "integration_entity_schedule" in tables
+    assert "integration_entity_overrides" in tables
+    assert "selected" in override_cols
 
 
 def test_alembic_ini_exists():

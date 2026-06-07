@@ -116,20 +116,6 @@ class IntegrationEntityStore:
                     selected INTEGER NOT NULL DEFAULT 0
                 )
             """))
-            # Backfill `selected` column on databases created before this
-            # was added — SQLite ignores ALTER TABLE if the column exists,
-            # so we probe pragma_table_info first.
-            try:
-                cols = {row[1] for row in db.execute(text(
-                    "SELECT * FROM pragma_table_info('integration_entity_overrides')"
-                )).fetchall()}
-                if "selected" not in cols:
-                    db.execute(text(
-                        "ALTER TABLE integration_entity_overrides "
-                        "ADD COLUMN selected INTEGER NOT NULL DEFAULT 0"
-                    ))
-            except Exception as e:
-                log.debug("selected-column migration skipped: %s", e)
             db.commit()
 
     # -- Registry ----------------------------------------------------------
