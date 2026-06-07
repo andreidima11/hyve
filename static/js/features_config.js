@@ -2339,6 +2339,7 @@ if (document.readyState === 'loading') {
 
 export {
     refreshIntegrationsSettingsView,
+    switchIntegrationSubtab,
     openIntegrationConfigModal,
     closeIntegrationConfigModal,
     copyAssistOllamaUserUrl,

@@ -34,6 +34,20 @@ import {
     testPiperConnection,
     activateProfile,
 } from './features_config.js';
+import {
+    switchIntegrationSubtab,
+    testComfyUIConnection,
+    refreshComfyUICheckpoints,
+    refreshComfyUIWorkflows,
+    uploadComfyUIWorkflow,
+    syncConfiguredIntegration,
+    syncIntegrationEntities,
+    navigateToSmartHomeSource,
+    controlIntegrationEntity,
+    openIntegrationEntityCard,
+    openIntegrationDeviceModal,
+    renameIntegrationDevice,
+} from './features_integrations_settings.js';
 
 // Expose sendMessage globally so other modules (e.g. voice input in features.js) can call it
 window.sendMessage = sendMessage;
@@ -850,7 +864,7 @@ window.addEventListener('DOMContentLoaded', () => {
         closeProfileCardMenu: () => closeProfileCardMenu(),
         closeProfileEditor: () => closeProfileEditor(),
         saveProfile: (event) => saveProfile(event),
-        switchIntegrationSubtab: (tab) => window.switchIntegrationSubtab?.(tab),
+        switchIntegrationSubtab: (tab) => switchIntegrationSubtab(tab),
         addExtractionExample: () => addExtractionExample(),
         runConsolidationNow: () => runConsolidationNow(),
         resetAmbientReasonerPrompt: () => resetAmbientReasonerPrompt(),
@@ -873,9 +887,9 @@ window.addEventListener('DOMContentLoaded', () => {
         checkAddonHealth: () => checkAddonHealth(),
         copyWebhook: () => copyWebhook(),
         closeIntegrationConfigModal: () => closeIntegrationConfigModal(),
-        testComfyUIConnection: () => window.testComfyUIConnection?.(),
-        refreshComfyUICheckpoints: () => window.refreshComfyUICheckpoints?.(),
-        refreshComfyUIWorkflows: () => window.refreshComfyUIWorkflows?.(),
+        testComfyUIConnection: () => testComfyUIConnection(),
+        refreshComfyUICheckpoints: () => refreshComfyUICheckpoints(),
+        refreshComfyUIWorkflows: () => refreshComfyUIWorkflows(),
         testWhisperConnection: () => testWhisperConnection(),
         testPiperConnection: () => testPiperConnection(),
         closeAppLogModal: _lazyAction(_loadAppsModule, 'closeAppLogModal'),
@@ -900,11 +914,11 @@ window.addEventListener('DOMContentLoaded', () => {
         onProfileProviderChange: () => onProfileProviderChange(),
         onProfileSubProviderChange: (type) => onProfileSubProviderChange(type),
         syncVisionCapabilityCheckbox: () => syncVisionCapabilityCheckbox(),
-        uploadComfyUIWorkflow: (input) => window.uploadComfyUIWorkflow?.(input),
-        syncConfiguredIntegration: (slug, btn) => window.syncConfiguredIntegration?.(slug, btn),
+        uploadComfyUIWorkflow: (input) => uploadComfyUIWorkflow(input),
+        syncConfiguredIntegration: (slug, btn) => syncConfiguredIntegration(slug, btn),
         openIntegrationConfigModal: (slug) => openIntegrationConfigModal(slug),
-        syncIntegrationEntities: (slug) => window.syncIntegrationEntities?.(slug),
-        navigateToSmartHomeSource: (slug) => window.navigateToSmartHomeSource?.(slug),
+        syncIntegrationEntities: (slug) => syncIntegrationEntities(slug),
+        navigateToSmartHomeSource: (slug) => navigateToSmartHomeSource(slug),
         openSmarthomeTab: () => switchTab('smarthome'),
         unlinkUserPhone: (phone) => unlinkUserPhone(phone),
         moveProfileOrder: (profileId, direction) => moveProfileOrder(profileId, direction),
@@ -1047,7 +1061,12 @@ window.addEventListener('DOMContentLoaded', () => {
         filterDerivedCandidates: () => _lazyAction(_loadDerivedModule, 'filterDerivedCandidates')(),
         toggleDerivedInput: (el) => window.__toggleDerivedInput?.(el),
     });
-    initIntegrationEventBindings();
+    initIntegrationEventBindings({
+        controlIntegrationEntity: (...args) => controlIntegrationEntity(...args),
+        openIntegrationEntityCard: (encoded) => openIntegrationEntityCard(encoded),
+        openIntegrationDeviceModal: (idx, slug) => openIntegrationDeviceModal(idx, slug),
+        renameIntegrationDevice: (...args) => renameIntegrationDevice(...args),
+    });
     window.initDashboardSidebarNav = initDashboardSidebarNav;
     try { initDashboardSidebarNav(); } catch (_) {}
     applyInitialGreeting();

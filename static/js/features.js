@@ -158,6 +158,7 @@ export {
     saveConfig,
     restartServer,
     refreshIntegrationsSettingsView,
+    switchIntegrationSubtab,
     addUserPhone,
     unlinkUserPhone,
     loadModelProfiles,

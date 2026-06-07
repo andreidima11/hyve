@@ -102,7 +102,7 @@ export function syncIntegrationToggles() {
 // ---------------------------------------------------------------------------
 let _activeIntegrationSubtab = 'active';
 
-window.switchIntegrationSubtab = function(tab) {
+export function switchIntegrationSubtab(tab) {
     _activeIntegrationSubtab = tab;
     const btnActive = document.getElementById('int-subtab-active');
     const btnAvail  = document.getElementById('int-subtab-available');
@@ -156,7 +156,7 @@ function updateIntegrationSubtab() {
 
 // --- ComfyUI helpers ---
 
-window.testComfyUIConnection = async function() {
+export async function testComfyUIConnection() {
     const resultEl = document.getElementById('comfyui-test-result');
     if (!resultEl) return;
     resultEl.className = 'text-xs rounded-xl p-3 bg-slate-800 text-slate-400';
@@ -183,7 +183,7 @@ window.testComfyUIConnection = async function() {
     }
 };
 
-window.refreshComfyUICheckpoints = async function() {
+export async function refreshComfyUICheckpoints() {
     const select = document.getElementById('comfyui_checkpoint');
     if (!select) return;
     const current = select.value;
@@ -208,7 +208,7 @@ window.refreshComfyUICheckpoints = async function() {
     }
 };
 
-window.refreshComfyUIWorkflows = async function() {
+export async function refreshComfyUIWorkflows() {
     const select = document.getElementById('comfyui_workflow_file');
     if (!select) return;
     const current = select.value;
@@ -231,7 +231,7 @@ window.refreshComfyUIWorkflows = async function() {
     }
 };
 
-window.uploadComfyUIWorkflow = async function(input) {
+export async function uploadComfyUIWorkflow(input) {
     const file = input.files?.[0];
     if (!file) return;
     try {
@@ -348,7 +348,7 @@ function _integrationLabel(entry) {
     return entry.label || entry.slug || '';
 }
 
-window.syncConfiguredIntegration = async function(integrationId, button = null) {
+export async function syncConfiguredIntegration(integrationId, button = null) {
     const sourceSlug = _integrationEntitySourceSlug(integrationId);
     const btn = button || document.getElementById(`${sourceSlug}-sync-btn`) || document.getElementById(`${integrationId}-sync-btn`);
     const originalHtml = btn?.innerHTML || '';
@@ -357,9 +357,7 @@ window.syncConfiguredIntegration = async function(integrationId, button = null) 
         btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>${escapeHtml(t('integrations.entity_detail.sync_btn'))}</span>`;
     }
     try {
-        if (typeof window.syncIntegrationEntities === 'function') {
-            await window.syncIntegrationEntities(sourceSlug, { toast: true });
-        }
+        await syncIntegrationEntities(sourceSlug, { toast: true });
     } finally {
         if (btn) {
             btn.disabled = false;
@@ -468,12 +466,7 @@ export async function refreshIntegrationsSettingsView(preferredTab = 'auto') {
         nextTab = hasActive ? 'active' : 'available';
     }
     if (nextTab !== 'active' && nextTab !== 'available') nextTab = 'active';
-    if (typeof window.switchIntegrationSubtab === 'function') {
-        window.switchIntegrationSubtab(nextTab);
-    } else {
-        _activeIntegrationSubtab = nextTab;
-        updateIntegrationSubtab();
-    }
+    switchIntegrationSubtab(nextTab);
 }
 
 // Shared "emitted devices" section — populated when the integration modal
@@ -600,18 +593,14 @@ async function loadIntegrationExposedEntities(integrationId) {
     if (caption) caption.textContent = t('common.loading_devices');
 
     openBtn.onclick = () => {
-        if (typeof window.navigateToSmartHomeSource === 'function') {
-            window.navigateToSmartHomeSource(sourceSlug);
-        } else if (typeof window.switchTab === 'function') {
-            window.switchTab('smarthome');
-        }
+        navigateToSmartHomeSource(sourceSlug);
     };
     if (syncBtn) {
         const supportsSync = _supportsIntegrationEntitySync(sourceSlug);
         syncBtn.classList.toggle('hidden', !supportsSync);
         syncBtn.classList.toggle('inline-flex', supportsSync);
         syncBtn.onclick = supportsSync ? async () => {
-            await window.syncConfiguredIntegration(integrationId, syncBtn);
+            await syncConfiguredIntegration(integrationId, syncBtn);
             await loadIntegrationExposedEntities(integrationId);
         } : null;
     }
@@ -1245,7 +1234,7 @@ function _openIntegrationEntityDetailModal(entity, slug) {
     startCameraPreviewRefresh();
 }
 
-window.__openIntegrationEntityCard = function(encoded) {
+export function openIntegrationEntityCard(encoded) {
     let entity;
     try {
         entity = JSON.parse(decodeURIComponent(encoded));
@@ -1256,7 +1245,7 @@ window.__openIntegrationEntityCard = function(encoded) {
     _openIntegrationEntityDetailModal(entity, _exposedDevicesState?.slug || entity.source || '');
 };
 
-window.__openIntegrationDeviceModal = function(idx, slug) {
+export function openIntegrationDeviceModal(idx, slug) {
     const state = _exposedDevicesState;
     if (!state || !integrationSlugsMatch(state.slug, slug)) return;
     const dev = state.devices[idx];
@@ -1334,7 +1323,7 @@ window.__openIntegrationDeviceModal = function(idx, slug) {
     const hideEdit = () => { edit?.classList.add('hidden'); view?.classList.remove('hidden'); };
     if (renameBtn) renameBtn.onclick = showEdit;
     if (cancelBtn) cancelBtn.onclick = hideEdit;
-    const submit = () => window.__renameIntegrationDevice(slug, dev.device_id || '', dev.name || dev.device_id || '', input?.value || '');
+    const submit = () => renameIntegrationDevice(slug, dev.device_id || '', dev.name || dev.device_id || '', input?.value || '');
     if (saveBtn) saveBtn.onclick = submit;
     if (input) input.onkeydown = (ev) => {
         if (ev.key === 'Enter') { ev.preventDefault(); submit(); }
@@ -1342,7 +1331,7 @@ window.__openIntegrationDeviceModal = function(idx, slug) {
     };
 };
 
-window.controlIntegrationEntity = async function(slug, entityId, action, btn, data) {
+export async function controlIntegrationEntity(slug, entityId, action, btn, data) {
     if (btn) { btn.disabled = true; btn.dataset._prev = btn.innerHTML || ''; }
     // Optimistic local update so the UI reacts instantly without waiting for
     // the server to round-trip a full re-fetch.
@@ -1361,7 +1350,7 @@ window.controlIntegrationEntity = async function(slug, entityId, action, btn, da
             else if (action === 'set' && data && data.value !== undefined) touchedEnt.state = String(data.value);
             const modal = document.getElementById('entity-detail-modal');
             if (modal && !modal.classList.contains('hidden') && touchedIdx >= 0) {
-                window.__openIntegrationDeviceModal(touchedIdx, slug);
+                openIntegrationDeviceModal(touchedIdx, slug);
             }
         }
     }
@@ -1379,7 +1368,7 @@ window.controlIntegrationEntity = async function(slug, entityId, action, btn, da
             touchedEnt.state = prevState;
             const modal = document.getElementById('entity-detail-modal');
             if (modal && !modal.classList.contains('hidden') && touchedIdx >= 0) {
-                window.__openIntegrationDeviceModal(touchedIdx, slug);
+                openIntegrationDeviceModal(touchedIdx, slug);
             }
         }
         if (typeof showToast === 'function') showToast(err.message || t('common.error'), 'error', 2500);
@@ -1388,7 +1377,7 @@ window.controlIntegrationEntity = async function(slug, entityId, action, btn, da
     }
 };
 
-window.__renameIntegrationDevice = async function(slug, deviceId, currentName, providedName) {
+export async function renameIntegrationDevice(slug, deviceId, currentName, providedName) {
     let next = providedName;
     if (next == null) {
         next = window.prompt(t('integrations.device_rename_prompt'), currentName || '');
@@ -1414,7 +1403,7 @@ window.__renameIntegrationDevice = async function(slug, deviceId, currentName, p
                 if (grid) grid.innerHTML = _exposedDevicesState.devices.map((d, i) => _devCardHtml(d, i, slug)).join('');
                 const modal = document.getElementById('entity-detail-modal');
                 if (modal && !modal.classList.contains('hidden')) {
-                    window.__openIntegrationDeviceModal(idx, slug);
+                    openIntegrationDeviceModal(idx, slug);
                 }
             }
         }
@@ -1533,7 +1522,7 @@ export async function openIntegrationConfigModal(integrationId) {
                 if (supportsSync) {
                     syncBtn.classList.add('flex');
                     syncBtn.onclick = async () => {
-                        await window.syncConfiguredIntegration(catalogSlug, syncBtn);
+                        await syncConfiguredIntegration(catalogSlug, syncBtn);
                         try { await loadIntegrationExposedEntities(catalogSlug); } catch (_) {}
                     };
                 } else {
@@ -1633,12 +1622,12 @@ export async function openIntegrationConfigModal(integrationId) {
             const storedCheckpoint = c.default_checkpoint || '';
             const storedWorkflow = c.workflow_file || '';
             try {
-                await window.refreshComfyUICheckpoints();
+                await refreshComfyUICheckpoints();
                 const ckptEl = document.getElementById('comfyui_checkpoint');
                 if (ckptEl && storedCheckpoint) ckptEl.value = storedCheckpoint;
             } catch (_) {}
             try {
-                await window.refreshComfyUIWorkflows();
+                await refreshComfyUIWorkflows();
                 const wfEl = document.getElementById('comfyui_workflow_file');
                 if (wfEl && storedWorkflow) wfEl.value = storedWorkflow;
             } catch (_) {}
@@ -2166,13 +2155,13 @@ const _DETAIL_RENDERERS = {
 
 // ---- sync & load --------------------------------------------------------
 
-window.navigateToSmartHomeSource = function(slug) {
-    if (typeof switchTab === 'function') switchTab('smarthome');
+export function navigateToSmartHomeSource(slug) {
+    if (typeof window.switchTab === 'function') window.switchTab('smarthome');
     const catalogSlug = _integrationCatalogSlug(slug);
     setTimeout(() => filterHABySource(catalogSlug), 200);
 };
 
-window.syncIntegrationEntities = async function(slug, options = {}) {
+export async function syncIntegrationEntities(slug, options = {}) {
     const catalogSlug = _integrationCatalogSlug(slug);
     const showUserToast = options.toast !== false;
     const btn = document.getElementById(`${catalogSlug}-sync-btn`);
@@ -2341,8 +2330,6 @@ function _openEntityDetailModal(key, value, meta) {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 }
-
-window.closeEntityDetailModal = closeEntityDetailModal;
 
 /** @returns {Array<object>} */
 export function getIntegrationCatalog() {

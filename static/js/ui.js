@@ -1,4 +1,4 @@
-import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive } from './features.js';
+import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive, refreshIntegrationsSettingsView } from './features.js';
 import { loadDashboard, dashboardHasRenderedContent, resetDashboardEditingState, disconnectDashboardLive, initDashboardSidebarNav } from './dashboard.js';
 import { applyDashboardEditAccess } from './dashboard/edit_access.js';
 import { closeAllSubPages } from './utils.js';
@@ -386,11 +386,7 @@ export function switchConfigTab(tabName) {
     if (tabName === 'areas' && typeof window.loadAreas === 'function') window.loadAreas();
     if (tabName === 'notifications' && typeof window.loadNotificationPrefs === 'function') window.loadNotificationPrefs();
     if (tabName === 'integrations') {
-        if (typeof window.refreshIntegrationsSettingsView === 'function') {
-            window.refreshIntegrationsSettingsView('auto');
-        } else if (typeof window.switchIntegrationSubtab === 'function') {
-            window.switchIntegrationSubtab('active');
-        }
+        refreshIntegrationsSettingsView('auto');
     }
 }
 
@@ -481,9 +477,7 @@ export function openConfigSection(section) {
         }
 
         // Trigger section-specific loaders
-        if (section === 'integrations' && typeof window.refreshIntegrationsSettingsView === 'function') {
-            window.refreshIntegrationsSettingsView('auto');
-        }
+        if (section === 'integrations') refreshIntegrationsSettingsView('auto');
         if (section === 'users') loadAdminUsers();
         if (section === 'app' && typeof window.populateAppTab === 'function') window.populateAppTab();
         if (section === 'notifications' && typeof window.loadNotificationPrefs === 'function') window.loadNotificationPrefs();

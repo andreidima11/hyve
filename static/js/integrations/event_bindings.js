@@ -3,6 +3,8 @@
  * in entity_renderers.js (and related integration UI).
  */
 
+/** @type {Record<string, (...args: unknown[]) => unknown> | null} */
+let _handlers = null;
 let _bound = false;
 
 function _parsePayload(el) {
@@ -29,8 +31,7 @@ function _controlFromEl(el, event) {
     const entityId = el.dataset.intEntityId || '';
     const cmd = el.dataset.intCmd || '';
     if (!slug || !entityId || !cmd) return;
-    if (typeof window.controlIntegrationEntity !== 'function') return;
-    window.controlIntegrationEntity(slug, entityId, cmd, el, _controlPayload(el));
+    _handlers?.controlIntegrationEntity?.(slug, entityId, cmd, el, _controlPayload(el));
 }
 
 function _onClick(event) {
@@ -43,19 +44,14 @@ function _onClick(event) {
     const openCard = event.target.closest('[data-entity-action="openCard"]');
     if (openCard) {
         const encoded = openCard.dataset.intEncoded || '';
-        if (encoded && typeof window.__openIntegrationEntityCard === 'function') {
-            window.__openIntegrationEntityCard(encoded);
-        }
+        if (encoded) _handlers?.openIntegrationEntityCard?.(encoded);
         return;
     }
 
     const openDevice = event.target.closest('[data-entity-action="openDeviceCard"]');
     if (openDevice) {
         const encoded = openDevice.dataset.intEncoded || '';
-        const slug = openDevice.dataset.intSlug || '';
-        if (encoded && typeof window.__openIntegrationDeviceCard === 'function') {
-            window.__openIntegrationDeviceCard(encoded, slug);
-        }
+        if (encoded) _handlers?.openIntegrationEntityCard?.(encoded);
         return;
     }
 
@@ -63,17 +59,14 @@ function _onClick(event) {
     if (openDeviceModal) {
         const idx = Number(openDeviceModal.dataset.intIndex);
         const slug = openDeviceModal.dataset.intSlug || '';
-        if (Number.isFinite(idx) && typeof window.__openIntegrationDeviceModal === 'function') {
-            window.__openIntegrationDeviceModal(idx, slug);
-        }
+        if (Number.isFinite(idx)) _handlers?.openIntegrationDeviceModal?.(idx, slug);
         return;
     }
 
     const rename = event.target.closest('[data-entity-action="renameDevice"]');
     if (rename) {
         event.stopPropagation();
-        if (typeof window.__renameIntegrationDevice !== 'function') return;
-        window.__renameIntegrationDevice(
+        _handlers?.renameIntegrationDevice?.(
             rename.dataset.intSlug || '',
             rename.dataset.intDeviceId || '',
             rename.dataset.intDeviceName || '',
@@ -98,7 +91,8 @@ function _onInput(event) {
     }
 }
 
-export function initIntegrationEventBindings() {
+export function initIntegrationEventBindings(handlers = {}) {
+    _handlers = handlers;
     if (_bound) return;
     _bound = true;
     document.addEventListener('click', _onClick, false);
