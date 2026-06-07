@@ -1,5 +1,5 @@
 """
-Șablon obligatoriu pentru skill-uri Memini (inclusiv cele generate de Forge).
+Șablon obligatoriu pentru skill-uri Hyve (inclusiv cele generate de Forge).
 
 Contract:
 - Clasă cu nume Skill (sau numele modulului în PascalCase).

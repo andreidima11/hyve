@@ -6,6 +6,7 @@ import settings
 import models
 import auth
 import forge
+from core.log_stream import log_line
 
 router = APIRouter(prefix="/api/skills", tags=["skills"])
 
@@ -22,11 +23,6 @@ class ConfirmGeneratedBody(BaseModel):
     suggested_filename: str
 
 
-def _log_line(style, icon, title, message=""):
-    from main import log_line
-    log_line(style, icon, title, message)
-
-
 @router.get("")
 async def api_skills_list(current_user: models.User = Depends(auth.get_current_user)):
     try:
@@ -37,7 +33,7 @@ async def api_skills_list(current_user: models.User = Depends(auth.get_current_u
             for s in reg
         ]
     except Exception as e:
-        _log_line("error", "❌", "SKILLS API", str(e))
+        log_line("error", "❌", "SKILLS API", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -92,7 +88,7 @@ async def api_skill_update(
     ok, msg = skills.update_skill_source(skill_name, body.source or "")
     if not ok:
         raise HTTPException(status_code=400, detail=msg)
-    _log_line("sys", "✏️", "SKILL", f"Updated skill: {skill_name}")
+    log_line("sys", "✏️", "SKILL", f"Updated skill: {skill_name}")
     return {"status": "updated", "message": msg}
 
 
@@ -104,7 +100,7 @@ async def api_skill_delete(
     ok, msg = skills.delete_skill(skill_name)
     if not ok:
         raise HTTPException(status_code=400, detail=msg)
-    _log_line("sys", "🗑️", "SKILL", f"Deleted skill: {skill_name}")
+    log_line("sys", "🗑️", "SKILL", f"Deleted skill: {skill_name}")
     return {"status": "deleted", "message": msg}
 
 
@@ -143,7 +139,6 @@ async def api_skill_toggle(
         disabled = [x for x in disabled if x != skill_name]
     else:
         disabled = disabled + [skill_name]
-    cfg["skills_disabled"] = disabled
-    settings.save_config(cfg)
+    settings.save_config({"skills_disabled": disabled})
     settings.reload_config()
     return {"disabled": skill_name in disabled, "skills_disabled": disabled}

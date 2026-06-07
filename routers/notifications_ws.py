@@ -164,7 +164,7 @@ async def send_reminder_via_websocket(user_id: str, message: str, notification_i
     import time
     notification = {
         "type": notification_type,
-        "title": "Memini",
+        "title": "Hyve",
         "message": message,
         "notification_id": notification_id or f"notif_{user_id}_{int(time.time())}",
         "session_id": session_id,
@@ -262,7 +262,7 @@ async def test_notification_channel(request: Request, current_user: models.User 
             return result
         try:
             sent = push_fcm.send_push_notification(
-                user_id=user_id, title="Memini", message=test_msg,
+                user_id=user_id, title="Hyve", message=test_msg,
                 notification_id=f"test_fcm_{int(time.time())}",
                 notification_type="reminder",
             )

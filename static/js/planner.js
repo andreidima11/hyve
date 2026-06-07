@@ -5,6 +5,7 @@
  */
 import { apiCall } from './api.js';
 import { escapeHtml, showToast, showConfirm } from './utils.js';
+import { t } from './lang/index.js';
 
 // ── State ──────────────────────────────────────────────────────────────
 let listsCache = [];
@@ -114,18 +115,21 @@ function priorityColor(p) {
 // ── API helpers ────────────────────────────────────────────────────────
 async function fetchLists() {
     const res = await apiCall('/api/lists?include_archived=false');
+    if (!res.ok) return [];
     const data = await res.json();
     return data.lists || [];
 }
 
 async function fetchEntries(listId) {
     const res = await apiCall(`/api/entries?list_id=${listId}&entry_type=task&include_archived=false&limit=500`);
+    if (!res.ok) return [];
     const data = await res.json();
     return data.entries || [];
 }
 
 async function fetchAllEvents() {
     const res = await apiCall('/api/entries?entry_type=event&include_archived=false&limit=500');
+    if (!res.ok) return [];
     const data = await res.json();
     return data.entries || [];
 }
@@ -135,27 +139,54 @@ async function fetchAllEvents() {
 function renderLists() {
     const wrap = document.getElementById('planner-lists-drawer-body');
     if (!wrap) return;
-    if (!listsCache.length) { wrap.innerHTML = '<div class="p-empty">No lists yet</div>'; return; }
+    if (!listsCache.length) { wrap.innerHTML = `<div class="p-empty">${escapeHtml(t('planner.no_lists'))}</div>`; return; }
     wrap.innerHTML = listsCache.map(list => {
         const active = selectedListId === list.id ? 'p-list-item--active' : '';
-        return `<button class="p-list-item ${active}" onclick="plannerSelectList(${list.id}); plannerCloseDrawer()">
-            <span class="p-list-item-title">${escapeHtml(list.title)}</span>
-            <button class="p-list-delete" onclick="event.stopPropagation(); plannerDeleteList(${list.id})" title="Delete list"><i class="fas fa-trash-can"></i></button>
-        </button>`;
+        return `<div class="p-list-item ${active}" data-list-id="${list.id}">
+            <button type="button" class="p-list-item-main" onclick="plannerSelectList(${list.id}); plannerCloseDrawer()">
+                <span class="p-list-item-title">${escapeHtml(list.title)}</span>
+            </button>
+            <span class="p-list-delete-wrap" data-list-id="${list.id}">
+                ${_listDeleteButtonHtml(list.id)}
+            </span>
+        </div>`;
     }).join('');
+}
+
+function _listDeleteButtonHtml(id) {
+    return `<button type="button" class="p-list-delete" title="${t('common.delete') || 'Delete'}" onclick="event.stopPropagation(); plannerRequestDeleteList(${id})"><i class="fas fa-xmark"></i></button>`;
+}
+
+function _listDeleteConfirmHtml(id) {
+    return `
+        <button type="button" class="p-list-delete p-list-delete--confirm" title="${t('common.confirm') || 'Confirm'}" onclick="event.stopPropagation(); plannerDeleteList(${id})"><i class="fas fa-check"></i></button>
+        <button type="button" class="p-list-delete p-list-delete--cancel" title="${t('common.cancel') || 'Cancel'}" onclick="event.stopPropagation(); plannerCancelDeleteList(${id})"><i class="fas fa-xmark"></i></button>
+    `;
+}
+
+export function plannerRequestDeleteList(listId) {
+    const wrap = document.querySelector(`.p-list-delete-wrap[data-list-id="${listId}"]`);
+    if (!wrap) return;
+    wrap.innerHTML = _listDeleteConfirmHtml(listId);
+}
+
+export function plannerCancelDeleteList(listId) {
+    const wrap = document.querySelector(`.p-list-delete-wrap[data-list-id="${listId}"]`);
+    if (!wrap) return;
+    wrap.innerHTML = _listDeleteButtonHtml(listId);
 }
 
 // ── Render: To-Do entry list ───────────────────────────────────────────
 function renderTodoEntries() {
     const wrap = document.getElementById('planner-entries');
     if (!wrap) return;
-    if (!selectedListId) { wrap.innerHTML = '<div class="p-empty">Select a list to begin</div>'; return; }
+    if (!selectedListId) { wrap.innerHTML = `<div class="p-empty">${escapeHtml(t('planner.select_list'))}</div>`; return; }
 
     let items = sortEntries(entriesCache);
     if (filterStatus === 'open') items = items.filter(e => e.task_status !== 'done');
     else if (filterStatus === 'done') items = items.filter(e => e.task_status === 'done');
 
-    if (!items.length) { wrap.innerHTML = `<div class="p-empty">${filterStatus === 'done' ? 'No completed tasks' : 'All clear! Add something.'}</div>`; return; }
+    if (!items.length) { wrap.innerHTML = `<div class="p-empty">${escapeHtml(filterStatus === 'done' ? t('planner.no_completed') : t('planner.all_clear'))}</div>`; return; }
 
     const canDrag = filterStatus !== 'done';
     wrap.innerHTML = items.map(entry => {
@@ -366,7 +397,7 @@ export async function loadPlanner() {
         renderActivePanel();
     } catch (e) {
         const wrap = document.getElementById('planner-entries');
-        if (wrap) wrap.innerHTML = `<div class="p-empty">Error: ${escapeHtml(String(e.message || e))}</div>`;
+        if (wrap) wrap.innerHTML = `<div class="p-empty">${escapeHtml(t('planner.load_error', { message: String(e.message || e) }))}</div>`;
     }
 }
 
@@ -374,7 +405,7 @@ function updateHeader() {
     const title = document.getElementById('planner-header-title');
     if (!title) return;
     if (activeTab === 'tasks') title.textContent = selectedList()?.title || 'Planner';
-    else title.textContent = 'Events';
+    else title.textContent = t('planner.events') || 'Events';
 }
 
 export async function plannerCreateList() {
@@ -382,20 +413,19 @@ export async function plannerCreateList() {
     const title = input?.value?.trim();
     if (!title) return;
     const res = await apiCall('/api/lists', { method: 'POST', body: { title } });
-    if (!res.ok) { showToast('Could not create list', 'error'); return; }
+    if (!res.ok) { showToast(t('planner.create_list_error') || 'Could not create list', 'error'); return; }
     if (input) input.value = '';
     await loadPlanner();
 }
 
 export async function plannerDeleteList(listId) {
-    if (!(await showConfirm('Delete this list and all its entries?'))) return;
     const res = await apiCall(`/api/lists/${listId}?hard_delete=true`, { method: 'DELETE' });
     if (res.ok) {
         if (selectedListId === listId) selectedListId = null;
         await loadPlanner();
-        showToast('List deleted', 'success');
+        showToast(t('planner.list_deleted') || 'List deleted', 'success');
     } else {
-        showToast('Could not delete list', 'error');
+        showToast(t('planner.delete_list_error') || 'Could not delete list', 'error');
     }
 }
 
@@ -501,7 +531,7 @@ async function plannerMoveEventTo(entryId, newStart) {
         },
     });
     if (!res.ok) {
-        showToast('Could not move event', 'error');
+        showToast(t('planner.move_event_error'), 'error');
         return;
     }
     await loadEvents();
@@ -541,6 +571,10 @@ export async function plannerCreateEntry() {
     const eventColorInput = document.getElementById('planner-add-event-color');
     const eventNotifyInput = document.getElementById('planner-add-event-notify');
     const eventNotifyMinutesInput = document.getElementById('planner-add-event-notify-minutes');
+    const actionEnabledInput = document.getElementById('planner-add-event-action-enabled');
+    const actionEntityInput = document.getElementById('planner-add-event-action-entity');
+    const actionServiceInput = document.getElementById('planner-add-event-action-service');
+    const actionOffsetInput = document.getElementById('planner-add-event-action-offset');
     const contentInput = document.getElementById('planner-add-content');
     const title = titleInput?.value?.trim();
     if (!title) return;
@@ -554,7 +588,7 @@ export async function plannerCreateEntry() {
 
     // Need a list_id — use selected or first available
     let listId = selectedListId || (listsCache[0]?.id);
-    if (!listId) { showToast('Create a list first', 'error'); return; }
+    if (!listId) { showToast(t('planner.create_list_first'), 'error'); return; }
 
     const body = { list_id: listId, entry_type: entryType, title };
     if (content) body.content = content;
@@ -565,17 +599,17 @@ export async function plannerCreateEntry() {
     if (entryType === 'event') {
         const startRaw = eventStartValue || dateValue;
         if (!startRaw) {
-            showToast('Choose event start time', 'error');
+            showToast(t('planner.choose_start_time'), 'error');
             return;
         }
         const startDt = new Date(startRaw);
         if (isNaN(startDt.getTime())) {
-            showToast('Invalid start time', 'error');
+            showToast(t('planner.invalid_start_time'), 'error');
             return;
         }
         const endDt = eventEndValue ? new Date(eventEndValue) : addMinutes(startDt, 60);
         if (isNaN(endDt.getTime()) || endDt <= startDt) {
-            showToast('End time must be after start time', 'error');
+            showToast(t('planner.end_before_start'), 'error');
             return;
         }
         body.start_at = localISOString(startDt);
@@ -583,10 +617,16 @@ export async function plannerCreateEntry() {
         body.event_color = (eventColorInput?.value || '#4f46e5').trim();
         body.event_notify = !!eventNotifyInput?.checked;
         body.event_notify_minutes = parseInt(eventNotifyMinutesInput?.value || '30', 10) || 0;
+        const actionEnabled = !!actionEnabledInput?.checked;
+        const actionEntity = (actionEntityInput?.value || '').trim();
+        body.event_action_enabled = actionEnabled && !!actionEntity;
+        body.event_action_entity_id = actionEnabled ? actionEntity : '';
+        body.event_action_service = (actionServiceInput?.value || 'turn_on');
+        body.event_action_offset_minutes = parseInt(actionOffsetInput?.value || '0', 10) || 0;
     }
 
     const res = await apiCall('/api/entries', { method: 'POST', body });
-    if (!res.ok) { showToast('Could not create entry', 'error'); return; }
+    if (!res.ok) { showToast(t('planner.create_entry_error'), 'error'); return; }
     if (titleInput) titleInput.value = '';
     if (dtInput) dtInput.value = '';
     if (eventStartInput) eventStartInput.value = '';
@@ -599,16 +639,207 @@ export async function plannerCreateEntry() {
     renderActivePanel();
 }
 
+let _plannerActionEntities = [];
+let _plannerActionEntitiesLoaded = false;
+let _plannerActionEntitiesLoading = null;
+let _plannerEntityActiveIdx = -1;
+
+function _plannerSyncActionSection() {
+    const section = document.getElementById('planner-add-action-section');
+    const enabled = !!document.getElementById('planner-add-event-action-enabled')?.checked;
+    if (section) section.dataset.disabled = enabled ? 'false' : 'true';
+    if (!enabled) _plannerCloseEntityMenu();
+}
+
+export function plannerToggleActionSection() {
+    _plannerSyncActionSection();
+}
+
+const _PLANNER_DOMAIN_ICONS = {
+    switch: 'fa-toggle-on', light: 'fa-lightbulb', fan: 'fa-fan',
+    automation: 'fa-robot', script: 'fa-code', siren: 'fa-bell',
+    media_player: 'fa-music', climate: 'fa-temperature-half',
+    cover: 'fa-window-maximize', humidifier: 'fa-droplet',
+    input_boolean: 'fa-toggle-on'
+};
+
+function _plannerEntityIcon(eid) {
+    const dom = (eid || '').split('.')[0];
+    return _PLANNER_DOMAIN_ICONS[dom] || 'fa-circle-dot';
+}
+
+async function _plannerLoadActionEntities(force = false) {
+    if (_plannerActionEntitiesLoaded && !force) { _plannerRenderEntityMenu(); return; }
+    if (_plannerActionEntitiesLoading) return _plannerActionEntitiesLoading;
+    _plannerActionEntitiesLoading = (async () => {
+        try {
+            const res = await apiCall('/api/integrations/all-entities');
+            if (!res.ok) return;
+            const data = await res.json();
+            const entities = Array.isArray(data?.entities) ? data.entities : [];
+            const allowedDomains = new Set(['switch', 'light', 'fan', 'input_boolean', 'automation', 'script', 'siren', 'media_player', 'climate', 'cover', 'humidifier']);
+            _plannerActionEntities = entities
+                .filter(e => allowedDomains.has((e.entity_id || '').split('.')[0]))
+                .map(e => ({
+                    entity_id: e.entity_id,
+                    name: e.name || e.friendly_name || e.entity_id,
+                }))
+                .sort((a, b) => a.name.localeCompare(b.name));
+            _plannerActionEntitiesLoaded = true;
+            const input = document.getElementById('planner-add-event-action-entity');
+            if (input && document.activeElement === input) {
+                _plannerOpenEntityMenu();
+            }
+        } catch (_) { /* ignore */ }
+        finally { _plannerActionEntitiesLoading = null; }
+    })();
+    return _plannerActionEntitiesLoading;
+}
+
+function _plannerFilteredEntities() {
+    const input = document.getElementById('planner-add-event-action-entity');
+    const q = (input?.value || '').trim().toLowerCase();
+    if (!q) return _plannerActionEntities.slice(0, 50);
+    return _plannerActionEntities.filter(e =>
+        e.entity_id.toLowerCase().includes(q) || e.name.toLowerCase().includes(q)
+    ).slice(0, 50);
+}
+
+function _plannerRenderEntityMenu() {
+    const menu = document.getElementById('planner-entity-picker-menu');
+    if (!menu) return;
+    const items = _plannerFilteredEntities();
+    if (!items.length) {
+        menu.innerHTML = `<div class="p-entity-empty">${escapeHtml(t('planner.no_entities'))}</div>`;
+        return;
+    }
+    menu.innerHTML = items.map((e, i) => `
+        <div class="p-entity-option" data-entity-id="${escapeHtml(e.entity_id)}" data-idx="${i}" data-active="${i === _plannerEntityActiveIdx ? 'true' : 'false'}">
+            <span class="p-entity-option-label p-entity-option-icon"><i class="fas ${_plannerEntityIcon(e.entity_id)}"></i>${escapeHtml(e.name)}</span>
+            <span class="p-entity-option-id">${escapeHtml(e.entity_id)}</span>
+        </div>
+    `).join('');
+    if (!menu.dataset.delegated) {
+        menu.addEventListener('mousedown', (ev) => {
+            const opt = ev.target.closest('.p-entity-option');
+            if (!opt) return;
+            ev.preventDefault();
+            const eid = opt.getAttribute('data-entity-id');
+            if (eid) plannerSelectActionEntity(eid);
+        });
+        menu.dataset.delegated = '1';
+    }
+}
+
+function _plannerEnsureMenuMounted() {
+    const menu = document.getElementById('planner-entity-picker-menu');
+    if (menu && menu.parentElement !== document.body) {
+        document.body.appendChild(menu);
+    }
+}
+
+function _plannerOpenEntityMenu() {
+    _plannerEnsureMenuMounted();
+    const menu = document.getElementById('planner-entity-picker-menu');
+    const input = document.getElementById('planner-add-event-action-entity');
+    if (!menu || !input) return;
+    if (!_plannerActionEntitiesLoaded) {
+        _plannerLoadActionEntities();
+        return;
+    }
+    _plannerEntityActiveIdx = -1;
+    _plannerRenderEntityMenu();
+    const r = input.getBoundingClientRect();
+    const maxH = 240;
+    let top = r.bottom + 4;
+    if (top + maxH > window.innerHeight - 8) {
+        top = Math.max(8, r.top - maxH - 4);
+    }
+    menu.style.left = r.left + 'px';
+    menu.style.top = top + 'px';
+    menu.style.width = r.width + 'px';
+    menu.classList.add('open');
+}
+
+function _plannerCloseEntityMenu() {
+    const menu = document.getElementById('planner-entity-picker-menu');
+    if (menu) menu.classList.remove('open');
+}
+
+function _plannerSyncEntityClearBtn() {
+    const wrap = document.getElementById('planner-entity-picker');
+    const input = document.getElementById('planner-add-event-action-entity');
+    if (wrap) wrap.dataset.hasValue = (input?.value || '').trim() ? 'true' : 'false';
+}
+
+export function plannerSelectActionEntity(eid) {
+    const input = document.getElementById('planner-add-event-action-entity');
+    if (input) input.value = eid;
+    _plannerSyncEntityClearBtn();
+    _plannerCloseEntityMenu();
+}
+
+export function plannerClearActionEntity() {
+    const input = document.getElementById('planner-add-event-action-entity');
+    if (input) { input.value = ''; input.focus(); }
+    _plannerSyncEntityClearBtn();
+    _plannerOpenEntityMenu();
+}
+
+function _plannerHandleEntityKey(ev) {
+    const menu = document.getElementById('planner-entity-picker-menu');
+    if (!menu?.classList.contains('open')) return;
+    const items = _plannerFilteredEntities();
+    if (ev.key === 'ArrowDown') {
+        ev.preventDefault();
+        _plannerEntityActiveIdx = Math.min(items.length - 1, _plannerEntityActiveIdx + 1);
+        _plannerRenderEntityMenu();
+        menu.querySelector(`[data-idx="${_plannerEntityActiveIdx}"]`)?.scrollIntoView({ block: 'nearest' });
+    } else if (ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        _plannerEntityActiveIdx = Math.max(0, _plannerEntityActiveIdx - 1);
+        _plannerRenderEntityMenu();
+        menu.querySelector(`[data-idx="${_plannerEntityActiveIdx}"]`)?.scrollIntoView({ block: 'nearest' });
+    } else if (ev.key === 'Enter' && _plannerEntityActiveIdx >= 0 && items[_plannerEntityActiveIdx]) {
+        ev.preventDefault();
+        plannerSelectActionEntity(items[_plannerEntityActiveIdx].entity_id);
+    } else if (ev.key === 'Escape') {
+        _plannerCloseEntityMenu();
+    }
+}
+
 export function plannerOpenAdd(prefillDatetime) {
     const sheet = document.getElementById('planner-add-sheet');
     const backdrop = document.getElementById('planner-add-backdrop');
     sheet?.classList.add('open');
     backdrop?.classList.add('visible');
 
+    const actionEnabled = document.getElementById('planner-add-event-action-enabled');
+    if (actionEnabled && !actionEnabled.dataset.bound) {
+        actionEnabled.addEventListener('change', _plannerSyncActionSection);
+        actionEnabled.dataset.bound = '1';
+    }
+    const entityInput = document.getElementById('planner-add-event-action-entity');
+    if (entityInput && !entityInput.dataset.bound) {
+        entityInput.addEventListener('focus', () => { _plannerOpenEntityMenu(); });
+        entityInput.addEventListener('input', () => {
+            _plannerEntityActiveIdx = -1;
+            _plannerRenderEntityMenu();
+            _plannerSyncEntityClearBtn();
+            document.getElementById('planner-entity-picker-menu')?.classList.add('open');
+        });
+        entityInput.addEventListener('keydown', _plannerHandleEntityKey);
+        entityInput.addEventListener('blur', () => { setTimeout(_plannerCloseEntityMenu, 120); });
+        entityInput.dataset.bound = '1';
+    }
+    _plannerSyncEntityClearBtn();
+
     // Update sheet title based on tab
     const sheetTitle = document.getElementById('planner-add-sheet-title');
     if (sheetTitle) {
-        sheetTitle.textContent = activeTab === 'events' ? 'New Event' : 'New Task';
+        sheetTitle.textContent = activeTab === 'events'
+            ? (t('planner.new_event') || 'New Event')
+            : (t('planner.new_task') || 'New Task');
     }
 
     const taskDateRow = document.getElementById('planner-add-task-datetime-row');
@@ -617,6 +848,12 @@ export function plannerOpenAdd(prefillDatetime) {
     if (eventTimeRow) eventTimeRow.style.display = activeTab === 'events' ? '' : 'none';
     const eventOptionsRow = document.getElementById('planner-add-event-options-row');
     if (eventOptionsRow) eventOptionsRow.style.display = activeTab === 'events' ? '' : 'none';
+    const eventActionRow = document.getElementById('planner-add-event-action-row');
+    if (eventActionRow) eventActionRow.style.display = activeTab === 'events' ? '' : 'none';
+    if (activeTab === 'events') {
+        _plannerSyncActionSection();
+        _plannerLoadActionEntities();
+    }
 
     // Pre-fill datetime
     const dtInput = document.getElementById('planner-add-datetime');
@@ -635,7 +872,9 @@ export function plannerOpenAdd(prefillDatetime) {
     // Update placeholder
     const titleInput = document.getElementById('planner-add-title');
     if (titleInput) {
-        titleInput.placeholder = activeTab === 'events' ? 'Event title…' : 'What needs doing?';
+        titleInput.placeholder = activeTab === 'events'
+            ? (t('planner.event_title_placeholder') || 'Event title...')
+            : (t('planner.task_title_placeholder') || 'What needs doing?');
         titleInput.focus();
     }
 }
@@ -643,6 +882,7 @@ export function plannerOpenAdd(prefillDatetime) {
 export function plannerCloseAdd() {
     document.getElementById('planner-add-sheet')?.classList.remove('open');
     document.getElementById('planner-add-backdrop')?.classList.remove('visible');
+    _plannerCloseEntityMenu();
 }
 
 export async function plannerToggleDone(entryId) {
@@ -654,7 +894,7 @@ export async function plannerToggleDone(entryId) {
 }
 
 export async function plannerDeleteEntry(entryId) {
-    if (!(await showConfirm('Delete this entry?'))) return;
+    if (!(await showConfirm(t('planner.delete_entry_confirm') || 'Delete this entry?'))) return;
     const res = await apiCall(`/api/entries/${entryId}?hard_delete=true`, { method: 'DELETE' });
     if (res.ok) {
         await Promise.all([loadTodoEntries(), loadEvents()]);
@@ -678,29 +918,50 @@ export async function plannerEntryActions(entryId) {
     if (!entry) return;
     const actions = [];
     if (entry.entry_type === 'task') {
-        actions.push(entry.task_status === 'done' ? 'Reopen task' : 'Complete task');
+        actions.push({
+            id: entry.task_status === 'done' ? 'reopen' : 'complete',
+            label: entry.task_status === 'done'
+                ? (t('planner.action_reopen_task') || 'Reopen task')
+                : (t('planner.action_complete_task') || 'Complete task')
+        });
     }
-    actions.push('Delete');
+    actions.push({ id: 'delete', label: t('planner.action_delete') || 'Delete', danger: true });
 
     const choice = await _simpleActionMenu(entry.title, actions);
-    if (choice === 0 && entry.entry_type === 'task') await plannerToggleDone(entryId);
-    else if (choice === actions.length - 1) await plannerDeleteEntry(entryId);
+    if (!choice) return;
+    if ((choice.id === 'reopen' || choice.id === 'complete') && entry.entry_type === 'task') await plannerToggleDone(entryId);
+    else if (choice.id === 'delete') await plannerDeleteEntry(entryId);
 }
 
 async function _simpleActionMenu(title, options) {
+    const normalized = (options || []).map((opt) => {
+        if (typeof opt === 'string') {
+            return { id: opt.toLowerCase(), label: opt, danger: /^delete$/i.test(opt) };
+        }
+        return {
+            id: String(opt?.id || '').trim() || String(opt?.label || '').toLowerCase(),
+            label: String(opt?.label || ''),
+            danger: !!opt?.danger,
+        };
+    });
     return new Promise(resolve => {
         const overlay = document.createElement('div');
         overlay.className = 'p-action-overlay';
         overlay.innerHTML = `
             <div class="p-action-sheet">
                 <div class="p-action-sheet-title">${escapeHtml(title)}</div>
-                ${options.map((opt, i) => `<button class="p-action-sheet-btn ${opt === 'Delete' ? 'p-action-sheet-btn--danger' : ''}" data-idx="${i}">${escapeHtml(opt)}</button>`).join('')}
-                <button class="p-action-sheet-btn p-action-sheet-cancel">Cancel</button>
+                ${normalized.map((opt, i) => `<button class="p-action-sheet-btn ${opt.danger ? 'p-action-sheet-btn--danger' : ''}" data-idx="${i}">${escapeHtml(opt.label)}</button>`).join('')}
+                <button class="p-action-sheet-btn p-action-sheet-cancel">${escapeHtml(t('common.cancel') || 'Cancel')}</button>
             </div>`;
         overlay.addEventListener('click', (e) => {
             const btn = e.target.closest('[data-idx]');
-            if (btn) { overlay.remove(); resolve(Number(btn.dataset.idx)); return; }
-            if (e.target.closest('.p-action-sheet-cancel') || e.target === overlay) { overlay.remove(); resolve(-1); }
+            if (btn) {
+                const idx = Number(btn.dataset.idx);
+                overlay.remove();
+                resolve(normalized[idx] || null);
+                return;
+            }
+            if (e.target.closest('.p-action-sheet-cancel') || e.target === overlay) { overlay.remove(); resolve(null); }
         });
         document.body.appendChild(overlay);
     });
@@ -729,3 +990,34 @@ export async function plannerDrop(event, targetId) {
     dragEntryId = null;
 }
 export function plannerDragEnd(event) { dragEntryId = null; event.currentTarget.classList.remove('p-entry--dragging'); }
+
+// ── Planner color swatch picker ─────────────────────────────────────────
+(function _initPlannerColorSwatches() {
+    const container = document.getElementById('planner-color-swatches');
+    const hidden = document.getElementById('planner-add-event-color');
+    const hexInput = document.getElementById('planner-color-hex');
+    const preview = document.getElementById('planner-color-preview');
+    if (!container || !hidden) return;
+    function sync(hex) {
+        const norm = (hex || '').toLowerCase();
+        hidden.value = norm;
+        container.querySelectorAll('.color-swatch').forEach(s => {
+            s.classList.toggle('active', s.dataset.color === norm);
+        });
+        if (preview) preview.style.background = norm;
+        if (hexInput && document.activeElement !== hexInput) hexInput.value = norm;
+    }
+    container.addEventListener('click', e => {
+        const sw = e.target.closest('.color-swatch');
+        if (sw) sync(sw.dataset.color);
+    });
+    if (hexInput) {
+        hexInput.addEventListener('input', () => {
+            let v = hexInput.value.trim();
+            if (v && !v.startsWith('#')) v = '#' + v;
+            if (/^#[0-9a-f]{6}$/i.test(v)) sync(v);
+        });
+        hexInput.addEventListener('blur', () => { hexInput.value = hidden.value; });
+    }
+    sync(hidden.value);
+})();

@@ -1,0 +1,8 @@
+{
+  "config": {
+    "title": "Xiaomi Home"
+  },
+  "vacuum": {
+    "charging_state": "Charging state"
+  }
+}

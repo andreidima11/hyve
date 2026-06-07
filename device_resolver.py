@@ -1,10 +1,10 @@
-"""Rezolvare dispozitiv HA din target/alias/nume. Folosit de brain la comenzi."""
+"""Rezolvare dispozitiv din target/alias/nume. Folosit de brain la comenzi."""
 import re
 import difflib
 from typing import Optional, Tuple, Dict, Any
 import settings as settings_mod
-import home_assistant
 from logger import log_line
+from addons.entity_store import get_entity_store
 
 RE_NON_ALPHANUM = re.compile(r"[^a-z0-9\s]")
 DEVICE_MATCH_THRESHOLD = 55.0
@@ -97,6 +97,25 @@ def _device_candidates_by_field(device: dict, field: str) -> list:
     return list(dict.fromkeys(out))
 
 
+def _load_devices_from_overrides() -> list:
+    """Build the device list (entity_id/name/aliases/selected) from the
+    unified integration_entity_overrides store, replacing the legacy
+    legacy entity-store lookup."""
+    out: list = []
+    try:
+        overrides = get_entity_store().get_overrides() or {}
+    except Exception:
+        overrides = {}
+    for eid, ov in overrides.items():
+        out.append({
+            "entity_id": eid,
+            "name": ov.get("custom_name") or eid,
+            "aliases": ov.get("aliases") or [],
+            "selected": bool(ov.get("selected")),
+        })
+    return out
+
+
 async def find_device_details(
     target_description: str,
     user_id: str,
@@ -116,11 +135,26 @@ async def find_device_details(
 
     try:
         cfg = settings_mod.CFG
-        devices = home_assistant.load_config()
+        devices = _load_devices_from_overrides()
+        if not devices:
+            devices = []
+        # Include integration entities that have custom names/aliases
+        overrides = get_entity_store().get_overrides()
+        for eid, ov in overrides.items():
+            if not ov.get("custom_name") and not ov.get("aliases"):
+                continue
+            if any(d.get("entity_id") == eid for d in devices):
+                continue
+            devices.append({
+                "entity_id": eid,
+                "name": ov.get("custom_name") or eid,
+                "aliases": ov.get("aliases") or [],
+                "selected": True,
+            })
         if not devices:
             return None, None
         active_devices_all = [d for d in devices if isinstance(d, dict) and d.get("selected", False)]
-        priority = (cfg.get("home_assistant") or {}).get("device_match_priority")
+        priority = None
         if isinstance(priority, list) and priority and (user_message or "").strip():
             active = active_devices_all
             match_text = (user_message or "").strip()
@@ -196,7 +230,7 @@ def resolve_target_sync(target: str, devices: Optional[list] = None) -> Optional
         return None
     target = str(target).strip()
     if devices is None:
-        devices = home_assistant.load_config()
+        devices = _load_devices_from_overrides()
     devices = devices or []
     # Dacă arată ca entity_id (domain.entity), verifică că există în config și returnează
     if "." in target and " " not in target:

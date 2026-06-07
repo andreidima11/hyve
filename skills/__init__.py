@@ -1,5 +1,5 @@
 """
-Registry de skill-uri Memini: încarcă din skills/*.py (excl. template) și skills/generated/*.py.
+Registry de skill-uri Hyve: încarcă din skills/*.py (excl. template) și skills/generated/*.py.
 Fiecare modul trebuie să exporte o clasă cu execute(input: dict) -> dict.
 """
 import os
@@ -191,7 +191,7 @@ def _run_skill_sandboxed(skill_path: str, input_data: Dict[str, Any],
 
     try:
         env = os.environ.copy()
-        for k in ("HOME_ASSISTANT_TOKEN", "OPENAI_API_KEY", "LLM_API_KEY",
+        for k in ("OPENAI_API_KEY", "LLM_API_KEY",
                    "DATABASE_URL", "SECRET_KEY", "JWT_SECRET"):
             env.pop(k, None)
 

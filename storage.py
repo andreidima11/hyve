@@ -13,6 +13,9 @@ os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+os.environ.setdefault("POSTHOG_DISABLED", "true")
+os.environ.setdefault("CHROMA_TELEMETRY_IMPL", "none")
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 
 import chromadb
 from chromadb.config import Settings
@@ -323,7 +326,7 @@ def append_notification_to_session(user_id, message, notification_id=None, notif
         "timestamp": _time.time(),
         "notification": True,
         "notification_id": notification_id or f"notif_{_time.time()}",
-        "model_name": "Memini",
+        "model_name": "Hyve",
     }
     if notification_type == "automation":
         entry["automation"] = True

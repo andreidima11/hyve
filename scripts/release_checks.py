@@ -23,7 +23,7 @@ def _version_checks() -> list[str]:
     config = _read_json(ROOT / "config.json")
     package = _read_json(ROOT / "package.json")
     package_lock = _read_json(ROOT / "package-lock.json")
-    gradle_text = (ROOT / "android" / "MeminiBridge" / "app" / "build.gradle.kts").read_text(encoding="utf-8")
+    gradle_text = (ROOT / "android" / "HyveBridge" / "app" / "build.gradle.kts").read_text(encoding="utf-8")
 
     if config.get("version") != app_version:
         issues.append(f"config.json version mismatch: {config.get('version')} != {app_version}")
@@ -41,8 +41,8 @@ def _version_checks() -> list[str]:
 
 def _strict_runtime_checks() -> list[str]:
     env_view = {
-        "MEMINI_ENV": "production",
-        "MEMINI_SECRET_KEY": os.environ.get("MEMINI_SECRET_KEY", ""),
+        "HYVE_ENV": "production",
+        "HYVE_SECRET_KEY": os.environ.get("HYVE_SECRET_KEY", ""),
     }
     return settings.get_runtime_requirement_errors(settings.CFG, env=env_view)
 
@@ -56,9 +56,9 @@ def main() -> int:
         print("Release checks failed:")
         for issue in issues:
             print(f" - {issue}")
-        if any(issue == "MEMINI_SECRET_KEY is not set" for issue in issues):
+        if any(issue == "HYVE_SECRET_KEY is not set" for issue in issues):
             print("\nRemediation:")
-            print(" - add MEMINI_SECRET_KEY to .env")
+            print(" - add HYVE_SECRET_KEY to .env")
             print(" - example: python -c \"import secrets; print(secrets.token_urlsafe(64))\"")
         return 1
 

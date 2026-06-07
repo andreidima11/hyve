@@ -13,9 +13,7 @@ from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 import settings as settings_mod
 from storage import collection
 from logger import log_detail, log_line
-import home_assistant
 import push_fcm
-from device_resolver import resolve_target_sync
 
 # --- CONFIGURARE PERSISTENTĂ ---
 jobstores = {
@@ -227,73 +225,67 @@ def run_automation(job_id):
             trigger_notification(user_id, f"⚠️ Automatizare {skill_name}: eroare — {e}", channel, notification_type="automation")
         return
 
-    # HA automation: resolve all targets once (single device list load), then run all commands with one HTTP client
-    if not settings_mod.CFG.get("home_assistant", {}).get("enabled"):
-        log_detail("scheduler", "AUTO_RUN_HA_DISABLED", job_id=job_id)
+    # Non-skill actions are no-ops; emit notify_message if present.
+    if action_type == "ha":
+        commands = spec.get("commands") or []
+        for cmd in commands:
+            target = (cmd.get("target") or "").strip()
+            action = (cmd.get("action") or "").strip()
+            data = cmd.get("data") or {}
+            if not target or not action:
+                continue
+            try:
+                _execute_ha_action(target, action, data)
+                log_detail("scheduler", "AUTO_RUN_HA_OK", job_id=job_id, target=target, action=action)
+            except Exception as e:
+                log_detail("scheduler", "AUTO_RUN_HA_ERROR", job_id=job_id, target=target, action=action, error=str(e))
         if spec.get("notify_message"):
-            trigger_notification(user_id, spec.get("notify_message", ""), channel)
+            trigger_notification(user_id, spec.get("notify_message", ""), channel, notification_type="automation")
         return
-    raw_commands = spec.get("commands") or []
-    devices = home_assistant.load_config()
-    service_calls = []
-    for cmd in raw_commands:
-        action = (cmd.get("action") or "toggle").strip().lower()
-        if action not in ("turn_on", "turn_off", "toggle"):
-            continue
-        target = cmd.get("target") or ""
-        entity_id = resolve_target_sync(target, devices=devices) or target
-        if not entity_id or "." not in entity_id:
-            log_detail("scheduler", "AUTO_RUN_SKIP", target=target, reason="no_entity_id")
-            continue
-        domain = entity_id.split(".")[0]
-        sc_entry = {"domain": domain, "service": action, "entity_id": entity_id}
-        # Pass service_data (brightness, color_temp_kelvin) if present
-        svc_data = {}
-        if cmd.get("brightness") is not None:
-            try:
-                bri = int(cmd["brightness"])
-                svc_data["brightness"] = max(0, min(255, bri))
-                if bri == 0:
-                    sc_entry["service"] = "turn_off"
-                    svc_data = {}
-                elif action != "turn_on":
-                    sc_entry["service"] = "turn_on"
-            except (ValueError, TypeError):
-                pass
-        if cmd.get("color_temp_kelvin") is not None:
-            try:
-                ct = int(cmd["color_temp_kelvin"])
-                if 1000 <= ct <= 10000:
-                    svc_data["color_temp_kelvin"] = ct
-                    if sc_entry["service"] != "turn_on":
-                        sc_entry["service"] = "turn_on"
-            except (ValueError, TypeError):
-                pass
-        if svc_data:
-            sc_entry["service_data"] = svc_data
-        service_calls.append(sc_entry)
-    log_detail("scheduler", "AUTO_RUN_START", job_id=job_id, commands_count=len(service_calls))
-    ok_names, fail_names = [], []
-    if service_calls:
-        results = home_assistant.call_services_sync(service_calls)
-        for sc, ok in zip(service_calls, results):
-            log_detail("scheduler", "AUTO_RUN_CMD", entity_id=sc["entity_id"], action=sc["service"], ok=ok)
-            friendly = sc["entity_id"].split(".", 1)[-1].replace("_", " ").title()
-            if ok:
-                ok_names.append(friendly)
-            else:
-                fail_names.append(friendly)
-    # Always notify with execution summary
-    display = spec.get("display_message") or spec.get("notify_message") or "Automatizare HA"
-    parts = [f"🤖 **{display}**"]
-    if ok_names:
-        parts.append(f"✅ {', '.join(ok_names)}")
-    if fail_names:
-        parts.append(f"❌ {', '.join(fail_names)}")
-    if not ok_names and not fail_names:
-        parts.append("Nicio comandă executată.")
-    msg = "\n".join(parts)
-    trigger_notification(user_id, msg, channel, notification_type="automation")
+
+    log_detail("scheduler", "AUTO_RUN_UNSUPPORTED", job_id=job_id, action_type=action_type)
+    if spec.get("notify_message"):
+        trigger_notification(user_id, spec.get("notify_message", ""), channel, notification_type="automation")
+
+
+def _execute_ha_action(entity_id: str, action: str, data: dict | None = None):
+    """Resolve entity_id → integration and execute control_entity synchronously."""
+    import asyncio as _asyncio
+    from integrations import get_integration_manager
+    from routers.integrations import _build_all_entities_uncached
+
+    manager = get_integration_manager()
+    target_id = entity_id
+    integration = None
+
+    try:
+        for e in _build_all_entities_uncached(include_derived=False):
+            if e.get("entity_id") == entity_id or e.get("unique_id") == entity_id:
+                target_id = str(e.get("unique_id") or entity_id)
+                entry_id = str(e.get("entry_id") or "")
+                if entry_id:
+                    integration = manager.get_by_entry(entry_id)
+                if integration is None:
+                    slug = str(e.get("source") or "")
+                    if slug:
+                        integration = manager.get(slug)
+                break
+    except Exception as exc:
+        log_detail("scheduler", "AUTO_RUN_HA_LOOKUP_ERROR", entity_id=entity_id, error=str(exc))
+
+    if integration is None:
+        slug_guess = (entity_id.split(".")[0] or "").lower()
+        integration = manager.get(slug_guess)
+    if integration is None:
+        raise RuntimeError(f"No integration found for {entity_id}")
+
+    new_loop = _asyncio.new_event_loop()
+    try:
+        return new_loop.run_until_complete(
+            integration.control_entity(target_id, action, data or {})
+        )
+    finally:
+        new_loop.close()
 
 def _format_skill_result(skill_name, result):
     """Format a skill execution result into a readable notification message.
@@ -387,8 +379,9 @@ def _try_send_websocket_notification(user_id, message, notification_id=None, ses
         else:
             # We're in a thread (APScheduler) — use run_coroutine_threadsafe on the main loop
             try:
-                import main as main_module
-                main_loop = getattr(main_module, '_main_loop', None)
+                from core.http.runtime import get_main_loop
+
+                main_loop = get_main_loop()
                 if main_loop and main_loop.is_running():
                     future = asyncio.run_coroutine_threadsafe(
                         send_reminder_via_websocket(str(user_id), message, **_kwargs),
@@ -439,7 +432,7 @@ def _get_user_notification_prefs(user_id: str) -> dict:
     return defaults
 
 def trigger_notification(user_id, message, channel, notification_type="reminder"):
-    """Send reminder/automation result to user. Saves to session history (persistent), sends via WS (real-time), WhatsApp (optional).
+    """Create a persistent notification and dispatch it to live/push transports.
     Dedup: skips if same user+message within 30s."""
     # --- Strip think tags from ALL notification channels ---
     from brain.cortex import strip_think
@@ -455,109 +448,18 @@ def trigger_notification(user_id, message, channel, notification_type="reminder"
     _reload_config_if_needed()
     cfg = settings_mod.CFG
     log_line("job", "⏰", "REMINDER", f"{user_id}: {(message or '')[:120]}")
-
-    # Generate unique notification ID for dedup across channels
-    notification_id = f"notif_{user_id}_{int(time.time())}_{uuid.uuid4().hex[:6]}"
-
-    # --- PERSIST: Save notification to session history (makes it survive refresh + gives AI context) ---
-    session_id = None
     try:
-        import storage as _storage
-        # Extract numeric user_id from "user_N" format
-        uid_num = int(user_id.replace("user_", "")) if str(user_id).startswith("user_") else None
-        session_id = _storage.append_notification_to_session(
-            user_id=uid_num,
-            message=message,
-            notification_id=notification_id,
-            notification_type=notification_type,
+        from core import notification_service
+        notification_service.create_and_dispatch(
+            user_id=user_id,
+            title="Hyve",
+            body=message,
+            category=notification_type or "reminder",
+            transport_hint="waha" if str(channel or "").strip().lower() in {"whatsapp", "waha"} else None,
         )
-        log_detail("scheduler", "TRIGGER_SESSION_SAVED", user_id=user_id, session_id=session_id)
     except Exception as e:
-        log_line("error", "⚠️", "REMINDER", f"Error saving to session: {e}")
-        log_detail("scheduler", "TRIGGER_SESSION_ERROR", error=str(e))
-
-    # Load user notification preferences
-    notif_prefs = _get_user_notification_prefs(str(user_id))
-    log_detail("scheduler", "NOTIF_PREFS", user_id=str(user_id), prefs=str(notif_prefs))
-
-    fcm_cfg = cfg.get("fcm") or {}
-    transport_mode = str(fcm_cfg.get("transport_mode") or "hybrid").strip().lower()
-    if transport_mode not in ("websocket", "firebase", "hybrid"):
-        transport_mode = "hybrid"
-    websocket_enabled = bool(fcm_cfg.get("websocket_enabled", True))
-
-    ws_allowed = transport_mode in ("websocket", "hybrid") and websocket_enabled
-    fcm_allowed = transport_mode in ("firebase", "hybrid") and bool(fcm_cfg.get("enabled"))
-
-    # 0. WEBSOCKET NOTIFICATION (real-time if app is open)
-    ws_delivered = False
-    if notif_prefs.get("app", True) and ws_allowed:
-        ws_delivered = _try_send_websocket_notification(user_id, message, notification_id=notification_id, session_id=session_id, notification_type=notification_type)
-
-    # 1. FCM PUSH NOTIFICATION
-    should_send_fcm = False
-    if notif_prefs.get("app", True) and fcm_allowed:
-        if transport_mode == "firebase":
-            should_send_fcm = True
-        elif transport_mode == "hybrid":
-            if fcm_cfg.get("send_when_ws_disconnected", True):
-                should_send_fcm = not ws_delivered
-            else:
-                should_send_fcm = True
-
-    if should_send_fcm:
-        try:
-            push_fcm.send_push_notification(
-                user_id=user_id,
-                title="Memini",
-                message=message,
-                notification_id=notification_id,
-                session_id=session_id,
-                notification_type=notification_type,
-            )
-        except Exception as e:
-            log_line("error", "❌", "FCM", f"Push send failed: {e}")
-            log_detail("scheduler", "TRIGGER_FCM_EXCEPTION", error=str(e))
-
-    # 2. WHATSAPP NOTIFICATION
-    if notif_prefs.get("whatsapp", True) and cfg.get("waha", {}).get("enabled"):
-        try:
-            # Dacă user_id este simbolic (user_1), trimitem la primul număr din whitelist
-            target_phone = str(user_id)
-            if target_phone == "user_1" or not target_phone.isdigit():
-                allowed = cfg.get("security", {}).get("allowed_numbers", [])
-                if allowed:
-                    target_phone = allowed[0]
-                else:
-                    log_line("error", "⚠️", "REMINDER", "No whitelist numbers found for WhatsApp reminder!")
-                    return
-
-            # Formatare chatId pentru WAHA (WEBJS engine)
-            target_chat = target_phone if "@c.us" in target_phone else f"{target_phone}@c.us"
-
-            url = f"{cfg['waha']['api_url']}/api/sendText"
-            safe_text = _sanitize_text_for_waha(message)
-            payload = {
-                "chatId": target_chat,
-                "text": f"🤖 *Reminder:*\n{safe_text}",
-                "session": "default"
-            }
-            headers = {
-                "X-Api-Key": cfg["waha"].get("api_key", ""), 
-                "Content-Type": "application/json"
-            }
-            
-            with httpx.Client(timeout=5) as client:
-                r = client.post(url, json=payload, headers=headers, timeout=10)
-                if r.status_code == 200 or r.status_code == 201:
-                    log_line("whatsapp", "✅", "REMINDER", f"WhatsApp sent to {target_chat[:20]}")
-                    log_detail("scheduler", "TRIGGER_WHATSAPP_OK", chat=target_chat[:20])
-                else:
-                    log_line("error", "❌", "REMINDER", f"WAHA Error {r.status_code}: {(r.text or '')[:80]}")
-                    log_detail("scheduler", "TRIGGER_WHATSAPP_ERROR", status=r.status_code, body=(r.text or "")[:200])
-        except Exception as e:
-            log_line("error", "❌", "REMINDER", f"Error sending WAHA: {e}")
-            log_detail("scheduler", "TRIGGER_WHATSAPP_EXCEPTION", error=str(e))
+        log_line("error", "❌", "REMINDER", f"Notification dispatch failed: {e}")
+        log_detail("scheduler", "TRIGGER_NOTIFICATION_EXCEPTION", error=str(e))
 
 # --- FUNCȚIILE DE MANAGEMENT ---
 

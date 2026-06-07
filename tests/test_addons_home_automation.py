@@ -1,0 +1,79 @@
+from addons import registry
+
+
+def test_home_automation_addons_are_registered():
+    addons = {item["slug"]: item for item in registry.list_available()}
+
+    assert "mosquitto" in addons
+    assert "zigbee2mqtt" in addons
+
+    assert addons["mosquitto"]["install"]["method"] == "brew"
+    assert addons["zigbee2mqtt"]["install"]["method"] == "npm"
+
+
+def test_all_addons_use_on_demand_installs():
+    for addon in registry.list_available():
+        install = addon.get("install") or {}
+        assert install.get("download_on_install") is True
+        assert install.get("bundled") is False
+
+
+def test_zigbee2mqtt_manifest_supports_local_config_and_web_ui():
+    manifest = registry.get_manifest("zigbee2mqtt")
+
+    assert manifest is not None
+    schema_keys = {field["key"] for field in manifest.get("config_schema", [])}
+
+    assert {"port", "mqtt_host", "mqtt_port", "web_port", "serial_port"}.issubset(schema_keys)
+    assert "host" not in schema_keys
+    assert "webui_url" not in schema_keys
+
+    web_ui = manifest.get("web_ui") or {}
+    assert web_ui.get("host") == "localhost"
+    assert web_ui.get("port_key") == "web_port"
+    assert "url_key" not in web_ui
+
+    start_command = manifest.get("start_command") or {}
+    assert start_command.get("command") == "bash"
+
+    install = manifest.get("install") or {}
+    assert install.get("method") == "npm"
+    requirements = install.get("requirements") or []
+    packages = install.get("packages") or []
+    assert any(str(pkg).startswith("pnpm@") for pkg in requirements)
+    assert any(str(pkg).startswith("zigbee2mqtt@") for pkg in packages)
+
+
+def test_update_addon_preserves_existing_state(monkeypatch):
+    slug = "piper"
+    original_state = registry.get_state(slug)
+    registry._save_addon_state(slug, {
+        "installed": True,
+        "enabled": True,
+        "version": "old-version",
+        "config": {"host": "192.168.1.5", "port": 10200, "voice": "ro_RO-mihai-medium"},
+        "watchdog": True,
+    })
+
+    monkeypatch.setattr(registry, "_run_install_commands", lambda manifest: None)
+
+    try:
+        updated = registry.update_addon(slug)
+        assert updated["installed"] is True
+        assert updated["enabled"] is True
+        assert updated["watchdog"] is True
+        assert updated["config"]["host"] == "192.168.1.5"
+        assert updated["version"] == registry.get_manifest(slug)["version"]
+    finally:
+        registry._save_addon_state(slug, original_state)
+
+
+def test_downloadable_addons_build_real_install_commands():
+    mosquitto = registry.get_manifest("mosquitto")
+    zigbee2mqtt = registry.get_manifest("zigbee2mqtt")
+
+    mosq_cmd = registry._build_install_cmd(mosquitto["install"]["method"], mosquitto["install"])
+    zigbee_cmd = registry._build_install_cmd(zigbee2mqtt["install"]["method"], zigbee2mqtt["install"])
+
+    assert mosq_cmd and mosq_cmd[0] == "brew"
+    assert zigbee_cmd and zigbee_cmd[0] == "npm"

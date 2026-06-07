@@ -45,5 +45,6 @@
             "approve": true,
             "matchCommandLine": true
         }
-    }
+    },
+    "git.ignoreLimitWarning": true
 }

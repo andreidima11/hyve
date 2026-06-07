@@ -13,7 +13,7 @@ router = APIRouter(tags=["shell"])
 
 
 @router.post("/api/shell/allow")
-async def api_shell_allow(current_user: models.User = Depends(auth.get_current_user)):
+async def api_shell_allow(current_user: models.User = Depends(auth.get_current_admin)):
     """Allow the AI to run terminal commands for this user in this session (e.g. after user clicks Allow in chat)."""
     try:
         from brain.tool_shell import allow_shell_for_user
@@ -46,7 +46,7 @@ class ShellRunBody(BaseModel):
 @router.post("/api/shell/run")
 async def api_shell_run(
     data: ShellRunBody,
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(auth.get_current_admin),
 ):
     """Run a single command (e.g. from suggest_shell card). Allows shell for this user then runs."""
     try:

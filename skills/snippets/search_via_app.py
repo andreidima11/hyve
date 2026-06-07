@@ -14,7 +14,7 @@ if not searxng_url:
 
 params = urllib.parse.urlencode({"q": query, "format": "json"})
 url = f"{searxng_url.rstrip('/')}/search?{params}"
-req = urllib.request.Request(url, headers={"User-Agent": "Memini/1.0"})
+req = urllib.request.Request(url, headers={"User-Agent": "Hyve/1.0"})
 with urllib.request.urlopen(req, timeout=10) as resp:
     data = json.loads(resp.read().decode())
 results = data.get("results", [])[:10]

@@ -1,5 +1,5 @@
 """
-Memini Skill Sandbox Runner
+Hyve Skill Sandbox Runner
 ============================
 Launched as a subprocess to execute generated skills in isolation.
 
@@ -181,7 +181,7 @@ def _load_and_run(skill_path: str, input_data: dict) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Memini skill sandbox runner")
+    parser = argparse.ArgumentParser(description="Hyve skill sandbox runner")
     parser.add_argument("--skill-path", required=True)
     parser.add_argument("--policy", choices=["standard", "network"], default="standard")
     parser.add_argument("--dry-run", action="store_true")

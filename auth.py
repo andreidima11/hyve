@@ -5,19 +5,21 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from typing import Optional
 from jose import JWTError, jwt
-import bcrypt
-from fastapi import Depends, HTTPException, status
+import bcrypt as _bcrypt
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
+import assist_keys
 import models, database
+import settings
 from env_bootstrap import ensure_env_loaded
 
 ensure_env_loaded()
 
 # --- CONFIGURARE SECRETĂ ---
-# Citește din env var; dacă nu există, persistă pe disk (~/.memini_secret_key)
+# Citește din env var; dacă nu există, persistă pe disk (~/.hyve_secret_key)
 _SECRET_KEY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".secret_key")
-SECRET_KEY = os.environ.get("MEMINI_SECRET_KEY", "").strip()
+SECRET_KEY = os.environ.get("HYVE_SECRET_KEY", "").strip()
 if not SECRET_KEY:
     # Try loading from persisted file
     try:
@@ -34,21 +36,22 @@ if not SECRET_KEY:
             os.chmod(_SECRET_KEY_FILE, 0o600)
             print("🔑 Generated and saved secret key to .secret_key (tokens persist across restarts).")
         except OSError:
-            print("❌ FATAL: Could not persist secret key. Set MEMINI_SECRET_KEY env var or fix filesystem permissions.", file=sys.stderr)
+            print("❌ FATAL: Could not persist secret key. Set HYVE_SECRET_KEY env var or fix filesystem permissions.", file=sys.stderr)
             sys.exit(1)
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 240       # 4 hours — short-lived access token
 REFRESH_TOKEN_EXPIRE_MINUTES = 10080    # 7 days — long-lived refresh token
 SSE_EXCHANGE_TOKEN_EXPIRE_SECONDS = 30  # 30 s one-time exchange token for SSE/WS
+CAMERA_STREAM_TOKEN_EXPIRE_SECONDS = 300  # 5 min — media elements cannot send Authorization headers
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/token")
 
 # --- UTILS ---
-def verify_password(plain_password, hashed_password):
-    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return _bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
-def get_password_hash(password):
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+def get_password_hash(password: str) -> str:
+    return _bcrypt.hashpw(password.encode("utf-8"), _bcrypt.gensalt()).decode("utf-8")
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -114,6 +117,30 @@ def verify_sse_exchange_token(token: str) -> Optional[dict]:
         return None
 
 
+def create_camera_stream_token(username: str) -> str:
+    """Short-lived token for camera snapshot/stream/play URLs (query param auth)."""
+    expire = datetime.now(timezone.utc) + timedelta(seconds=CAMERA_STREAM_TOKEN_EXPIRE_SECONDS)
+    to_encode = {
+        "sub": username,
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
+        "jti": str(uuid4()),
+        "type": "camera_stream",
+    }
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def verify_camera_stream_token(token: str) -> Optional[dict]:
+    """Decode a camera stream token. Returns payload if valid, else None."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "camera_stream" or not payload.get("sub"):
+            return None
+        return payload
+    except JWTError:
+        return None
+
+
 def cleanup_expired_revocations(db: Session) -> int:
     """Remove expired entries from RevokedToken table. Returns count deleted."""
     now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -164,11 +191,76 @@ def verify_token(token: str) -> Optional[dict]:
     except JWTError:
         return None
 
+
+def extract_bearer_or_assist_token(request: Request) -> Optional[str]:
+    """Bearer token from Authorization, or X-Assist-Key header."""
+    auth_header = (request.headers.get("Authorization") or "").strip()
+    token: Optional[str] = None
+    if auth_header:
+        if auth_header.lower().startswith("bearer "):
+            token = auth_header[7:].strip()
+        else:
+            token = auth_header.strip()
+    if not token:
+        token = (request.headers.get("x-assist-key") or "").strip() or None
+    return token
+
+
+async def resolve_assist_user_id(request: Request, db: Session) -> int:
+    """Resolve user id for Ollama/Assist from assist key or valid access JWT."""
+    token = extract_bearer_or_assist_token(request)
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail={"key": "common.invalid_credentials"},
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    if token:
+        uid = assist_keys.get_user_id_by_token(token)
+        if uid is not None:
+            return uid
+
+        payload = verify_token(token)
+        if payload:
+            token_type = payload.get("type")
+            if token_type in ("refresh", "sse_exchange", "camera_stream"):
+                raise credentials_exception
+            jti = payload.get("jti")
+            if jti:
+                is_revoked = db.query(models.RevokedToken).filter(models.RevokedToken.jti == jti).first()
+                if is_revoked:
+                    raise credentials_exception
+            username = payload.get("sub")
+            if username:
+                user = db.query(models.User).filter(models.User.username == username).first()
+                if user is None:
+                    raise credentials_exception
+                if not user.is_active:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail={"key": "common.account_deactivated"},
+                    )
+                return user.id
+
+        raise credentials_exception
+
+    assist_cfg = settings.CFG.get("assist") or {}
+    default_id = assist_cfg.get("assist_default_user_id")
+    if default_id is not None and isinstance(default_id, int) and default_id > 0:
+        return default_id
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail={"key": "common.auth_required"},
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
 # --- DEPENDENCY PRINCIPALĂ (Gatekeeper) ---
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(database.get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Credențiale invalide",
+        detail={"key": "common.invalid_credentials"},
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
@@ -187,9 +279,14 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     user = db.query(models.User).filter(models.User.username == username).first()
     if user is None:
         raise credentials_exception
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"key": "common.account_deactivated"},
+        )
     return user
 
 async def get_current_admin(current_user: models.User = Depends(get_current_user)):
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Acces interzis (Necesită Admin)")
+        raise HTTPException(status_code=403, detail={"key": "common.admin_required"})
     return current_user

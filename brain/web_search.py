@@ -429,6 +429,43 @@ def _normalize_search_query(query: str) -> str:
     return q if q else query.strip()
 
 
+def _detect_query_language(query: str) -> str:
+    """Very small, character-based language hint for the SearXNG `language`
+    parameter. Returns an ISO-639-1 code or ``"auto"``.
+
+    We deliberately avoid large per-language word lists — the heuristic is just
+    "which script/diacritics appear?" so it stays robust across topics.
+    """
+    q = (query or "")
+    if not q.strip():
+        return "auto"
+    # Cyrillic / Greek / CJK shortcuts
+    if re.search(r"[\u0400-\u04FF]", q):
+        return "ru"
+    if re.search(r"[\u0370-\u03FF]", q):
+        return "el"
+    if re.search(r"[\u3040-\u30FF]", q):
+        return "ja"
+    if re.search(r"[\u4E00-\u9FFF]", q):
+        return "zh"
+    if re.search(r"[\uAC00-\uD7AF]", q):
+        return "ko"
+    # Romanian-specific diacritics
+    if re.search(r"[ăâîșşțţĂÂÎȘŞȚŢ]", q):
+        return "ro"
+    # German-specific
+    if re.search(r"[äöüÄÖÜß]", q):
+        return "de"
+    # French-specific
+    if re.search(r"[çéèêëàâùûôîïÇÉÈÊËÀÂÙÛÔÎÏ]", q):
+        return "fr"
+    # Spanish / Portuguese (overlapping diacritics, give up to "auto")
+    if re.search(r"[ñÑ¿¡]", q):
+        return "es"
+    # Default to auto — let SearXNG decide
+    return "auto"
+
+
 def _searxng_defaults() -> dict:
     defaults = getattr(settings_mod, "DEFAULT_CONFIG", {}) or {}
     return (defaults.get("searxng") or {}) if isinstance(defaults, dict) else {}
@@ -613,18 +650,14 @@ def _calculate_confidence(result: Dict, query: str, rank_position: int = 0) -> f
 
 
 def _needs_fresh_data(query: str) -> bool:
-    q = query.lower()
-    keyword_sets = [
-        ["price", "cost", "preț", "pret", "cât costă", "cat costa", "how much", "pricing", "tarif", "rate", "exchange rate", "curs"],
-        ["weather", "vreme", "meteo", "forecast", "temperature", "temperatură", "temperatura", "rain", "ploaie", "wind", "vânt"],
-        ["stock", "acțiuni", "actiuni", "bursă", "bursa", "crypto", "bitcoin", "ethereum", "market cap", "dividend", "index"],
-        ["score", "scor", "match", "meci", "game", "standings", "clasament", "tournament", "campionat", "liga", "league"],
-        ["president", "președinte", "presedinte", "minister", "chancellor", "premier", "governor", "mayor", "primar", "who leads", "who runs", "ceo of", "cine conduce"],
-        ["version", "versiune", "update", "release", "patch", "download", "latest version", "changelog"],
-        ["open", "deschis", "closed", "închis", "inchis", "available", "disponibil", "in stock", "pe stoc", "hours", "program", "orar", "schedule"],
-        ["event", "eveniment", "concert", "bilet", "ticket", "show", "festival", "conference", "conferință"],
-    ]
-    return any(any(keyword in q for keyword in keywords) for keywords in keyword_sets)
+    """Deprecated keyword-based freshness detector.
+
+    Kept as a no-op stub because a few external scripts/tests still import it.
+    The orchestrator no longer uses it to gate searches — the LLM decides when
+    to call `search_web` based on the tool description and system prompt.
+    """
+    _ = query  # intentionally unused
+    return True
 
 
 async def _http_get_with_retry(url: str, timeout: float, max_retries: int = 2, headers: Optional[Dict[str, str]] = None) -> Optional[httpx.Response]:
@@ -734,6 +767,30 @@ async def searxng_search(query: str, max_results: int = 0) -> Tuple[Optional[str
         else:
             base = url_template.split("?")[0]
             search_url = f"{base}?q={urllib.parse.quote(query)}&format=json"
+        # Engine selection: prefer engines that consistently return
+        # *relevant* general-web results on typical self-hosted SearXNG instances.
+        # (Bing / Google / Brave / Wikipedia often return empty or garbage
+        # results; DuckDuckGo / Qwant / Startpage return clean, localised ones.)
+        default_engines = searxng.get("engines") or "duckduckgo,qwant,startpage"
+        if "engines=" not in search_url:
+            sep = "&" if "?" in search_url else "?"
+            search_url = f"{search_url}{sep}engines={urllib.parse.quote(default_engines)}"
+        if "format=" not in search_url:
+            search_url += "&format=json"
+        # SafeSearch: default to moderate ("1"). Protects against adult/porn
+        # results leaking into completely unrelated queries (e.g. Romanian
+        # political queries that some engines blunder into). User can override
+        # in the SearXNG URL (e.g. `&safesearch=0`).
+        if "safesearch=" not in search_url:
+            sep = "&" if "?" in search_url else "?"
+            safe_level = str(searxng.get("safesearch", 1))
+            search_url = f"{search_url}{sep}safesearch={urllib.parse.quote(safe_level)}"
+        # Language hint: helps engines return locally relevant results.
+        # Default = auto-detect from query characters; user can override.
+        if "language=" not in search_url:
+            detected_lang = searxng.get("language") or _detect_query_language(query)
+            sep = "&" if "?" in search_url else "?"
+            search_url = f"{search_url}{sep}language={urllib.parse.quote(detected_lang)}"
         log_line("ha", "🔎", "SEARXNG", f"Searching: '{query[:60]}'")
         resp = await _http_get_with_retry(search_url, timeout=search_timeout)
         if resp is None or resp.status_code != 200:
@@ -890,6 +947,13 @@ async def searxng_search_images(query: str, max_results: int = 6) -> Tuple[Optio
             base = url_template.split("?")[0]
             base_url = f"{base}?q={urllib.parse.quote(query)}"
         search_url = f"{base_url}&format=json&categories=images" if "?" in base_url else f"{base_url}?format=json&categories=images"
+        default_img_engines = searxng.get("image_engines") or "duckduckgo images,qwant images,wikicommons.images"
+        if "engines=" not in search_url:
+            search_url += f"&engines={urllib.parse.quote(default_img_engines)}"
+        if "safesearch=" not in search_url:
+            search_url += f"&safesearch={urllib.parse.quote(str(searxng.get('safesearch', 1)))}"
+        if "language=" not in search_url:
+            search_url += f"&language={urllib.parse.quote(searxng.get('language') or _detect_query_language(query))}"
         log_line("ha", "🖼️", "SEARXNG_IMAGES", f"Searching images: '{query[:50]}'")
         async with httpx.AsyncClient(timeout=search_timeout, follow_redirects=True) as client:
             resp = await client.get(search_url)

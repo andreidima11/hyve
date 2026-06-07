@@ -46,9 +46,43 @@ from typing import List, Optional, Tuple
 
 import httpx
 
-import home_assistant
 import settings as settings_mod
+import smart_home_registry
+from addons.entity_store import get_entity_store
 from logger import log_line
+
+
+class _NoOpSmartHome:
+    """Backwards-compatible no-op shim that replaces the old
+    legacy smart-home module. The smart-home control integration
+    has been removed; there is no direct device-control path here anymore,
+    so every command transparently fails closed and the caller falls back
+    to the agent loop."""
+
+    CONTROLLABLE_DOMAINS = smart_home_registry.CONTROLLABLE_DOMAINS
+
+    @staticmethod
+    def load_config() -> list:
+        try:
+            overrides = get_entity_store().get_overrides() or {}
+        except Exception:
+            return []
+        return [
+            {
+                "entity_id": eid,
+                "name": ov.get("custom_name") or eid,
+                "aliases": ov.get("aliases") or [],
+                "selected": bool(ov.get("selected")),
+            }
+            for eid, ov in overrides.items()
+        ]
+
+    @staticmethod
+    async def call_service(domain, action, entity_id, service_data=None):  # noqa: D401
+        return {"ok": False, "error": "smart_home_unavailable"}
+
+
+_smart_home = _NoOpSmartHome()
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -267,13 +301,13 @@ def _action_reply(action: str, name: str, service_data: dict | None = None) -> s
 async def _execute_by_entity_id(entity_id: str, action: str, service_data: dict | None = None) -> Optional[str]:
     """Execute action on a known entity_id. Returns reply or None on failure."""
     domain = entity_id.split(".")[0]
-    result = await home_assistant.call_service(domain, action, entity_id, service_data=service_data)
+    result = await _smart_home.call_service(domain, action, entity_id, service_data=service_data)
     if not result.get("ok"):
         err = result.get("error") or "Eroare"
         log_line("ha", "❌", "EXEC", f"HA call failed for {entity_id}: {err}")
         return None
     # Find friendly name from config
-    config = home_assistant.load_config()
+    config = _smart_home.load_config()
     name = entity_id
     for d in config:
         if d.get("entity_id") == entity_id:
@@ -281,6 +315,138 @@ async def _execute_by_entity_id(entity_id: str, action: str, service_data: dict 
             break
     log_line("ha", "✅", "EXEC", f"{action} {name} ({entity_id})" + (f" data={service_data}" if service_data else ""))
     return _action_reply(action, name, service_data=service_data)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  TIER 0: Scene activation fast-path  (exported)
+# ═══════════════════════════════════════════════════════════════════════
+
+_SCENE_PATTERNS: List[re.Pattern] = [
+    # RO
+    re.compile(r"^\s*(?:te\s+rog\s+)?(?:activeaz[aă]|porne[sș]te|porneste|ruleaz[aă]|ruleaza|execut[aă]|executa|pune|d[aă])\s+scena\s+(.+?)\s*[?!.]*$", re.I),
+    re.compile(r"^\s*scena\s+(.+?)\s*[?!.]*$", re.I),
+    re.compile(r"^\s*scen[aă]:\s*(.+?)\s*[?!.]*$", re.I),
+    # EN
+    re.compile(r"^\s*(?:please\s+)?(?:activate|run|trigger|launch|start|play|enable)\s+(?:the\s+)?scene\s+(.+?)\s*[?!.]*$", re.I),
+    re.compile(r"^\s*scene\s+(.+?)\s*[?!.]*$", re.I),
+    re.compile(r"^\s*scene:\s*(.+?)\s*[?!.]*$", re.I),
+]
+
+
+def _normalize_scene_query(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").strip().lower())
+
+
+def _match_scene_for_user(query: str, user_id: str):
+    """Find a scene visible to the user whose name best matches `query`.
+
+    Returns the SQLAlchemy `Scene` row or None. Matching strategy:
+    1. exact case-insensitive match on name
+    2. exact match on slug-like name (no punctuation)
+    3. substring match (query in name)
+    """
+    if not query:
+        return None
+    try:
+        uid = int(user_id)
+    except (TypeError, ValueError):
+        return None
+    try:
+        import database
+        import models
+        from routers import scenes as scenes_module
+    except Exception:
+        return None
+
+    db = database.SessionLocal()
+    try:
+        user = db.query(models.User).filter(models.User.id == uid).first()
+        if not user:
+            return None
+        rows = scenes_module._query_visible(db, user).all()
+        if not rows:
+            return None
+        q_norm = _normalize_scene_query(query)
+        q_compact = re.sub(r"[^a-z0-9]+", "", q_norm)
+
+        def _name_norm(s):
+            return _normalize_scene_query(s.name or "")
+
+        def _name_compact(s):
+            return re.sub(r"[^a-z0-9]+", "", _name_norm(s))
+
+        # 1. exact name
+        for s in rows:
+            if _name_norm(s) == q_norm:
+                return s
+        # 2. exact compact (ignore punctuation/spaces)
+        for s in rows:
+            if q_compact and _name_compact(s) == q_compact:
+                return s
+        # 3. substring
+        candidates = [s for s in rows if q_norm and q_norm in _name_norm(s)]
+        if len(candidates) == 1:
+            return candidates[0]
+        # 4. compact substring
+        candidates = [s for s in rows if q_compact and q_compact in _name_compact(s)]
+        if len(candidates) == 1:
+            return candidates[0]
+        return None
+    finally:
+        db.close()
+
+
+async def try_scene_command(message: str, user_id: str) -> Optional[str]:
+    """Detect 'activate scene X' style messages and run the scene.
+
+    Returns a reply string on success/failure-with-context, or None if the
+    message is not a scene command (so the caller can try other handlers).
+    """
+    text = (message or "").strip()
+    if not text:
+        return None
+    query = ""
+    for pat in _SCENE_PATTERNS:
+        m = pat.match(text)
+        if m:
+            query = m.group(1).strip().strip("\"'")
+            break
+    if not query:
+        return None
+
+    scene = _match_scene_for_user(query, user_id)
+    if not scene:
+        log_line("scene", "❓", "VOICE", f"No scene matched for query '{query}'")
+        return f"Nu am găsit o scenă cu numele „{query}”."
+
+    try:
+        import database
+        from routers import scenes as scenes_module
+    except Exception as exc:
+        log_line("error", "⚠️", "SCENE_CMD", f"import failed: {exc}")
+        return None
+
+    db = database.SessionLocal()
+    try:
+        # Re-fetch in this session to avoid detached-instance issues
+        fresh = db.query(scene.__class__).filter(scene.__class__.id == scene.id).first()
+        if not fresh:
+            return f"Nu am găsit scena „{scene.name}”."
+        try:
+            result = await scenes_module.activate_scene_internal(db, fresh)
+        except Exception as exc:
+            log_line("scene", "❌", "VOICE", f"activate {fresh.name} failed: {exc}")
+            return f"Nu am putut activa scena „{fresh.name}”."
+        total = int(result.get("total") or 0)
+        ok = int(result.get("succeeded") or 0)
+        log_line("scene", "✅", "VOICE", f"activated '{fresh.name}' ({ok}/{total})")
+        if total == 0:
+            return f"Am activat scena „{fresh.name}”."
+        if ok == total:
+            return f"Am activat scena „{fresh.name}” ({ok}/{total} acțiuni)."
+        return f"Scenă parțial activată: „{fresh.name}” ({ok}/{total} acțiuni)."
+    finally:
+        db.close()
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -293,8 +459,10 @@ async def try_regex_command(message: str, user_id: str) -> Optional[str]:
     "aprinde becul dormitor și stinge becul bucătărie" → handles both.
     Returns a reply string if matched + executed, else None.
     """
-    if not (settings_mod.CFG.get("home_assistant") or {}).get("enabled"):
+    if True:  # smart-home control disabled (legacy HA integration removed)
         return None
+    # Direct control path removed with the legacy smart-home integration.
+    return None
 
     commands = _parse_regex_multi(message)
     if not commands:
@@ -317,7 +485,7 @@ async def try_regex_command(message: str, user_id: str) -> Optional[str]:
             log_line("ha", "❌", "REGEX_CMD", f"No device for '{target}'")
             continue
         domain = entity_id.split(".")[0]
-        exec_tasks.append(home_assistant.call_service(domain, action, entity_id))
+        exec_tasks.append(_smart_home.call_service(domain, action, entity_id))
         exec_names.append((action, entity_id, friendly_name or entity_id))
 
     if not exec_tasks:
@@ -363,26 +531,35 @@ Instructions:
 
 
 def _build_catalogue() -> str:
+    """Legacy catalogue builder — kept for backwards compat."""
+    return _build_catalogue_from_store()
+
+
+_CONTROLLABLE_DOMAINS = {"light", "switch", "lock", "cover", "climate", "fan", "media_player", "vacuum"}
+
+
+def _build_catalogue_from_store() -> str:
     """
-    Build a compact device catalogue string for the LLM prompt.
-    Format: entity_id | Friendly Name | alias1, alias2
-    Only includes controllable, selected devices.
+    Build a compact device catalogue from the integration entity store.
+    Format: entity_id | Friendly Name | area
+    Only includes controllable domains.
     """
-    config = home_assistant.load_config()
+    store = get_entity_store()
+    all_entities = store.get_all_entities()
     lines: list[str] = []
-    for d in config:
-        if not d.get("selected"):
+    for ent in all_entities:
+        eid = ent.get("entity_id") or ""
+        domain = eid.split(".", 1)[0] if "." in eid else ""
+        if domain not in _CONTROLLABLE_DOMAINS:
             continue
-        domain = (d.get("domain") or d["entity_id"].split(".")[0])
-        if domain not in home_assistant.CONTROLLABLE_DOMAINS:
-            continue
-        parts = [d["entity_id"]]
-        name = d.get("name") or ""
+        parts = [eid]
+        attrs = ent.get("attributes") or {}
+        name = ent.get("name") or attrs.get("friendly_name") or ""
         if name:
             parts.append(name)
-        aliases = d.get("aliases") or []
-        if aliases:
-            parts.append(", ".join(aliases))
+        area = ent.get("area") or ent.get("area_name") or ""
+        if area:
+            parts.append(area)
         lines.append(" | ".join(parts))
     return "\n".join(lines)
 
@@ -531,54 +708,67 @@ async def try_semantic_commands(message: str, user_id: str) -> Optional[str]:
     Called from main.py ONLY when intent_router classifies as device_control.
     Returns combined reply string, or None if extraction/execution fails.
     """
-    if not (settings_mod.CFG.get("home_assistant") or {}).get("enabled"):
-        return None
-
-    catalogue = _build_catalogue()
+    catalogue = _build_catalogue_from_store()
     if not catalogue:
-        log_line("ha", "⚠️", "SEMANTIC", "No controllable devices configured")
         return None
 
     commands = await _llm_extract(message, catalogue)
     if not commands:
         return None
 
-    # Validate entity_ids exist in config
-    config = home_assistant.load_config()
-    known_ids = {d["entity_id"] for d in config if d.get("selected")}
+    from integrations import get_integration_manager
+    store = get_entity_store()
+    all_entities = store.get_all_entities()
+    known_ids = {e.get("entity_id") for e in all_entities if e.get("entity_id")}
 
     import asyncio
 
-    # Build execution tasks in parallel
+    async def _control_one(eid: str, action: str, data: dict) -> str:
+        manager = get_integration_manager()
+        target_id = eid
+        target_integration = None
+        for ent in all_entities:
+            if ent.get("entity_id") == eid:
+                target_id = str(ent.get("unique_id") or eid)
+                entry_id = ent.get("entry_id") or ""
+                source = ent.get("source") or ""
+                if entry_id:
+                    target_integration = manager.get_by_entry(entry_id)
+                if not target_integration and source:
+                    target_integration = manager.get(source)
+                break
+        if not target_integration:
+            return ""
+        try:
+            await target_integration.control_entity(target_id, action, data)
+            name = eid
+            for ent in all_entities:
+                if ent.get("entity_id") == eid:
+                    name = ent.get("name") or ent.get("attributes", {}).get("friendly_name") or eid
+                    break
+            return f"✓ {action} → {name}"
+        except Exception as exc:
+            log_line("ha", "⚠️", "SEMANTIC", f"Control failed {eid}: {exc}")
+            return ""
+
     exec_tasks = []
-    exec_labels = []
     for cmd in commands:
         eid = cmd["entity_id"]
         action = cmd["action"]
-
         if eid not in known_ids:
             log_line("ha", "⚠️", "SEMANTIC", f"LLM returned unknown entity_id: {eid}")
-            continue  # skip unknown, don't abort — LLM might have hallucinated one
-
-        # Build service_data from optional brightness / color_temp
-        svc_data: dict | None = None
-        bri = cmd.get("brightness")
-        ct = cmd.get("color_temp_kelvin")
-        if bri is not None or ct is not None:
-            svc_data = {}
-            if bri is not None:
-                svc_data["brightness"] = bri
-            if ct is not None:
-                svc_data["color_temp_kelvin"] = ct
-
-        exec_tasks.append(_execute_by_entity_id(eid, action, service_data=svc_data))
-        exec_labels.append(f"{action}→{eid}")
+            continue
+        data = {}
+        if cmd.get("brightness") is not None:
+            data["brightness"] = cmd["brightness"]
+        if cmd.get("color_temp_kelvin") is not None:
+            data["color_temp_kelvin"] = cmd["color_temp_kelvin"]
+        exec_tasks.append(_control_one(eid, action, data))
 
     if not exec_tasks:
         return None
 
     results = await asyncio.gather(*exec_tasks)
     replies = [r for r in results if r]
-
     return " ".join(replies) if replies else None
 

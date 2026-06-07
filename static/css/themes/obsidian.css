@@ -1,6 +1,6 @@
 /*  ╔══════════════════════════════════════════════════════╗
     ║  OBSIDIAN — Default Dark Theme                       ║
-    ║  Deep space premium, the original Memini look        ║
+    ║  Deep space premium, the original Hyve look        ║
     ╚══════════════════════════════════════════════════════╝  */
 
 [data-theme="dark"] {
@@ -123,15 +123,26 @@
     --voice-btn-recording-bg: linear-gradient(145deg, #b45309, #92400e);
     --voice-btn-cancelled-bg: linear-gradient(145deg, #dc2626, #991b1b);
 
-    /* ── Conference ── */
-    --conf-accent: rgba(139, 92, 246, 0.5);
-    --conf-accent-soft: rgba(139, 92, 246, 0.06);
-    --conf-particle: #ec4899;
-
     /* ── Misc ── */
     --selector-accent: #38bdf8;
     --img-card-bg: rgba(0, 0, 0, 0.25);
     --noise-opacity: 0.5;
     --logo-shadow: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
     --meta-theme-color: #030712;
+}
+
+[data-theme="dark"] .chat-input-wrapper {
+    background: transparent !important;
+}
+
+[data-theme="dark"] .chat-input-wrapper::before {
+    display: none !important;
+}
+
+/* Pop-over menus must be fully opaque so page content (e.g. live logs)
+   doesn't bleed through the translucent surface. */
+[data-theme="dark"] .dashboard-custom-select__menu,
+[data-theme="dark"] .automation-inline-ac-dropdown {
+    background: #0f172a !important;
+    background-color: #0f172a !important;
 }

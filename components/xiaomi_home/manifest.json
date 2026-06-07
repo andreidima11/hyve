@@ -1,0 +1,7 @@
+{
+  "domain": "xiaomi_home",
+  "name": "Xiaomi Home",
+  "version": "1.0.0",
+  "integration_type": "entity",
+  "dependencies": []
+}

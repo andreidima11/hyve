@@ -1,20 +1,21 @@
 import json
 import os
 import logging
+from copy import deepcopy
 
 from env_bootstrap import ensure_env_loaded
 
 ensure_env_loaded()
 
 CONFIG_FILE = "config.json"
-RELEASE_VERSION = "0.2.7-ALPHA"
+RELEASE_VERSION = "0.7.0"
 APP_VERSION = RELEASE_VERSION
 _settings_log = logging.getLogger("settings")
 
 # --- CONFIGURAȚIE DEFAULT ---
 DEFAULT_CONFIG = {
     "version": RELEASE_VERSION,
-    "server_name": "Memini Bridge",
+    "server_name": "Hyve",
     "port": 8082,
     "verbose_logging": False,  # compact logs by default; set True for full agent/tool audit
     "timezone": "Europe/Bucharest",  # for current date/time and reminders; empty = server local
@@ -88,7 +89,7 @@ DEFAULT_CONFIG = {
         "tool_result_max_chars": 4000,  # max chars per tool result sent to LLM; truncation reduces context and speeds up
         "knowledge_cutoff": "2024-01",
         "datetime_round_minutes": 0,  # 0=off; 5=round time down to 5 min so same prompt prefix = better KV cache (LM Studio / llama.cpp)
-        "inject_relevant_facts": False,  # when True: 1-2 relevant facts injected in system prompt (proactive memory)
+        "inject_relevant_facts": True,  # when True: 1-3 relevant facts injected in system prompt (proactive memory)
         "lazy_history": True,  # when True: only last N messages kept in prompt; older messages available via get_conversation_history tool
         "lazy_history_keep": 4,  # messages to keep in prompt (default: 4 = ~2 user+assistant exchanges)
         "richer_tool_results": False,  # when True: optional hints in tool results (e.g. "You can use control_device for these")
@@ -168,16 +169,18 @@ DEFAULT_CONFIG = {
         # Limba interfeței: 'en' sau 'ro'
         "language": "en"
     },
-    # 6. INTEGRĂRI
-    "home_assistant": {
-        "enabled": False,
-        "url": "http://homeassistant.local:8123",
-        "token": "",
-        "device_match_priority": ["alias", "friendly_name", "entity_id"],
-        "assist_default_user_id": None,  # Bridge user to link for HA Assist (memories + conversation); None = no link
-        "assist_use_bridge_agent": True  # True = run through Bridge agent (tools, HA, memory); False = proxy only to LLM
+
+    # 5b. DASHBOARD (control tiles)
+    "dashboard": {
+        "widgets": [],
+        "preferences": {
+            "layout_mode": "comfortable",
+            "show_unavailable": True,
+            "filter_mode": "all"
+        }
     },
-    
+
+    # 6. INTEGRĂRI
     "waha": { 
         "enabled": False, 
         "api_url": "http://localhost:3000", 
@@ -191,6 +194,17 @@ DEFAULT_CONFIG = {
         "email": "",
         "password": "",
         "scan_interval": 3600  # seconds between API refreshes (min 60)
+    },
+
+    # HUAWEI FUSIONSOLAR — solar production via Northbound OpenAPI or Kiosk URL
+    "fusion_solar": {
+        "enabled": False,
+        "mode": "auto",  # auto | openapi | kiosk
+        "host": "https://eu5.fusionsolar.huawei.com",
+        "kiosk_url": "",
+        "username": "",
+        "password": "",
+        "scan_interval": 600  # seconds between API refreshes (respect Huawei rate limits)
     },
 
     "fcm": {
@@ -267,9 +281,9 @@ _STRICT_ENV_VALUES = {"prod", "production", "staging", "release"}
 
 def is_strict_startup_mode(env: dict | None = None) -> bool:
     source = env if env is not None else os.environ
-    if (source.get("MEMINI_STRICT_STARTUP") or "").strip() == "1":
+    if (source.get("HYVE_STRICT_STARTUP") or "").strip() == "1":
         return True
-    mode = (source.get("MEMINI_ENV") or "").strip().lower()
+    mode = (source.get("HYVE_ENV") or "").strip().lower()
     return mode in _STRICT_ENV_VALUES
 
 
@@ -279,8 +293,8 @@ def get_runtime_requirement_errors(data: dict, env: dict | None = None) -> list[
     llm = data.get("llm") or {}
     proxy = data.get("proxy") or {}
 
-    if not (source.get("MEMINI_SECRET_KEY") or "").strip():
-        errors.append("MEMINI_SECRET_KEY is not set")
+    if not (source.get("HYVE_SECRET_KEY") or "").strip():
+        errors.append("HYVE_SECRET_KEY is not set")
     if not (llm.get("target_url") or "").strip():
         errors.append("llm.target_url is empty")
     if not (llm.get("model_name") or "").strip():
@@ -379,14 +393,6 @@ def _validate_config(data: dict) -> list:
         if val is not None and (not isinstance(val, (int, float)) or val < 0 or val > 1.0):
             warnings.append(f"memory.{key}={val!r} out of range [0,1.0]")
 
-    # HA URL
-    ha = data.get("home_assistant") or {}
-    ha_url = (ha.get("url") or "").strip()
-    if ha.get("enabled") and not ha_url:
-        warnings.append("home_assistant.enabled=True but url is empty")
-    if ha_url and not ha_url.startswith(("http://", "https://")):
-        warnings.append(f"home_assistant.url='{ha_url}' should start with http:// or https://")
-
     return warnings
 
 
@@ -401,7 +407,7 @@ def load_config():
     # Dacă nu există fișierul, îl creăm cu default
     if not os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "w") as f: json.dump(DEFAULT_CONFIG, f, indent=4)
-        out = json.loads(json.dumps(DEFAULT_CONFIG))  # deep copy
+        out = deepcopy(DEFAULT_CONFIG)
         _apply_env_overlay(out)
         _run_validation(out)
         _log_runtime_requirement_warnings(out)
@@ -428,24 +434,69 @@ def load_config():
         if updated:
             print("🔧 Config updated with new keys. Saving...")
             with open(CONFIG_FILE, "w") as f: json.dump(data, f, indent=4)
+        _reconcile_active_profile(data)
         _apply_env_overlay(data)
         _run_validation(data)
         _log_runtime_requirement_warnings(data)
         return data
     except Exception as e:
         print(f"❌ Config Load Error: {e}. Using Default.")
-        out = json.loads(json.dumps(DEFAULT_CONFIG))  # deep copy to avoid mutating DEFAULT_CONFIG
+        out = deepcopy(DEFAULT_CONFIG)
         _apply_env_overlay(out)
         _run_validation(out)
         _log_runtime_requirement_warnings(out)
         return out
 
 
+def _reconcile_active_profile(data: dict) -> None:
+    """Mirror the active model profile into the legacy `llm` and `intelligence.aux_llm` blocks.
+
+    Many subsystems (summarize, intent router, direct commands, scheduler) read
+    `llm.model_name` / `intelligence.aux_llm.model_name` directly instead of the
+    active profile. The /activate handler syncs them at switch time, but they
+    can drift if config.json is edited by hand. This keeps them in lock-step on
+    every load so the active profile is the single source of truth.
+    """
+    active_id = (data.get("active_profile_id") or "").strip()
+    if not active_id:
+        return
+    profile = next(
+        (p for p in (data.get("model_profiles") or []) if (p.get("id") or "") == active_id),
+        None,
+    )
+    if not profile:
+        return
+    llm_block = dict(data.get("llm") or {})
+    llm_block.update({
+        "target_url": profile.get("target_url") or "",
+        "model_name": profile.get("model_name") or "",
+        "source": profile.get("provider") or llm_block.get("source") or "local",
+        "temperature": profile.get("temperature", llm_block.get("temperature", 0.7)),
+        "timeout": profile.get("timeout", llm_block.get("timeout", 120)),
+        "context_length": profile.get("context_length", llm_block.get("context_length", 24000)),
+        "max_tokens": profile.get("max_tokens", llm_block.get("max_tokens", 2048)),
+    })
+    # Preserve api_key only if the profile doesn't override it (env overlay still wins later).
+    profile_key = (profile.get("api_key") or "").strip()
+    if profile_key:
+        llm_block["api_key"] = profile_key
+    data["llm"] = llm_block
+
+    intel = dict(data.get("intelligence") or {})
+    if profile.get("aux_llm_enabled"):
+        aux = profile.get("aux_llm") or {}
+        intel["aux_llm"] = {
+            "target_url": aux.get("target_url") or "",
+            "model_name": aux.get("model_name") or "",
+            "api_key": aux.get("api_key") or "",
+        }
+    else:
+        intel["aux_llm"] = {"target_url": "", "model_name": "", "api_key": ""}
+    data["intelligence"] = intel
+
+
 def _apply_env_overlay(data: dict):
     """Overlay secrets and feature flags from env (see CONFIG.md)."""
-    ha_token = os.environ.get("HA_TOKEN", "").strip()
-    if ha_token:
-        data.setdefault("home_assistant", {})["token"] = ha_token
     waha_user = os.environ.get("WAHA_USERNAME", "").strip()
     if waha_user:
         data.setdefault("waha", {})["username"] = waha_user
@@ -490,12 +541,12 @@ def _apply_env_overlay(data: dict):
 def _load_config_raw() -> dict:
     """Load config.json WITHOUT env overlay — for save operations that must not leak secrets."""
     if not os.path.exists(CONFIG_FILE):
-        return json.loads(json.dumps(DEFAULT_CONFIG))
+        return deepcopy(DEFAULT_CONFIG)
     try:
         with open(CONFIG_FILE, "r") as f:
             return json.load(f)
     except Exception:
-        return json.loads(json.dumps(DEFAULT_CONFIG))
+        return deepcopy(DEFAULT_CONFIG)
 
 
 def save_config(new_data):

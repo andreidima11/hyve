@@ -21,7 +21,6 @@ from fastapi import HTTPException
 import settings as settings_mod
 import database
 import automation_definitions
-import home_assistant
 import models
 from memory_context import get_memory_context
 from logger import log_line, log_detail
@@ -91,6 +90,10 @@ _UNTRUSTED_CONTEXT_SAFE_TOOL_NAMES = frozenset({
     "read_web_page",
     "extract_web_data",
     "cctv_describe",
+    "get_app_help",
+    "get_system_status",
+    "get_entity_history",
+    "get_device_state",
 })
 
 
@@ -102,189 +105,6 @@ def is_tool_allowed_for_untrusted_context(name: str) -> bool:
 # ---------------------------------------------------------------------------
 # 1. TOOL DEFINITIONS  (OpenAI function-calling format)
 # ---------------------------------------------------------------------------
-
-TOOL_CONTROL_DEVICE = {
-    "type": "function",
-    "function": {
-        "name": "control_device",
-        "description": (
-            "Control a smart home device (on/off/toggle, brightness, color temp). "
-            "You MUST call this for ANY device control request — text replies don't change anything. "
-            "For dimming: action=turn_on + brightness (0-255). For 'lights off': action=turn_off."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "target": {
-                    "type": "string",
-                    "description": "The device name, alias, or entity_id to control (e.g. 'bedroom light', 'living room lamp', 'light.bedroom')."
-                },
-                "action": {
-                    "type": "string",
-                    "enum": ["turn_on", "turn_off", "toggle"],
-                    "description": "The action to perform. Use turn_on for dimming (with brightness param). Use turn_off to switch off."
-                },
-                "brightness": {
-                    "type": "integer",
-                    "description": "Brightness level 0-255 for dimmable lights. 0=off, 1=minimum, 128=~50%, 255=full brightness. Only for lights. Requires action=turn_on."
-                },
-                "color_temp_kelvin": {
-                    "type": "integer",
-                    "description": "Color temperature in Kelvin (2000=warm/candle, 3000=warm white, 4000=neutral, 5500=daylight, 6500=cool white). Only for lights that support color temperature."
-                }
-            },
-            "required": ["target", "action"]
-        }
-    }
-}
-
-TOOL_GET_HOME_STATUS = {
-    "type": "function",
-    "function": {
-        "name": "get_home_status",
-        "description": "Get live status of all smart-home devices (sensors, states). Use to check values or find entity_ids.",
-        "parameters": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
-    }
-}
-
-TOOL_CONTROL_DEVICES_BATCH = {
-    "type": "function",
-    "function": {
-        "name": "control_devices_batch",
-        "description": (
-            "Control MULTIPLE smart home devices in one call. Use for: "
-            "'turn off all lights', 'dim all bedroom lights to 50%', 'turn on all lights in the living room'. "
-            "Provide a room/group name or 'all' and a domain filter. "
-            "Do NOT use this for a single device — use control_device instead."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "room_or_group": {
-                    "type": "string",
-                    "description": "Room name (e.g. 'bedroom', 'living room') or 'all lights', 'all switches'. Use 'all' for everything."
-                },
-                "action": {
-                    "type": "string",
-                    "enum": ["turn_on", "turn_off", "toggle"],
-                    "description": "The action to perform on all matching devices."
-                },
-                "domain_filter": {
-                    "type": "string",
-                    "description": "Optional: restrict to a specific domain ('light', 'switch', 'cover'). Leave empty to affect all controllable devices in the room."
-                },
-                "brightness": {
-                    "type": "integer",
-                    "description": "Optional: brightness 0-255 for dimmable lights. Only applies to light domain."
-                },
-                "color_temp_kelvin": {
-                    "type": "integer",
-                    "description": "Optional: color temperature in Kelvin (2000=warm, 4000=neutral, 6500=cool). Only for lights that support it."
-                }
-            },
-            "required": ["room_or_group", "action"]
-        }
-    }
-}
-
-TOOL_CONTROL_MULTI_DEVICE = {
-    "type": "function",
-    "function": {
-        "name": "control_multi_device",
-        "description": (
-            "Control MULTIPLE SPECIFIC devices in one call. Use when the user names 2+ individual devices "
-            "(e.g. 'turn on bedroom light and turn off kitchen light', 'dim hall to 50% and set office to warm'). "
-            "Each command specifies its own target, action, brightness, and color temp. "
-            "Do NOT use control_devices_batch for this — that is for rooms/groups. "
-            "Do NOT call control_device multiple times — use this instead."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "commands": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "target": {
-                                "type": "string",
-                                "description": "Device name, alias, or entity_id."
-                            },
-                            "action": {
-                                "type": "string",
-                                "enum": ["turn_on", "turn_off", "toggle"],
-                                "description": "Action to perform."
-                            },
-                            "brightness": {
-                                "type": "integer",
-                                "description": "Optional brightness 0-255 for dimmable lights."
-                            },
-                            "color_temp_kelvin": {
-                                "type": "integer",
-                                "description": "Optional color temperature in Kelvin (2000-10000)."
-                            }
-                        },
-                        "required": ["target", "action"]
-                    },
-                    "description": "Array of device commands to execute in parallel."
-                }
-            },
-            "required": ["commands"]
-        }
-    }
-}
-
-
-
-
-TOOL_SET_AUTOMATION = {
-    "type": "function",
-    "function": {
-        "name": "set_automation",
-        "description": "Compatibility automation tool. Builds or updates a YAML automation definition from flat arguments. Prefer automation-definition tools for advanced creation or editing. Call when user asks to schedule a recurring automation or a timed skill.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "automation_id": {"type": "string", "description": "Optional existing automation definition id to update. If omitted, a new definition is created."},
-                "commands": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "action": {"type": "string", "enum": ["turn_on", "turn_off", "toggle"]},
-                            "target": {"type": "string", "description": "Device name, alias, or entity_id."},
-                            "brightness": {"type": "integer", "description": "Optional brightness 0-255 for dimmable lights."},
-                            "color_temp_kelvin": {"type": "integer", "description": "Optional color temperature in Kelvin (2000-10000)."}
-                        },
-                        "required": ["action", "target"]
-                    },
-                    "description": "For HA automation: list of device commands. Omit when using skill_name."
-                },
-                "skill_name": {
-                    "type": "string",
-                    "description": "For skill automation: exact skill name (e.g. yahoo_finance). When set, the skill runs at the scheduled time and the result is sent to the user."
-                },
-                "skill_input": {
-                    "type": "object",
-                    "description": "Input for the skill (e.g. {\"symbol\": \"AAPL\"} for yahoo_finance)."
-                },
-                "title": {"type": "string", "description": "Human-readable automation title. If omitted, display_message or a generated title is used."},
-                "description": {"type": "string", "description": "Optional longer description for the YAML automation."},
-                "notify_message": {"type": "string", "description": "Optional notification when automation runs (HA only)."},
-                "display_message": {"type": "string", "description": "Short description for the automations list."},
-                "date": {"type": "string", "description": "For one-off: YYYY-MM-DD."},
-                "time": {"type": "string", "description": "Time in HH:MM 24-hour format."},
-                "recurrence": {"type": "string", "enum": ["none", "daily", "weekly", "biweekly"], "description": "Recurrence type."},
-                "weekday": {"type": "string", "enum": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"], "description": "For weekly/biweekly: which day."}
-            },
-            "required": ["time"]
-        }
-    }
-}
 
 TOOL_VALIDATE_AUTOMATION_YAML = {
     "type": "function",
@@ -424,7 +244,7 @@ TOOL_SEARCH_WEB = {
     "type": "function",
     "function": {
         "name": "search_web",
-        "description": "Search the web ONLY for genuinely current/time-sensitive info (today's news, live weather, current prices, recent events, things after your knowledge cutoff). Do NOT search for facts you already know (definitions, history, science, geography, famous people, how things work, programming, math). Reformulate into a short keyword-focused query (3-7 words). One search should usually be enough — do NOT chain multiple searches for the same question.",
+        "description": "Search the web for current, time-sensitive, or post-cutoff facts. REQUIRED before answering who currently holds political office (PM, president, minister), company leadership, sports champions, prices, news, weather, or anything that may have changed since your knowledge cutoff — especially when the user says noul/noua/current/new. Do NOT answer those from memory alone. Use a short keyword query (3-7 words). One search is usually enough.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -508,7 +328,7 @@ TOOL_RECALL_MEMORY = {
     "type": "function",
     "function": {
         "name": "recall_memory",
-        "description": "Search long-term memory for facts about this user (preferences, past info). Use when user asks about themselves.",
+        "description": "Search long-term memory for facts about this user (preferences, past info). Call proactively when the user mentions personal topics (food, hobbies, habits, possessions, plans, health, work, family) — not only when they explicitly ask what you remember. Also use when they ask about themselves or their preferences.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -538,6 +358,73 @@ TOOL_STORE_MEMORY = {
             "required": ["fact"]
         }
     }
+}
+
+
+TOOL_GET_APP_HELP = {
+    "type": "function",
+    "function": {
+        "name": "get_app_help",
+        "description": "OPTIONAL look-up of how a feature of the Hyve UI works (theme, dashboard, page, card, automation, integration, settings, planner, memory, skills, derived entities, notifications). Only call this when the user EXPLICITLY asks where something is in the Hyve app or how to do something in its UI, AND you don't already know the answer. Do NOT call it for general conversation, smart-home commands, automations you can build directly with other tools, or any non-Hyve question. Pass the topic in plain words.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "topic": {
+                    "type": "string",
+                    "description": "Feature area to look up. Examples: 'theme', 'dashboard', 'card', 'automation', 'integration', 'settings', 'planner', 'memory'. Free-form text is also accepted; leave empty for a topic index."
+                }
+            },
+            "required": []
+        }
+    }
+}
+
+TOOL_GET_SYSTEM_STATUS = {
+    "type": "function",
+    "function": {
+        "name": "get_system_status",
+        "description": "Read-only snapshot of Hyve runtime state: integrations, entities, health, dashboard layout, automations, scenes, areas, notifications, add-ons. Use when the user asks about system status, what's configured, or what's running — not for controlling devices.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "enum": [
+                        "overview",
+                        "integrations",
+                        "integration_detail",
+                        "entities",
+                        "health",
+                        "dashboard",
+                        "automations",
+                        "automation_history",
+                        "scenes",
+                        "areas",
+                        "notifications",
+                        "addons",
+                    ],
+                    "description": "Which snapshot to retrieve. Start with 'overview' when unsure.",
+                },
+                "slug": {
+                    "type": "string",
+                    "description": "Integration slug (required for integration_detail, e.g. 'frigate').",
+                },
+                "source": {
+                    "type": "string",
+                    "description": "Filter entities by integration source (for query=entities).",
+                },
+                "domain": {
+                    "type": "string",
+                    "description": "Filter entities by domain prefix (for query=entities, e.g. 'sensor').",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max entities to list (for query=entities, default 40).",
+                },
+            },
+            "required": ["query"],
+        },
+    },
 }
 
 
@@ -830,6 +717,68 @@ TOOL_GENERATE_IMAGE = {
             "required": ["prompt"]
         }
     }
+}
+
+# ---- Smart Home control tools ----
+
+TOOL_CONTROL_DEVICE = {
+    "type": "function",
+    "function": {
+        "name": "control_device",
+        "description": "Control a smart home device: turn on/off, toggle, set brightness, temperature, etc. Use entity_id from the home state context.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "entity_id": {"type": "string", "description": "The entity_id of the device to control (e.g. 'light.living_room', 'switch.fan')."},
+                "action": {"type": "string", "enum": ["turn_on", "turn_off", "toggle", "set"], "description": "Action to perform."},
+                "data": {"type": "object", "description": "Optional parameters for the action (e.g. {\"brightness\": 128} for lights, {\"temperature\": 22} for climate)."}
+            },
+            "required": ["entity_id", "action"]
+        }
+    }
+}
+
+TOOL_GET_HOME_STATUS = {
+    "type": "function",
+    "function": {
+        "name": "get_home_status",
+        "description": "Get the current state of all smart home devices grouped by area. Shows entity_id, name, state, and attributes for each device.",
+        "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+}
+
+TOOL_GET_ENTITY_HISTORY = {
+    "type": "function",
+    "function": {
+        "name": "get_entity_history",
+        "description": "Get recent numeric history (time-series data) for a sensor or device. Useful for analyzing trends, averages, min/max values.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "entity_id": {"type": "string", "description": "The entity_id to query history for."},
+                "hours": {"type": "number", "description": "How many hours of history to retrieve (default 24, max 336)."}
+            },
+            "required": ["entity_id"]
+        }
+    }
+}
+
+TOOL_GET_DEVICE_STATE = {
+    "type": "function",
+    "function": {
+        "name": "get_device_state",
+        "description": "Get the current state of one smart home entity by entity_id (read-only). Returns name, state, domain, source, and key attributes.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "entity_id": {
+                    "type": "string",
+                    "description": "Entity id to look up (e.g. 'light.living_room', 'sensor.temperature').",
+                }
+            },
+            "required": ["entity_id"],
+        },
+    },
 }
 
 # ---- Planner (entries / lists) tools ----
@@ -1148,7 +1097,6 @@ def _tools_fingerprint() -> str:
     """Cheap fingerprint for tool-affecting config sections."""
     cfg = settings_mod.CFG
     parts = [
-        str(cfg.get("home_assistant", {}).get("enabled")),
         str(cfg.get("searxng", {}).get("enabled")),
         str(cfg.get("searxng", {}).get("url", "")),
         str((cfg.get("intelligence") or {}).get("lazy_history", True)),
@@ -1193,26 +1141,6 @@ def _build_tools_list(is_anonymous: bool) -> List[Dict]:
     tools = []
     cfg = settings_mod.CFG
 
-    # Home Assistant tools (not for anonymous users)
-    if not is_anonymous and cfg.get("home_assistant", {}).get("enabled"):
-        # control_device: inject dynamic device count into description
-        control_tool = json.loads(json.dumps(TOOL_CONTROL_DEVICE))
-        try:
-            device_text = get_device_list_text()
-            n = len([ln for ln in (device_text or "").split("\n") if ln.strip()]) if device_text else 0
-            if n > 0:
-                control_tool["function"]["description"] = (
-                    (control_tool["function"].get("description") or "").rstrip(". ")
-                    + f" There are {n} controllable devices listed in [AVAILABLE DEVICES]."
-                )
-        except Exception as e:
-            log_line("warn", "⚠️", "TOOLS", f"Device count enrichment failed: {e}")
-        tools.append(control_tool)
-        tools.append(TOOL_GET_HOME_STATUS)
-        tools.append(TOOL_CONTROL_DEVICES_BATCH)
-        tools.append(TOOL_CONTROL_MULTI_DEVICE)
-        tools.append(TOOL_SET_AUTOMATION)
-
     if not is_anonymous:
         tools.append(TOOL_VALIDATE_AUTOMATION_YAML)
         tools.append(TOOL_LIST_AUTOMATION_DEFINITIONS)
@@ -1223,6 +1151,13 @@ def _build_tools_list(is_anonymous: bool) -> List[Dict]:
         tools.append(TOOL_DISABLE_AUTOMATION_DEFINITION)
         tools.append(TOOL_DELETE_AUTOMATION_DEFINITION)
         tools.append(TOOL_RUN_AUTOMATION_DEFINITION)
+
+    # Smart home control tools (when integrations exist; never for anon)
+    if not is_anonymous:
+        tools.append(TOOL_CONTROL_DEVICE)
+        tools.append(TOOL_GET_HOME_STATUS)
+        tools.append(TOOL_GET_ENTITY_HISTORY)
+        tools.append(TOOL_GET_DEVICE_STATE)
 
     # Planner tools (always available)
     tools.append(TOOL_PLANNER_ADD_LIST)
@@ -1244,6 +1179,10 @@ def _build_tools_list(is_anonymous: bool) -> List[Dict]:
     # Memory recall and store (always available – user memory about preferences/facts)
     tools.append(TOOL_RECALL_MEMORY)
     tools.append(TOOL_STORE_MEMORY)
+
+    # App help + system status (always available — read-only introspection)
+    tools.append(TOOL_GET_APP_HELP)
+    tools.append(TOOL_GET_SYSTEM_STATUS)
 
     # Conversation history tool (only in lazy_history mode)
     intel = cfg.get("intelligence") or {}
@@ -1292,7 +1231,8 @@ def _build_tools_list(is_anonymous: bool) -> List[Dict]:
     if cctv_cfg.get("enabled") and (has_vision or has_main_llm):
         cameras = cctv_cfg.get("cameras") or []
         if cameras:
-            cctv_tool = json.loads(json.dumps(TOOL_CCTV_DESCRIBE))
+            from copy import deepcopy
+            cctv_tool = deepcopy(TOOL_CCTV_DESCRIBE)
             cam_list = ", ".join(f"'{c.get('id') or c.get('name') or '?'}' ({c.get('name', '')})" for c in cameras[:20])
             cctv_tool["function"]["description"] = (
                 (cctv_tool["function"].get("description") or "").rstrip(". ")
@@ -1319,17 +1259,6 @@ def _build_tools_list(is_anonymous: bool) -> List[Dict]:
         tools.append(TOOL_IMPROVE_SKILL)
 
     return tools
-
-
-def get_device_list_text() -> str:
-    """Return a compact device list for the agent system prompt (only controllable, selected devices)."""
-    if not settings_mod.CFG.get("home_assistant", {}).get("enabled"):
-        return ""
-    try:
-        return home_assistant.get_agent_device_list()
-    except Exception as e:
-        log_line("warn", "⚠️", "HA", f"get_agent_device_list failed: {e}")
-    return ""
 
 
 def get_skills_list_text() -> str:
@@ -1371,17 +1300,7 @@ async def execute_tool(
         )
 
     try:
-        if name == "control_device":
-            return await _exec_control_device(arguments, user_id)
-        elif name == "control_devices_batch":
-            return await _exec_control_devices_batch(arguments, user_id)
-        elif name == "control_multi_device":
-            return await _exec_control_multi_device(arguments, user_id)
-        elif name == "get_home_status":
-            return await _exec_get_home_status(user_id)
-        elif name == "set_automation":
-            return await _exec_set_automation(arguments, user_id)
-        elif name == "validate_automation_yaml":
+        if name == "validate_automation_yaml":
             return await _exec_validate_automation_yaml(arguments)
         elif name == "list_automation_definitions":
             return await _exec_list_automation_definitions(user_id)
@@ -1411,6 +1330,10 @@ async def execute_tool(
             return await _exec_recall_memory(arguments, user_id)
         elif name == "store_memory":
             return await _exec_store_memory(arguments, user_id)
+        elif name == "get_app_help":
+            return _exec_get_app_help(arguments)
+        elif name == "get_system_status":
+            return _exec_get_system_status(arguments)
         elif name == "get_conversation_history":
             return _exec_get_conversation_history(arguments, user_id)
         elif name == "run_skill":
@@ -1442,6 +1365,14 @@ async def execute_tool(
         elif name == "get_pago_data":
             from brain.tool_pago import exec_get_pago_data
             return await exec_get_pago_data(arguments)
+        elif name == "control_device":
+            return await _exec_control_device(arguments)
+        elif name == "get_home_status":
+            return await _exec_get_home_status(arguments)
+        elif name == "get_entity_history":
+            return await _exec_get_entity_history(arguments)
+        elif name == "get_device_state":
+            return await _exec_get_device_state(arguments)
         elif name == "planner_add_entry":
             return await _exec_planner_add_entry(arguments, user_id)
         elif name == "planner_add_list":
@@ -1469,433 +1400,6 @@ async def execute_tool(
 # 4. INDIVIDUAL TOOL IMPLEMENTATIONS
 # ---------------------------------------------------------------------------
 
-async def _exec_control_device(args: Dict, user_id: str) -> str:
-    from brain.cortex import find_device_details, CONTEXT_LOCK, USER_CONTEXT
-
-    target = (args.get("target") or "").strip()
-    action = (args.get("action") or "toggle").strip().lower()
-    if not target:
-        return "Error: No target device specified."
-    if action not in ("turn_on", "turn_off", "toggle"):
-        return f"Error: Invalid action '{action}'. Use turn_on, turn_off, or toggle."
-
-    entity_id, friendly_name = await find_device_details(target, user_id, user_message=target)
-    if not entity_id:
-        return f"Error: Could not find a device matching '{target}'. Check the device name or alias. Use only names/aliases from the [AVAILABLE DEVICES] list."
-
-    # Build service_data for brightness / color_temp if provided
-    service_data = {}
-    brightness = args.get("brightness")
-    if brightness is not None:
-        try:
-            brightness = int(brightness)
-            if brightness < 0:
-                brightness = 0
-            elif brightness > 255:
-                brightness = 255
-            service_data["brightness"] = brightness
-            # brightness=0 means turn off
-            if brightness == 0:
-                action = "turn_off"
-                service_data = {}
-            elif action != "turn_on":
-                action = "turn_on"  # brightness requires turn_on service
-        except (ValueError, TypeError):
-            pass
-
-    color_temp_kelvin = args.get("color_temp_kelvin")
-    if color_temp_kelvin is not None:
-        try:
-            color_temp_kelvin = int(color_temp_kelvin)
-            if 1000 <= color_temp_kelvin <= 10000:
-                service_data["color_temp_kelvin"] = color_temp_kelvin
-                if action != "turn_on":
-                    action = "turn_on"
-        except (ValueError, TypeError):
-            pass
-
-    domain = entity_id.split(".")[0]
-
-    # ── POST-ACTION VERIFICATION: capture expected state before calling ──
-    expected_state = "on" if action == "turn_on" else ("off" if action == "turn_off" else None)
-    expected_attrs = {}
-    if service_data.get("brightness") is not None:
-        expected_attrs["brightness"] = service_data["brightness"]
-
-    result = await home_assistant.call_service(domain, action, entity_id, service_data=service_data or None)
-    if not result.get("ok"):
-        err = result.get("error") or "Unknown error"
-        log_line("agent", "❌", "DEVICE", f"HA call failed: {err}")
-
-        # ── RETRY ONCE on transient errors ──
-        if "timeout" in str(err).lower() or "exception" in str(err).lower():
-            log_line("agent", "🔄", "DEVICE", f"Retrying {action} on {entity_id}...")
-            await asyncio.sleep(0.5)
-            result = await home_assistant.call_service(domain, action, entity_id, service_data=service_data or None)
-            if not result.get("ok"):
-                err2 = result.get("error") or "Unknown error"
-                return f"Error: Home Assistant call failed after retry — {err2}. Device: {entity_id}."
-        else:
-            return f"Error: Home Assistant call failed — {err}. Device: {entity_id}."
-
-    name = friendly_name or entity_id
-    # Build descriptive action word
-    if service_data.get("brightness") is not None:
-        pct = round(service_data["brightness"] / 255 * 100)
-        action_word = f"set to {pct}% brightness"
-    else:
-        action_word = {"turn_on": "turned on", "turn_off": "turned off", "toggle": "toggled"}.get(action, action)
-    if service_data.get("color_temp_kelvin"):
-        action_word += f" ({service_data['color_temp_kelvin']}K)"
-
-    async with CONTEXT_LOCK:
-        USER_CONTEXT[user_id] = {"entity_id": entity_id, "name": name, "last_action": action}
-
-    # ── POST-ACTION VERIFICATION: confirm device actually changed state ──
-    verification_note = ""
-    try:
-        from ha_websocket import ha_ws
-        if ha_ws.is_connected and expected_state:
-            verified, actual = await ha_ws.verify_entity_state(
-                entity_id,
-                expected_state,
-                timeout=3.0,
-                check_attrs=expected_attrs or None,
-            )
-            if verified:
-                log_line("agent", "✅", "VERIFY", f"{entity_id} confirmed → {expected_state}")
-                verification_note = " (verified)"
-            else:
-                actual_state = actual.get("state", "unknown") if actual else "unknown"
-                log_line("agent", "⚠️", "VERIFY", f"{entity_id} expected={expected_state} actual={actual_state}")
-                if actual_state != "unknown":
-                    verification_note = f" (warning: device reports '{actual_state}' instead of '{expected_state}')"
-    except ImportError:
-        pass  # websocket module not available, skip verification
-    except Exception as exc:
-        log_line("agent", "⚠️", "VERIFY", f"Check failed: {type(exc).__name__}: {exc}")
-
-    log_line("agent", "✅", "DEVICE", f"{action_word} {name} ({entity_id}){verification_note}")
-    out = f"Success: {action_word} {name} ({entity_id}).{verification_note}"
-    if (settings_mod.CFG.get("intelligence") or {}).get("richer_tool_results"):
-        out = out.rstrip() + " You can use get_home_status to verify or control other devices."
-    return out
-
-
-async def _exec_control_devices_batch(args: Dict, user_id: str) -> str:
-    """Execute a batch device control command (all lights in bedroom, all switches, etc.)."""
-    from brain.cortex import CONTEXT_LOCK, USER_CONTEXT
-
-    room_or_group = (args.get("room_or_group") or "").strip()
-    action = (args.get("action") or "toggle").strip().lower()
-    domain_filter = (args.get("domain_filter") or "").strip().lower() or None
-    brightness = args.get("brightness")
-    color_temp_kelvin = args.get("color_temp_kelvin")
-
-    if not room_or_group:
-        return "Error: No room or group specified."
-    if action not in ("turn_on", "turn_off", "toggle"):
-        return f"Error: Invalid action '{action}'. Use turn_on, turn_off, or toggle."
-
-    # Resolve devices matching the room/group (with HA Areas API enrichment)
-    try:
-        entity_area_map = await home_assistant.fetch_entity_area_map()
-    except Exception:
-        entity_area_map = None
-    devices = home_assistant.resolve_room_devices(room_or_group, domain_filter=domain_filter, entity_area_map=entity_area_map)
-    if not devices:
-        return f"Error: No controllable devices found for '{room_or_group}'" + (f" (domain: {domain_filter})" if domain_filter else "") + "."
-
-    # Build service_data
-    service_data = {}
-    effective_action = action
-    if brightness is not None:
-        try:
-            brightness = int(brightness)
-            brightness = max(0, min(255, brightness))
-            if brightness == 0:
-                effective_action = "turn_off"
-            else:
-                service_data["brightness"] = brightness
-                effective_action = "turn_on"
-        except (ValueError, TypeError):
-            pass
-
-    if color_temp_kelvin is not None:
-        try:
-            color_temp_kelvin = int(color_temp_kelvin)
-            if 1000 <= color_temp_kelvin <= 10000:
-                service_data["color_temp_kelvin"] = color_temp_kelvin
-                if effective_action != "turn_on":
-                    effective_action = "turn_on"
-        except (ValueError, TypeError):
-            pass
-
-    # Execute all calls in PARALLEL
-    async def _call_one(dev: dict) -> tuple[dict, bool, str]:
-        entity_id = dev["entity_id"]
-        domain = dev.get("domain") or entity_id.split(".")[0]
-        call_data = service_data if domain == "light" and service_data else None
-        call_action = effective_action
-        result = await home_assistant.call_service(domain, call_action, entity_id, service_data=call_data)
-        if result.get("ok"):
-            return dev, True, ""
-        # Retry once on transient errors
-        err = result.get("error") or "unknown"
-        if "timeout" in str(err).lower() or "exception" in str(err).lower():
-            await asyncio.sleep(0.5)
-            result = await home_assistant.call_service(domain, call_action, entity_id, service_data=call_data)
-            if result.get("ok"):
-                return dev, True, ""
-            err = result.get("error") or "unknown"
-        return dev, False, err
-
-    call_results = await asyncio.gather(*[_call_one(dev) for dev in devices])
-
-    success_names = []
-    failed_msgs = []
-    for dev, ok, err in call_results:
-        if ok:
-            success_names.append(dev["name"])
-        else:
-            failed_msgs.append(f"{dev['name']} ({err})")
-
-    # Build response
-    total = len(devices)
-    ok_count = len(success_names)
-    fail_count = len(failed_msgs)
-
-    if service_data.get("brightness") is not None:
-        pct = round(service_data["brightness"] / 255 * 100)
-        action_word = f"set to {pct}% brightness"
-    else:
-        action_word = {"turn_on": "turned on", "turn_off": "turned off", "toggle": "toggled"}.get(effective_action, effective_action)
-    if service_data.get("color_temp_kelvin"):
-        action_word += f" ({service_data['color_temp_kelvin']}K)"
-
-    if fail_count == 0:
-        msg = f"Success: {action_word} {ok_count} device(s) in '{room_or_group}': {', '.join(success_names)}."
-    elif ok_count == 0:
-        msg = f"Error: All {fail_count} device(s) failed: {'; '.join(failed_msgs)}."
-    else:
-        msg = f"Partial: {action_word} {ok_count}/{total} device(s). Failed: {'; '.join(failed_msgs)}."
-
-    log_line("agent", "✅", "BATCH", msg[:200])
-
-    # Update context with batch info
-    if success_names:
-        async with CONTEXT_LOCK:
-            batch_entities = [{"entity_id": dev["entity_id"], "name": dev["name"]} for dev in devices if dev["name"] in success_names]
-            USER_CONTEXT[user_id] = {
-                "entity_id": devices[0]["entity_id"],
-                "name": f"{room_or_group} ({ok_count} devices)",
-                "last_action": effective_action,
-                "entities": batch_entities,
-            }
-
-    return msg
-
-
-async def _exec_control_multi_device(args: Dict, user_id: str) -> str:
-    """Execute multiple individual device commands in parallel (each with its own target/action/brightness/color_temp)."""
-    from brain.cortex import find_device_details, CONTEXT_LOCK, USER_CONTEXT
-
-    commands = args.get("commands") or []
-    if not commands or not isinstance(commands, list):
-        return "Error: No commands provided. Expected array of {target, action} objects."
-
-    # 1. Resolve all targets in parallel
-    resolve_tasks = [
-        find_device_details((cmd.get("target") or "").strip(), user_id, user_message=(cmd.get("target") or "").strip())
-        for cmd in commands
-    ]
-    resolved = await asyncio.gather(*resolve_tasks)
-
-    # 2. Build execution tasks for resolved devices
-    exec_tasks = []
-    exec_meta = []  # (cmd_dict, entity_id, friendly_name, service_data, effective_action)
-    for cmd, (entity_id, friendly_name) in zip(commands, resolved):
-        target = (cmd.get("target") or "").strip()
-        action = (cmd.get("action") or "toggle").strip().lower()
-        if not entity_id:
-            exec_meta.append((cmd, None, target, None, action))
-            continue
-        if action not in ("turn_on", "turn_off", "toggle"):
-            action = "toggle"
-
-        service_data = {}
-        brightness = cmd.get("brightness")
-        if brightness is not None:
-            try:
-                brightness = int(brightness)
-                brightness = max(0, min(255, brightness))
-                if brightness == 0:
-                    action = "turn_off"
-                    service_data = {}
-                else:
-                    service_data["brightness"] = brightness
-                    action = "turn_on"
-            except (ValueError, TypeError):
-                pass
-
-        color_temp_kelvin = cmd.get("color_temp_kelvin")
-        if color_temp_kelvin is not None:
-            try:
-                color_temp_kelvin = int(color_temp_kelvin)
-                if 1000 <= color_temp_kelvin <= 10000:
-                    service_data["color_temp_kelvin"] = color_temp_kelvin
-                    if action != "turn_on":
-                        action = "turn_on"
-            except (ValueError, TypeError):
-                pass
-
-        domain = entity_id.split(".")[0]
-
-        async def _do_call(d=domain, a=action, eid=entity_id, sd=service_data or None):
-            result = await home_assistant.call_service(d, a, eid, service_data=sd)
-            if not result.get("ok"):
-                err = result.get("error") or "unknown"
-                if "timeout" in str(err).lower() or "exception" in str(err).lower():
-                    await asyncio.sleep(0.5)
-                    result = await home_assistant.call_service(d, a, eid, service_data=sd)
-            return result
-
-        exec_tasks.append(_do_call())
-        exec_meta.append((cmd, entity_id, friendly_name or entity_id, service_data or None, action))
-
-    # 3. Execute all HA calls in parallel
-    if exec_tasks:
-        exec_results = await asyncio.gather(*exec_tasks, return_exceptions=True)
-    else:
-        exec_results = []
-
-    # 4. Build response
-    success_parts = []
-    error_parts = []
-    context_entities = []
-    result_idx = 0
-    for _cmd, entity_id, name, svc_data, action in exec_meta:
-        if entity_id is None:
-            error_parts.append(f"'{name}': device not found")
-            continue
-        result = exec_results[result_idx]
-        result_idx += 1
-        if isinstance(result, Exception):
-            error_parts.append(f"{name}: {type(result).__name__}")
-            continue
-        if result.get("ok"):
-            # Build descriptive action word
-            if svc_data and svc_data.get("brightness") is not None:
-                pct = round(svc_data["brightness"] / 255 * 100)
-                action_word = f"set to {pct}%"
-            else:
-                action_word = {"turn_on": "turned on", "turn_off": "turned off", "toggle": "toggled"}.get(action, action)
-            if svc_data and svc_data.get("color_temp_kelvin"):
-                action_word += f" ({svc_data['color_temp_kelvin']}K)"
-            success_parts.append(f"{action_word} {name}")
-            context_entities.append({"entity_id": entity_id, "name": name})
-            log_line("agent", "✅", "MULTI_DEV", f"{action_word} {name} ({entity_id})")
-        else:
-            err = result.get("error") or "unknown"
-            error_parts.append(f"{name}: {err}")
-            log_line("agent", "❌", "MULTI_DEV", f"Failed {name} ({entity_id}): {err}")
-
-    # 5. Update context with all controlled devices
-    if context_entities:
-        async with CONTEXT_LOCK:
-            USER_CONTEXT[user_id] = {
-                "entities": context_entities,
-                "last_action": exec_meta[-1][4] if exec_meta else "toggle",
-            }
-
-    # 6. Format output
-    parts = []
-    if success_parts:
-        parts.append(f"Success: {'; '.join(success_parts)}.")
-    if error_parts:
-        parts.append(f"Failed: {'; '.join(error_parts)}.")
-    return " ".join(parts) if parts else "Error: No commands could be executed."
-
-
-async def _exec_get_home_status(user_id: str = "") -> str:
-    try:
-        status = await home_assistant.get_ai_context()
-        if not status:
-            return "No devices configured or Home Assistant offline."
-        intel = settings_mod.CFG.get("intelligence") or {}
-        if intel.get("richer_tool_results"):
-            status = status.rstrip() + "\n\nYou can use control_device to change any of these."
-        return status
-    except Exception as e:
-        return f"Error getting home status: {e}"
-
-
-async def _exec_set_automation(args: Dict, user_id: str) -> str:
-    commands = args.get("commands") or []
-    skill_name = (args.get("skill_name") or "").strip()
-    skill_input = args.get("skill_input") if isinstance(args.get("skill_input"), dict) else {}
-    if not commands and not skill_name:
-        return "Error: Provide either commands (HA devices) or skill_name (e.g. yahoo_finance with skill_input like {\"symbol\": \"AAPL\"})."
-
-    notify_msg = (args.get("notify_message") or "").strip() or None
-    display_msg = (args.get("display_message") or "").strip() or None
-    date_str = (args.get("date") or "").strip()
-    time_str = (args.get("time") or "09:00").strip()
-    recurrence = (args.get("recurrence") or "none").strip().lower()
-    weekday = (args.get("weekday") or "").strip().lower()
-
-    channel = "whatsapp" if "@" in user_id else "web"
-
-    title = (args.get("title") or display_msg or notify_msg or "").strip()
-    description = (args.get("description") or "").strip() or None
-    automation_id = (args.get("automation_id") or "").strip() or None
-    try:
-        source_yaml = _build_automation_yaml_from_legacy_args(
-            args=args,
-            user_id=user_id,
-            title=title,
-            description=description,
-            automation_id=automation_id,
-            channel=channel,
-        )
-    except automation_definitions.AutomationValidationError as exc:
-        return f"Error: {exc}"
-
-    db = database.SessionLocal()
-    try:
-        owner_id = _automation_owner_id(user_id)
-        actor = _automation_actor(user_id)
-        normalized = automation_definitions.validate_source_yaml(source_yaml)
-        existing = db.query(models.AutomationDefinition).filter(
-            models.AutomationDefinition.id == normalized["id"],
-            models.AutomationDefinition.owner_id == owner_id,
-        ).first()
-        if existing:
-            definition = automation_definitions.replace_definition(
-                db,
-                existing,
-                actor=actor,
-                source_yaml=source_yaml,
-                expected_revision=int(existing.revision),
-            )
-            action = "updated"
-        else:
-            definition = automation_definitions.create_definition(
-                db,
-                owner_id=owner_id,
-                actor=actor,
-                source_yaml=source_yaml,
-            )
-            action = "created"
-        item = automation_definitions.serialize_definition(definition)
-        return (
-            f"Automation definition {action}: id='{item['id']}', revision={item['revision']}, "
-            f"yaml_path='{item['yaml_path']}', next_runs={json.dumps(item['next_runs'], ensure_ascii=False)}"
-        )
-    except Exception as exc:
-        return f"Error: Could not save automation definition. {exc}"
-    finally:
-        db.close()
 
 
 def _automation_owner_id(user_id: str) -> str:
@@ -1905,87 +1409,6 @@ def _automation_owner_id(user_id: str) -> str:
 def _automation_actor(user_id: str) -> str:
     return f"assistant:{user_id or 'unknown'}"
 
-
-def _legacy_action_to_service(command: Dict[str, Any]) -> str:
-    action = (command.get("action") or "toggle").strip().lower()
-    target = str(command.get("target") or "").strip()
-    domain = target.split(".", 1)[0] if "." in target else "homeassistant"
-    if action not in {"turn_on", "turn_off", "toggle"}:
-        action = "toggle"
-    return f"{domain}.{action}"
-
-
-def _build_automation_yaml_from_legacy_args(
-    args: Dict[str, Any],
-    user_id: str,
-    title: str | None,
-    description: str | None,
-    automation_id: str | None,
-    channel: str,
-) -> str:
-    commands = args.get("commands") or []
-    skill_name = (args.get("skill_name") or "").strip()
-    skill_input = args.get("skill_input") if isinstance(args.get("skill_input"), dict) else {}
-    notify_msg = (args.get("notify_message") or "").strip() or None
-    display_msg = (args.get("display_message") or "").strip() or None
-    date_str = (args.get("date") or "").strip()
-    time_str = (args.get("time") or "09:00").strip()
-    recurrence = (args.get("recurrence") or "none").strip().lower()
-    weekday = (args.get("weekday") or "").strip().lower()
-    if recurrence not in {"none", "daily", "weekly", "biweekly"}:
-        raise automation_definitions.AutomationValidationError(f"Unsupported recurrence '{recurrence}'")
-
-    trigger = []
-    if recurrence == "none":
-        if date_str:
-            trigger.append({"platform": "datetime", "at": f"{date_str}T{time_str}:00"})
-        else:
-            trigger.append({"platform": "time", "at": time_str})
-    elif recurrence == "daily":
-        trigger.append({"platform": "time", "at": time_str})
-    elif recurrence == "weekly":
-        if not weekday:
-            raise automation_definitions.AutomationValidationError("weekday is required for weekly automation")
-        trigger.append({"platform": "time", "at": time_str, "weekdays": [weekday]})
-    elif recurrence == "biweekly":
-        if not weekday:
-            raise automation_definitions.AutomationValidationError("weekday is required for biweekly automation")
-        trigger.append({"platform": "time", "at": time_str, "weekdays": [weekday]})
-
-    final_title = (title or display_msg or notify_msg or f"Automation {skill_name or 'task'}").strip()
-    yaml_obj: Dict[str, Any] = {
-        "version": 1,
-        "id": (automation_id or automation_definitions._slugify(final_title)),
-        "title": final_title,
-        "enabled": True,
-        "channel": channel,
-        "trigger": trigger,
-        "action": [],
-    }
-    if description:
-        yaml_obj["description"] = description
-    if recurrence == "biweekly":
-        yaml_obj["description"] = ((yaml_obj.get("description") or "") + " [legacy biweekly compatibility shim]").strip()
-
-    if skill_name:
-        yaml_obj["action"].append({"skill": {"name": skill_name, "input": skill_input}})
-    else:
-        for command in commands:
-            action_entry: Dict[str, Any] = {
-                "service": _legacy_action_to_service(command),
-                "target": {"entity_id": command.get("target")},
-            }
-            data = {}
-            if command.get("brightness") is not None:
-                data["brightness"] = int(command.get("brightness"))
-            if command.get("color_temp_kelvin") is not None:
-                data["color_temp_kelvin"] = int(command.get("color_temp_kelvin"))
-            if data:
-                action_entry["data"] = data
-            yaml_obj["action"].append(action_entry)
-    if notify_msg:
-        yaml_obj["action"].append({"notify": {"text": notify_msg}})
-    return yaml.safe_dump(yaml_obj, sort_keys=False, allow_unicode=True)
 
 
 async def _exec_validate_automation_yaml(args: Dict) -> str:
@@ -2261,6 +1684,39 @@ async def _exec_store_memory(args: Dict, user_id: str) -> str:
     except Exception as e:
         log_line("error", "⚠️", "STORE_MEMORY", f"{type(e).__name__}: {e}")
         return f"Memory save failed: {type(e).__name__}."
+
+
+def _exec_get_app_help(args: Dict) -> str:
+    """Look up Hyve UI navigation / capabilities on demand."""
+    topic = (args.get("topic") or "").strip()
+    try:
+        from brain.app_capabilities import get_app_help
+        out = get_app_help(topic)
+        log_line("agent", "🔧", "APP_HELP", f"topic={topic or '(index)'} → {len(out)} chars")
+        return out
+    except Exception as e:
+        log_line("error", "⚠️", "APP_HELP", f"{type(e).__name__}: {e}")
+        return f"App help lookup failed: {type(e).__name__}."
+
+
+def _exec_get_system_status(args: Dict) -> str:
+    query = (args.get("query") or "").strip()
+    if not query:
+        return "Error: query is required (try 'overview')."
+    try:
+        from brain.app_capabilities import get_system_status
+        out = get_system_status(
+            query,
+            slug=args.get("slug"),
+            source=args.get("source"),
+            domain=args.get("domain"),
+            limit=args.get("limit"),
+        )
+        log_line("agent", "🔧", "SYSTEM_STATUS", f"query={query} → {len(out)} chars")
+        return out
+    except Exception as e:
+        log_line("error", "⚠️", "SYSTEM_STATUS", f"{type(e).__name__}: {e}")
+        return f"System status lookup failed: {type(e).__name__}."
 
 
 def _exec_get_conversation_history(args: Dict, user_id: str) -> str:
@@ -2671,6 +2127,178 @@ async def _exec_planner_delete_list(args: Dict, user_id: str) -> str:
         db.close()
 
 
+# ---------------------------------------------------------------------------
+# Smart Home tool implementations
+# ---------------------------------------------------------------------------
+
+async def _exec_control_device(args: Dict) -> str:
+    entity_id = (args.get("entity_id") or "").strip()
+    action = (args.get("action") or "").strip()
+    data = args.get("data") if isinstance(args.get("data"), dict) else {}
+    if not entity_id:
+        return "Error: entity_id is required."
+    if not action:
+        return "Error: action is required (turn_on, turn_off, toggle, set)."
+
+    from integrations import get_integration_manager
+    from addons.entity_store import get_entity_store
+
+    store = get_entity_store()
+    all_entities = store.get_all_entities()
+
+    target_id = entity_id
+    target_integration = None
+    for ent in all_entities:
+        if ent.get("entity_id") == entity_id or ent.get("unique_id") == entity_id:
+            target_id = str(ent.get("unique_id") or entity_id)
+            source = ent.get("source") or ""
+            entry_id = ent.get("entry_id") or ""
+            manager = get_integration_manager()
+            if entry_id:
+                target_integration = manager.get_by_entry(entry_id)
+            if not target_integration and source:
+                target_integration = manager.get(source)
+            break
+
+    if not target_integration:
+        manager = get_integration_manager()
+        for integration in manager.all():
+            try:
+                if hasattr(integration, "control_entity"):
+                    target_integration = integration
+                    break
+            except Exception:
+                continue
+        if not target_integration:
+            return f"Error: Could not find an integration that owns '{entity_id}'."
+
+    try:
+        result = await target_integration.control_entity(target_id, action, data)
+        name = entity_id
+        for ent in all_entities:
+            if ent.get("entity_id") == entity_id:
+                name = ent.get("name") or ent.get("attributes", {}).get("friendly_name") or entity_id
+                break
+        return f"OK: {action} on '{name}' ({entity_id}). Result: {result or 'success'}"
+    except NotImplementedError:
+        return f"Error: The integration does not support controlling '{entity_id}'."
+    except Exception as exc:
+        return f"Error controlling '{entity_id}': {type(exc).__name__}: {exc}"
+
+
+async def _exec_get_home_status(args: Dict) -> str:
+    from addons.entity_store import get_entity_store
+
+    store = get_entity_store()
+    all_entities = store.get_all_entities()
+
+    if not all_entities:
+        return "No smart home devices found. Integrations may not be configured."
+
+    by_area: Dict[str, list] = {}
+    for ent in all_entities:
+        area = ent.get("area") or ent.get("area_name") or "Unassigned"
+        attrs = ent.get("attributes") or {}
+        name = ent.get("name") or attrs.get("friendly_name") or ent.get("entity_id") or "?"
+        state = ent.get("state") or "unknown"
+        entry = {
+            "entity_id": ent.get("entity_id") or ent.get("unique_id") or "?",
+            "name": name,
+            "state": state,
+        }
+        if attrs.get("brightness") is not None:
+            entry["brightness"] = attrs["brightness"]
+        if attrs.get("temperature") is not None:
+            entry["temperature"] = attrs["temperature"]
+        if attrs.get("current_temperature") is not None:
+            entry["current_temperature"] = attrs["current_temperature"]
+        if attrs.get("unit_of_measurement"):
+            entry["unit"] = attrs["unit_of_measurement"]
+        by_area.setdefault(area, []).append(entry)
+
+    lines = []
+    for area in sorted(by_area.keys()):
+        lines.append(f"\n## {area}")
+        for e in sorted(by_area[area], key=lambda x: x["name"]):
+            extra = ""
+            if "brightness" in e:
+                extra += f", brightness={e['brightness']}"
+            if "temperature" in e:
+                extra += f", temp={e['temperature']}"
+            if "current_temperature" in e:
+                extra += f", current_temp={e['current_temperature']}"
+            if "unit" in e:
+                extra += f" {e['unit']}"
+            lines.append(f"  - {e['name']} ({e['entity_id']}): {e['state']}{extra}")
+
+    return f"Smart home status ({len(all_entities)} entities):\n" + "\n".join(lines)
+
+
+async def _exec_get_device_state(args: Dict) -> str:
+    entity_id = (args.get("entity_id") or "").strip()
+    if not entity_id:
+        return "Error: entity_id is required."
+    from addons.entity_store import get_entity_store
+
+    store = get_entity_store()
+    for ent in store.get_all_entities():
+        eid = str(ent.get("entity_id") or ent.get("unique_id") or "")
+        if eid != entity_id and ent.get("unique_id") != entity_id:
+            continue
+        attrs = ent.get("attributes") or {}
+        name = ent.get("name") or attrs.get("friendly_name") or eid
+        lines = [
+            f"Entity: {name} ({eid})",
+            f"State: {ent.get('state') or 'unknown'}",
+            f"Domain: {eid.split('.', 1)[0] if '.' in eid else '?'}",
+            f"Source: {ent.get('source') or '?'}",
+        ]
+        area = ent.get("area") or ent.get("area_name")
+        if area:
+            lines.append(f"Area: {area}")
+        for key in ("brightness", "temperature", "current_temperature", "unit_of_measurement"):
+            if attrs.get(key) is not None:
+                lines.append(f"{key}: {attrs[key]}")
+        return "\n".join(lines)
+    return f"No entity found for '{entity_id}'."
+
+
+async def _exec_get_entity_history(args: Dict) -> str:
+    entity_id = (args.get("entity_id") or "").strip()
+    hours = min(float(args.get("hours") or 24), 336)
+    if not entity_id:
+        return "Error: entity_id is required."
+
+    from core.entity_history import get_history
+
+    data = get_history(entity_id, hours=hours, max_points=60)
+    if not data:
+        return f"No history data found for '{entity_id}' in the last {hours:.0f} hours."
+
+    values = [d["value"] for d in data if d.get("value") is not None]
+    if not values:
+        return f"No numeric values recorded for '{entity_id}' in the last {hours:.0f} hours."
+
+    avg = sum(values) / len(values)
+    mn, mx = min(values), max(values)
+    latest = values[-1]
+
+    lines = [
+        f"History for '{entity_id}' (last {hours:.0f}h, {len(data)} samples):",
+        f"  Current: {latest}",
+        f"  Average: {avg:.2f}",
+        f"  Min: {mn}, Max: {mx}",
+        f"  Trend: {'rising' if len(values) > 2 and values[-1] > values[0] else 'falling' if len(values) > 2 and values[-1] < values[0] else 'stable'}",
+        "",
+        "Recent samples (newest first):",
+    ]
+    for d in reversed(data[-10:]):
+        ts = d.get("ts") or ""
+        lines.append(f"  {ts}: {d.get('value')}")
+
+    return "\n".join(lines)
+
+
 async def _exec_planner_add_entry(args: Dict, user_id: str) -> str:
     items = args.get("items") or []
     if not isinstance(items, list) or not items:
@@ -2733,6 +2361,15 @@ async def _exec_planner_add_entry(args: Dict, user_id: str) -> str:
             )
             db.add(row)
             db.flush()
+
+            # Sync scheduler jobs for events (notifications + actions)
+            if entry_type == "event":
+                try:
+                    from routers.entries import _sync_event_jobs
+                    _sync_event_jobs(row, user)
+                except Exception:
+                    pass
+
             created.append(f"- [{entry_type}] {title} (id={row.id}, list='{todo_list.title}')")
 
         db.commit()

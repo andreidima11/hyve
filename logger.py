@@ -1,6 +1,6 @@
 """Logging shared by brain, router, device_resolver, memory_context. Main can inject broadcast via set_logger.
 Verbose mode (verbose_logging in config): log ABSOLUT TOT — request/response, intent, reminder steps, jobs.
-Structured JSONL file sink — every log_line / log_detail call also writes a JSON line to logs/memini.jsonl."""
+Structured JSONL file sink — every log_line / log_detail call also writes a JSON line to logs/hyve.jsonl."""
 import time
 import json
 import os
@@ -19,7 +19,7 @@ _request_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar("re
 # ── JSONL file sink ──────────────────────────────────────────────────
 _JSONL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
 os.makedirs(_JSONL_DIR, exist_ok=True)
-_JSONL_PATH = os.path.join(_JSONL_DIR, "memini.jsonl")
+_JSONL_PATH = os.path.join(_JSONL_DIR, "hyve.jsonl")
 _jsonl_lock = threading.Lock()
 
 
@@ -72,8 +72,7 @@ _extra_log_fn = None
 CHANNEL_LABELS = {
     "web": "Web interface",
     "whatsapp": "WhatsApp",
-    "ha": "Home Assistant",
-}
+    }
 
 # Culori pentru toate tipurile de acțiuni (consola + broadcast)
 STYLE_COLORS = {

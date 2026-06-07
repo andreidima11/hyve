@@ -238,7 +238,7 @@ async def exec_run_script(args: Dict[str, Any], user_id: str, project_root: str)
     if len(script_times) >= rate_limit:
         return f"Rate limit: max {rate_limit} scripts per minute."
     _SHELL_RATE[user_id] = script_times + [now]
-    fd, path = tempfile.mkstemp(suffix=".py" if lang == "python" else ".sh", prefix="memini_")
+    fd, path = tempfile.mkstemp(suffix=".py" if lang == "python" else ".sh", prefix="hyve_")
     try:
         with open(fd, "w") as _:
             pass

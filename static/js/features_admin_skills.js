@@ -67,6 +67,7 @@ export async function loadSkills() {
     if (!listEl) return;
     try {
         const res = await apiCall('/api/skills');
+        if (!res.ok) { listEl.innerHTML = '<div class="p-4 text-slate-500 text-sm">Failed to load skills.</div>'; return; }
         const data = await res.json();
         if (!data.length) {
             listEl.innerHTML = `<div class="cfg-section p-8 text-center text-slate-500 text-sm" data-i18n="skills.empty">No skills yet. Create one from chat with "Fă un skill care..." or add a .py file in skills/generated/.</div>`;
@@ -128,6 +129,7 @@ export async function openSkillEdit(name) {
     }
     openSubPage('skill-edit-modal');
     refreshCodeEditor('skill-edit-source');
+    setTimeout(() => refreshCodeEditor('skill-edit-source'), 350);
 }
 
 export function closeSkillEditModal() {

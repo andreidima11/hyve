@@ -1,6 +1,6 @@
 # Integration Template - Entity Framework
 
-This document describes the standard structure for Memini integrations with entity management.
+This document describes the standard structure for Hyve integrations with entity management.
 
 ## Integration Manifest Schema
 

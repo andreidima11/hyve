@@ -1,0 +1,81 @@
+{
+  "slug": "mosquitto",
+  "name": "Mosquitto Broker",
+  "description": "Broker MQTT local pentru senzori, automatizări și Zigbee2MQTT.",
+  "long_description": "Adaugă un broker Eclipse Mosquitto local ca add-on Hyve, cu stocare persistentă și configurare pentru porturi și autentificare.",
+  "version": "2.0",
+  "icon": "fas fa-network-wired",
+  "image": "/static/icons/integrations/mosquitto.png",
+  "color": "emerald",
+  "author": "Eclipse Foundation",
+  "url": "https://mosquitto.org/",
+  "category": "automation",
+  "integration_key": "mosquitto",
+  "install": {
+    "method": "brew",
+    "requirements": [],
+    "packages": ["mosquitto"],
+    "download_on_install": true,
+    "bundled": false,
+    "channel": "latest",
+    "notes": "Mosquitto nu este inclus în pachetul aplicației. Se descarcă la instalare prin Homebrew, cu ultima versiune stabilă disponibilă."
+  },
+  "config_schema": [
+    {
+      "key": "port",
+      "label": "Port MQTT",
+      "type": "number",
+      "default": 1883,
+      "placeholder": "1883",
+      "description": "Portul principal MQTT TCP."
+    },
+    {
+      "key": "ws_port",
+      "label": "Port WebSocket",
+      "type": "number",
+      "default": 9001,
+      "placeholder": "9001",
+      "description": "Port opțional pentru clienți MQTT over WebSocket."
+    },
+    {
+      "key": "username",
+      "label": "Utilizator",
+      "type": "text",
+      "default": "",
+      "placeholder": "optional",
+      "description": "Util doar dacă vrei autentificare pentru brokerul local."
+    },
+    {
+      "key": "password",
+      "label": "Parolă",
+      "type": "password",
+      "default": "",
+      "placeholder": "optional",
+      "description": "Parola pentru brokerul MQTT."
+    },
+    {
+      "key": "allow_anonymous",
+      "label": "Permite conexiuni anonime",
+      "type": "checkbox",
+      "default": true,
+      "description": "Pentru instalarea locală, permite conectarea fără user/parolă."
+    }
+  ],
+  "health_check": {
+    "type": "tcp",
+    "host": "localhost",
+    "port_key": "port"
+  },
+  "start_command": {
+    "command": "bash",
+    "args": [
+      "run.sh",
+      "{port}",
+      "{ws_port}",
+      "{allow_anonymous}",
+      "{username}",
+      "{password}"
+    ],
+    "description": "Pornește brokerul Mosquitto în Docker cu stocare persistentă."
+  }
+}

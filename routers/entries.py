@@ -60,6 +60,7 @@ class CreateEntryBody(BaseModel):
     event_action_enabled: Optional[bool] = False
     event_action_entity_id: Optional[str] = Field(None, max_length=255)
     event_action_service: Optional[str] = Field(None, pattern="^(turn_on|turn_off|toggle)$")
+    event_action_offset_minutes: Optional[int] = Field(0, ge=0, le=10080)
 
 
 class UpdateEntryBody(BaseModel):
@@ -82,6 +83,7 @@ class UpdateEntryBody(BaseModel):
     event_action_enabled: Optional[bool] = None
     event_action_entity_id: Optional[str] = Field(None, max_length=255)
     event_action_service: Optional[str] = Field(None, pattern="^(turn_on|turn_off|toggle)$")
+    event_action_offset_minutes: Optional[int] = Field(None, ge=0, le=10080)
     position: Optional[int] = Field(None, ge=0)
 
 
@@ -141,6 +143,7 @@ def _serialize_entry(row: models.Entry) -> dict:
         "event_action_enabled": row.event_action_enabled,
         "event_action_entity_id": row.event_action_entity_id,
         "event_action_service": row.event_action_service,
+        "event_action_offset_minutes": row.event_action_offset_minutes,
         "position": row.position,
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
@@ -195,34 +198,38 @@ def _sync_event_jobs(row: models.Entry, user: models.User):
     if row.entry_type != "event" or row.status == "archived":
         return
 
-    trigger_at = _event_trigger_time(row)
-    if not trigger_at or trigger_at <= datetime.now():
-        return
-
     user_key = _planner_user_key(user)
     channel = "web"
+    now = datetime.now()
 
-    notify_id = scheduler_service.schedule_event_notification(
-        user_id=user_key,
-        entry_id=row.id,
-        title=row.title,
-        run_at=trigger_at,
-        channel=channel,
-        minutes_before=int(row.event_notify_minutes or 0),
-    )
-    row.event_notify_job_id = notify_id
-
-    can_run_action = bool(row.event_notify) and bool(row.event_action_enabled) and bool((row.event_action_entity_id or "").strip())
-    if can_run_action:
-        action_id = scheduler_service.schedule_event_action(
+    notify_at = _event_trigger_time(row)
+    if notify_at and notify_at > now:
+        notify_id = scheduler_service.schedule_event_notification(
             user_id=user_key,
             entry_id=row.id,
-            run_at=trigger_at,
-            entity_id=(row.event_action_entity_id or "").strip(),
-            action=(row.event_action_service or "turn_on"),
+            title=row.title,
+            run_at=notify_at,
             channel=channel,
+            minutes_before=int(row.event_notify_minutes or 0),
         )
-        row.event_action_job_id = action_id
+        row.event_notify_job_id = notify_id
+
+    can_run_action = bool(row.event_action_enabled) and bool((row.event_action_entity_id or "").strip()) and row.start_at
+    if can_run_action:
+        offset_min = int(row.event_action_offset_minutes or 0)
+        if offset_min < 0:
+            offset_min = 0
+        action_at = row.start_at - timedelta(minutes=offset_min)
+        if action_at > now:
+            action_id = scheduler_service.schedule_event_action(
+                user_id=user_key,
+                entry_id=row.id,
+                run_at=action_at,
+                entity_id=(row.event_action_entity_id or "").strip(),
+                action=(row.event_action_service or "turn_on"),
+                channel=channel,
+            )
+            row.event_action_job_id = action_id
 
 
 def _normalize_chat_url(url: str) -> str:
@@ -659,9 +666,10 @@ def create_entry(
         event_color=(body.event_color or "").strip() or "#4f46e5" if body.entry_type == "event" else None,
         event_notify=bool(body.event_notify) if body.entry_type == "event" else None,
         event_notify_minutes=int(body.event_notify_minutes or 0) if body.entry_type == "event" else None,
-        event_action_enabled=(bool(body.event_action_enabled) and bool(body.event_notify)) if body.entry_type == "event" else None,
+        event_action_enabled=bool(body.event_action_enabled) if body.entry_type == "event" else None,
         event_action_entity_id=(body.event_action_entity_id or "").strip() or None if body.entry_type == "event" else None,
         event_action_service=(body.event_action_service or "turn_on") if body.entry_type == "event" else None,
+        event_action_offset_minutes=int(body.event_action_offset_minutes or 0) if body.entry_type == "event" else None,
         position=body.position if body.position is not None else 0,
     )
     db.add(row)
@@ -728,9 +736,11 @@ def update_entry(
             row.event_action_entity_id = (body.event_action_entity_id or "").strip() or None
         if body.event_action_service is not None:
             row.event_action_service = body.event_action_service
+        if body.event_action_offset_minutes is not None:
+            row.event_action_offset_minutes = int(body.event_action_offset_minutes)
 
         if not bool(row.event_notify):
-            row.event_action_enabled = False
+            pass
         if not bool(row.event_action_enabled):
             row.event_action_entity_id = None
 
@@ -792,6 +802,7 @@ def convert_entry(
         row.event_action_enabled = None
         row.event_action_entity_id = None
         row.event_action_service = None
+        row.event_action_offset_minutes = None
         row.event_action_job_id = None
     elif target == "event":
         row.task_status = None
@@ -805,6 +816,7 @@ def convert_entry(
         row.event_notify_minutes = 30 if row.event_notify_minutes is None else row.event_notify_minutes
         row.event_action_enabled = False if row.event_action_enabled is None else row.event_action_enabled
         row.event_action_service = row.event_action_service or "turn_on"
+        row.event_action_offset_minutes = 0 if row.event_action_offset_minutes is None else row.event_action_offset_minutes
         _sync_event_jobs(row, current_user)
 
     db.commit()

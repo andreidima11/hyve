@@ -1,0 +1,1637 @@
+import { apiCall } from './api.js';
+import { getCameraStreamToken, peekCameraStreamToken, startCameraPreviewRefresh, stopCameraPreviewRefresh } from './camera_auth.js';
+import { t } from './lang/index.js';
+import { escapeHtml, showToast, showConfirm, debounce } from './utils.js';
+import { cameraPreferWebmPlayer } from './camera_live.js';
+import { renderEntityModal, getDomainIcon } from './entity_renderers.js';
+import { entityMatchesIntegration } from './integration_sources.js';
+import { ACTIVE_STATES, CONTROLLABLE, STATE_LABELS_RO } from './entity_constants.js';
+
+export { ACTIVE_STATES, CONTROLLABLE, STATE_LABELS_RO };
+
+// --- SMART HOME (IoT) ---
+let _haCurrentFilter = 'all';
+let _haCurrentSource = 'all';
+let _haCurrentArea = 'all';
+let _integrationEntitiesCache = [];
+let _devicesVisibleEntityCache = new Map();
+let _smarthomeLoadPromise = null;
+let _smarthomeLoadRetryTimer = null;
+let _deviceControlPending = new Map();
+let _deviceOptimisticGuards = new Map();
+const DEVICES_ENTITY_CACHE_KEY = 'hyve.devices.entities.cache.v1';
+const DEVICES_ENTITY_CACHE_TTL_MS = 10 * 60 * 1000;
+const DEVICE_OPTIMISTIC_GUARD_MS = 3500;
+
+const DEVICE_PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
+const _devicesState = {
+    query: '',
+    source: 'all',
+    area: 'all',
+    domain: 'all',
+    page: 1,
+    pageSize: 50,
+    sortBy: 'name',
+    sortDir: 'asc',
+};
+let _devicesShellMounted = false;
+
+function _mountDevicesPageShell() {
+    const host = document.querySelector('#view-smarthome .hy-page-inner');
+    if (!host || document.getElementById('hy-devices-root')) return;
+    _devicesShellMounted = true;
+    host.innerHTML = `
+        <div id="hy-devices-root" class="hy-devices-root">
+            <header class="hy-devices-hero">
+                <div class="hy-devices-heading-wrap">
+                    <button type="button" onclick="window.location.hash='#/config'; switchTab('config')" class="hy-devices-back" aria-label="Back" title="Back">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="hy-devices-hero-copy">
+                        <span class="hy-devices-kicker">Hyve Devices</span>
+                        <h1 data-i18n="nav.smarthome">Devices</h1>
+                        <p>Entitati, status, arii si control intr-un tabel curat.</p>
+                    </div>
+                </div>
+                <div class="hy-devices-hero-actions">
+                    <button type="button" onclick="syncSmartHome()" class="hy-btn hy-btn-ghost" title="Refresh"><i class="fas fa-arrows-rotate"></i><span>Sync</span></button>
+                    <button type="button" onclick="openDerivedModal()" class="hy-btn hy-btn-primary" title="Create derived entity"><i class="fas fa-wand-magic-sparkles"></i><span>Derived</span></button>
+                </div>
+            </header>
+
+            <section class="hy-devices-commandbar" aria-label="Device tools">
+                <div class="hy-search-wrap hy-devices-search-wrap">
+                    <i class="fas fa-magnifying-glass hy-search-icon" aria-hidden="true"></i>
+                    <input type="search" id="hy-search" class="hy-search-input" data-i18n-placeholder="hy.search_placeholder" placeholder="Cauta dispozitive..." autocomplete="off">
+                </div>
+                <button type="button" id="hy-mobile-filter-toggle" class="hy-mobile-filter-toggle" onclick="toggleSmarthomeFilters()" aria-controls="hy-filter-panel" aria-expanded="false" title="Filtre">
+                    <i class="fas fa-sliders" aria-hidden="true"></i>
+                    <span>Filtre</span>
+                </button>
+            </section>
+
+            <section class="hy-devices-statbar" aria-live="polite">
+                <div><span>Total</span><strong id="hy-count">--</strong></div>
+                <div><span>Active</span><strong id="hy-active-count">--</strong></div>
+                <div><span>AI</span><strong id="hy-ai-count">--</strong></div>
+            </section>
+
+            <section class="hy-sticky-toolbar" data-filters-open="false">
+                <div class="hy-filter-panel" id="hy-filter-panel" aria-label="Filtre dispozitive">
+                    <div class="hy-filter-picker-grid">
+                        <div class="hy-filter-slot" id="hy-source-filters"></div>
+                        <div class="hy-filter-slot" id="hy-area-filters"></div>
+                        <div class="hy-filter-slot" id="hy-domain-filters"></div>
+                        <button type="button" class="hy-filter-reset" onclick="resetSmarthomeFilters()" title="Reseteaza filtrele">
+                            <i class="fas fa-rotate-left"></i>
+                            <span>Reset</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="hy-cards-grid" class="hy-list-wrap hy-devices-table-shell">
+                <div class="hy-table-header">
+                    <div class="hy-devices-table-titlebar">
+                        <h2 class="hy-table-caption" data-i18n="hy.list_title">Dispozitive</h2>
+                        <span id="hy-source-all-count" class="hy-devices-total-pill">--</span>
+                    </div>
+                    <table class="hy-list-table" aria-label="Dispozitive">
+                        <thead>
+                            <tr>
+                                <th class="hy-col-bulk" aria-hidden="true"></th>
+                                <th class="hy-col-icon" aria-hidden="true"></th>
+                                <th class="hy-col-name"><button type="button" class="hy-th-sort" onclick="sortDevicesBy('name')"><span>Nume</span><i class="fas fa-sort"></i></button></th>
+                                <th class="hy-col-alias">Alias</th>
+                                <th class="hy-col-state"><button type="button" class="hy-th-sort" onclick="sortDevicesBy('state')"><span>Stare</span><i class="fas fa-sort"></i></button></th>
+                                <th class="hy-col-ai"><label class="inline-flex items-center gap-1.5 cursor-pointer select-none" title="Toggle AI for visible entities"><input type="checkbox" id="hy-ai-select-all" class="accent-accent cursor-pointer" onchange="toggleAllAIVisible(this.checked)" aria-label="Toggle AI for all visible"><span>AI</span></label></th>
+                            </tr>
+                        </thead>
+                        <tbody id="hy-list-tbody"></tbody>
+                    </table>
+                    <div id="hy-devices-pagination" class="hy-devices-pagination"></div>
+                </div>
+            </section>
+        </div>`;
+    const searchInput = host.querySelector('#hy-search');
+    if (searchInput && !searchInput.dataset.hySearchWired) {
+        searchInput.dataset.hySearchWired = '1';
+        searchInput.addEventListener('input', debounce(filterDevices, 160));
+    }
+}
+
+function _setDevicesLoading(message = t('integrations.loading_devices')) {
+    const tbody = document.getElementById('hy-list-tbody');
+    const pagination = document.getElementById('hy-devices-pagination');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="hy-list-placeholder"><i class="fas fa-circle-notch fa-spin mr-2"></i>${escapeHtml(message)}</td></tr>`;
+    if (pagination) pagination.innerHTML = '';
+}
+
+function _setDevicesError(message) {
+    const tbody = document.getElementById('hy-list-tbody');
+    const pagination = document.getElementById('hy-devices-pagination');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="hy-list-placeholder hy-list-error">
+        <i class="fas fa-triangle-exclamation mr-2"></i>${escapeHtml(message || t('integrations.devices_load_error'))}
+        <button type="button" class="ml-3 text-accent hover:underline text-xs font-semibold" onclick="syncSmartHome()"><i class="fas fa-arrows-rotate mr-1"></i>${escapeHtml(t('integrations.retry'))}</button>
+    </td></tr>`;
+    if (pagination) pagination.innerHTML = '';
+}
+
+async function _apiCallWithTimeout(url, options = {}, timeoutMs = 10000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await apiCall(url, { ...options, signal: controller.signal });
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+const DOMAIN_ICONS = {
+    light: 'fa-lightbulb', switch: 'fa-toggle-on', script: 'fa-play',
+    input_boolean: 'fa-toggle-on', cover: 'fa-door-open', lock: 'fa-lock',
+    sensor: 'fa-gauge', binary_sensor: 'fa-circle-dot', climate: 'fa-temperature-half',
+    media_player: 'fa-music', vacuum: 'fa-robot', weather: 'fa-cloud-sun',
+    person: 'fa-user', image: 'fa-image', camera: 'fa-video'
+};
+const DOMAIN_COLORS = {
+    light: 'bg-yellow-500/15 text-yellow-400', switch: 'bg-blue-500/15 text-blue-400',
+    script: 'bg-emerald-500/15 text-emerald-400', input_boolean: 'bg-blue-500/15 text-blue-400',
+    cover: 'bg-orange-500/15 text-orange-400', lock: 'bg-red-500/15 text-red-400',
+    sensor: 'bg-cyan-500/15 text-cyan-400', binary_sensor: 'bg-teal-500/15 text-teal-400',
+    climate: 'bg-rose-500/15 text-rose-400', media_player: 'bg-purple-500/15 text-purple-400',
+    vacuum: 'bg-indigo-500/15 text-indigo-400', weather: 'bg-sky-500/15 text-sky-400',
+    person: 'bg-slate-500/15 text-slate-400',
+    image: 'bg-violet-500/15 text-violet-400', camera: 'bg-sky-500/15 text-sky-400'
+};
+const DOMAIN_LABELS = {
+    light: 'Lumini', switch: 'Comutatoare', script: 'Scripturi', input_boolean: 'Comutatoare',
+    cover: 'Jaluzele', lock: 'Încuietori', sensor: 'Senzori', binary_sensor: 'Senzori binari',
+    climate: 'Climat', media_player: 'Media', vacuum: 'Aspirator', weather: 'Meteo',
+    person: 'Persoane', camera: 'Camere', image: 'Imagini', number: 'Numere', select: 'Selectoare', button: 'Butoane',
+};
+const DOMAIN_ORDER = [
+    'light', 'switch', 'sensor', 'binary_sensor', 'climate', 'cover', 'lock',
+    'media_player', 'camera', 'image', 'vacuum', 'weather', 'person', 'number', 'select',
+    'button', 'script', 'input_boolean',
+];
+
+// Normalize an icon spec into a usable CSS class. Mirrors dashboard.js _iconClass
+// so smarthome rows accept the same syntaxes (mdi:*, fa-*, fas fa-*, mdi-*).
+function _iconClass(spec) {
+    const raw = String(spec || '').trim();
+    if (!raw) return '';
+    if (raw.startsWith('mdi:'))   return `mdi mdi-${raw.slice(4)}`;
+    if (/^mdi(\s|-)/.test(raw))   return raw.startsWith('mdi-') ? `mdi ${raw}` : raw;
+    if (/\bfa[srlbd]?\b/.test(raw)) return raw;
+    if (raw.startsWith('fa-'))      return `fas ${raw}`;
+    return raw;
+}
+
+function _norm(value) {
+    return String(value ?? '').trim().toLowerCase();
+}
+
+function _entityId(entity) {
+    return String(entity?.entity_id || '');
+}
+
+function _entityDomain(entity) {
+    const eid = _entityId(entity);
+    return _norm(entity?.domain || eid.split('.')[0] || 'unknown');
+}
+
+function _entityAliases(entity) {
+    return Array.isArray(entity?.aliases) ? entity.aliases : [];
+}
+
+function _syncDevicesStateFromInputs({ resetPage = false } = {}) {
+    _devicesState.query = _norm(document.getElementById('hy-search')?.value || '');
+    _devicesState.source = _norm(_haCurrentSource || 'all') || 'all';
+    _devicesState.area = _norm(_haCurrentArea || 'all') || 'all';
+    _devicesState.domain = _norm(_haCurrentFilter || 'all') || 'all';
+    if (resetPage) _devicesState.page = 1;
+}
+
+function _deriveSourcesFromEntities(entities) {
+    const sources = new Map();
+    for (const entity of Array.isArray(entities) ? entities : []) {
+        const slug = String(entity?.source || '').trim();
+        if (!slug || sources.has(slug)) continue;
+        const meta = SOURCE_ICONS[slug] || null;
+        sources.set(slug, {
+            slug,
+            label: meta?.label || entity.entry_title || slug.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase()),
+        });
+    }
+    return [...sources.values()];
+}
+
+function _deriveAreasFromEntities(entities) {
+    const areas = new Map();
+    for (const entity of Array.isArray(entities) ? entities : []) {
+        const name = String(entity?.area || '').trim();
+        if (!name) continue;
+        areas.set(name, (areas.get(name) || 0) + 1);
+    }
+    return [...areas.entries()]
+        .sort(([left], [right]) => left.localeCompare(right, undefined, { sensitivity: 'base' }))
+        .map(([name, count]) => ({ name, count }));
+}
+
+function _rebuildSmarthomeFilters(sources = null, areas = null) {
+    _buildSourceFilters(Array.isArray(sources) ? sources : _deriveSourcesFromEntities(_integrationEntitiesCache));
+    _buildAreaFilters(Array.isArray(areas) ? areas : _deriveAreasFromEntities(_integrationEntitiesCache));
+    _buildDomainFilters();
+    _syncSmarthomeFilterPickers();
+}
+
+function _saveSmarthomeEntitySnapshot(entities, meta = {}) {
+    if (!Array.isArray(entities) || !entities.length || typeof localStorage === 'undefined') return;
+    try {
+        localStorage.setItem(DEVICES_ENTITY_CACHE_KEY, JSON.stringify({
+            ts: Date.now(),
+            entities,
+            sources: Array.isArray(meta.sources) ? meta.sources : _deriveSourcesFromEntities(entities),
+            areas: Array.isArray(meta.areas) ? meta.areas : _deriveAreasFromEntities(entities),
+        }));
+    } catch (_) {}
+}
+
+function _restoreSmarthomeEntitySnapshot() {
+    if (_integrationEntitiesCache.length || typeof localStorage === 'undefined') return false;
+    try {
+        const raw = localStorage.getItem(DEVICES_ENTITY_CACHE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (!data || !Array.isArray(data.entities) || !data.entities.length) return false;
+        if (Date.now() - Number(data.ts || 0) > DEVICES_ENTITY_CACHE_TTL_MS) return false;
+        _integrationEntitiesCache = data.entities;
+        _rebuildSmarthomeFilters(data.sources, data.areas);
+        _updateStats();
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+function _scheduleSmarthomeLoadRetry(delayMs = 1500) {
+    if (_smarthomeLoadRetryTimer) return;
+    _smarthomeLoadRetryTimer = setTimeout(() => {
+        _smarthomeLoadRetryTimer = null;
+        const view = document.getElementById('view-smarthome');
+        if (!view || view.classList.contains('hidden') || _integrationEntitiesCache.length) return;
+        loadSmarthome({ force: true }).catch(() => {});
+    }, delayMs);
+}
+
+function _deviceSearchText(entity) {
+    const attrs = entity?.attributes || {};
+    return [
+        entity?.name,
+        entity?.entity_id,
+        entity?.unique_id,
+        entity?.source,
+        entity?.entry_title,
+        entity?.area,
+        entity?.domain,
+        attrs.friendly_name,
+        attrs.device_class,
+        attrs.manufacturer,
+        attrs.model,
+        ..._entityAliases(entity),
+    ].filter(v => v != null && v !== '').join(' ').toLowerCase();
+}
+
+export async function loadSmarthome(options = {}) {
+    getCameraStreamToken().catch(() => {});
+    const force = !!options?.force;
+    if (_smarthomeLoadPromise && !force) return _smarthomeLoadPromise;
+
+    _mountDevicesPageShell();
+    const grid = document.getElementById('hy-cards-grid');
+    if (!grid) return;
+    _wireSmarthomeFilterPickerEvents();
+
+    const restoredSnapshot = _restoreSmarthomeEntitySnapshot();
+    if (restoredSnapshot) renderDeviceCards();
+    else if (!_integrationEntitiesCache.length) _setDevicesLoading();
+
+    _smarthomeLoadPromise = (async () => { try {
+        const resIntegrations = await _apiCallWithTimeout('/api/integrations/all-entities', {}, 20000).catch((err) => {
+            console.warn('[hyve] devices load failed', err);
+            return null;
+        });
+
+        // Don't wipe the cache before we have new data — if the API fails or
+        // is slow, the user can still search through whatever was loaded
+        // previously instead of seeing "no devices found".
+        let nextEntities = null;
+        let intData = null;
+        if (resIntegrations && resIntegrations.ok) {
+            try { intData = await resIntegrations.json(); } catch (_) { intData = null; }
+            if (intData && Array.isArray(intData.entities)) {
+                nextEntities = intData.entities;
+            }
+        }
+        if (nextEntities) {
+            if (nextEntities.length) {
+                _integrationEntitiesCache = nextEntities;
+                _saveSmarthomeEntitySnapshot(nextEntities, intData || {});
+                _rebuildSmarthomeFilters((intData && intData.sources) || null, (intData && intData.areas) || null);
+            } else if (_integrationEntitiesCache.length) {
+                console.warn('[hyve] devices load returned an empty entity list; keeping last good cache');
+            }
+        }
+
+        if (!_integrationEntitiesCache.length) {
+            const shouldRetry = !nextEntities || !!_devicesState.query;
+            if (shouldRetry) {
+                _setDevicesLoading(_devicesState.query ? 'Se cauta in dispozitive...' : 'Se reincarca dispozitivele...');
+                _scheduleSmarthomeLoadRetry();
+                return;
+            }
+            _setDevicesError('Nu exista entitati de afisat. Activeaza o integrare in Configurari > Integrari.');
+            _updateStats();
+            return;
+        }
+
+        if (_smarthomeLoadRetryTimer) {
+            clearTimeout(_smarthomeLoadRetryTimer);
+            _smarthomeLoadRetryTimer = null;
+        }
+        _updateStats();
+        renderDeviceCards();
+        // Live updates so state changes show without manual refresh.
+        _connectSmarthomeLive();
+    } catch (e) {
+        if (_integrationEntitiesCache.length) {
+            _updateStats();
+            renderDeviceCards();
+            return;
+        }
+        _setDevicesLoading(_devicesState.query ? 'Se cauta in dispozitive...' : 'Se reincarca dispozitivele...');
+        _scheduleSmarthomeLoadRetry();
+    } finally {
+        _smarthomeLoadPromise = null;
+    } })();
+    return _smarthomeLoadPromise;
+}
+
+// ── Live entity-state updates (smarthome WS) ───────────────────────────
+let _smarthomeLiveWS = null;
+let _smarthomeLiveReconnectTimer = null;
+let _smarthomeLivePingTimer = null;
+let _smarthomeLiveBackoff = 1000;
+let _smarthomeCacheRefreshTimer = null;
+
+async function _fetchSmarthomeWsToken() {
+    try {
+        const res = await apiCall('/api/token/sse', { method: 'POST' });
+        if (!res || !res.ok) return null;
+        const data = await res.json().catch(() => ({}));
+        return data?.sse_token || null;
+    } catch (_) { return null; }
+}
+
+export function disconnectSmarthomeLive() {
+    if (_smarthomeLiveReconnectTimer) {
+        clearTimeout(_smarthomeLiveReconnectTimer);
+        _smarthomeLiveReconnectTimer = null;
+    }
+    if (_smarthomeLivePingTimer) {
+        clearInterval(_smarthomeLivePingTimer);
+        _smarthomeLivePingTimer = null;
+    }
+    if (_smarthomeLiveWS) {
+        try { _smarthomeLiveWS.onclose = null; } catch (_) {}
+        try { _smarthomeLiveWS.close(); } catch (_) {}
+        _smarthomeLiveWS = null;
+    }
+}
+
+async function _connectSmarthomeLive() {
+    const view = document.getElementById('view-smarthome');
+    if (!view || view.classList.contains('hidden')) {
+        disconnectSmarthomeLive();
+        return;
+    }
+    if (_smarthomeLiveWS && (_smarthomeLiveWS.readyState === WebSocket.OPEN || _smarthomeLiveWS.readyState === WebSocket.CONNECTING)) return;
+
+    const token = await _fetchSmarthomeWsToken();
+    if (!token) { _scheduleSmarthomeLiveReconnect(); return; }
+
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const url = `${proto}://${window.location.host}/api/integrations/ws/live?token=${encodeURIComponent(token)}`;
+    let ws;
+    try { ws = new WebSocket(url); }
+    catch (_) { _scheduleSmarthomeLiveReconnect(); return; }
+    _smarthomeLiveWS = ws;
+
+    ws.onopen = () => {
+        _smarthomeLiveBackoff = 1000;
+        if (_smarthomeLivePingTimer) clearInterval(_smarthomeLivePingTimer);
+        _smarthomeLivePingTimer = setInterval(() => {
+            const v = document.getElementById('view-smarthome');
+            if (!v || v.classList.contains('hidden')) { disconnectSmarthomeLive(); return; }
+            try { ws.send('ping'); } catch (_) {}
+        }, 25000);
+    };
+
+    ws.onmessage = (ev) => {
+        let payload = null;
+        try { payload = JSON.parse(ev.data); } catch (_) { return; }
+        if (!payload || !payload.type) return;
+        if (payload.type === 'snapshot' || payload.type === 'diff') {
+            _applySmarthomeLiveItems(Array.isArray(payload.items) ? payload.items : [], payload.type === 'snapshot');
+        } else if (payload.type === 'removed') {
+            _removeSmarthomeLiveItems(Array.isArray(payload.entity_ids) ? payload.entity_ids : []);
+        }
+    };
+
+    ws.onclose = () => {
+        if (_smarthomeLivePingTimer) { clearInterval(_smarthomeLivePingTimer); _smarthomeLivePingTimer = null; }
+        _smarthomeLiveWS = null;
+        _scheduleSmarthomeLiveReconnect();
+    };
+    ws.onerror = () => { try { ws.close(); } catch (_) {} };
+}
+
+function _scheduleSmarthomeLiveReconnect() {
+    const view = document.getElementById('view-smarthome');
+    if (!view || view.classList.contains('hidden')) return;
+    if (_smarthomeLiveReconnectTimer) return;
+    const delay = Math.min(_smarthomeLiveBackoff, 15000);
+    _smarthomeLiveBackoff = Math.min(_smarthomeLiveBackoff * 2, 15000);
+    _smarthomeLiveReconnectTimer = setTimeout(() => {
+        _smarthomeLiveReconnectTimer = null;
+        _connectSmarthomeLive();
+    }, delay);
+}
+
+function _applySmarthomeLiveItems(items, isSnapshot) {
+    if (!Array.isArray(_integrationEntitiesCache)) _integrationEntitiesCache = [];
+    const idx = new Map();
+    _integrationEntitiesCache.forEach((it, i) => idx.set(it.entity_id, i));
+
+    let needsRerender = false;
+    const patched = [];
+    for (const item of items) {
+        if (!item || !item.entity_id) continue;
+        if (_shouldHoldOptimisticState(item.entity_id, item.state)) continue;
+        const pos = idx.get(item.entity_id);
+        if (pos == null) {
+            // Brand-new entity (e.g. derived just added). Need full re-render
+            // to show it in the list with proper row markup.
+            _integrationEntitiesCache.push({
+                entity_id: item.entity_id,
+                name: item.entity_id,
+                state: item.state,
+                attributes: item.attributes || {},
+                unit: item.unit || '',
+                aliases: [],
+                source: '',
+            });
+            idx.set(item.entity_id, _integrationEntitiesCache.length - 1);
+            needsRerender = true;
+        } else {
+            const cur = _integrationEntitiesCache[pos];
+            const stateChanged = cur.state !== item.state || cur.unit !== (item.unit || cur.unit);
+            cur.state = item.state;
+            cur.attributes = { ...(cur.attributes || {}), ...(item.attributes || {}) };
+            if (item.unit) cur.unit = item.unit;
+            if (stateChanged) patched.push(cur);
+        }
+    }
+
+    // Patch visible rows in place — snapshot (WS reconnect) and diff alike.
+    for (const d of patched) _patchRowInPlace(d);
+    if (needsRerender) {
+        _updateStats();
+        renderDeviceCards();
+    } else if (patched.length || isSnapshot) {
+        _updateStats();
+    }
+}
+
+function _shouldHoldOptimisticState(entityId, incomingState) {
+    const guard = _deviceOptimisticGuards.get(entityId);
+    if (!guard) return false;
+    if (Date.now() > guard.until) {
+        _deviceOptimisticGuards.delete(entityId);
+        return false;
+    }
+    if (_norm(incomingState) === _norm(guard.state)) {
+        _deviceOptimisticGuards.delete(entityId);
+        return false;
+    }
+    return true;
+}
+
+function _removeSmarthomeLiveItems(entityIds) {
+    if (!entityIds || !entityIds.length) return;
+    const currentCount = Array.isArray(_integrationEntitiesCache) ? _integrationEntitiesCache.length : 0;
+    if (currentCount && entityIds.length >= Math.max(10, Math.floor(currentCount * 0.8))) {
+        console.warn('[hyve] ignoring suspicious mass entity removal', entityIds.length, 'of', currentCount);
+        if (!_smarthomeCacheRefreshTimer) {
+            _smarthomeCacheRefreshTimer = setTimeout(() => {
+                _smarthomeCacheRefreshTimer = null;
+                loadSmarthome();
+            }, 1500);
+        }
+        return;
+    }
+    const set = new Set(entityIds);
+    let removed = 0;
+    _integrationEntitiesCache = _integrationEntitiesCache.filter(d => {
+        if (set.has(d.entity_id)) { removed++; return false; }
+        return true;
+    });
+    if (removed) {
+        for (const eid of entityIds) {
+            const row = document.querySelector(`#hy-list-tbody tr[data-entity="${CSS.escape(eid)}"]`);
+            if (row) row.remove();
+        }
+        _updateStats();
+    }
+}
+
+// Patch a single visible row's state cell in place. Falls back silently if
+// the row isn't currently rendered (e.g. filtered out).
+function _patchRowInPlace(d) {
+    const eid = d.entity_id;
+    const stateLower = String(d.state).toLowerCase();
+    const isOn = ACTIVE_STATES.includes(stateLower);
+    const isOff = ['off', 'closed', 'locked', 'idle', 'docked', 'paused'].includes(stateLower);
+    const isUnavail = ['unavailable', 'unknown', 'offline'].includes(stateLower);
+    const stateDisplay = isUnavail ? 'Offline' : `${d.state}${d.unit ? ' ' + d.unit : ''}`;
+
+    // Main list row
+    const row = document.querySelector(`#hy-list-tbody tr[data-entity="${CSS.escape(eid)}"]`);
+    if (row) {
+        const stateEl = row.querySelector('.hy-row-state');
+        if (stateEl) {
+            stateEl.textContent = stateDisplay;
+            stateEl.classList.remove('text-red-500/70', 'text-accent', 'text-slate-400');
+            stateEl.classList.add(isUnavail ? 'text-red-500/70' : (isOn ? 'text-accent' : 'text-slate-400'));
+        }
+        row.classList.toggle('hy-row-unavailable', isUnavail);
+        row.classList.remove('hy-row-flash');
+        void row.offsetWidth;
+        row.classList.add('hy-row-flash');
+    }
+
+    // Entity rows inside the device detail modal (live state + toggle buttons)
+    const modalStates = document.querySelectorAll(`[data-entity-state="${CSS.escape(eid)}"]`);
+    for (const el of modalStates) {
+        const tone = isOn ? 'text-accent' : (isOff ? 'text-slate-400' : 'text-slate-200');
+        el.textContent = `${d.state}${d.unit ? ' ' + d.unit : ''}`;
+        el.classList.remove('text-accent', 'text-slate-400', 'text-slate-200');
+        el.classList.add(tone);
+    }
+
+    // Update toggle buttons inside the modal for this entity
+    const dom = String(eid).split('.')[0] || '';
+    if (['switch', 'light', 'input_boolean'].includes(dom)) {
+        const btns = document.querySelectorAll(`button[onclick*="'${CSS.escape(eid)}'"]`);
+        for (const btn of btns) {
+            if (!btn.closest('#entity-detail-modal-body') && !btn.closest('[data-entity-list]')) continue;
+            const newAction = isOn ? 'turn_off' : 'turn_on';
+            btn.setAttribute('aria-checked', String(isOn));
+            btn.textContent = isOn ? 'ON' : 'OFF';
+            btn.className = `px-3 py-1.5 rounded-full text-[11px] font-bold border transition-colors shrink-0 ${isOn ? 'bg-accent/20 border-accent/40 text-accent' : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'}`;
+            const oc = btn.getAttribute('onclick') || '';
+            btn.setAttribute('onclick', oc.replace(/turn_on|turn_off|toggle/, newAction));
+        }
+    }
+}
+
+function _optimisticStateForAction(action, currentState) {
+    const state = _norm(currentState);
+    const onActions = {
+        turn_on: 'on', open_cover: 'open', unlock: 'unlocked', start: 'cleaning', media_play: 'playing',
+    };
+    const offActions = {
+        turn_off: 'off', close_cover: 'closed', lock: 'locked', stop: 'off', media_pause: 'paused',
+    };
+    if (action === 'toggle') return ACTIVE_STATES.includes(state) || state === 'on' ? 'off' : 'on';
+    if (Object.prototype.hasOwnProperty.call(onActions, action)) return onActions[action];
+    if (Object.prototype.hasOwnProperty.call(offActions, action)) return offActions[action];
+    return currentState;
+}
+
+function _markDeviceControlPending(entityId, pending) {
+    if (!entityId || typeof document === 'undefined') return;
+    const row = document.querySelector(`#hy-list-tbody tr[data-entity="${CSS.escape(entityId)}"]`);
+    if (row) {
+        row.classList.toggle('hy-row-control-pending', !!pending);
+        row.querySelector('.hy-row-state-wrap')?.classList.toggle('is-pending', !!pending);
+    }
+}
+
+function _updateStats() {
+    const allDevices = _getAllDevices();
+    const total = allDevices.length;
+    const active = allDevices.filter(d => ACTIVE_STATES.includes(String(d.state).toLowerCase())).length;
+    const aiSel = allDevices.filter(d => d.selected).length;
+    const el = (id, val) => { const e = document.getElementById(id); if (e) e.innerText = val; };
+    el('hy-count', total);
+    el('hy-active-count', active);
+    el('hy-ai-count', `${aiSel}/${total}`);
+    el('hy-source-all-count', total);
+}
+
+function _getAllDevices() {
+    return [..._integrationEntitiesCache];
+}
+
+function _getFilteredDevices() {
+    _syncDevicesStateFromInputs();
+    const allDevices = _getAllDevices();
+    const sourceFilter = _devicesState.source;
+    const areaFilter = _devicesState.area;
+    const domainFilter = _devicesState.domain;
+    const query = _devicesState.query;
+    const filtered = allDevices.filter(entity => {
+        if (!entity || typeof entity !== 'object') return false;
+        // Source filter
+        if (sourceFilter !== 'all') {
+            if (!entityMatchesIntegration(entity.source, sourceFilter)) return false;
+        }
+        // Area filter
+        if (areaFilter !== 'all') {
+            if (areaFilter === '__none__') {
+                if (String(entity.area || '').trim()) return false;
+            } else if (_norm(entity.area) !== areaFilter) {
+                return false;
+            }
+        }
+        if (domainFilter === 'active') {
+            if (!ACTIVE_STATES.includes(_norm(entity.state))) return false;
+        } else if (domainFilter === 'ai') {
+            if (!entity.selected) return false;
+        } else if (domainFilter !== 'all') {
+            const domain = _entityDomain(entity);
+            if (domainFilter === 'sensor' && domain === 'binary_sensor') { /* include */ }
+            else if (domain !== domainFilter) return false;
+        }
+        if (query) {
+            if (!_deviceSearchText(entity).includes(query)) return false;
+        }
+        return true;
+    });
+
+    const direction = _devicesState.sortDir === 'desc' ? -1 : 1;
+    return filtered.sort((leftEntity, rightEntity) => {
+        const sortKey = _devicesState.sortBy;
+        let leftValue = '';
+        let rightValue = '';
+        if (sortKey === 'state') {
+            leftValue = _norm(leftEntity.state);
+            rightValue = _norm(rightEntity.state);
+        } else if (sortKey === 'domain') {
+            leftValue = _entityDomain(leftEntity);
+            rightValue = _entityDomain(rightEntity);
+        } else if (sortKey === 'source') {
+            leftValue = _norm(leftEntity.source);
+            rightValue = _norm(rightEntity.source);
+        } else {
+            leftValue = _norm(leftEntity.name || leftEntity.entity_id);
+            rightValue = _norm(rightEntity.name || rightEntity.entity_id);
+        }
+        return leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' }) * direction;
+    });
+}
+
+let _haBulkMode = false;
+
+export function toggleHABulkMode() {
+    const wrap = document.querySelector('.hy-list-wrap');
+    const btn = document.getElementById('hy-bulk-mode-btn');
+    if (!wrap || !btn) return;
+    _haBulkMode = !_haBulkMode;
+    wrap.classList.toggle('hy-bulk-mode', _haBulkMode);
+    if (!_haBulkMode) {
+        document.querySelectorAll('.hy-bulk-check').forEach(cb => { cb.checked = false; });
+        const allCheck = document.getElementById('hy-select-all');
+        if (allCheck) allCheck.checked = false;
+        updateHABulkCount();
+    }
+    btn.classList.toggle('active', _haBulkMode);
+    btn.querySelector('span').textContent = _haBulkMode ? (t('hy.cancel') || 'Cancel') : (t('hy.select') || 'Select');
+}
+
+const SOURCE_ICONS = {
+    pago:           { icon: 'fa-credit-card',  color: 'text-emerald-400', label: 'Pago' },
+    fusion_solar:   { icon: 'fa-solar-panel',  color: 'text-amber-400', label: 'Solar' },
+    zigbee2mqtt:    { icon: 'fa-tower-broadcast', color: 'text-purple-400', label: 'Z2M' },
+    derived:        { icon: 'fa-calculator',   color: 'text-pink-400',  label: 'Derived' },
+};
+
+function renderDeviceCards() {
+    const tbody = document.getElementById('hy-list-tbody');
+    if (!tbody) return;
+    const devices = _getFilteredDevices();
+    const pagination = document.getElementById('hy-devices-pagination');
+    if (!devices.length) {
+        const totalAll = _getAllDevices().length;
+        if (!totalAll && _smarthomeLoadPromise) {
+            _setDevicesLoading(_devicesState.query ? 'Se cauta in dispozitive...' : 'Se incarca dispozitivele...');
+            return;
+        }
+        if (!totalAll && _devicesState.query) {
+            _setDevicesLoading('Se cauta in dispozitive...');
+            _scheduleSmarthomeLoadRetry();
+            return;
+        }
+        const filtersActive = _devicesState.domain !== 'all' || _devicesState.source !== 'all' || _devicesState.area !== 'all' || !!_devicesState.query;
+        if (totalAll > 0 && filtersActive) {
+            const msg = (typeof t === 'function' && t('hy.empty_no_results')) || 'Niciun rezultat pentru filtrele curente.';
+            const reset = (typeof t === 'function' && t('hy.reset_filters')) || 'Resetează filtrele';
+            tbody.innerHTML = `<tr><td colspan="6" class="hy-list-placeholder">
+                <i class="fas fa-filter-circle-xmark text-slate-600 mr-2"></i>${msg}
+                <button type="button" class="ml-3 text-accent hover:underline text-xs font-semibold" onclick="resetSmarthomeFilters()"><i class="fas fa-rotate-left mr-1"></i>${reset}</button>
+            </td></tr>`;
+        } else {
+            tbody.innerHTML = `<tr><td colspan="6" class="hy-list-placeholder"><i class="fas fa-plug text-slate-600 mr-2"></i>${t('hy.no_devices_found') || 'Niciun dispozitiv găsit'}</td></tr>`;
+        }
+        if (pagination) pagination.innerHTML = '';
+        updateHABulkCount();
+        return;
+    }
+    const totalPages = Math.max(1, Math.ceil(devices.length / _devicesState.pageSize));
+    _devicesState.page = Math.min(Math.max(1, _devicesState.page), totalPages);
+    const startIndex = (_devicesState.page - 1) * _devicesState.pageSize;
+    const pageDevices = devices.slice(startIndex, startIndex + _devicesState.pageSize);
+    _devicesVisibleEntityCache = new Map(pageDevices.map(entity => [_entityId(entity), entity]));
+
+    tbody.innerHTML = pageDevices.map(entity => {
+        const source = entity.source || '';
+        const isDerived = source === 'derived';
+        const entityId = _entityId(entity);
+        const domain = _entityDomain(entity);
+        const stateLower = _norm(entity.state);
+        const isOn = ACTIVE_STATES.includes(stateLower);
+        const isUnavail = ['unavailable', 'unknown', 'offline'].includes(stateLower);
+        // Prefer entity-supplied icon (mdi:* or fa-*) over the domain default.
+        const customIconCls = _iconClass(entity.icon);
+        const fallbackIcon = isDerived ? 'fa-calculator' : (DOMAIN_ICONS[domain] || 'fa-microchip');
+        const iconClass = customIconCls || `fas ${fallbackIcon}`;
+        const color = isDerived ? 'bg-pink-500/15 text-pink-400' : (DOMAIN_COLORS[domain] || 'bg-slate-500/15 text-slate-400');
+        const stateDisplay = isUnavail ? 'Offline' : `${entity.state ?? ''}${entity.unit ? ' ' + entity.unit : ''}`;
+        const aliases = _entityAliases(entity);
+        const aliasCount = aliases.length;
+        const aliasBtnText = aliasCount === 0 ? (t('hy.alias_add') || 'Adaugă alias') : aliasCount === 1 ? (t('hy.alias_1') || '1 alias') : (t('hy.alias_n', { count: aliasCount }) || `${aliasCount} aliasuri`);
+        const aliasStr = aliases.join(', ');
+        const name = escapeHtml(entity.name || entityId);
+        const escapedId = escapeHtml(entityId);
+        const escapedIdAttr = escapeHtmlAttr(entityId);
+        const srcMeta = SOURCE_ICONS[entity.source] || null;
+        const sourceLabel = srcMeta?.label || entity.entry_title || entity.source || 'Unknown';
+        const sourceBadge = `<span class="hy-source-badge ${srcMeta?.color || 'text-slate-400'}"><i class="fas ${srcMeta?.icon || 'fa-puzzle-piece'}"></i>${escapeHtml(sourceLabel)}</span>`;
+
+        const rowClickHandler = isDerived ? `onclick="if(!event.target.closest('button, input, a, label')) openDerivedModal('${escapedIdAttr}')"` : `onclick="handleHaRowClick(event)"`;
+        return `<tr class="hy-row hy-row-clickable ${isUnavail ? 'hy-row-unavailable' : ''}" data-entity="${escapedIdAttr}" data-domain="${escapeHtmlAttr(domain)}" data-source="${escapeHtmlAttr(source)}" data-search="${escapeHtmlAttr(_deviceSearchText(entity))}" ${rowClickHandler}>
+            <td class="hy-col-bulk"></td>
+            <td class="hy-col-icon"><div class="hy-row-icon ${color}"><i class="${iconClass}"></i></div></td>
+            <td class="hy-col-name">
+                <div class="hy-row-name">${name} ${sourceBadge}</div>
+                <div class="hy-row-entity mono">${escapedId}</div>
+            </td>
+            <td class="hy-col-alias">
+                ${isDerived
+                    ? (aliasCount ? `<span class="hy-row-alias-btn text-slate-400">${escapeHtml(aliasBtnText)}</span>` : '')
+                        : `<button type="button" class="hy-row-alias-btn" onclick="event.stopPropagation();openAliasModal('${escapedIdAttr}')" title="${t('hy.alias_modal_title') || 'Alias'}">${escapeHtml(aliasBtnText)}</button>`}
+            </td>
+            <td class="hy-col-state">
+                <span class="hy-row-state-wrap">
+                    <span class="hy-row-state mono ${isUnavail ? 'text-red-500/70' : (isOn ? 'text-accent' : 'text-slate-400')}">${stateDisplay}</span>
+                </span>
+            </td>
+            <td class="hy-col-ai">${isDerived
+                ? `<label class="hy-row-ai cursor-pointer select-none" title="Include in AI context" onclick="event.stopPropagation()"><input type="checkbox" onchange="toggleDerivedSelection('${escapedIdAttr}', this.checked)" ${entity.selected ? 'checked' : ''} class="accent-accent cursor-pointer" aria-label="AI"></label>`
+                : `<label class="hy-row-ai cursor-pointer select-none" title="Include in AI context" onclick="event.stopPropagation()"><input type="checkbox" onchange="event.stopPropagation(); toggleSelection('${escapedIdAttr}', this.checked)" ${entity.selected ? 'checked' : ''} class="accent-accent cursor-pointer" aria-label="AI"></label>`}</td>
+        </tr>`;
+    }).join('');
+    if (pagination) pagination.innerHTML = _renderDevicesPagination(devices.length, startIndex + 1, Math.min(startIndex + pageDevices.length, devices.length), totalPages);
+    updateHABulkCount();
+}
+
+function _renderDevicesPagination(total, from, to, totalPages) {
+    const sizes = DEVICE_PAGE_SIZE_OPTIONS.map(size => `<option value="${size}" ${size === _devicesState.pageSize ? 'selected' : ''}>${size}</option>`).join('');
+    return `<div class="hy-devices-pager-info">
+            <span>${from}-${to}</span>
+            <span>din</span>
+            <strong>${total}</strong>
+        </div>
+        <div class="hy-devices-pager-actions">
+            <label class="hy-page-size"><span>Rânduri</span><select onchange="setDevicesPageSize(this.value)">${sizes}</select></label>
+            <button type="button" class="hy-pager-btn" onclick="setDevicesPage(${_devicesState.page - 1})" ${_devicesState.page <= 1 ? 'disabled' : ''} aria-label="Pagina anterioară"><i class="fas fa-chevron-left"></i></button>
+            <span class="hy-page-index">${_devicesState.page} / ${totalPages}</span>
+            <button type="button" class="hy-pager-btn" onclick="setDevicesPage(${_devicesState.page + 1})" ${_devicesState.page >= totalPages ? 'disabled' : ''} aria-label="Pagina următoare"><i class="fas fa-chevron-right"></i></button>
+        </div>`;
+}
+
+export function setDevicesPage(page) {
+    const total = _getFilteredDevices().length;
+    const totalPages = Math.max(1, Math.ceil(total / _devicesState.pageSize));
+    _devicesState.page = Math.min(Math.max(1, Number(page) || 1), totalPages);
+    renderDeviceCards();
+}
+
+export function setDevicesPageSize(value) {
+    const next = Number(value);
+    _devicesState.pageSize = DEVICE_PAGE_SIZE_OPTIONS.includes(next) ? next : 50;
+    _devicesState.page = 1;
+    renderDeviceCards();
+}
+
+export function sortDevicesBy(sortBy) {
+    const nextSort = String(sortBy || 'name');
+    if (_devicesState.sortBy === nextSort) {
+        _devicesState.sortDir = _devicesState.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        _devicesState.sortBy = nextSort;
+        _devicesState.sortDir = 'asc';
+    }
+    _devicesState.page = 1;
+    renderDeviceCards();
+}
+
+export function filterHAByDomain(domain) {
+    _haCurrentFilter = domain;
+    _syncDevicesStateFromInputs({ resetPage: true });
+    _syncSmarthomeFilterPickers();
+    renderDeviceCards();
+}
+
+export function filterHABySource(source) {
+    _haCurrentSource = source;
+    _syncDevicesStateFromInputs({ resetPage: true });
+    _syncSmarthomeFilterPickers();
+    renderDeviceCards();
+}
+
+export function filterHAByArea(area) {
+    _haCurrentArea = area;
+    _syncDevicesStateFromInputs({ resetPage: true });
+    _syncSmarthomeFilterPickers();
+    renderDeviceCards();
+}
+
+function _filterChoice(value, label, count = null) {
+    return { value: String(value), label: String(label), count: Number.isFinite(count) ? count : null };
+}
+
+function _filterChoiceText(choice) {
+    const suffix = Number.isFinite(choice?.count) ? ` (${choice.count})` : '';
+    return `${choice?.label || ''}${suffix}`;
+}
+
+function _filterPickerMarkup(id, label, icon, currentValue, choices, kind) {
+    const list = Array.isArray(choices) ? choices : [];
+    const selected = list.find(choice => choice.value === String(currentValue)) || list[0] || _filterChoice('all', 'Toate');
+    const options = list.map(choice => {
+        const selectedAttr = choice.value === selected.value ? 'true' : 'false';
+        const count = Number.isFinite(choice.count) ? `<span class="hy-picker-option-count">${choice.count}</span>` : '';
+        return `<button type="button" role="option" class="hy-picker-option" data-filter-kind="${escapeHtmlAttr(kind)}" data-value="${escapeHtmlAttr(choice.value)}" data-label="${escapeHtmlAttr(_filterChoiceText(choice))}" data-selected="${selectedAttr}" aria-selected="${selectedAttr}" onclick="selectSmarthomePickerOption(event)">
+            <span class="hy-picker-option-label">${escapeHtml(choice.label)}</span>${count}
+        </button>`;
+    }).join('');
+    return `<div class="hy-picker-field">
+        <span class="hy-picker-label"><i class="fas ${escapeHtmlAttr(icon)}"></i>${escapeHtml(label)}</span>
+        <div class="hy-picker" id="${escapeHtmlAttr(id)}" data-value="${escapeHtmlAttr(selected.value)}">
+        <button type="button" class="hy-picker-button" data-hy-picker-toggle aria-haspopup="listbox" aria-expanded="false" onclick="toggleSmarthomePicker(event)">
+            <span class="hy-picker-current">${escapeHtml(_filterChoiceText(selected))}</span>
+            <i class="fas fa-chevron-down hy-picker-chevron" aria-hidden="true"></i>
+        </button>
+        <div class="hy-picker-menu" role="listbox">${options}</div>
+        </div>
+    </div>`;
+}
+
+function _domainLabel(domain) {
+    const key = String(domain || '').trim().toLowerCase();
+    return DOMAIN_LABELS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase()) || 'Unknown';
+}
+
+function _domainCount(domain) {
+    return _integrationEntitiesCache.filter(entity => {
+        const dom = entity.domain || String(entity.entity_id || '').split('.')[0];
+        return domain === 'sensor' ? (dom === 'sensor' || dom === 'binary_sensor') : dom === domain;
+    }).length;
+}
+
+function _syncSmarthomeFilterPickers() {
+    _syncSmarthomeFilterPicker('hy-source-picker', _haCurrentSource);
+    _syncSmarthomeFilterPicker('hy-area-picker', _haCurrentArea);
+    _syncSmarthomeFilterPicker('hy-domain-picker', _haCurrentFilter);
+}
+
+function _syncSmarthomeFilterPicker(id, value) {
+    const picker = document.getElementById(id);
+    if (!picker) return;
+    const current = String(value || 'all');
+    picker.dataset.value = current;
+    const currentLabel = picker.querySelector('.hy-picker-current');
+    let selectedLabel = '';
+    picker.querySelectorAll('.hy-picker-option').forEach(option => {
+        const selected = option.dataset.value === current;
+        option.dataset.selected = selected ? 'true' : 'false';
+        option.setAttribute('aria-selected', selected ? 'true' : 'false');
+        if (selected) selectedLabel = option.dataset.label || option.textContent.trim();
+    });
+    if (currentLabel && selectedLabel) currentLabel.textContent = selectedLabel;
+}
+
+function _closeSmarthomeFilterPickers(except = null) {
+    document.querySelectorAll('.hy-picker[data-open="true"]').forEach(picker => {
+        if (except && picker === except) return;
+        picker.dataset.open = 'false';
+        picker.querySelector('[data-hy-picker-toggle]')?.setAttribute('aria-expanded', 'false');
+    });
+}
+
+export function toggleSmarthomePicker(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const current = event?.currentTarget;
+    const toggle = current?.matches?.('[data-hy-picker-toggle]')
+        ? current
+        : event?.target?.closest?.('[data-hy-picker-toggle]');
+    const picker = toggle?.closest?.('.hy-picker');
+    if (!picker) return;
+    const open = picker.dataset.open === 'true';
+    _closeSmarthomeFilterPickers(picker);
+    picker.dataset.open = open ? 'false' : 'true';
+    toggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+}
+
+export function selectSmarthomePickerOption(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const current = event?.currentTarget;
+    const option = current?.matches?.('.hy-picker-option[data-filter-kind]')
+        ? current
+        : event?.target?.closest?.('.hy-picker-option[data-filter-kind]');
+    if (!option) return;
+    const kind = option.dataset.filterKind;
+    const value = option.dataset.value || 'all';
+    _closeSmarthomeFilterPickers();
+    if (kind === 'source') filterHABySource(value);
+    else if (kind === 'area') filterHAByArea(value);
+    else if (kind === 'domain') filterHAByDomain(value);
+}
+
+let _smarthomeFilterPickerEventsWired = false;
+function _wireSmarthomeFilterPickerEvents() {
+    if (_smarthomeFilterPickerEventsWired || typeof document === 'undefined') return;
+    _smarthomeFilterPickerEventsWired = true;
+    document.addEventListener('click', event => {
+        const toggle = event.target.closest('[data-hy-picker-toggle]');
+        if (toggle) {
+            toggleSmarthomePicker(event);
+            return;
+        }
+        const option = event.target.closest('.hy-picker-option[data-filter-kind]');
+        if (option) {
+            selectSmarthomePickerOption(event);
+            return;
+        }
+        if (!event.target.closest('.hy-picker')) _closeSmarthomeFilterPickers();
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') _closeSmarthomeFilterPickers();
+    });
+}
+
+function _buildSourceFilters(sources) {
+    const nav = document.getElementById('hy-source-filters');
+    if (!nav) return;
+    const allCount = _getAllDevices().length;
+    const choices = [_filterChoice('all', 'Toate integrările', allCount)];
+
+    for (const src of sources) {
+        const count = _integrationEntitiesCache.filter(e => e.source === src.slug).length;
+        if (count === 0) continue;
+        choices.push(_filterChoice(src.slug, src.label, count));
+    }
+    nav.innerHTML = _filterPickerMarkup('hy-source-picker', 'Integrare', 'fa-layer-group', _haCurrentSource, choices, 'source');
+}
+
+function _buildAreaFilters(areas) {
+    const nav = document.getElementById('hy-area-filters');
+    if (!nav) return;
+    nav.classList.remove('hidden');
+    const allLabel = (typeof t === 'function' && t('hy.area_all')) || 'Toate ariile';
+    const noneLabel = (typeof t === 'function' && t('hy.area_none')) || 'Fără arie';
+    const noneCount = _integrationEntitiesCache.filter(e => !(e.area || '').trim()).length;
+    const choices = [_filterChoice('all', allLabel, _getAllDevices().length)];
+    for (const a of areas) {
+        const name = a.name || '';
+        if (!name) continue;
+        choices.push(_filterChoice(name, name, a.count));
+    }
+    if (noneCount > 0) {
+        choices.push(_filterChoice('__none__', noneLabel, noneCount));
+    }
+    nav.innerHTML = _filterPickerMarkup('hy-area-picker', 'Arie', 'fa-map-location-dot', _haCurrentArea, choices, 'area');
+}
+
+function _buildDomainFilters() {
+    const nav = document.getElementById('hy-domain-filters');
+    if (!nav) return;
+    const total = _getAllDevices().length;
+    const active = _getAllDevices().filter(d => ACTIVE_STATES.includes(String(d.state).toLowerCase())).length;
+    const aiSelected = _getAllDevices().filter(d => d.selected).length;
+    const domains = [...new Set(_integrationEntitiesCache.map(entity => entity.domain || String(entity.entity_id || '').split('.')[0]).filter(Boolean))]
+        .sort((a, b) => {
+            const ia = DOMAIN_ORDER.indexOf(a);
+            const ib = DOMAIN_ORDER.indexOf(b);
+            if (ia !== -1 || ib !== -1) return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+            return _domainLabel(a).localeCompare(_domainLabel(b));
+        });
+    const choices = [
+        _filterChoice('all', 'Toate entitățile', total),
+        _filterChoice('active', 'Active acum', active),
+        _filterChoice('ai', 'În context AI', aiSelected),
+    ];
+    domains.forEach(domain => {
+        const count = _domainCount(domain);
+        if (count > 0) choices.push(_filterChoice(domain, _domainLabel(domain), count));
+    });
+    nav.innerHTML = _filterPickerMarkup('hy-domain-picker', 'Tip entitate', 'fa-shapes', _haCurrentFilter, choices, 'domain');
+}
+
+export function filterDevices() {
+    _syncDevicesStateFromInputs({ resetPage: true });
+    if (!_integrationEntitiesCache.length) {
+        if (_restoreSmarthomeEntitySnapshot()) {
+            renderDeviceCards();
+            loadSmarthome().catch(() => {});
+            return;
+        }
+        _setDevicesLoading(_devicesState.query ? 'Se cauta in dispozitive...' : 'Se incarca dispozitivele...');
+        loadSmarthome().then(() => renderDeviceCards()).catch(() => {});
+        return;
+    }
+    renderDeviceCards();
+}
+
+export function toggleSmarthomeFilters(forceOpen = null) {
+    const toolbar = document.querySelector('.hy-sticky-toolbar');
+    const toggle = document.getElementById('hy-mobile-filter-toggle');
+    if (!toolbar) return;
+    const nextOpen = forceOpen === null ? toolbar.dataset.filtersOpen !== 'true' : !!forceOpen;
+    toolbar.dataset.filtersOpen = nextOpen ? 'true' : 'false';
+    if (toggle) {
+        toggle.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+        toggle.dataset.active = nextOpen ? 'true' : 'false';
+    }
+    if (!nextOpen) _closeSmarthomeFilterPickers();
+}
+
+// Reset all smarthome filters (search, source, domain) to "all".
+export function resetSmarthomeFilters() {
+    _haCurrentFilter = 'all';
+    _haCurrentSource = 'all';
+    _haCurrentArea = 'all';
+    const search = document.getElementById('hy-search');
+    if (search) search.value = '';
+    _syncDevicesStateFromInputs({ resetPage: true });
+    _syncSmarthomeFilterPickers();
+    renderDeviceCards();
+}
+
+// Copy the currently-open row-actions entity_id to the clipboard.
+export async function copyEntityIdFromRowActions() {
+    if (!_haRowActionsEntityId) return;
+    try {
+        await navigator.clipboard.writeText(_haRowActionsEntityId);
+        showToast((typeof t === 'function' && t('hy.copied')) || 'Copiat', 'success');
+    } catch (e) {
+        showToast(t('hy.clipboard_error'), 'error');
+    }
+}
+
+export function toggleAllHA(checked) {
+    document.querySelectorAll('.hy-bulk-check').forEach(cb => cb.checked = checked);
+    updateHABulkCount();
+}
+
+export function updateHABulkCount() {
+    const count = document.querySelectorAll('.hy-bulk-check:checked').length;
+    const panel = document.getElementById('hy-bulk-panel');
+    const info = document.getElementById('bulk-selection-info');
+    const bulkModeOn = !!document.querySelector('.hy-list-wrap.hy-bulk-mode');
+    if (panel) {
+        if (bulkModeOn && count > 0) {
+            panel.classList.remove('hidden');
+            if (info) info.innerText = t('hy.bulk_selected', { count });
+        } else {
+            panel.classList.add('hidden');
+        }
+    }
+}
+
+export async function deleteHABulk() {
+    // No-op: bulk delete was Home Assistant only.
+}
+
+export async function deleteHASingle(eid) {
+    // No-op: single-entity delete was Home Assistant only.
+}
+
+export async function toggleDevice(eid, btnEl) {
+    // No-op: device toggling was Home Assistant only.
+}
+
+export async function toggleSelection(eid, sel) {
+    try {
+        await apiCall('/api/integrations/entities/selection', {
+            method: 'POST',
+            body: { entity_id: eid, selected: !!sel },
+        });
+        // Reflect change locally so the AI counter and "AI only" filter
+        // update without a full reload.
+        if (Array.isArray(_integrationEntitiesCache)) {
+            const item = _integrationEntitiesCache.find(x => x.entity_id === eid);
+            if (item) item.selected = !!sel;
+        }
+        try { updateHABulkCount(); } catch (_) {}
+    } catch {
+        showToast(t('hy.network_error'), 'error');
+    }
+}
+
+export async function toggleAllAI(checked) {
+    const cache = Array.isArray(_integrationEntitiesCache) ? _integrationEntitiesCache : [];
+    const tbody = document.querySelector('#hy-list-tbody');
+    // Limit to currently visible (filtered) rows so users don't accidentally
+    // toggle entities they can't see.
+    const visibleEids = tbody
+        ? Array.from(tbody.querySelectorAll('tr.hy-row:not(.hidden)'))
+            .map(tr => tr.getAttribute('data-entity'))
+            .filter(Boolean)
+        : cache.map(d => d.entity_id);
+    const visibleSet = new Set(visibleEids);
+    const targets = cache.filter(d => visibleSet.has(d.entity_id) && d.source !== 'derived');
+    if (!targets.length) return;
+    try {
+        await Promise.all(targets.map(d =>
+            apiCall('/api/integrations/entities/selection', {
+                method: 'POST',
+                body: { entity_id: d.entity_id, selected: !!checked },
+            }).catch(() => null)
+        ));
+        targets.forEach(d => { d.selected = !!checked; });
+        // Re-sync checkbox state in the visible rows without a full re-render.
+        if (tbody) {
+            tbody.querySelectorAll('tr.hy-row:not(.hidden) .hy-row-ai input[type="checkbox"]').forEach(cb => {
+                cb.checked = !!checked;
+            });
+        }
+        try { updateHABulkCount(); } catch (_) {}
+    } catch {
+        showToast(t('hy.network_error'), 'error');
+    }
+}
+
+let _haAliasModalEntityId = null;
+let _haAliasModalOriginalParent = null;
+
+export function openAliasModal(eid) {
+    const modal = document.getElementById('hy-alias-modal');
+    const container = document.getElementById('hy-alias-inputs');
+    const titleEl = document.getElementById('hy-alias-modal-title');
+    const entityEl = document.getElementById('hy-alias-modal-entity');
+    if (!modal || !container) return;
+    const d = _integrationEntitiesCache?.find(x => x.entity_id === eid);
+    _haAliasModalEntityId = eid;
+    if (titleEl) titleEl.textContent = typeof t === 'function' ? t('hy.alias_modal_title') : 'Alias';
+    if (entityEl) entityEl.textContent = eid;
+    container.innerHTML = '';
+    const list = d?.aliases?.length ? [...d.aliases] : [''];
+    list.forEach(alias => _appendAliasInput(container, alias));
+    if (modal.parentNode !== document.body) {
+        _haAliasModalOriginalParent = modal.parentNode;
+        document.body.appendChild(modal);
+    }
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function _appendAliasInput(container, value = '') {
+    const wrap = document.createElement('div');
+    wrap.className = 'flex gap-2 items-center';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'flex-1 bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-accent outline-none';
+    input.placeholder = typeof t === 'function' ? t('hy.alias_placeholder') : 'Alias';
+    input.value = value;
+    input.dataset.haAlias = '1';
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'w-9 h-9 rounded-lg bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 flex items-center justify-center flex-shrink-0';
+    rm.innerHTML = '<i class="fas fa-minus text-xs"></i>';
+    rm.setAttribute('aria-label', 'Remove alias');
+    rm.onclick = () => wrap.remove();
+    wrap.appendChild(input);
+    wrap.appendChild(rm);
+    container.appendChild(wrap);
+}
+
+export function addAliasInput() {
+    const container = document.getElementById('hy-alias-inputs');
+    if (!container) return;
+    _appendAliasInput(container, '');
+}
+
+export function closeAliasModal() {
+    const modal = document.getElementById('hy-alias-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        if (_haAliasModalOriginalParent && modal.parentNode === document.body) {
+            _haAliasModalOriginalParent.appendChild(modal);
+            _haAliasModalOriginalParent = null;
+        }
+    }
+    _haAliasModalEntityId = null;
+}
+
+let _haRowActionsEntityId = null;
+let _haRowActionsModalOriginalParent = null;
+
+export function handleHaRowClick(event) {
+    const row = event.currentTarget;
+    if (!row || row.getAttribute('data-entity') == null) return;
+    if (event.target.closest('button, input, a, label')) return;
+    const eid = row.getAttribute('data-entity');
+    if (eid) openRowActionsModal(eid);
+}
+
+export async function openRowActionsModal(entityId) {
+    const modal = document.getElementById('entity-detail-modal');
+    const iconEl = document.getElementById('entity-detail-modal-icon');
+    const labelEl = document.getElementById('entity-detail-modal-label');
+    const body = document.getElementById('entity-detail-modal-body');
+    let entity = _integrationEntitiesCache?.find(candidate => candidate.entity_id === entityId) || _devicesVisibleEntityCache.get(entityId);
+    if (!modal || !body) return;
+    if (!entity) {
+        try { await loadSmarthome(); } catch (_) {}
+        entity = _integrationEntitiesCache?.find(candidate => candidate.entity_id === entityId) || _devicesVisibleEntityCache.get(entityId);
+    }
+    if (!entity) {
+        showToast(t('hy.entity_not_found_sync'), 'error');
+        return;
+    }
+    _haRowActionsEntityId = entityId;
+    stopCameraPreviewRefresh();
+
+    const domain = _entityDomain(entity);
+    const stateLower = _norm(entity.state);
+    const rawState = entity.state ?? 'unknown';
+    const stateDisplay = `${STATE_LABELS_RO[rawState.toLowerCase()] || rawState}${entity.unit ? ' ' + entity.unit : ''}`;
+    const iconClass = _iconClass(entity.icon) || `fas ${DOMAIN_ICONS[domain] || 'fa-microchip'}`;
+    const sourceMeta = SOURCE_ICONS[entity.source] || { icon: 'fa-puzzle-piece', label: entity.source || 'Unknown', color: 'text-slate-400' };
+    const attrs = entity.attributes && typeof entity.attributes === 'object' ? entity.attributes : {};
+    const cameraPreview = _cameraPreviewMarkup(entity, attrs);
+    const attrsRows = Object.entries(attrs).slice(0, 24).map(([key, value]) => `
+        <div class="hy-detail-attr">
+            <span>${escapeHtml(key)}</span>
+            <strong>${escapeHtml(typeof value === 'object' ? JSON.stringify(value) : String(value))}</strong>
+        </div>`).join('');
+
+    if (iconEl) iconEl.className = iconClass;
+    if (labelEl) labelEl.textContent = entity.name || entity.entity_id || 'Dispozitiv';
+
+    body.innerHTML = `
+        <div class="hy-detail-hero">
+            <div class="hy-detail-icon ${DOMAIN_COLORS[domain] || 'bg-slate-500/15 text-slate-400'}"><i class="${iconClass}"></i></div>
+            <div class="hy-detail-titlebox">
+                <div class="hy-detail-kicker"><i class="fas ${sourceMeta.icon}"></i>${escapeHtml(sourceMeta.label || entity.source || 'Unknown')}</div>
+                <h3>${escapeHtml(entity.name || entity.entity_id)}</h3>
+                <p class="mono">${escapeHtml(entity.entity_id)}</p>
+            </div>
+        </div>
+        <div class="hy-detail-status-row">
+            <div class="hy-detail-status ${['unavailable', 'unknown', 'offline'].includes(stateLower) ? 'is-offline' : ACTIVE_STATES.includes(stateLower) ? 'is-active' : ''}">
+                <span>Stare</span>
+                <strong>${escapeHtml(stateDisplay)}</strong>
+            </div>
+            <div class="hy-detail-status">
+                <span>Domeniu</span>
+                <strong>${escapeHtml(_domainLabel(domain))}</strong>
+            </div>
+        </div>
+        ${cameraPreview}
+        <div class="hy-detail-actions">
+            ${_deviceControlButtons(entity)}
+            <button type="button" class="hy-detail-btn" onclick="copyEntityIdFromRowActions()"><i class="fas fa-copy"></i><span>Copiază ID</span></button>
+            <button type="button" class="hy-detail-btn" onclick="openAliasModalFromDetail('${escapeHtmlAttr(entityId)}')"><i class="fas fa-tag"></i><span>Alias</span></button>
+            ${entity.source === 'derived' ? '' : `<label class="hy-detail-toggle"><span><i class="fas fa-robot"></i>Include în AI</span><input type="checkbox" ${entity.selected ? 'checked' : ''} onchange="toggleSelection('${escapeHtmlAttr(entityId)}', this.checked)"></label>`}
+        </div>
+        <div class="hy-detail-section">
+            <div class="hy-detail-section-title">Atribute</div>
+            <div class="hy-detail-attrs">${attrsRows || '<div class="hy-detail-empty">Nu sunt atribute suplimentare.</div>'}</div>
+        </div>`;
+
+    if (modal.parentNode !== document.body) document.body.appendChild(modal);
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    startCameraPreviewRefresh();
+    _wireCameraPreviewMute();
+}
+
+function _wireCameraPreviewMute() {
+    const wrap = document.querySelector('#entity-detail-modal .hy-detail-camera');
+    const video = wrap?.querySelector('video[data-camera-live-webm]');
+    const btn = wrap?.querySelector('[data-camera-mute-toggle]');
+    if (!video || !btn) return;
+    btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        video.muted = !video.muted;
+        btn.textContent = video.muted ? '🔇' : '🔊';
+    });
+}
+
+function _cameraPreviewMarkup(entity, attrs) {
+    const domain = _entityDomain(entity);
+    if (domain === 'image') return _imagePreviewMarkup(entity, attrs);
+    if (domain !== 'camera') return '';
+    const hasAudio = !!(attrs.has_audio);
+    const playUrl = cameraPreferWebmPlayer(attrs) ? _cameraProxyUrl(entity.entity_id, 'play') : '';
+    if (playUrl) {
+        const muted = !hasAudio;
+        return `<div class="hy-detail-camera relative">
+            <video src="${escapeHtmlAttr(playUrl)}" ${muted ? 'muted' : ''} autoplay playsinline controls data-camera-live-webm></video>
+            <button type="button" data-camera-mute-toggle class="absolute left-2 bottom-2 z-10 px-2 py-1 rounded-lg bg-black/60 text-white text-sm border-0 cursor-pointer" title="Sunet">${muted ? '🔇' : '🔊'}</button>
+        </div>`;
+    }
+    const mjpeg = String(attrs.mjpeg_url || '').trim();
+    const proxyMode = (mjpeg.startsWith('http://') || mjpeg.startsWith('https://')) ? 'stream' : 'snapshot';
+    const imageUrl = _cameraProxyUrl(entity.entity_id, proxyMode);
+    const videoUrl = attrs.stream_url || attrs.preview_url || '';
+    if (imageUrl) {
+        const shouldRefresh = proxyMode === 'snapshot';
+        return `<div class="hy-detail-camera">
+            <img src="${escapeHtmlAttr(_cacheBustCameraUrl(imageUrl))}" data-camera-src="${escapeHtmlAttr(imageUrl)}" data-camera-refresh="${shouldRefresh ? 'true' : 'false'}" alt="${escapeHtmlAttr(entity.name || entity.entity_id || 'Camera')}" loading="eager">
+        </div>`;
+    }
+    if (videoUrl) {
+        return `<div class="hy-detail-camera">
+            <video src="${escapeHtmlAttr(videoUrl)}" autoplay muted playsinline controls></video>
+        </div>`;
+    }
+    return '';
+}
+
+function _imagePreviewMarkup(entity, attrs) {
+    const hasImage = attrs.image_url || attrs.snapshot_url || attrs.entity_picture || attrs.url
+        || /^https?:\/\//.test(String(entity.state || ''));
+    if (!hasImage) return '';
+    const proxyUrl = _imageProxyUrl(entity.entity_id);
+    if (!proxyUrl) return '';
+    return `<div class="hy-detail-camera">
+        <img src="${escapeHtmlAttr(_cacheBustCameraUrl(proxyUrl))}" data-camera-src="${escapeHtmlAttr(proxyUrl)}" data-camera-refresh="true" alt="${escapeHtmlAttr(entity.name || entity.entity_id || 'Image')}" loading="eager">
+    </div>`;
+}
+
+function _cameraAuthToken() {
+    return peekCameraStreamToken() || localStorage.getItem('hyve_token') || '';
+}
+
+function _imageProxyUrl(entityId) {
+    const token = _cameraAuthToken();
+    if (!entityId || !token) return '';
+    return `/api/cameras/${encodeURIComponent(entityId)}/image?token=${encodeURIComponent(token)}`;
+}
+
+function _cameraProxyUrl(entityId, mode = 'snapshot') {
+    const token = _cameraAuthToken();
+    if (!entityId || !token) return '';
+    const paths = { stream: 'stream', play: 'play', snapshot: 'snapshot' };
+    const path = paths[mode] || 'snapshot';
+    return `/api/cameras/${encodeURIComponent(entityId)}/${path}?token=${encodeURIComponent(token)}`;
+}
+
+function _cacheBustCameraUrl(url) {
+    const raw = String(url || '');
+    if (!raw) return '';
+    return `${raw}${raw.includes('?') ? '&' : '?'}_hyve=${Date.now()}`;
+}
+
+function _deviceControlButtons(entity) {
+    if (!entity || entity.source === 'derived') return '';
+    const entityId = escapeHtmlAttr(entity.entity_id || '');
+    const source = escapeHtmlAttr(entity.source || '');
+    const domain = _entityDomain(entity);
+    const stateLower = _norm(entity.state);
+    const isActive = ACTIVE_STATES.includes(stateLower) || stateLower === 'on';
+    const pending = _deviceControlPending.has(entity.entity_id || '');
+    const button = (action, icon, label, tone = '') => {
+        const busyIcon = pending ? 'fa-circle-notch fa-spin' : icon;
+        const busyLabel = pending ? t('integrations.applying') : label;
+        return `<button type="button" class="hy-detail-btn ${tone}${pending ? ' is-pending' : ''}" ${pending ? 'aria-busy="true" data-pending="true"' : ''} onclick="controlDeviceEntity('${source}', '${entityId}', '${action}', this)"><i class="fas ${busyIcon}"></i><span>${busyLabel}</span></button>`;
+    };
+
+    if (['light', 'switch', 'input_boolean', 'fan'].includes(domain)) {
+        return button(isActive ? 'turn_off' : 'turn_on', 'fa-power-off', isActive ? 'Oprește' : 'Pornește', isActive ? 'is-danger' : 'is-primary');
+    }
+    if (domain === 'cover') {
+        return [button('open_cover', 'fa-arrow-up', 'Deschide'), button('stop_cover', 'fa-stop', 'Stop'), button('close_cover', 'fa-arrow-down', 'Închide')].join('');
+    }
+    if (domain === 'lock') {
+        return button(isActive ? 'lock' : 'unlock', isActive ? 'fa-lock' : 'fa-unlock', isActive ? 'Blochează' : 'Deblochează', isActive ? '' : 'is-primary');
+    }
+    if (domain === 'button' || domain === 'script') {
+        return button('press', 'fa-play', 'Rulează', 'is-primary');
+    }
+    if (domain === 'vacuum') {
+        return [
+            button('start', 'fa-play', 'Start', 'is-primary'),
+            button('stop', 'fa-stop', 'Stop'),
+            button('return_to_base', 'fa-house', 'Acasă'),
+            button('locate', 'fa-location-crosshairs', 'Găsește'),
+        ].join('');
+    }
+    if (domain === 'media_player') {
+        return [button('media_play', 'fa-play', 'Play'), button('media_pause', 'fa-pause', 'Pause')].join('');
+    }
+    if (entity.controllable) {
+        return button('toggle', 'fa-sliders', 'Comută', 'is-primary');
+    }
+    return '<div class="hy-detail-empty">Entitatea este doar pentru citire.</div>';
+}
+
+export async function controlDeviceEntity(source, entityId, action, buttonEl = null) {
+    const entity = _integrationEntitiesCache?.find(candidate => candidate.entity_id === entityId);
+    if (!entity || !source || source === 'derived') return;
+    if (_deviceControlPending.has(entityId)) return;
+    const previousState = entity.state;
+    const optimisticState = _optimisticStateForAction(action, previousState);
+    _deviceControlPending.set(entityId, { action, previousState, optimisticState, startedAt: Date.now() });
+    if (buttonEl) {
+        buttonEl.classList.add('is-pending');
+        buttonEl.setAttribute('aria-busy', 'true');
+        const icon = buttonEl.querySelector('i');
+        const label = buttonEl.querySelector('span');
+        if (icon) icon.className = 'fas fa-circle-notch fa-spin';
+        if (label) label.textContent = t('integrations.applying');
+    }
+    entity.state = optimisticState;
+    renderDeviceCards();
+    _markDeviceControlPending(entityId, true);
+    if (_haRowActionsEntityId === entityId) await openRowActionsModal(entityId);
+    try {
+        const response = await apiCall(`/api/integrations/${encodeURIComponent(source)}/control`, {
+            method: 'POST',
+            body: { entity_id: entityId, action, data: {} },
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.detail || payload.message || 'Acțiunea a eșuat.');
+        _deviceOptimisticGuards.set(entityId, { state: optimisticState, until: Date.now() + DEVICE_OPTIMISTIC_GUARD_MS });
+        showToast(t('hy.command_sent'), 'success');
+    } catch (error) {
+        _deviceOptimisticGuards.delete(entityId);
+        entity.state = previousState;
+        renderDeviceCards();
+        showToast(error.message || t('hy.control_error'), 'error');
+    } finally {
+        _deviceControlPending.delete(entityId);
+        _markDeviceControlPending(entityId, false);
+        if (_haRowActionsEntityId === entityId) openRowActionsModal(entityId);
+    }
+}
+
+export function openAliasModalFromDetail(entityId) {
+    closeEntityDetailModal();
+    openAliasModal(entityId);
+}
+
+export function closeEntityDetailModal() {
+    const modal = document.getElementById('entity-detail-modal');
+    stopCameraPreviewRefresh();
+    if (modal) {
+        modal.querySelectorAll('hyve-camera-live-player').forEach(el => {
+            try { el.pauseStream?.(); } catch (_) {}
+        });
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    _haRowActionsEntityId = null;
+}
+
+export function closeRowActionsModal() {
+    closeEntityDetailModal();
+}
+
+export async function saveAliasesFromModal() {
+    if (!_haAliasModalEntityId) return;
+    const container = document.getElementById('hy-alias-inputs');
+    if (!container) return;
+    const inputs = container.querySelectorAll('input[data-ha-alias="1"]');
+    const aliases = Array.from(inputs).map(inp => inp.value.trim()).filter(s => s);
+    const d = _integrationEntitiesCache?.find(x => x.entity_id === _haAliasModalEntityId);
+    await apiCall('/api/integrations/entity/rename', { method: 'POST', body: { entity_id: _haAliasModalEntityId, aliases } });
+    if (d) d.aliases = aliases;
+    closeAliasModal();
+    renderDeviceCards();
+}
+
+export async function saveAliases(eid, val) {
+    const aliases = val.split(',').map(s => s.trim()).filter(s => s);
+    await apiCall('/api/integrations/entity/rename', { method: 'POST', body: { entity_id: eid, aliases } });
+    const d = _integrationEntitiesCache.find(x => x.entity_id === eid);
+    if (d) d.aliases = aliases;
+}
+
+// --- Add Devices Modal ---
+let _availableDevices = [];
+
+export async function openAddDevicesModal() {
+    // No-op: legacy Home Assistant "add devices" picker.
+}
+
+export function closeAddDevicesModal() {
+    const modal = document.getElementById('add-devices-modal');
+    if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+    _availableDevices = [];
+}
+
+function _renderAvailableDevices() {
+    const list = document.getElementById('add-devices-list');
+    if (!list) return;
+    const search = (document.getElementById('add-devices-search')?.value || '').toLowerCase();
+    const filtered = search ? _availableDevices.filter(d => `${d.name} ${d.entity_id}`.toLowerCase().includes(search)) : _availableDevices;
+
+    if (!filtered.length) {
+        list.innerHTML = `<div class="text-center text-slate-500 text-sm py-8">${search ? t('hy.no_devices_found') : t('hy.all_synced')}</div>`;
+        _updateAddCount();
+        return;
+    }
+
+    let currentDomain = '';
+    let html = '';
+    filtered.forEach(d => {
+        const domain = d.domain || d.entity_id.split('.')[0];
+        if (domain !== currentDomain) {
+            currentDomain = domain;
+            html += `<div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-3 mb-1 px-1">${domain.replace('_', ' ')}</div>`;
+        }
+        const icon = DOMAIN_ICONS[domain] || 'fa-microchip';
+        const color = DOMAIN_COLORS[domain] || 'bg-slate-500/15 text-slate-400';
+        const isActive = ACTIVE_STATES.includes(String(d.state).toLowerCase());
+        html += `<div class="add-device-item" onclick="toggleAvailableDevice(this, '${d.entity_id}')">
+            <input type="checkbox" class="add-device-check accent-accent cursor-pointer w-3.5 h-3.5 flex-shrink-0" value="${d.entity_id}" onclick="event.stopPropagation(); toggleAvailableDevice(this.parentElement, '${d.entity_id}')">
+            <div class="ha-card-icon ${color} w-8 h-8 text-xs"><i class="fas ${icon}"></i></div>
+            <div class="min-w-0 flex-1">
+                <div class="text-sm text-white font-medium truncate">${escapeHtml(d.name || d.entity_id)}</div>
+                <div class="text-[10px] text-slate-500 mono truncate">${d.entity_id}</div>
+            </div>
+            <span class="text-[10px] font-bold mono ${isActive ? 'text-green-400' : 'text-slate-500'}">${d.state}</span>
+        </div>`;
+    });
+    list.innerHTML = html;
+    _updateAddCount();
+}
+
+export function toggleAvailableDevice(el, eid) {
+    const cb = el.querySelector('.add-device-check');
+    if (cb && document.activeElement !== cb) cb.checked = !cb.checked;
+    el.classList.toggle('selected', cb?.checked);
+    _updateAddCount();
+}
+
+export function toggleAllAvailableDevices() {
+    const checks = document.querySelectorAll('.add-device-check');
+    const allChecked = Array.from(checks).every(c => c.checked);
+    checks.forEach(c => { c.checked = !allChecked; c.closest('.add-device-item')?.classList.toggle('selected', !allChecked); });
+    _updateAddCount();
+}
+
+function _updateAddCount() {
+    const count = document.querySelectorAll('.add-device-check:checked').length;
+    const el = document.getElementById('add-devices-count');
+    if (el) el.innerText = t('hy.bulk_selected', { count });
+}
+
+export function filterAvailableDevices() {
+    _renderAvailableDevices();
+}
+
+export async function confirmAddDevices() {
+    // No-op: legacy Home Assistant "add devices" picker.
+    closeAddDevicesModal();
+}
+
+
+export async function syncHA() {
+    loadSmarthome({ force: true });
+}
+
+/** Read-only view of cached integration entities (automation picker fallback). */
+export function getIntegrationEntities() {
+    return Array.isArray(_integrationEntitiesCache) ? _integrationEntitiesCache : [];
+}

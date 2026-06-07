@@ -1,0 +1,86 @@
+{
+  "slug": "frigate",
+  "name": "Frigate NVR",
+  "description": "NVR open-source local cu detecție AI pentru camerele tale RTSP.",
+  "long_description": "Rulează Frigate ca add-on Hyve în Docker, cu stocare persistentă pentru config, înregistrări și DB. Camerele pot fi aduse separat prin integrarea Frigate.",
+  "version": "stable",
+  "icon": "fas fa-shield-halved",
+  "image": "/static/icons/integrations/frigate.webp",
+  "color": "indigo",
+  "author": "Blake Blackshear",
+  "url": "https://frigate.video/",
+  "category": "automation",
+  "integration_key": "frigate",
+  "install": {
+    "method": "docker",
+    "image": "ghcr.io/blakeblackshear/frigate:stable",
+    "download_on_install": true,
+    "bundled": false,
+    "channel": "stable",
+    "notes": "Frigate nu vine în pachetul aplicației. La instalare se descarcă imaginea oficială Docker (ghcr.io/blakeblackshear/frigate:stable). Dacă Docker nu este disponibil pe acest Mac, Hyve îl aduce automat instalând Colima prin Homebrew (necesită brew preinstalat)."
+  },
+  "config_schema": [
+    {
+      "key": "port",
+      "label": "Port HTTP",
+      "type": "number",
+      "default": 5005,
+      "placeholder": "5005",
+      "description": "Portul interfeței web Frigate. Atenție: pe macOS portul 5000 e folosit de AirPlay Receiver — alege altul (5005, 5050, etc.)."
+    },
+    {
+      "key": "rtsp_port",
+      "label": "Port RTSP restream",
+      "type": "number",
+      "default": 8554,
+      "placeholder": "8554",
+      "description": "Portul go2rtc/RTSP expus de Frigate pentru re-streaming."
+    },
+    {
+      "key": "webrtc_port",
+      "label": "Port WebRTC",
+      "type": "number",
+      "default": 8555,
+      "placeholder": "8555",
+      "description": "Port WebRTC (TCP/UDP) pentru streaming low-latency."
+    },
+    {
+      "key": "api_key",
+      "label": "API key (opțional)",
+      "type": "password",
+      "default": "",
+      "placeholder": "lasă gol pentru acces local",
+      "description": "Cheie opțională pentru endpointurile Frigate locale, dacă ai activat autentificarea în configul Frigate."
+    },
+    {
+      "key": "snapshot_refresh",
+      "label": "Refresh snapshot dashboard (sec)",
+      "type": "number",
+      "default": 5,
+      "placeholder": "5",
+      "description": "Cât de des să reîncarce dashboard-ul snapshot-ul fiecărei camere."
+    }
+  ],
+  "health_check": {
+    "type": "http",
+    "host": "localhost",
+    "port_key": "port",
+    "path": "/api/version"
+  },
+  "web_ui": {
+    "host": "localhost",
+    "port_key": "port",
+    "protocol": "http",
+    "path": "/"
+  },
+  "start_command": {
+    "command": "bash",
+    "args": [
+      "run.sh",
+      "{port}",
+      "{rtsp_port}",
+      "{webrtc_port}"
+    ],
+    "description": "Pornește Frigate în Docker cu stocare persistentă pentru config, media și DB."
+  }
+}

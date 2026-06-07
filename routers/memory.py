@@ -10,13 +10,9 @@ import models
 import auth
 
 import brain
+from core.log_stream import log_line
 
 router = APIRouter(prefix="/api/memory", tags=["memory"])
-
-
-def _log_line(style, icon, title, message=""):
-    from main import log_line
-    log_line(style, icon, title, message)
 
 
 class MemoryUpdate(BaseModel):
@@ -57,7 +53,7 @@ async def get_mem(
         memories.sort(key=lambda x: x["timestamp"], reverse=True)
         return memories[offset:offset + limit]
     except Exception as e:
-        _log_line("error", "❌", "MEM API", str(e))
+        log_line("error", "❌", "MEM API", str(e))
         return []
 
 
@@ -69,7 +65,7 @@ async def update_mem(mem_id: str, data: MemoryUpdate, current_user: models.User 
         if not existing or not existing["ids"]:
             raise HTTPException(status_code=404, detail="Memory not found")
         coll.update(ids=[mem_id], documents=[data.text])
-        _log_line("mem", "✏️", "EDIT", f"Memory updated: {mem_id}")
+        log_line("mem", "✏️", "EDIT", f"Memory updated: {mem_id}")
         try:
             from core.memory_events import append_event, EVENT_UPDATED
             append_event(EVENT_UPDATED, user_id=f"user_{current_user.id}", summary=data.text[:120] + ("…" if len(data.text) > 120 else ""), details={"fact_id": mem_id})
@@ -79,7 +75,7 @@ async def update_mem(mem_id: str, data: MemoryUpdate, current_user: models.User 
     except HTTPException:
         raise
     except Exception:
-        _log_line("error", "❌", "MEM API", traceback.format_exc())
+        log_line("error", "❌", "MEM API", traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": "internal_server_error"})
 
 
@@ -99,7 +95,7 @@ async def bulk_delete_mem(data: MemoryBulkDelete, current_user: models.User = De
             if owned_ids:
                 coll.delete(ids=owned_ids)
                 deleted += len(owned_ids)
-        _log_line("mem", "🗑️", "DELETE", f"Deleted {deleted}/{len(data.ids)} memories.")
+        log_line("mem", "🗑️", "DELETE", f"Deleted {deleted}/{len(data.ids)} memories.")
         try:
             from core.memory_events import append_event, EVENT_DELETED
             append_event(EVENT_DELETED, user_id=user_id, summary=f"{len(data.ids)} items", details={"ids": data.ids})
@@ -107,7 +103,7 @@ async def bulk_delete_mem(data: MemoryBulkDelete, current_user: models.User = De
             pass
         return {"status": "ok"}
     except Exception:
-        _log_line("error", "❌", "MEM API", traceback.format_exc())
+        log_line("error", "❌", "MEM API", traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": "internal_server_error"})
 
 
@@ -126,7 +122,7 @@ async def get_memory_events(
         total = get_events_count(event_type=event_type or None, user_id=user_id)
         return {"events": events, "total": total}
     except Exception as e:
-        _log_line("error", "❌", "MEM EVENTS", str(e))
+        log_line("error", "❌", "MEM EVENTS", str(e))
         return {"events": [], "total": 0}
 
 
@@ -137,10 +133,10 @@ async def clear_memory_log(current_user: models.User = Depends(auth.get_current_
         from core.memory_events import clear_events
         if not clear_events():
             return JSONResponse(status_code=500, content={"error": "Clear failed"})
-        _log_line("mem", "🗑️", "MEM LOG", "Memory log cleared")
+        log_line("mem", "🗑️", "MEM LOG", "Memory log cleared")
         return {"status": "ok"}
     except Exception:
-        _log_line("error", "❌", "MEM LOG CLEAR", traceback.format_exc())
+        log_line("error", "❌", "MEM LOG CLEAR", traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": "internal_server_error"})
 
 
@@ -169,5 +165,5 @@ async def run_consolidation_now(
                 result["ai_prune"] = await asyncio.get_event_loop().run_in_executor(None, run_ai_prune, prune_cfg, llm_url, llm_model)
         return {"status": "ok", "result": result, "threshold_used": threshold}
     except Exception:
-        _log_line("error", "❌", "CONSOLIDATION", traceback.format_exc())
+        log_line("error", "❌", "CONSOLIDATION", traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": "internal_server_error"})

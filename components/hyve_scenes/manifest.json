@@ -1,0 +1,7 @@
+{
+  "domain": "hyve_scenes",
+  "name": "Hyve Scenes",
+  "version": "1.0.0",
+  "integration_type": "entity",
+  "dependencies": []
+}

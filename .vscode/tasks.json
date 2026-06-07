@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Memini: run server",
+      "label": "Hyve: run server",
       "type": "shell",
       "command": "${workspaceFolder}/venv/bin/python",
       "args": ["main.py"],
@@ -11,7 +11,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Memini: run tests",
+      "label": "Hyve: run tests",
       "type": "shell",
       "command": "${workspaceFolder}/venv/bin/python",
       "args": ["-m", "pytest"],
@@ -19,7 +19,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Memini: release checks",
+      "label": "Hyve: release checks",
       "type": "shell",
       "command": "${workspaceFolder}/venv/bin/python",
       "args": ["scripts/release_checks.py"],
@@ -27,7 +27,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Memini: release gate",
+      "label": "Hyve: release gate",
       "type": "shell",
       "command": "${workspaceFolder}/venv/bin/python",
       "args": ["scripts/release_gate.py"],
@@ -35,7 +35,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Memini: FCM checks",
+      "label": "Hyve: FCM checks",
       "type": "shell",
       "command": "${workspaceFolder}/venv/bin/python",
       "args": ["scripts/fcm_checks.py"],
@@ -43,14 +43,14 @@
       "problemMatcher": []
     },
     {
-      "label": "Memini: build CSS",
+      "label": "Hyve: build CSS",
       "type": "shell",
       "command": "npm",
       "args": ["run", "css:build"],
       "problemMatcher": []
     },
     {
-      "label": "Memini: watch CSS",
+      "label": "Hyve: watch CSS",
       "type": "shell",
       "command": "npm",
       "args": ["run", "css:watch"],

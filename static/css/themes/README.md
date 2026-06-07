@@ -1,4 +1,4 @@
-# Memini Themes
+# Hyve Themes
 
 Each theme is a pair of files inside `static/css/themes/`:
 

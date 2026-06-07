@@ -1,4 +1,4 @@
-"""OpenAI-compatible proxy for Home Assistant Assist: forwards to LLM and injects Bridge memories."""
+"""OpenAI-compatible proxy: forwards to LLM and injects Bridge memories."""
 from __future__ import annotations
 
 import asyncio

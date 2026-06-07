@@ -111,6 +111,15 @@ def _allowed_propose_dirs() -> List[str]:
     return [os.path.join(root, directory) for directory in dirs]
 
 
+def _is_path_within(base: str, candidate: str) -> bool:
+    try:
+        base_real = os.path.realpath(base)
+        candidate_real = os.path.realpath(candidate)
+        return os.path.commonpath([base_real, candidate_real]) == base_real
+    except (OSError, ValueError):
+        return False
+
+
 def _path_under_allowed(path_arg: str) -> Optional[str]:
     if not path_arg or ".." in path_arg or path_arg.startswith("/"):
         return None
@@ -118,12 +127,12 @@ def _path_under_allowed(path_arg: str) -> Optional[str]:
     root = project_root()
     for base in _allowed_propose_dirs():
         full = os.path.normpath(os.path.join(base, path))
-        if not os.path.normpath(full).startswith(os.path.normpath(base)):
+        if not _is_path_within(base, full):
             continue
         return full
     full = os.path.normpath(os.path.join(root, path))
     for base in _allowed_propose_dirs():
-        if full.startswith(base):
+        if _is_path_within(base, full):
             return full
     return None
 
@@ -191,7 +200,7 @@ def apply_proposal(proposal: Dict[str, Any]) -> Tuple[bool, str]:
         return False, "Missing path"
     full_path = os.path.normpath(os.path.realpath(full_path))
     allowed = _allowed_propose_dirs()
-    if not any(full_path.startswith(os.path.normpath(base)) for base in allowed):
+    if not any(_is_path_within(base, full_path) for base in allowed):
         return False, "Path not under allowed directories"
     if proposal_type == "patch":
         old_snippet = proposal.get("old_snippet")

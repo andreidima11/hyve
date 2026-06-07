@@ -1,0 +1,10 @@
+{
+  "config": {
+    "title": "Roborock"
+  },
+  "sensor": {
+    "battery": "Baterie",
+    "fan_speed": "Putere aspirare",
+    "cleaning_area": "Suprafață curățată"
+  }
+}

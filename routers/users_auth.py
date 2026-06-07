@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 import json
+import re
 
 import assist_keys
 import auth
@@ -13,8 +15,19 @@ router = APIRouter()
 
 
 class UpdateUserMeBody(BaseModel):
+    first_name: str | None = Field(None, max_length=64)
+    last_name: str | None = Field(None, max_length=64)
+    location: str | None = Field(None, max_length=128)
+    about_me: str | None = Field(None, max_length=2000)
     persona: str | None = Field(None, max_length=2000)
     notification_prefs: dict | None = None
+
+
+class UpdateUserSecurityBody(BaseModel):
+    current_password: str = Field(..., min_length=1, max_length=128)
+    username: str | None = Field(None, min_length=2, max_length=64)
+    email: str | None = Field(None, max_length=254)
+    new_password: str | None = Field(None, min_length=8, max_length=128)
 
 
 class CreateUserBody(BaseModel):
@@ -32,33 +45,69 @@ class UnlinkPhoneBody(BaseModel):
     number: str = Field(..., min_length=3, max_length=32)
 
 
+_USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{2,64}$")
+_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+
+def _clean_text(value: str | None, max_length: int) -> str | None:
+    cleaned = str(value or "").strip()
+    if not cleaned:
+        return None
+    return cleaned[:max_length]
+
+
+def _split_full_name(full_name: str | None) -> tuple[str, str]:
+    from core.user_profile import split_user_name
+    return split_user_name(full_name)
+
+
+def _serialize_user(current_user: models.User) -> dict:
+    notif_prefs = {"app": True, "whatsapp": True}
+    if current_user.notification_preferences:
+        try:
+            notif_prefs = json.loads(current_user.notification_preferences)
+        except Exception:
+            pass
+    first_name, last_name = _split_full_name(current_user.full_name)
+    return {
+        'id': current_user.id,
+        'username': current_user.username,
+        'full_name': current_user.full_name or current_user.username,
+        'first_name': first_name,
+        'last_name': last_name,
+        'email': current_user.email or '',
+        'location': current_user.location or '',
+        'about_me': current_user.about_me or '',
+        'is_admin': current_user.is_admin,
+        'phones': [p.number for p in current_user.phone_numbers],
+        'persona': current_user.persona_override or '',
+        'notification_prefs': notif_prefs,
+    }
+
+
 @router.post('/api/logout')
 async def logout_current_user(
+    request: Request,
     token: str = Depends(auth.oauth2_scheme),
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
     revoked = auth.revoke_token(token, db)
+    # Also revoke refresh token if provided in the body
+    try:
+        body = await request.json()
+        refresh_token = (body.get("refresh_token") or "").strip()
+        if refresh_token:
+            auth.revoke_token(refresh_token, db)
+    except Exception:
+        pass
     log_line('sys', '🚪', 'LOGOUT', f"User '{current_user.username}' logged out.")
     return {'ok': True, 'revoked': revoked}
 
 
 @router.get('/api/users/me')
 async def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
-    notif_prefs = {"app": True, "whatsapp": True}  # defaults
-    if current_user.notification_preferences:
-        try:
-            notif_prefs = json.loads(current_user.notification_preferences)
-        except Exception:
-            pass
-    return {
-        'id': current_user.id,
-        'username': current_user.username,
-        'is_admin': current_user.is_admin,
-        'phones': [p.number for p in current_user.phone_numbers],
-        'persona': current_user.persona_override or '',
-        'notification_prefs': notif_prefs,
-    }
+    return _serialize_user(current_user)
 
 
 @router.patch('/api/users/me')
@@ -67,26 +116,73 @@ async def update_users_me(
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
+    if data.first_name is not None or data.last_name is not None:
+        current_first, current_last = _split_full_name(current_user.full_name)
+        first_name = _clean_text(data.first_name, 64) if data.first_name is not None else current_first
+        last_name = _clean_text(data.last_name, 64) if data.last_name is not None else current_last
+        current_user.full_name = " ".join(part for part in [first_name, last_name] if part).strip() or current_user.username
+    if data.location is not None:
+        current_user.location = _clean_text(data.location, 128)
+    if data.about_me is not None:
+        current_user.about_me = _clean_text(data.about_me, 2000)
     if data.persona is not None:
         current_user.persona_override = data.persona.strip() or None
     if data.notification_prefs is not None:
         current_user.notification_preferences = json.dumps(data.notification_prefs)
     db.commit()
     db.refresh(current_user)
-    notif_prefs = {"app": True, "whatsapp": True}
-    if current_user.notification_preferences:
-        try:
-            notif_prefs = json.loads(current_user.notification_preferences)
-        except Exception:
-            pass
-    return {
-        'id': current_user.id,
-        'username': current_user.username,
-        'is_admin': current_user.is_admin,
-        'phones': [p.number for p in current_user.phone_numbers],
-        'persona': current_user.persona_override or '',
-        'notification_prefs': notif_prefs,
-    }
+    return _serialize_user(current_user)
+
+
+@router.patch('/api/users/me/security')
+async def update_users_me_security(
+    data: UpdateUserSecurityBody,
+    token: str = Depends(auth.oauth2_scheme),
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    if not auth.verify_password(data.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=403, detail='Parola curentă este incorectă')
+
+    username = data.username.strip() if data.username is not None else current_user.username
+    if not _USERNAME_RE.fullmatch(username):
+        raise HTTPException(status_code=400, detail='Username invalid. Folosește 2-64 caractere: litere, cifre, _, . sau -')
+
+    if username.lower() != current_user.username.lower():
+        existing = db.query(models.User).filter(func.lower(models.User.username) == username.lower()).first()
+        if existing:
+            raise HTTPException(status_code=400, detail='Username deja folosit')
+
+    email = current_user.email
+    if data.email is not None:
+        email = _clean_text(data.email, 254)
+        if email and not _EMAIL_RE.fullmatch(email):
+            raise HTTPException(status_code=400, detail='Email invalid')
+        if email:
+            email = email.lower()
+
+    auth_changed = username != current_user.username or bool(data.new_password)
+    current_user.username = username
+    current_user.email = email
+    if data.new_password:
+        if data.new_password == data.current_password:
+            raise HTTPException(status_code=400, detail='Parola nouă trebuie să fie diferită de parola curentă')
+        current_user.hashed_password = auth.get_password_hash(data.new_password)
+
+    db.commit()
+    db.refresh(current_user)
+
+    response = _serialize_user(current_user)
+    if auth_changed:
+        auth.revoke_token(token, db)
+        response.update({
+            'access_token': auth.create_access_token(data={'sub': current_user.username}),
+            'refresh_token': auth.create_refresh_token(data={'sub': current_user.username}),
+            'token_type': 'bearer',
+            'expires_in': auth.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        })
+    log_line('sys', '🔐', 'USER_SECURITY', f"User '{current_user.username}' updated account security settings.")
+    return response
 
 
 @router.get('/api/assist-key')

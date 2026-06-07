@@ -78,7 +78,8 @@ def _load_workflow_template() -> Optional[Dict[str, Any]]:
     # Priority 1: inline JSON in config
     wf_json = c.get("workflow_json")
     if wf_json and isinstance(wf_json, dict):
-        return json.loads(json.dumps(wf_json))  # deep copy
+        from copy import deepcopy
+        return deepcopy(wf_json)
 
     # Priority 2: file path
     wf_file = (c.get("workflow_file") or "").strip()
@@ -244,7 +245,7 @@ def _build_sd_workflow(
         "6": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["4", 1]}},
         "7": {"class_type": "CLIPTextEncode", "inputs": {"text": negative_prompt, "clip": ["4", 1]}},
         "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
-        "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "memini", "images": ["8", 0]}},
+        "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "hyve", "images": ["8", 0]}},
     }
 
 
@@ -269,7 +270,7 @@ def _build_flux_workflow(
             "model": ["4", 0], "positive": ["6", 0],
             "negative": ["7", 0], "latent_image": ["5", 0]}},
         "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
-        "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "memini", "images": ["8", 0]}},
+        "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "hyve", "images": ["8", 0]}},
     }
 
 

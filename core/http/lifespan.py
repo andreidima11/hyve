@@ -1,0 +1,255 @@
+"""FastAPI startup / shutdown lifecycle."""
+
+from __future__ import annotations
+
+import asyncio
+from contextlib import asynccontextmanager
+
+import httpx
+from sqlalchemy import text
+
+import database
+import scheduler_service
+import settings
+import storage
+from addons.entity_store import get_entity_store
+from core.http.runtime import set_main_loop
+from core.log_stream import log_line, print_banner
+
+
+@asynccontextmanager
+async def lifespan(app):
+    """Startup / shutdown lifecycle for the FastAPI app."""
+    from core.startup_status import mark_startup_task_done, reset_startup_status, set_startup_core_ready
+
+    reset_startup_status()
+    set_main_loop(asyncio.get_event_loop())
+
+    print_banner()
+    timeout = float(settings.CFG.get("llm", {}).get("timeout") or 120)
+    app.state.http_client = httpx.AsyncClient(timeout=timeout)
+
+    try:
+        from core.loop_watchdog import start_loop_watchdog
+
+        start_loop_watchdog(threshold_seconds=2.0, poll_seconds=0.25, dump_cooldown=30.0)
+    except Exception as e:
+        log_line("error", "⚠️", "WATCHDOG", f"loop watchdog failed to start: {e}")
+    try:
+        scheduler_service.start_scheduler()
+        scheduler_service.schedule_consolidation_job()
+        log_line("success", "⏰", "SCHEDULER", "Service started.")
+    except Exception as e:
+        log_line("error", "❌", "SCHEDULER", f"Failed: {e}")
+
+    try:
+        entity_store = get_entity_store()
+        await entity_store.initialize_schema()
+        log_line("success", "🔄", "ENTITIES", "Entity store initialized.")
+    except Exception as e:
+        log_line("error", "❌", "ENTITIES", f"Failed to initialize entity store: {e}")
+
+    try:
+        from integrations import get_integration_manager
+        from addons.entity_store import get_entity_store as _es
+
+        try:
+            from integrations.providers.sun import ensure_default_entry as _sun_default
+
+            _sun_default()
+        except Exception as e:
+            log_line("error", "⚠️", "SUN", f"auto-entry failed: {e}")
+
+        async def _bootstrap_integrations_background():
+            await asyncio.sleep(1)
+
+            def _boot_log(level, key, msg):
+                if level == "success":
+                    emoji, log_level = "🔄", "success"
+                elif level == "deferred":
+                    emoji, log_level = "⏳", "sys"
+                else:
+                    emoji = "⚠️"
+                    log_level = level if level in ("success", "error") else "sys"
+                log_line(log_level, emoji, "INTEGRATIONS", f"{key}: {msg}")
+
+            try:
+                await get_integration_manager().bootstrap_store(_es(), run_initial_sync=True, logger=_boot_log)
+            except Exception as e:
+                log_line("error", "⚠️", "INTEGRATIONS", f"Bootstrap failed: {e}")
+            finally:
+                mark_startup_task_done("integrations")
+
+        asyncio.create_task(_bootstrap_integrations_background(), name="integration-bootstrap")
+    except Exception as e:
+        log_line("error", "⚠️", "INTEGRATIONS", f"Bootstrap failed: {e}")
+        mark_startup_task_done("integrations")
+
+    try:
+        from integrations import get_integration_manager
+        from integrations.providers import mosquitto_bridge
+
+        for inst in get_integration_manager().entries_for("mosquitto"):
+            section = inst.config_section(settings.CFG)
+            host = (section.get("host") or "").strip() or "localhost"
+            try:
+                await asyncio.wait_for(
+                    mosquitto_bridge.start_bridge({**section, "host": host}, key=inst.entry_id),
+                    timeout=5.0,
+                )
+                log_line("success", "📡", "MQTT BRIDGE", f"connected to {host}:{section.get('port', 1883)}")
+            except asyncio.TimeoutError:
+                log_line("error", "⚠️", "MQTT BRIDGE", f"{host}: setup timed out; continuing without this bridge")
+    except Exception as e:
+        log_line("error", "⚠️", "MQTT BRIDGE", f"Setup failed: {e}")
+
+    try:
+        from brain.cortex import warmup_llm_cache
+
+        asyncio.create_task(warmup_llm_cache())
+    except Exception as e:
+        log_line("error", "⚠️", "WARMUP", f"Failed to schedule: {e}")
+
+    try:
+        from addons.process_manager import auto_start_watchdog_addons, start_watchdog
+
+        async def _start_addon_watchdog_background():
+            await asyncio.sleep(1)
+            try:
+                await auto_start_watchdog_addons()
+                await start_watchdog()
+            except Exception as e:
+                log_line("error", "⚠️", "WATCHDOG", f"Failed to start: {e}")
+            finally:
+                mark_startup_task_done("addons")
+
+        asyncio.create_task(_start_addon_watchdog_background(), name="addon-watchdog-startup")
+    except Exception as e:
+        log_line("error", "⚠️", "WATCHDOG", f"Failed to start: {e}")
+        mark_startup_task_done("addons")
+
+    try:
+        from core.entity_history import start_history_recorder
+
+        start_history_recorder()
+    except Exception as e:
+        log_line("error", "⚠️", "HISTORY", f"Failed to start: {e}")
+
+    try:
+        from core import state_observer
+
+        state_observer.start()
+        log_line("success", "📡", "STATE BUS", "observer started")
+    except Exception as e:
+        log_line("error", "⚠️", "STATE BUS", f"Failed to start: {e}")
+
+    try:
+        from brain.ambient import init_ambient, is_enabled as _ambient_enabled
+
+        if _ambient_enabled():
+            init_ambient(asyncio.get_event_loop())
+    except Exception as e:
+        log_line("error", "⚠️", "AMBIENT", f"Failed to start: {e}")
+
+    try:
+        from brain.briefings import is_enabled as _briefings_enabled, schedule_briefings
+
+        if _briefings_enabled():
+            schedule_briefings()
+    except Exception as e:
+        log_line("error", "⚠️", "BRIEFINGS", f"Failed to schedule: {e}")
+
+    try:
+        from brain.pattern_detector import init_pattern_detector
+
+        init_pattern_detector()
+    except Exception as e:
+        log_line("error", "⚠️", "PATTERNS", f"Failed to start: {e}")
+
+    async def _run_startup_db_maintenance():
+        await asyncio.sleep(1)
+        try:
+            db = next(database.get_db())
+            try:
+                r = db.execute(text("PRAGMA table_info(users)"))
+                cols = [row[1] for row in r.fetchall()]
+                if "default_profile_id" not in cols:
+                    db.execute(text("ALTER TABLE users ADD COLUMN default_profile_id VARCHAR"))
+                    db.commit()
+                    log_line("sys", "🔧", "MIGRATION", "Added users.default_profile_id")
+                from auth import cleanup_expired_revocations
+
+                removed = cleanup_expired_revocations(db)
+                if removed:
+                    log_line("sys", "🧹", "AUTH", f"Cleaned {removed} expired revoked tokens")
+            finally:
+                db.close()
+        except Exception as e:
+            log_line("error", "⚠️", "MIGRATION", str(e))
+
+    asyncio.create_task(_run_startup_db_maintenance(), name="startup-db-maintenance")
+
+    try:
+        from integrations.component_i18n import warm_cache
+
+        warm_cache()
+    except Exception as e:
+        log_line("error", "⚠️", "I18N", f"component translations preload failed: {e}")
+
+    set_startup_core_ready()
+    yield
+
+    scheduler_service.stop_scheduler()
+    try:
+        from core.loop_watchdog import stop_loop_watchdog
+
+        await stop_loop_watchdog()
+    except Exception:
+        pass
+    try:
+        from brain.ambient import shutdown_ambient
+
+        shutdown_ambient()
+    except Exception:
+        pass
+    try:
+        from core import state_observer
+
+        state_observer.stop()
+    except Exception:
+        pass
+    if getattr(app.state, "http_client", None) is not None:
+        await app.state.http_client.aclose()
+    try:
+        from llm_client import close_llm_client
+
+        await close_llm_client()
+    except Exception as e:
+        log_line("error", "⚠️", "SHUTDOWN", f"close_llm_client: {e}")
+    try:
+        get_entity_store().stop_all_sync_loops()
+    except Exception as e:
+        log_line("error", "⚠️", "SHUTDOWN", f"entity_store.stop_all: {e}")
+    try:
+        from core.entity_history import stop_history_recorder
+
+        await stop_history_recorder()
+    except Exception as e:
+        log_line("error", "⚠️", "SHUTDOWN", f"history.stop: {e}")
+    try:
+        from integrations.providers import mosquitto_bridge
+
+        await mosquitto_bridge.stop_bridge()
+    except Exception as e:
+        log_line("error", "⚠️", "SHUTDOWN", f"mosquitto_bridge.stop: {e}")
+    try:
+        from addons.process_manager import stop_all
+
+        await stop_all()
+    except Exception as e:
+        log_line("error", "⚠️", "SHUTDOWN", f"process_manager.stop_all: {e}")
+    try:
+        storage.shutdown_storage()
+    except Exception as e:
+        log_line("error", "⚠️", "SHUTDOWN", f"storage.shutdown_storage: {e}")
+    set_main_loop(None)

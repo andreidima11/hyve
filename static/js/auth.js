@@ -1,6 +1,6 @@
 import { apiCall, setAuthToken, setRefreshToken, clearAuthToken } from './api.js';
 
-const _RM_KEY = 'memini_remember';
+const _RM_KEY = 'hyve_remember';
 
 /** Push auth token to native Android bridge with retry (bridge may load after auth.js). */
 function _pushTokenToNative(token) {
@@ -48,6 +48,14 @@ export async function handleLogin(e) {
             localStorage.setItem(_RM_KEY, JSON.stringify({ u: user, t: data.access_token, rt: data.refresh_token }));
         } else {
             localStorage.removeItem(_RM_KEY);
+        }
+        // Re-enter the boot state machine instead of a full page reload.
+        // Falls back to reload if the helper is not available (defensive).
+        if (typeof window.bootHyve === 'function') {
+            try {
+                await window.bootHyve();
+                return;
+            } catch (_) { /* fall through to reload */ }
         }
         location.reload();
     } catch (e) {

@@ -70,7 +70,7 @@ def sync_package_lock_json(version: str) -> None:
     _write_json(path, data)
 
 def sync_build_gradle(version: str) -> None:
-    path = ROOT / "android" / "MeminiBridge" / "app" / "build.gradle.kts"
+    path = ROOT / "android" / "HyveBridge" / "app" / "build.gradle.kts"
     text = _read(path)
     text = re.sub(
         r'(versionName\s*=\s*")[^"]+(")',

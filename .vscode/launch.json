@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Memini: debug server",
+      "name": "Hyve: debug server",
       "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/main.py",
@@ -13,7 +13,7 @@
       "envFile": "${workspaceFolder}/.env"
     },
     {
-      "name": "Memini: debug tests",
+      "name": "Hyve: debug tests",
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",

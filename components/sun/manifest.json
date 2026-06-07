@@ -1,0 +1,8 @@
+{
+  "domain": "sun",
+  "name": "Sun",
+  "version": "1.0.0",
+  "integration_type": "entity",
+  "documentation": "https://www.home-assistant.io/integrations/sun/",
+  "dependencies": []
+}

@@ -219,34 +219,33 @@
     padding-bottom: 12rem;
 }
 
-[data-theme="canvas"] .memini-hero-wrap {
+[data-theme="canvas"] .hyve-hero-wrap {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
     margin-bottom: 0.7rem;
 }
 
-[data-theme="canvas"] .memini-hero-galaxy {
+[data-theme="canvas"] .hyve-hero-galaxy {
     inset: -22%;
     opacity: 0.55;
     filter: saturate(0.78);
 }
 
-[data-theme="canvas"] .memini-hero-galaxy::before {
+[data-theme="canvas"] .hyve-hero-galaxy::before {
     background: radial-gradient(ellipse at center, rgba(138, 180, 248, 0.11) 0%, rgba(156, 188, 255, 0.05) 36%, transparent 72%);
 }
 
-[data-theme="canvas"] .memini-logo--hero {
-    font-size: clamp(2.45rem, 4vw, 3.2rem);
-    animation: meminiLogoFloat 6.5s ease-in-out infinite;
+[data-theme="canvas"] .hyve-brand--hero {
+    animation-duration: 6.5s;
 }
 
-[data-theme="canvas"] .memini-logo--hero::after {
+[data-theme="canvas"] .hyve-brand--hero::after {
     background: radial-gradient(ellipse at center, rgba(138, 180, 248, 0.12) 0%, transparent 72%);
     opacity: 0.82;
 }
 
-[data-theme="canvas"] .memini-hero-bridge {
+[data-theme="canvas"] .hyve-hero-bridge {
     display: block !important;
     color: rgba(138, 180, 248, 0.72) !important;
     margin-bottom: 1rem;
@@ -257,15 +256,15 @@
 }
 
 @media (max-width: 639px) {
-    [data-theme="canvas"] .memini-hero-wrap {
+    [data-theme="canvas"] .hyve-hero-wrap {
         margin-bottom: 0.55rem;
     }
 
-    [data-theme="canvas"] .memini-logo--hero {
-        font-size: 2.3rem;
+    [data-theme="canvas"] .hyve-wordmark--hero {
+        font-size: 2.9rem;
     }
 
-    [data-theme="canvas"] .memini-hero-bridge {
+    [data-theme="canvas"] .hyve-hero-bridge {
         margin-bottom: 0.85rem;
     }
 }
@@ -337,9 +336,33 @@
     background: linear-gradient(135deg, #c6dafc 0%, #d4c3ff 100%) !important;
 }
 
+[data-theme="canvas"] .dashboard-modal-card .hv-multi-entity {
+    background: var(--surface-1) !important;
+    border-color: var(--border-medium) !important;
+}
+[data-theme="canvas"] .dashboard-modal-card .hv-multi-entity-row {
+    background: var(--surface-2) !important;
+    border-color: var(--border-subtle) !important;
+}
+[data-theme="canvas"] .dashboard-modal-card .hv-multi-entity-row input,
+[data-theme="canvas"] .dashboard-modal-card .hv-multi-entity-row select {
+    background: var(--surface-input) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-medium) !important;
+}
+[data-theme="canvas"] .dashboard-modal-card .hv-multi-entity__add {
+    background: var(--surface-2) !important;
+    border-color: var(--border-medium) !important;
+}
+[data-theme="canvas"] .dashboard-modal-card .hv-field--inline {
+    background: var(--surface-2) !important;
+    border-color: var(--border-subtle) !important;
+}
+
 [data-theme="canvas"] .model-selector-balloon,
 [data-theme="canvas"] .chat-attach-balloon,
 [data-theme="canvas"] .glass,
+[data-theme="canvas"] .dashboard-modal-card,
 [data-theme="canvas"] .cfg-section,
 [data-theme="canvas"] .theme-option,
 [data-theme="canvas"] .conf-persona-card,
@@ -465,7 +488,7 @@
     background: #17191d !important;
 }
 
-[data-theme="canvas"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(.chat-input-field):not(.intel-search-input):not(.ha-search-input),
+[data-theme="canvas"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(.chat-input-field):not(.intel-search-input):not(.ha-search-input):not(.hy-search-input),
 [data-theme="canvas"] select,
 [data-theme="canvas"] textarea:not(.chat-input-field) {
     background: #17191d !important;
@@ -474,7 +497,7 @@
     box-shadow: none !important;
 }
 
-[data-theme="canvas"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(.chat-input-field):not(.intel-search-input):not(.ha-search-input):focus,
+[data-theme="canvas"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(.chat-input-field):not(.intel-search-input):not(.ha-search-input):not(.hy-search-input):focus,
 [data-theme="canvas"] select:focus,
 [data-theme="canvas"] textarea:not(.chat-input-field):focus {
     border-color: rgba(138, 180, 248, 0.35) !important;
@@ -562,4 +585,12 @@
     [data-theme="canvas"] #sidebar {
         width: 17rem !important;
     }
+}
+
+/* Pop-over menus must be fully opaque so page content (e.g. live logs)
+   doesn't bleed through the translucent surface. */
+[data-theme="canvas"] .dashboard-custom-select__menu,
+[data-theme="canvas"] .automation-inline-ac-dropdown {
+    background: #191b1f !important;
+    background-color: #191b1f !important;
 }

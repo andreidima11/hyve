@@ -98,11 +98,41 @@ def _bm25_score(query_tokens: list[str], doc_tokens: list[str],
     return score
 
 
+def _expand_memory_search_query(user_text: str) -> str:
+    """Broaden short or indirect messages so vector search matches stored preferences."""
+    text = (user_text or "").strip()
+    if not text:
+        return text
+    lower = text.lower()
+    expansions: list[str] = []
+    if re.search(
+        r"\b(fruct|fructe|mananc|manc|eat|food|meal|snack|breakfast|lunch|dinner|"
+        r"cafea|coffee|pizza|restaurant|gust|gusturi|prefer)\b",
+        lower,
+    ):
+        expansions.append("food preferences likes dislikes favorite")
+    if re.search(
+        r"\b(recoman|suggest|prefer|imii place|imi plac|what should i|ce sa|what to|"
+        r"ce imi|what do i)\b",
+        lower,
+    ):
+        expansions.append("user preferences habits likes")
+    if re.search(
+        r"\b(hobby|job|work|family|cat|dog|pet|masina|car|bike|health|allerg|"
+        r"plan|schedule|routine)\b",
+        lower,
+    ):
+        expansions.append("personal facts preferences habits")
+    if expansions:
+        return f"{text} {' '.join(expansions)}"
+    return text
+
+
 def get_memory_context(user_text: str, prev_context: str, user_id: str) -> str:
     if not user_text or len(user_text) < 2:
         return ""
     # Use just the user's message for search (prev_context adds noise)
-    search_query = user_text.strip()[:500]
+    search_query = _expand_memory_search_query(user_text.strip()[:500])
     cache_key = _memory_cache_key(str(user_id), search_query)
     cached = _memory_cache_get(cache_key)
     if cached is not None:

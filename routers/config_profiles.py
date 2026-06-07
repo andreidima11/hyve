@@ -11,6 +11,28 @@ from core.auto_router_stats import get_auto_router_stats
 router = APIRouter()
 
 
+def _is_masked_secret(value: str | None) -> bool:
+    """Return True for UI placeholders like bullets/asterisks used for redacted secrets."""
+    if not isinstance(value, str):
+        return False
+    s = value.strip()
+    if not s:
+        return False
+    return bool(s) and all(ch in "•*●·xX#-" for ch in s)
+
+
+def _merge_masked_secrets(incoming: dict, existing: dict):
+    """Replace redacted placeholders in incoming config with the current stored secret values."""
+    if not isinstance(incoming, dict) or not isinstance(existing, dict):
+        return
+    for key, value in list(incoming.items()):
+        current = existing.get(key)
+        if isinstance(value, dict) and isinstance(current, dict):
+            _merge_masked_secrets(value, current)
+        elif isinstance(value, str) and _is_masked_secret(value) and isinstance(current, str):
+            incoming[key] = current
+
+
 @router.get("/api/config")
 async def get_cfg(current_user: models.User = Depends(auth.get_current_user)):
     cfg = settings.reload_config()
@@ -29,9 +51,7 @@ async def get_cfg(current_user: models.User = Depends(auth.get_current_user)):
             section = safe.get(section_key)
             if isinstance(section, dict):
                 section.pop('api_key', None)
-        ha = safe.get('home_assistant')
-        if isinstance(ha, dict):
-            ha.pop('token', None)
+        safe.pop('home_assistant', None)
         waha = safe.get('waha')
         if isinstance(waha, dict):
             waha.pop('api_key', None)
@@ -44,11 +64,32 @@ async def get_cfg(current_user: models.User = Depends(auth.get_current_user)):
             aux.pop('api_key', None)
     else:
         _redact(safe)
+
+    mem = safe.get("memory")
+    if isinstance(mem, dict) and not mem.get("extraction_rules"):
+        try:
+            from brain.cortex import _MEMORY_RULES
+            mem["extraction_rules"] = _MEMORY_RULES.strip()
+        except Exception:
+            pass
+
+    prompts = safe.get("prompts")
+    if isinstance(prompts, dict):
+        from settings import DEFAULT_CONFIG as DEFAULTS
+        defaults_p = DEFAULTS.get("prompts", {})
+        for key in ("system_persona", "agent_instructions", "agent_instructions_fallback",
+                     "agent_instruction_overrides", "search_web_single_message_instruction",
+                     "web_content_reply_instruction", "image_placeholder", "summarize"):
+            if not prompts.get(key):
+                prompts[key] = defaults_p.get(key, "")
+
     return safe
 
 
 @router.post("/api/config")
 async def set_cfg(data: dict, _: models.User = Depends(auth.get_current_admin)):
+    existing = settings.reload_config()
+    _merge_masked_secrets(data, existing)
     settings.save_config(data)
     settings.reload_config()
     try:
@@ -60,12 +101,24 @@ async def set_cfg(data: dict, _: models.User = Depends(auth.get_current_admin)):
         scheduler_service.schedule_consolidation_job()
     except Exception:
         pass
+    try:
+        from routers.updates import schedule_addon_check
+        schedule_addon_check()
+    except Exception:
+        pass
+    try:
+        from brain import ambient
+        ambient.reschedule_checkins()
+    except Exception:
+        pass
     return {"status": "ok"}
 
 
 @router.patch("/api/config")
 async def patch_cfg(data: dict, current_user: models.User = Depends(auth.get_current_user)):
     allowed = None if current_user.is_admin else ["ui"]
+    existing = settings.reload_config()
+    _merge_masked_secrets(data, existing)
     settings.merge_config_partial(data, allowed_top_level_keys=allowed)
     settings.reload_config()
     try:
@@ -275,15 +328,22 @@ async def activate_model_profile(profile_id: str, current_user: models.User = De
             "max_tokens": profile.get("max_tokens", 2048),
         }
         update = {"llm": llm_update, "active_profile_id": profile_id}
+        # Always sync intelligence.aux_llm with the active profile. When the
+        # profile has aux disabled, blank it out so consumers (intent_router,
+        # direct_commands, scheduler, cortex._get_aux_or_main_llm) fall back
+        # to the main LLM instead of using a stale aux_llm from a previous
+        # profile.
+        intel = dict(settings.CFG.get("intelligence") or {})
         if profile.get("aux_llm_enabled"):
             aux = profile.get("aux_llm") or {}
-            intel = dict(settings.CFG.get("intelligence") or {})
             intel["aux_llm"] = {
                 "target_url": aux.get("target_url") or "",
                 "model_name": aux.get("model_name") or "",
                 "api_key": aux.get("api_key") or "",
             }
-            update["intelligence"] = intel
+        else:
+            intel["aux_llm"] = {"target_url": "", "model_name": "", "api_key": ""}
+        update["intelligence"] = intel
         if profile.get("coder_enabled"):
             coder = profile.get("coder") or {}
             update["coder"] = {

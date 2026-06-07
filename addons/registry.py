@@ -3,8 +3,8 @@ Add-on registry — discovers, installs, configures and monitors add-ons.
 
 Each add-on is a JSON manifest in  addons/available/<slug>.json  with:
   - slug, name, description, version, icon (FA class), color (tailwind)
-  - install.method  : "pip" | "docker" | "binary" | "wyoming"
-  - install.packages / install.image / install.url  (depending on method)
+  - install.method  : "pip" | "docker" | "binary" | "wyoming" | "brew" | "npm"
+  - install.requirements / install.packages / install.image / install.url  (depending on method)
   - config_schema   : list of field defs for the settings UI
   - health_check    : { type: "tcp"|"http", host_key, port_key }
   - integration_key : if set, maps to an existing integration in config.json
@@ -20,6 +20,7 @@ import importlib.util
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -32,7 +33,19 @@ log = logging.getLogger("addons")
 
 _ADDONS_DIR = Path(__file__).parent
 _AVAILABLE_DIR = _ADDONS_DIR / "available"
+_PROJECT_ROOT = _ADDONS_DIR.parent
+# Community / user-supplied addons live outside the bundled catalog so they
+# survive Hyve upgrades and don't pollute the repo. HA-style: drop a folder in
+# here and it shows up in Settings → Add-ons without touching Hyve sources.
+_CUSTOM_DIR = Path(
+    os.environ.get("HYVE_CUSTOM_ADDONS_DIR")
+    or (_PROJECT_ROOT / "custom_addons")
+)
 
+# Cache of slug → source directory (where manifest.json or <slug>.json lives).
+# Used by process_manager to resolve start_command script paths relative to the
+# addon's own folder, so community addons can ship their own run.sh.
+_addon_dirs: dict[str, Path] = {}
 
 # ── helpers ────────────────────────────────────────────────────────────────
 
@@ -53,32 +66,88 @@ def _save_addon_state(slug: str, state: dict):
 
 # ── registry ───────────────────────────────────────────────────────────────
 
+def _iter_manifest_paths(root: Path):
+    """Yield (slug, manifest_path, addon_dir) for each addon under ``root``.
+
+    Two layouts are supported:
+      - Folder-based:  <root>/<slug>/manifest.json   (preferred, HA-style)
+      - Single file:   <root>/<slug>.json            (legacy / quick prototype)
+    Folder layout takes precedence when both exist for the same slug.
+    """
+    if not root.is_dir():
+        return
+    seen: set[str] = set()
+    for entry in sorted(root.iterdir()):
+        if entry.name.startswith(".") or entry.name.startswith("_"):
+            continue
+        if entry.is_dir():
+            mf = entry / "manifest.json"
+            if mf.is_file():
+                seen.add(entry.name)
+                yield entry.name, mf, entry
+    for entry in sorted(root.glob("*.json")):
+        slug = entry.stem
+        if slug in seen:
+            continue
+        yield slug, entry, root
+
+
+def _load_manifest_file(slug: str, path: Path, addon_dir: Path) -> dict | None:
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        log.warning("Bad addon manifest %s: %s", path, e)
+        return None
+    manifest.setdefault("slug", slug)
+    manifest["_addon_dir"] = str(addon_dir)
+    manifest["_source"] = "custom" if _CUSTOM_DIR in addon_dir.parents or addon_dir == _CUSTOM_DIR else "builtin"
+    _addon_dirs[slug] = addon_dir
+    return manifest
+
+
 def list_available() -> list[dict]:
-    """Return all available addon manifests."""
-    result = []
-    if not _AVAILABLE_DIR.is_dir():
-        return result
-    for f in sorted(_AVAILABLE_DIR.glob("*.json")):
-        try:
-            manifest = json.loads(f.read_text(encoding="utf-8"))
-            manifest.setdefault("slug", f.stem)
-            result.append(manifest)
-        except Exception as e:
-            log.warning("Bad addon manifest %s: %s", f.name, e)
-    return result
+    """Return all available addon manifests, builtin + custom.
+
+    Custom addons (under ``custom_addons/`` or ``$HYVE_CUSTOM_ADDONS_DIR``)
+    can override builtin ones by sharing the same slug.
+    """
+    result: dict[str, dict] = {}
+    for slug, mf_path, addon_dir in _iter_manifest_paths(_AVAILABLE_DIR):
+        manifest = _load_manifest_file(slug, mf_path, addon_dir)
+        if manifest:
+            result[slug] = manifest
+    # Custom addons loaded second → they win on slug collision.
+    for slug, mf_path, addon_dir in _iter_manifest_paths(_CUSTOM_DIR):
+        manifest = _load_manifest_file(slug, mf_path, addon_dir)
+        if manifest:
+            result[slug] = manifest
+    return sorted(result.values(), key=lambda m: m.get("slug", ""))
 
 
 def get_manifest(slug: str) -> dict | None:
-    """Load a single addon manifest by slug."""
-    p = _AVAILABLE_DIR / f"{slug}.json"
-    if not p.is_file():
-        return None
-    try:
-        m = json.loads(p.read_text(encoding="utf-8"))
-        m.setdefault("slug", slug)
-        return m
-    except Exception:
-        return None
+    """Load a single addon manifest by slug. Custom overrides builtin."""
+    # Custom first (override semantics)
+    for root in (_CUSTOM_DIR, _AVAILABLE_DIR):
+        if not root.is_dir():
+            continue
+        folder = root / slug
+        mf = folder / "manifest.json"
+        if mf.is_file():
+            return _load_manifest_file(slug, mf, folder)
+        single = root / f"{slug}.json"
+        if single.is_file():
+            return _load_manifest_file(slug, single, root)
+    return None
+
+
+def get_addon_dir(slug: str) -> Path | None:
+    """Return the directory that owns the addon (where run.sh / assets live).
+
+    Falls back to triggering a manifest load if the cache is cold.
+    """
+    if slug not in _addon_dirs:
+        get_manifest(slug)
+    return _addon_dirs.get(slug)
 
 
 def get_state(slug: str) -> dict:
@@ -92,13 +161,213 @@ def get_state(slug: str) -> dict:
     })
 
 
+def version_is_newer(latest: str, current: str) -> bool:
+    """Return True if ``latest`` is a newer version than ``current``.
+
+    Handles arbitrary version strings (``2024.11.0``, ``2.0``, ``stable``,
+    ``latest``). Numeric dotted parts compare semantically; non-numeric parts
+    compare lexicographically. Equal strings → no update. Generic for every
+    add-on — nothing is hardcoded per add-on.
+    """
+    latest = str(latest or "").strip()
+    current = str(current or "").strip()
+    if not latest or not current or latest == current:
+        return False
+
+    def _tokens(v: str):
+        out = []
+        for part in re.split(r"[.\-_+]", v):
+            out.append((1, int(part)) if part.isdigit() else (0, 0, part))
+        return out
+
+    lt, ct = _tokens(latest), _tokens(current)
+    for i in range(max(len(lt), len(ct))):
+        a = lt[i] if i < len(lt) else (1, -1)
+        b = ct[i] if i < len(ct) else (1, -1)
+        if a != b:
+            try:
+                return a > b
+            except TypeError:
+                # Mixed numeric/string token → fall back to string inequality.
+                return latest != current
+    # Tokens identical but raw strings differ (rare) → treat as update.
+    return latest != current
+
+
+def is_update_available(manifest: dict, state: dict) -> bool:
+    """Whether an installed add-on has a newer version available.
+
+    Prefers the live ``latest_version`` cached on the state (resolved from the
+    package registry during a check); falls back to the bundled manifest
+    version for add-ons we can't query live. Fully generic — works for any
+    add-on, including ones added in the future.
+    """
+    state = state or {}
+    if not state.get("installed"):
+        return False
+    current = state.get("version") or ""
+    latest = state.get("latest_version")
+    if latest:
+        return version_is_newer(latest, current)
+    return version_is_newer((manifest or {}).get("version") or "", current)
+
+
+# ── live version resolution (per install method, generic) ──────────────────
+
+def _strip_pkg_version(spec: str, npm: bool = False) -> str:
+    """Extract the bare package name from a dependency spec."""
+    spec = (spec or "").strip()
+    if not spec:
+        return ""
+    if npm:
+        if spec.startswith("@"):
+            # Scoped package: @scope/name@version
+            idx = spec.find("@", 1)
+            return spec[:idx] if idx != -1 else spec
+        return spec.split("@", 1)[0]
+    # pip: name[extras]<op>version
+    return re.split(r"[<>=!~\[ ]", spec, 1)[0].strip()
+
+
+def _npm_prefix_dir(manifest: dict) -> Path | None:
+    args = (manifest.get("install", {}) or {}).get("args", []) or []
+    for i, a in enumerate(args):
+        if a == "--prefix" and i + 1 < len(args):
+            p = Path(args[i + 1])
+            return p if p.is_absolute() else (_PROJECT_ROOT / p)
+    return None
+
+
+def _run_capture(cmd: list[str], timeout: float = 30) -> str | None:
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        if r.returncode == 0:
+            return r.stdout.strip()
+    except Exception as e:
+        log.debug("version cmd failed %s: %s", cmd, e)
+    return None
+
+
+def _pip_installed_version(pkg: str) -> str | None:
+    out = _run_capture([sys.executable, "-m", "pip", "show", pkg], timeout=30)
+    if not out:
+        return None
+    for line in out.splitlines():
+        if line.lower().startswith("version:"):
+            return line.split(":", 1)[1].strip()
+    return None
+
+
+def _pypi_latest_version(pkg: str) -> str | None:
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f"https://pypi.org/pypi/{pkg}/json", timeout=12) as resp:
+            data = json.loads(resp.read().decode("utf-8", "replace"))
+        return (data.get("info") or {}).get("version")
+    except Exception as e:
+        log.debug("pypi latest failed for %s: %s", pkg, e)
+        return None
+
+
+def _npm_installed_version(pkg: str, prefix: Path | None) -> str | None:
+    if prefix:
+        pj = prefix / "node_modules" / pkg / "package.json"
+        try:
+            if pj.is_file():
+                return json.loads(pj.read_text(encoding="utf-8")).get("version")
+        except Exception:
+            pass
+    cmd = ["npm", "ls", pkg, "--depth=0", "--json"]
+    if prefix:
+        cmd += ["--prefix", str(prefix)]
+    out = _run_capture(cmd, timeout=30)
+    if out:
+        try:
+            data = json.loads(out)
+            dep = (data.get("dependencies") or {}).get(pkg) or {}
+            return dep.get("version") or None
+        except Exception:
+            pass
+    return None
+
+
+def _npm_latest_version(pkg: str) -> str | None:
+    return _run_capture(["npm", "view", pkg, "version"], timeout=30)
+
+
+def _resolve_installed_version(manifest: dict) -> str | None:
+    """Read the *actual* installed version (local, fast — no network)."""
+    install = manifest.get("install", {}) or {}
+    method = install.get("method", "pip")
+    packages = install.get("packages") or []
+    if not packages:
+        return None
+    if method in ("pip", "wyoming"):
+        return _pip_installed_version(_strip_pkg_version(packages[0]))
+    if method == "npm":
+        return _npm_installed_version(_strip_pkg_version(packages[0], npm=True), _npm_prefix_dir(manifest))
+    return None
+
+
+def _resolve_latest_version(manifest: dict) -> str | None:
+    """Query the package registry for the latest version (may hit the network)."""
+    install = manifest.get("install", {}) or {}
+    method = install.get("method", "pip")
+    packages = install.get("packages") or []
+    if not packages:
+        return None
+    if method in ("pip", "wyoming"):
+        return _pypi_latest_version(_strip_pkg_version(packages[0]))
+    if method == "npm":
+        return _npm_latest_version(_strip_pkg_version(packages[0], npm=True))
+    return None
+
+
+def refresh_addon_versions(slug: str) -> dict:
+    """Resolve and persist the real installed + latest versions for an add-on.
+
+    Used by the update-check flow. No-op for add-ons whose version cannot be
+    resolved (docker / brew / binary, or missing tooling) — those keep the
+    manifest-based comparison and never produce false positives.
+    """
+    manifest = get_manifest(slug)
+    state = get_state(slug)
+    if not manifest or not state.get("installed"):
+        return state
+
+    changed = False
+    try:
+        installed = _resolve_installed_version(manifest)
+        if installed and state.get("version") != installed:
+            state["version"] = installed
+            changed = True
+    except Exception as e:
+        log.debug("installed version resolve failed for %s: %s", slug, e)
+
+    try:
+        latest = _resolve_latest_version(manifest)
+        if latest is not None and state.get("latest_version") != latest:
+            state["latest_version"] = latest
+            changed = True
+    except Exception as e:
+        log.debug("latest version resolve failed for %s: %s", slug, e)
+
+    if changed:
+        _save_addon_state(slug, state)
+    return state
+
+
 def list_all() -> list[dict]:
-    """Return manifests merged with installed state."""
+    """Return manifests merged with installed state + an update-available flag."""
     result = []
     for manifest in list_available():
         slug = manifest["slug"]
         state = get_state(slug)
-        result.append({**manifest, "state": state})
+        result.append({
+            **manifest,
+            "state": state,
+            "update_available": is_update_available(manifest, state),
+        })
     return result
 
 
@@ -126,12 +395,44 @@ async def preflight_check(slug: str) -> list[dict]:
     if method in ("pip", "wyoming") and any("pyaudio" in p.lower() for p in packages):
         checks.append(await _check_portaudio())
 
-    # docker method needs docker
+    # docker method needs docker — but if it's missing we auto-install
+    # Colima via Homebrew during the install step, so the preflight passes
+    # as long as either docker OR brew is available.
     if method == "docker":
+        if shutil.which("docker"):
+            checks.append({"name": "Docker", "ok": True, "detail": "OK", "fix": ""})
+        elif shutil.which("brew"):
+            checks.append({
+                "name": "Docker",
+                "ok": True,
+                "detail": "Lipsă — va fi instalat automat (Colima via Homebrew).",
+                "fix": "",
+            })
+        else:
+            checks.append({
+                "name": "Docker",
+                "ok": False,
+                "detail": "Nici Docker, nici Homebrew nu sunt instalate.",
+                "fix": "Instalează Homebrew: https://brew.sh (apoi reîncearcă instalarea — Hyve aduce restul).",
+            })
+
+    if method == "brew":
         checks.append(await _check_command(
-            ["docker", "--version"],
-            name="Docker",
-            fix="Instalează Docker Desktop: https://www.docker.com/products/docker-desktop",
+            ["brew", "--version"],
+            name="Homebrew",
+            fix="Instalează Homebrew: https://brew.sh",
+        ))
+
+    if method == "npm":
+        checks.append(await _check_command(
+            ["npm", "--version"],
+            name="npm",
+            fix="Instalează Node.js și npm: https://nodejs.org",
+        ))
+        checks.append(await _check_command(
+            ["node", "--version"],
+            name="Node.js",
+            fix="Instalează Node.js: https://nodejs.org",
         ))
 
     return checks
@@ -223,6 +524,43 @@ def install_addon(slug: str) -> dict:
     return _finalize_install(slug, manifest)
 
 
+def update_addon(slug: str) -> dict:
+    """Update an installed addon to the latest available version while preserving state."""
+    manifest = get_manifest(slug)
+    if not manifest:
+        raise ValueError(f"Unknown addon: {slug}")
+
+    current = get_state(slug)
+    if not current.get("installed"):
+        raise ValueError(f"Addon {slug} is not installed")
+
+    _run_install_commands(manifest)
+
+    schema = manifest.get("config_schema", [])
+    default_config = {field["key"]: field.get("default", "") for field in schema}
+    merged_config = {**default_config, **(current.get("config") or {})}
+
+    version = manifest.get("version", "1.0.0")
+    try:
+        resolved = _resolve_installed_version(manifest)
+        if resolved:
+            version = resolved
+    except Exception:
+        pass
+
+    state = {
+        "installed": True,
+        "enabled": bool(current.get("enabled", False)),
+        "version": version,
+        "latest_version": version,  # freshly updated → clears the badge
+        "config": merged_config,
+        "watchdog": bool(current.get("watchdog", False)),
+    }
+    _save_addon_state(slug, state)
+    log.info("Addon %s updated successfully", slug)
+    return state
+
+
 async def install_addon_stream(slug: str):
     """Install an addon, yielding log lines as they arrive (async generator).
 
@@ -235,34 +573,43 @@ async def install_addon_stream(slug: str):
 
     install = manifest.get("install", {})
     method = install.get("method", "pip")
-    cmd = _build_install_cmd(method, install)
+    cmds = _build_install_cmds(method, install)
 
-    if cmd is None:
-        # method == "binary" — nothing to run
-        _finalize_install(slug, manifest)
-        yield "Add-on marcat ca instalat (binary — fără descărcare)."
-        yield "__DONE__"
+    # Auto-bootstrap missing prerequisites (e.g. Docker daemon for `docker`
+    # method on macOS — we install Colima via brew so a single click works
+    # without forcing the user to download Docker Desktop manually).
+    bootstrap = _bootstrap_cmds_for_method(method)
+
+    if not cmds:
+        if method == "binary":
+            _finalize_install(slug, manifest)
+            yield "Add-on marcat ca instalat (binary — fără descărcare)."
+            yield "__DONE__"
+            return
+        yield f"__FAIL__:Metoda de instalare {method!r} nu este configurată corect pentru add-on-ul {slug}."
         return
 
-    yield f"$ {' '.join(cmd)}\n"
-
     try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
-            cwd=str(Path(__file__).resolve().parent.parent),
-        )
+        if bootstrap:
+            yield "── Pregătire prerechizite ──────────────────────\n"
+        for cmd in bootstrap + cmds:
+            yield f"$ {' '.join(cmd)}\n"
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+                cwd=str(Path(__file__).resolve().parent.parent),
+            )
 
-        async for raw_line in proc.stdout:
-            yield raw_line.decode("utf-8", errors="replace")
+            async for raw_line in proc.stdout:
+                yield raw_line.decode("utf-8", errors="replace")
 
-        await proc.wait()
+            await proc.wait()
 
-        if proc.returncode != 0:
-            yield f"\nProces terminat cu cod {proc.returncode}\n"
-            yield f"__FAIL__:Install exited with code {proc.returncode}"
-            return
+            if proc.returncode != 0:
+                yield f"\nProces terminat cu cod {proc.returncode}\n"
+                yield f"__FAIL__:Install exited with code {proc.returncode}"
+                return
 
         # Apply post-install patches
         patches = install.get("post_install_patches", [])
@@ -284,30 +631,89 @@ async def install_addon_stream(slug: str):
 
 # ── install helpers ──────────────────────────────────────────────────────
 
-def _build_install_cmd(method: str, install: dict) -> list[str] | None:
-    """Build the subprocess command list for an install method (or None for binary)."""
-    if method == "pip":
-        packages = install.get("packages", [])
+def _build_install_cmds(method: str, install: dict) -> list[list[str]]:
+    """Build one or more install commands, with requirements executed before main packages."""
+    requirements = install.get("requirements", []) or []
+    packages = install.get("packages", []) or []
+    extra_args = install.get("args", []) or []
+    cmds: list[list[str]] = []
+
+    if method in ("pip", "wyoming"):
+        if requirements:
+            cmds.append([sys.executable, "-m", "pip", "install", "--upgrade"] + requirements)
         if packages:
-            return [sys.executable, "-m", "pip", "install"] + packages
-        return None
+            cmds.append([sys.executable, "-m", "pip", "install", "--upgrade"] + packages)
+        return cmds
 
     if method == "docker":
         image = install.get("image", "")
         if image:
-            return ["docker", "pull", image]
-        return None
+            # Use a login shell so we pick up brew-installed binaries even
+            # when Hyve was started outside a terminal session.
+            return [["bash", "-lc", f"docker pull {image}"]]
+        return []
+
+    if method == "brew":
+        if requirements:
+            cmds.append(["brew", "install"] + requirements)
+        if packages:
+            cmds.append(["brew", "install"] + packages)
+        return cmds
+
+    if method == "npm":
+        if requirements:
+            cmds.append(["npm", "install"] + extra_args + requirements)
+        if packages:
+            cmds.append(["npm", "install"] + extra_args + packages)
+        return cmds
 
     if method == "binary":
-        return None
+        return []
 
-    if method == "wyoming":
-        pip_packages = install.get("packages", [])
-        if pip_packages:
-            return [sys.executable, "-m", "pip", "install"] + pip_packages
-        return None
+    return []
 
-    return None
+
+def _bootstrap_cmds_for_method(method: str) -> list[list[str]]:
+    """Return commands needed to make `method` usable, or [] if already ready.
+
+    For ``docker`` on macOS this auto-installs Colima (a free, headless Docker
+    runtime) and starts its VM, so the user can install Docker-based add-ons
+    with one click instead of downloading Docker Desktop manually.
+    """
+    cmds: list[list[str]] = []
+    if method != "docker":
+        return cmds
+
+    docker_cli = shutil.which("docker")
+    colima_cli = shutil.which("colima")
+
+    # Need Homebrew to bootstrap anything on macOS.
+    brew = shutil.which("brew")
+
+    # Install missing CLIs via brew.
+    missing_pkgs: list[str] = []
+    if not docker_cli:
+        missing_pkgs.append("docker")
+    if not colima_cli:
+        missing_pkgs.append("colima")
+    if missing_pkgs:
+        if brew:
+            cmds.append(["brew", "install"] + missing_pkgs)
+        else:
+            # No brew → can't bootstrap. Let the docker pull fail with a
+            # clear message instead of pretending we can fix it.
+            return []
+
+    # Ensure the Colima daemon is running. `colima start` is idempotent —
+    # exits 0 quickly if the VM is already up, otherwise creates it.
+    cmds.append(["bash", "-lc", "colima start || true"])
+    return cmds
+
+
+def _build_install_cmd(method: str, install: dict) -> list[str] | None:
+    """Backwards-compatible single install command helper used by tests and diagnostics."""
+    cmds = _build_install_cmds(method, install)
+    return cmds[-1] if cmds else None
 
 
 def _apply_patch(patch: dict) -> tuple[bool, str]:
@@ -349,10 +755,13 @@ def _run_install_commands(manifest: dict):
     """Run the install command synchronously (fallback, no streaming)."""
     install = manifest.get("install", {})
     method = install.get("method", "pip")
-    cmd = _build_install_cmd(method, install)
-    if cmd:
-        log.info("Installing %s: %s", manifest.get("slug"), cmd)
-        subprocess.check_call(cmd, timeout=600)
+    cmds = _build_install_cmds(method, install)
+    if cmds:
+        for cmd in cmds:
+            log.info("Installing %s: %s", manifest.get("slug"), cmd)
+            subprocess.check_call(cmd, timeout=600)
+    elif method != "binary":
+        raise ValueError(f"Unsupported or misconfigured install method: {method}")
     # Apply post-install patches (blocking path — log only)
     for patch in install.get("post_install_patches", []):
         ok, msg = _apply_patch(patch)
@@ -366,10 +775,19 @@ def _finalize_install(slug: str, manifest: dict) -> dict:
     for field in schema:
         default_config[field["key"]] = field.get("default", "")
 
+    version = manifest.get("version", "1.0.0")
+    try:
+        resolved = _resolve_installed_version(manifest)
+        if resolved:
+            version = resolved
+    except Exception:
+        pass
+
     state = {
         "installed": True,
         "enabled": False,
-        "version": manifest.get("version", "1.0.0"),
+        "version": version,
+        "latest_version": version,  # just installed → up to date until next check
         "config": default_config,
         "watchdog": False,
     }
@@ -387,10 +805,24 @@ def uninstall_addon(slug: str) -> dict:
 
 
 def update_addon_config(slug: str, config: dict) -> dict:
-    """Update addon config fields, returns updated state."""
+    """Update addon config fields and bootstrap external/local usage if needed."""
+    manifest = get_manifest(slug)
+    if not manifest:
+        raise ValueError(f"Unknown addon: {slug}")
+
     state = get_state(slug)
     if not state.get("installed"):
-        raise ValueError(f"Addon {slug} is not installed")
+        schema = manifest.get("config_schema", [])
+        default_config = {field["key"]: field.get("default", "") for field in schema}
+        state = {
+            "installed": True,
+            "enabled": False,
+            "version": manifest.get("version", "1.0.0"),
+            "config": default_config,
+            "watchdog": False,
+        }
+
+    state.setdefault("config", {})
     state["config"].update(config)
     _save_addon_state(slug, state)
     return state
@@ -437,15 +869,15 @@ async def check_health(slug: str) -> dict:
         return {"ok": False, "detail": "unknown_addon"}
 
     state = get_state(slug)
-    if not state.get("installed") or not state.get("enabled"):
-        return {"ok": False, "detail": "not_running"}
+    if not state.get("installed"):
+        return {"ok": False, "detail": "not_configured"}
 
     hc = manifest.get("health_check")
     if not hc:
         return {"ok": True, "detail": "no_check"}
 
     cfg = state.get("config", {})
-    host = cfg.get(hc.get("host_key", "host"), "localhost")
+    host = hc.get("host") or cfg.get(hc.get("host_key", "host"), "localhost")
     port = int(cfg.get(hc.get("port_key", "port"), 0))
 
     if not port:

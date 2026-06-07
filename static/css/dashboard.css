@@ -1,0 +1,3872 @@
+/* Hyve dashboard — theme-aware tiles & multi-page nav.
+ * All colors derive from CSS vars defined in base.css + themes/*.css
+ * so dashboards adapt automatically to obsidian / daylight / canvas / etc.
+ */
+
+/* ===== Sidebar pages list ===== */
+.dashboard-page-nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 0.5rem 0.25rem 0.75rem;
+    margin-top: -2px;
+}
+
+.dashboard-page-nav-actions button {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 26px;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+    background: var(--surface-1, rgba(255,255,255,0.03));
+    color: var(--text-tertiary, #94a3b8);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.dashboard-page-nav-actions button:hover {
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.32);
+    color: var(--accent, #38bdf8);
+    background: rgba(var(--accent-rgb, 56,189,248), 0.08);
+}
+
+.dashboard-subpage-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.625rem 0.5rem 1.75rem;
+    margin-left: 0.25rem;
+    border-radius: 0.5rem;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-tertiary, #94a3b8);
+    font-size: 12px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    min-height: 32px;
+    position: relative;
+}
+.dashboard-subpage-btn::before {
+    content: '';
+    position: absolute;
+    left: 0.875rem;
+    top: 50%;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--border-light, rgba(255,255,255,0.12));
+    transform: translateY(-50%);
+    transition: all 0.15s ease;
+}
+.dashboard-subpage-btn:hover {
+    background: var(--surface-1, rgba(255,255,255,0.04));
+    color: var(--text-primary, #f1f5f9);
+}
+.dashboard-subpage-btn:hover::before {
+    background: var(--accent, #38bdf8);
+    box-shadow: 0 0 8px rgba(var(--accent-rgb, 56,189,248), 0.6);
+}
+.dashboard-subpage-btn[data-active="true"] {
+    background: rgba(var(--accent-rgb, 56,189,248), 0.10);
+    color: var(--accent, #38bdf8);
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.18);
+}
+.dashboard-subpage-btn[data-active="true"]::before {
+    background: var(--accent, #38bdf8);
+    box-shadow: 0 0 10px rgba(var(--accent-rgb, 56,189,248), 0.7);
+    width: 6px;
+    height: 6px;
+}
+.dashboard-subpage-btn .dashboard-subpage-icon {
+    width: 14px;
+    text-align: center;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+.dashboard-subpage-btn .dashboard-subpage-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.dashboard-subpage-btn .dashboard-subpage-count {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--overlay-5, rgba(255,255,255,0.05));
+    color: var(--text-tertiary, #94a3b8);
+}
+.dashboard-subpage-btn[data-active="true"] .dashboard-subpage-count {
+    background: rgba(var(--accent-rgb, 56,189,248), 0.18);
+    color: var(--accent, #38bdf8);
+}
+
+/* Active state for the root Dashboard nav button */
+#nav-dashboard[data-active="true"] {
+    background: var(--surface-2, rgba(255,255,255,0.05));
+    color: var(--text-primary, #f1f5f9);
+}
+#nav-dashboard[data-active="true"] i {
+    color: var(--accent, #38bdf8);
+}
+
+/* ===== Header kebab button + dropdown menu (theme-aware) ===== */
+.dashboard-kebab-btn {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted, #475569);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.dashboard-kebab-btn:hover,
+.dashboard-kebab-btn.is-open {
+    color: var(--text-secondary, #cbd5e1);
+    background: rgba(255,255,255,0.03);
+}
+
+.dashboard-kebab-btn > i {
+    font-size: 0.75rem;
+}
+
+@media (min-width: 640px) {
+    .dashboard-kebab-btn > i {
+        font-size: 0.875rem;
+    }
+}
+
+.dashboard-more-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 50;
+    width: 240px;
+    max-width: 90vw;
+    padding: 6px;
+    border-radius: 16px;
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+    background: var(--surface-menu, var(--surface-2, rgba(15,17,22,0.96)));
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    box-shadow: 0 22px 60px rgba(0,0,0,0.45),
+                0 0 0 1px rgba(var(--accent-rgb, 56,189,248), 0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.dashboard-more-menu.hidden { display: none; }
+
+.dashboard-more-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary, #cbd5e1);
+    font-size: 13px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.dashboard-more-menu__item > i {
+    width: 16px;
+    flex-shrink: 0;
+    text-align: center;
+    color: var(--text-tertiary, #94a3b8);
+    font-size: 12px;
+    transition: color 0.12s ease;
+}
+.dashboard-more-menu__item > span {
+    flex: 1;
+    min-width: 0;
+}
+.dashboard-more-menu__item:hover {
+    background: rgba(var(--accent-rgb, 56,189,248), 0.10);
+    color: var(--text-primary, #f8fafc);
+}
+.dashboard-more-menu__item:hover > i {
+    color: var(--accent, #38bdf8);
+}
+
+.dashboard-more-menu__sep {
+    height: 1px;
+    background: var(--border-subtle, rgba(255,255,255,0.08));
+    margin: 4px 6px;
+}
+
+/* ===== Compact modal shell shared by all dashboard modals ===== */
+.dashboard-modal-card {
+    width: 100%;
+    max-width: 32rem;            /* ~ max-w-lg */
+    max-height: min(78vh, 640px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.dashboard-modal-card--xl {
+    max-width: 64rem;            /* ~ max-w-5xl for the picker w/ grid */
+    max-height: min(80vh, 720px);
+}
+@media (max-width: 640px) {
+    .dashboard-modal-card,
+    .dashboard-modal-card--xl {
+        max-height: 80vh;
+    }
+}
+
+.dashboard-modal-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+    flex-shrink: 0;
+}
+.dashboard-modal-card__body {
+    padding: 16px 18px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+#dashboard-add-modal input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]),
+#dashboard-add-modal textarea,
+#dashboard-add-modal select,
+#dashboard-panel-modal input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]),
+#dashboard-panel-modal textarea,
+#dashboard-panel-modal select,
+#dashboard-page-modal input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]),
+#dashboard-page-modal textarea,
+#dashboard-page-modal select {
+    background: var(--surface-input, rgba(0,0,0,0.30)) !important;
+    background-color: var(--surface-input, rgba(0,0,0,0.30)) !important;
+    border-color: var(--border-subtle, rgba(255,255,255,0.10)) !important;
+    color: var(--text-primary, #f1f5f9) !important;
+}
+
+#dashboard-add-modal input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]):focus,
+#dashboard-add-modal textarea:focus,
+#dashboard-add-modal select:focus,
+#dashboard-panel-modal input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]):focus,
+#dashboard-panel-modal textarea:focus,
+#dashboard-panel-modal select:focus,
+#dashboard-page-modal input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]):focus,
+#dashboard-page-modal textarea:focus,
+#dashboard-page-modal select:focus {
+    background: var(--input-focus-bg, var(--surface-input, rgba(0,0,0,0.30))) !important;
+    background: color-mix(in srgb, var(--surface-input, rgba(0,0,0,0.30)) 88%, var(--accent, #38bdf8) 12%) !important;
+    background-color: color-mix(in srgb, var(--surface-input, rgba(0,0,0,0.30)) 88%, var(--accent, #38bdf8) 12%) !important;
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.48) !important;
+    box-shadow: 0 0 0 1px rgba(var(--accent-rgb, 56,189,248), 0.12) !important;
+}
+
+#dashboard-add-modal input::placeholder,
+#dashboard-add-modal textarea::placeholder,
+#dashboard-panel-modal input::placeholder,
+#dashboard-panel-modal textarea::placeholder,
+#dashboard-page-modal input::placeholder,
+#dashboard-page-modal textarea::placeholder {
+    color: var(--text-tertiary, #94a3b8);
+}
+
+/* ===== Add picker grid ===== */
+.dashboard-add-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+}
+.dashboard-add-picker-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 14px 12px;
+    border-radius: 14px;
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+    background: var(--surface-1, rgba(255,255,255,0.03));
+    color: var(--text-secondary, #cbd5e1);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+    min-height: 92px;
+}
+.dashboard-add-picker-tile:hover {
+    background: rgba(var(--accent-rgb, 56,189,248), 0.08);
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.32);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(var(--accent-rgb, 56,189,248), 0.10);
+}
+.dashboard-add-picker-tile__icon {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: rgba(var(--accent-rgb, 56,189,248), 0.10);
+    color: var(--accent, #38bdf8);
+    font-size: 14px;
+}
+.dashboard-add-picker-tile__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary, #f1f5f9);
+    line-height: 1.2;
+}
+.dashboard-add-picker-tile__desc {
+    font-size: 11px;
+    color: var(--text-tertiary, #94a3b8);
+    line-height: 1.3;
+}
+
+.dashboard-custom-select-native {
+    display: none !important;
+}
+.dashboard-custom-select {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+}
+.dashboard-custom-select__button {
+    width: 100%;
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.10));
+    background: var(--surface-input, rgba(0,0,0,0.30));
+    background-color: var(--surface-input, rgba(0,0,0,0.30));
+    color: var(--text-primary, #f1f5f9);
+    padding: 0.625rem 0.75rem;
+    font-size: 14px;
+    line-height: 1.2;
+    text-align: left;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+.dashboard-custom-select__button:hover,
+.dashboard-custom-select__button:focus-visible,
+.dashboard-custom-select[data-open="true"] .dashboard-custom-select__button {
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.40);
+    background: var(--input-focus-bg, var(--surface-input, rgba(0,0,0,0.30)));
+    background: color-mix(in srgb, var(--surface-input, rgba(0,0,0,0.30)) 88%, var(--accent, #38bdf8) 12%);
+    background-color: color-mix(in srgb, var(--surface-input, rgba(0,0,0,0.30)) 88%, var(--accent, #38bdf8) 12%);
+    box-shadow: 0 0 0 1px rgba(var(--accent-rgb, 56,189,248), 0.08);
+}
+.dashboard-custom-select__button i {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: var(--text-tertiary, #94a3b8);
+    transition: transform 0.16s ease, color 0.16s ease;
+}
+.dashboard-custom-select[data-open="true"] .dashboard-custom-select__button i {
+    transform: rotate(180deg);
+    color: var(--accent, #38bdf8);
+}
+.dashboard-custom-select__value {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.dashboard-custom-select__menu {
+    display: none;
+    position: absolute;
+    z-index: 90;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    max-height: min(260px, 46vh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 5px;
+    border-radius: 14px;
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.10));
+    background: var(--surface-menu, rgba(15,23,42,0.98));
+    box-shadow: 0 18px 44px rgba(0,0,0,0.34);
+}
+.dashboard-custom-select[data-open="true"] .dashboard-custom-select__menu {
+    display: grid;
+    gap: 3px;
+}
+.dashboard-custom-select__option {
+    width: 100%;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-secondary, #cbd5e1);
+    padding: 0.5rem 0.625rem;
+    font-size: 13px;
+    line-height: 1.2;
+    text-align: left;
+    cursor: pointer;
+}
+.dashboard-custom-select__option:hover,
+.dashboard-custom-select__option:focus-visible {
+    outline: none;
+    color: var(--text-primary, #f1f5f9);
+    background: var(--surface-2, rgba(255,255,255,0.07));
+}
+.dashboard-custom-select__option[data-selected="true"] {
+    color: var(--accent, #38bdf8);
+    background: rgba(var(--accent-rgb, 56,189,248), 0.13);
+}
+.dashboard-custom-select__option[data-selected="true"]::after {
+    content: '\f00c';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 10px;
+}
+.dashboard-custom-select--compact {
+    width: auto;
+    min-width: 66px;
+    flex: 0 0 auto;
+}
+.dashboard-custom-select--compact .dashboard-custom-select__button {
+    min-height: 32px;
+    border-radius: 10px;
+    padding: 0.375rem 0.5rem;
+    font-size: 12px;
+}
+.dashboard-custom-select--compact .dashboard-custom-select__menu {
+    min-width: 86px;
+}
+
+.dashboard-section-size-picker {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 5px;
+    border-radius: 14px;
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.10));
+    background: var(--surface-input, rgba(0,0,0,0.30));
+}
+.dashboard-section-size-picker__option {
+    min-width: 0;
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-tertiary, #94a3b8);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0;
+    cursor: pointer;
+    transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+.dashboard-section-size-picker__option i {
+    font-size: 11px;
+    opacity: 0.82;
+}
+.dashboard-section-size-picker__option:hover {
+    color: var(--text-primary, #f1f5f9);
+    background: var(--surface-2, rgba(255,255,255,0.055));
+}
+.dashboard-section-size-picker__option[data-active="true"] {
+    color: var(--accent, #38bdf8);
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.28);
+    background: rgba(var(--accent-rgb, 56,189,248), 0.13);
+    box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb, 56,189,248), 0.08);
+}
+
+@media (max-width: 420px) {
+    .dashboard-section-size-picker {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ===== Dashboard sections (HA Sections-style responsive columns) ===== */
+.dashboard-panels-stack {
+    display: grid;
+    /* 4-column section grid. The drag/layout JS (SECTION_COLS=4,
+       _syncDashboardPanelGridSpans, _dashboardPanelColSpan) all reason in a
+       4-column space and write --panel-col-start/--panel-col-span /
+       --panel-row-start/--panel-row-span. The CSS below consumes those so a
+       section drop actually moves the section on desktop. */
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-rows: 50px;
+    grid-auto-flow: dense;
+    align-items: start;
+    gap: 12px;
+    width: 100%;
+    position: relative;
+}
+.dashboard-panel {
+    grid-column: span var(--panel-col-span, 2);
+    grid-row: span var(--panel-row-span, 1);
+    min-width: 0;
+    position: relative;
+    align-self: start;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    background: transparent;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, filter 0.18s ease;
+    width: 100%;
+}
+.dashboard-panel:hover {
+    border-color: transparent;
+}
+/* In edit mode highlight the panel currently being targeted by a drag. */
+.dashboard-panel[data-drag-target="true"] {
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.55);
+    box-shadow: 0 0 0 2px rgba(var(--accent-rgb, 56,189,248), 0.18);
+}
+.dashboard-panel[data-climate-menu-open="true"] {
+    z-index: 80;
+}
+/* Section width comes from --panel-col-span (sm=1, md=2, wide=4 of the 4-col
+   grid), set inline from the panel size by the renderer. */
+
+.dashboard-panels-stack > .hyve-dashboard-card,
+.dashboard-panels-stack > .hyve-dashboard-label {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    min-height: 100%;
+    align-self: stretch;
+}
+
+.dashboard-panel--standalone {
+    grid-column: span 12;
+}
+.dashboard-panel--standalone .dashboard-panel__grid--standalone {
+    width: 100%;
+}
+.dashboard-panel--standalone[data-empty="true"] {
+    min-height: 96px;
+    padding: 8px;
+    border: 1px dashed rgba(var(--accent-rgb, 56,189,248), 0.32);
+    border-radius: 14px;
+    background: rgba(var(--accent-rgb, 56,189,248), 0.045);
+}
+.dashboard-panel--standalone[data-empty="true"] .dashboard-panel__grid--standalone {
+    min-height: 78px;
+}
+.dashboard-standalone-drop-hint {
+    grid-column: 1 / -1;
+    grid-row: span 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 70px;
+    border-radius: 12px;
+    color: var(--text-tertiary, #94a3b8);
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: 0;
+    pointer-events: none;
+}
+.dashboard-standalone-drop-hint--root {
+    align-self: stretch;
+    border: 1px dashed rgba(var(--accent-rgb, 56,189,248), 0.32);
+    background: rgba(var(--accent-rgb, 56,189,248), 0.045);
+}
+
+.dashboard-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 28px;
+    padding: 0 2px;
+}
+.dashboard-panel__header-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.dashboard-panel__drag {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+    background: var(--surface-2, rgba(255,255,255,0.04));
+    color: var(--text-tertiary, #94a3b8);
+    font-size: 11px;
+    cursor: grab;
+    touch-action: none;
+    transition: all 0.15s ease;
+}
+.dashboard-panel__drag:hover,
+.dashboard-panel__drag:focus-visible {
+    color: var(--text-primary, #f1f5f9);
+    background: var(--surface-3, rgba(255,255,255,0.08));
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.30);
+}
+html[data-dashboard-panel-dragging="true"],
+html[data-dashboard-panel-dragging="true"] * {
+    cursor: grabbing !important;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.dashboard-panel[data-panel-drag-source="true"] {
+    opacity: 0.34;
+    filter: saturate(0.78) brightness(0.92);
+    pointer-events: none;
+    transform: scale(0.992);
+}
+.dashboard-panel__section-placeholder {
+    border: 1px dashed rgba(var(--accent-rgb, 56,189,248), 0.58);
+    background: rgba(var(--accent-rgb, 56,189,248), 0.08);
+    box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb, 56,189,248), 0.08);
+    animation: hyve-dashboard-panel-placeholder-in 0.12s ease-out both;
+}
+.dashboard-panel-clone {
+    z-index: 9999;
+    pointer-events: none;
+    margin: 0;
+    max-width: none;
+    opacity: 0.96;
+    filter: saturate(1.03);
+    transform-origin: top left;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.42);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: none !important;
+}
+@keyframes hyve-dashboard-panel-placeholder-in {
+    from { opacity: 0.4; transform: scale(0.992); }
+    to { opacity: 1; transform: scale(1); }
+}
+.dashboard-panel__title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 750;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text-primary, #f1f5f9);
+    margin: 0;
+}
+.dashboard-panel__title > span:first-of-type {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.dashboard-panel__title--placeholder {
+    visibility: hidden;
+    pointer-events: none;
+}
+.dashboard-panel__icon {
+    color: var(--accent, #38bdf8);
+    font-size: 12px;
+}
+.dashboard-panel__edit {
+    display: inline-flex;
+    gap: 4px;
+}
+.dashboard-panel__edit button {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+    background: var(--surface-2, rgba(255,255,255,0.04));
+    color: var(--text-tertiary, #94a3b8);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.dashboard-panel__edit button:hover {
+    color: var(--text-primary, #f1f5f9);
+    background: var(--surface-3, rgba(255,255,255,0.08));
+}
+.dashboard-panel__edit .is-danger:hover {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.10);
+    border-color: rgba(239, 68, 68, 0.32);
+}
+
+/* Multi-page tabs inside a panel */
+.dashboard-panel__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 12px;
+    background: var(--surface-0, rgba(0,0,0,0.18));
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+}
+.dashboard-panel__tab {
+    flex: 1 1 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: 0;
+    background: transparent;
+    color: var(--text-tertiary, #94a3b8);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.dashboard-panel__tab:hover {
+    color: var(--text-primary, #f1f5f9);
+    background: var(--surface-1, rgba(255,255,255,0.04));
+}
+.dashboard-panel__tab[data-active="true"] {
+    background: rgba(var(--accent-rgb, 56,189,248), 0.14);
+    color: var(--accent, #38bdf8);
+    box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb, 56,189,248), 0.22);
+}
+
+.dashboard-panel__grid {
+    display: grid;
+    gap: 8px;
+    /* HA Lovelace Sections grid: 4 columns wide (a span of 4 = full section). */
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    /* HA-style row unit, tuned denser for Hyve. */
+    grid-auto-rows: 50px;
+    grid-auto-flow: dense;
+    position: relative;
+    transition: gap 0.18s ease, filter 0.18s ease;
+}
+
+@media (max-width: 767px) {
+    .dashboard-panels-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .dashboard-panel,
+    .dashboard-panel[data-size="sm"],
+    .dashboard-panel[data-size="md"],
+    .dashboard-panel[data-size="wide"] {
+        grid-column: 1 / -1 !important;
+        grid-row: auto !important;
+        order: var(--hyve-panel-mobile-order, 9999) !important;
+    }
+
+    .dashboard-panels-stack > .hyve-dashboard-card,
+    .dashboard-panels-stack > .hyve-dashboard-label {
+        grid-column: span var(--hc, 1) !important;
+        grid-row: span var(--hr, 1) !important;
+        order: var(--hyve-mobile-order, 9999) !important;
+    }
+
+    .dashboard-panel__header {
+        min-height: 24px;
+    }
+}
+/* Edit-mode overlay: subtle grid lines to telegraph the snap targets. */
+.dashboard-panel__grid--editing {
+    border-radius: 12px;
+    isolation: isolate;
+    background-image:
+        linear-gradient(rgba(var(--accent-rgb, 56,189,248), 0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(var(--accent-rgb, 56,189,248), 0.055) 1px, transparent 1px);
+    background-size: calc((100% + 8px) / 4) 58px;
+    background-position: -1px -1px;
+}
+/* Drop-zone preview ghost rendered into the grid as a child. */
+.dashboard-panel__drop-ghost {
+    position: absolute;
+    left: 0;
+    top: 0;
+    border-radius: 14px;
+    background:
+        linear-gradient(135deg, rgba(var(--accent-rgb, 56,189,248), 0.26), rgba(var(--accent-rgb, 56,189,248), 0.09)),
+        rgba(15, 23, 42, 0.42);
+    border: 1px solid rgba(var(--accent-rgb, 56,189,248), 0.78);
+    box-shadow:
+        0 0 0 1px rgba(var(--accent-rgb, 56,189,248), 0.12) inset,
+        0 16px 42px rgba(var(--accent-rgb, 56,189,248), 0.16),
+        0 6px 18px rgba(0,0,0,0.30);
+    pointer-events: none;
+    transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.16s ease, height 0.16s ease, opacity 0.12s ease;
+    will-change: transform, width, height, opacity;
+    z-index: 4;
+    overflow: hidden;
+    animation: hyve-dashboard-drop-ghost-in 0.16s ease-out both;
+}
+.dashboard-panel__drop-ghost::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-image:
+        linear-gradient(135deg, rgba(255,255,255,0.14) 0 1px, transparent 1px 8px),
+        radial-gradient(circle at 50% 50%, rgba(var(--accent-rgb, 56,189,248), 0.16), transparent 62%);
+    opacity: 0.9;
+}
+.dashboard-panel__drop-ghost::after {
+    content: none;
+    display: none;
+    position: absolute;
+    right: 8px;
+    bottom: 7px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.76);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(241,245,249,0.92);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.dashboard-panel__drop-ghost--sortable {
+    z-index: 6;
+}
+.dashboard-panel__drop-ghost--section {
+    z-index: 7;
+    border-radius: 12px;
+}
+/* Mobile single-column reorder: dashed gap showing where the section will land. */
+.dashboard-panel__reorder-placeholder {
+    grid-column: 1 / -1;
+    /* On mobile the panels are flex items ordered only by `order` (they all
+       share 9999, so they fall back to DOM order). The placeholder must use the
+       same order value, otherwise it defaults to order:0 and always renders at
+       the very top regardless of where it sits in the DOM — making the drop
+       indicator look stuck at the top while dragging. */
+    order: 9999;
+    border-radius: 12px;
+    border: 2px dashed rgba(var(--accent-rgb, 56,189,248), 0.55);
+    background: rgba(var(--accent-rgb, 56,189,248), 0.08);
+    box-sizing: border-box;
+    margin: 0;
+    transition: height 0.16s ease;
+}
+/* Card being dragged: faded out at original spot, the floating clone takes over. */
+.hyve-dashboard-card[data-drag-source="true"],
+.hyve-dashboard-label[data-drag-source="true"] {
+    opacity: 0.32;
+    filter: saturate(0.75) brightness(0.9);
+    pointer-events: none;
+    transform: scale(0.985);
+    box-shadow: none;
+}
+.dashboard-sortable-chosen {
+    cursor: grabbing !important;
+}
+.dashboard-sortable-ghost {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+.dashboard-sortable-drag {
+    opacity: 0.98 !important;
+    transform-origin: top left;
+    box-shadow: 0 22px 56px rgba(0,0,0,0.48), 0 0 0 1px rgba(255,255,255,0.08) inset;
+    border-radius: 18px;
+    cursor: grabbing !important;
+    transition: none !important;
+    will-change: transform;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+.sortable-fallback.dashboard-sortable-drag,
+.sortable-fallback .dashboard-sortable-drag {
+    pointer-events: none !important;
+    transition: none !important;
+}
+/* Floating clone that follows the cursor while dragging. */
+.hyve-dashboard-card.dashboard-card-clone,
+.hyve-dashboard-label.dashboard-card-clone,
+.dashboard-card-clone {
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    margin: 0;
+    max-width: none;
+    transform-origin: top left;
+    box-shadow: 0 22px 56px rgba(0,0,0,0.48), 0 0 0 1px rgba(255,255,255,0.08) inset;
+    transition: none;
+    will-change: transform;
+    opacity: 0.98;
+    border-radius: 18px;
+    cursor: grabbing;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+/* FLIP transition: cards smoothly slide to their new grid slot after a re-render. */
+.hyve-dashboard-card,
+.hyve-dashboard-label {
+    transition: transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.18s ease, filter 0.18s ease;
+    will-change: transform;
+}
+.hyve-dashboard-card[data-flip-suppress="true"],
+.hyve-dashboard-label[data-flip-suppress="true"],
+.dashboard-panel[data-flip-suppress="true"] {
+    transition: none;
+}
+@media (min-width: 640px) {
+    .dashboard-panel__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.dashboard-panel[data-size="sm"] .dashboard-panel__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (min-width: 640px) {
+    .dashboard-panel[data-size="md"] .dashboard-panel__grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+.dashboard-panel__grid--compact {
+    gap: 8px;
+}
+@media (min-width: 1024px) {
+    .dashboard-panel__grid--compact { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    /* Free 2D section grid: honor the explicit slot the user dropped the
+       section into. _syncDashboardPanelGridSpans resolves overlap-free
+       col/row anchors for every section and writes these custom props. */
+    .dashboard-panels-stack > .dashboard-panel[data-panel-id] {
+        grid-column: var(--panel-col-start, auto) / span var(--panel-col-span, 2);
+        grid-row: var(--panel-row-start, auto) / span var(--panel-row-span, 1);
+    }
+}
+
+/* Apply the same rules to the standalone dashboard grid (no panels mode). */
+#dashboard-grid.grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-auto-rows: 50px;
+    grid-auto-flow: dense;
+    gap: 8px;
+    position: relative;
+}
+
+@media (max-width: 767px) {
+    #view-dashboard > .w-full {
+        max-width: none;
+        padding: 0.75rem !important;
+    }
+
+    #dashboard-grid.dashboard-panel__grid,
+    .dashboard-panel__grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        grid-auto-rows: 50px;
+        grid-auto-flow: row;
+        gap: 0.625rem;
+    }
+
+    #dashboard-grid.dashboard-panel__grid > .hyve-dashboard-card,
+    #dashboard-grid.dashboard-panel__grid > .hyve-dashboard-label,
+    .dashboard-panel__grid > .hyve-dashboard-card,
+    .dashboard-panel__grid > .hyve-dashboard-label {
+        grid-column: span var(--hc, 1) !important;
+        grid-row: span var(--hr, 1) !important;
+        order: var(--hyve-mobile-order, 9999) !important;
+        width: 100%;
+        min-width: 0;
+        height: 100%;
+        min-height: 100%;
+    }
+
+    .dashboard-panel__grid--editing {
+        background-size: calc((100% + 0.625rem) / 4) calc(50px + 0.625rem);
+    }
+
+    .hyve-dashboard-card {
+        padding: 0.625rem;
+    }
+
+    .hyve-dashboard-card--weather-rich {
+        min-height: 0 !important;
+    }
+
+    .hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-temp,
+    .hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-icon {
+        font-size: 2.6rem;
+    }
+
+    .hyve-dashboard-card__edit {
+        top: 0.5rem;
+        right: 0.5rem;
+    }
+
+    .hyve-dashboard-card__resize {
+        display: none;
+    }
+}
+
+/* When a card has row-span > 1, fill the cell so the visual height matches. */
+.hyve-dashboard-card,
+.hyve-dashboard-label {
+    height: 100%;
+    align-self: stretch;
+}
+/* Card content lays out top-to-bottom; no forced stretch of the body. */
+.hyve-dashboard-card { display: flex; flex-direction: column; justify-content: center; }
+.hyve-dashboard-card > * { flex-shrink: 0; }
+
+/* ===== Resize handles (HA-style, edit mode only) ===== */
+.hyve-dashboard-card__resize {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 6px 0 12px 0;
+    background: linear-gradient(135deg, transparent 40%, rgba(var(--accent-rgb, 56,189,248), 0.55) 40%, rgba(var(--accent-rgb, 56,189,248), 0.95) 100%);
+    cursor: nwse-resize;
+    touch-action: none;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+}
+.hyve-dashboard-card:hover .hyve-dashboard-card__resize,
+.hyve-dashboard-card[data-resizing="true"] .hyve-dashboard-card__resize {
+    opacity: 0.85;
+}
+.hyve-dashboard-card__resize--e {
+    right: 0;
+    bottom: 30%;
+    top: 30%;
+    width: 6px;
+    height: auto;
+    border-radius: 6px 0 0 6px;
+    background: rgba(var(--accent-rgb, 56,189,248), 0.55);
+    cursor: ew-resize;
+}
+.hyve-dashboard-card__resize--s {
+    bottom: 0;
+    left: 30%;
+    right: 30%;
+    width: auto;
+    height: 6px;
+    border-radius: 6px 6px 0 0;
+    background: rgba(var(--accent-rgb, 56,189,248), 0.55);
+    cursor: ns-resize;
+}
+.hyve-dashboard-card__resize:hover {
+    opacity: 1;
+    transform: scale(1.15);
+    box-shadow: 0 0 18px rgba(var(--accent-rgb, 56,189,248), 0.35);
+}
+.hyve-dashboard-card[data-resizing="true"] {
+    outline: 1px solid rgba(var(--accent-rgb, 56,189,248), 0.72);
+    outline-offset: 3px;
+    z-index: 10;
+    box-shadow: 0 14px 38px rgba(0,0,0,0.34), 0 0 0 1px rgba(var(--accent-rgb, 56,189,248), 0.18) inset;
+}
+.hyve-dashboard-card__resize-tooltip {
+    position: absolute;
+    right: 4px;
+    bottom: 26px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(var(--accent-rgb, 56,189,248), 0.4);
+    color: #f1f5f9;
+    font-size: 10px;
+    font-weight: 600;
+    pointer-events: none;
+    z-index: 11;
+    white-space: nowrap;
+}
+
+/* ===== Size editor: grid preview (Dimensiune tab) ===== */
+.dashboard-size-grid-preview {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(4, 22px);
+    gap: 4px;
+    padding: 8px;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px dashed rgba(255, 255, 255, 0.08);
+}
+.dashboard-size-grid-preview__cell {
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.18s ease, border-color 0.18s ease;
+}
+.dashboard-size-grid-preview__cell[data-active="true"] {
+    background: linear-gradient(135deg,
+        rgba(var(--accent-rgb, 56,189,248), 0.32),
+        rgba(var(--accent-rgb, 56,189,248), 0.55));
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.7);
+    box-shadow: 0 4px 14px -6px rgba(var(--accent-rgb, 56,189,248), 0.55);
+}
+
+.dashboard-panel__empty {
+    position: relative;
+    min-height: 72px;
+    padding: 24px 12px;
+    text-align: center;
+    color: var(--text-tertiary, #94a3b8);
+    font-size: 12px;
+    border-radius: 12px;
+    border: 1px dashed var(--border-subtle, rgba(255,255,255,0.08));
+    background: var(--surface-0, rgba(0,0,0,0.12));
+}
+
+/* ===== Entity picker (HA-style real-time dropdown) ===== */
+.dashboard-entity-picker { position: relative; }
+.dashboard-entity-picker__menu {
+    position: absolute;
+    z-index: 60;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 320px;
+    overflow-y: auto;
+    border-radius: 14px;
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.10));
+    background: var(--surface-menu, rgba(15,23,42,0.96));
+    box-shadow: 0 18px 50px rgba(0,0,0,0.45);
+    padding: 4px;
+    backdrop-filter: blur(14px);
+}
+.dashboard-entity-picker__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary, #cbd5e1);
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.dashboard-entity-picker__item:hover,
+.dashboard-entity-picker__item[data-active="true"] {
+    background: rgba(var(--accent-rgb, 56,189,248), 0.14);
+    color: var(--text-primary, #f1f5f9);
+}
+.dashboard-entity-picker__icon {
+    color: var(--accent, #38bdf8);
+    width: 18px;
+    text-align: center;
+}
+.dashboard-entity-picker__name {
+    flex: 0 0 auto;
+    max-width: 50%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+}
+.dashboard-entity-picker__id {
+    margin-left: auto;
+    color: var(--text-tertiary, #94a3b8);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 50%;
+}
+.dashboard-entity-picker__empty {
+    padding: 14px;
+    text-align: center;
+    color: var(--text-tertiary, #94a3b8);
+    font-size: 12px;
+}
+
+.dashboard-climate-entities {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.dashboard-climate-entities.hidden { display: none; }
+.dashboard-climate-entities__list {
+    display: grid;
+    gap: 0.5rem;
+    min-height: 2rem;
+}
+.dashboard-climate-entities__empty {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
+    color: var(--text-tertiary, #94a3b8);
+    font-size: 12px;
+}
+.dashboard-climate-entities__chip {
+    display: grid;
+    gap: 0.45rem;
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid rgba(var(--accent-rgb, 56,189,248), 0.18);
+    background: rgba(var(--accent-rgb, 56,189,248), 0.08);
+    color: var(--text-primary, #f1f5f9);
+    padding: 0.5rem;
+}
+.dashboard-climate-entities__chip-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.375rem;
+}
+.dashboard-climate-entities__chip-head > span,
+.dashboard-climate-entities__chip-head > small {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.dashboard-climate-entities__chip-head > span {
+    font-size: 12px;
+    font-weight: 700;
+}
+.dashboard-climate-entities__chip-head > small {
+    grid-column: 1;
+    color: var(--text-tertiary, #94a3b8);
+    font-size: 10px;
+}
+.dashboard-climate-entities__fields {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.5rem;
+}
+.dashboard-climate-entities__fields input {
+    min-width: 0;
+    height: 2rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(2,6,23,0.55);
+    color: var(--text-primary, #f1f5f9);
+    font-size: 12px;
+    outline: none;
+    padding: 0 0.55rem;
+}
+.dashboard-climate-entities__fields input:focus {
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.45);
+}
+.dashboard-climate-entities__chip button,
+.dashboard-climate-entities__add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    cursor: pointer;
+}
+.dashboard-climate-entities__chip button {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.06);
+    color: var(--text-secondary, #cbd5e1);
+}
+.dashboard-climate-entities__chip button:hover {
+    background: rgba(255,255,255,0.12);
+    color: var(--text-primary, #f1f5f9);
+}
+.dashboard-climate-entities__add {
+    gap: 0.4rem;
+    align-self: flex-start;
+    min-height: 2rem;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    color: var(--text-secondary, #cbd5e1);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 0 0.65rem;
+}
+.dashboard-climate-entities__add:hover {
+    background: rgba(var(--accent-rgb, 56,189,248), 0.12);
+    color: var(--text-primary, #f1f5f9);
+}
+
+@media (max-width: 520px) {
+    .dashboard-climate-entities__fields {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ===== Dashboard cards (theme-aware tiles) ===== */
+.hyve-dashboard-card {
+    --card-bg: var(--surface-1, rgba(15,23,42,0.92));
+    --card-border: var(--border-subtle, rgba(255,255,255,0.06));
+    --card-icon-bg: var(--surface-2, rgba(255,255,255,0.05));
+    --card-icon-color: var(--text-tertiary, #94a3b8);
+    --card-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    --card-lift-shadow: 0 14px 34px rgba(0,0,0,0.28);
+
+    position: relative;
+    border-radius: 1rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--card-shadow);
+    padding: 0.75rem;
+    color: var(--text-primary, #f1f5f9);
+    transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.24s ease, border-color 0.24s ease, background 0.24s ease, opacity 0.18s ease, filter 0.18s ease;
+    transform-origin: center;
+    -webkit-tap-highlight-color: transparent;
+}
+.hyve-dashboard-card[data-clickable="true"] {
+    cursor: pointer;
+}
+.hyve-dashboard-card[data-clickable="true"]:hover {
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.18);
+    box-shadow: var(--card-lift-shadow);
+    transform: translateY(-1px);
+}
+.hyve-dashboard-card[data-clickable="true"]:active {
+    transform: translateY(0) scale(0.985);
+    transition-duration: 0.08s;
+}
+.hyve-dashboard-card[data-on="true"] {
+    --card-bg: linear-gradient(135deg, rgba(var(--accent-rgb, 56,189,248), 0.07), var(--surface-1, rgba(15,23,42,0.92)) 75%);
+    --card-border: var(--border-subtle, rgba(255,255,255,0.06));
+    --card-icon-bg: rgba(var(--accent-rgb, 56,189,248), 0.16);
+    --card-icon-color: var(--accent, #38bdf8);
+    --card-shadow: 0 4px 16px rgba(0,0,0,0.18);
+}
+.hyve-dashboard-card[data-pending="true"] {
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.34);
+    box-shadow: 0 0 0 1px rgba(var(--accent-rgb, 56,189,248), 0.08), var(--card-shadow);
+}
+.hyve-dashboard-card[data-pending="true"] .hyve-dashboard-card__icon,
+.hyve-dashboard-card[data-pending="true"] .app-toggle-thumb {
+    animation: hyve-dashboard-control-pulse 0.8s ease-in-out infinite alternate;
+}
+.hyve-dashboard-card[data-unavailable="true"] {
+    opacity: 0.55;
+}
+.hyve-dashboard-card[data-edit="true"],
+.hyve-dashboard-label[data-edit="true"] {
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    border-style: dashed;
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.32);
+}
+.dashboard-panel__grid--editing [data-dashboard-widget-id],
+.dashboard-panel__grid--editing [data-dashboard-widget-id] * {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+.hyve-dashboard-card[data-edit="true"]::before,
+.hyve-dashboard-label[data-edit="true"]::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(135deg, rgba(var(--accent-rgb, 56,189,248), 0.20), transparent 38%, rgba(255,255,255,0.06));
+    transition: opacity 0.18s ease;
+}
+.hyve-dashboard-card[data-edit="true"]:hover::before,
+.hyve-dashboard-label[data-edit="true"]:hover::before,
+.hyve-dashboard-card[data-edit="true"][data-drag-source="true"]::before,
+.hyve-dashboard-label[data-edit="true"][data-drag-source="true"]::before {
+    opacity: 1;
+}
+.hyve-dashboard-card[data-edit="true"]:hover,
+.hyve-dashboard-label[data-edit="true"]:hover {
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.56);
+    box-shadow: 0 10px 26px rgba(0,0,0,0.24), 0 0 0 1px rgba(var(--accent-rgb, 56,189,248), 0.10) inset;
+}
+.hyve-dashboard-card[data-edit="true"]:active,
+.hyve-dashboard-label[data-edit="true"]:active {
+    cursor: grabbing;
+}
+
+html[data-dashboard-dragging="true"],
+html[data-dashboard-dragging="true"] * {
+    cursor: grabbing !important;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+html[data-dashboard-dragging="true"] .dashboard-panel__grid--editing:not(:has(.dashboard-panel__drop-ghost)) {
+    filter: saturate(0.9) brightness(0.92);
+}
+html[data-dashboard-resizing="true"],
+html[data-dashboard-resizing="true"] * {
+    cursor: nwse-resize !important;
+}
+
+.hyve-dashboard-card__row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+.hyve-dashboard-card__icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--card-icon-bg);
+    color: var(--card-icon-color);
+    transition: background 0.25s ease, color 0.25s ease;
+}
+.hyve-dashboard-card__icon i { font-size: 0.875rem; }
+.hyve-dashboard-card[data-on="true"] .hyve-dashboard-card__icon {
+    box-shadow: 0 0 10px -3px rgba(var(--accent-rgb, 56,189,248), 0.40);
+}
+.hyve-dashboard-card__body {
+    min-width: 0;
+    flex: 1;
+}
+.hyve-dashboard-card__title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary, #f1f5f9);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.hyve-dashboard-card__state {
+    font-size: 11px;
+    color: var(--text-tertiary, #94a3b8);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 0.125rem;
+}
+.hyve-dashboard-card[data-on="true"] .hyve-dashboard-card__state {
+    color: var(--text-secondary, #cbd5e1);
+}
+.hyve-dashboard-card__vacuum-battery {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-tertiary, #94a3b8);
+    white-space: nowrap;
+}
+.hyve-dashboard-card__vacuum-battery i {
+    font-size: 0.85rem;
+}
+.hyve-dashboard-card__vacuum-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.625rem;
+    flex-wrap: wrap;
+}
+.hyve-dashboard-card__vacuum-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.625rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary, #cbd5e1);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+.hyve-dashboard-card__vacuum-btn:hover {
+    background: rgba(var(--accent-rgb, 56,189,248), 0.14);
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.34);
+    color: var(--text-primary, #f1f5f9);
+}
+.hyve-dashboard-card__vacuum-btn:active {
+    transform: scale(0.94);
+}
+.hyve-dashboard-card__vacuum-btn[data-active="true"] {
+    background: rgba(var(--accent-rgb, 56,189,248), 0.18);
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.45);
+    color: var(--accent, #38bdf8);
+}
+.hyve-dashboard-card[data-dashboard-rows="1"] {
+    padding: 0.5rem 0.625rem;
+    border-radius: 0.875rem;
+}
+.hyve-dashboard-card[data-dashboard-rows="1"] .hyve-dashboard-card__row {
+    gap: 0.625rem;
+}
+.hyve-dashboard-card[data-dashboard-rows="1"] .hyve-dashboard-card__icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.625rem;
+}
+.hyve-dashboard-card[data-dashboard-rows="1"] .hyve-dashboard-card__title {
+    font-size: 0.8125rem;
+}
+.hyve-dashboard-card[data-dashboard-rows="1"] .hyve-dashboard-card__state {
+    margin-top: 0;
+    font-size: 10px;
+}
+
+@keyframes hyve-dashboard-control-pulse {
+    from { transform: scale(1); opacity: 0.82; }
+    to { transform: scale(1.06); opacity: 1; }
+}
+.hyve-dashboard-card__badge {
+    flex-shrink: 0;
+    padding: 0.25rem 0.625rem;
+    border-radius: 0.5rem;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--surface-2, rgba(255,255,255,0.05));
+    color: var(--text-tertiary, #94a3b8);
+}
+
+.hyve-dashboard-card__edit {
+    position: absolute;
+    top: 0.375rem;
+    right: 0.375rem;
+    z-index: 7;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem;
+    border-radius: 0.625rem;
+    background: rgba(15, 23, 42, 0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+}
+.hyve-dashboard-card__edit button {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.4rem;
+    background: var(--surface-2, rgba(255,255,255,0.06));
+    color: var(--text-tertiary, #cbd5e1);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.hyve-dashboard-card__edit button:hover {
+    background: rgba(var(--accent-rgb, 56,189,248), 0.18);
+    color: var(--accent, #38bdf8);
+}
+
+@keyframes hyve-dashboard-drop-ghost-in {
+    from { opacity: 0; filter: blur(1px); }
+    to { opacity: 1; }
+}
+.hyve-dashboard-card__edit button.is-danger:hover {
+    background: rgba(248, 113, 113, 0.18);
+    color: rgb(248, 113, 113);
+}
+
+/* Label-style cards (no entity, just a heading) */
+.hyve-dashboard-label {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    border-radius: 1rem;
+    padding: 0.75rem 1rem;
+}
+.hyve-dashboard-label--bare {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    padding: 0.25rem 0;
+}
+.hyve-dashboard-label--accent {
+    background: rgba(var(--accent-rgb, 56,189,248), 0.10);
+    border: 1px solid rgba(var(--accent-rgb, 56,189,248), 0.22);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.16);
+}
+.hyve-dashboard-label__title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary, #f1f5f9);
+}
+.hyve-dashboard-label__sub {
+    font-size: 12px;
+    color: var(--text-tertiary, #94a3b8);
+    margin-top: 0.125rem;
+}
+
+/* Empty state */
+.hyve-dashboard-empty {
+    grid-column: 1 / -1;
+    border-radius: 1rem;
+    border: 1px dashed var(--border-subtle, rgba(255,255,255,0.08));
+    background: var(--surface-1, rgba(255,255,255,0.02));
+    padding: 1.5rem;
+    text-align: center;
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.hyve-dashboard-empty__icon {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.75rem;
+    background: rgba(var(--accent-rgb, 56,189,248), 0.10);
+    color: var(--accent, #38bdf8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 0.75rem;
+}
+.hyve-dashboard-empty__title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary, #f1f5f9);
+}
+.hyve-dashboard-empty__sub {
+    margin-top: 0.25rem;
+    font-size: 12px;
+    color: var(--text-tertiary, #94a3b8);
+    max-width: 28rem;
+}
+
+/* ===== Phase 2: Rich card variants ===== */
+
+/* Light card — tile + brightness slider */
+.hyve-dashboard-card--light .hyve-dashboard-card__brightness {
+    margin-top: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+.hyve-dashboard-card--light .hyve-dashboard-card__brightness i {
+    color: var(--text-tertiary, #94a3b8);
+    font-size: 11px;
+    flex-shrink: 0;
+    width: 14px;
+    text-align: center;
+}
+.hyve-dashboard-card--light .hyve-dashboard-card__brightness-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(90deg,
+        rgba(var(--accent-rgb, 56,189,248), 0.55) 0%,
+        rgba(var(--accent-rgb, 56,189,248), 0.55) var(--brightness-pct, 0%),
+        var(--surface-2, rgba(255,255,255,0.07)) var(--brightness-pct, 0%),
+        var(--surface-2, rgba(255,255,255,0.07)) 100%);
+    cursor: pointer;
+    outline: none;
+}
+.hyve-dashboard-card--light .hyve-dashboard-card__brightness-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--accent, #38bdf8);
+    box-shadow: 0 0 10px rgba(var(--accent-rgb, 56,189,248), 0.7);
+    cursor: pointer;
+    border: 2px solid var(--surface-1, #0f172a);
+}
+.hyve-dashboard-card--light .hyve-dashboard-card__brightness-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--accent, #38bdf8);
+    box-shadow: 0 0 10px rgba(var(--accent-rgb, 56,189,248), 0.7);
+    cursor: pointer;
+    border: 2px solid var(--surface-1, #0f172a);
+}
+.hyve-dashboard-card--light .hyve-dashboard-card__brightness-value {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary, #cbd5e1);
+    min-width: 32px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Sensor card — big value + unit */
+.hyve-dashboard-card--sensor {
+    padding: 1rem;
+}
+.hyve-dashboard-card--sensor .hyve-dashboard-card__sensor-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+.hyve-dashboard-card--sensor .hyve-dashboard-card__sensor-body {
+    flex: 1;
+    min-width: 0;
+}
+.hyve-dashboard-card--sensor .hyve-dashboard-card__sensor-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary, #94a3b8);
+    margin-bottom: 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.hyve-dashboard-card--sensor .hyve-dashboard-card__sensor-value {
+    font-size: 1.625rem;
+    font-weight: 700;
+    color: var(--text-primary, #f1f5f9);
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    align-items: baseline;
+    gap: 0.375rem;
+}
+.hyve-dashboard-card--sensor .hyve-dashboard-card__sensor-unit {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-tertiary, #94a3b8);
+}
+.hyve-dashboard-card--sensor .hyve-dashboard-card__sensor-trend {
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 0.375rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    background: var(--surface-2, rgba(255,255,255,0.05));
+    color: var(--text-tertiary, #94a3b8);
+}
+.hyve-dashboard-card--sensor .hyve-dashboard-card__sensor-trend[data-dir="up"] {
+    color: rgb(74, 222, 128);
+    background: rgba(74, 222, 128, 0.12);
+}
+.hyve-dashboard-card--sensor .hyve-dashboard-card__sensor-trend[data-dir="down"] {
+    color: rgb(248, 113, 113);
+    background: rgba(248, 113, 113, 0.12);
+}
+
+/* Phase 5: sparkline chart inside sensor cards */
+.hyve-dashboard-card__sparkline {
+    margin-top: 0.625rem;
+    width: 100%;
+    height: 32px;
+    overflow: hidden;
+    border-radius: 6px;
+    opacity: 0.95;
+}
+.hyve-dashboard-card__sparkline svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+.hyve-dashboard-card__sparkline:empty {
+    display: none;
+}
+
+/* Climate card — current + setpoint + mode */
+.hyve-dashboard-card--climate {
+    justify-content: space-between;
+    padding-top: 0.5rem;
+    padding-bottom: 0.625rem;
+    overflow: hidden;
+}
+
+.hyve-dashboard-card--climate[data-climate-menu-open="true"] {
+    z-index: 90;
+    overflow: visible;
+}
+
+.hyve-dashboard-card--climate[data-climate-menu-open="true"] .hyve-dashboard-card__climate-viewport,
+.hyve-dashboard-card--climate[data-climate-menu-open="true"] .hyve-dashboard-card__climate-track,
+.hyve-dashboard-card--climate[data-climate-menu-open="true"] .hyve-dashboard-card__climate-slide,
+.hyve-dashboard-card--climate[data-climate-menu-open="true"] .hyve-dashboard-card__climate-controls {
+    overflow: visible;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-viewport {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    touch-action: pan-y;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-track {
+    display: flex;
+    height: 100%;
+    transform: translate3d(calc(var(--hyve-climate-index, 0) * -100% + var(--hyve-climate-drag, 0px)), 0, 0);
+    will-change: transform;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-track[data-animating="true"] {
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-track[data-dragging="true"] {
+    cursor: grabbing;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-slide {
+    flex: 0 0 100%;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 0.25rem;
+    /* Keep neighbouring zones out of the layout/tab order until they slide in. */
+    visibility: hidden;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-slide[data-active-slide="true"] {
+    visibility: visible;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-slide[data-active-slide="false"] {
+    pointer-events: none;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-track[data-dragging="true"] .hyve-dashboard-card__climate-slide,
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-track[data-animating="true"] .hyve-dashboard-card__climate-slide {
+    visibility: visible;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-pips {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    margin-top: 0.4rem;
+    user-select: none;
+}
+/* Compact climate card so it fits a 4x2 slot without the swipe pagination clipping the controls. */
+.hyve-dashboard-card--climate[data-dashboard-rows="2"] {
+    padding-bottom: 0.5rem;
+}
+.hyve-dashboard-card--climate[data-dashboard-rows="2"] .hyve-dashboard-card__icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.625rem;
+    font-size: 0.9rem;
+}
+.hyve-dashboard-card--climate[data-dashboard-rows="2"] .hyve-dashboard-card__title {
+    font-size: 0.82rem;
+    line-height: 1.15;
+}
+.hyve-dashboard-card--climate[data-dashboard-rows="2"] .hyve-dashboard-card__state {
+    line-height: 1.1;
+    margin-top: 0;
+}
+.hyve-dashboard-card--climate[data-dashboard-rows="2"] .hyve-dashboard-card__climate-pips {
+    margin-top: 0.15rem;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-pip {
+    -webkit-appearance: none;
+    appearance: none;
+    border: 0;
+    margin: 0;
+    padding: 5px 3px;
+    background: transparent;
+    cursor: pointer;
+    line-height: 0;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-pip span {
+    display: block;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--text-tertiary, #94a3b8);
+    opacity: 0.4;
+    transition: width 0.2s ease, opacity 0.2s ease, background 0.2s ease;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-pip[data-active="true"] span {
+    width: 16px;
+    opacity: 1;
+    background: var(--accent, #38bdf8);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hyve-dashboard-card--climate .hyve-dashboard-card__climate-track[data-animating="true"] {
+        transition: none;
+    }
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__row {
+    align-items: flex-start;
+    gap: 0.625rem;
+    flex: 0 0 auto;
+    min-height: 2rem;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__body {
+    min-width: 0;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.625rem;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__icon i {
+    font-size: 0.8125rem;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-current {
+    margin-left: auto;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    color: var(--text-primary, #f1f5f9);
+    font-size: 0.98rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-current .unit {
+    font-size: 0.58rem;
+    font-weight: 500;
+    color: var(--text-tertiary, #94a3b8);
+    margin-left: 0.125rem;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-controls {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    margin-top: 0;
+    align-items: center;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-setpoint {
+    min-width: 5.75rem;
+    flex: 1 1 auto;
+    height: 32px;
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) 32px;
+    align-items: center;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+    background: rgba(var(--accent-rgb, 56,189,248), 0.08);
+    overflow: hidden;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-setpoint button {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    color: var(--accent, #38bdf8);
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-setpoint button:hover {
+    background: rgba(var(--accent-rgb, 56,189,248), 0.14);
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-setpoint span {
+    min-width: 0;
+    text-align: center;
+    color: var(--text-primary, #f1f5f9);
+    font-size: 12px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-menu {
+    position: relative;
+    min-width: 5.75rem;
+    flex: 0 0 6.25rem;
+    z-index: 120;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-button {
+    width: 100%;
+    height: 32px;
+    display: inline-grid;
+    grid-template-columns: 18px minmax(0, 1fr) 12px;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+    background: rgba(var(--accent-rgb, 56,189,248), 0.08);
+    color: var(--text-secondary, #cbd5e1);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 0 0.5rem;
+    outline: none;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-button:hover,
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-menu[data-open="true"] .hyve-dashboard-card__climate-mode-button {
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.28);
+    background: rgba(var(--accent-rgb, 56,189,248), 0.13);
+    color: var(--text-primary, #f1f5f9);
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-button i:first-child {
+    color: var(--accent, #38bdf8);
+    font-size: 11px;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-button i:last-child {
+    color: var(--text-tertiary, #94a3b8);
+    font-size: 9px;
+    transition: transform 0.16s ease;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-menu[data-open="true"] .hyve-dashboard-card__climate-mode-button i:last-child {
+    transform: rotate(180deg);
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-button span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-panel {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 6px);
+    z-index: 130;
+    width: max-content;
+    min-width: 8.5rem;
+    max-width: min(13rem, calc(100vw - 1rem));
+    padding: 0.35rem;
+    border-radius: 8px;
+    border: 1px solid rgba(var(--accent-rgb, 56,189,248), 0.2);
+    background: var(--surface-menu, var(--surface-1, rgba(15,23,42,0.96)));
+    box-shadow: 0 16px 34px rgba(0,0,0,0.32);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(4px) scale(0.98);
+    pointer-events: none;
+    transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s ease;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-menu[data-open="true"] .hyve-dashboard-card__climate-mode-panel {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-option {
+    width: 100%;
+    min-height: 30px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 14px;
+    align-items: center;
+    gap: 0.5rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary, #cbd5e1);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 0 0.5rem;
+    cursor: pointer;
+    text-align: left;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-option:hover,
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-option[data-active="true"] {
+    background: rgba(var(--accent-rgb, 56,189,248), 0.12);
+    color: var(--text-primary, #f1f5f9);
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-option i {
+    color: var(--accent, #38bdf8);
+    font-size: 10px;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-option span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+    .hyve-dashboard-card--climate .hyve-dashboard-card__climate-controls {
+        gap: 0.375rem;
+    }
+
+    .hyve-dashboard-card--climate .hyve-dashboard-card__climate-setpoint {
+        min-width: 5.5rem;
+    }
+
+    .hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-menu {
+        flex-basis: 5.75rem;
+        min-width: 5.5rem;
+    }
+
+    .hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-panel {
+        right: 0;
+        bottom: auto;
+        top: calc(100% + 6px);
+    }
+}
+
+/* Gauge card — SVG arc */
+.hyve-dashboard-card--gauge {
+    padding: 1rem;
+}
+.hyve-dashboard-card--gauge .hyve-dashboard-card__gauge-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    margin-top: 0.5rem;
+}
+.hyve-dashboard-card--gauge .hyve-dashboard-card__gauge-svg {
+    width: 88px;
+    height: 56px;
+    flex-shrink: 0;
+}
+.hyve-dashboard-card--gauge .hyve-dashboard-card__gauge-track {
+    fill: none;
+    stroke: var(--surface-2, rgba(255,255,255,0.06));
+    stroke-width: 10;
+    stroke-linecap: round;
+}
+.hyve-dashboard-card--gauge .hyve-dashboard-card__gauge-fill {
+    fill: none;
+    stroke: var(--accent, #38bdf8);
+    stroke-width: 10;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 6px rgba(var(--accent-rgb, 56,189,248), 0.5));
+    transition: stroke-dashoffset 0.4s ease;
+}
+.hyve-dashboard-card--gauge .hyve-dashboard-card__gauge-info {
+    flex: 1;
+    min-width: 0;
+}
+.hyve-dashboard-card--gauge .hyve-dashboard-card__gauge-value {
+    font-size: 1.375rem;
+    font-weight: 700;
+    color: var(--text-primary, #f1f5f9);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.hyve-dashboard-card--gauge .hyve-dashboard-card__gauge-unit {
+    font-size: 11px;
+    color: var(--text-tertiary, #94a3b8);
+    margin-top: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+/* Lock card — dual button */
+.hyve-dashboard-card--lock .hyve-dashboard-card__lock-actions {
+    margin-top: 0.875rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+.hyve-dashboard-card--lock .hyve-dashboard-card__lock-btn {
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.625rem;
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+    background: var(--surface-2, rgba(255,255,255,0.04));
+    color: var(--text-secondary, #cbd5e1);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+}
+.hyve-dashboard-card--lock .hyve-dashboard-card__lock-btn:hover {
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.32);
+    color: var(--accent, #38bdf8);
+    background: rgba(var(--accent-rgb, 56,189,248), 0.08);
+}
+.hyve-dashboard-card--lock .hyve-dashboard-card__lock-btn[data-active="true"] {
+    background: rgba(var(--accent-rgb, 56,189,248), 0.16);
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.5);
+    color: var(--accent, #38bdf8);
+}
+
+/* Weather rich — current + forecast */
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-current {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    min-width: 0;
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-current > div:first-child {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-temp {
+    font-size: clamp(1.25rem, 4vw, 2rem);
+    font-weight: 700;
+    color: var(--text-primary, #f1f5f9);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-cond {
+    font-size: 11px;
+    color: var(--text-tertiary, #94a3b8);
+    margin-top: 0.125rem;
+    text-transform: capitalize;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-icon {
+    font-size: clamp(1.9rem, 5.4vw, 3rem);
+    color: var(--accent, #38bdf8);
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-forecast {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(38px, 1fr);
+    gap: 0.375rem;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0.25rem 0.125rem;
+    border-radius: 0.5rem;
+    background: var(--surface-2, rgba(255,255,255,0.03));
+    min-width: 0;
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-day-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-tertiary, #94a3b8);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-day-icon {
+    font-size: 20px;
+    color: var(--text-secondary, #cbd5e1);
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-day-temp {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary, #f1f5f9);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ─── Weather rich: compact (1-row) layout ───────────────────────── */
+.hyve-dashboard-card--weather-rich-compact { padding: 0.5rem 0.625rem; }
+.hyve-dashboard-card--weather-rich-compact .hyve-dashboard-card__weather-compact {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    height: 100%;
+}
+.hyve-dashboard-card--weather-rich-compact .hyve-dashboard-card__weather-icon {
+    font-size: 2.15rem;
+    margin-left: 0;
+}
+.hyve-dashboard-card--weather-rich-compact .hyve-dashboard-card__weather-temp {
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1;
+}
+.hyve-dashboard-card--weather-rich-compact .hyve-dashboard-card__weather-compact-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 0.125rem;
+}
+.hyve-dashboard-card--weather-rich-compact .hyve-dashboard-card__title {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--w-text-soft, rgba(248,250,252,0.78));
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ─── Weather rich: tighter spacing for compact cells ──────────── */
+.hyve-dashboard-card--weather-rich {
+    padding: 0.5rem 0.625rem;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__row {
+    flex: 0 0 auto;
+    margin-bottom: 0 !important;
+    /* Reserve room so the absolute edit/delete chip never overlaps the title. */
+    padding-right: 3.5rem;
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-current {
+    flex: 1 1 auto;
+    padding: 0.125rem 0;
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-forecast {
+    flex: 0 0 auto;
+    margin-top: 0.375rem;
+    padding-top: 0.375rem;
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="1"] .hyve-dashboard-card__row,
+.hyve-dashboard-card--weather-rich[data-weather-rows="1"] .hyve-dashboard-card__weather-forecast,
+.hyve-dashboard-card--weather-rich[data-weather-rows="2"] .hyve-dashboard-card__weather-forecast {
+    display: none;
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="2"] {
+    padding-block: 0.375rem;
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="2"] .hyve-dashboard-card__row {
+    padding-right: 2.75rem;
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="2"] .hyve-dashboard-card__weather-stats {
+    flex-wrap: nowrap;
+    gap: 0.125rem 0.5rem;
+    margin-top: 0.125rem;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 11px;
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="2"] .hyve-dashboard-card__weather-current {
+    min-height: 0;
+    padding: 0;
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="2"] .hyve-dashboard-card__weather-temp {
+    font-size: clamp(1.35rem, 4vw, 1.75rem);
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="2"] .hyve-dashboard-card__weather-icon {
+    font-size: clamp(1.9rem, 5vw, 2.35rem);
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="2"] .hyve-dashboard-card__weather-cond {
+    font-size: 10px;
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="3"] {
+    padding-block: 0.375rem;
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="3"] .hyve-dashboard-card__row {
+    padding-right: 2.75rem;
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="3"] .hyve-dashboard-card__weather-stats {
+    flex-wrap: nowrap;
+    gap: 0.125rem 0.55rem;
+    margin-top: 0.125rem;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 10.5px;
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="3"] .hyve-dashboard-card__weather-current {
+    padding: 0.125rem 0 0;
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="3"] .hyve-dashboard-card__weather-temp {
+    font-size: clamp(1.45rem, 4vw, 1.85rem);
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="3"] .hyve-dashboard-card__weather-icon {
+    font-size: clamp(2rem, 5vw, 2.45rem);
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="3"] .hyve-dashboard-card__weather-forecast {
+    margin-top: 0.25rem;
+    padding-top: 0.25rem;
+    gap: 0.25rem;
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="3"] .hyve-dashboard-card__weather-day {
+    gap: 0.05rem;
+    padding: 0.125rem;
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="3"] .hyve-dashboard-card__weather-day-label {
+    font-size: 9px;
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="3"] .hyve-dashboard-card__weather-day-icon {
+    font-size: 15px;
+}
+.hyve-dashboard-card--weather-rich[data-weather-rows="3"] .hyve-dashboard-card__weather-day-temp {
+    font-size: 10.5px;
+}
+
+/* ─── Weather rich: theming + stats row ─────────────────────────── */
+.hyve-dashboard-card--weather-rich {
+    position: relative;
+    overflow: hidden;
+    color: #f8fafc;
+    /* per-variant tints (overridden below) */
+    --w-from: #1e293b;
+    --w-to:   #0f172a;
+    --w-accent: #60a5fa;
+    --w-text-soft: rgba(248,250,252,0.78);
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: linear-gradient(140deg, var(--w-from) 0%, var(--w-to) 100%);
+    pointer-events: none;
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-bg > span {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+/* Weather card overlay rule must NOT override absolute positioning of edit/resize controls. */
+.hyve-dashboard-card--weather-rich > *:not(.hyve-dashboard-card__weather-bg):not(.hyve-dashboard-card__resize):not(.hyve-dashboard-card__edit):not(.hyve-dashboard-card__resize-tooltip) {
+    position: relative;
+    z-index: 1;
+}
+/* Keep absolute controls layered above the weather backdrop. */
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__resize,
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__edit,
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__resize-tooltip {
+    z-index: 6;
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__title { color: #f8fafc; }
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-temp { color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-cond { color: var(--w-text-soft); text-transform: none; }
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-icon { color: var(--w-accent); }
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-forecast { border-top-color: rgba(255,255,255,0.10); }
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-day { background: rgba(255,255,255,0.06); }
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-day-label { color: var(--w-text-soft); }
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-day-icon  { color: #f1f5f9; }
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-day-temp  { color: #ffffff; }
+
+.hyve-dashboard-card__weather-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    margin-top: 0.25rem;
+    font-size: 12px;
+    color: var(--w-text-soft);
+    font-family: inherit;
+}
+.hyve-dashboard-card__weather-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-variant-numeric: tabular-nums;
+}
+.hyve-dashboard-card__weather-stat i {
+    font-size: 11px;
+    opacity: 0.85;
+    color: var(--w-accent);
+}
+
+/* Day/night base palettes (apply when no specific condition match) */
+.hyve-dashboard-card--weather-rich[data-weather-time="day"]  { --w-from: #1e3a8a; --w-to: #0f172a; --w-accent: #fcd34d; }
+.hyve-dashboard-card--weather-rich[data-weather-time="night"]{ --w-from: #0b1220; --w-to: #050810; --w-accent: #c4b5fd; }
+
+/* Per-condition palettes (day) */
+.hyve-dashboard-card--weather-rich[data-weather="clear"][data-weather-time="day"]  { --w-from: #2563eb; --w-to: #0ea5e9; --w-accent: #fde047; }
+.hyve-dashboard-card--weather-rich[data-weather="partly"][data-weather-time="day"] { --w-from: #1d4ed8; --w-to: #475569; --w-accent: #fcd34d; }
+.hyve-dashboard-card--weather-rich[data-weather="cloud"][data-weather-time="day"]  { --w-from: #475569; --w-to: #1e293b; --w-accent: #cbd5e1; }
+.hyve-dashboard-card--weather-rich[data-weather="rain"][data-weather-time="day"]   { --w-from: #155e75; --w-to: #111827; --w-accent: #93c5fd; }
+.hyve-dashboard-card--weather-rich[data-weather="storm"][data-weather-time="day"]  { --w-from: #334155; --w-to: #020617; --w-accent: #facc15; }
+.hyve-dashboard-card--weather-rich[data-weather="snow"][data-weather-time="day"]   { --w-from: #475569; --w-to: #1e293b; --w-accent: #e0f2fe; }
+.hyve-dashboard-card--weather-rich[data-weather="fog"][data-weather-time="day"]    { --w-from: #475569; --w-to: #334155; --w-accent: #e2e8f0; }
+
+/* Per-condition palettes (night) */
+.hyve-dashboard-card--weather-rich[data-weather="clear"][data-weather-time="night"]  { --w-from: #1e1b4b; --w-to: #020617; --w-accent: #c4b5fd; }
+.hyve-dashboard-card--weather-rich[data-weather="partly"][data-weather-time="night"] { --w-from: #1e293b; --w-to: #020617; --w-accent: #c4b5fd; }
+.hyve-dashboard-card--weather-rich[data-weather="cloud"][data-weather-time="night"]  { --w-from: #1f2937; --w-to: #030712; --w-accent: #94a3b8; }
+.hyve-dashboard-card--weather-rich[data-weather="rain"][data-weather-time="night"]   { --w-from: #172554; --w-to: #020617; --w-accent: #7dd3fc; }
+.hyve-dashboard-card--weather-rich[data-weather="storm"][data-weather-time="night"]  { --w-from: #1e1b4b; --w-to: #000000; --w-accent: #fde047; }
+.hyve-dashboard-card--weather-rich[data-weather="snow"][data-weather-time="night"]   { --w-from: #334155; --w-to: #0b1220; --w-accent: #e0f2fe; }
+.hyve-dashboard-card--weather-rich[data-weather="fog"][data-weather-time="night"]    { --w-from: #334155; --w-to: #1e293b; --w-accent: #e2e8f0; }
+
+/* Subtle ambient effects layered on top of the gradient */
+.hyve-dashboard-card--weather-rich[data-weather="clear"][data-weather-time="day"] .hyve-dashboard-card__weather-bg::after {
+    content: "";
+    position: absolute;
+    top: -30%;
+    right: -15%;
+    width: 70%;
+    height: 140%;
+    background: radial-gradient(circle, rgba(253,224,71,0.25), transparent 60%);
+    filter: blur(4px);
+}
+.hyve-dashboard-card--weather-rich[data-weather="clear"][data-weather-time="night"] .hyve-dashboard-card__weather-bg::after,
+.hyve-dashboard-card--weather-rich[data-weather="partly"][data-weather-time="night"] .hyve-dashboard-card__weather-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+        radial-gradient(1px 1px at 12% 22%, rgba(255,255,255,0.65), transparent 60%),
+        radial-gradient(1px 1px at 28% 70%, rgba(255,255,255,0.45), transparent 60%),
+        radial-gradient(1px 1px at 55% 14%, rgba(255,255,255,0.55), transparent 60%),
+        radial-gradient(1.5px 1.5px at 80% 40%, rgba(255,255,255,0.7), transparent 60%),
+        radial-gradient(1px 1px at 90% 75%, rgba(255,255,255,0.4), transparent 60%);
+    opacity: 0.9;
+}
+.hyve-dashboard-card--weather-rich[data-weather="rain"] .hyve-dashboard-card__weather-bg,
+.hyve-dashboard-card--weather-rich[data-weather="storm"] .hyve-dashboard-card__weather-bg {
+    background:
+        linear-gradient(140deg, rgba(8, 47, 73, 0.90) 0%, transparent 54%),
+        linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 34%),
+        linear-gradient(140deg, var(--w-from) 0%, var(--w-to) 100%);
+}
+.hyve-dashboard-card--weather-rich[data-weather="rain"] .hyve-dashboard-card__weather-bg::after,
+.hyve-dashboard-card--weather-rich[data-weather="storm"] .hyve-dashboard-card__weather-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.045) 60%, rgba(125,211,252,0.09) 100%),
+        radial-gradient(120% 70% at 78% 100%, rgba(125,211,252,0.11), transparent 62%);
+    opacity: 0.74;
+}
+.hyve-dashboard-card--weather-rich[data-weather="rain"] .hyve-dashboard-card__weather-rain,
+.hyve-dashboard-card--weather-rich[data-weather="storm"] .hyve-dashboard-card__weather-rain {
+    opacity: 0.74;
+    mix-blend-mode: screen;
+    overflow: hidden;
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-rain::before,
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-rain::after {
+    content: "";
+    position: absolute;
+    inset: -16px -18%;
+    background-repeat: repeat;
+    pointer-events: none;
+    will-change: background-position;
+}
+.hyve-dashboard-card--weather-rich[data-weather="rain"] .hyve-dashboard-card__weather-rain--far,
+.hyve-dashboard-card--weather-rich[data-weather="storm"] .hyve-dashboard-card__weather-rain--far {
+    inset: 0;
+    background: none;
+    filter: blur(0.28px);
+    opacity: 0.50;
+}
+.hyve-dashboard-card--weather-rich[data-weather="rain"] .hyve-dashboard-card__weather-rain--far::before,
+.hyve-dashboard-card--weather-rich[data-weather="storm"] .hyve-dashboard-card__weather-rain--far::before {
+    background-image:
+        radial-gradient(ellipse 1.2px 7px at 18px 24px, rgba(226,232,240,0.42) 0 42%, transparent 74%),
+        radial-gradient(ellipse 1px 6.5px at 56px 96px, rgba(186,230,253,0.32) 0 42%, transparent 74%),
+        radial-gradient(ellipse 1px 6.5px at 104px 168px, rgba(240,249,255,0.28) 0 42%, transparent 76%),
+        radial-gradient(ellipse 1px 6px at 148px 54px, rgba(186,230,253,0.28) 0 42%, transparent 76%);
+    background-size: 190px 240px;
+    background-position: 0 0, 56px 96px, 104px 168px, 148px 54px;
+    transform: skewX(-5deg);
+    animation: hyve-rain-far-a 1.9s linear infinite;
+    opacity: 0.82;
+}
+.hyve-dashboard-card--weather-rich[data-weather="rain"] .hyve-dashboard-card__weather-rain--far::after,
+.hyve-dashboard-card--weather-rich[data-weather="storm"] .hyve-dashboard-card__weather-rain--far::after {
+    background-image:
+        radial-gradient(ellipse 1px 6.5px at 34px 72px, rgba(240,249,255,0.28) 0 42%, transparent 76%),
+        radial-gradient(ellipse 1px 6px at 128px 218px, rgba(186,230,253,0.24) 0 42%, transparent 76%);
+    background-size: 260px 320px;
+    background-position: 34px 72px, 128px 218px;
+    transform: skewX(-4deg);
+    animation: hyve-rain-far-b 2.6s linear infinite;
+    opacity: 0.52;
+}
+.hyve-dashboard-card--weather-rich[data-weather="rain"] .hyve-dashboard-card__weather-rain--near,
+.hyve-dashboard-card--weather-rich[data-weather="storm"] .hyve-dashboard-card__weather-rain--near {
+    inset: 0;
+    background: none;
+    filter: drop-shadow(0 0 3px rgba(186,230,253,0.24));
+    opacity: 0.82;
+}
+.hyve-dashboard-card--weather-rich[data-weather="rain"] .hyve-dashboard-card__weather-rain--near::before,
+.hyve-dashboard-card--weather-rich[data-weather="storm"] .hyve-dashboard-card__weather-rain--near::before {
+    background-image:
+        radial-gradient(ellipse 1.9px 10px at 24px 28px, rgba(240,249,255,0.82) 0 38%, rgba(186,230,253,0.38) 60%, transparent 78%),
+        radial-gradient(ellipse 1.6px 9px at 62px 112px, rgba(125,211,252,0.60) 0 38%, rgba(125,211,252,0.26) 60%, transparent 78%),
+        radial-gradient(ellipse 1.7px 9px at 112px 194px, rgba(224,242,254,0.70) 0 38%, rgba(186,230,253,0.30) 60%, transparent 78%),
+        radial-gradient(ellipse 1.4px 8px at 172px 72px, rgba(240,249,255,0.54) 0 38%, rgba(240,249,255,0.22) 60%, transparent 80%),
+        radial-gradient(ellipse 1.5px 8.5px at 36px 238px, rgba(186,230,253,0.52) 0 38%, rgba(186,230,253,0.24) 60%, transparent 80%);
+    background-size: 220px 280px;
+    background-position: 24px 28px, 62px 112px, 112px 194px, 172px 72px, 36px 238px;
+    transform: skewX(-6deg);
+    animation: hyve-rain-near-a 0.98s linear infinite;
+    opacity: 0.92;
+}
+.hyve-dashboard-card--weather-rich[data-weather="rain"] .hyve-dashboard-card__weather-rain--near::after,
+.hyve-dashboard-card--weather-rich[data-weather="storm"] .hyve-dashboard-card__weather-rain--near::after {
+    background-image:
+        radial-gradient(ellipse 1.6px 9px at 48px 86px, rgba(240,249,255,0.56) 0 38%, rgba(186,230,253,0.24) 60%, transparent 80%),
+        radial-gradient(ellipse 1.5px 8.5px at 154px 204px, rgba(125,211,252,0.48) 0 38%, rgba(125,211,252,0.22) 60%, transparent 80%),
+        radial-gradient(ellipse 1.3px 8px at 246px 292px, rgba(224,242,254,0.46) 0 38%, rgba(186,230,253,0.20) 62%, transparent 82%);
+    background-size: 300px 360px;
+    background-position: 48px 86px, 154px 204px, 246px 292px;
+    transform: skewX(-5deg);
+    animation: hyve-rain-near-b 1.42s linear infinite;
+    opacity: 0.52;
+}
+.hyve-dashboard-card--weather-rich[data-weather="rain"] .hyve-dashboard-card__weather-rain--mist,
+.hyve-dashboard-card--weather-rich[data-weather="storm"] .hyve-dashboard-card__weather-rain--mist {
+    inset: auto 0 0 0;
+    height: 42%;
+    background:
+        linear-gradient(180deg, transparent, rgba(15,23,42,0.14) 44%, rgba(186,230,253,0.11)),
+        repeating-radial-gradient(ellipse at 50% 100%, rgba(226,232,240,0.09) 0 1px, transparent 1px 18px);
+    filter: blur(1.7px);
+    opacity: 0.46;
+    transform: translateY(8%);
+    animation: hyve-rain-mist 6.5s ease-in-out infinite alternate;
+}
+.hyve-dashboard-card--weather-rich[data-weather="storm"] .hyve-dashboard-card__weather-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(115deg, transparent 0 54%, rgba(250,204,21,0.24) 55%, transparent 62% 100%),
+        radial-gradient(80% 50% at 70% 24%, rgba(250,204,21,0.14), transparent 62%);
+    animation: hyve-flash 5s ease-in-out infinite;
+}
+.hyve-dashboard-card--weather-rich[data-weather="snow"] .hyve-dashboard-card__weather-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+        radial-gradient(2px 2px at 15% 20%, #fff, transparent 60%),
+        radial-gradient(1.5px 1.5px at 40% 60%, #fff, transparent 60%),
+        radial-gradient(2px 2px at 65% 30%, #fff, transparent 60%),
+        radial-gradient(1.5px 1.5px at 85% 70%, #fff, transparent 60%);
+    opacity: 0.7;
+    animation: hyve-snow 8s linear infinite;
+}
+.hyve-dashboard-card--weather-rich[data-weather="fog"] .hyve-dashboard-card__weather-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(226,232,240,0.06), rgba(226,232,240,0.18));
+}
+.hyve-dashboard-card--weather-rich[data-weather="cloud"] .hyve-dashboard-card__weather-bg::after,
+.hyve-dashboard-card--weather-rich[data-weather="partly"][data-weather-time="day"] .hyve-dashboard-card__weather-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(60% 40% at 80% 25%, rgba(255,255,255,0.10), transparent 60%),
+        radial-gradient(40% 30% at 20% 80%, rgba(255,255,255,0.08), transparent 60%);
+}
+@keyframes hyve-rain-far-a {
+    from { background-position: 0 0, 56px 96px, 104px 168px, 148px 54px; }
+    to   { background-position: 0 240px, 56px 336px, 104px 408px, 148px 294px; }
+}
+@keyframes hyve-rain-far-b {
+    from { background-position: 34px 72px, 128px 218px; }
+    to   { background-position: 34px 392px, 128px 538px; }
+}
+@keyframes hyve-rain-near-a {
+    from { background-position: 24px 28px, 62px 112px, 112px 194px, 172px 72px, 36px 238px; }
+    to   { background-position: 24px 308px, 62px 392px, 112px 474px, 172px 352px, 36px 518px; }
+}
+@keyframes hyve-rain-near-b {
+    from { background-position: 48px 86px, 154px 204px, 246px 292px; }
+    to   { background-position: 48px 446px, 154px 564px, 246px 652px; }
+}
+@keyframes hyve-rain-mist {
+    from { transform: translateY(9%) scaleX(1); opacity: 0.38; }
+    to   { transform: translateY(3%) scaleX(1.035); opacity: 0.55; }
+}
+@keyframes hyve-flash {
+    0%, 88%, 100% { opacity: 0; }
+    90%, 92%      { opacity: 1; }
+    91%           { opacity: 0.4; }
+}
+@keyframes hyve-snow {
+    from { background-position: 0 0, 0 0, 0 0, 0 0; }
+    to   { background-position: 0 200px, 0 200px, 0 200px, 0 200px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-bg::after,
+    .hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-bg::before,
+    .hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-rain,
+    .hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-rain::before,
+    .hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-rain::after {
+        animation: none !important;
+    }
+}
+
+/* ── Camera card (Frigate / RTSP snapshot) ───────────────────────────── */
+.hyve-dashboard-card--camera {
+    padding: 0;
+    overflow: hidden;
+    position: relative;
+    background: #050505;
+}
+.hyve-dashboard-card--camera {
+    cursor: default;
+}
+.hyve-dashboard-card__camera-frame {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.hyve-dashboard-card__camera-img {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    object-fit: contain;
+    display: block;
+    background: #050505;
+}
+.hyve-dashboard-card__camera-player {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    background: #050505;
+}
+.hyve-dashboard-card__camera-player video,
+.hyve-dashboard-card__camera-player img {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    object-fit: contain;
+    display: block;
+    background: #050505;
+}
+.hyve-dashboard-card__camera-img[data-failed="1"] {
+    opacity: 0.25;
+    filter: grayscale(1);
+}
+.hyve-dashboard-card__camera-frame [data-camera-loader] {
+    background: rgba(5, 5, 5, 0.82);
+    gap: 0.5rem;
+}
+.hyve-dashboard-card__camera-frame [data-camera-loader] .w-9 {
+    width: 1.75rem;
+    height: 1.75rem;
+}
+.hyve-dashboard-card__camera-frame [data-camera-loader] .tracking-widest {
+    font-size: 0.56rem;
+}
+.hyve-dashboard-card__camera-placeholder {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 2.5rem;
+    background:
+        repeating-linear-gradient(
+            45deg,
+            rgba(255, 255, 255, 0.04) 0 8px,
+            rgba(255, 255, 255, 0.02) 8px 16px
+        );
+}
+.hyve-dashboard-card__camera-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 0.85rem;
+    pointer-events: none;
+}
+.hyve-dashboard-card__camera-title {
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.hyve-dashboard-card__camera-hint {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.75rem;
+}
+
+/* Multi-camera carousel + audio menu */
+.hyve-dashboard-card--camera .hyve-dashboard-card__edit {
+    z-index: 12;
+}
+.hv-camera-carousel {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    position: relative;
+}
+.hv-camera-carousel__viewport {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    align-items: stretch;
+}
+.hv-camera-carousel__stage {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    position: relative;
+    z-index: 1;
+}
+.hv-camera-carousel__stream {
+    width: 100%;
+    height: 100%;
+}
+.hv-camera-carousel__stream--active {
+    position: relative;
+    z-index: 1;
+}
+.hv-camera-carousel__stream--buffer {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+.hv-camera-carousel__nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 6;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    border: 1px solid var(--camera-chip-border);
+    background: var(--camera-chip-bg);
+    color: var(--camera-chip-fg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.hv-camera-carousel__nav[hidden] {
+    display: none !important;
+}
+.hv-camera-carousel__nav:hover {
+    background: var(--camera-chip-bg-hover);
+    border-color: var(--camera-chip-border-hover);
+}
+.hv-camera-carousel__nav--prev { left: 0.45rem; }
+.hv-camera-carousel__nav--next { right: 0.45rem; }
+.hv-camera-carousel__menu-btn {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    z-index: 7;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.55rem;
+    border: 1px solid var(--camera-chip-border);
+    background: var(--camera-chip-bg);
+    color: var(--camera-chip-fg);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.hv-camera-carousel__menu-btn:hover {
+    background: var(--camera-chip-bg-hover);
+    border-color: var(--camera-chip-border-hover);
+}
+.hv-camera-carousel__menu {
+    position: absolute;
+    top: 2.6rem;
+    right: 0.45rem;
+    z-index: 8;
+    min-width: 12.5rem;
+    max-width: calc(100% - 1rem);
+    padding: 0.65rem 0.7rem;
+    border-radius: 0.7rem;
+    border: 1px solid var(--camera-menu-border);
+    background: var(--camera-menu-bg);
+    color: var(--camera-menu-fg);
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(8px);
+}
+.hv-camera-carousel__menu--portal {
+    position: fixed;
+    z-index: 12000;
+    max-width: min(16rem, calc(100vw - 1rem));
+    box-shadow: var(--shadow-xl);
+}
+.hv-camera-carousel__menu.hidden { display: none; }
+.hv-camera-carousel__menu-head {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--camera-menu-muted);
+    margin-bottom: 0.45rem;
+}
+.hv-camera-carousel__menu-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.35rem 0;
+    font-size: 0.78rem;
+    color: var(--camera-menu-fg);
+}
+.hv-camera-carousel__menu-row span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.hv-camera-carousel__toggle {
+    border: 1px solid var(--camera-menu-control-border);
+    background: var(--camera-menu-control-bg);
+    color: var(--camera-menu-fg);
+    border-radius: 0.45rem;
+    padding: 0.25rem 0.45rem;
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+}
+.hv-camera-carousel__toggle.is-muted { opacity: 0.65; }
+.hv-camera-carousel__range {
+    width: 6.5rem;
+    accent-color: var(--accent);
+}
+.hv-camera-carousel__ptt {
+    width: 100%;
+    margin-top: 0.45rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 0.55rem;
+    border: 1px solid var(--camera-menu-control-border);
+    background: var(--camera-menu-control-bg);
+    color: var(--camera-menu-fg);
+    font-size: 0.74rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+}
+.hv-camera-carousel__ptt[hidden] {
+    display: none !important;
+}
+.hv-camera-carousel__ptt.is-active {
+    background: color-mix(in oklab, var(--accent) 22%, var(--camera-menu-control-bg));
+    border-color: color-mix(in oklab, var(--accent) 40%, var(--camera-menu-control-border));
+    color: var(--accent);
+}
+.hv-camera-carousel__menu-hint {
+    margin-top: 0.4rem;
+    font-size: 0.64rem;
+    line-height: 1.35;
+    color: var(--camera-menu-muted);
+}
+.hv-camera-carousel__footer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 2.1rem;
+    padding: 0.55rem 0.65rem 0.45rem;
+    background: var(--camera-footer-gradient);
+    color: var(--camera-footer-fg);
+    pointer-events: none;
+}
+.hv-camera-carousel__title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--camera-footer-fg);
+    text-shadow: var(--camera-title-shadow);
+    flex: 1;
+    min-width: 0;
+    text-align: right;
+}
+.hv-camera-carousel__dots {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    pointer-events: auto;
+    flex-shrink: 0;
+}
+.hv-camera-carousel__dot {
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 999px;
+    background: var(--camera-dot-bg);
+    box-shadow: var(--camera-dot-shadow);
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+.hv-camera-carousel__dot.is-active {
+    background: var(--accent, #f97316);
+    transform: scale(1.25);
+}
+
+/* ============================================================
+ * Weather (rich) — CodePen-inspired layout (MiguelEnc/vmZVar)
+ * ============================================================ */
+.hyve-dashboard-card--weather-rich {
+    background: #28688C !important;
+    border-color: rgba(255,255,255,0.08) !important;
+    color: #fff !important;
+    overflow: hidden;
+}
+.hyve-dashboard-card--weather-rich:has(.hv-cp-weather) {
+    padding: 0 !important;
+}
+.hyve-dashboard-card--weather-rich .hyve-dashboard-card__weather-bg {
+    display: none !important;
+}
+.hv-cp-weather {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    color: #fff;
+    font-family: inherit;
+    /* Enable container queries so children can size to this card */
+    container-type: size;
+    container-name: weatherrich;
+}
+/* When forecast tiles are absent (x2 layout), let the current row
+   fill the card and center itself for a richer look. */
+.hv-cp-weather:has(.hv-cp-weather__forecast:empty) .hv-cp-weather__current {
+    flex: 1 1 auto;
+    align-content: center;
+}
+/* In that case the current row gets the full card height, so bump
+   the cqh-based caps on the hero icon/temp to match x3 visuals. */
+.hv-cp-weather:has(.hv-cp-weather__forecast:empty) .hv-cp-weather__icon {
+    font-size: clamp(2.4rem, min(16cqi, 45cqh), 5rem);
+}
+.hv-cp-weather:has(.hv-cp-weather__forecast:empty) .hv-cp-weather__temp {
+    font-size: clamp(2.2rem, min(15cqi, 42cqh), 5rem);
+}
+.hv-cp-weather__forecast:empty { display: none; }
+.hv-cp-weather a, .hv-cp-weather a:hover, .hv-cp-weather a:focus {
+    color: #fff;
+    opacity: 0.85;
+    text-decoration: none;
+}
+.hv-cp-weather__current {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr) minmax(0, 0.9fr);
+    gap: clamp(0.4rem, 2cqi, 1rem);
+    padding: clamp(0.5rem, 3cqh, 1.1rem) clamp(0.6rem, 3cqi, 1.2rem);
+    align-items: center;
+}
+.hv-cp-weather__left h5,
+.hv-cp-weather__left h6 {
+    margin: 0 0 0.15rem 0;
+    font-weight: 600;
+    color: #fff;
+}
+.hv-cp-weather__city {
+    font-size: clamp(0.85rem, 4.5cqi, 1.4rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.hv-cp-weather__date {
+    font-size: clamp(0.65rem, 2.8cqi, 0.95rem);
+    opacity: 0.85;
+    font-weight: 400 !important;
+}
+.hv-cp-weather__time {
+    font-size: clamp(0.8rem, 3.6cqi, 1.2rem);
+    font-variant-numeric: tabular-nums;
+    opacity: 0.95;
+}
+.hv-cp-weather__center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(0.3rem, 2cqi, 0.9rem);
+    min-width: 0;
+}
+.hv-cp-weather__icon {
+    font-size: clamp(2rem, min(14cqi, 28cqh), 4.5rem);
+    line-height: 1;
+    color: #fff;
+}
+.hv-cp-weather__center-temp {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+}
+.hv-cp-weather__temp {
+    font-size: clamp(1.8rem, min(13cqi, 26cqh), 4.5rem);
+    font-weight: 600;
+    line-height: 0.95;
+    color: #fff;
+}
+.hv-cp-weather__desc {
+    margin: 0.25rem 0 0 0;
+    font-size: clamp(0.7rem, 2.6cqi, 0.95rem);
+    text-align: center;
+    text-transform: capitalize;
+    opacity: 0.9;
+    max-width: 12ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.hv-cp-weather__right {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: clamp(0.2rem, 1.2cqh, 0.6rem);
+    text-align: right;
+    min-width: 0;
+}
+.hv-cp-weather__right h6 {
+    margin: 0;
+    font-size: clamp(0.65rem, 2.8cqi, 0.95rem);
+    font-weight: 500;
+    color: #fff;
+    opacity: 0.95;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    white-space: nowrap;
+}
+.hv-cp-weather__right h6 i {
+    font-size: 0.85em;
+    opacity: 0.75;
+    width: 1em;
+    text-align: center;
+}
+.hv-cp-weather__right h6 span {
+    font-weight: 700;
+    opacity: 1;
+}
+.hv-cp-weather__forecast {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.4rem;
+    padding: 0.2rem 0.6rem 0.8rem 0.6rem;
+}
+.hv-cp-weather__day {
+    background: #2E7FA1;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    padding: 0.45rem 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    min-height: 4.4rem;
+}
+.hv-cp-weather__day-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+    flex: 1;
+}
+.hv-cp-weather__day-name {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    opacity: 0.9;
+}
+.hv-cp-weather__day-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.hv-cp-weather__day-temp {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+}
+.hv-cp-weather__day-icon {
+    font-size: 1rem;
+    color: #fff;
+}
+.hv-cp-weather__day-mm {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-size: 0.72rem;
+    line-height: 1.15;
+    opacity: 0.95;
+}
+.hv-cp-weather__day-mm p {
+    margin: 0;
+}
+.hv-cp-weather__day-hi { font-weight: 700; }
+.hv-cp-weather__day-lo { opacity: 0.75; }
+
+/* Narrow widget: collapse the 3-column header to two rows */
+@container weatherrich (max-width: 360px) {
+    .hv-cp-weather__current {
+        grid-template-columns: 1fr 1fr;
+    }
+    .hv-cp-weather__right {
+        grid-column: 1 / -1;
+        flex-direction: row;
+        justify-content: space-between;
+        text-align: left;
+    }
+    .hv-cp-weather__forecast { grid-template-columns: repeat(2, 1fr); }
+}
+/* Very short widget: drop the date to keep things breathing */
+@container weatherrich (max-height: 90px) {
+    .hv-cp-weather__date { display: none; }
+}
+
+/* Minimalist gradient weather card */
+.hv-gradient-weather-card {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 260px;
+  min-height: 90px;
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 24px 0 rgba(0,0,0,0.10);
+  background: linear-gradient(90deg, #3a8dde 0%, #6dd5ed 100%);
+  padding: 0.5rem 1.2rem;
+  margin: 0.2rem 0;
+  color: #fff;
+  font-family: inherit;
+  position: relative;
+  overflow: hidden;
+}
+.hv-gradient-weather-main {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+.hv-gradient-weather-icon {
+  font-size: 3.2rem;
+  width: 3.2rem;
+  height: 3.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.10));
+}
+.hv-gradient-weather-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.hv-gradient-weather-temp {
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 0.1rem;
+}
+.hv-gradient-weather-cond {
+  font-size: 1.1rem;
+  font-weight: 500;
+  opacity: 0.92;
+  margin-bottom: 0.1rem;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+.hv-gradient-weather-date {
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+.hv-gradient-weather-loc {
+  font-size: 0.95rem;
+  opacity: 0.85;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ============================================================
+ * Camera card — loading overlay
+ * ============================================================ */
+.hv-cam-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease;
+    z-index: 1;
+}
+.hv-cam-loading.is-visible {
+    opacity: 1;
+}
+.hv-cam-spinner {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.15);
+    border-top-color: rgba(255, 255, 255, 0.9);
+    animation: hv-cam-spin 0.85s linear infinite;
+}
+.hv-cam-loading__label {
+    opacity: 0.75;
+}
+@keyframes hv-cam-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── Fusion Solar — HA Power Flow inspired (theme-aware) ─────────────── */
+
+.hyve-dashboard-card--fusion-solar {
+    --fsolar-solar: var(--warning, #f59e0b);
+    --fsolar-home: var(--accent, #38bdf8);
+    --fsolar-grid-export: var(--success, #22c55e);
+    --fsolar-grid-import: var(--danger-soft, #f87171);
+    --fsolar-track: color-mix(in srgb, var(--text-tertiary, #94a3b8) 18%, transparent);
+    --fsolar-idle: color-mix(in srgb, var(--text-tertiary, #94a3b8) 16%, transparent);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+    background:
+        radial-gradient(120% 90% at 50% 8%, color-mix(in srgb, var(--fsolar-solar) 9%, transparent), transparent 60%),
+        radial-gradient(90% 90% at 12% 100%, color-mix(in srgb, var(--fsolar-home) 8%, transparent), transparent 55%),
+        var(--card-bg, var(--surface-1, rgba(15, 23, 42, 0.92)));
+    border: 1px solid var(--card-border, var(--border-subtle, rgba(255, 255, 255, 0.08)));
+    color: var(--text-primary, #e5e7eb);
+    box-shadow: var(--card-shadow, none);
+}
+
+.hyve-dashboard-card--fusion-solar > hv-card-fusion-solar {
+    flex: 1 1 auto;
+    flex-shrink: 1;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+}
+
+.hv-fsolar {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.hv-fsolar--flow {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.hv-fsolar__top--flow {
+    flex: 0 0 auto;
+    padding: 0.45rem 0.55rem 0.2rem;
+}
+
+/* ── Custom SVG power-flow diagram ─────────────────────────────────── */
+
+.hvflow {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    border-radius: 0;
+    background: transparent;
+}
+
+.hvflow__svg {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    display: block;
+    overflow: visible;
+}
+
+/* Lines */
+.hvflow__line {
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    opacity: 0.22;
+    transition: opacity 0.45s ease, stroke-width 0.45s ease;
+}
+
+.hvflow__flow[data-active="true"] .hvflow__line {
+    opacity: 0.95;
+    stroke-width: 3;
+    filter: drop-shadow(0 0 4px color-mix(in srgb, currentColor 60%, transparent));
+}
+
+.hvflow__dot {
+    opacity: 0;
+    filter: drop-shadow(0 0 4px currentColor);
+    transition: opacity 0.45s ease;
+}
+
+.hvflow__dot--trail { opacity: 0; }
+
+.hvflow__flow[data-active="true"] .hvflow__dot { opacity: 1; }
+.hvflow__flow[data-active="true"] .hvflow__dot--trail { opacity: 0.45; }
+
+.hvflow__flow[data-flow="solar_grid"] .hvflow__dot { fill: var(--fsolar-grid-export); color: var(--fsolar-grid-export); }
+.hvflow__flow[data-flow="solar_home"] .hvflow__dot { fill: var(--fsolar-solar); color: var(--fsolar-solar); }
+.hvflow__flow[data-flow="grid_home"]  .hvflow__dot { fill: var(--fsolar-home); color: var(--fsolar-home); }
+.hvflow__flow[data-flow="solar_battery"] .hvflow__dot { fill: var(--fsolar-grid-export); color: var(--fsolar-grid-export); }
+.hvflow__flow[data-flow="battery_home"]  .hvflow__dot { fill: var(--fsolar-grid-export); color: var(--fsolar-grid-export); }
+
+/* Nodes */
+.hvflow__halo {
+    fill: transparent;
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: opacity 0.45s ease;
+}
+
+.hvflow__fill { opacity: 0.9; }
+
+.hvflow__track {
+    fill: color-mix(in srgb, var(--surface-2, #0f172a) 60%, transparent);
+    stroke: var(--fsolar-track);
+    stroke-width: 4;
+}
+
+.hvflow__ring {
+    fill: none;
+    stroke-width: 4.5;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.8s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.4s ease, filter 0.4s ease;
+}
+
+.hvflow__node--solar .hvflow__ring { stroke: var(--fsolar-solar); }
+.hvflow__node--home  .hvflow__ring { stroke: var(--fsolar-home); }
+.hvflow__node--grid  .hvflow__ring { stroke: var(--fsolar-home); }
+.hvflow__node--battery .hvflow__ring { stroke: var(--fsolar-grid-export); }
+.hvflow__ring[data-mode="export"] { stroke: var(--fsolar-grid-export); }
+.hvflow__ring[data-mode="import"] { stroke: var(--fsolar-home); }
+
+.hvflow__node--solar[data-active="true"] .hvflow__ring { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--fsolar-solar) 75%, transparent)); }
+.hvflow__node--home[data-active="true"]  .hvflow__ring { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--fsolar-home) 75%, transparent)); }
+.hvflow__node--grid[data-active="true"]  .hvflow__ring { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--fsolar-home) 70%, transparent)); }
+.hvflow__node--grid[data-mode="export"][data-active="true"] .hvflow__ring { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--fsolar-grid-export) 75%, transparent)); }
+.hvflow__node--battery[data-active="true"] .hvflow__ring { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--fsolar-grid-export) 75%, transparent)); }
+
+.hvflow__node--solar .hvflow__halo { fill: var(--fsolar-solar); }
+.hvflow__node--home  .hvflow__halo { fill: var(--fsolar-home); }
+.hvflow__node--grid  .hvflow__halo { fill: var(--fsolar-home); }
+.hvflow__node--battery .hvflow__halo { fill: var(--fsolar-grid-export); }
+.hvflow__node[data-active="true"] .hvflow__halo {
+    opacity: 0.14;
+    animation: hvflow-pulse 3.4s ease-in-out infinite;
+}
+
+@keyframes hvflow-pulse {
+    0%, 100% { opacity: 0.08; }
+    50% { opacity: 0.2; }
+}
+
+.hvflow__icon {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary, #cbd5e1);
+    font-size: 18px;
+    line-height: 1;
+}
+
+.hvflow__node--solar .hvflow__icon { color: var(--fsolar-solar); }
+.hvflow__node--home  .hvflow__icon { color: var(--fsolar-home); }
+.hvflow__node--grid[data-mode="export"] .hvflow__icon { color: var(--fsolar-grid-export); }
+
+.hvflow__value {
+    font-variant-numeric: tabular-nums;
+    fill: var(--text-primary, #f1f5f9);
+    font-family: inherit;
+}
+
+.hvflow__num {
+    font-size: 15px;
+    font-weight: 750;
+    letter-spacing: -0.01em;
+}
+
+.hvflow__unit {
+    font-size: 9px;
+    font-weight: 600;
+    fill: var(--text-tertiary, #94a3b8);
+}
+
+.hvflow__label {
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    fill: var(--text-tertiary, #94a3b8);
+    font-family: inherit;
+}
+
+.hvflow__node[data-active="false"] { opacity: 0.5; }
+.hvflow__node { transition: opacity 0.45s ease; }
+
+/* Legacy compact metrics (1-row card) */
+
+.hv-fsolar__metrics {
+    display: grid;
+    gap: 0.28rem;
+    min-width: 0;
+}
+
+.hv-fsolar__metrics--live {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.hv-fsolar__metric {
+    display: flex;
+    flex-direction: column;
+    gap: 0.06rem;
+    padding: 0.3rem 0.35rem;
+    border-radius: 0.45rem;
+    background: var(--overlay-4, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.05));
+    min-width: 0;
+}
+
+.hv-fsolar__metric-label {
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary, #94a3b8);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hv-fsolar__metric-value {
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary, #f1f5f9);
+    line-height: 1.15;
+}
+
+.hv-fsolar__metric-unit {
+    font-size: 0.52rem;
+    color: var(--text-tertiary, #94a3b8);
+}
+
+.hv-fsolar__metric--solar .hv-fsolar__metric-value { color: var(--fsolar-solar); }
+.hv-fsolar__metric--solar-soft .hv-fsolar__metric-value { color: color-mix(in srgb, var(--fsolar-solar) 80%, var(--text-primary)); }
+.hv-fsolar__metric--home .hv-fsolar__metric-value { color: var(--fsolar-home); }
+.hv-fsolar__metric--export .hv-fsolar__metric-value { color: var(--fsolar-grid-export); }
+.hv-fsolar__metric--import .hv-fsolar__metric-value { color: var(--fsolar-grid-import); }
+
+.hv-fsolar__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 0;
+    flex-shrink: 0;
+}
+
+.hv-fsolar__name {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-primary, #e5e7eb);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.hv-fsolar__chip {
+    flex-shrink: 0;
+    font-size: 0.58rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    background: var(--overlay-6, rgba(255, 255, 255, 0.06));
+    color: var(--text-tertiary, #94a3b8);
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+.hv-fsolar__chip[data-mode="solar"] {
+    color: var(--fsolar-solar);
+    border-color: color-mix(in oklab, var(--fsolar-solar) 40%, transparent);
+    background: color-mix(in oklab, var(--fsolar-solar) 12%, transparent);
+}
+
+.hv-fsolar__chip[data-mode="export"] {
+    color: var(--fsolar-grid-export);
+    border-color: color-mix(in oklab, var(--fsolar-grid-export) 40%, transparent);
+    background: color-mix(in oklab, var(--fsolar-grid-export) 12%, transparent);
+}
+
+.hv-fsolar__chip[data-mode="import"] {
+    color: var(--fsolar-grid-import);
+    border-color: color-mix(in oklab, var(--fsolar-grid-import) 40%, transparent);
+    background: color-mix(in oklab, var(--fsolar-grid-import) 12%, transparent);
+}
+
+.hv-fsolar__diagram,
+.hv-fsolar__compact-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1.15fr auto 1fr;
+    align-items: center;
+    gap: 0.2rem;
+    min-height: 0;
+}
+
+.hv-fsolar__compact-row {
+    grid-template-columns: 1fr 1.1fr 1fr;
+    gap: 0.35rem;
+}
+
+.hv-fsolar__node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.12rem;
+    min-width: 0;
+    text-align: center;
+}
+
+.hv-fsolar__node-label {
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-tertiary, #94a3b8);
+}
+
+.hv-fsolar__node strong {
+    font-size: 0.68rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary, #f1f5f9);
+    white-space: nowrap;
+}
+
+.hv-fsolar__node--home strong,
+.hv-fsolar__node--home [data-center] {
+    font-size: 0.78rem;
+}
+
+.hv-fsolar__node--grid strong[data-flow="export"] {
+    color: var(--fsolar-grid-export);
+}
+
+.hv-fsolar__node--grid strong[data-flow="import"] {
+    color: var(--fsolar-grid-import);
+}
+
+.hv-fsolar__ring {
+    width: 2.15rem;
+    height: 2.15rem;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    font-size: 0.85rem;
+    background: var(--fsolar-ring-bg);
+    border: 2px solid var(--fsolar-ring-border);
+    color: var(--text-secondary, #cbd5e1);
+    transition: border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.hv-fsolar__ring--hero {
+    width: 2.55rem;
+    height: 2.55rem;
+    font-size: 0.95rem;
+}
+
+.hv-fsolar__node--solar .hv-fsolar__ring {
+    color: var(--fsolar-solar);
+}
+
+.hv-fsolar__node--home .hv-fsolar__ring {
+    color: var(--fsolar-home);
+    border-color: color-mix(in srgb, var(--fsolar-home) 35%, var(--fsolar-ring-border));
+}
+
+.hv-fsolar__node--grid .hv-fsolar__ring {
+    color: var(--text-secondary, #cbd5e1);
+}
+
+.hv-fsolar__ring--live {
+    border-color: var(--fsolar-solar);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--fsolar-solar) 18%, transparent);
+}
+
+.hv-fsolar__pipe {
+    width: 1.1rem;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--overlay-10, rgba(255, 255, 255, 0.1));
+    position: relative;
+    overflow: hidden;
+}
+
+.hv-fsolar__pipe--live::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, var(--fsolar-solar), transparent);
+    animation: hv-fsolar-flow 1.6s ease-in-out infinite;
+}
+
+@keyframes hv-fsolar-flow {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.hv-fsolar__stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.3rem;
+    min-height: 0;
+}
+
+.hv-fsolar__stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    padding: 0.28rem 0.35rem;
+    border-radius: 0.45rem;
+    background: var(--overlay-4, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.05));
+    min-width: 0;
+}
+
+.hv-fsolar__stat span {
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-tertiary, #94a3b8);
+}
+
+.hv-fsolar__stat strong {
+    font-size: 0.68rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary, #f1f5f9);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hv-fsolar--compact {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100%;
+    padding: 0.45rem 0.5rem;
+}
+
+.hyve-dashboard-card--fusion-solar-compact {
+    min-height: 4.25rem;
+}
+
+@media (max-width: 480px) {
+    .hv-fsolar__diagram {
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 0.25rem;
+    }
+    .hv-fsolar__pipe { display: none; }
+}

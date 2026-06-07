@@ -35,7 +35,10 @@ async def get_sess(session_id: str, current_user: models.User = Depends(auth.get
     s = storage.get_session(session_id)
     if not s:
         raise HTTPException(404, detail="Session not found")
-    if s.get("user_id") is not None and s.get("user_id") != current_user.id:
+    session_owner = s.get("user_id")
+    if session_owner is None and not current_user.is_admin:
+        raise HTTPException(403, detail="Access denied")
+    if session_owner is not None and session_owner != current_user.id:
         raise HTTPException(403, detail="Access denied")
     return s
 
@@ -46,7 +49,10 @@ async def del_sess(session_id: str, current_user: models.User = Depends(auth.get
     s = storage.get_session(session_id)
     if not s:
         raise HTTPException(404, detail="Session not found")
-    if s.get("user_id") is not None and s.get("user_id") != current_user.id:
+    session_owner = s.get("user_id")
+    if session_owner is None and not current_user.is_admin:
+        raise HTTPException(403, detail="Access denied")
+    if session_owner is not None and session_owner != current_user.id:
         raise HTTPException(403, detail="Access denied")
     # Delete context (e.g. last HA device) for this user's session
     uid = s.get("user_id")
@@ -69,7 +75,10 @@ async def save_message_stats(
     s = storage.get_session(session_id)
     if not s:
         raise HTTPException(404, detail="Session not found")
-    if s.get("user_id") is not None and s.get("user_id") != current_user.id:
+    session_owner = s.get("user_id")
+    if session_owner is None and not current_user.is_admin:
+        raise HTTPException(403, detail="Access denied")
+    if session_owner is not None and session_owner != current_user.id:
         raise HTTPException(403, detail="Access denied")
     messages = s.get("messages", [])
     # Find the last assistant message (walking backwards)
@@ -95,7 +104,10 @@ async def clear_session_context(session_id: str, current_user: models.User = Dep
     s = storage.get_session(session_id)
     if not s:
         raise HTTPException(404, detail="Session not found")
-    if s.get("user_id") is not None and s.get("user_id") != current_user.id:
+    session_owner = s.get("user_id")
+    if session_owner is None and not current_user.is_admin:
+        raise HTTPException(403, detail="Access denied")
+    if session_owner is not None and session_owner != current_user.id:
         raise HTTPException(403, detail="Access denied")
     s["messages"] = []
     s["summary"] = ""
@@ -129,7 +141,7 @@ async def save_notification_to_session(
                 "timestamp": time.time(),
                 "notification": True,
                 "notification_id": body.notification_id or f"notif_{int(time.time())}",
-                "model_name": "Memini",
+                "model_name": "Hyve",
             })
             storage.save_session(session["id"], session)
             return {"session_id": session["id"], "status": "saved"}

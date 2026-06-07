@@ -20,7 +20,7 @@ def _numeric_user_id(user_id: str) -> int | None:
 
 
 def _get_fcm_credentials_path() -> str:
-    env_path = (os.environ.get("MEMINI_FCM_SERVICE_ACCOUNT_PATH") or "").strip()
+    env_path = (os.environ.get("HYVE_FCM_SERVICE_ACCOUNT_PATH") or "").strip()
     if env_path:
         return env_path
     cfg = settings.CFG.get("fcm") or {}
@@ -39,13 +39,13 @@ def _get_firebase_app():
     path = _get_fcm_credentials_path()
     if not path:
         raise RuntimeError("FCM service account path is not configured")
-    existing = firebase_admin._apps.get("memini-fcm")  # type: ignore[attr-defined]
+    existing = firebase_admin._apps.get("hyve-fcm")  # type: ignore[attr-defined]
     if existing:
         return existing
     cred = credentials.Certificate(path)
     project_id = str((settings.CFG.get("fcm") or {}).get("project_id") or "").strip() or None
     options = {"projectId": project_id} if project_id else None
-    return firebase_admin.initialize_app(cred, options=options, name="memini-fcm")
+    return firebase_admin.initialize_app(cred, options=options, name="hyve-fcm")
 
 
 def send_push_notification(
@@ -82,7 +82,7 @@ def send_push_notification(
         sent = 0
         invalid_tokens: list[str] = []
         data = {
-            "title": str(title or "Memini"),
+            "title": str(title or "Hyve"),
             "message": str(message or ""),
             "type": str(notification_type or "reminder"),
             "notification_id": str(notification_id or ""),
@@ -95,7 +95,7 @@ def send_push_notification(
                 android=messaging.AndroidConfig(priority="high"),
             )
             try:
-                messaging.send(msg, app=firebase_admin.get_app("memini-fcm"))
+                messaging.send(msg, app=firebase_admin.get_app("hyve-fcm"))
                 device.last_seen_at = datetime.now()
                 sent += 1
             except Exception as exc:

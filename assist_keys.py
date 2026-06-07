@@ -1,4 +1,4 @@
-"""Per-user API keys for Home Assistant Assist: link HA requests to Bridge user and inject memories."""
+"""Per-user API keys for the Assist proxy: link external requests to a Bridge user and inject memories."""
 import json
 import os
 import uuid

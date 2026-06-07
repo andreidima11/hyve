@@ -1,11 +1,11 @@
 {
     "id": "daylight",
     "name": "Daylight",
-    "description": "Clean and bright — easy on the eyes during the day",
-    "author": "Memini",
-    "version": "1.0.0",
+    "description": "Premium light theme — warm whites, refined shadows, polished for daily use",
+    "author": "Hyve",
+    "version": "2.0.0",
     "preview": {
-        "bg": "#f1f5f9",
+        "bg": "#f8fafc",
         "surface": "#ffffff",
         "accent": "#2563eb",
         "text": "#0f172a"

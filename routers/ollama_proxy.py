@@ -1,4 +1,4 @@
-"""Ollama-compatible API so Home Assistant Ollama integration can use the Bridge (with optional memory injection)."""
+"""Ollama-compatible API endpoint for the Bridge (with optional memory injection)."""
 from __future__ import annotations
 
 import asyncio
@@ -29,7 +29,7 @@ def _validate_assist_key(key: str) -> bool:
     return bool(ASSIST_KEY_PATTERN.match(key.strip()))
 
 _MEMORY_SYSTEM_PREFIX = (
-    "The following are known facts about the user (from M\u0115mini memory). "
+    "The following are known facts about the user (from Memini memory). "
     "Use them to personalize answers when relevant.\n\n"
 )
 
@@ -110,8 +110,17 @@ async def list_models():
     }
 
 
-async def chat_handle(request: Request, body: dict, forced_user_id: int | None = None):
+async def chat_handle(
+    request: Request,
+    body: dict,
+    forced_user_id: int | None = None,
+    *,
+    allow_anonymous: bool = False,
+):
     """Ollama-format chat: body has model, messages[, stream]. Proxies to LLM and optionally injects memories. Call this with pre-parsed body (e.g. from main dispatch)."""
+    import auth as auth_mod
+    import database
+
     messages = body.get("messages")
     if not messages or not isinstance(messages, list):
         raise HTTPException(status_code=400, detail="messages array required")
@@ -119,18 +128,22 @@ async def chat_handle(request: Request, body: dict, forced_user_id: int | None =
     model = (body.get("model") or "").strip() or "bridge"
     stream = body.get("stream") is not False  # Ollama defaults to true
 
-    ha_cfg = settings.CFG.get("home_assistant") or {}
+    assist_cfg = settings.CFG.get("assist") or {}
     user_id = forced_user_id
     if user_id is None:
-        auth = request.headers.get("Authorization") or ""
-        token = auth[7:].strip() if auth.startswith("Bearer ") else None
-        user_id = assist_keys.get_user_id_by_token(token) if token else None
-        if user_id is None:
-            default_id = ha_cfg.get("assist_default_user_id")
-            if default_id is not None and isinstance(default_id, int) and default_id > 0:
-                user_id = default_id
+        db = next(database.get_db())
+        try:
+            try:
+                user_id = await auth_mod.resolve_assist_user_id(request, db)
+            except HTTPException as exc:
+                if allow_anonymous and exc.status_code == 401:
+                    user_id = None
+                else:
+                    raise
+        finally:
+            db.close()
 
-    use_bridge_agent = ha_cfg.get("assist_use_bridge_agent", True)
+    use_bridge_agent = assist_cfg.get("assist_use_bridge_agent", True)
     bridge_user_id = f"user_{user_id}" if user_id else "web_assist"
 
     if use_bridge_agent:
@@ -334,22 +347,24 @@ async def chat_handle(request: Request, body: dict, forced_user_id: int | None =
 async def chat(request: Request):
     """Ollama POST /api/chat (under /ollama prefix).
     Requires X-Assist-Key header OR proxy_unauthenticated=true in config."""
-    # Check for assist key in header (preferred over URL path)
+    proxy_cfg = settings.CFG.get("proxy", {})
+    allow_anonymous = bool(proxy_cfg.get("allow_unauthenticated", False))
+    forced_user_id: int | None = None
     assist_key = (request.headers.get("x-assist-key") or "").strip()
     if assist_key:
-        user_id = assist_keys.get_user_id_by_token(assist_key)
-        if user_id is None:
+        forced_user_id = assist_keys.get_user_id_by_token(assist_key)
+        if forced_user_id is None:
             raise HTTPException(status_code=401, detail="Invalid assist key")
-    else:
-        # Allow unauthenticated only if config explicitly allows it
-        proxy_cfg = settings.CFG.get("proxy", {})
-        if not proxy_cfg.get("allow_unauthenticated", False):
-            raise HTTPException(status_code=401, detail="Authentication required. Set X-Assist-Key header or enable proxy.allow_unauthenticated in config.")
+    elif not allow_anonymous:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required. Set X-Assist-Key header or enable proxy.allow_unauthenticated in config.",
+        )
     try:
         body = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON body")
-    return await chat_handle(request, body)
+    return await chat_handle(request, body, forced_user_id=forced_user_id, allow_anonymous=allow_anonymous)
 
 
 @router.get("/user/{key}/api/tags")

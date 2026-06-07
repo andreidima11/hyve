@@ -1,0 +1,160 @@
+from __future__ import annotations
+
+import asyncio
+from typing import Any
+
+import fusion_solar_client
+from integrations.base import BaseEntity
+from pathlib import Path
+
+from integrations.component_import import import_sibling
+
+_extract_mod = import_sibling(Path(__file__).resolve().parent, "extract")
+extract_fusion_solar_candidates = _extract_mod.extract_fusion_solar_candidates
+
+
+# Reuse one API client per config entry so token + in-memory rate-limit
+# caches survive between sync cycles. Creating a fresh client every 600 s
+# forced a re-login and discarded Huawei cooldown state.
+_ENTRY_CLIENTS: dict[str, Any] = {}
+
+
+class FusionSolarEntity(BaseEntity):
+    slug = "fusion_solar"
+    label = "FusionSolar"
+    description = "Panouri fotovoltaice Huawei FusionSolar — producție energie solară, consum, export rețea și stare invertor."
+    icon = "fa-solar-panel"
+    color = "text-amber-400"
+    scan_interval_seconds = 600
+    fetch_timeout_seconds = 300.0
+    SUPPORTS_MULTIPLE = True
+
+    CONFIG_SCHEMA = [
+        {"key": "mode", "label": "Mod", "type": "select", "default": "auto", "options": [
+            {"value": "auto", "label": "Auto"},
+            {"value": "openapi", "label": "OpenAPI (user/parolă)"},
+            {"value": "kiosk", "label": "Kiosk URL"},
+        ]},
+        {"key": "host", "label": "Host", "type": "text", "placeholder": "uni005eu5.fusionsolar.huawei.com"},
+        {"key": "username", "label": "Utilizator", "type": "text"},
+        {"key": "password", "label": "Parolă", "type": "password", "secret": True},
+        {"key": "kiosk_url", "label": "Kiosk URL", "type": "url", "placeholder": "https://…?kk=…"},
+        {"key": "scan_interval", "label": "Interval sync (sec)", "type": "number", "default": 600, "min": 300},
+    ]
+
+    def is_configured(self, cfg: dict[str, Any]) -> bool:
+        section = self.config_section(cfg)
+        has_auth = bool((section.get("username") or "").strip() and (section.get("password") or "").strip())
+        has_kiosk = bool((section.get("kiosk_url") or "").strip() or ("kk=" in str(section.get("host") or "")))
+        return has_auth or has_kiosk
+
+    @classmethod
+    async def async_test_connection(cls, data: dict[str, Any]) -> dict[str, Any]:
+        d = dict(data or {})
+        mode = str(d.get("mode") or "auto").strip().lower()
+        host = str(d.get("host") or "https://eu5.fusionsolar.huawei.com").strip()
+        kiosk_url = str(d.get("kiosk_url") or "").strip()
+        if not kiosk_url and "kk=" in host:
+            kiosk_url = host
+        username = (d.get("username") or "").strip()
+        password = (d.get("password") or "").strip()
+        wants_kiosk = mode == "kiosk" or (kiosk_url and mode == "auto" and (not username or not password))
+
+        try:
+            if wants_kiosk:
+                if not kiosk_url:
+                    return {"ok": False, "message_key": "integrations.fusion_solar_kiosk_url"}
+                client = fusion_solar_client.FusionSolarKioskClient(kiosk_url, timeout=8.0)
+                return await asyncio.wait_for(client.test_connection(), timeout=15.0)
+
+            if not username or not password:
+                return {"ok": False, "message_key": "integrations.fusion_solar_credentials"}
+
+            client = fusion_solar_client.FusionSolarClient(host, username, password, timeout=15.0)
+            return await asyncio.wait_for(client.test_connection(), timeout=45.0)
+        except asyncio.TimeoutError:
+            return {"ok": False, "message_key": "integrations.fusion_solar_timeout"}
+        except Exception as exc:
+            message = str(exc or "").strip()
+            if "rate limit" in message.lower():
+                return {
+                    "ok": True,
+                    "message_key": "integrations.fusion_solar_rate_limit_ok",
+                    "message_params": {"detail": message},
+                }
+            if "user.login.user_or_value_invalid" in message:
+                return {"ok": False, "message_key": "integrations.fusion_solar_invalid_login"}
+            return {"ok": False, "message": message or None, "message_key": "integrations.fusion_solar_failed"}
+
+    async def fetch_entities(self) -> dict[str, Any]:
+        client = await self._ensure_entry_client()
+        return await client.fetch_all()
+
+    async def _ensure_entry_client(self):
+        """Return a persistent FusionSolar client for this config entry."""
+        if not self.entry_data:
+            client = await fusion_solar_client.ensure_client()
+            if not client:
+                raise ValueError("FusionSolar is not configured")
+            return client
+
+        key = self.entry_id or self.store_key
+        d = self.entry_data
+        mode = str(d.get("mode") or "auto").strip().lower()
+        host = str(d.get("host") or "https://eu5.fusionsolar.huawei.com").strip()
+        kiosk_url = str(d.get("kiosk_url") or "").strip()
+        if not kiosk_url and "kk=" in host:
+            kiosk_url = host
+        username = (d.get("username") or "").strip()
+        password = (d.get("password") or "").strip()
+        wants_kiosk = mode == "kiosk" or (kiosk_url and mode == "auto" and (not username or not password))
+
+        existing = _ENTRY_CLIENTS.get(key)
+        import settings as settings_mod
+
+        def _finalize(c):
+            if hasattr(c, "set_user_sync_interval"):
+                c.set_user_sync_interval(self.sync_interval(settings_mod.CFG))
+            return c
+
+        if wants_kiosk:
+            if not kiosk_url:
+                raise ValueError("FusionSolar kiosk_url is required")
+            if (
+                existing is not None
+                and isinstance(existing, fusion_solar_client.FusionSolarKioskClient)
+                and existing._kiosk_url == kiosk_url
+            ):
+                return _finalize(existing)
+            client = fusion_solar_client.FusionSolarKioskClient(kiosk_url)
+        elif username and password:
+            host_norm = host.rstrip("/")
+            if (
+                existing is not None
+                and isinstance(existing, fusion_solar_client.FusionSolarClient)
+                and existing._host == host_norm
+                and existing._username == username
+                and existing._password == password
+            ):
+                return _finalize(existing)
+            client = fusion_solar_client.FusionSolarClient(host, username, password)
+        elif kiosk_url:
+            if (
+                existing is not None
+                and isinstance(existing, fusion_solar_client.FusionSolarKioskClient)
+                and existing._kiosk_url == kiosk_url
+            ):
+                return _finalize(existing)
+            client = fusion_solar_client.FusionSolarKioskClient(kiosk_url)
+        else:
+            raise ValueError("FusionSolar entry is missing credentials")
+
+        _ENTRY_CLIENTS[key] = client
+        return _finalize(client)
+
+    def extract_entities(self, payload: Any) -> list[dict[str, Any]]:
+        return extract_fusion_solar_candidates(payload)
+
+    def format_context(self, entities: dict[str, Any]) -> str:
+        from integrations.context_formatters import format_fusion_solar_context
+        return format_fusion_solar_context(entities if isinstance(entities, dict) else {})

@@ -1,26 +1,28 @@
 import { authToken, clearAuthToken } from './api.js';
 import { showToast, debounce, showConfirm } from './utils.js';
 import { handleLogin, loadUserProfile, restoreRememberedCredentials, tryAutoLogin } from './auth.js';
-import { setTheme, loadThemeSelector, toggleSidebar, switchTab, switchConfigTab, openConfigSection, closeConfigSection, startLogStream, initSidebarGestures, getStoredThemeId } from './ui.js';
-import { initI18n, setLanguage, t } from './lang/index.js';
-import { sendMessage, stopStreaming, initNotifications, currentSessionId, addAttachedImage, addAttachedDocument, applyInitialGreeting, handleSlashInput, handleSlashKeydown } from './chat.js';
-import { initConference } from './conference.js';
-
-// Expose conference init for ui.js switchTab
-window._confInit = initConference;
+import { setTheme, loadThemeSelector, toggleSidebar, closeSidebar, isSidebarOpen, switchTab, switchConfigTab, openConfigSection, closeConfigSection, startLogStream, initSidebarGestures, getStoredThemeId } from './ui.js?v=hyveview-cards-51';
+import { initI18n, setLanguage, t, loadComponentTranslations } from './lang/index.js';
+import { sendMessage, stopStreaming, currentSessionId, addAttachedImage, addAttachedDocument, applyInitialGreeting, handleSlashInput, handleSlashKeydown } from './chat.js';
+import { initThinkingModeSelector } from './thinking_mode.js';
+import { setUserProfileContext, loadUserProfilePage, switchUserProfileTab, saveUserProfileGeneral, saveUserProfileSecurity } from './user_profile.js';
+import { initNotifications, loadUserNotifications, switchUserNotificationFilter, toggleUserNotificationFilterMenu, markUserNotificationRead, archiveUserNotification, deleteUserNotification, clearAllUserNotifications, changeUserNotificationsPage, loadNotificationCounts, updateNotificationBadge, actOnAmbientSuggestion } from './notifications.js';
+import { startStartupStatusPolling, showHubStartupLoadingAfterRestart } from './startup_status.js';
 
 // Expose sendMessage globally so other modules (e.g. voice input in features.js) can call it
 window.sendMessage = sendMessage;
 import { 
-    saveConfig, restartServer, syncHA, toggleDevice, 
+    saveConfig, restartServer, syncHA, toggleDevice, loadSmarthome,
     toggleSelection, toggleAllAI, loadMemory, filterDevices, changeMemPage, 
     deleteMemBulk, filterMemory, toggleAllHA, updateHABulkCount, 
     deleteHABulk, deleteHASingle, saveAliases, toggleAllMem, updateMemBulkCount,
-    filterHAByDomain, toggleHABulkMode,
+    filterHAByDomain, filterHABySource, filterHAByArea, toggleHABulkMode,
     openAliasModal, addAliasInput, closeAliasModal, saveAliasesFromModal, openRowActionsModal, closeRowActionsModal, handleHaRowClick,
     openAddDevicesModal, closeAddDevicesModal, confirmAddDevices, toggleAvailableDevice, toggleAllAvailableDevices, filterAvailableDevices,
+    resetSmarthomeFilters, copyEntityIdFromRowActions, toggleSmarthomeFilters, toggleSmarthomePicker, selectSmarthomePickerOption,
+    setDevicesPage, setDevicesPageSize, sortDevicesBy, controlDeviceEntity, openAliasModalFromDetail, closeEntityDetailModal,
     loadSessionsList, openSession, newChatSession, deleteSession, confirmDeleteSession, cancelDeleteSession, clearSessionContext,
-    copyWebhook, openIntegrationConfigModal, closeIntegrationConfigModal, copyAssistOllamaUserUrl, copyAssistKey, regenerateAssistKey, loadAdminUsers, createUser, deleteUser, unlinkUserPhone,
+    copyWebhook, openIntegrationConfigModal, closeIntegrationConfigModal, refreshIntegrationsSettingsView, copyAssistOllamaUserUrl, copyAssistKey, regenerateAssistKey, loadAdminUsers, createUser, deleteUser, unlinkUserPhone,
     loadModelProfiles,
     loadSkills, openSkillEdit, closeSkillEditModal, saveSkillEdit, deleteSkill,
     toggleSkillDesc, toggleSkillDisabled,
@@ -28,25 +30,80 @@ import {
     switchIntelligenceTab,
     addExtractionExample, removeExtractionExample,
     loadReminders, loadAutomations, deleteReminder, deleteAutomation, openMementoEdit, closeMementoEdit, saveMementoEdit, updateMementoBulkCount, toggleAllMemento, deleteMementoBulk,
-    openAutomationEditor, closeAutomationEditor, saveAutomationEditor, validateAutomationEditor, toggleAutomationDefinition, runAutomationDefinition,
+    openAutomationEditor, closeAutomationEditor, saveAutomationEditor, validateAutomationEditor, toggleAutomationDefinition, runAutomationDefinition, testAutomationEditor, exportAutomationYaml, importAutomationYaml,
+    toggleAutoMenu, closeAutoMenu, showAutoDotTooltip, hideAutoDotTooltip,
+    autoSyncAutomationId, markAutomationIdManual,
+    openBlueprintPicker, closeBlueprintPicker, loadBlueprints, importBlueprintYaml, backToBlueprintList, instantiateCurrentBlueprint, deleteCurrentBlueprint,
+    openBlueprintCreator, addBlueprintCreatorInput, removeBlueprintCreatorInput, changeBlueprintCreatorInputType, insertBlueprintCreatorPlaceholder, updateBlueprintCreatorYaml, saveCreatedBlueprint,
     switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, syncAutomationBuilderFromYaml, loadAutomationEditorHistory, refreshAutomationEntityOptions, setAutomationEntityPickerTarget, pickAutomationEntity, filterAutomationEntityPicker, setAutomationServicePickerTarget, pickAutomationService, filterAutomationServicePicker, updateAutomationStructuredServiceData,
     loadNotificationPrefs, saveNotificationSettings, selectNotifTransport, selectNotifChannel, testWsNotification, testFcmNotification, testNotification, refreshNotifWsNativeStatus,
-} from './features.js';
+    testAmbientNow, resetAmbientReasonerPrompt, testBriefingNow, switchMemorySubtab, checkAddonUpdates, updateAllAddons, updateSingleAddon, closeAddonConfigModal, refreshUpdatesHeaderBadge,
+} from './features.js?v=phase4-config-9';
 import {
-    loadPlanner, plannerCreateList, plannerDeleteList, plannerSelectList,
-    plannerOpenDrawer, plannerCloseDrawer, plannerSetTab, plannerSetFilter,
-    plannerCalPrev, plannerCalNext, plannerCalToday, plannerSetCalView, plannerSelectDay,
-    plannerCalClickDay, plannerCalClickHour,
-    plannerEventDragStart, plannerEventDragOver, plannerEventDragEnd, plannerEventDropDay, plannerEventDropHour,
-    plannerCreateEntry, plannerOpenAdd, plannerCloseAdd,
-    plannerToggleDone, plannerDeleteEntry, plannerCycleType, plannerEntryActions,
-    plannerDragStart, plannerDragOver, plannerDrop, plannerDragEnd
-} from './planner.js';
-import {
-    loadApps, appAction, openAppLogModal, closeAppLogModal, refreshAppLogs,
-    openAppDetail, closeAppDetail,
-    installApp, uninstallApp, toggleApp, closeInstallLogModal, runPreflight
-} from './features_apps.js';
+    loadDashboard, openDashboardAddModal, closeDashboardAddModal,
+    initDashboardSidebarNav,
+    addDashboardSwitch, removeDashboardWidget, toggleDashboardWidget,
+    setDashboardFilter, toggleDashboardLayout, saveDashboardPreferences,
+    moveDashboardWidget, updateDashboardEntityOptions, filterDashboardEntityOptions, toggleDashboardEditMode,
+    toggleDashboardMenu, closeDashboardMenu, saveDashboardHeader,
+    openDashboardPageModal, closeDashboardPageModal,
+    openDashboardYamlEditor, closeDashboardYamlEditor, saveDashboardYaml, reloadDashboardYaml,
+    openDashboardWidgetEditor, closeDashboardWidgetEditor,
+    setDashboardWidgetEditorMode, saveDashboardWidgetEdit,
+    updateDashboardTypeUI, updateDashboardEditTypeUI,
+    startDashboardDrag, startDashboardPanelDrag, allowDashboardDrop, dropDashboardWidget, endDashboardDrag,
+    startDashboardResize,
+    handleDashboardCardClick, handleDashboardCardKeydown,
+    selectDashboardPage, createDashboardPage, openDashboardPageNav,
+    onDashboardBrightnessInput, onDashboardBrightnessChange, onDashboardLockAction, onDashboardVacuumAction,
+    adjustDashboardClimateTemperature, setDashboardClimateMode, toggleDashboardClimateModeMenu,
+    selectDashboardClimateSlide, shiftDashboardClimateSlide, startDashboardClimateSwipe, moveDashboardClimateSwipe, endDashboardClimateSwipe,
+    openDashboardAddPicker, closeDashboardAddPicker, pickDashboardAddType,
+    selectDashboardPanelPage, removeDashboardPanel, openDashboardPanelCreator, openDashboardPanelEditor,
+    closeDashboardPanelModal, saveDashboardPanel,
+    deleteDashboardPage,
+    openDashboardEntityPicker, closeDashboardEntityPicker, handleDashboardEntityPickerKeydown, pickDashboardEntityOption,
+    addSelectedDashboardClimateEntity, removeDashboardClimateEntity, updateDashboardClimateEntityMeta,
+    setDashboardAddEditorMode, toggleDashboardVisibilityEditor, addDashboardVisibilityCondition
+} from './dashboard.js?v=hyveview-cards-51';
+
+const _lazyModulePromises = new Map();
+
+function _lazyModule(key, importer) {
+    if (!_lazyModulePromises.has(key)) {
+        _lazyModulePromises.set(key, importer());
+    }
+    return _lazyModulePromises.get(key);
+}
+
+const _loadDerivedModule = () => _lazyModule('derived', () => import('./features_derived.js'));
+const _loadPlannerModule = () => _lazyModule('planner', () => import('./planner.js'));
+const _loadAppsModule = () => _lazyModule('apps', () => import('./features_apps.js'));
+const _loadScenesModule = () => _lazyModule('scenes', () => import('./features_scenes.js?v=icon-save-1'));
+const _loadAreasModule = () => _lazyModule('areas', () => import('./features_areas.js?v=icon-save-1'));
+
+function _lazyAction(moduleLoader, exportName) {
+    return async (...args) => {
+        try {
+            const module = await moduleLoader();
+            const action = module[exportName];
+            if (typeof action !== 'function') {
+                throw new Error(`Missing lazy export: ${exportName}`);
+            }
+            return await action(...args);
+        } catch (err) {
+            console.warn(`${exportName} lazy load failed`, err);
+            showToast(t('app.function_load_error'), 'error');
+            return undefined;
+        }
+    };
+}
+
+function _assignLazyGlobals(moduleLoader, names) {
+    names.forEach(name => {
+        window[name] = _lazyAction(moduleLoader, name);
+    });
+}
 
 // Logout disponibil imediat (înainte de orice async), ca butonul să funcționeze mereu
 async function doLogout() {
@@ -56,7 +113,7 @@ async function doLogout() {
         return;
     }
 
-    const token = localStorage.getItem('memini_token');
+    const token = localStorage.getItem('hyve_token');
 
     const finalizeLogout = () => {
     try {
@@ -66,9 +123,9 @@ async function doLogout() {
     } catch (e) {}
     try { clearAuthToken(); } catch (e) {}
     try {
-        localStorage.removeItem('memini_token');
-        localStorage.removeItem('memini_session_id');
-        localStorage.removeItem('memini_remember');
+        localStorage.removeItem('hyve_token');
+        localStorage.removeItem('hyve_session_id');
+        localStorage.removeItem('hyve_remember');
         sessionStorage.clear();
     } catch (e) {}
 
@@ -107,7 +164,7 @@ window.doLogout = doLogout;
 function initNativeAppBridge() {
     // Wait a tick so the Android injectNativeBridge() JS has time to run
     setTimeout(() => {
-        if (!window.__MEMINI_NATIVE_APP) return;
+        if (!window.__HYVE_NATIVE_APP) return;
 
         // Mark document for native-app-specific CSS (if not already set by early UA detection)
         document.documentElement.classList.add('is-native-app');
@@ -129,12 +186,12 @@ function initNativeAppBridge() {
 
         // Re-apply the saved theme now that the native bridge is ready.
         // This makes startup follow the exact same path as manual theme selection.
-        setTheme(localStorage.getItem('memini_theme') || 'obsidian');
+        setTheme(localStorage.getItem('hyve_theme') || 'canvas');
     }, 300);
 }
 
 function populateAppTab() {
-    const cfg = window.__MEMINI_NATIVE_CONFIG;
+    const cfg = window.__HYVE_NATIVE_CONFIG;
     if (!cfg) return;
 
     const el = (id) => document.getElementById(id);
@@ -147,9 +204,11 @@ function populateAppTab() {
     const bioRow = el('app-biometric-row');
     const bioHint = el('app-biometric-hint');
 
+    _appAutosaveHydrating = true;
     if (urlExt) urlExt.value = cfg.externalUrl || '';
     if (urlLocal) urlLocal.value = cfg.localUrl || '';
     if (wifi) wifi.value = cfg.homeWifi || '';
+    _appAutosaveHydrating = false;
     if (modeLabel) modeLabel.textContent = cfg.serverMode || '—';
     if (ssidLabel) ssidLabel.textContent = cfg.currentSsid ? `WiFi: ${cfg.currentSsid}` : '';
 
@@ -166,11 +225,45 @@ function populateAppTab() {
     // Check and show permission states
     checkPermissions();
 
+    bindAppConfigAutosave();
+
     // Refresh live WS service status when App tab opens
     refreshWsServiceStatus();
 }
 
 let _wsStatusPollTimer = null;
+let _appAutosaveTimer = null;
+let _appAutosaveBound = false;
+let _appAutosaveHydrating = false;
+let _lastSavedAppConfigJson = '';
+
+function _readAppConfigForm() {
+    const bioBtn = document.getElementById('app-biometric-toggle');
+    return {
+        externalUrl: document.getElementById('app-url-external')?.value?.trim() || '',
+        localUrl: document.getElementById('app-url-local')?.value?.trim() || '',
+        homeWifi: document.getElementById('app-wifi-ssid')?.value?.trim() || '',
+        biometricEnabled: bioBtn?.__biometricOn ?? false,
+    };
+}
+
+function bindAppConfigAutosave() {
+    if (_appAutosaveBound) return;
+    _appAutosaveBound = true;
+    ['app-url-external', 'app-url-local', 'app-wifi-ssid'].forEach((id) => {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.addEventListener('input', () => scheduleAppConfigAutosave());
+        input.addEventListener('change', () => saveAppConfig({ silent: true }));
+        input.addEventListener('blur', () => saveAppConfig({ silent: true }));
+    });
+}
+
+function scheduleAppConfigAutosave() {
+    if (_appAutosaveHydrating) return;
+    window.clearTimeout(_appAutosaveTimer);
+    _appAutosaveTimer = window.setTimeout(() => saveAppConfig({ silent: true }), 550);
+}
 
 function _setWsStatusBadge(state) {
     const badge = document.getElementById('app-ws-service-status');
@@ -195,7 +288,7 @@ function _setWsStatusBadge(state) {
 }
 
 function refreshWsServiceStatus() {
-    if (!window.__MEMINI_NATIVE_APP) {
+    if (!window.__HYVE_NATIVE_APP) {
         _setWsStatusBadge(null);
         return;
     }
@@ -242,21 +335,21 @@ function toggleAppBiometric() {
     const btn = document.getElementById('app-biometric-toggle');
     const newState = !(btn?.__biometricOn ?? false);
     updateBiometricToggle(newState);
+    saveAppConfig({ silent: true });
 }
 
-function saveAppConfig() {
+function saveAppConfig(options = {}) {
+    if (_appAutosaveHydrating) return;
     if (typeof window.__saveNativeServerConfig !== 'function') {
-        // Not in native app — nothing to save
         return;
     }
-    const bioBtn = document.getElementById('app-biometric-toggle');
-    const config = {
-        externalUrl: document.getElementById('app-url-external')?.value?.trim() || '',
-        localUrl: document.getElementById('app-url-local')?.value?.trim() || '',
-        homeWifi: document.getElementById('app-wifi-ssid')?.value?.trim() || '',
-        biometricEnabled: bioBtn?.__biometricOn ?? false
-    };
+    const config = _readAppConfigForm();
+    const json = JSON.stringify(config);
+    if (json === _lastSavedAppConfigJson) return;
+    _lastSavedAppConfigJson = json;
     window.__saveNativeServerConfig(config);
+    window.__HYVE_NATIVE_CONFIG = { ...(window.__HYVE_NATIVE_CONFIG || {}), ...config };
+    if (!options.silent) showToast(t('config.save_success') || 'Settings saved.', 'success');
 }
 
 function detectAppWifi() {
@@ -268,18 +361,20 @@ function detectAppWifi() {
         const ssid = window.__getNativeWifiSsid();
         if (ssid) {
             input.value = ssid;
-            showToast(`WiFi detectat: ${ssid}`, 'success');
+            saveAppConfig({ silent: true });
+            showToast(t('app.wifi_detected', { ssid }), 'success');
             return;
         }
     }
 
     // Fallback: use the config snapshot
-    const cfg = window.__MEMINI_NATIVE_CONFIG;
+    const cfg = window.__HYVE_NATIVE_CONFIG;
     if (cfg?.currentSsid) {
         input.value = cfg.currentSsid;
-        showToast(`WiFi detectat: ${cfg.currentSsid}`, 'success');
+        saveAppConfig({ silent: true });
+        showToast(t('app.wifi_detected', { ssid: cfg.currentSsid }), 'success');
     } else {
-        showToast('Nu s-a putut detecta rețeaua WiFi.', 'error');
+        showToast(t('app.wifi_detect_failed'), 'error');
     }
 }
 
@@ -301,18 +396,18 @@ function clearAppCache() {
 
     // Clear localStorage session data (but keep auth token)
     try {
-        const token = localStorage.getItem('memini_token');
-        const remember = localStorage.getItem('memini_remember');
+        const token = localStorage.getItem('hyve_token');
+        const remember = localStorage.getItem('hyve_remember');
         localStorage.clear();
-        if (token) localStorage.setItem('memini_token', token);
-        if (remember) localStorage.setItem('memini_remember', remember);
+        if (token) localStorage.setItem('hyve_token', token);
+        if (remember) localStorage.setItem('hyve_remember', remember);
         cleared = true;
     } catch (e) {}
 
     if (cleared) {
-        showToast('Cache-ul a fost șters.', 'success');
+        showToast(t('app.cache_cleared'), 'success');
     } else {
-        showToast('Eroare la ștergerea cache-ului.', 'error');
+        showToast(t('app.cache_clear_error'), 'error');
     }
 }
 
@@ -364,7 +459,7 @@ function updatePermissionBadge(badgeId, btnId, state) {
 
 /** Check if running inside the native Android app */
 function _isNativeApp() {
-    return !!window.__MEMINI_NATIVE_APP && typeof window.__checkNativePermission === 'function';
+    return !!window.__HYVE_NATIVE_APP && typeof window.__checkNativePermission === 'function';
 }
 
 /**
@@ -447,14 +542,14 @@ function requestMicPermission() {
 
 function requestCameraPermission() {
     if (_isNativeApp()) { window.__requestNativePermission('camera'); return; }
-    showToast('Camera permissions are managed in the Android app', 'info');
+    showToast(t('app.perm_camera_native'), 'info');
 }
 
 function requestLocationPermission() {
     if (_isNativeApp()) { window.__requestNativePermission('location'); return; }
     // Browser fallback
     if (!navigator.geolocation) {
-        showToast('Location not available', 'error');
+        showToast(t('app.perm_location_unavailable'), 'error');
         return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -469,398 +564,9 @@ function requestLocationPermission() {
 
 function requestStoragePermission() {
     if (_isNativeApp()) { window.__requestNativePermission('storage'); return; }
-    showToast('Storage permissions are managed in the Android app', 'info');
+    showToast(t('app.perm_storage_native'), 'info');
 }
 
-// ── Conference Settings ──────────────────────────────────────────
-
-async function loadConferenceSettings() {
-    try {
-        const res = await fetch('/api/config', {
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('memini_token') }
-        });
-        if (!res.ok) return;
-        const cfg = await res.json();
-        const conf = cfg.conference || {};
-
-        // Enabled toggle
-        const confCheckbox = document.getElementById('conf_enabled');
-        const confNavBtn = document.getElementById('nav-conference');
-        if (confCheckbox) confCheckbox.checked = !!conf.enabled;
-        if (confNavBtn) confNavBtn.classList.toggle('hidden', !conf.enabled);
-        toggleConfSettingsVisibility();
-
-        // Turns
-        const minEl = document.getElementById('conf_min_turns');
-        const maxEl = document.getElementById('conf_max_turns');
-        if (minEl) minEl.value = conf.min_turns ?? 4;
-        if (maxEl) maxEl.value = conf.max_turns ?? 15;
-
-        // Orchestrator model profile
-        const orchSelect = document.getElementById('conf_orchestrator_model');
-        if (orchSelect) {
-            // Populate options from model profiles
-            const profilesRes = await fetch('/api/model-profiles', {
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('memini_token') }
-            });
-            if (profilesRes.ok) {
-                const profilesData = await profilesRes.json();
-                const profiles = profilesData.profiles || [];
-                orchSelect.innerHTML = '<option value="">Auto (preferă local)</option>' +
-                    profiles.map(p => `<option value="${p.id}" ${conf.orchestrator_model_profile_id === p.id ? 'selected' : ''}>${p.name || ''} (${p.model_name || ''})</option>`).join('');
-            }
-        }
-
-        // Synthesis enabled
-        const synthEl = document.getElementById('conf_synthesis_enabled');
-        if (synthEl) synthEl.checked = conf.synthesis_enabled !== false;
-
-        // Expert Memory enabled
-        const memEl = document.getElementById('conf_expert_memory_enabled');
-        if (memEl) memEl.checked = conf.expert_memory_enabled !== false;
-
-        // Custom prompts — pre-fill with defaults if not customized
-        let defaults = {};
-        try {
-            const defRes = await fetch('/api/conference/default-prompts', {
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('memini_token') }
-            });
-            if (defRes.ok) defaults = await defRes.json();
-        } catch (_) {}
-
-        const ciEl = document.getElementById('conf_conversation_instruction');
-        if (ciEl) ciEl.value = conf.conversation_instruction || defaults.conversation_instruction || '';
-        const opEl = document.getElementById('conf_orchestrator_prompt');
-        if (opEl) opEl.value = conf.orchestrator_system_prompt || defaults.orchestrator_system_prompt || '';
-        const spEl = document.getElementById('conf_summary_prompt');
-        if (spEl) spEl.value = conf.summary_system_prompt || defaults.summary_system_prompt || '';
-        const apEl = document.getElementById('conf_artifact_prompt');
-        if (apEl) apEl.value = conf.artifact_system_prompt || defaults.artifact_system_prompt || '';
-
-        // Conference modes — dynamic list
-        await renderConfModesList();
-
-    } catch (e) {
-        console.warn('Failed to load conference settings', e);
-    }
-}
-
-async function saveConferenceSettings() {
-    const confCheckbox = document.getElementById('conf_enabled');
-    const enabled = confCheckbox ? confCheckbox.checked : true;
-    const confNavBtn = document.getElementById('nav-conference');
-    if (confNavBtn) confNavBtn.classList.toggle('hidden', !enabled);
-
-    const minEl = document.getElementById('conf_min_turns');
-    const maxEl = document.getElementById('conf_max_turns');
-    const orchEl = document.getElementById('conf_orchestrator_model');
-    const synthEl = document.getElementById('conf_synthesis_enabled');
-    const memEl = document.getElementById('conf_expert_memory_enabled');
-
-    const payload = {
-        conference: {
-            enabled,
-            min_turns: parseInt(minEl?.value) || 4,
-            max_turns: parseInt(maxEl?.value) || 15,
-            orchestrator_model_profile_id: orchEl?.value || '',
-            synthesis_enabled: synthEl ? synthEl.checked : true,
-            expert_memory_enabled: memEl ? memEl.checked : true,
-            conversation_instruction: document.getElementById('conf_conversation_instruction')?.value?.trim() || '',
-            orchestrator_system_prompt: document.getElementById('conf_orchestrator_prompt')?.value?.trim() || '',
-            summary_system_prompt: document.getElementById('conf_summary_prompt')?.value?.trim() || '',
-            artifact_system_prompt: document.getElementById('conf_artifact_prompt')?.value?.trim() || '',
-        }
-    };
-
-    try {
-        const res = await fetch('/api/config', {
-            method: 'PATCH',
-            headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('memini_token'),
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
-        if (res.ok) {
-            showToast(t('config.saved') || 'Settings saved', 'success');
-        } else {
-            showToast(t('config.save_error') || 'Failed to save settings', 'error');
-        }
-    } catch (e) {
-        console.warn('Failed to save conference settings', e);
-        showToast(t('config.save_error') || 'Failed to save settings', 'error');
-    }
-}
-
-async function resetConferencePrompt(type) {
-    try {
-        const res = await fetch('/api/conference/default-prompts', {
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('memini_token') }
-        });
-        if (!res.ok) { showToast('Eroare la încărcarea prompt-urilor implicite', 'error'); return; }
-        const defaults = await res.json();
-
-        const map = {
-            conversation_instruction: { id: 'conf_conversation_instruction', key: 'conversation_instruction' },
-            orchestrator_prompt: { id: 'conf_orchestrator_prompt', key: 'orchestrator_system_prompt' },
-            summary_prompt: { id: 'conf_summary_prompt', key: 'summary_system_prompt' },
-            artifact_prompt: { id: 'conf_artifact_prompt', key: 'artifact_system_prompt' },
-        };
-        const entry = map[type];
-        if (!entry) return;
-        const el = document.getElementById(entry.id);
-        if (el) el.value = defaults[entry.key] || '';
-        await saveConferenceSettings();
-    } catch (e) {
-        console.warn('resetConferencePrompt error', e);
-    }
-}
-
-// ── Conference Modes CRUD ──────────────────────────────────────────────
-const _MODE_ICONS = [
-    'fa-lightbulb','fa-comments','fa-search','fa-calendar','fa-code','fa-flask',
-    'fa-brain','fa-shield','fa-rocket','fa-chess-knight','fa-scale-balanced',
-    'fa-paintbrush','fa-chart-line','fa-gavel','fa-wrench','fa-fire',
-    'fa-bolt','fa-gem','fa-globe','fa-compass','fa-crown','fa-eye',
-    'fa-graduation-cap','fa-palette','fa-seedling','fa-feather','fa-microscope',
-    'fa-book','fa-wand-magic-sparkles','fa-star',
-];
-const _MODE_COLORS = [
-    '#f59e0b','#ef4444','#10b981','#3b82f6','#8b5cf6','#ec4899',
-    '#06b6d4','#f97316','#84cc16','#14b8a6','#6366f1','#e11d48',
-    '#0ea5e9','#d946ef','#a3e635','#fbbf24','#f43f5e','#22d3ee',
-];
-
-function _escHtml(s) {
-    const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
-}
-
-async function renderConfModesList() {
-    const container = document.getElementById('conf_modes_list');
-    if (!container) return;
-    try {
-        const res = await fetch('/api/conference/modes', {
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('memini_token') }
-        });
-        if (!res.ok) return;
-        const modes = await res.json();
-        container.innerHTML = modes.map(m => `
-            <div class="conf-mode-card flex items-start gap-3 p-3 rounded-xl bg-slate-900/50 border border-white/5 hover:border-white/10 transition-all group">
-                <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background: ${m.color}22; color: ${m.color}">
-                    <i class="fas ${m.icon} text-sm"></i>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2">
-                        <span class="text-sm font-semibold text-slate-200">${_escHtml(m.name)}</span>
-                        ${m.builtin ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-400 font-bold">BUILT-IN</span>' : ''}
-                    </div>
-                    <p class="text-[10px] text-slate-500 mt-0.5 line-clamp-2 font-mono">${_escHtml((m.prompt || '').substring(0, 120))}${(m.prompt || '').length > 120 ? '…' : ''}</p>
-                </div>
-                <div class="flex items-center gap-1 flex-shrink-0 opacity-50 group-hover:opacity-100 transition-opacity">
-                    <button type="button" onclick="openConfModeModal('${m.id}')" class="p-1.5 rounded-lg hover:bg-white/5 text-slate-400 hover:text-violet-400 transition-colors cursor-pointer" title="Editează">
-                        <i class="fas fa-pen text-[10px]"></i>
-                    </button>
-                    ${!m.builtin ? `<button type="button" onclick="deleteConfMode('${m.id}')" class="p-1.5 rounded-lg hover:bg-white/5 text-slate-400 hover:text-red-400 transition-colors cursor-pointer" title="Șterge">
-                        <i class="fas fa-trash text-[10px]"></i>
-                    </button>` : ''}
-                </div>
-            </div>
-        `).join('');
-    } catch (e) {
-        console.warn('renderConfModesList error', e);
-    }
-}
-
-let _confModesCache = [];
-
-async function openConfModeModal(editId) {
-    // Populate icon & color pickers
-    const iconGrid = document.getElementById('conf_mode_icon_grid');
-    const colorRow = document.getElementById('conf_mode_color_row');
-    const nameEl = document.getElementById('conf_mode_edit_name');
-    const idEl = document.getElementById('conf_mode_edit_id');
-    const iconEl = document.getElementById('conf_mode_edit_icon');
-    const colorEl = document.getElementById('conf_mode_edit_color');
-    const promptEl = document.getElementById('conf_mode_edit_prompt');
-    const titleEl = document.getElementById('conf_mode_modal_title');
-
-    // Load modes for editing
-    try {
-        const res = await fetch('/api/conference/modes', {
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('memini_token') }
-        });
-        if (res.ok) _confModesCache = await res.json();
-    } catch (_) {}
-
-    let mode = null;
-    if (editId) {
-        mode = _confModesCache.find(m => m.id === editId);
-    }
-
-    titleEl.textContent = mode ? `Editează: ${mode.name}` : 'Mod nou';
-    idEl.value = editId || '';
-    nameEl.value = mode ? mode.name : '';
-    nameEl.disabled = !!(mode && mode.builtin);
-    promptEl.value = mode ? (mode.prompt || '') : '';
-
-    const selIcon = mode ? mode.icon : 'fa-circle';
-    const selColor = mode ? mode.color : '#8b5cf6';
-    iconEl.value = selIcon;
-    colorEl.value = selColor;
-
-    // Render icon grid
-    iconGrid.innerHTML = _MODE_ICONS.map(ic => `
-        <button type="button" class="w-8 h-8 rounded-lg flex items-center justify-center border transition-all cursor-pointer
-            ${ic === selIcon ? 'border-violet-500 bg-violet-500/20 text-violet-300' : 'border-white/5 bg-slate-800 text-slate-400 hover:border-white/10'}"
-            onclick="pickConfModeIcon('${ic}')">
-            <i class="fas ${ic} text-xs"></i>
-        </button>
-    `).join('');
-
-    // Render color row
-    colorRow.innerHTML = _MODE_COLORS.map(c => `
-        <button type="button" class="w-7 h-7 rounded-full border-2 transition-all cursor-pointer
-            ${c === selColor ? 'border-white scale-110' : 'border-transparent hover:border-white/30'}"
-            style="background: ${c}"
-            onclick="pickConfModeColor('${c}')">
-        </button>
-    `).join('');
-
-    // Show modal
-    const modal = document.getElementById('conf_mode_modal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    modal.onclick = (e) => { if (e.target === modal) closeConfModeModal(); };
-}
-
-function pickConfModeIcon(icon) {
-    document.getElementById('conf_mode_edit_icon').value = icon;
-    document.querySelectorAll('#conf_mode_icon_grid button').forEach(btn => {
-        const ic = btn.querySelector('i')?.className?.replace('fas ', '') || '';
-        if (ic === icon) {
-            btn.classList.add('border-violet-500', 'bg-violet-500/20', 'text-violet-300');
-            btn.classList.remove('border-white/5', 'bg-slate-800', 'text-slate-400');
-        } else {
-            btn.classList.remove('border-violet-500', 'bg-violet-500/20', 'text-violet-300');
-            btn.classList.add('border-white/5', 'bg-slate-800', 'text-slate-400');
-        }
-    });
-}
-
-function pickConfModeColor(color) {
-    document.getElementById('conf_mode_edit_color').value = color;
-    document.querySelectorAll('#conf_mode_color_row button').forEach(btn => {
-        if (btn.style.background === color || btn.style.backgroundColor === color) {
-            btn.classList.add('border-white', 'scale-110');
-            btn.classList.remove('border-transparent');
-        } else {
-            btn.classList.remove('border-white', 'scale-110');
-            btn.classList.add('border-transparent');
-        }
-    });
-}
-
-function closeConfModeModal() {
-    const modal = document.getElementById('conf_mode_modal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-}
-
-async function saveConfMode() {
-    const idEl = document.getElementById('conf_mode_edit_id');
-    const nameEl = document.getElementById('conf_mode_edit_name');
-    const iconEl = document.getElementById('conf_mode_edit_icon');
-    const colorEl = document.getElementById('conf_mode_edit_color');
-    const promptEl = document.getElementById('conf_mode_edit_prompt');
-
-    const editId = idEl.value.trim();
-    const name = nameEl.value.trim();
-    const icon = iconEl.value;
-    const color = colorEl.value;
-    const prompt = promptEl.value.trim();
-
-    if (!editId && !name) {
-        showToast('Numele modului este obligatoriu', 'warning');
-        return;
-    }
-
-    const headers = {
-        'Authorization': 'Bearer ' + localStorage.getItem('memini_token'),
-        'Content-Type': 'application/json'
-    };
-
-    try {
-        let res;
-        const existing = editId ? _confModesCache.find(m => m.id === editId) : null;
-        if (existing && existing.builtin) {
-            // For built-in modes, just save the prompt via config API
-            const modePrompts = {};
-            modePrompts[editId] = prompt;
-            res = await fetch('/api/config', {
-                method: 'PATCH', headers,
-                body: JSON.stringify({ conference: { mode_prompts: modePrompts } })
-            });
-        } else if (editId) {
-            res = await fetch(`/api/conference/modes/${editId}`, {
-                method: 'PUT', headers,
-                body: JSON.stringify({ name, icon, color, prompt })
-            });
-        } else {
-            res = await fetch('/api/conference/modes', {
-                method: 'POST', headers,
-                body: JSON.stringify({ name, icon, color, prompt })
-            });
-        }
-        if (res.ok) {
-            showToast('Mod salvat', 'success');
-            closeConfModeModal();
-            await renderConfModesList();
-        } else {
-            const err = await res.json().catch(() => ({}));
-            showToast(err.detail || 'Eroare la salvare', 'error');
-        }
-    } catch (e) {
-        console.warn('saveConfMode error', e);
-        showToast('Eroare la salvare', 'error');
-    }
-}
-
-async function deleteConfMode(modeId) {
-    if (!confirm('Sigur vrei să ștergi acest mod?')) return;
-    try {
-        const res = await fetch(`/api/conference/modes/${modeId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('memini_token') }
-        });
-        if (res.ok) {
-            showToast('Mod șters', 'success');
-            await renderConfModesList();
-        } else {
-            showToast('Eroare la ștergere', 'error');
-        }
-    } catch (e) {
-        showToast('Eroare la ștergere', 'error');
-    }
-}
-
-function toggleConfSettingsVisibility() {
-    const enabled = document.getElementById('conf_enabled')?.checked;
-    const body = document.getElementById('conf_settings_body');
-    if (body) {
-        body.style.opacity = enabled ? '1' : '0.35';
-        body.style.pointerEvents = enabled ? '' : 'none';
-    }
-}
-
-window.toggleConfSettingsVisibility = toggleConfSettingsVisibility;
-window.resetConferencePrompt = resetConferencePrompt;
-window.renderConfModesList = renderConfModesList;
-window.openConfModeModal = openConfModeModal;
-window.closeConfModeModal = closeConfModeModal;
-window.saveConfMode = saveConfMode;
-window.deleteConfMode = deleteConfMode;
-window.pickConfModeIcon = pickConfModeIcon;
-window.pickConfModeColor = pickConfModeColor;
 window.requestMicPermission = requestMicPermission;
 window.requestLocationPermission = requestLocationPermission;
 window.requestCameraPermission = requestCameraPermission;
@@ -870,62 +576,192 @@ window.checkPermissions = checkPermissions;
 
 let notificationInterval = null;
 
-async function initializeApp() {
+// ─── Boot state machine ──────────────────────────────────────────────
+// Single, deterministic startup flow. Boot overlay is shown from the
+// server (visible by default in HTML) and we only fade it out once the
+// app is in a known terminal state: ready (dashboard) or login_required.
+
+function hideBootOverlay() {
+    const overlay = document.getElementById('boot-overlay');
+    if (!overlay) return;
+    overlay.classList.add('is-hidden');
+}
+
+function setBootMessage(message) {
+    if (typeof message !== 'string' || !message.trim()) return;
+    const text = document.getElementById('boot-overlay-text');
+    if (text) text.textContent = message.trim();
+}
+
+function showLoginScreen() {
+    const overlay = document.getElementById('login-overlay');
+    if (overlay) {
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+    }
+    try { restoreRememberedCredentials(); } catch (e) {}
+    hideBootOverlay();
+}
+
+function hideLoginScreen() {
+    const overlay = document.getElementById('login-overlay');
+    if (!overlay) return;
+    overlay.classList.add('hidden');
+    overlay.classList.remove('flex');
+}
+
+async function loadAuthenticatedSession() {
     const profile = await loadUserProfile();
     if (!profile || !profile.username) {
-        clearAuthToken();
-        document.getElementById('login-overlay')?.classList.remove('hidden');
-        return;
+        return null;
     }
-    document.getElementById('login-overlay').classList.add('hidden');
+    return profile;
+}
+
+async function syncUiLanguageFromConfig() {
+    try {
+        const res = await fetch('/api/config', {
+            headers: { Authorization: 'Bearer ' + (localStorage.getItem('hyve_token') || '') },
+        });
+        if (!res.ok) return;
+        const cfg = await res.json();
+        const lang = cfg?.ui?.language;
+        if (lang === 'ro' || lang === 'en') setLanguage(lang);
+        await loadComponentTranslations(lang === 'ro' || lang === 'en' ? lang : undefined);
+    } catch (_) {}
+}
+
+function applyProfileFlags(profile) {
     window.__isAdmin = !!profile.is_admin;
+    setUserProfileContext(profile);
     if (profile.is_admin) {
         const navAdmin = document.getElementById('nav-admin');
         if (navAdmin) navAdmin.classList.remove('hidden');
     }
-    switchTab('chat');
-    try {
-        await loadSessionsList();
-    } catch (e) {
-        console.warn("Sessions list load failed", e);
-    }
-    try {
-        await loadConferenceSettings();
-    } catch (e) {
-        console.warn("Conference settings load failed", e);
-    }
-    try {
-        startLogStream();
-    } catch (e) {
-        console.warn("Log stream failed", e);
-    }
-    if (window.notificationTimer?.stop) window.notificationTimer.stop();
-    const unifiedId = `user_${profile.id}`;
-    window.notificationTimer = initNotifications(unifiedId);
-    // Load model profiles for chat selector
-    try { await loadModelProfiles(); } catch (e) { console.warn('Model profiles load failed', e); }
+}
 
-
-
-    // Show/hide voice button based on whisper config (without full loadConfig)
-    try {
-        const cfgRes = await fetch('/api/config', {
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('memini_token') }
-        });
-        if (cfgRes.ok) {
-            const cfg = await cfgRes.json();
+function startBackgroundLoaders(profile) {
+    // Fire-and-forget secondary loaders. They must NOT block the boot.
+    Promise.resolve().then(() => {
+        loadSessionsList().catch(e => console.warn('Sessions list load failed', e));
+        if (profile.is_admin) { try { startLogStream(); } catch (e) { console.warn('Log stream failed', e); } }
+        try {
+            if (window.notificationTimer?.stop) window.notificationTimer.stop();
+            window.notificationTimer = initNotifications(`user_${profile.id}`);
+        } catch (e) { console.warn('Notifications init failed', e); }
+        loadModelProfiles().catch(e => console.warn('Model profiles load failed', e));
+        try { startStartupStatusPolling(); } catch (e) { console.warn('Startup status polling failed', e); }
+        // Voice button visibility (cheap config probe)
+        fetch('/api/config', {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('hyve_token') }
+        }).then(r => r.ok ? r.json() : null).then(cfg => {
+            if (!cfg) return;
             const voiceBtn = document.getElementById('btn-voice');
             const whisperEl = document.getElementById('whisper_enabled');
             const whisperOn = !!(cfg.whisper && cfg.whisper.enabled);
             if (whisperEl) whisperEl.checked = whisperOn;
             if (voiceBtn) voiceBtn.classList.toggle('hidden', !whisperOn);
-        }
-    } catch (e) { console.warn('Whisper status check failed', e); }
+        }).catch(e => console.warn('Whisper status check failed', e));
+    });
 }
+
+async function bootHyve() {
+    // Always start with overlay visible. CSS transition handles the fade.
+    const overlay = document.getElementById('boot-overlay');
+    if (overlay) overlay.classList.remove('is-hidden');
+    setBootMessage('Se încarcă...');
+
+    // Step 1: ensure we have a valid token (existing → autologin → fail)
+    const stored = localStorage.getItem('hyve_token');
+    let hasToken = stored && stored !== 'null' && stored !== 'undefined';
+    let profile = null;
+
+    if (hasToken) {
+        try {
+            profile = await loadAuthenticatedSession();
+        } catch (e) {
+            profile = null;
+        }
+    }
+
+    if (!profile) {
+        // Token missing or invalid — try silent auto-login from remembered creds
+        clearAuthToken();
+        let recovered = false;
+        try { recovered = await tryAutoLogin(); } catch (e) { recovered = false; }
+        if (recovered) {
+            try {
+                profile = await loadAuthenticatedSession();
+            } catch (e) {
+                profile = null;
+            }
+        }
+    }
+
+    if (!profile) {
+        showLoginScreen();
+        return;
+    }
+
+    // Step 2: profile loaded. Respect deep links before the dashboard default.
+    applyProfileFlags(profile);
+    await syncUiLanguageFromConfig();
+    try { initDashboardSidebarNav(); } catch (_) {}
+    hideLoginScreen();
+    if (routeHashToView()) {
+        hideBootOverlay();
+        startBackgroundLoaders(profile);
+        return;
+    }
+
+    // No deep link: switch to dashboard FIRST (cheap), then reveal.
+    try { switchTab('dashboard'); } catch (e) { console.warn('switchTab failed', e); }
+
+    // Step 2b: wait for the dashboard's first paint (entities + render).
+    // switchTab() already kicked off loadDashboard(); the in-flight dedup
+    // means this just awaits the same promise instead of double-fetching.
+    if (typeof window.loadDashboard === 'function') {
+        try { await window.loadDashboard(); } catch (e) { console.warn('Dashboard initial load failed', e); }
+    }
+
+    // Step 3: reveal app — dashboard is already populated. Heavy loaders run in background.
+    hideBootOverlay();
+    startBackgroundLoaders(profile);
+}
+
+window.bootHyve = bootHyve;
+
+function routeHashToView() {
+    const raw = String(window.location.hash || '').replace(/^#\/?/, '').split(/[/?]/)[0].trim().toLowerCase();
+    if (!raw) return false;
+    const currentTab = ['dashboard', 'chat', 'config', 'memory', 'planner', 'smarthome', 'skills', 'user']
+        .find(tab => {
+            const view = document.getElementById(`view-${tab}`);
+            return !!view && !view.classList.contains('hidden');
+        }) || '';
+
+    if (raw === 'devices' || raw === 'smarthome') {
+        if (currentTab !== 'smarthome') switchTab('smarthome', { syncHash: false });
+        return true;
+    }
+    if (raw === 'dashboard' || raw === 'home') {
+        if (currentTab !== 'dashboard') switchTab('dashboard', { syncHash: false });
+        return true;
+    }
+    if (raw === 'chat' || raw === 'planner' || raw === 'config' || raw === 'memory' || raw === 'skills' || raw === 'user') {
+        if (currentTab !== raw) switchTab(raw, { syncHash: false });
+        return true;
+    }
+    return false;
+}
+
 
 window.addEventListener('DOMContentLoaded', () => {
     // 0. Inițializăm limba UI
     initI18n();
+    initThinkingModeSelector();
+    window.initDashboardSidebarNav = initDashboardSidebarNav;
+    try { initDashboardSidebarNav(); } catch (_) {}
     applyInitialGreeting();
 
     // 0.1 Sidebar gestures (mobile): swipe right from edge to open,
@@ -936,41 +772,20 @@ window.addEventListener('DOMContentLoaded', () => {
     setTheme(getStoredThemeId());
     loadThemeSelector();
 
-    // 1.1 Reveal native-app-only elements if running inside Memini Bridge
+    // 1.1 Reveal native-app-only elements if running inside the Hyve Android app
     initNativeAppBridge();
     
     // 2. Bind la formularele principale (FastAPI form-data format)
     const loginForm = document.getElementById('login-form');
     if (loginForm) loginForm.onsubmit = handleLogin;
 
-    // 3. Auth: try existing token, then auto-login from saved credentials
-    const token = localStorage.getItem('memini_token');
-    if (token && token !== "null" && token !== "undefined") {
-        initializeApp().catch(async () => {
-            clearAuthToken();
-            if (await tryAutoLogin()) {
-                initializeApp().catch(() => {
-                    document.getElementById('login-overlay')?.classList.remove('hidden');
-                    restoreRememberedCredentials();
-                });
-            } else {
-                document.getElementById('login-overlay')?.classList.remove('hidden');
-                restoreRememberedCredentials();
-            }
-        });
-    } else {
-        (async () => {
-            if (await tryAutoLogin()) {
-                initializeApp().catch(() => {
-                    document.getElementById('login-overlay')?.classList.remove('hidden');
-                    restoreRememberedCredentials();
-                });
-            } else {
-                document.getElementById('login-overlay')?.classList.remove('hidden');
-                restoreRememberedCredentials();
-            }
-        })();
-    }
+    // 3. Auth + app boot — single deterministic state machine.
+    bootHyve().catch(err => {
+        console.error('bootHyve failed', err);
+        try { clearAuthToken(); } catch (_) {}
+        showLoginScreen();
+    });
+    window.addEventListener('hashchange', routeHashToView);
 
     // 4. Bind evenimente Chat
     const btnSend = document.getElementById('btn-send');
@@ -1001,6 +816,9 @@ window.addEventListener('DOMContentLoaded', () => {
             const isOpen = !balloon.classList.contains('hidden');
             balloon.classList.toggle('hidden', isOpen);
             btnAttach.setAttribute('aria-expanded', !isOpen);
+            if (!isOpen && typeof window.closeModelSelector === 'function') {
+                window.closeModelSelector();
+            }
         };
         document.addEventListener('click', () => {
             balloon.classList.add('hidden');
@@ -1093,7 +911,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 } else {
                     const formData = new FormData();
                     formData.append('file', file);
-                    const token = localStorage.getItem('memini_token') || authToken;
+                    const token = localStorage.getItem('hyve_token') || authToken;
                     const res = await fetch('/api/extract-document', {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${token}` },
@@ -1240,9 +1058,104 @@ window.addEventListener('DOMContentLoaded', () => {
 window.setTheme = setTheme;
 window.switchTab = switchTab;
 window.switchConfigTab = switchConfigTab;
+window.loadUserProfilePage = loadUserProfilePage;
+window.switchUserProfileTab = switchUserProfileTab;
+window.loadUserNotifications = loadUserNotifications;
+window.switchUserNotificationFilter = switchUserNotificationFilter;
+window.toggleUserNotificationFilterMenu = toggleUserNotificationFilterMenu;
+window.markUserNotificationRead = markUserNotificationRead;
+window.actOnAmbientSuggestion = actOnAmbientSuggestion;
+window.archiveUserNotification = archiveUserNotification;
+window.deleteUserNotification = deleteUserNotification;
+window.clearAllUserNotifications = clearAllUserNotifications;
+window.changeUserNotificationsPage = changeUserNotificationsPage;
+window.loadNotificationCounts = loadNotificationCounts;
+window.updateNotificationBadge = updateNotificationBadge;
+window.saveUserProfileGeneral = saveUserProfileGeneral;
+window.saveUserProfileSecurity = saveUserProfileSecurity;
 window.openConfigSection = openConfigSection;
 window.closeConfigSection = closeConfigSection;
 window.toggleSidebar = toggleSidebar;
+window.closeSidebar = closeSidebar;
+window.isSidebarOpen = isSidebarOpen;
+window.loadDashboard = loadDashboard;
+window.openDashboardAddModal = openDashboardAddModal;
+window.closeDashboardAddModal = closeDashboardAddModal;
+window.addDashboardSwitch = addDashboardSwitch;
+window.removeDashboardWidget = removeDashboardWidget;
+window.toggleDashboardWidget = toggleDashboardWidget;
+window.setDashboardFilter = setDashboardFilter;
+window.toggleDashboardLayout = toggleDashboardLayout;
+window.saveDashboardPreferences = saveDashboardPreferences;
+window.moveDashboardWidget = moveDashboardWidget;
+window.updateDashboardEntityOptions = updateDashboardEntityOptions;
+window.filterDashboardEntityOptions = filterDashboardEntityOptions;
+window.toggleDashboardEditMode = toggleDashboardEditMode;
+window.toggleDashboardMenu = toggleDashboardMenu;
+window.closeDashboardMenu = closeDashboardMenu;
+window.saveDashboardHeader = saveDashboardHeader;
+window.openDashboardPageModal = openDashboardPageModal;
+window.closeDashboardPageModal = closeDashboardPageModal;
+window.openDashboardYamlEditor = openDashboardYamlEditor;
+window.closeDashboardYamlEditor = closeDashboardYamlEditor;
+window.saveDashboardYaml = saveDashboardYaml;
+window.reloadDashboardYaml = reloadDashboardYaml;
+window.openDashboardWidgetEditor = openDashboardWidgetEditor;
+window.closeDashboardWidgetEditor = closeDashboardWidgetEditor;
+window.setDashboardWidgetEditorMode = setDashboardWidgetEditorMode;
+window.saveDashboardWidgetEdit = saveDashboardWidgetEdit;
+window.updateDashboardTypeUI = updateDashboardTypeUI;
+window.updateDashboardEditTypeUI = updateDashboardEditTypeUI;
+window.startDashboardDrag = startDashboardDrag;
+window.startDashboardPanelDrag = startDashboardPanelDrag;
+window.allowDashboardDrop = allowDashboardDrop;
+window.dropDashboardWidget = dropDashboardWidget;
+window.endDashboardDrag = endDashboardDrag;
+window.startDashboardResize = startDashboardResize;
+window.selectDashboardPage = selectDashboardPage;
+window.createDashboardPage = createDashboardPage;
+window.openDashboardPageNav = openDashboardPageNav;
+window.handleDashboardCardClick = handleDashboardCardClick;
+window.handleDashboardCardKeydown = handleDashboardCardKeydown;
+window.onDashboardBrightnessInput = onDashboardBrightnessInput;
+window.onDashboardBrightnessChange = onDashboardBrightnessChange;
+window.onDashboardLockAction = onDashboardLockAction;
+window.onDashboardVacuumAction = onDashboardVacuumAction;
+window.adjustDashboardClimateTemperature = adjustDashboardClimateTemperature;
+window.setDashboardClimateMode = setDashboardClimateMode;
+window.toggleDashboardClimateModeMenu = toggleDashboardClimateModeMenu;
+window.selectDashboardClimateSlide = selectDashboardClimateSlide;
+window.shiftDashboardClimateSlide = shiftDashboardClimateSlide;
+window.startDashboardClimateSwipe = startDashboardClimateSwipe;
+window.moveDashboardClimateSwipe = moveDashboardClimateSwipe;
+window.endDashboardClimateSwipe = endDashboardClimateSwipe;
+window.openDashboardAddPicker = openDashboardAddPicker;
+window.closeDashboardAddPicker = closeDashboardAddPicker;
+window.pickDashboardAddType = pickDashboardAddType;
+window.addSelectedDashboardClimateEntity = addSelectedDashboardClimateEntity;
+window.removeDashboardClimateEntity = removeDashboardClimateEntity;
+window.updateDashboardClimateEntityMeta = updateDashboardClimateEntityMeta;
+window.selectDashboardPanelPage = selectDashboardPanelPage;
+window.removeDashboardPanel = removeDashboardPanel;
+window.openDashboardPanelCreator = openDashboardPanelCreator;
+window.openDashboardPanelEditor = openDashboardPanelEditor;
+window.closeDashboardPanelModal = closeDashboardPanelModal;
+window.saveDashboardPanel = saveDashboardPanel;
+window.deleteDashboardPage = deleteDashboardPage;
+window.openDashboardEntityPicker = openDashboardEntityPicker;
+window.closeDashboardEntityPicker = closeDashboardEntityPicker;
+window.handleDashboardEntityPickerKeydown = handleDashboardEntityPickerKeydown;
+window.pickDashboardEntityOption = pickDashboardEntityOption;
+// Stubs for legacy add-modal helpers (color preview only).
+window.setDashboardAddEditorMode = setDashboardAddEditorMode;
+window.toggleDashboardVisibilityEditor = toggleDashboardVisibilityEditor;
+window.addDashboardVisibilityCondition = addDashboardVisibilityCondition;
+window.syncDashboardColorPreview = window.syncDashboardColorPreview || function (colorId, swatchId, valueId) {
+    const col = document.getElementById(colorId); const sw = document.getElementById(swatchId); const v = document.getElementById(valueId);
+    if (!col) return;
+    if (sw) sw.style.background = col.value;
+    if (v) v.textContent = String(col.value || '').toUpperCase();
+};
 window.saveConfig = saveConfig;
 window.restartServer = restartServer;
 window.saveNotificationSettings = saveNotificationSettings;
@@ -1269,6 +1182,13 @@ window.toggleHABulkMode = toggleHABulkMode;
 window.deleteHASingle = deleteHASingle;
 window.saveAliases = saveAliases;
 window.filterHAByDomain = filterHAByDomain;
+window.filterHABySource = filterHABySource;
+window.filterHAByArea = filterHAByArea;
+// Aliases used by the smarthome (devices) page markup.
+window.filterByDomain = filterHAByDomain;
+window.syncSmartHome = syncHA;
+window.loadSmarthome = loadSmarthome;
+window.toggleAllAIVisible = toggleAllAI;
 window.openAliasModal = openAliasModal;
 window.addAliasInput = addAliasInput;
 window.closeAliasModal = closeAliasModal;
@@ -1276,45 +1196,44 @@ window.saveAliasesFromModal = saveAliasesFromModal;
 window.openRowActionsModal = openRowActionsModal;
 window.closeRowActionsModal = closeRowActionsModal;
 window.handleHaRowClick = handleHaRowClick;
+window.setDevicesPage = setDevicesPage;
+window.setDevicesPageSize = setDevicesPageSize;
+window.sortDevicesBy = sortDevicesBy;
+window.controlDeviceEntity = controlDeviceEntity;
+window.openAliasModalFromDetail = openAliasModalFromDetail;
+window.closeEntityDetailModal = closeEntityDetailModal;
 window.openAddDevicesModal = openAddDevicesModal;
 window.closeAddDevicesModal = closeAddDevicesModal;
 window.confirmAddDevices = confirmAddDevices;
 window.toggleAvailableDevice = toggleAvailableDevice;
 window.toggleAllAvailableDevices = toggleAllAvailableDevices;
 window.filterAvailableDevices = debounce(filterAvailableDevices, 200);
+window.resetSmarthomeFilters = resetSmarthomeFilters;
+window.copyEntityIdFromRowActions = copyEntityIdFromRowActions;
+window.toggleSmarthomeFilters = toggleSmarthomeFilters;
+window.toggleSmarthomePicker = toggleSmarthomePicker;
+window.selectSmarthomePickerOption = selectSmarthomePickerOption;
+_assignLazyGlobals(_loadDerivedModule, [
+    'openDerivedModal', 'closeDerivedModal', 'saveDerived', 'deleteDerivedFromModal',
+    'switchDerivedMode', 'runDerivedPreview', 'insertDerivedExpressionEntity',
+    'toggleDerivedSelection',
+]);
+window.filterDerivedCandidates = debounce(_lazyAction(_loadDerivedModule, 'filterDerivedCandidates'), 150);
 window.toggleAllMem = toggleAllMem;
 window.updateMemBulkCount = updateMemBulkCount;
-window.loadPlanner = loadPlanner;
-window.plannerCreateList = plannerCreateList;
-window.plannerDeleteList = plannerDeleteList;
-window.plannerSelectList = plannerSelectList;
-window.plannerOpenDrawer = plannerOpenDrawer;
-window.plannerCloseDrawer = plannerCloseDrawer;
-window.plannerSetTab = plannerSetTab;
-window.plannerSetFilter = plannerSetFilter;
-window.plannerCalPrev = plannerCalPrev;
-window.plannerCalNext = plannerCalNext;
-window.plannerCalToday = plannerCalToday;
-window.plannerSetCalView = plannerSetCalView;
-window.plannerSelectDay = plannerSelectDay;
-window.plannerCalClickDay = plannerCalClickDay;
-window.plannerCalClickHour = plannerCalClickHour;
-window.plannerEventDragStart = plannerEventDragStart;
-window.plannerEventDragOver = plannerEventDragOver;
-window.plannerEventDragEnd = plannerEventDragEnd;
-window.plannerEventDropDay = plannerEventDropDay;
-window.plannerEventDropHour = plannerEventDropHour;
-window.plannerCreateEntry = plannerCreateEntry;
-window.plannerOpenAdd = plannerOpenAdd;
-window.plannerCloseAdd = plannerCloseAdd;
-window.plannerToggleDone = plannerToggleDone;
-window.plannerDeleteEntry = plannerDeleteEntry;
-window.plannerCycleType = plannerCycleType;
-window.plannerEntryActions = plannerEntryActions;
-window.plannerDragStart = plannerDragStart;
-window.plannerDragOver = plannerDragOver;
-window.plannerDrop = plannerDrop;
-window.plannerDragEnd = plannerDragEnd;
+_assignLazyGlobals(_loadPlannerModule, [
+    'loadPlanner', 'plannerCreateList', 'plannerDeleteList', 'plannerSelectList',
+    'plannerRequestDeleteList', 'plannerCancelDeleteList',
+    'plannerSelectActionEntity', 'plannerClearActionEntity',
+    'plannerOpenDrawer', 'plannerCloseDrawer', 'plannerSetTab', 'plannerSetFilter',
+    'plannerCalPrev', 'plannerCalNext', 'plannerCalToday', 'plannerSetCalView',
+    'plannerSelectDay', 'plannerCalClickDay', 'plannerCalClickHour',
+    'plannerEventDragStart', 'plannerEventDragOver', 'plannerEventDragEnd',
+    'plannerEventDropDay', 'plannerEventDropHour', 'plannerCreateEntry',
+    'plannerOpenAdd', 'plannerCloseAdd', 'plannerToggleDone', 'plannerDeleteEntry',
+    'plannerCycleType', 'plannerEntryActions', 'plannerDragStart', 'plannerDragOver',
+    'plannerDrop', 'plannerDragEnd',
+]);
 
 window.loadMemoryEvents = loadMemoryEvents;
 window.memLogPrevPage = memLogPrevPage;
@@ -1325,6 +1244,15 @@ window.runConsolidationNow = runConsolidationNow;
 window.addExtractionExample = addExtractionExample;
 window.removeExtractionExample = removeExtractionExample;
 window.switchIntelligenceTab = switchIntelligenceTab;
+window.testAmbientNow = testAmbientNow;
+window.resetAmbientReasonerPrompt = resetAmbientReasonerPrompt;
+window.testBriefingNow = testBriefingNow;
+window.switchMemorySubtab = switchMemorySubtab;
+window.checkAddonUpdates = checkAddonUpdates;
+window.updateAllAddons = updateAllAddons;
+window.updateSingleAddon = updateSingleAddon;
+window.closeAddonConfigModal = closeAddonConfigModal;
+window.refreshUpdatesHeaderBadge = refreshUpdatesHeaderBadge;
 // Automation editor
 window.loadAutomations = loadAutomations;
 window.deleteAutomation = deleteAutomation;
@@ -1334,6 +1262,29 @@ window.saveAutomationEditor = saveAutomationEditor;
 window.validateAutomationEditor = validateAutomationEditor;
 window.toggleAutomationDefinition = toggleAutomationDefinition;
 window.runAutomationDefinition = runAutomationDefinition;
+window.toggleAutoMenu = toggleAutoMenu;
+window.closeAutoMenu = closeAutoMenu;
+window.showAutoDotTooltip = showAutoDotTooltip;
+window.hideAutoDotTooltip = hideAutoDotTooltip;
+window.autoSyncAutomationId = autoSyncAutomationId;
+window.markAutomationIdManual = markAutomationIdManual;
+window.testAutomationEditor = testAutomationEditor;
+window.exportAutomationYaml = exportAutomationYaml;
+window.importAutomationYaml = importAutomationYaml;
+window.openBlueprintPicker = openBlueprintPicker;
+window.closeBlueprintPicker = closeBlueprintPicker;
+window.loadBlueprints = loadBlueprints;
+window.importBlueprintYaml = importBlueprintYaml;
+window.backToBlueprintList = backToBlueprintList;
+window.instantiateCurrentBlueprint = instantiateCurrentBlueprint;
+window.deleteCurrentBlueprint = deleteCurrentBlueprint;
+window.openBlueprintCreator = openBlueprintCreator;
+window.addBlueprintCreatorInput = addBlueprintCreatorInput;
+window.removeBlueprintCreatorInput = removeBlueprintCreatorInput;
+window.changeBlueprintCreatorInputType = changeBlueprintCreatorInputType;
+window.insertBlueprintCreatorPlaceholder = insertBlueprintCreatorPlaceholder;
+window.updateBlueprintCreatorYaml = updateBlueprintCreatorYaml;
+window.saveCreatedBlueprint = saveCreatedBlueprint;
 window.switchAutomationEditorMode = switchAutomationEditorMode;
 window.addAutomationBuilderAction = addAutomationBuilderAction;
 window.removeAutomationBuilderAction = removeAutomationBuilderAction;
@@ -1356,6 +1307,7 @@ window.clearSessionContext = clearSessionContext;
 window.copyWebhook = copyWebhook;
 window.openIntegrationConfigModal = openIntegrationConfigModal;
 window.closeIntegrationConfigModal = closeIntegrationConfigModal;
+window.refreshIntegrationsSettingsView = refreshIntegrationsSettingsView;
 window.copyAssistOllamaUserUrl = copyAssistOllamaUserUrl;
 window.copyAssistKey = copyAssistKey;
 window.regenerateAssistKey = regenerateAssistKey;
@@ -1363,22 +1315,26 @@ window.deleteUser = deleteUser;
 window.unlinkUserPhone = unlinkUserPhone;
 window.loadSkills = loadSkills;
 window.openSkillEdit = openSkillEdit;
-window.loadConferenceSettings = loadConferenceSettings;
-window.saveConferenceSettings = saveConferenceSettings;
 window.closeSkillEditModal = closeSkillEditModal;
 window.saveSkillEdit = saveSkillEdit;
 window.deleteSkill = deleteSkill;
 window.toggleSkillDesc = toggleSkillDesc;
 window.toggleSkillDisabled = toggleSkillDisabled;
-window.loadApps = loadApps;
-window.appAction = appAction;
-window.openAppLogModal = openAppLogModal;
-window.closeAppLogModal = closeAppLogModal;
-window.refreshAppLogs = refreshAppLogs;
-window.openAppDetail = openAppDetail;
-window.closeAppDetail = closeAppDetail;
-window.installApp = installApp;
-window.uninstallApp = uninstallApp;
-window.toggleApp = toggleApp;
-window.closeInstallLogModal = closeInstallLogModal;
-window.runPreflight = runPreflight;
+_assignLazyGlobals(_loadAppsModule, [
+    'loadApps', 'appAction', 'openAppLogModal', 'closeAppLogModal', 'refreshAppLogs',
+    'openAppDetail', 'closeAppDetail', 'installApp', 'updateApp', 'uninstallApp',
+    'toggleApp', 'saveAddonConfig', 'openAddonWebUI', 'testAddonHealth',
+    'closeInstallLogModal', 'runPreflight', 'toggleAddonWatchdog', 'detectAddonSerialPorts',
+]);
+_assignLazyGlobals(_loadScenesModule, [
+    'loadScenes', 'openScenesPage', 'closeScenesPage', 'openSceneEditor',
+    'closeSceneEditor', 'addSceneEntry', 'removeSceneEntry', 'saveScene',
+    'deleteScene', 'deleteSceneFromEditor', 'activateScene', 'openSceneEntityPicker',
+    'closeSceneEntityPicker', 'filterSceneEntityPicker', 'pickSceneEntity',
+]);
+_assignLazyGlobals(_loadAreasModule, [
+    'loadAreas', 'syncAreasFromHA', 'openCreateAreaModal', 'closeAreaEditor',
+    'editArea', 'saveAreaFromEditor', 'deleteArea', 'deleteAreaFromEditor',
+    'removeAreaEditorEntity', 'openAreaEntityPicker', 'closeAreaEntityPicker',
+    'filterAreaEntityPicker', 'toggleAreaPickerEntity', 'confirmAreaEntityPicker',
+]);

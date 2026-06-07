@@ -248,7 +248,7 @@ def _run_skill_code_dry_run(code: str, timeout: int = FORGE_DRY_RUN_TIMEOUT,
             f.write(code)
 
         env = os.environ.copy()
-        for sensitive_key in ("HOME_ASSISTANT_TOKEN", "OPENAI_API_KEY", "LLM_API_KEY",
+        for sensitive_key in ("OPENAI_API_KEY", "LLM_API_KEY",
                               "DATABASE_URL", "SECRET_KEY", "JWT_SECRET"):
             env.pop(sensitive_key, None)
 

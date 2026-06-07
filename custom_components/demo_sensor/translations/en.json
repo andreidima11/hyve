@@ -1,0 +1,8 @@
+{
+  "config": {
+    "title": "Demo Sensor"
+  },
+  "entity": {
+    "demo_value": "Demo value"
+  }
+}

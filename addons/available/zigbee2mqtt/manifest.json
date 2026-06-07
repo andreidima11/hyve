@@ -1,0 +1,124 @@
+{
+  "slug": "zigbee2mqtt",
+  "name": "Zigbee2MQTT",
+  "description": "Bridge Zigbee local cu Web UI pentru a aduce dispozitivele în ecosistemul Hyve.",
+  "long_description": "Rulează Zigbee2MQTT ca add-on Hyve, cu Web UI local, configurare MQTT și selecție pentru adaptorul Zigbee.",
+  "version": "latest",
+  "icon": "fas fa-wave-square",
+  "image": "/static/icons/integrations/zigbee2mqtt.png",
+  "color": "amber",
+  "author": "Koenkk",
+  "url": "https://www.zigbee2mqtt.io/",
+  "category": "automation",
+  "integration_key": "zigbee2mqtt",
+  "install": {
+    "method": "npm",
+    "requirements": ["pnpm@latest"],
+    "packages": ["zigbee2mqtt@latest"],
+    "args": ["--prefix", "./output/addons/zigbee2mqtt/runtime", "--no-save", "--prefer-online"],
+    "download_on_install": true,
+    "bundled": false,
+    "channel": "latest",
+    "notes": "Zigbee2MQTT nu vine în pachetul aplicației. La instalare se descarcă automat ultima versiune stabilă direct din registry-ul npm, împreună cu prerechizitele necesare."
+  },
+  "config_schema": [
+    {
+      "key": "port",
+      "label": "Port serviciu",
+      "type": "number",
+      "default": 8080,
+      "placeholder": "8080",
+      "description": "Portul principal folosit pentru status și acces local."
+    },
+    {
+      "key": "web_port",
+      "label": "Port Web UI",
+      "type": "number",
+      "default": 8080,
+      "placeholder": "8080",
+      "description": "Portul frontend-ului Zigbee2MQTT."
+    },
+    {
+      "key": "mqtt_host",
+      "label": "Host broker MQTT",
+      "type": "text",
+      "default": "localhost",
+      "placeholder": "localhost",
+      "description": "Brokerul Mosquitto pe care Zigbee2MQTT va publica device-urile."
+    },
+    {
+      "key": "mqtt_port",
+      "label": "Port broker MQTT",
+      "type": "number",
+      "default": 1883,
+      "placeholder": "1883",
+      "description": "Portul TCP al brokerului MQTT."
+    },
+    {
+      "key": "mqtt_user",
+      "label": "Utilizator MQTT",
+      "type": "text",
+      "default": "",
+      "placeholder": "optional",
+      "description": "Util dacă brokerul cere autentificare."
+    },
+    {
+      "key": "mqtt_password",
+      "label": "Parolă MQTT",
+      "type": "password",
+      "default": "",
+      "placeholder": "optional",
+      "description": "Parola pentru brokerul MQTT."
+    },
+    {
+      "key": "serial_port",
+      "label": "Port adaptor Zigbee",
+      "type": "text",
+      "default": "/dev/ttyUSB0",
+      "placeholder": "/dev/ttyUSB0",
+      "detect": "serial",
+      "description": "Calea către dongle-ul Zigbee pentru rulare locală. Apasă „Detectează” ca să vezi adaptoarele USB conectate."
+    },
+    {
+      "key": "permit_join",
+      "label": "Permite pairing dispozitive",
+      "type": "checkbox",
+      "default": false,
+      "description": "Activează permit_join la start pentru adăugarea rapidă a device-urilor."
+    },
+    {
+      "key": "frontend_enabled",
+      "label": "Activează frontend-ul web",
+      "type": "checkbox",
+      "default": true,
+      "description": "Lasă pornită interfața web Zigbee2MQTT."
+    }
+  ],
+  "health_check": {
+    "type": "http",
+    "host": "localhost",
+    "port_key": "web_port",
+    "path": "/"
+  },
+  "web_ui": {
+    "host": "localhost",
+    "port_key": "web_port",
+    "protocol": "http",
+    "path": "/"
+  },
+  "start_command": {
+    "command": "bash",
+    "args": [
+      "run.sh",
+      "{web_port}",
+      "{mqtt_host}",
+      "{mqtt_port}",
+      "{mqtt_user}",
+      "{mqtt_password}",
+      "{serial_port}",
+      "{permit_join}",
+      "{frontend_enabled}"
+    ],
+    "description": "Pornește Zigbee2MQTT în Docker și expune Web UI-ul pe portul configurat."
+  }
+}

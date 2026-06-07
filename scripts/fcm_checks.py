@@ -57,7 +57,7 @@ def main() -> int:
         _warn("config fcm.project_id is empty (optional, but recommended)")
         warnings += 1
 
-    env_path = str(os.environ.get("MEMINI_FCM_SERVICE_ACCOUNT_PATH") or "").strip()
+    env_path = str(os.environ.get("HYVE_FCM_SERVICE_ACCOUNT_PATH") or "").strip()
     cfg_path = str(cfg.get("service_account_path") or "").strip()
     service_path = env_path or cfg_path
     if service_path:
@@ -68,7 +68,7 @@ def main() -> int:
             _fail("FCM service account path is set but file does not exist")
             failures += 1
     else:
-        _fail("FCM service account path missing; set MEMINI_FCM_SERVICE_ACCOUNT_PATH or config fcm.service_account_path")
+        _fail("FCM service account path missing; set HYVE_FCM_SERVICE_ACCOUNT_PATH or config fcm.service_account_path")
         failures += 1
 
     send_when_ws_disconnected = bool(cfg.get("send_when_ws_disconnected", True))
@@ -78,7 +78,7 @@ def main() -> int:
         _warn("config fcm.send_when_ws_disconnected is false (FCM fallback disabled)")
         warnings += 1
 
-    google_services = ROOT / "android" / "MeminiBridge" / "app" / "google-services.json"
+    google_services = ROOT / "android" / "Hyve" / "app" / "google-services.json"
     if google_services.exists():
         _ok("Android google-services.json found")
     else:

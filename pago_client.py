@@ -52,6 +52,13 @@ class PagoAPIError(Exception):
     pass
 
 
+def _looks_masked_secret(value: str | None) -> bool:
+    if not isinstance(value, str):
+        return False
+    s = value.strip()
+    return bool(s) and all(ch in "•*●·xX#-" for ch in s)
+
+
 class PagoClient:
     """Async Pago API client with token management and TTL cache."""
 
@@ -402,6 +409,7 @@ class PagoClient:
 
         # Phase 1: fast endpoints in parallel
         raw = {}
+        errors: Dict[str, str] = {}
         tasks1 = {
             "profile": self.get_profile(),
             "subscription": self.get_subscription(),
@@ -412,7 +420,7 @@ class PagoClient:
         gathered1 = await asyncio.gather(*tasks1.values(), return_exceptions=True)
         for key, result in zip(tasks1.keys(), gathered1):
             if isinstance(result, Exception):
-                log.warning("Pago fetch %s failed: %s", key, result)
+                errors[key] = str(result)
                 raw[key] = None
             else:
                 raw[key] = result
@@ -425,10 +433,16 @@ class PagoClient:
         gathered2 = await asyncio.gather(*tasks2.values(), return_exceptions=True)
         for key, result in zip(tasks2.keys(), gathered2):
             if isinstance(result, Exception):
-                log.warning("Pago fetch %s failed: %s", key, result)
+                errors[key] = str(result)
                 raw[key] = None
             else:
                 raw[key] = result
+
+        if errors:
+            failed = ", ".join(sorted(errors.keys()))
+            if all(v is None for v in raw.values()):
+                raise PagoAPIError(f"Pago authentication failed or endpoints unavailable: {failed}")
+            log.info("Pago partial sync: unavailable endpoints: %s", failed)
 
         # Normalize all data
         if isinstance(raw.get("profile"), dict):
@@ -517,6 +531,9 @@ async def ensure_client():
     email = cfg.get("email", "").strip()
     password = cfg.get("password", "").strip()
     if not email or not password:
+        return None
+    if _looks_masked_secret(password):
+        log.warning("Pago skipped: masked placeholder password detected. Re-enter the real password in Settings.")
         return None
     return await init_client(email, password, cache_ttl=cfg.get("scan_interval", 3600))
 

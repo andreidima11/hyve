@@ -86,6 +86,9 @@ class _ManagedProcess:
 # ── singleton registry ─────────────────────────────────────────────────────
 
 _processes: dict[str, _ManagedProcess] = {}
+# Slugs that the user explicitly stopped — watchdog must not auto-restart them
+# until the user starts them again (or restarts).
+_intentionally_stopped: set[str] = set()
 
 
 def _resolve_args(args: list[str], config: dict) -> list[str]:
@@ -105,6 +108,33 @@ def _find_executable(command: str) -> str:
         return venv_bin
     return command
 
+def _resolve_script_path(arg: str, addon_dir: Path | None) -> str:
+    """Resolve a script-like argument to an absolute path.
+
+    Search order (first hit wins):
+      1. Path relative to the addon's own folder — lets community addons
+         ship their scripts inside their own directory (HA-style).
+      2. Path relative to the project root — backward-compat with the
+         legacy ``./scripts/addons/run_*.sh`` layout.
+      3. The argument as-is (system PATH or already absolute).
+    """
+    if not arg or os.path.isabs(arg):
+        return arg
+    if not (arg.endswith(".sh") or arg.startswith("./") or arg.startswith("scripts/")):
+        return arg
+    rel = arg[2:] if arg.startswith("./") else arg
+    if addon_dir:
+        candidate = addon_dir / rel
+        if candidate.is_file():
+            return str(candidate)
+        # Also accept run.sh / start.sh shorthand next to manifest.json.
+        candidate = addon_dir / Path(rel).name
+        if candidate.is_file() and Path(rel).name in ("run.sh", "start.sh"):
+            return str(candidate)
+    candidate = Path(_PROJECT_ROOT) / rel
+    if candidate.is_file():
+        return str(candidate)
+    return arg
 
 async def _port_in_use(host: str, port: int) -> bool:
     """Check if a TCP port is already listening."""
@@ -122,8 +152,75 @@ async def _port_in_use(host: str, port: int) -> bool:
         return False
 
 
+def _pids_listening_on(port: int) -> list[int]:
+    """Return PIDs of processes listening on the given TCP port (local only)."""
+    if not port:
+        return []
+    try:
+        import psutil  # local import keeps module light if unused
+    except Exception:
+        return []
+    pids: set[int] = set()
+    try:
+        for conn in psutil.net_connections(kind="tcp"):
+            try:
+                if conn.status == psutil.CONN_LISTEN and conn.laddr and conn.laddr.port == port and conn.pid:
+                    pids.add(conn.pid)
+            except Exception:
+                continue
+    except (psutil.AccessDenied, PermissionError):
+        # Fallback: lsof (works without elevated perms on macOS)
+        try:
+            out = subprocess.run(
+                ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"],
+                capture_output=True, text=True, timeout=3,
+            )
+            for line in out.stdout.splitlines():
+                line = line.strip()
+                if line.isdigit():
+                    pids.add(int(line))
+        except Exception:
+            pass
+    except Exception:
+        pass
+    return sorted(pids)
+
+
+async def _kill_pids(pids: list[int], timeout: float = 5.0) -> list[int]:
+    """SIGTERM then SIGKILL the given PIDs. Returns PIDs that were terminated."""
+    killed: list[int] = []
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            continue
+        except Exception as e:
+            log.warning("SIGTERM pid=%s failed: %s", pid, e)
+            continue
+        # Wait for it to exit
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                killed.append(pid)
+                break
+            await asyncio.sleep(0.1)
+        else:
+            try:
+                os.kill(pid, signal.SIGKILL)
+                killed.append(pid)
+            except ProcessLookupError:
+                killed.append(pid)
+            except Exception as e:
+                log.warning("SIGKILL pid=%s failed: %s", pid, e)
+    return killed
+
+
 async def start(slug: str) -> dict:
     """Start the addon process. Returns status dict."""
+    # Explicit start clears any prior intentional-stop flag
+    _intentionally_stopped.discard(slug)
     # If already running, return current status
     if slug in _processes and _processes[slug].running:
         return _status_dict(slug)
@@ -144,13 +241,15 @@ async def start(slug: str) -> dict:
     port_key = hc.get("port_key", "port")
     host_key = hc.get("host_key", "host")
     port = int(config.get(port_key, 0))
-    host = config.get(host_key, "localhost")
+    host = hc.get("host") or config.get(host_key, "localhost")
     if port and await _port_in_use(host, port):
         log.info("Port %s:%d already in use — treating %s as externally running", host, port, slug)
         return {"slug": slug, "status": "running", "pid": None, "uptime": None, "external": True}
 
     command = _find_executable(start_cmd["command"])
-    args = _resolve_args(start_cmd.get("args", []), config)
+    addon_dir = registry.get_addon_dir(slug)
+    raw_args = _resolve_args(start_cmd.get("args", []), config)
+    args = [_resolve_script_path(a, addon_dir) for a in raw_args]
 
     log.info("Starting %s: %s %s", slug, command, " ".join(args))
 
@@ -178,14 +277,35 @@ async def start(slug: str) -> dict:
 
 
 async def stop(slug: str) -> dict:
-    """Stop the addon process."""
+    """Stop the addon process (managed or external orphan listening on its port)."""
+    # Mark as intentionally stopped so the watchdog won't immediately restart it
+    _intentionally_stopped.add(slug)
     mp = _processes.get(slug)
-    if not mp or not mp.running:
+    if mp and mp.running:
+        log.info("Stopping %s (PID %s)", slug, mp.pid)
+        await mp.stop()
+        log.info("Stopped %s", slug)
         return _status_dict(slug)
 
-    log.info("Stopping %s (PID %s)", slug, mp.pid)
-    await mp.stop()
-    log.info("Stopped %s", slug)
+    # Not managed by us — try to terminate any orphan listening on the addon's port
+    manifest = registry.get_manifest(slug)
+    if manifest:
+        hc = manifest.get("health_check", {})
+        state = registry.get_state(slug)
+        config = state.get("config", {})
+        port = int(config.get(hc.get("port_key", "port"), 0) or 0)
+        host = hc.get("host") or config.get(hc.get("host_key", "host"), "localhost")
+        if port and await _port_in_use(host, port):
+            pids = _pids_listening_on(port)
+            # Don't kill ourselves
+            self_pid = os.getpid()
+            pids = [p for p in pids if p != self_pid]
+            if pids:
+                log.info("Stopping external %s by port %d (pids=%s)", slug, port, pids)
+                killed = await _kill_pids(pids)
+                log.info("Stopped external %s (killed pids=%s)", slug, killed)
+            else:
+                log.warning("Port %d in use for %s but no PID resolvable", port, slug)
     return _status_dict(slug)
 
 
@@ -199,7 +319,12 @@ def get_logs(slug: str, tail: int = 200) -> list[str]:
     """Return the last `tail` log lines for a process."""
     mp = _processes.get(slug)
     if not mp:
-        return []
+        # External / orphan process — we never captured its stdout/stderr.
+        return [
+            f"[hyve] No captured logs for '{slug}'.",
+            "[hyve] This process is running externally (started outside Hyve, or before the last restart).",
+            "[hyve] Click Stop, then Start to relaunch it under Hyve and capture logs.",
+        ]
     lines = list(mp.logs)
     return lines[-tail:]
 
@@ -222,7 +347,7 @@ async def get_status_async(slug: str) -> dict:
         state = registry.get_state(slug)
         config = state.get("config", {})
         port = int(config.get(hc.get("port_key", "port"), 0))
-        host = config.get(hc.get("host_key", "host"), "localhost")
+        host = hc.get("host") or config.get(hc.get("host_key", "host"), "localhost")
         if port and await _port_in_use(host, port):
             return {"slug": slug, "status": "running", "pid": None, "uptime": None, "external": True}
 
@@ -290,6 +415,9 @@ async def _watchdog_loop():
         try:
             slugs = registry.get_watchdog_addons()
             for slug in slugs:
+                # Respect explicit user stop — don't fight the user
+                if slug in _intentionally_stopped:
+                    continue
                 mp = _processes.get(slug)
                 # Only restart if we previously managed it (or if it's never been started)
                 if mp and not mp.running:

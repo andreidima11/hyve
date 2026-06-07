@@ -35,8 +35,8 @@ def _sync_integration_enabled(slug: str, enabled: bool):
     manifest = registry.get_manifest(slug)
     integration_key = (manifest or {}).get("integration_key", slug)
     if integration_key:
-        from settings import save_config, CFG
-        current = dict(CFG.get(integration_key) or {})
+        from settings import save_config, _load_config_raw
+        current = dict(_load_config_raw().get(integration_key) or {})
         current["enabled"] = enabled
         save_config({integration_key: current})
 
@@ -62,7 +62,7 @@ async def get_addon(slug: str, user: models.User = Depends(auth.get_current_user
     if not manifest:
         raise HTTPException(404, f"Addon {slug} not found")
     state = registry.get_state(slug)
-    return {**manifest, "state": state}
+    return {**manifest, "state": state, "update_available": registry.is_update_available(manifest, state)}
 
 
 @router.get("/{slug}/install/preflight")
@@ -187,8 +187,8 @@ async def update_config(slug: str, request: Request, user: models.User = Depends
         manifest = registry.get_manifest(slug)
         integration_key = (manifest or {}).get("integration_key", slug)
         if integration_key:
-            from settings import save_config, CFG
-            current = dict(CFG.get(integration_key) or {})
+            from settings import save_config, _load_config_raw
+            current = dict(_load_config_raw().get(integration_key) or {})
             current.update(body)
             save_config({integration_key: current})
         return {"slug": slug, "state": state}
@@ -245,3 +245,51 @@ async def process_logs(
 ):
     """Get the last `tail` log lines for a process."""
     return {"slug": slug, "lines": process_manager.get_logs(slug, tail)}
+
+
+@router.get("/_helpers/detect-serial-ports")
+async def detect_serial_ports(user: models.User = Depends(auth.get_current_user)):
+    """Scan the host for likely USB serial adapters (Zigbee, Z-Wave, etc.).
+
+    Cross-platform: looks at /dev/serial/by-id/*, /dev/ttyUSB*, /dev/ttyACM*
+    on Linux and /dev/tty.usb*, /dev/cu.usb* on macOS. Returns a list of
+    candidate paths plus a short hint extracted from the device name.
+    """
+    import glob
+    import os
+
+    patterns = [
+        "/dev/serial/by-id/*",
+        "/dev/ttyUSB*",
+        "/dev/ttyACM*",
+        "/dev/tty.usbserial*",
+        "/dev/tty.usbmodem*",
+        "/dev/tty.SLAB_USBtoUART*",
+        "/dev/cu.usbserial*",
+        "/dev/cu.usbmodem*",
+        "/dev/cu.SLAB_USBtoUART*",
+    ]
+    seen: set[str] = set()
+    ports: list[dict[str, str]] = []
+    for pattern in patterns:
+        for path in glob.glob(pattern):
+            try:
+                resolved = os.path.realpath(path)
+            except OSError:
+                resolved = path
+            if resolved in seen:
+                # Prefer the by-id symlink representation when available.
+                if path != resolved and any(p["path"] == resolved for p in ports):
+                    for entry in ports:
+                        if entry["path"] == resolved:
+                            entry["path"] = path
+                            entry["hint"] = os.path.basename(path)
+                            break
+                continue
+            seen.add(resolved)
+            ports.append({
+                "path": path,
+                "hint": os.path.basename(path),
+            })
+    ports.sort(key=lambda item: ("/serial/by-id/" not in item["path"], item["path"]))
+    return {"ports": ports}

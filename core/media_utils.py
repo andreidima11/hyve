@@ -6,6 +6,10 @@ from io import BytesIO
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
+# Pre-compiled patterns reused on every chat response.
+_RE_MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*\]\(https?://[^)\s]+\)\s*")
+_RE_MULTI_NEWLINE = re.compile(r"\n{3,}")
+
 
 def waha_media_url_reachable(media_url: str, api_url: str) -> str:
     """Rewrite WAHA media URLs so they use an externally reachable API host."""
@@ -104,8 +108,8 @@ def extract_markdown_image_urls(
 def strip_markdown_images(text: str) -> str:
     if not text:
         return text
-    stripped = re.sub(r"!\[[^\]]*\]\(https?://[^)\s]+\)\s*", "", text)
-    return re.sub(r"\n{3,}", "\n\n", stripped).strip()
+    stripped = _RE_MARKDOWN_IMAGE.sub("", text)
+    return _RE_MULTI_NEWLINE.sub("\n\n", stripped).strip()
 
 
 async def waha_send_image(

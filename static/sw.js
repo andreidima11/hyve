@@ -1,4 +1,4 @@
-const CACHE_NAME = "memini-offline-v1";
+const CACHE_NAME = "hyve-offline-v2";
 const OFFLINE_URL = "/static/offline.html";
 
 self.addEventListener("install", (event) => {

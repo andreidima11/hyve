@@ -1,0 +1,10 @@
+{
+  "config": {
+    "title": "Roborock"
+  },
+  "sensor": {
+    "battery": "Battery",
+    "fan_speed": "Fan speed",
+    "cleaning_area": "Cleaning area"
+  }
+}

@@ -47,7 +47,7 @@ def upsert_admin(username: str, password: str, full_name: str, email: str | None
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Create or update a local Memini admin user.")
+    parser = argparse.ArgumentParser(description="Create or update a local Hyve admin user.")
     parser.add_argument("--username", required=True)
     parser.add_argument("--password", required=True)
     parser.add_argument("--full-name", default="")

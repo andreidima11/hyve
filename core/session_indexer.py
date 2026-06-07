@@ -5,6 +5,7 @@ Each indexed chunk is a user+assistant exchange pair, stored with type='session_
 and the session_id in metadata. Only indexes new exchanges since the last indexing."""
 
 import hashlib
+import re
 import time
 import logging
 
@@ -14,6 +15,9 @@ _log = logging.getLogger("session_indexer")
 
 # Minimum exchange length worth indexing (skip trivial greetings)
 _MIN_EXCHANGE_LEN = 40
+
+# Pre-compiled at import time — used in the indexing hot path.
+_RE_THINK_BLOCK = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
 def _exchange_id(session_id: str, idx: int) -> str:
@@ -54,8 +58,7 @@ def index_session_exchanges(session: dict, user_id: str) -> int:
                     p.get("text", "") for p in user_text if isinstance(p, dict) and p.get("type") == "text"
                 )
             # Strip thinking blocks from assistant text
-            import re
-            asst_text = re.sub(r"<think>.*?</think>", "", asst_text, flags=re.DOTALL).strip()
+            asst_text = _RE_THINK_BLOCK.sub("", asst_text).strip()
             exchange = f"Q: {user_text}\nA: {asst_text}"
             if len(exchange) >= _MIN_EXCHANGE_LEN:
                 eid = _exchange_id(session_id, i)

@@ -1,22 +1,30 @@
-import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles } from './features.js';
-import { loadPlanner } from './planner.js';
+import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive } from './features.js?v=phase4-config-2';
+import { loadDashboard, dashboardHasRenderedContent, resetDashboardEditingState, disconnectDashboardLive, initDashboardSidebarNav } from './dashboard.js?v=hyveview-cards-51';
 import { closeAllSubPages } from './utils.js';
 import { t } from './lang/index.js';
 
 let logEventSource = null;
 let _logReconnectTimer = null;
+let _dashboardReturnRetryTimer = null;
+
+function _tabHash(tabId) {
+    const allowed = new Set(['dashboard', 'chat', 'config', 'memory', 'planner', 'smarthome', 'skills', 'user']);
+    if (!allowed.has(tabId)) return '';
+    if (tabId === 'dashboard') {
+        let pid = '';
+        try { pid = String(localStorage.getItem('hyve.lastDashboardPageId') || '').trim(); } catch (_) {}
+        if (pid) return `#/dashboard/${encodeURIComponent(pid)}`;
+    }
+    return `#/${tabId}`;
+}
 
 const FALLBACK_THEME_OPTIONS = [
-    { id: 'obsidian', selector: 'dark', label: 'Obsidian', preview: ['#030712', '#0f172a', '#38bdf8'] },
-    { id: 'midnight', selector: 'midnight', label: 'Midnight', preview: ['#111111', '#1f1f1f', '#f59e0b'] },
-    { id: 'midnight-white', selector: 'midnight', label: 'Midnight White', preview: ['#111111', '#2a2a2a', '#ffffff'] },
-    { id: 'moonlight', selector: 'midnight', label: 'Moonlight', preview: ['#111111', '#242938', '#ffffff'] },
-    { id: 'daylight', selector: 'light', label: 'Daylight', preview: ['#f8fafc', '#e2e8f0', '#2563eb'] },
     { id: 'canvas', selector: 'canvas', label: 'Canvas', preview: ['#0a0a0a', '#171717', '#a8c7fa'] },
-    { id: 'terra', selector: 'prism', label: 'Terra', preview: ['#171312', '#2c2420', '#d97757'] },
+    { id: 'obsidian', selector: 'dark', label: 'Obsidian', preview: ['#030712', '#0f172a', '#38bdf8'] },
+    { id: 'daylight', selector: 'light', label: 'Daylight', preview: ['#f8fafc', '#e2e8f0', '#2563eb'] },
 ];
 
-const THEME_REGISTRY = window.__MEMINI_THEME_REGISTRY__ || null;
+const THEME_REGISTRY = window.__HYVE_THEME_REGISTRY__ || null;
 const THEME_OPTIONS = Array.isArray(THEME_REGISTRY?.themeOptions) ? THEME_REGISTRY.themeOptions : FALLBACK_THEME_OPTIONS;
 
 function resolveTheme(themeName) {
@@ -30,14 +38,14 @@ export function getStoredThemeId() {
     if (typeof THEME_REGISTRY?.getStoredThemeId === 'function') {
         return THEME_REGISTRY.getStoredThemeId();
     }
-    return localStorage.getItem('memini_theme') || 'obsidian';
+    return localStorage.getItem('hyve_theme') || 'canvas';
 }
 
 export function getStoredThemeSelector() {
     if (typeof THEME_REGISTRY?.getStoredThemeSelector === 'function') {
         return THEME_REGISTRY.getStoredThemeSelector();
     }
-    const storedSelector = localStorage.getItem('memini_theme_selector');
+    const storedSelector = localStorage.getItem('hyve_theme_selector');
     if (storedSelector) return storedSelector;
     return resolveTheme(getStoredThemeId()).selector;
 }
@@ -83,8 +91,8 @@ export function closeSidebar() {
 export function setTheme(themeName) {
     const theme = resolveTheme(themeName);
     document.documentElement.setAttribute('data-theme', theme.selector);
-    localStorage.setItem('memini_theme', theme.id);
-    localStorage.setItem('memini_theme_selector', theme.selector);
+    localStorage.setItem('hyve_theme', theme.id);
+    localStorage.setItem('hyve_theme_selector', theme.selector);
 
     document.querySelectorAll('.theme-option').forEach(option => {
         option.classList.toggle('theme-option-active', option.dataset.themeId === theme.id);
@@ -98,7 +106,7 @@ export function setTheme(themeName) {
                 .getPropertyValue('--meta-theme-color').trim();
             const color = metaColor || '#030712';
             window.__setNativeSystemBarColor(color);
-            try { localStorage.setItem('memini_theme_color', color); } catch(_) {}
+            try { localStorage.setItem('hyve_theme_color', color); } catch(_) {}
         });
     }
 }
@@ -130,8 +138,8 @@ export function toggleSidebar() {
 }
 
 export function initSidebarGestures() {
-    if (window.__meminiSidebarGesturesInitialized) return;
-    window.__meminiSidebarGesturesInitialized = true;
+    if (window.__hyveSidebarGesturesInitialized) return;
+    window.__hyveSidebarGesturesInitialized = true;
 
     let startX = 0;
     let startY = 0;
@@ -192,19 +200,50 @@ export function initSidebarGestures() {
     }, { passive: true });
 }
 
-export function switchTab(tabId) {
+export function switchTab(tabId, options = {}) {
+    try { initDashboardSidebarNav(); } catch (_) {}
+    const shouldSyncHash = options.syncHash !== false;
+
+    if (_dashboardReturnRetryTimer) {
+        clearTimeout(_dashboardReturnRetryTimer);
+        _dashboardReturnRetryTimer = null;
+    }
+
     closeAllSubPages();
-    ['chat', 'conference', 'config', 'memory', 'planner', 'smarthome', 'skills'].forEach(tab => {
+    if (tabId !== 'dashboard') {
+        try { disconnectDashboardLive(); } catch (_) {}
+        resetDashboardEditingState();
+        // Hide the dashboard-only header controls (3-dots menu, density
+        // toggle, etc.) when leaving the dashboard tab.
+        const dashMenuWrap = document.getElementById('dashboard-header-menu-wrap');
+        if (dashMenuWrap) {
+            dashMenuWrap.classList.add('hidden');
+            dashMenuWrap.classList.remove('flex');
+        }
+    }
+    ['dashboard', 'chat', 'config', 'memory', 'planner', 'smarthome', 'skills', 'user'].forEach(tab => {
         const view = document.getElementById(`view-${tab}`);
         const btn = document.getElementById(`nav-${tab}`);
         if (view) view.classList.add('hidden');
         if (btn) btn.classList.remove('bg-white/10', 'text-accent', 'border-accent/10');
     });
 
+    // Clear active state on dashboard page nav buttons when leaving the dashboard tab.
+    if (tabId !== 'dashboard') {
+        document.querySelectorAll('.dashboard-page-nav-btn').forEach(btn => {
+            btn.classList.remove('bg-white/10', 'text-accent', 'border-accent/10');
+        });
+    }
+
     const targetView = document.getElementById(`view-${tabId}`);
     const targetBtn = document.getElementById(`nav-${tabId}`);
     if (targetView) targetView.classList.remove('hidden');
     if (targetBtn) targetBtn.classList.add('bg-white/10', 'text-accent', 'border-accent/10');
+
+    const sidebarConversations = document.getElementById('sidebar-conversations');
+    if (sidebarConversations) {
+        sidebarConversations.classList.toggle('hidden', tabId !== 'chat');
+    }
 
     // Update mobile nav active state
     document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
@@ -212,38 +251,73 @@ export function switchTab(tabId) {
     });
 
     const titleEl = document.getElementById('current-view-title');
-    const titleKeys = { chat: 'nav.chat', conference: 'nav.conference', memory: 'nav.intelligence', smarthome: 'nav.smarthome', skills: 'nav.skills', config: 'nav.config' };
-    const plainTitles = { planner: 'Planner' };
-    if (titleEl) titleEl.innerText = plainTitles[tabId] || (titleKeys[tabId] ? t(titleKeys[tabId]) : tabId);
+    const titleKeys = { chat: 'nav.chat', memory: 'nav.intelligence', smarthome: 'nav.smarthome', skills: 'nav.skills', config: 'nav.config' };
+    const userLabel = document.getElementById('nav-user-label')?.textContent?.trim() || 'Utilizator';
+    const plainTitles = { planner: t('nav.planner'), user: userLabel };
+    if (titleEl) {
+        if (tabId === 'dashboard') {
+            // For the dashboard tab, the title is the *active page* name (not
+            // the literal word "Dashboard"). Use the cached last-known title
+            // for an instant render; loadDashboard() will refresh it from
+            // the real page config as soon as it resolves.
+            titleEl.removeAttribute('data-i18n');
+            let cachedTitle = '';
+            try { cachedTitle = localStorage.getItem('hyve.lastDashboardTitle') || ''; } catch (_) {}
+            titleEl.innerText = cachedTitle || '…';
+        } else if (titleKeys[tabId]) {
+            titleEl.setAttribute('data-i18n', titleKeys[tabId]);
+            titleEl.innerText = t(titleKeys[tabId]);
+        } else {
+            titleEl.removeAttribute('data-i18n');
+            titleEl.innerText = plainTitles[tabId] || tabId;
+        }
+    }
 
     const metaEl = document.getElementById('current-view-meta');
-    if (metaEl && tabId !== 'conference') {
+    if (metaEl) {
         metaEl.textContent = '';
         metaEl.classList.add('hidden');
         metaEl.classList.remove('inline-flex');
     }
 
-    const backBtn = document.getElementById('conference-header-back');
-    if (backBtn && tabId !== 'conference') {
-        backBtn.classList.add('hidden');
-        backBtn.classList.remove('inline-flex');
-    }
-
     const menuBtn = document.getElementById('app-header-menu-btn');
-    if (menuBtn && tabId !== 'conference') {
+    if (menuBtn) {
         menuBtn.classList.remove('hidden');
         menuBtn.classList.add('flex');
     }
 
     const actionsEl = document.getElementById('view-header-actions');
-    if (actionsEl && tabId !== 'conference') {
+    if (actionsEl) {
         actionsEl.innerHTML = '';
         actionsEl.classList.add('hidden');
         actionsEl.classList.remove('flex');
     }
 
+    if (tabId === 'dashboard') {
+        const hasContent = dashboardHasRenderedContent();
+        loadDashboard(hasContent ? { soft: true } : { force: true });
+        // Single safety retry: if 2.5s later the grid still shows only a
+        // placeholder/error (meaning the fetch failed or never started),
+        // force one more refresh. Dashboard cache should render instantly
+        // from _loadDashboardImpl, so we don't need aggressive retries.
+        _dashboardReturnRetryTimer = window.setTimeout(() => {
+            _dashboardReturnRetryTimer = null;
+            const view = document.getElementById('view-dashboard');
+            if (!view || view.classList.contains('hidden')) return;
+            const grid = document.getElementById('dashboard-grid');
+            const text = String(grid?.textContent || '');
+            const stuck = !grid || !grid.firstElementChild
+                || text.includes('Se încarcă dashboard-ul')
+                || text.includes('Se încarcă pagina')
+                || text.includes('Încărcarea paginii a expirat')
+                || text.includes('Refresh-ul dashboardului a expirat')
+                || text.includes('Nu am putut încărca')
+                || text.includes('Eroare la încărcare');
+            if (stuck) loadDashboard({ force: true });
+        }, 2500);
+    }
     if (tabId === 'memory') loadMemory();
-    if (tabId === 'planner') loadPlanner();
+    if (tabId === 'planner' && typeof window.loadPlanner === 'function') window.loadPlanner();
     if (tabId === 'config') {
         // Show hub, hide detail + standalone; return any borrowed panel
         closeConfigSection();
@@ -254,10 +328,9 @@ export function switchTab(tabId) {
         });
     }
     if (tabId === 'smarthome') loadSmarthome();
+    else { try { disconnectSmarthomeLive(); } catch (_) {} }
     if (tabId === 'skills') loadSkills();
-    if (tabId === 'conference') {
-        if (window._confInit) window._confInit();
-    }
+    if (tabId === 'user' && typeof window.loadUserProfilePage === 'function') window.loadUserProfilePage();
 
     // Stop voice recording when navigating away from chat
     if (tabId !== 'chat' && typeof window.toggleVoiceRecording === 'function') {
@@ -270,6 +343,19 @@ export function switchTab(tabId) {
     // Close sidebar on mobile/tablet
     if (window.innerWidth < 1024) {
         if (isSidebarOpen()) closeSidebar();
+    }
+
+    // Keep the main tab in the URL so refresh restores the same view.
+    if (shouldSyncHash) {
+        const nextHash = _tabHash(tabId);
+        if (nextHash) {
+            const current = String(window.location.hash || '');
+            const keepDashboardSubroute = tabId === 'dashboard' && /^#\/?dashboard\//i.test(current);
+            if (!keepDashboardSubroute && current !== nextHash) {
+                window.location.hash = nextHash;
+            }
+        }
+        try { localStorage.setItem('hyve.lastMainTab', tabId); } catch (_) {}
     }
 }
 
@@ -294,40 +380,53 @@ export function switchConfigTab(tabName) {
 
     if (tabName === 'users') loadAdminUsers();
     if (tabName === 'app' && typeof window.populateAppTab === 'function') window.populateAppTab();
+    if (tabName === 'scenes' && typeof window.loadScenes === 'function') window.loadScenes();
+    if (tabName === 'areas' && typeof window.loadAreas === 'function') window.loadAreas();
     if (tabName === 'notifications' && typeof window.loadNotificationPrefs === 'function') window.loadNotificationPrefs();
-    if (tabName === 'conference' && typeof window.loadConferenceSettings === 'function') window.loadConferenceSettings();
-    if (tabName === 'integrations' && typeof window.switchIntegrationSubtab === 'function') window.switchIntegrationSubtab('active');
+    if (tabName === 'integrations') {
+        if (typeof window.refreshIntegrationsSettingsView === 'function') {
+            window.refreshIntegrationsSettingsView('auto');
+        } else if (typeof window.switchIntegrationSubtab === 'function') {
+            window.switchIntegrationSubtab('active');
+        }
+    }
 }
 
 const _configSectionTabs = {
-    settings: ['general', 'prompts', 'intelligence', 'memory', 'notifications', 'conference', 'security'],
+    settings: ['general', 'prompts', 'intelligence', 'memory', 'notifications', 'security'],
 };
 
 const _configSectionTitles = {
-    settings: 'Setări',
-    integrations: 'Integrări',
-    automations: 'Automatizări',
-    memories: 'Memorii',
-    appearance: 'Aspect',
-    users: 'Utilizatori',
-    logs: 'Logs',
-    app: 'App',
-    addons: 'Addons',
+    settings: 'config.hub_settings_title',
+    integrations: 'config.hub_integrations_title',
+    automations: 'config.hub_automations_title',
+    memories: 'config.hub_memories_title',
+    appearance: 'config.hub_appearance_title',
+    users: 'config.hub_users_title',
+    logs: 'config.hub_logs_title',
+    app: 'config.hub_app_title',
+    addons: 'config.hub_addons_title',
+    scenes: 'config.hub_scenes_title',
+    areas: 'config.hub_areas_title',
+    updates: 'config.hub_updates_title',
 };
 
 const _configSectionSubtitles = {
-    settings: 'Limbă, modele, inteligență și integrări.',
-    integrations: 'Home Assistant, WhatsApp, SearXNG, CCTV, Whisper, Piper, ComfyUI.',
-    automations: 'Reguli și automatizări YAML declarative.',
-    memories: 'Fapte învățate, log memorie și consolidare.',
-    appearance: 'Tema și personalizare vizuală.',
-    users: 'Conturi și permisiuni.',
-    logs: 'Jurnal server în timp real.',
-    app: 'Configurare aplicație Android.',
-    addons: 'Extensii și servicii adiționale.',
+    settings: 'config.subtitle',
+    integrations: 'config.section_integrations_subtitle',
+    automations: 'config.section_automations_subtitle',
+    memories: 'config.section_memories_subtitle',
+    appearance: 'config.section_appearance_subtitle',
+    users: 'config.section_users_subtitle',
+    logs: 'config.section_logs_subtitle',
+    app: 'config.section_app_subtitle',
+    addons: 'config.section_addons_subtitle',
+    scenes: 'config.section_scenes_subtitle',
+    areas: 'config.section_areas_subtitle',
+    updates: 'config.hub_updates_desc',
 };
 
-const _standaloneSections = ['integrations', 'automations', 'memories', 'appearance', 'users', 'logs', 'app', 'addons'];
+const _standaloneSections = ['integrations', 'automations', 'memories', 'appearance', 'users', 'logs', 'app', 'addons', 'scenes', 'areas', 'updates'];
 
 // Map config sections to their DOM panel IDs (for panels that live outside config)
 const _sectionPanelIds = {
@@ -341,6 +440,7 @@ let _standaloneActivePanel = null;
 export function openConfigSection(section) {
     // External views — navigate away from config
     if (section === 'smarthome') { switchTab('smarthome'); return; }
+    if (section === 'devices') { switchTab('smarthome'); return; }
     if (section === 'skills') { switchTab('skills'); return; }
 
     const hub = document.getElementById('config-hub');
@@ -356,12 +456,12 @@ export function openConfigSection(section) {
         const titleEl = document.getElementById('config-standalone-title');
         const subtitleEl = document.getElementById('config-standalone-subtitle');
         const actionsEl = document.getElementById('config-standalone-actions');
-        if (titleEl) titleEl.textContent = _configSectionTitles[section] || section;
-        if (subtitleEl) subtitleEl.textContent = _configSectionSubtitles[section] || '';
+        if (titleEl) titleEl.textContent = t(_configSectionTitles[section] || section);
+        if (subtitleEl) subtitleEl.textContent = _configSectionSubtitles[section] ? t(_configSectionSubtitles[section]) : '';
 
-        // Save button for sections that need it
+        // Save button for legacy sections that still use explicit persistence.
         if (actionsEl) {
-            if (['integrations', 'appearance', 'app'].includes(section)) {
+            if (['integrations'].includes(section)) {
                 actionsEl.innerHTML = `<button onclick="saveConfig(event)" class="bg-accent text-bg-main px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold hover:bg-accent-hover transition-all shadow-lg shadow-accent/20 min-h-[36px] sm:min-h-[44px] touch-manipulation" data-i18n="config.save_button">Save</button>`;
             } else {
                 actionsEl.innerHTML = '';
@@ -379,6 +479,9 @@ export function openConfigSection(section) {
         }
 
         // Trigger section-specific loaders
+        if (section === 'integrations' && typeof window.refreshIntegrationsSettingsView === 'function') {
+            window.refreshIntegrationsSettingsView('auto');
+        }
         if (section === 'users') loadAdminUsers();
         if (section === 'app' && typeof window.populateAppTab === 'function') window.populateAppTab();
         if (section === 'notifications' && typeof window.loadNotificationPrefs === 'function') window.loadNotificationPrefs();
@@ -386,6 +489,9 @@ export function openConfigSection(section) {
         if (section === 'memories' && typeof window.loadMemory === 'function') window.loadMemory();
         if (section === 'automations' && typeof window.loadAutomations === 'function') window.loadAutomations();
         if (section === 'addons' && typeof window.loadApps === 'function') window.loadApps();
+        if (section === 'scenes' && typeof window.loadScenes === 'function') window.loadScenes();
+        if (section === 'areas' && typeof window.loadAreas === 'function') window.loadAreas();
+        if (section === 'updates' && typeof window.checkAddonUpdates === 'function') window.checkAddonUpdates();
 
     } else {
         // --- Settings with tabs ---
@@ -396,6 +502,9 @@ export function openConfigSection(section) {
 }
 
 export function closeConfigSection() {
+    // Stop log SSE stream when leaving the config section
+    stopLogStream();
+
     // Return any standalone panel to its original parent
     if (_standaloneActivePanel) {
         const { panel, parent } = _standaloneActivePanel;
@@ -426,7 +535,7 @@ export async function startLogStream() {
         const { getSSEToken } = await import('./api.js');
         token = await getSSEToken();
     } catch (_) {
-        token = localStorage.getItem('memini_token') || '';
+        token = '';
     }
     logEventSource = new EventSource(`/api/logs?token=${encodeURIComponent(token)}`);
 

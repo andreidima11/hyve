@@ -80,6 +80,7 @@ def build_llm_override(profile: Optional[dict]) -> Optional[dict]:
         "target_url": profile.get("target_url") or "",
         "model_name": profile.get("model_name") or "",
         "api_key": profile.get("api_key") or "",
+        "provider": profile.get("provider") or "",
         "temperature": float(profile.get("temperature", 0.7)),
         "timeout": int(profile.get("timeout", 120)),
         "context_length": int(profile.get("context_length", 24000)),

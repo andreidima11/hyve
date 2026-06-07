@@ -1,0 +1,8 @@
+{
+  "domain": "demo_sensor",
+  "name": "Demo Sensor",
+  "version": "0.1.0",
+  "integration_type": "entity",
+  "documentation": "docs/INTEGRATION_GUIDE.md",
+  "dependencies": []
+}

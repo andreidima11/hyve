@@ -121,7 +121,7 @@ def print_banner():
     version = settings.APP_VERSION
     port = int(settings.CFG.get("port", 8082))
     header = Text()
-    header.append("Měmini Bridge", style="bold cyan")
+    header.append("Hyve", style="bold cyan")
     header.append(f"  v{version}", style="dim")
 
     meta = Text()

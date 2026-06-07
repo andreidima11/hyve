@@ -1,0 +1,7 @@
+{
+  "domain": "tapo",
+  "name": "Tapo",
+  "version": "1.0.0",
+  "integration_type": "entity",
+  "dependencies": []
+}

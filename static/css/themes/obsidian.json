@@ -1,8 +1,8 @@
 {
     "id": "obsidian",
     "name": "Obsidian",
-    "description": "Deep dark premium theme — the default Memini experience",
-    "author": "Memini",
+    "description": "Deep dark premium theme — the default Hyve experience",
+    "author": "Hyve",
     "version": "1.0.0",
     "preview": {
         "bg": "#030712",

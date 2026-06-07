@@ -27,14 +27,24 @@ automations/user_*/
 piper_models/
 
 # Android local/build artifacts
-android/MeminiBridge/.gradle/
-android/MeminiBridge/build/
-android/MeminiBridge/app/build/
-android/MeminiBridge/.idea/
-android/MeminiBridge/local.properties
-android/MeminiBridge/app/google-services.json
+android/HyveBridge/.gradle/
+android/HyveBridge/build/
+android/HyveBridge/app/build/
+android/HyveBridge/.idea/
+android/HyveBridge/local.properties
+android/HyveBridge/app/google-services.json
 secrets/firebase-service-account.json
 secrets/*.service-account.json
 secrets/*.json
 .secret_key
-.memini_server.pid
+.hyve_server.pid
+
+# Community-installed add-ons (drop folders here to extend Hyve without
+# touching the bundled catalog).
+custom_addons/*
+!custom_addons/README.md
+!custom_addons/.gitkeep
+custom_components/*
+!custom_components/README.md
+!custom_components/demo_sensor/
+!custom_components/demo_sensor/**

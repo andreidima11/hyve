@@ -78,6 +78,31 @@
     --overlay-10: rgba(255, 255, 255, 0.10);
     --overlay-15: rgba(255, 255, 255, 0.15);
 
+    /* Camera card — on-video chips (nav, menu btn): dark frosted, all themes */
+    --camera-chip-bg: rgba(0, 0, 0, 0.55);
+    --camera-chip-bg-hover: rgba(0, 0, 0, 0.72);
+    --camera-chip-border: rgba(255, 255, 255, 0.12);
+    --camera-chip-border-hover: rgba(255, 255, 255, 0.22);
+    --camera-chip-fg: rgba(255, 255, 255, 0.92);
+    --camera-footer-fg: #ffffff;
+    --camera-footer-gradient: linear-gradient(
+        to top,
+        rgba(0, 0, 0, 0.78) 0%,
+        rgba(0, 0, 0, 0.55) 45%,
+        rgba(0, 0, 0, 0.28) 75%,
+        transparent 100%
+    );
+    --camera-title-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 10px rgba(0, 0, 0, 0.65);
+    --camera-dot-bg: rgba(255, 255, 255, 0.55);
+    --camera-dot-shadow: 0 0 4px rgba(0, 0, 0, 0.55);
+    /* Camera audio popover — follows active theme surfaces */
+    --camera-menu-bg: var(--surface-menu-heavy);
+    --camera-menu-border: var(--border-medium);
+    --camera-menu-fg: var(--text-primary);
+    --camera-menu-muted: var(--text-tertiary);
+    --camera-menu-control-bg: var(--overlay-6);
+    --camera-menu-control-border: var(--border-medium);
+
     --shadow-color: rgba(0, 0, 0, 0.3);
     --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
@@ -372,101 +397,246 @@ aside {
     font-weight: 600 !important;
 }
 
-/* ─── Memini branding: logo, hero, galaxy, particles ─── */
-.memini-logo {
-    display: inline-block;
-    letter-spacing: -0.04em;
-    white-space: nowrap;
+/* ─── Derived entity full-screen page ─── */
+.derived-page {
+    background: var(--bg-main);
+    /* Dynamic viewport height handles mobile browser chrome (address bar hide/show) */
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden; /* children manage their own scroll */
 }
-.memini-me {
+body.derived-page-open {
+    /* Lock background scroll so the page underneath cannot peek through */
+    overflow: hidden;
+}
+
+/* ─── Hyve branding: logo, hero, galaxy, particles ─── */
+.hyve-brand {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.hyve-brand--sidebar {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0.7rem;
+}
+
+.hyve-sidebar-wordmark {
+    display: inline-flex;
+    font-weight: 700;
+    font-size: 1.55rem;
+    line-height: 1.08;
+    letter-spacing: 0;
+    white-space: nowrap;
+    padding-bottom: 0.08em;
+}
+
+.hyve-sidebar-wordmark__main {
     color: var(--text-bubble-heading);
 }
-.memini-mini {
+
+.hyve-sidebar-wordmark__accent {
     color: var(--accent);
 }
-.memini-nav-bridge {
-    font-family: 'JetBrains Mono', monospace;
-    font-weight: 600;
-    font-size: 0.7em;
-    letter-spacing: 0.05em;
-    color: var(--text-tertiary, #64748b);
-    vertical-align: baseline;
-    margin-left: 0.35em;
-}
-.memini-sidebar-wordmark .memini-me,
-.memini-sidebar-wordmark .memini-mini {
-    font-size: 1.25em;
-    line-height: 1;
-}
-.memini-sidebar-wordmark {
-    line-height: 1;
-}
-.memini-sidebar-wordmark .memini-nav-bridge {
-    font-size: 0.7875rem;
-    margin-left: 0.45em;
-}
-@media (min-width: 640px) {
-    .memini-sidebar-wordmark .memini-nav-bridge {
-        font-size: 0.875rem;
-    }
-}
-.memini-logo--center {
-    font-size: 1.5rem;
+
+.hyve-sidebar-wordmark.hyve-sidebar-wordmark--login {
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+    line-height: 0.92;
+    letter-spacing: -0.07em;
     font-weight: 700;
-    letter-spacing: -0.04em;
-    animation: meminiLogoFloat 4s ease-in-out infinite;
+    text-align: center;
+    padding-bottom: 0;
 }
+
 @media (min-width: 640px) {
-    .memini-logo--center {
-        font-size: 1.875rem;
+    .hyve-sidebar-wordmark {
+        font-size: 1.7rem;
     }
 }
-.memini-logo--hero {
-    font-size: 3rem;
-    font-weight: 800;
-    letter-spacing: -0.05em;
-    animation: meminiLogoFloat 5s ease-in-out infinite;
+
+.hyve-brand--greeting {
+    margin-bottom: 0.85rem;
 }
+
+.hyve-logo {
+    --hyve-logo-size: 1.82rem;
+    --hyve-logo-light: rgba(248, 250, 252, 0.96);
+    --hyve-logo-muted: rgba(var(--text-muted-rgb, 148, 163, 184), 0.92);
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    color: var(--hyve-logo-light);
+    font-family: "SF Pro Display", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    font-weight: 780;
+    line-height: 1;
+    letter-spacing: 0;
+    text-rendering: geometricPrecision;
+    isolation: isolate;
+    position: relative;
+    filter: none;
+}
+
+.hyve-logo__wordmark {
+    position: relative;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.01em;
+    font-size: 1em;
+    letter-spacing: 0;
+    z-index: 1;
+}
+
+.hyve-logo__wordmark::after {
+    display: none;
+}
+
+.hyve-logo .hyve-me {
+    color: var(--hyve-logo-light);
+}
+
+.hyve-logo .hyve-mini {
+    color: var(--accent);
+}
+
+.hyve-logo--hero {
+    --hyve-logo-size: clamp(2.65rem, 9vw, 3.4rem);
+    flex-direction: row;
+    font-size: clamp(2.3rem, 8vw, 3.1rem);
+}
+
+.hyve-logo--sidebar {
+    --hyve-logo-size: 1.72rem;
+    font-size: 1.42rem;
+    overflow: visible;
+}
+
+@media (min-width: 640px) {
+    .hyve-logo--sidebar {
+        --hyve-logo-size: 1.9rem;
+        font-size: 1.64rem;
+    }
+}
+
+.hyve-wordmark {
+    font-family: "SF Pro Display", "Avenir Next", "Segoe UI", sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.07em;
+    line-height: 0.92;
+    color: #f8fafc;
+    white-space: nowrap;
+    text-rendering: geometricPrecision;
+}
+
+.hyve-wordmark-accent {
+    background: linear-gradient(135deg, #8ea1ff 0%, #6f83ff 50%, #b2bbff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+}
+
+.hyve-wordmark--hero {
+    font-size: clamp(3.9rem, 8vw, 5.5rem);
+}
+
+.hyve-wordmark--sidebar {
+    font-size: 1.85rem;
+}
+
+.hyve-wordmark--greeting {
+    font-size: clamp(2.9rem, 8vw, 4.75rem);
+}
+
+.hyve-mark {
+    stroke: rgba(150, 164, 255, 0.96);
+    stroke-width: 7;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 18px rgba(122, 138, 255, 0.22));
+}
+
+.hyve-mark--hero {
+    width: clamp(5.5rem, 10vw, 7rem);
+    height: auto;
+}
+
+.hyve-mark--sidebar {
+    width: 1.9rem;
+    height: 1.9rem;
+    flex-shrink: 0;
+    stroke-width: 8;
+}
+
+.hyve-mark--greeting {
+    width: clamp(5.2rem, 12vw, 6.8rem);
+    height: auto;
+}
+
+@keyframes hyveBrandFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+}
+
+.hyve-brand--hero,
+.hyve-brand--greeting {
+    animation: hyveBrandFloat 5s ease-in-out infinite;
+    position: relative;
+    z-index: 1;
+}
+
 /* Hero: particule în stil galaxie, în jurul logo-ului */
-.memini-hero-wrap {
+.hyve-hero-wrap {
     position: relative;
     display: inline-block;
     margin-bottom: 0.5rem;
 }
-.memini-hero-wrap--greeting {
+
+.hyve-hero-wrap--greeting {
     margin-bottom: 0;
 }
-.memini-hero-wrap--greeting .memini-hero-galaxy {
+
+.hyve-hero-wrap--greeting .hyve-hero-galaxy {
     inset: -60%;
 }
-.memini-hero-wrap--greeting .memini-hero-galaxy::before {
+
+.hyve-hero-wrap--greeting .hyve-hero-galaxy::before {
     display: none;
 }
-.memini-hero-wrap--greeting .chat-empty-title {
+
+.hyve-hero-wrap--greeting .chat-empty-title {
     position: relative;
     z-index: 1;
 }
-/* Login variant — slightly smaller galaxy */
-.memini-hero-wrap--login {
+
+.hyve-hero-wrap--login {
     margin-bottom: 0;
 }
-.memini-hero-wrap--login .memini-hero-galaxy {
+
+.hyve-hero-wrap--login .hyve-hero-galaxy {
     inset: -20%;
 }
-/* Compact variant — for settings sections */
-.memini-hero-wrap--compact {
+
+.hyve-hero-wrap--compact {
     margin-bottom: 0.25rem;
 }
-.memini-hero-wrap--compact .memini-hero-galaxy {
+
+.hyve-hero-wrap--compact .hyve-hero-galaxy {
     inset: -30%;
 }
-.memini-hero-galaxy {
+
+.hyve-hero-galaxy {
     position: absolute;
     inset: -15%;
     pointer-events: none;
     overflow: visible;
 }
-.memini-hero-galaxy::before {
+
+.hyve-hero-galaxy::before {
     content: '';
     position: absolute;
     left: 50%;
@@ -478,113 +648,71 @@ aside {
     border-radius: 50%;
     background: radial-gradient(ellipse at center, rgba(var(--accent-rgb), 0.06) 0%, rgba(var(--secondary-accent-rgb), 0.03) 30%, transparent 55%);
     filter: blur(18px);
-    animation: meminiNebulaPulse 10s ease-in-out infinite;
+    animation: hyveNebulaPulse 10s ease-in-out infinite;
 }
-.memini-particle {
+
+.hyve-particle {
     position: absolute;
     border-radius: 50%;
     background: var(--overlay-15);
-    animation: meminiParticleDrift 8s ease-in-out infinite;
+    animation: hyveParticleDrift 8s ease-in-out infinite;
 }
-.memini-particle:nth-child(odd) { background: rgba(var(--accent-rgb), 0.5); }
-.memini-particle:nth-child(3n) { background: rgba(var(--secondary-accent-rgb), 0.4); }
-.memini-particle:nth-child(1)  { left: 15%; top: 20%; width: 2px; height: 2px; animation-duration: 10s; animation-delay: 0s; }
-.memini-particle:nth-child(2)  { left: 85%; top: 25%; width: 3px; height: 3px; animation-duration: 12s; animation-delay: -1s; }
-.memini-particle:nth-child(3)  { left: 50%; top: 5%; width: 2px; height: 2px; animation-duration: 9s; animation-delay: -2s; }
-.memini-particle:nth-child(4)  { left: 25%; top: 70%; width: 2px; height: 2px; animation-duration: 11s; animation-delay: -0.5s; }
-.memini-particle:nth-child(5)  { left: 75%; top: 75%; width: 3px; height: 3px; animation-duration: 13s; animation-delay: -3s; }
-.memini-particle:nth-child(6)  { left: 10%; top: 45%; width: 2px; height: 2px; animation-duration: 8s; animation-delay: -1.5s; }
-.memini-particle:nth-child(7)  { left: 90%; top: 50%; width: 2px; height: 2px; animation-duration: 10s; animation-delay: -2.5s; }
-.memini-particle:nth-child(8)  { left: 35%; top: 15%; width: 3px; height: 3px; animation-duration: 14s; animation-delay: 0s; }
-.memini-particle:nth-child(9)  { left: 65%; top: 80%; width: 2px; height: 2px; animation-duration: 9s; animation-delay: -1s; }
-.memini-particle:nth-child(10) { left: 5%; top: 80%; width: 2px; height: 2px; animation-duration: 11s; animation-delay: -2s; }
-.memini-particle:nth-child(11) { left: 95%; top: 15%; width: 3px; height: 3px; animation-duration: 12s; animation-delay: -0.8s; }
-.memini-particle:nth-child(12) { left: 55%; top: 35%; width: 2px; height: 2px; animation-duration: 8s; animation-delay: -3s; }
-.memini-particle:nth-child(13) { left: 40%; top: 85%; width: 2px; height: 2px; animation-duration: 10s; animation-delay: -1.2s; }
-.memini-particle:nth-child(14) { left: 70%; top: 40%; width: 2px; height: 2px; animation-duration: 13s; animation-delay: -2.2s; }
-.memini-particle:nth-child(15) { left: 20%; top: 55%; width: 3px; height: 3px; animation-duration: 9s; animation-delay: -0.3s; }
-.memini-particle:nth-child(16) { left: 80%; top: 60%; width: 2px; height: 2px; animation-duration: 11s; animation-delay: -1.8s; }
-.memini-particle:nth-child(17) { left: 45%; top: 10%; width: 2px; height: 2px; animation-duration: 15s; animation-delay: -2.8s; }
-.memini-particle:nth-child(18) { left: 60%; top: 70%; width: 2px; height: 2px; animation-duration: 8s; animation-delay: -0.6s; }
-.memini-particle:nth-child(19) { left: 12%; top: 30%; width: 3px; height: 3px; animation-duration: 12s; animation-delay: -1.4s; }
-.memini-particle:nth-child(20) { left: 88%; top: 65%; width: 2px; height: 2px; animation-duration: 10s; animation-delay: -2.1s; }
-.memini-particle:nth-child(21) { left: 30%; top: 40%; width: 2px; height: 2px; animation-duration: 14s; animation-delay: -0.9s; }
-.memini-particle:nth-child(22) { left: 50%; top: 90%; width: 2px; height: 2px; animation-duration: 9s; animation-delay: -2.4s; }
-.memini-particle:nth-child(23) { left: 8%; top: 60%; width: 3px; height: 3px; animation-duration: 11s; animation-delay: -0.2s; }
-.memini-particle:nth-child(24) { left: 92%; top: 35%; width: 2px; height: 2px; animation-duration: 13s; animation-delay: -1.6s; }
-.memini-particle:nth-child(25) { left: 18%; top: 8%; width: 2px; height: 2px; animation-duration: 8s; animation-delay: -2.9s; }
-@keyframes meminiNebulaPulse {
+
+.hyve-particle:nth-child(odd) { background: rgba(var(--accent-rgb), 0.5); }
+.hyve-particle:nth-child(3n) { background: rgba(var(--secondary-accent-rgb), 0.4); }
+.hyve-particle:nth-child(1)  { left: 15%; top: 20%; width: 2px; height: 2px; animation-duration: 10s; animation-delay: 0s; }
+.hyve-particle:nth-child(2)  { left: 85%; top: 25%; width: 3px; height: 3px; animation-duration: 12s; animation-delay: -1s; }
+.hyve-particle:nth-child(3)  { left: 50%; top: 5%; width: 2px; height: 2px; animation-duration: 9s; animation-delay: -2s; }
+.hyve-particle:nth-child(4)  { left: 25%; top: 70%; width: 2px; height: 2px; animation-duration: 11s; animation-delay: -0.5s; }
+.hyve-particle:nth-child(5)  { left: 75%; top: 75%; width: 3px; height: 3px; animation-duration: 13s; animation-delay: -3s; }
+.hyve-particle:nth-child(6)  { left: 10%; top: 45%; width: 2px; height: 2px; animation-duration: 8s; animation-delay: -1.5s; }
+.hyve-particle:nth-child(7)  { left: 90%; top: 50%; width: 2px; height: 2px; animation-duration: 10s; animation-delay: -2.5s; }
+.hyve-particle:nth-child(8)  { left: 35%; top: 15%; width: 3px; height: 3px; animation-duration: 14s; animation-delay: 0s; }
+.hyve-particle:nth-child(9)  { left: 65%; top: 80%; width: 2px; height: 2px; animation-duration: 9s; animation-delay: -1s; }
+.hyve-particle:nth-child(10) { left: 5%; top: 80%; width: 2px; height: 2px; animation-duration: 11s; animation-delay: -2s; }
+.hyve-particle:nth-child(11) { left: 95%; top: 15%; width: 3px; height: 3px; animation-duration: 12s; animation-delay: -0.8s; }
+.hyve-particle:nth-child(12) { left: 55%; top: 35%; width: 2px; height: 2px; animation-duration: 8s; animation-delay: -3s; }
+.hyve-particle:nth-child(13) { left: 40%; top: 85%; width: 2px; height: 2px; animation-duration: 10s; animation-delay: -1.2s; }
+.hyve-particle:nth-child(14) { left: 70%; top: 40%; width: 2px; height: 2px; animation-duration: 13s; animation-delay: -2.2s; }
+.hyve-particle:nth-child(15) { left: 20%; top: 55%; width: 3px; height: 3px; animation-duration: 9s; animation-delay: -0.3s; }
+.hyve-particle:nth-child(16) { left: 80%; top: 60%; width: 2px; height: 2px; animation-duration: 11s; animation-delay: -1.8s; }
+.hyve-particle:nth-child(17) { left: 45%; top: 10%; width: 2px; height: 2px; animation-duration: 15s; animation-delay: -2.8s; }
+.hyve-particle:nth-child(18) { left: 60%; top: 70%; width: 2px; height: 2px; animation-duration: 8s; animation-delay: -0.6s; }
+.hyve-particle:nth-child(19) { left: 12%; top: 30%; width: 3px; height: 3px; animation-duration: 12s; animation-delay: -1.4s; }
+.hyve-particle:nth-child(20) { left: 88%; top: 65%; width: 2px; height: 2px; animation-duration: 10s; animation-delay: -2.1s; }
+.hyve-particle:nth-child(21) { left: 30%; top: 40%; width: 2px; height: 2px; animation-duration: 14s; animation-delay: -0.9s; }
+.hyve-particle:nth-child(22) { left: 50%; top: 90%; width: 2px; height: 2px; animation-duration: 9s; animation-delay: -2.4s; }
+.hyve-particle:nth-child(23) { left: 8%; top: 60%; width: 3px; height: 3px; animation-duration: 11s; animation-delay: -0.2s; }
+.hyve-particle:nth-child(24) { left: 92%; top: 35%; width: 2px; height: 2px; animation-duration: 13s; animation-delay: -1.6s; }
+.hyve-particle:nth-child(25) { left: 18%; top: 8%; width: 2px; height: 2px; animation-duration: 8s; animation-delay: -2.9s; }
+
+@keyframes hyveNebulaPulse {
     0%, 100% { opacity: 0.7; transform: scale(1); }
     50% { opacity: 1; transform: scale(1.05); }
 }
-@keyframes meminiParticleDrift {
+
+@keyframes hyveParticleDrift {
     0%, 100% { transform: translate(0, 0); opacity: 0.6; }
     25% { transform: translate(4px, -6px); opacity: 1; }
     50% { transform: translate(-5px, 3px); opacity: 0.5; }
     75% { transform: translate(3px, 5px); opacity: 0.9; }
 }
-.memini-logo--hero {
-    position: relative;
-    z-index: 1;
-}
 
-/* ─── Range slider (cfg-range) ─── */
-.cfg-range {
-    -webkit-appearance: none;
-    appearance: none;
-    height: 6px;
-    border-radius: 3px;
-    background: var(--overlay-10, rgba(255,255,255,0.1));
-    outline: none;
-    cursor: pointer;
-}
-.cfg-range::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--accent, #6366f1);
-    border: 2px solid var(--bg-primary, #0f172a);
-    box-shadow: 0 0 6px rgba(99, 102, 241, 0.4);
-    cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.cfg-range::-webkit-slider-thumb:hover {
-    transform: scale(1.2);
-    box-shadow: 0 0 10px rgba(99, 102, 241, 0.6);
-}
-.cfg-range::-moz-range-thumb {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--accent, #6366f1);
-    border: 2px solid var(--bg-primary, #0f172a);
-    box-shadow: 0 0 6px rgba(99, 102, 241, 0.4);
-    cursor: pointer;
-}
-.cfg-range::-moz-range-track {
-    height: 6px;
-    border-radius: 3px;
-    background: var(--overlay-10, rgba(255,255,255,0.1));
-}
-.memini-logo--hero::after {
+.hyve-brand--hero::after {
     content: '';
     position: absolute;
     inset: -20%;
-    z-index: -1;
     background: radial-gradient(ellipse at center, rgba(var(--accent-rgb), 0.08) 0%, transparent 70%);
     pointer-events: none;
-    animation: meminiLogoGlow 6s ease-in-out infinite;
+    animation: hyveLogoGlow 6s ease-in-out infinite;
 }
-@keyframes meminiLogoFloat {
-    0%, 100% { transform: translateY(0) scale(1); }
-    50% { transform: translateY(-6px) scale(1.02); }
-}
-@keyframes meminiLogoGlow {
+
+@keyframes hyveLogoGlow {
     0%, 100% { opacity: 0.6; }
     50% { opacity: 1; }
 }
+
+/* ─── Range slider (cfg-range) ─── */
 
 
 /* ========== MOBILE & TOUCH ========== */
@@ -763,8 +891,8 @@ main.flex-1 {
     }
 
     .chat-messages-wrapper {
-        padding-bottom: 1.5rem !important;
-        scroll-padding-bottom: 1rem !important;
+        padding-bottom: calc(var(--safe-bottom) + 3.6rem) !important;
+        scroll-padding-bottom: calc(var(--safe-bottom) + 3.2rem) !important;
     }
 
     /* Leave space at bottom of messages so last message isn’t under the fixed input */
@@ -1086,55 +1214,78 @@ main.flex-1 {
    Remove the dvh-based bottom compensation designed for mobile browser chrome
    (address bar / toolbar) — it's not needed in the app and causes a large gap. */
 
-.memini-native-app {
+.hyve-native-app {
     --safe-bottom: 0px;
 }
 
-.memini-native-app .chat-view {
+.hyve-native-app .chat-view {
     padding-bottom: 0 !important;
 }
 
-.memini-native-app .chat-input-wrapper {
+.hyve-native-app .chat-input-wrapper {
     padding-bottom: 0.5rem !important;
 }
 
-.memini-native-app .chat-empty-state {
+.hyve-native-app .chat-empty-state {
     justify-content: center;
     padding-bottom: 0;
 }
 
+/* In the Android app, the composer must stay anchored to the bottom
+   regardless of how tall the greeting / logo block becomes. Keep the
+   empty-state as an overlay inside the scroll area instead of centering the
+   whole chat view (which makes the input ride upward when branding changes). */
+.hyve-native-app .chat-view:has(.chat-empty-state:not(.is-hidden)) {
+    justify-content: flex-start !important;
+}
+
+.hyve-native-app .chat-view:has(.chat-empty-state:not(.is-hidden)) .chat-messages-wrapper {
+    flex: 1 1 auto !important;
+    overflow: visible;
+}
+
+.hyve-native-app .chat-view:has(.chat-empty-state:not(.is-hidden)) .chat-empty-state {
+    position: absolute !important;
+    inset: 0 !important;
+    justify-content: center !important;
+    align-items: center !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
 @media (max-width: 1023px) {
-    .memini-native-app .chat-view {
+    .hyve-native-app .chat-view {
         padding-bottom: 0 !important;
     }
-    .memini-native-app .chat-input-wrapper {
+    .hyve-native-app .chat-input-wrapper {
         padding-bottom: 0.5rem !important;
     }
-    .memini-native-app #view-memory,
-    .memini-native-app #view-smarthome,
-    .memini-native-app #view-skills,
-    .memini-native-app #view-config {
+    .hyve-native-app #view-memory,
+    .hyve-native-app #view-smarthome,
+    .hyve-native-app #view-skills,
+    .hyve-native-app #view-config {
         padding-bottom: 1rem !important;
     }
 }
 
 @media (max-width: 639px) {
-    .memini-native-app .chat-view {
+    .hyve-native-app .chat-view {
         padding-bottom: 0 !important;
     }
-    .memini-native-app .chat-input-wrapper {
+    .hyve-native-app .chat-input-wrapper {
         padding-bottom: 0.5rem !important;
     }
-    .memini-native-app .chat-messages-wrapper {
-        padding-bottom: 0.75rem !important;
+    .hyve-native-app .chat-messages-wrapper {
+        padding-bottom: 2.9rem !important;
+        scroll-padding-bottom: 2.6rem !important;
     }
-    .memini-native-app #view-memory,
-    .memini-native-app #view-smarthome,
-    .memini-native-app #view-skills,
-    .memini-native-app #view-config {
+    .hyve-native-app #view-memory,
+    .hyve-native-app #view-smarthome,
+    .hyve-native-app #view-skills,
+    .hyve-native-app #view-config {
         padding-bottom: 1rem !important;
     }
-    .memini-native-app #notification-area {
+    .hyve-native-app #notification-area {
         bottom: 1rem;
     }
 }
@@ -1210,5 +1361,61 @@ main.flex-1 {
     font-size: 11px;
     color: var(--text-muted, #64748b);
     text-align: center;
+}
+
+/* ===== Automation builder styled selects ===== */
+.auto-builder-select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11.4L2.6 6h10.8L8 11.4z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
+    padding-right: 32px !important;
+}
+.auto-builder-select option {
+    background: var(--surface-2, #0f1116);
+    color: var(--text-primary, #f8fafc);
+}
+
+/* ===== Automation status dot ===== */
+.auto-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: box-shadow 0.2s ease;
+}
+.auto-dot--green { background: #34d399; box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+.auto-dot--yellow { background: #fbbf24; box-shadow: 0 0 0 0 rgba(251,191,36,0); }
+.auto-dot--red { background: #f87171; box-shadow: 0 0 0 0 rgba(248,113,113,0); }
+.auto-dot:hover.auto-dot--green { box-shadow: 0 0 6px 2px rgba(52,211,153,0.4); }
+.auto-dot:hover.auto-dot--yellow { box-shadow: 0 0 6px 2px rgba(251,191,36,0.4); }
+.auto-dot:hover.auto-dot--red { box-shadow: 0 0 6px 2px rgba(248,113,113,0.4); }
+
+/* ===== Automation dot tooltip ===== */
+.auto-dot-tooltip {
+    position: fixed;
+    z-index: 9999;
+    padding: 5px 10px;
+    border-radius: 8px;
+    background: var(--surface-tooltip, rgba(30,32,40,0.95));
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+    color: var(--text-primary, #f8fafc);
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+.auto-dot-tooltip.is-visible {
+    opacity: 1;
+    transform: translateY(0);
 }
 

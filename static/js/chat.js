@@ -1,6 +1,7 @@
 import { apiCall, authToken, suppressLogout } from './api.js';
 import { t, tRaw } from './lang/index.js';
-import { escapeHtml, showToast, TOOL_ICONS, TOOL_ICON_FALLBACK, buildSourcesHtml } from './utils.js';
+import { getThinkingMode } from './thinking_mode.js';
+import { escapeHtml, showToast, TOOL_ICONS, TOOL_ICON_FALLBACK, buildSourcesHtml, loadScriptOnce, loadStyleOnce } from './utils.js';
 
 if (typeof marked !== 'undefined') {
     // Custom renderer for better chat markdown rendering
@@ -38,13 +39,49 @@ if (typeof marked !== 'undefined') {
             // Blockquotes get styled class
             blockquote({ text }) {
                 return `<blockquote class="chat-blockquote">${text || ''}</blockquote>\n`;
+            },
+            // External images are proxied server-side so hotlink-protected /
+            // CORS-blocked images still render instead of showing a broken icon.
+            image({ href, title, text }) {
+                let src = href || '';
+                if (/^https?:\/\//i.test(src)) {
+                    src = `/api/img-proxy?url=${encodeURIComponent(src)}`;
+                }
+                const titleAttr = title ? ` title="${title}"` : '';
+                const altAttr = text ? ` alt="${text}"` : ' alt=""';
+                return `<img src="${src}"${altAttr}${titleAttr} class="chat-md-image" loading="lazy">`;
             }
         }
     });
 }
 
 // ID-ul conversației curente (multi-chat), păstrat și în localStorage
-export let currentSessionId = localStorage.getItem('memini_session_id') || null;
+export let currentSessionId = localStorage.getItem('hyve_session_id') || null;
+
+function _playNotificationCue() {
+    if (typeof window.__hyvePlayNotificationCue === 'function') {
+        window.__hyvePlayNotificationCue();
+        return;
+    }
+    try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        const ctx = new AudioContextClass();
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const now = ctx.currentTime;
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(880, now);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.045, now + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+        oscillator.start(now);
+        oscillator.stop(now + 0.2);
+        setTimeout(() => { try { ctx.close(); } catch (_) {} }, 320);
+    } catch (_) {}
+}
 
 // Imagine atașată pentru mesajul curent (data URL sau null)
 let attachedImageDataUrl = null;
@@ -201,8 +238,8 @@ function _updateImagePreview() {
 export function setCurrentSessionId(id) {
     currentSessionId = id;
     try {
-        if (id) localStorage.setItem('memini_session_id', id);
-        else localStorage.removeItem('memini_session_id');
+        if (id) localStorage.setItem('hyve_session_id', id);
+        else localStorage.removeItem('hyve_session_id');
     } catch (e) {}
     const disp = document.getElementById('session-display');
     if (disp) disp.innerText = id ? id.slice(0, 8) + '…' : t('status.connected');
@@ -258,7 +295,7 @@ function _applyRandomGreeting(container) {
     // Merge AI-generated greetings from localStorage (if any)
     let aiPool = [];
     try {
-        const cached = JSON.parse(localStorage.getItem('memini_ai_greetings') || '{}');
+        const cached = JSON.parse(localStorage.getItem('hyve_ai_greetings') || '{}');
         if (Array.isArray(cached.greetings) && cached.greetings.length) aiPool = cached.greetings;
     } catch {}
 
@@ -282,7 +319,7 @@ function _applyRandomGreeting(container) {
  */
 export async function maybeRefreshAiGreetings() {
     try {
-        const cached = JSON.parse(localStorage.getItem('memini_ai_greetings') || '{}');
+        const cached = JSON.parse(localStorage.getItem('hyve_ai_greetings') || '{}');
         const enabled = cached.enabled;
         if (!enabled) return;
 
@@ -297,7 +334,7 @@ export async function maybeRefreshAiGreetings() {
         if (data && Array.isArray(data.greetings) && data.greetings.length) {
             cached.greetings    = data.greetings;
             cached.generatedAt  = Date.now();
-            localStorage.setItem('memini_ai_greetings', JSON.stringify(cached));
+            localStorage.setItem('hyve_ai_greetings', JSON.stringify(cached));
         }
     } catch {}
 }
@@ -404,6 +441,113 @@ function buildPendingStateHtml(label, icon = "") {
     </div>`;
 }
 
+function normalizeAgentTimelineLabel(statusType, label) {
+    const raw = (label || '').trim();
+    const type = (statusType || '').trim();
+    if (type === 'search_web') return raw || 'Căutare pe web';
+    if (type === 'search_web_images') return raw || 'Căutare imagini';
+    if (type === 'read_web_page') return raw || 'Citește pagina';
+    if (type === 'cctv_describe') return raw || 'Analizează camera';
+    if (type === 'create_skill') return raw || 'Construiește skill-ul';
+    if (/^found\s+\d+\s+results?$/i.test(raw)) {
+        return raw.replace(/^Found\s+(\d+)\s+results?$/i, '$1 rezultate găsite');
+    }
+    if (/^search error \(http\)$/i.test(raw)) return 'Eroare la căutare';
+    if (/^no results$/i.test(raw)) return 'Niciun rezultat';
+    if (/^descărcat pagină:/i.test(raw)) return raw.replace(/^Descărcat pagină:/i, 'Citește pagina:');
+    if (/^fetching page/i.test(raw)) return raw.replace(/^Fetching page/i, 'Citește pagina');
+    return raw;
+}
+
+/** Fingerprint for timeline structure — excludes reasoning text so detail can update without restarting spinners. */
+function buildTimelineStructureKey({ statusLines = [], thinkingStarted = false, thinkingDurationSec = null, generating = false, preparing = false, streaming = false, hasThinkingContent = false } = {}) {
+    return JSON.stringify({
+        thinkingStarted: !!thinkingStarted,
+        thinkingDurationSec,
+        generating: !!generating,
+        preparing: !!preparing,
+        streaming: !!streaming,
+        hasThinkingContent: !!hasThinkingContent,
+        steps: statusLines.map(s => ({ type: s.type || '', label: s.label || '' })),
+    });
+}
+
+/**
+ * Unified VS Code-style activity timeline: thinking → tool steps → generating.
+ * While streaming it stays open with the active step animated. Reasoning streams
+ * live under the thinking step (VS Code-style). Once finished it collapses into
+ * a dropdown so the user can review what the agent did.
+ */
+function buildAgentTimelineHtml({ statusLines = [], thinkingStarted = false, thinkingContent = '', thinkingDurationSec = null, generating = false, preparing = false, streaming = false } = {}) {
+    const steps = [];
+    if (thinkingStarted || (thinkingContent && thinkingContent.trim())) {
+        steps.push({
+            icon: 'fa-brain',
+            label: thinkingDurationSec ? `A gândit ${thinkingDurationSec}s` : 'Se gândește',
+            detail: thinkingContent || '',
+        });
+    } else if (preparing && statusLines.length === 0 && !generating) {
+        steps.push({ icon: 'fa-circle-notch', label: 'Pregătesc răspunsul' });
+    }
+    for (const s of statusLines) {
+        steps.push({
+            icon: statusIcons[s.type] || 'fa-circle-dot',
+            label: normalizeAgentTimelineLabel(s.type, s.label || s.type || ''),
+        });
+    }
+    if (generating) {
+        steps.push({ icon: 'fa-pen-nib', label: 'Generez răspunsul' });
+    }
+    if (steps.length === 0) return '';
+    const lastIndex = steps.length - 1;
+
+    const itemsHtml = steps.map((step, i) => {
+        const isCurrent = streaming && i === lastIndex;
+        const stateClass = isCurrent ? ' chat-agent-timeline__item--current' : ' chat-agent-timeline__item--done';
+        const node = isCurrent
+            ? '<span class="chat-agent-timeline__spinner"></span>'
+            : '<i class="fas fa-check chat-agent-timeline__check"></i>';
+        const detailText = (step.detail || '').trim();
+        const isThinkingStep = step.icon === 'fa-brain';
+        const showDetail = isThinkingStep && (detailText || (streaming && isCurrent));
+        const isLiveReasoning = streaming && isThinkingStep && isCurrent;
+        const detailHtml = showDetail
+            ? `<div class="chat-agent-timeline__detail${isLiveReasoning ? ' chat-agent-timeline__detail--streaming' : ''}">
+                <div class="chat-agent-timeline__detail-stream">${detailText ? escapeHtml(detailText).replace(/\n/g, '<br>') : ''}</div>
+                ${isLiveReasoning ? '<span class="chat-agent-timeline__detail-cursor" aria-hidden="true"></span>' : ''}
+            </div>`
+            : '';
+        return `<div class="chat-agent-timeline__item${stateClass}">
+            <span class="chat-agent-timeline__node">${node}</span>
+            <i class="fas ${step.icon} chat-agent-timeline__icon"></i>
+            <span class="chat-agent-timeline__label">${escapeHtml(step.label)}</span>
+            ${detailHtml}
+        </div>`;
+    }).join('');
+
+    const timeline = `<div class="chat-agent-timeline" aria-live="polite">${itemsHtml}</div>`;
+
+    if (streaming) {
+        // Live: always visible, current step animated.
+        return `<div class="chat-agent-timeline-wrap chat-agent-timeline-open">${timeline}</div>`;
+    }
+
+    // Final: collapsible dropdown, collapsed by default.
+    const stepWord = steps.length === 1 ? 'pas' : 'pași';
+    const summaryLabel = thinkingDurationSec
+        ? `A gândit ${thinkingDurationSec}s · ${steps.length} ${stepWord}`
+        : `Activitate · ${steps.length} ${stepWord}`;
+    const expandLabel = escapeHtml(t('chat.thinking_expand') || 'Arată activitatea');
+    return `<div class="chat-agent-timeline-wrap chat-agent-timeline-collapsible">
+        <button type="button" class="chat-agent-timeline-summary" aria-expanded="false" aria-label="${expandLabel}">
+            <i class="fas fa-list-check chat-agent-timeline-summary__icon"></i>
+            <span class="chat-agent-timeline-summary__label">${escapeHtml(summaryLabel)}</span>
+            <i class="fas fa-chevron-down chat-agent-timeline-summary__chevron"></i>
+        </button>
+        <div class="chat-agent-timeline-body">${timeline}</div>
+    </div>`;
+}
+
 export function appendMessage(role, text, options = {}) {
     const container = document.getElementById('chat-container');
     if (!container) return;
@@ -500,9 +644,10 @@ export function appendMessage(role, text, options = {}) {
                 const bc = div.querySelector('.chat-bubble-content');
                 const txt = bc ? (bc.innerText || bc.textContent || '') : '';
                 navigator.clipboard.writeText(txt).then(() => {
-                    copyBtn.querySelector('i').className = 'fas fa-check';
-                    setTimeout(() => { copyBtn.querySelector('i').className = 'fas fa-copy'; }, 1500);
-                });
+                    const icon = copyBtn.querySelector('i');
+                    if (icon) icon.className = 'fas fa-check';
+                    setTimeout(() => { const ic = copyBtn.querySelector('i'); if (ic) ic.className = 'fas fa-copy'; }, 1500);
+                }).catch(() => {});
             });
         }
         const editBtn = div.querySelector('.chat-user-edit-btn');
@@ -836,13 +981,15 @@ function appendConsciousnessFeedbackBar(bubble, bubbleId, stats) {
         const content = bubble.querySelector('.chat-bubble-content');
         const text = content ? (content.innerText || content.textContent || '') : '';
         navigator.clipboard.writeText(text).then(() => {
-            copyBtn.querySelector('i').className = 'fas fa-check';
+            const icon = copyBtn.querySelector('i');
+            if (icon) icon.className = 'fas fa-check';
             copyBtn.classList.add('active');
             setTimeout(() => {
-                copyBtn.querySelector('i').className = 'fas fa-copy';
+                const ic = copyBtn.querySelector('i');
+                if (ic) ic.className = 'fas fa-copy';
                 copyBtn.classList.remove('active');
             }, 2000);
-        });
+        }).catch(() => {});
     });
     actions.appendChild(copyBtn);
 
@@ -887,35 +1034,17 @@ function appendConsciousnessFeedbackBar(bubble, bubbleId, stats) {
 
     bar.appendChild(actions);
 
-    // Tool indicators (icons with hover popovers)
-    if (stats && stats.tools && stats.tools.length > 0) {
-        const sep1 = document.createElement('div');
-        sep1.className = 'chat-actions-sep';
-        bar.appendChild(sep1);
-        const toolsWrap = document.createElement('div');
-        toolsWrap.className = 'chat-tool-indicators';
-        for (const tool of stats.tools) {
-            const iconClass = statusIcons[tool.type] || statusIconFallback;
-            const btn = document.createElement('button');
-            btn.className = 'chat-tool-indicator';
-            btn.type = 'button';
-            btn.innerHTML = '<i class="fas ' + iconClass + '"></i><span class="chat-tool-popover">' + escapeHtml(tool.label || tool.type || '') + '</span>';
-            toolsWrap.appendChild(btn);
-        }
-        bar.appendChild(toolsWrap);
-    }
-
     // Stats
     if (stats) {
-        const parts = [];
-        if (stats.elapsed) {
-            const sec = (stats.elapsed / 1000).toFixed(1);
-            parts.push('<span title="' + escapeHtml(t('chat.stat_response_time') || 'Response time') + '"><i class="fas fa-clock"></i> ' + sec + 's</span>');
-        }
-        if (stats.thinkingTime) {
-            const ts = (stats.thinkingTime / 1000).toFixed(1);
-            parts.push('<span title="' + escapeHtml(t('chat.stat_thinking_time') || 'Thinking time') + '"><i class="fas fa-brain"></i> ' + ts + 's</span>');
-        }
+    const parts = [];
+    if (stats.elapsed) {
+        const sec = (stats.elapsed / 1000).toFixed(1);
+        parts.push('<span title="' + escapeHtml(t('chat.stat_response_time') || 'Response time') + '"><i class="fas fa-clock"></i> ' + sec + 's</span>');
+    }
+    if (stats.thinkingTime) {
+        const ts = (stats.thinkingTime / 1000).toFixed(1);
+        parts.push('<span title="' + escapeHtml(t('chat.stat_thinking_time') || 'Thinking time') + '"><i class="fas fa-brain"></i> ' + ts + 's</span>');
+    }
         if (parts.length) {
             const sep = document.createElement('div');
             sep.className = 'chat-actions-sep';
@@ -978,7 +1107,7 @@ function decorateCodeBlocks(container) {
                     copyBtn.textContent = t('common.copy');
                     copyBtn.classList.remove('copied');
                 }, 2000);
-            });
+            }).catch(() => {});
           });
 
         wrap.appendChild(header);
@@ -1025,6 +1154,71 @@ function normalizeCodeLanguage(lang) {
     return aliases[value] || value;
 }
 
+const HIGHLIGHT_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1';
+const HIGHLIGHT_LANGUAGE_FILES = {
+    bash: 'bash',
+    c: 'c',
+    cpp: 'cpp',
+    csharp: 'csharp',
+    css: 'css',
+    dart: 'dart',
+    dockerfile: 'dockerfile',
+    go: 'go',
+    ini: 'ini',
+    java: 'java',
+    javascript: 'javascript',
+    json: 'json',
+    kotlin: 'kotlin',
+    lua: 'lua',
+    markdown: 'markdown',
+    objectivec: 'objectivec',
+    php: 'php',
+    powershell: 'powershell',
+    python: 'python',
+    ruby: 'ruby',
+    rust: 'rust',
+    scss: 'scss',
+    sql: 'sql',
+    swift: 'swift',
+    toml: 'toml',
+    typescript: 'typescript',
+    xml: 'xml',
+    yaml: 'yaml',
+};
+
+let _highlightCorePromise = null;
+const _highlightLanguagePromises = new Map();
+
+function _ensureHighlightCore() {
+    if (typeof hljs !== 'undefined') return Promise.resolve(hljs);
+    if (!_highlightCorePromise) {
+        _highlightCorePromise = Promise.all([
+            loadStyleOnce(`${HIGHLIGHT_BASE}/styles/github-dark.min.css`),
+            loadScriptOnce(`${HIGHLIGHT_BASE}/highlight.min.js`),
+        ])
+            .then(() => loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/highlightjs-line-numbers.js/2.9.0/highlightjs-line-numbers.min.js'))
+            .then(() => hljs);
+    }
+    return _highlightCorePromise;
+}
+
+function _ensureHighlightLanguage(lang) {
+    const normalized = normalizeCodeLanguage(lang);
+    const file = HIGHLIGHT_LANGUAGE_FILES[normalized];
+    if (!file) return _ensureHighlightCore();
+    return _ensureHighlightCore().then(() => {
+        if (typeof hljs !== 'undefined' && hljs.getLanguage(file)) return;
+        if (!_highlightLanguagePromises.has(file)) {
+            _highlightLanguagePromises.set(file, loadScriptOnce(`${HIGHLIGHT_BASE}/languages/${file}.min.js`));
+        }
+        return _highlightLanguagePromises.get(file);
+    });
+}
+
+function _ensureHighlightAssets(lang) {
+    return _ensureHighlightLanguage(lang).then(() => _ensureHighlightCore());
+}
+
 function applyHighlightingWithLineNumbers(codeEl, rawSource, lang = '') {
     if (!codeEl) return;
     const normalizedLang = normalizeCodeLanguage(lang);
@@ -1032,6 +1226,19 @@ function applyHighlightingWithLineNumbers(codeEl, rawSource, lang = '') {
     codeEl.dataset.rawSource = rawSource || '';
     codeEl.dataset.language = normalizedLang || '';
     codeEl.className = normalizedLang ? `language-${normalizedLang}` : '';
+
+    const needsHighlightLoad = typeof hljs === 'undefined'
+        || (normalizedLang && !hljs.getLanguage(normalizedLang))
+        || typeof hljs.lineNumbersBlock !== 'function';
+    if (needsHighlightLoad && codeEl.dataset.highlightLoading !== '1') {
+        codeEl.dataset.highlightLoading = '1';
+        _ensureHighlightAssets(normalizedLang)
+            .then(() => {
+                codeEl.dataset.highlightLoading = '0';
+                applyHighlightingWithLineNumbers(codeEl, codeEl.dataset.rawSource || rawSource || '', normalizedLang);
+            })
+            .catch(() => { codeEl.dataset.highlightLoading = '0'; });
+    }
 
     if (typeof hljs !== 'undefined') {
         try {
@@ -1188,7 +1395,7 @@ function decorateImages(container) {
                 navigator.clipboard.writeText(fullUrl).then(() => {
                     shareBtn.innerHTML = '<i class="fas fa-check"></i>';
                     setTimeout(() => { shareBtn.innerHTML = '<i class="fas fa-share-alt"></i>'; }, 1500);
-                });
+                }).catch(() => {});
             }
         });
 
@@ -1270,9 +1477,9 @@ function openImageLightbox(src, alt) {
         } else {
             navigator.clipboard.writeText(fullUrl).then(() => {
                 const btn = overlay.querySelector('.chat-lightbox-share');
-                btn.innerHTML = '<i class="fas fa-check"></i>';
-                setTimeout(() => { btn.innerHTML = '<i class="fas fa-share-alt"></i>'; }, 1500);
-            });
+                if (btn) btn.innerHTML = '<i class="fas fa-check"></i>';
+                setTimeout(() => { const b = overlay.querySelector('.chat-lightbox-share'); if (b) b.innerHTML = '<i class="fas fa-share-alt"></i>'; }, 1500);
+            }).catch(() => {});
         }
     });
 
@@ -1412,10 +1619,10 @@ async function handleSlashCommand(msg) {
             window.newChatSession();
         } else if (action === 'restart') {
             suppressLogout(true);
-            showToast('Server restarting…', 'info', 8000);
+            showToast(t('chat.server_restarting'), 'info', 8000);
             _startSlashReconnectPolling();
         } else if (action === 'stop') {
-            showToast('Server stopped.', 'info', 10000);
+            showToast(t('chat.server_stopped'), 'info', 10000);
         }
     } catch (e) {
         appendSlashResult('❌ Command failed: ' + (e.message || 'network error'));
@@ -1579,7 +1786,7 @@ export async function sendMessage(optionalMessage) {
         scrollChatToBottom({ behavior: 'smooth', force: true });
     });
 
-    const token = localStorage.getItem('memini_token') || authToken;
+    const token = localStorage.getItem('hyve_token') || authToken;
     // If there's an active AI response, abort it before starting a new one
     if (_currentAbortController) {
         _currentAbortController.abort();
@@ -1598,6 +1805,7 @@ export async function sendMessage(optionalMessage) {
                 message: msg || '', 
                 token: token,
                 session_id: currentSessionId,
+                thinking_mode: getThinkingMode(),
                 ...(imageBase64 ? { image: imageBase64 } : {}),
                 ...(documentText ? { document_text: documentText } : {})
             }),
@@ -1750,10 +1958,19 @@ export async function sendMessage(optionalMessage) {
                     }
                 });
             }
+            const timelineWrap = bubble.querySelector(".chat-agent-timeline-collapsible");
+            const timelineSummary = timelineWrap?.querySelector(".chat-agent-timeline-summary");
+            if (timelineWrap && timelineSummary && !timelineSummary.dataset.bound) {
+                timelineSummary.dataset.bound = "1";
+                timelineSummary.addEventListener("click", () => {
+                    const open = timelineWrap.classList.toggle("chat-agent-timeline-open");
+                    timelineSummary.setAttribute("aria-expanded", open ? "true" : "false");
+                });
+            }
             bubble.querySelectorAll(".chat-shell-allow-btn").forEach(btn => {
                 btn.addEventListener("click", async () => {
                     try {
-                        const res = await fetch("/api/shell/allow", { method: "POST", headers: { Authorization: `Bearer ${localStorage.getItem("memini_token") || ""}` } });
+                        const res = await fetch("/api/shell/allow", { method: "POST", headers: { Authorization: `Bearer ${localStorage.getItem("hyve_token") || ""}` } });
                         if (res.ok) {
                             btn.textContent = t("chat.shell_allowed") || "Permisiune acordată";
                             btn.disabled = true;
@@ -1772,7 +1989,7 @@ export async function sendMessage(optionalMessage) {
                     try {
                         const res = await fetch("/api/shell/run", {
                             method: "POST",
-                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("memini_token") || ""}` },
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("hyve_token") || ""}` },
                             body: JSON.stringify({ command })
                         });
                         const data = await res.json().catch(() => ({}));
@@ -1815,7 +2032,7 @@ export async function sendMessage(optionalMessage) {
                             btn.textContent = t('common.copy');
                             btn.classList.remove('copied');
                         }, 2000);
-                    });
+                    }).catch(() => {});
                 });
             });
             bubble.querySelectorAll('.chat-forge-preview-select').forEach(btn => {
@@ -1837,7 +2054,7 @@ export async function sendMessage(optionalMessage) {
                     if (!raw) return;
                     try {
                         const proposal = JSON.parse(raw.replace(/&quot;/g, '"'));
-                        const res = await fetch("/api/proposal/apply", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("memini_token") || ""}` }, body: JSON.stringify(proposal) });
+                        const res = await fetch("/api/proposal/apply", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("hyve_token") || ""}` }, body: JSON.stringify(proposal) });
                         const data = await res.json().catch(() => ({}));
                         if (res.ok) { btn.textContent = t("chat.proposal_applied") || "Aplicat"; btn.disabled = true; card.querySelector(".chat-proposal-refuse-btn")?.remove(); }
                         else { showToast(data.detail || data.error || "Error", 'error'); }
@@ -1883,26 +2100,30 @@ export async function sendMessage(optionalMessage) {
             }
 
             const thinkingWasOpen = !!bubble.querySelector(".chat-thinking-block.chat-thinking-open");
-            const thinkingStillStreaming = streaming && hasThinking;
-            const thinkingHtml = (thinkingStillStreaming)
-                ? buildThinkingBlock(true, thinkingContent, null, thinkingWasOpen)
-                : (hasThinking || displayThinking)
-                    ? buildThinkingBlock(false, displayThinking || thinkingContent, thinkingDurationSec, thinkingWasOpen)
-                    : "";
-
             const stepsCount = statusLines.length;
-            const stepsHtml = stepsCount === 0 ? "" : `
-                <div class="chat-tools-row">
-                    <div class="chat-steps">
-                        ${statusLines.map(s => `
-                            <span class="chat-step">
-                                <i class="fas ${statusIcons[s.type] || statusIconFallback} chat-step-icon"></i>
-                                <span class="chat-step-label">${escapeHtml(s.label || "")}</span>
-                            </span>
-                        `).join("")}
-                    </div>
-                    ${!streaming && stepsCount ? `<div class="chat-tools-summary">${escapeHtml((t("chat.used_tools") || "Used {n} tools").replace("{n}", String(stepsCount)))}</div>` : ""}
-                </div>`;
+            // Thinking is now integrated into the unified timeline (no separate dropdown).
+            const thinkingHtml = "";
+            const agentActivityHtml = "";
+            const thinkingStartedForTimeline = !!thinkingStartTime || hasThinking || !!thinkingContent;
+            const timelineThinkingContent = displayThinking || thinkingContent || "";
+            const stepsHtml = buildAgentTimelineHtml({
+                statusLines,
+                thinkingStarted: thinkingStartedForTimeline,
+                thinkingContent: timelineThinkingContent,
+                thinkingDurationSec,
+                generating: streaming && (pendingPhase === 'generating' || !!firstChunkTime),
+                preparing: streaming && (pendingPhase === 'preparing' || pendingPhase === 'vision'),
+                streaming,
+            });
+            const timelineStructureKey = buildTimelineStructureKey({
+                statusLines,
+                thinkingStarted: thinkingStartedForTimeline,
+                thinkingDurationSec,
+                generating: streaming && (pendingPhase === 'generating' || !!firstChunkTime),
+                preparing: streaming && (pendingPhase === 'preparing' || pendingPhase === 'vision'),
+                streaming,
+                hasThinkingContent: !!timelineThinkingContent.trim(),
+            });
 
             const forgePreviewHtml = forgePreview.content
                 ? buildForgePreviewHtml(forgePreview.content, forgePreview.language || 'python', streaming && !forgePreview.done)
@@ -1915,7 +2136,9 @@ export async function sendMessage(optionalMessage) {
                     ? 'Generez răspunsul'
                     : 'Se gândește');
             const pendingIcon = pendingPhase === 'vision' ? 'fa-image' : '';
-            const showPendingState = !displayContent && !thinkingHtml;
+            // The unified timeline already shows a "Se gândește"/activity step, so only
+            // fall back to the inline pending state when there is no timeline to show.
+            const showPendingState = !displayContent && !thinkingHtml && !stepsHtml;
             const contentHtml = displayContent
                 ? (() => {
                     // During streaming: hide incomplete markdown images, show placeholder for complete ones
@@ -1991,21 +2214,38 @@ export async function sendMessage(optionalMessage) {
                 </div>`;
             }).join('');
             // Search sources cards (citation cards)
-            const sourcesHtml = buildSourcesHtml(searchSources);
+            const sourcesHtml = streaming ? '' : buildSourcesHtml(searchSources);
             const cardsHtml = (shellCardsHtml ? `<div class="chat-shell-cards">${shellCardsHtml}</div>` : "") + (proposalCardsHtml ? `<div class="chat-proposal-cards">${proposalCardsHtml}</div>` : "") + sourcesHtml;
 
             bubble.classList.remove("chat-bubble-typing");
 
             const existingThinkingBlock = bubble.querySelector(".chat-thinking-block");
-            const doPartialUpdate = streaming && existingThinkingBlock;
+            const bubbleAlreadyBuilt = !!bubble.querySelector(".chat-bubble-part.chat-bubble-main");
+            const doPartialUpdate = streaming && (existingThinkingBlock || bubbleAlreadyBuilt);
 
             if (doPartialUpdate) {
+                const agentPart = bubble.querySelector('.chat-bubble-part.chat-bubble-agent');
                 const stepsPart = bubble.querySelector(".chat-bubble-part.chat-bubble-steps");
                 const thinkingPart = bubble.querySelector(".chat-bubble-part.chat-bubble-thinking");
                 const previewPart = bubble.querySelector(".chat-bubble-part.chat-bubble-preview");
                 const mainPart = bubble.querySelector(".chat-bubble-part.chat-bubble-main");
                 const cardsPart = bubble.querySelector(".chat-bubble-part.chat-bubble-cards");
-                if (stepsPart) stepsPart.innerHTML = stepsHtml;
+                if (agentPart) agentPart.innerHTML = agentActivityHtml;
+                // Rewrite timeline only when step structure changes; reasoning text
+                // is patched incrementally so spinners don't restart every token.
+                if (stepsPart) {
+                    if (stepsPart.dataset.timelineStructure !== timelineStructureKey) {
+                        stepsPart.innerHTML = stepsHtml;
+                        stepsPart.dataset.timelineStructure = timelineStructureKey;
+                    } else if (timelineThinkingContent) {
+                        const streamEl = stepsPart.querySelector('.chat-agent-timeline__detail-stream');
+                        if (streamEl) {
+                            streamEl.innerHTML = escapeHtml(timelineThinkingContent).replace(/\n/g, '<br>');
+                            const detailBox = streamEl.closest('.chat-agent-timeline__detail');
+                            if (detailBox) detailBox.scrollTop = detailBox.scrollHeight;
+                        }
+                    }
+                }
                 if (thinkingPart) thinkingPart.innerHTML = thinkingHtml;
                 if (previewPart) previewPart.innerHTML = forgePreviewHtml;
                 if (mainPart) mainPart.innerHTML = contentHtml;
@@ -2017,11 +2257,14 @@ export async function sendMessage(optionalMessage) {
                 }
             } else {
                 bubble.innerHTML =
+                    '<div class="chat-bubble-part chat-bubble-agent">' + agentActivityHtml + '</div>' +
                     '<div class="chat-bubble-part chat-bubble-steps">' + stepsHtml + '</div>' +
                     '<div class="chat-bubble-part chat-bubble-thinking">' + thinkingHtml + '</div>' +
                     '<div class="chat-bubble-part chat-bubble-preview">' + forgePreviewHtml + '</div>' +
                     '<div class="chat-bubble-part chat-bubble-main">' + contentHtml + '</div>' +
                     '<div class="chat-bubble-part chat-bubble-cards">' + cardsHtml + '</div>';
+                const stepsPartInit = bubble.querySelector(".chat-bubble-part.chat-bubble-steps");
+                if (stepsPartInit) stepsPartInit.dataset.timelineStructure = timelineStructureKey;
                 attachBubbleListeners(bubble);
                 if (thinkingWasOpen) {
                     const thinkingContentBox = bubble.querySelector(".chat-thinking-block.chat-thinking-open .chat-thinking-content");
@@ -2041,17 +2284,12 @@ export async function sendMessage(optionalMessage) {
                     pendingPhase = 'thinking';
                     pendingPhaseLabel = 'Se gândește';
                     thinkingContent += p.content || "";
-                    const streamEl = bubble.querySelector(".chat-thinking-stream");
+                    const streamEl = bubble.querySelector(".chat-agent-timeline__detail-stream")
+                        || bubble.querySelector(".chat-thinking-stream");
                     if (streamEl) {
                         streamEl.innerHTML = escapeHtml(thinkingContent).replace(/\n/g, "<br>");
-                        const contentBox = streamEl.closest(".chat-thinking-content");
-                        if (contentBox) {
-                            // Auto-scroll thinking content only if user opened it
-                            const block = streamEl.closest(".chat-thinking-block");
-                            if (block && block.classList.contains("chat-thinking-open")) {
-                                contentBox.scrollTop = contentBox.scrollHeight;
-                            }
-                        }
+                        const detailBox = streamEl.closest(".chat-agent-timeline__detail, .chat-thinking-content");
+                        if (detailBox) detailBox.scrollTop = detailBox.scrollHeight;
                     } else {
                         scheduleRender();
                     }
@@ -2136,7 +2374,9 @@ export async function sendMessage(optionalMessage) {
                         for (const src of p.sources) searchSources.push(src);
                     }
                 } catch (e) { /* ignore */ }
-                scheduleRender();
+                // Avoid re-rendering the whole bubble mid-stream just because
+                // sources arrived; this caused visible "blinking" near the end
+                // of streaming due to repeated autoscroll/layout changes.
             } else if (eventType === "metrics") {
                 try {
                     const p = JSON.parse(data);
@@ -2219,6 +2459,8 @@ export async function sendMessage(optionalMessage) {
             if (typeof finalMessageContent === "string" && finalMessageContent) {
                 fullText = finalMessageContent;
             }
+            pendingPhase = 'done';
+            pendingPhaseLabel = 'Gata';
             isStreaming = false;
             if (chunkThrottleTimer) { clearTimeout(chunkThrottleTimer); chunkThrottleTimer = 0; }
             if (scheduledRenderRAF) { cancelAnimationFrame(scheduledRenderRAF); scheduledRenderRAF = 0; }
@@ -2360,12 +2602,12 @@ export async function loadSessionHistory(sessionId) {
 
             // Group messages into conversation turns: each user message starts a new turn
             // followed by 0+ assistant/tool messages that form the AI response.
-            // Notification messages (notification: true) are rendered standalone as reminder bubbles.
+            // Legacy notification messages are intentionally skipped; notifications
+            // now live in User > Notificări, not in chat history.
             const turns = [];
             for (const m of messages) {
                 if (m.notification) {
-                    // Standalone notification — render as its own "turn" with no user message
-                    turns.push({ notification: m });
+                    continue;
                 } else if (m.role === 'user') {
                     turns.push({ user: m, chain: [] });
                 } else if (turns.length > 0 && turns[turns.length - 1].user) {
@@ -2430,8 +2672,8 @@ export async function loadSessionHistory(sessionId) {
                         if (m.thinking) {
                             allThinking += (allThinking ? "\n\n" : "") + m.thinking;
                         } else {
-                            const thinking = _extractThinking(m.content || "");
-                            if (thinking) allThinking += (allThinking ? "\n\n" : "") + thinking;
+                        const thinking = _extractThinking(m.content || "");
+                        if (thinking) allThinking += (allThinking ? "\n\n" : "") + thinking;
                         }
 
                         if (m.tool_calls && m.tool_calls.length > 0) {
@@ -2457,24 +2699,23 @@ export async function loadSessionHistory(sessionId) {
 
                 if (!finalContent && !toolSteps.length && !allThinking) continue;
 
-                // Build rich AI bubble with thinking + tool steps + content
+                // Build rich AI bubble with a unified, collapsible activity timeline
+                // (thinking + tool steps integrated together).
                 const thinkingDurationSec = (persistedResponseStats && persistedResponseStats.thinkingTime > 0)
                     ? (persistedResponseStats.thinkingTime / 1000).toFixed(1)
                     : null;
-                const thinkingHtml = allThinking ? buildThinkingBlock(false, allThinking, thinkingDurationSec) : "";
+                const thinkingHtml = "";
                 const stepsCount = toolSteps.length;
-                const stepsHtml = stepsCount === 0 ? "" : `
-                    <div class="chat-tools-row">
-                        <div class="chat-steps">
-                            ${toolSteps.map(s => `
-                                <span class="chat-step">
-                                    <i class="fas ${statusIcons[s.type] || statusIconFallback} chat-step-icon"></i>
-                                    <span class="chat-step-label">${escapeHtml(s.label || "")}</span>
-                                </span>
-                            `).join("")}
-                        </div>
-                        ${stepsCount ? `<div class="chat-tools-summary">${escapeHtml((t("chat.used_tools") || "Used {n} tools").replace("{n}", String(stepsCount)))}</div>` : ""}
-                    </div>`;
+                const agentActivityHtml = "";
+                const stepsHtml = buildAgentTimelineHtml({
+                    statusLines: toolSteps,
+                    thinkingStarted: !!allThinking,
+                    thinkingContent: allThinking || "",
+                    thinkingDurationSec,
+                    generating: false,
+                    preparing: false,
+                    streaming: false,
+                });
 
                 const contentHtml = finalContent
                     ? `<div class="chat-bubble-content prose prose-invert prose-sm">${DOMPurify.sanitize(marked.parse(finalContent))}</div>`
@@ -2490,6 +2731,7 @@ export async function loadSessionHistory(sessionId) {
                 div.innerHTML = `
                     <div class="chat-msg chat-msg-ai group">
                         <div class="chat-bubble ai-bubble">
+                            <div class="chat-bubble-part chat-bubble-agent">${agentActivityHtml}</div>
                             <div class="chat-bubble-part chat-bubble-steps">${stepsHtml}</div>
                             <div class="chat-bubble-part chat-bubble-thinking">${thinkingHtml}</div>
                             <div class="chat-bubble-part chat-bubble-preview">${forgePreviewHtml}</div>
@@ -2518,6 +2760,15 @@ export async function loadSessionHistory(sessionId) {
                                 const contentBox = thinkingBlock.querySelector(".chat-thinking-content");
                                 if (contentBox) contentBox.scrollTop = contentBox.scrollHeight;
                             }
+                        });
+                    }
+                    const timelineWrap = bubble.querySelector(".chat-agent-timeline-collapsible");
+                    const timelineSummary = timelineWrap?.querySelector(".chat-agent-timeline-summary");
+                    if (timelineWrap && timelineSummary && !timelineSummary.dataset.bound) {
+                        timelineSummary.dataset.bound = "1";
+                        timelineSummary.addEventListener("click", () => {
+                            const open = timelineWrap.classList.toggle("chat-agent-timeline-open");
+                            timelineSummary.setAttribute("aria-expanded", open ? "true" : "false");
                         });
                     }
                     decorateCodeBlocks(bubble);
@@ -2563,7 +2814,7 @@ const _shownNotificationIds = new Set();
  */
 function _showNotificationBubble(message, type) {
     if (!message) return;
-    try { new Audio('/static/ding.mp3').play(); } catch(e){}
+    _playNotificationCue();
     const role = (type === 'automation') ? 'automation' : 'reminder';
     appendMessage(role, message);
     chatAutoScrollPinnedToBottom = true;
@@ -2574,197 +2825,10 @@ function _showNotificationBubble(message, type) {
 // Called when user taps a system notification — shows the message as a chat bubble.
 // If a session_id is provided and matches the current session, just append.
 // If different session, switch to that session first.
-window.__meminiShowNotification = function(title, message, sessionId) {
-    if (!message) return;
-    if (sessionId && sessionId !== currentSessionId) {
-        // Switch to the notification's session, which will load history including the notification
-        loadSessionHistory(sessionId);
-    } else {
-        _showNotificationBubble(message);
-    }
+window.__hyveShowNotification = function(title, message, sessionId) {
+    if (typeof window.switchTab === 'function') window.switchTab('user');
+    if (typeof window.switchUserProfileTab === 'function') window.switchUserProfileTab('notifications');
+    if (message) showToast(message, 'info', 3500);
 };
 
-export function initNotifications(userId) {
-    let ws = null;
-    let wsReconnectAttempts = 0;
-    let _wsReconnectTimer = null;
-    const maxWsReconnect = 10;
-    let _wsEnabled = true;
-
-    async function _loadWsEnabledFromConfig() {
-        try {
-            const res = await apiCall('/api/config');
-            if (!res.ok) return true;
-            const cfg = await res.json();
-            const fcm = cfg?.fcm || {};
-            const mode = String(fcm.transport_mode || 'websocket').toLowerCase();
-            const wsEnabledFlag = fcm.websocket_enabled !== false;
-            return wsEnabledFlag && mode !== 'firebase';
-        } catch (_) {
-            return true;
-        }
-    }
-
-    // --- WebSocket for instant notifications ---
-    async function connectWebSocket() {
-        if (!_wsEnabled) {
-            stop();
-            return;
-        }
-
-        const token = localStorage.getItem('memini_token');
-        if (!token) {
-            console.warn('[WS] No memini_token in localStorage — skipping WebSocket');
-            return;
-        }
-
-        // Get short-lived exchange token for WS (avoids passing long-lived JWT in URL)
-        let wsToken = token;
-        try {
-            const { getSSEToken } = await import('./api.js');
-            wsToken = await getSSEToken();
-        } catch (_) {}
-
-        // Close existing connection before creating a new one (prevent duplicates)
-        if (ws) {
-            try {
-                if (ws._pingInterval) clearInterval(ws._pingInterval);
-                ws.onclose = null;  // Prevent reconnect from old close handler
-                ws.onerror = null;
-                ws.onmessage = null;
-                ws.close();
-            } catch(e) {}
-            ws = null;
-        }
-        
-        try {
-            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${proto}//${location.host}/ws/notifications?token=${wsToken}`;
-            console.log('[WS] Connecting to', wsUrl.substring(0, 60) + '...');
-            ws = new WebSocket(wsUrl);
-            
-            ws.onopen = () => {
-                console.log('[WS] Notification WebSocket connected');
-                wsReconnectAttempts = 0;
-                // Keep-alive ping every 30s
-                ws._pingInterval = setInterval(() => {
-                    if (ws.readyState === WebSocket.OPEN) ws.send('ping');
-                }, 30000);
-            };
-            
-            ws.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    if (data.type === 'reminder' || data.type === 'automation') {
-                        const isSettingsTest = String(data.notification_id || '').startsWith('test_ws_') || String(data.notification_id || '').startsWith('test_fcm_');
-                        if (isSettingsTest) {
-                            showToast('Test WebSocket primit ✓', 'success', 3500);
-                            return;
-                        }
-
-                        // Dedup: track notification_id to prevent showing same notification twice
-                        const nid = data.notification_id;
-                        if (nid && _shownNotificationIds.has(nid)) {
-                            console.log('[WS] Skipping duplicate notification:', nid);
-                            return;
-                        }
-                        if (nid) _shownNotificationIds.add(nid);
-                        // Keep dedup set small (max 200 entries)
-                        if (_shownNotificationIds.size > 200) {
-                            const it = _shownNotificationIds.values();
-                            for (let i = 0; i < 100; i++) _shownNotificationIds.delete(it.next().value);
-                        }
-
-                        const notifSessionId = data.session_id;
-                        if (notifSessionId && notifSessionId === currentSessionId) {
-                            // Notification belongs to current session — just append the bubble
-                            // (it's already persisted server-side in the session JSON)
-                            _showNotificationBubble(data.message, data.type);
-                        } else if (notifSessionId && notifSessionId !== currentSessionId) {
-                            // Notification is for a different session — show a toast
-                            showToast(data.message, 'info', 5000);
-                            try { new Audio('/static/ding.mp3').play(); } catch(e){}
-                        } else {
-                            // No session_id in payload (legacy) — just append
-                            _showNotificationBubble(data.message, data.type);
-                        }
-                    }
-                    // pong is just a keepalive response, ignore
-                } catch(e) {}
-            };
-            
-            ws.onclose = () => {
-                if (ws?._pingInterval) clearInterval(ws._pingInterval);
-                ws = null;
-                // Reconnect with backoff — tracked to prevent duplicates
-                if (_wsReconnectTimer) clearTimeout(_wsReconnectTimer);
-                if (_wsEnabled && wsReconnectAttempts < maxWsReconnect) {
-                    wsReconnectAttempts++;
-                    const delay = Math.min(wsReconnectAttempts * 5000, 30000);
-                    _wsReconnectTimer = setTimeout(() => {
-                        _wsReconnectTimer = null;
-                        connectWebSocket();
-                    }, delay);
-                }
-            };
-            
-            ws.onerror = (err) => {
-                console.error('[WS] WebSocket error:', err);
-            };
-        } catch(e) {
-            console.warn('[WS] WebSocket connection failed:', e);
-        }
-    }
-
-    function stop() {
-        if (ws) {
-            try {
-                if (ws._pingInterval) clearInterval(ws._pingInterval);
-                ws.onclose = null;
-                ws.close();
-            } catch(e) {}
-            ws = null;
-        }
-    }
-
-    document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) {
-            // Reconnect WS if disconnected when tab becomes visible
-            // Cancel any pending reconnect first to prevent duplicates
-            if (_wsReconnectTimer) { clearTimeout(_wsReconnectTimer); _wsReconnectTimer = null; }
-            if (_wsEnabled && (!ws || ws.readyState !== WebSocket.OPEN)) connectWebSocket();
-        }
-    });
-
-    async function setEnabled(enabled) {
-        const next = !!enabled;
-        if (_wsEnabled === next) return;
-        _wsEnabled = next;
-        if (!_wsEnabled) {
-            stop();
-            if (_wsReconnectTimer) {
-                clearTimeout(_wsReconnectTimer);
-                _wsReconnectTimer = null;
-            }
-            return;
-        }
-        wsReconnectAttempts = 0;
-        connectWebSocket();
-    }
-
-    // Start WebSocket only when transport config allows it.
-    _loadWsEnabledFromConfig().then((enabled) => {
-        _wsEnabled = !!enabled;
-        if (_wsEnabled) connectWebSocket();
-        else stop();
-    });
-
-    // Check for pending notification from Android cold-start (set before JS modules loaded)
-    if (window.__pendingMeminiNotification) {
-        const pn = window.__pendingMeminiNotification;
-        delete window.__pendingMeminiNotification;
-        window.__meminiShowNotification(pn.title, pn.message, pn.sessionId);
-    }
-
-    return { stop, setEnabled, isEnabled: () => !!_wsEnabled };
-}
+// Legacy initNotifications removed — superseded by notifications.js module

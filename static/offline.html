@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Memini Bridge – Offline</title>
+<title>Hyve – Offline</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=JetBrains+Mono:wght@600&display=swap');
 
@@ -22,24 +22,39 @@
     text-align: center;
   }
 
-  .logo {
-    display: inline-block;
-    font-size: 2.4rem;
-    font-weight: 700;
-    letter-spacing: -0.04em;
-    line-height: 1;
-    margin-bottom: 0.25rem;
+  .brand {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.95rem;
+    margin-bottom: 2rem;
   }
-  .logo .me  { color: #f1f5f9; }
-  .logo .mini { color: #38bdf8; }
 
-  .bridge {
-    font-family: 'JetBrains Mono', monospace;
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: #64748b;
-    letter-spacing: 0.04em;
-    margin-bottom: 2.5rem;
+  .wordmark {
+    font-size: 3rem;
+    font-weight: 800;
+    letter-spacing: -0.07em;
+    line-height: 0.92;
+    color: #f8fafc;
+  }
+
+  .wordmark .accent {
+    background: linear-gradient(135deg, #95a5ff, #7287ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .brand-mark {
+    width: 72px;
+    height: 72px;
+    stroke: #95a5ff;
+    stroke-width: 7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+    filter: drop-shadow(0 0 14px rgba(114, 135, 255, 0.18));
   }
 
   .icon {
@@ -75,8 +90,13 @@
 </head>
 <body>
 
-  <div class="logo"><span class="me">Mĕ</span><span class="mini">mini</span></div>
-  <div class="bridge">Bridge</div>
+  <div class="brand" aria-label="Hyve">
+    <div class="wordmark">Hy<span class="accent">ve</span></div>
+    <svg class="brand-mark" viewBox="0 0 120 120" aria-hidden="true">
+      <path d="M60 9L104 34V86L60 111L16 86V34L60 9Z" />
+      <path d="M60 27L88 43V77L60 93L32 77V43L60 27Z" />
+    </svg>
+  </div>
 
   <!-- wifi-off icon -->
   <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
