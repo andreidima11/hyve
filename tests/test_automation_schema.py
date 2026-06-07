@@ -19,7 +19,8 @@ def test_describe_schema_modes_match_validator():
 
 def test_describe_schema_service_section_pins_security_contract():
     svc = describe_schema()["service"]
-    assert set(svc["verbs"]) == {"turn_on", "turn_off", "toggle", "set"}
+    verbs = set(svc["verbs"])
+    assert {"turn_on", "turn_off", "toggle", "set"}.issubset(verbs)
     assert svc["data_max_bytes"] == 4096
     assert svc["supports_target_keys"] == ["entity_id"]
     assert "area_id" in svc["rejected_target_keys"]

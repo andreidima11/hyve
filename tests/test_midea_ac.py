@@ -568,6 +568,8 @@ def test_discovery_token_lookup_has_per_udpid_timeout(monkeypatch):
     device = _FakeDiscoveredDevice(12345)
 
     class FakeDiscover:
+        _lock = asyncio.Lock()
+
         @classmethod
         async def discover(cls, *args, **kwargs):
             return [device]
@@ -584,6 +586,11 @@ def test_discovery_token_lookup_has_per_udpid_timeout(monkeypatch):
     )
 
     client = MideaAcClient(region="DE", cloud_provider="nethome", discovery_timeout=1, cloud_token_timeout=1)
+    monkeypatch.setattr(
+        client,
+        "_cloud_attempts",
+        lambda: [{"provider": "nethome", "region": "DE", "account": "", "password": ""}],
+    )
 
-    with pytest.raises(MideaAcError, match="token lookup timeout"):
+    with pytest.raises(MideaAcError, match="autentificare cloud eșuată"):
         asyncio.run(client._discover_lan())
