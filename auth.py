@@ -117,10 +117,39 @@ def authenticate_ws_token(token: str | None) -> Optional[models.User]:
         db.close()
 
 
-def _client_is_loopback(request: Request) -> bool:
+def _trusted_proxy_peer(request: Request) -> str:
+    """Direct TCP peer (reverse-proxy hop), lowercased."""
     if not request.client:
-        return False
-    host = (request.client.host or "").strip().lower()
+        return ""
+    return (request.client.host or "").strip().lower()
+
+
+def resolve_client_host(request: Request) -> str:
+    """Best-effort client IP; trust X-Forwarded-For only from local reverse proxies."""
+    peer = _trusted_proxy_peer(request)
+    forwarded = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip().lower()
+    if not forwarded:
+        forwarded = (request.headers.get("x-real-ip") or "").strip().lower()
+    if forwarded and peer in ("127.0.0.1", "::1", "localhost"):
+        return forwarded
+    return peer
+
+
+def decode_media_url_token(raw_token: str) -> Optional[dict]:
+    """Short-lived camera_stream token or access JWT for media URL query auth."""
+    if not raw_token:
+        return None
+    payload = verify_camera_stream_token(raw_token)
+    if payload:
+        return payload
+    payload = decode_token_payload(raw_token)
+    if payload and is_access_token_payload(payload):
+        return payload
+    return None
+
+
+def _client_is_loopback(request: Request) -> bool:
+    host = resolve_client_host(request)
     if host in ("127.0.0.1", "::1", "localhost"):
         return True
     if host.startswith("127."):

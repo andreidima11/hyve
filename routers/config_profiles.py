@@ -93,7 +93,7 @@ async def set_cfg(data: dict, _: models.User = Depends(auth.get_current_admin)):
     settings.save_config(data)
     settings.reload_config()
     try:
-        from core.agent_engine import invalidate_prompt_cache
+        from brain.cortex.prompt_cache import invalidate_prompt_cache
         invalidate_prompt_cache()
     except Exception:
         pass
@@ -122,7 +122,7 @@ async def patch_cfg(data: dict, current_user: models.User = Depends(auth.get_cur
     settings.merge_config_partial(data, allowed_top_level_keys=allowed)
     settings.reload_config()
     try:
-        from core.agent_engine import invalidate_prompt_cache
+        from brain.cortex.prompt_cache import invalidate_prompt_cache
         invalidate_prompt_cache()
     except Exception:
         pass
@@ -371,7 +371,7 @@ async def activate_model_profile(profile_id: str, current_user: models.User = De
         settings.save_config(update)
         settings.reload_config()
         try:
-            from core.agent_engine import invalidate_prompt_cache
+            from brain.cortex.prompt_cache import invalidate_prompt_cache
             invalidate_prompt_cache()
         except Exception:
             pass

@@ -112,6 +112,12 @@ async def toggle_dashboard_widget(
     db: Session = Depends(database.get_db),
     user: models.User = Depends(auth.get_current_user),
 ):
+    """Toggle a dashboard card entity for any authenticated user.
+
+    RBAC: raw integration control (``POST /api/integrations/{slug}/control``) is
+    admin-only; dashboard toggle is the member-facing path for everyday device
+    control (lights, climate, scenes on configured cards).
+    """
     from routers import dashboard as dash
 
     widget = dash._find_widget_any_page(widget_id, page_id)

@@ -4,6 +4,11 @@ import { getThinkingMode } from './thinking_mode.js';
 import { escapeHtml, showToast, TOOL_ICONS, TOOL_ICON_FALLBACK, buildSourcesHtml, loadScriptOnce, loadStyleOnce } from './utils.js';
 import { switchUserProfileTab, switchTab, loadSessionsList } from './nav_bridge.js';
 import { isVoiceLoopActive, isVoiceInputPending, setVoiceInputPending } from './voice_state.js';
+import { getCameraStreamToken, imgProxyUrlSync } from './camera_auth.js';
+
+if (authToken) {
+    getCameraStreamToken().catch(() => {});
+}
 
 if (typeof marked !== 'undefined') {
     // Custom renderer for better chat markdown rendering
@@ -47,7 +52,7 @@ if (typeof marked !== 'undefined') {
             image({ href, title, text }) {
                 let src = href || '';
                 if (/^https?:\/\//i.test(src)) {
-                    src = `/api/img-proxy?url=${encodeURIComponent(src)}`;
+                    src = imgProxyUrlSync(src);
                 }
                 const titleAttr = title ? ` title="${title}"` : '';
                 const altAttr = text ? ` alt="${text}"` : ' alt=""';
@@ -2829,14 +2834,4 @@ function _showNotificationBubble(message, type) {
     scrollChatToBottom({ behavior: 'smooth', force: true });
 }
 
-// Global function for Android native bridge to show a notification message in chat.
-// Called when user taps a system notification — shows the message as a chat bubble.
-// If a session_id is provided and matches the current session, just append.
-// If different session, switch to that session first.
-window.__hyveShowNotification = function(title, message, sessionId) {
-    switchTab('user');
-    switchUserProfileTab('notifications');
-    if (message) showToast(message, 'info', 3500);
-};
-
-// Legacy initNotifications removed — superseded by notifications.js module
+// __hyveShowNotification is installed by native_bridge.js via notifications.initNotifications()

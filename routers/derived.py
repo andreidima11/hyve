@@ -196,7 +196,7 @@ async def set_derived_selection(entity_id: str, body: SelectionBody,
     if not derived_entities.set_selected(entity_id, body.selected):
         raise HTTPException(status_code=404, detail="entity not found")
     try:
-        from core.agent_engine import invalidate_prompt_cache
+        from brain.cortex.prompt_cache import invalidate_prompt_cache
         invalidate_prompt_cache()
     except Exception:
         pass

@@ -59,6 +59,22 @@ async def lifespan(app):
         except Exception as e:
             log_line("error", "⚠️", "SUN", f"auto-entry failed: {e}")
 
+        try:
+            from integrations.config_entries import migrate_from_cfg
+
+            manager = get_integration_manager()
+            migrated = migrate_from_cfg(settings.CFG, manager.classes().keys())
+            if migrated:
+                manager.reload()
+                log_line(
+                    "success",
+                    "🔐",
+                    "INTEGRATIONS",
+                    f"Migrated {migrated} legacy config.json section(s) to config entries",
+                )
+        except Exception as e:
+            log_line("error", "⚠️", "INTEGRATIONS", f"Legacy config migration failed: {e}")
+
         async def _bootstrap_integrations_background():
             await asyncio.sleep(1)
 

@@ -25,6 +25,12 @@ def test_startup_migrations_idempotent():
     assert version == "003_entity_store"
 
 
+def test_users_db_uses_wal():
+    with database.engine.connect() as conn:
+        mode = conn.execute(text("PRAGMA journal_mode")).scalar()
+    assert str(mode or "").lower() == "wal"
+
+
 def test_entity_store_tables_from_migrations():
     run_startup_migrations()
 

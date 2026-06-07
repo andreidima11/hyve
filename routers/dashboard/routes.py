@@ -20,7 +20,6 @@ from integrations.extractors import (
     normalize_entities as _normalize_entities,
 )
 from routers.dashboard.constants import (
-    _AVAIL_CACHE,
     _DEFAULT_DASHBOARD_ICON,
     _DEFAULT_PAGE_ID,
     _DEFAULT_PAGE_TITLE,
@@ -642,9 +641,7 @@ async def get_dashboard_widgets(
         # must not block behind a slow integration sync. Use the last known
         # entity cache for card hydration and let the live websocket refresh
         # states as they arrive.
-        cached_entities = _available_entities_cache_hit()
-        if cached_entities is None:
-            cached_entities = _AVAIL_CACHE.get("data") or []
+        cached_entities = _available_entities_cache_hit() or []
         hydration_entities = _entities_for_dashboard(
             list(cached_entities) + _scene_synthetic_entities(db, user),
             panels,

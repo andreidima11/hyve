@@ -5,13 +5,22 @@ Browser <img> tags can't send auth headers, and many remote sites block hotlinki
 endpoints fetch the resource from our backend and stream the bytes back with a
 permissive same-origin content type, while enforcing SSRF protection so callers
 can't probe the internal network.
+
+Auth: short-lived ``camera_stream`` JWT or access token via ``?token=`` query param
+(same pattern as ``/api/cameras/*``).
 """
 
+from __future__ import annotations
+
+from urllib.parse import urlparse
 
 import httpx
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import Response
 
+import auth
+import database
+import models
 from brain.web_search import _is_internal_url
 from core.http.limiter import limiter
 from logger import log_line
@@ -48,6 +57,28 @@ def _png_fallback() -> Response:
 def _redirect_chain_is_safe(resp: httpx.Response) -> bool:
     chain = list(getattr(resp, "history", []) or []) + [resp]
     return not any(_is_internal_url(str(r.url)) for r in chain)
+
+
+def _user_from_media_token(raw_token: str | None) -> models.User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail={"key": "common.unauthorized"},
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    payload = auth.decode_media_url_token((raw_token or "").strip())
+    if not payload:
+        raise credentials_exception
+    db = next(database.get_db())
+    try:
+        jti = payload.get("jti")
+        if jti and db.query(models.RevokedToken).filter(models.RevokedToken.jti == jti).first():
+            raise credentials_exception
+        user = db.query(models.User).filter(models.User.username == payload.get("sub")).first()
+        if user is None or not user.is_active:
+            raise credentials_exception
+        return user
+    finally:
+        db.close()
 
 
 async def _fetch_image(url: str) -> Response:
@@ -87,8 +118,13 @@ async def _fetch_image(url: str) -> Response:
 
 @router.get("/api/favicon")
 @limiter.limit("120/minute")
-async def favicon_proxy(request: Request, domain: str = Query(..., description="Domain to fetch a favicon for")):
+async def favicon_proxy(
+    request: Request,
+    domain: str = Query(..., description="Domain to fetch a favicon for"),
+    token: str | None = Query(None, description="Short-lived media auth token"),
+):
     """Return a favicon for a domain, falling back to Google's favicon service."""
+    _user_from_media_token(token)
     domain = (domain or "").strip()
     if not domain:
         return _png_fallback()
@@ -104,6 +140,11 @@ async def favicon_proxy(request: Request, domain: str = Query(..., description="
 
 @router.get("/api/img-proxy")
 @limiter.limit("120/minute")
-async def image_proxy(request: Request, url: str = Query(..., description="Absolute http(s) image URL to proxy")):
+async def image_proxy(
+    request: Request,
+    url: str = Query(..., description="Absolute http(s) image URL to proxy"),
+    token: str | None = Query(None, description="Short-lived media auth token"),
+):
     """Proxy an external image so hotlink-protected / CORS-blocked images still render."""
+    _user_from_media_token(token)
     return await _fetch_image((url or "").strip())

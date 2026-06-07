@@ -1,20 +1,15 @@
 from __future__ import annotations
 
-import asyncio
 import logging
-import time as _time
 from typing import Any
 
 import models
-from addons.entity_store import get_entity_store
-from integrations import get_integration_manager
 from integrations.extractors import infer_source as _infer_source
 from integrations.entity_utils import resolve_entity_by_id
 from routers import scenes as scenes_module
+from core.entity_catalog import get_entities, invalidate_entity_cache, peek_cached_entities
 from routers.dashboard.constants import (
     STANDALONE_PANEL_ID,
-    _AVAIL_CACHE,
-    _AVAIL_TTL,
     _DEFAULT_DASHBOARD_ICON,
     _DEFAULT_PAGE_TITLE,
 )
@@ -37,112 +32,19 @@ from sqlalchemy.orm import Session
 
 log = logging.getLogger("dashboard")
 
-_AVAIL_BUILD_LOCK: asyncio.Lock | None = None
-
-def _available_entities_cache_hit() -> list[dict[str, Any]] | None:
-    now = _time.monotonic()
-    cached = _AVAIL_CACHE.get("data")
-    if cached is not None and (now - _AVAIL_CACHE["t"]) < _AVAIL_TTL:
-        return cached
-    return None
-
-
-def _available_entities_lock() -> asyncio.Lock:
-    global _AVAIL_BUILD_LOCK
-    if _AVAIL_BUILD_LOCK is None:
-        _AVAIL_BUILD_LOCK = asyncio.Lock()
-    return _AVAIL_BUILD_LOCK
-
-
-def _build_available_entities_uncached() -> list[dict[str, Any]]:
-    """Build the merged entity list without reading or writing the TTL cache."""
-
-    merged: list[dict[str, Any]] = []
-    seen: set[str] = set()
-
-    try:
-        manager = get_integration_manager()
-        store = get_entity_store()
-        for integration in manager.all_instances():
-            if integration.supports_sync and not manager._is_bootstrap_eligible(integration):
-                continue
-            if not integration.supports_sync:
-                continue
-            try:
-                stored = store.get_entities(integration.store_key) or {}
-                payload = stored.get("entities") or {}
-                # Let the integration merge live runtime state (e.g. MQTT
-                # bridge cache) over the durable stored snapshot. Without
-                # this, non-retained MQTT state messages (Z2M default)
-                # never reach the dashboard until the next change event.
-                try:
-                    payload = integration.live_payload(payload)
-                except Exception:
-                    pass
-                for item in integration.extract_entities(payload):
-                    item.setdefault("entry_id", integration.entry_id or "")
-                    item.setdefault("entry_title", integration.entry_title or integration.label or integration.slug)
-                    normalize_entity_record(item, default_source=integration.slug)
-                    eid = item.get("entity_id")
-                    if eid and eid not in seen:
-                        seen.add(eid)
-                        merged.append(item)
-            except Exception:
-                continue
-    except Exception:
-        pass
-
-    merged.sort(key=lambda item: (item.get("source") not in {"zigbee2mqtt", "pago", "fusion_solar", "open_meteo"}, item.get("name") or ""))
-    # Apply per-integration device renames (Settings → Integrări) so the
-    # entity picker shows the user-chosen device names instead of raw IEEE.
-    try:
-        from integrations import device_aliases
-        by_slug: dict[str, list[dict[str, Any]]] = {}
-        for ent in merged:
-            by_slug.setdefault(str(ent.get("source") or ""), []).append(ent)
-        for slug, items in by_slug.items():
-            if slug:
-                device_aliases.apply_to_entities(slug, items)
-    except Exception:
-        pass
-    store = get_entity_store()
-    store.apply_overrides(merged)
-    return merged
-
 
 async def _available_entities() -> list[dict[str, Any]]:
-    """Build the merged entity list.
-
-    Dashboard websocket connections poll this frequently. Keep the expensive
-    SQLite/normalization work off the main event loop so a stuck DB pool or
-    integration snapshot cannot freeze the whole HTTP server.
-    """
-    cached = _available_entities_cache_hit()
-    if cached is not None:
-        return cached
-
-    async with _available_entities_lock():
-        cached = _available_entities_cache_hit()
-        if cached is not None:
-            return cached
-        try:
-            merged = await asyncio.wait_for(
-                asyncio.to_thread(_build_available_entities_uncached),
-                timeout=8.0,
-            )
-        except Exception as exc:
-            log.warning("available entity refresh failed: %s", exc)
-            return _AVAIL_CACHE.get("data") or []
-
-    _AVAIL_CACHE["data"] = merged
-    _AVAIL_CACHE["t"] = _time.monotonic()
-    return merged
+    """Build the merged entity list for dashboard WS and hydration."""
+    return await get_entities(include_derived=False, sort_mode="dashboard")
 
 
 def invalidate_available_entities_cache() -> None:
     """Drop the cached entity list (call after a manual sync or entity update)."""
-    _AVAIL_CACHE["data"] = None
-    _AVAIL_CACHE["t"] = 0.0
+    invalidate_entity_cache()
+
+
+def _available_entities_cache_hit() -> list[dict[str, Any]] | None:
+    return peek_cached_entities(include_derived=False, sort_mode="dashboard")
 
 
 def _scene_synthetic_entities(db: Session, user: models.User) -> list[dict[str, Any]]:

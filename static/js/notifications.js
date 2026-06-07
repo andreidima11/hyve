@@ -3,6 +3,7 @@ import { escapeHtml, showConfirm, showToast } from './utils.js';
 import { t } from './lang/index.js';
 import { switchTab, openConfigSection, switchUserProfileTab } from './nav_bridge.js';
 import { refreshUpdatesHeaderBadge } from './features_addons_settings.js';
+import { installHyveNativeBridge } from './native_bridge.js';
 
 let _currentFilter = 'all';
 let _notificationPage = 1;
@@ -668,12 +669,7 @@ export function initNotifications() {
         if (event.key === 'Escape') _setFilterMenuOpen(false);
     });
 
-    window.__hyveShowNotification = function(title, message) {
-        switchTab('user');
-        switchUserProfileTab('notifications');
-        loadUserNotifications('all');
-        if (message) showToast(message, 'info', 3500);
-    };
+    installHyveNativeBridge({ loadUserNotifications });
 
     loadNotificationCounts();
     startLiveFallbacks();
@@ -682,12 +678,6 @@ export function initNotifications() {
         if (_wsEnabled) connectWebSocket();
         else closeWebSocket();
     });
-
-    if (window.__pendingHyveNotification) {
-        const pending = window.__pendingHyveNotification;
-        delete window.__pendingHyveNotification;
-        window.__hyveShowNotification(pending.title, pending.message, pending.sessionId);
-    }
 
     return { stop, setEnabled, isEnabled: () => !!_wsEnabled };
 }

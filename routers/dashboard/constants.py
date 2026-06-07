@@ -5,11 +5,8 @@ from typing import Any
 
 from smart_home_registry import controllable_domains, visible_domains
 
-# Short-lived cache for the merged entity list. Multiple dashboard WS
-# connections poll _available_entities() every 1.5s; without a cache each
-# connection rebuilds + re-applies aliases independently.
-_AVAIL_TTL = 5.0
-_AVAIL_CACHE: dict[str, Any] = {"data": None, "t": 0.0}
+# Entity list caching lives in core.entity_catalog (ENTITIES_TTL=5s).
+# Dashboard WS and state_observer share get_entities() via _available_entities().
 
 _SWITCH_DOMAINS = controllable_domains()
 _INFO_DOMAINS = visible_domains() - _SWITCH_DOMAINS

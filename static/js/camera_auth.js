@@ -44,6 +44,28 @@ export function peekCameraStreamToken() {
     return _cache.token || '';
 }
 
+/** Append cached short-lived media token to same-origin proxy URLs. */
+export function appendMediaQueryToken(rawUrl) {
+    const url = String(rawUrl || '');
+    if (!url.startsWith('/')) return url;
+    const token = peekCameraStreamToken();
+    if (!token) return url;
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}token=${encodeURIComponent(token)}`;
+}
+
+/** Sync img-proxy URL — requires prior getCameraStreamToken(). */
+export function imgProxyUrlSync(externalUrl) {
+    const base = `/api/img-proxy?url=${encodeURIComponent(String(externalUrl || ''))}`;
+    return appendMediaQueryToken(base);
+}
+
+/** Sync favicon proxy URL — requires prior getCameraStreamToken(). */
+export function faviconProxyUrlSync(domain) {
+    const base = `/api/favicon?domain=${encodeURIComponent(String(domain || ''))}`;
+    return appendMediaQueryToken(base);
+}
+
 export function clearCameraStreamTokenCache() {
     _cache = { token: '', expiresAt: 0, inflight: null };
 }

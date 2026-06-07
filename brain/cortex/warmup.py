@@ -43,8 +43,8 @@ async def _wait_for_startup_ready(timeout: float = 45.0) -> None:
 
 async def _warmup_selected_entities() -> list[dict]:
     try:
-        from routers.integrations import _all_entities as _all_ents
-        all_items = await _all_ents()
+        from core.entity_catalog import get_entities
+        all_items = await get_entities(include_derived=True, sort_mode="name")
         return [e for e in all_items if e.get("selected")]
     except Exception:
         return []

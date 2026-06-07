@@ -519,8 +519,8 @@ class IntegrationEntityStore:
         returns [] on failure so callers can degrade gracefully.
         """
         try:
-            from routers.integrations import _build_all_entities_uncached
-            return _build_all_entities_uncached(include_derived=False) or []
+            from core.entity_catalog import build_entities_uncached
+            return build_entities_uncached(include_derived=False) or []
         except Exception as e:
             log.debug("get_all_entities failed: %s", e)
             return []

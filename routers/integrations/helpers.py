@@ -1,0 +1,147 @@
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from fastapi import HTTPException
+
+from addons.entity_store import get_entity_store
+from core.entity_catalog import (
+    build_entities_uncached,
+    get_entities,
+    invalidate_entity_cache,
+)
+
+log = logging.getLogger("integrations")
+
+
+async def all_entities(include_derived: bool = True) -> list[dict[str, Any]]:
+    return await get_entities(include_derived=include_derived, sort_mode="name")
+
+
+def build_all_entities_uncached(include_derived: bool = True) -> list[dict[str, Any]]:
+    return build_entities_uncached(include_derived=include_derived, sort_mode="name")
+
+
+def invalidate_all_entities_cache() -> None:
+    invalidate_entity_cache()
+
+
+def register_instance_fetcher(store, inst) -> str:
+    """Register an integration instance fetcher with its per-provider timeout."""
+    from addons.entity_store import FETCH_TIMEOUT_SECONDS
+
+    key = inst.store_key
+    timeout = float(getattr(inst, "fetch_timeout_seconds", FETCH_TIMEOUT_SECONDS))
+    store.register_fetcher(
+        key,
+        inst.fetch_entities,
+        inst.format_context,
+        description=getattr(inst, "description", "") or "",
+        timeout_seconds=timeout,
+    )
+    return key
+
+
+async def apply_instance_sync_schedule(store, inst, *, restart_loop: bool = False) -> str | None:
+    """Persist scan_interval from the entry config and optionally restart its loop."""
+    if inst is None or not inst.supports_sync:
+        return None
+    import settings
+
+    key = register_instance_fetcher(store, inst)
+    interval = inst.sync_interval(settings.CFG)
+    store.set_interval(key, interval)
+    if restart_loop:
+        if inst.uses_background_sync():
+            await store.restart_sync_loop(key, interval)
+        else:
+            store.stop_sync_loop(key)
+    return key
+
+
+async def ensure_fetcher(slug: str, store) -> bool:
+    """Try to register a fetcher for a known integration on the fly."""
+    try:
+        from integrations import get_integration_manager
+
+        manager = get_integration_manager()
+        if manager.register_fetcher(slug, store):
+            return True
+    except Exception as exc:  # pragma: no cover - defensive
+        log.debug("IntegrationManager.register_fetcher(%s) failed: %s", slug, exc)
+    return False
+
+
+def group_entities_into_devices(entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Group a flat entity list by ``device_id`` (with sane fallbacks)."""
+    groups: dict[tuple[str, str], dict[str, Any]] = {}
+    order: list[tuple[str, str]] = []
+    for ent in entities:
+        attrs = ent.get("attributes") or {}
+        did = (
+            str(ent.get("device_id") or "").strip()
+            or str(attrs.get("device_id") or "").strip()
+            or str(ent.get("entity_id") or "").strip()
+        )
+        if not did:
+            continue
+        entry_id = str(ent.get("entry_id") or "")
+        gkey = (entry_id, did)
+        if gkey not in groups:
+            order.append(gkey)
+            groups[gkey] = {
+                "device_id": did,
+                "entry_id": entry_id,
+                "entry_title": ent.get("entry_title") or "",
+                "name": (
+                    ent.get("device_name")
+                    or attrs.get("device_name")
+                    or ent.get("name")
+                    or did
+                ),
+                "model": ent.get("device_model") or attrs.get("device_model") or "",
+                "manufacturer": (
+                    ent.get("device_manufacturer")
+                    or attrs.get("device_manufacturer")
+                    or ""
+                ),
+                "area": ent.get("area") or attrs.get("area") or "",
+                "friendly_name": (
+                    attrs.get("friendly_name") or ent.get("device_name") or ""
+                ),
+                "entities": [],
+            }
+        groups[gkey]["entities"].append(ent)
+    devices = [groups[k] for k in order]
+    devices.sort(key=lambda d: ((d.get("entry_title") or "").lower(), (d.get("name") or "").lower()))
+    return devices
+
+
+def redact_entry(entry: dict[str, Any], schema: list[dict[str, Any]]) -> dict[str, Any]:
+    if not entry:
+        return entry
+    secrets = {f["key"] for f in (schema or []) if f.get("secret") and f.get("key")}
+    out = dict(entry)
+    data = dict(out.get("data") or {})
+    for k in secrets:
+        if data.get(k):
+            data[k] = "••••••"
+    out["data"] = data
+    return out
+
+
+def provider_meta(slug: str) -> dict[str, Any]:
+    from integrations import get_integration_manager
+
+    cls = get_integration_manager().get_class(slug)
+    if not cls:
+        raise HTTPException(status_code=404, detail=f"Provider '{slug}' not found")
+    return {
+        "slug": slug,
+        "label": getattr(cls, "label", slug),
+        "icon": getattr(cls, "icon", "fa-puzzle-piece"),
+        "color": getattr(cls, "color", "text-slate-400"),
+        "supports_multiple": bool(getattr(cls, "SUPPORTS_MULTIPLE", False)),
+        "schema": cls.get_config_schema(),
+    }

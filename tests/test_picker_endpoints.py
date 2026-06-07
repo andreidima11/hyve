@@ -7,6 +7,7 @@ we don't need a running FastAPI test client.
 
 import pytest
 
+from routers.integrations import helpers as integrations_helpers
 from routers import integrations as integrations_router
 
 
@@ -28,7 +29,7 @@ _FAKE_ENTITIES = [
 def patch_all_entities(monkeypatch):
     async def _fake():
         return list(_FAKE_ENTITIES)
-    monkeypatch.setattr(integrations_router, "_all_entities", _fake)
+    monkeypatch.setattr(integrations_helpers, "all_entities", _fake)
 
 
 class _DummyUser:
@@ -102,7 +103,7 @@ def test_picker_domains_counts():
 
 def test_picker_areas(monkeypatch):
     monkeypatch.setattr(
-        integrations_router.area_resolver,
+        integrations_router.entities.area_resolver,
         "list_areas",
         lambda: [
             {"name": "Kitchen", "icon": "fa-utensils", "color": "text-amber-400"},

@@ -3,6 +3,7 @@
  */
 import { t } from './lang/index.js';
 import { withCacheBust } from './asset_version.js';
+import { faviconProxyUrlSync } from './camera_auth.js';
 
 const _loadedScripts = new Map();
 const _loadedStyles = new Map();
@@ -144,7 +145,7 @@ function _dedupeSources(sources) {
 }
 
 function _faviconUrl(domainText) {
-    return `/api/favicon?domain=${encodeURIComponent(domainText)}`;
+    return faviconProxyUrlSync(domainText);
 }
 
 function _sourceChipHtml(src) {
