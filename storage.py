@@ -22,22 +22,39 @@ from chromadb.config import Settings
 from chromadb.utils import embedding_functions
 from settings import CFG
 
-# --- CHROMA DB SETUP ---
+# --- CHROMA DB SETUP (lazy — avoid import-time PersistentClient + embedding load) ---
 os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
-# Disable ChromaDB telemetry to avoid PostHog atexit errors on Ctrl+C
-client_db = chromadb.PersistentClient(
-    path="./chroma_db",
-    settings=Settings(anonymized_telemetry=False),
-)
-
+_client_db = None
+_collection = None
 _emb_fn = None  # cache global
+
+
+def get_client_db():
+    """Return the Chroma persistent client, creating it on first use."""
+    global _client_db
+    if _client_db is None:
+        _client_db = chromadb.PersistentClient(
+            path="./chroma_db",
+            settings=Settings(anonymized_telemetry=False),
+        )
+    return _client_db
+
+
+class _LazyCollectionProxy:
+    """Defer Chroma collection init until first attribute access."""
+
+    def __getattr__(self, name):
+        return getattr(get_collection(), name)
+
+
+collection = _LazyCollectionProxy()
 
 
 def shutdown_storage():
     """Release Chroma and embedding-model resources for clean process shutdown."""
-    global _emb_fn
+    global _emb_fn, _client_db, _collection
     log = logging.getLogger("storage")
 
     model = getattr(_emb_fn, "_model", None) if _emb_fn is not None else None
@@ -55,13 +72,16 @@ def shutdown_storage():
             log.debug("model.cpu failed during shutdown: %s", e)
 
     _emb_fn = None
+    _collection = None
 
-    try:
-        system = getattr(client_db, "_system", None)
-        if system is not None:
-            system.stop()
-    except Exception as e:
-        log.debug("Chroma system.stop failed during shutdown: %s", e)
+    if _client_db is not None:
+        try:
+            system = getattr(_client_db, "_system", None)
+            if system is not None:
+                system.stop()
+        except Exception as e:
+            log.debug("Chroma system.stop failed during shutdown: %s", e)
+        _client_db = None
 
     gc.collect()
 
@@ -160,8 +180,11 @@ def _is_fallback_embedding():
 
 
 def get_collection():
-    global collection
+    global _collection
+    if _collection is not None:
+        return _collection
     emb_fn = _get_embedding_fn()
+    client_db = get_client_db()
     # ChromaDB does not allow changing embedding function on an existing collection.
     # When we fall back to the deterministic embedder, use a separate collection so we don't conflict
     # with the existing one that was created with sentence_transformer.
@@ -188,8 +211,7 @@ def get_collection():
                     _log.info(f"Re-inserted {len(data['ids'])} documents with correct embeddings")
             else:
                 raise
-    # Keep the module-level `collection` in sync so all importers see the live reference
-    collection = coll
+    _collection = coll
     return coll
 
 def compute_embeddings(texts: list[str]):
@@ -212,8 +234,6 @@ def get_collection_health() -> dict:
         "last_error": None,
     }
 
-
-collection = get_collection()
 
 # --- SESSIONS (JSON) ---
 SESSIONS_DIR = os.path.realpath("sessions")

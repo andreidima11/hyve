@@ -190,6 +190,16 @@ async def lifespan(app):
         log_line("error", "⚠️", "I18N", f"component translations preload failed: {e}")
 
     set_startup_core_ready()
+
+    async def _warm_memory_storage():
+        try:
+            await asyncio.to_thread(storage.get_collection)
+            log_line("success", "🧠", "MEMORY", "Chroma collection ready.")
+        except Exception as e:
+            log_line("error", "⚠️", "MEMORY", f"Chroma warm-up failed: {e}")
+
+    asyncio.create_task(_warm_memory_storage(), name="warm-chroma")
+
     yield
 
     scheduler_service.stop_scheduler()
