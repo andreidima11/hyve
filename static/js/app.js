@@ -66,7 +66,7 @@ import {
     openDashboardEntityPicker, closeDashboardEntityPicker, handleDashboardEntityPickerKeydown, pickDashboardEntityOption,
     addSelectedDashboardClimateEntity, removeDashboardClimateEntity, updateDashboardClimateEntityMeta,
     setDashboardAddEditorMode, toggleDashboardVisibilityEditor, addDashboardVisibilityCondition
-} from './dashboard.js?v=hyveview-cards-55';
+} from './dashboard.js?v=hyveview-cards-56';
 
 const _lazyModulePromises = new Map();
 
