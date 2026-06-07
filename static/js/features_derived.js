@@ -8,7 +8,7 @@
 import { apiCall } from './api.js';
 import { t } from './lang/index.js';
 import { escapeHtml, showToast, showConfirm } from './utils.js';
-import { loadSmarthome } from './features.js?v=phase4-config-2';
+import { loadSmarthome } from './features.js?v=phase4-config-10';
 
 const BUILDER_PRESET = 'preset';
 const BUILDER_TRANSFORM = 'transform';

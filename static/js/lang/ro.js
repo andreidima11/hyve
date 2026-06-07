@@ -19,6 +19,7 @@ const ro = {
         user_placeholder: "Utilizator",
         pass_placeholder: "Parolă",
         error: "Utilizator sau parolă incorectă.",
+        session_expired: "Sesiunea a expirat. Autentifică-te din nou.",
         remember_me: "Ține-mă minte",
         button: "Intră în cont"
     },

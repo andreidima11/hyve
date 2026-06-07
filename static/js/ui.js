@@ -1,5 +1,5 @@
-import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive } from './features.js?v=phase4-config-2';
-import { loadDashboard, dashboardHasRenderedContent, resetDashboardEditingState, disconnectDashboardLive, initDashboardSidebarNav } from './dashboard.js?v=hyveview-cards-51';
+import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive } from './features.js?v=phase4-config-10';
+import { loadDashboard, dashboardHasRenderedContent, resetDashboardEditingState, disconnectDashboardLive, initDashboardSidebarNav } from './dashboard.js?v=hyveview-cards-57';
 import { closeAllSubPages } from './utils.js';
 import { t } from './lang/index.js';
 

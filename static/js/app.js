@@ -1,7 +1,7 @@
 import { authToken, clearAuthToken } from './api.js';
 import { showToast, debounce, showConfirm } from './utils.js';
 import { handleLogin, loadUserProfile, restoreRememberedCredentials, tryAutoLogin } from './auth.js';
-import { setTheme, loadThemeSelector, toggleSidebar, closeSidebar, isSidebarOpen, switchTab, switchConfigTab, openConfigSection, closeConfigSection, startLogStream, initSidebarGestures, getStoredThemeId } from './ui.js?v=hyveview-cards-51';
+import { setTheme, loadThemeSelector, toggleSidebar, closeSidebar, isSidebarOpen, switchTab, switchConfigTab, openConfigSection, closeConfigSection, startLogStream, initSidebarGestures, getStoredThemeId } from './ui.js?v=hyveview-cards-57';
 import { initI18n, setLanguage, t, loadComponentTranslations } from './lang/index.js';
 import { applyDashboardEditAccess } from './dashboard/edit_access.js';
 import { sendMessage, stopStreaming, currentSessionId, addAttachedImage, addAttachedDocument, applyInitialGreeting, handleSlashInput, handleSlashKeydown } from './chat.js';
@@ -39,7 +39,7 @@ import {
     switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, syncAutomationBuilderFromYaml, loadAutomationEditorHistory, refreshAutomationEntityOptions, updateAutomationStructuredServiceData,
     loadNotificationPrefs, saveNotificationSettings, selectNotifTransport, selectNotifChannel, testWsNotification, testFcmNotification, testNotification, refreshNotifWsNativeStatus,
     testAmbientNow, resetAmbientReasonerPrompt, testBriefingNow, switchMemorySubtab, checkAddonUpdates, updateAllAddons, updateSingleAddon, closeAddonConfigModal, refreshUpdatesHeaderBadge,
-} from './features.js?v=phase4-config-9';
+} from './features.js?v=phase4-config-10';
 import {
     loadDashboard, openDashboardAddModal, closeDashboardAddModal,
     initDashboardSidebarNav,
@@ -66,7 +66,7 @@ import {
     openDashboardEntityPicker, closeDashboardEntityPicker, handleDashboardEntityPickerKeydown, pickDashboardEntityOption,
     addSelectedDashboardClimateEntity, removeDashboardClimateEntity, updateDashboardClimateEntityMeta,
     setDashboardAddEditorMode, toggleDashboardVisibilityEditor, addDashboardVisibilityCondition
-} from './dashboard.js?v=hyveview-cards-56';
+} from './dashboard.js?v=hyveview-cards-57';
 
 const _lazyModulePromises = new Map();
 
@@ -761,6 +761,15 @@ function routeHashToView() {
 window.addEventListener('DOMContentLoaded', () => {
     // 0. Inițializăm limba UI
     initI18n();
+    try {
+        const expired = new URLSearchParams(window.location.search).has('_expired');
+        if (expired) {
+            showToast(t('login.session_expired'), 'warning');
+            const clean = new URL(window.location.href);
+            clean.searchParams.delete('_expired');
+            window.history.replaceState(null, '', clean.pathname + clean.hash);
+        }
+    } catch (_) {}
     initThinkingModeSelector();
     window.initDashboardSidebarNav = initDashboardSidebarNav;
     try { initDashboardSidebarNav(); } catch (_) {}

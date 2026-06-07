@@ -8,7 +8,7 @@ export {
     cancelDeleteSession,
     confirmDeleteSession,
     clearSessionContext,
-} from './features_sessions.js';
+} from './features_sessions.js?v=phase4-config-10';
 
 export {
     loadAdminUsers,
@@ -21,7 +21,7 @@ export {
     deleteSkill,
     toggleSkillDesc,
     toggleSkillDisabled,
-} from './features_admin_skills.js';
+} from './features_admin_skills.js?v=phase4-config-10';
 
 export {
     loadSmarthome,
@@ -65,7 +65,7 @@ export {
     toggleAllAvailableDevices,
     filterAvailableDevices,
     confirmAddDevices,
-} from './features_smarthome.js';
+} from './features_smarthome.js?v=phase4-config-10';
 
 export {
     switchIntelligenceTab,
@@ -113,7 +113,7 @@ export {
     addAutomationBuilderAction,
     removeAutomationBuilderAction,
     updateAutomationStructuredServiceData,
-} from './features_automations.js';
+} from './features_automations.js?v=phase4-config-10';
 
 export {
     memCache,
@@ -151,7 +151,7 @@ export {
     changeMemPage,
     filterMemory,
     updateMemory,
-} from './features_memory.js';
+} from './features_memory.js?v=phase4-config-10';
 
 export {
     loadConfig,
@@ -194,4 +194,4 @@ export {
     syncUpdatesIntervalDropdown,
     initGenericCustomSelects,
     upgradeNativeSelects,
-} from './features_config.js';
+} from './features_config.js?v=phase4-config-10';

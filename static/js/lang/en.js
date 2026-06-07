@@ -19,6 +19,7 @@ const en = {
         user_placeholder: "Username",
         pass_placeholder: "Password",
         error: "Wrong username or password.",
+        session_expired: "Your session expired. Please sign in again.",
         remember_me: "Remember me",
         button: "Sign in"
     },

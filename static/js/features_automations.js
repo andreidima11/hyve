@@ -418,6 +418,14 @@ function _upgradeAutoBuilderSelects(host) {
     }
 }
 
+// Legacy no-ops: older features.js facades still re-export these names.
+export function setAutomationEntityPickerTarget() {}
+export function pickAutomationEntity() {}
+export function filterAutomationEntityPicker() {}
+export function setAutomationServicePickerTarget() {}
+export function pickAutomationService() {}
+export function filterAutomationServicePicker() {}
+
 function _automationBuilderActionTemplate(kind = 'notify') {
     if (kind === 'service') {
         return { kind: 'service', service: 'light.turn_on', entity_id: '', data: '{}' };
