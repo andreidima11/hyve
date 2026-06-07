@@ -43,23 +43,27 @@ export async function loadSessionsList() {
         const newChatTitle = t('sessions.new_chat');
         listEl.innerHTML = sessions.map(s => {
             const title = escapeHtml(s.title || newChatTitle);
-            const escId = (s.id || '').replace(/'/g, "\\'");
+            const sessionId = escapeHtml(s.id || '');
             return `
                 <div 
                     class="w-full flex items-center gap-2 session-item group rounded-xl hover:bg-white/5 text-slate-300 px-2 py-1"
-                    data-id="${escapeHtml(s.id)}"
+                    data-id="${sessionId}"
                 >
                     <button 
+                        type="button"
                         class="flex-1 text-left text-[11px] px-2 py-1 rounded-lg truncate"
-                        onclick="openSession('${escId}')"
+                        data-chat-action="openSession"
+                        data-chat-session-id="${sessionId}"
                     >
                         ${title}
                     </button>
-                    <span class="session-delete-wrap flex items-center gap-0.5" data-session-id="${s.id}">
+                    <span class="session-delete-wrap flex items-center gap-0.5" data-session-id="${sessionId}">
                         <button 
+                            type="button"
                             class="w-6 h-6 rounded-lg text-[10px] text-slate-500 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center opacity-60 group-hover:opacity-100 transition-all"
                             title="${deleteTip}"
-                            onclick="deleteSession('${escId}', event)"
+                            data-chat-action="deleteSession"
+                            data-chat-session-id="${sessionId}"
                         >
                             <i class="fas fa-xmark"></i>
                         </button>
@@ -127,21 +131,21 @@ export async function newChatSession() {
 }
 
 function _sessionDeleteWrapHtml(id) {
-    const esc = (id || '').replace(/'/g, "\\'");
+    const sessionId = escapeHtml(id || '');
     return `
-        <button type="button" class="w-6 h-6 rounded-lg flex items-center justify-center text-emerald-400 hover:bg-emerald-500/20 transition-all" title="${t('common.confirm') || 'Confirm'}" onclick="confirmDeleteSession('${esc}'); event.stopPropagation();">
+        <button type="button" class="w-6 h-6 rounded-lg flex items-center justify-center text-emerald-400 hover:bg-emerald-500/20 transition-all" title="${t('common.confirm')}" data-chat-action="confirmDeleteSession" data-chat-session-id="${sessionId}">
             <i class="fas fa-check text-[10px]"></i>
         </button>
-        <button type="button" class="w-6 h-6 rounded-lg flex items-center justify-center text-slate-400 hover:bg-white/10 transition-all" title="${t('common.cancel') || 'Cancel'}" onclick="cancelDeleteSession('${esc}'); event.stopPropagation();">
+        <button type="button" class="w-6 h-6 rounded-lg flex items-center justify-center text-slate-400 hover:bg-white/10 transition-all" title="${t('common.cancel')}" data-chat-action="cancelDeleteSession" data-chat-session-id="${sessionId}">
             <i class="fas fa-xmark text-[10px]"></i>
         </button>
     `;
 }
 
 function _sessionDeleteButtonHtml(id, deleteTip) {
-    const esc = (id || '').replace(/'/g, "\\'");
+    const sessionId = escapeHtml(id || '');
     return `
-        <button type="button" class="w-6 h-6 rounded-lg text-[10px] text-slate-500 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center opacity-60 group-hover:opacity-100 transition-all" title="${deleteTip}" onclick="deleteSession('${esc}', event)">
+        <button type="button" class="w-6 h-6 rounded-lg text-[10px] text-slate-500 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center opacity-60 group-hover:opacity-100 transition-all" title="${deleteTip}" data-chat-action="deleteSession" data-chat-session-id="${sessionId}">
             <i class="fas fa-xmark"></i>
         </button>
     `;
@@ -155,7 +159,7 @@ export function deleteSession(id, evt) {
     if (!id) return;
     const row = document.querySelector(`.session-item[data-id="${id}"]`);
     const wrap = row?.querySelector('.session-delete-wrap');
-    if (!wrap || wrap.querySelector('[onclick*="confirmDeleteSession"]')) return;
+    if (!wrap || wrap.querySelector('[data-chat-action="confirmDeleteSession"]')) return;
     wrap.innerHTML = _sessionDeleteWrapHtml(id);
 }
 
@@ -219,7 +223,7 @@ export async function clearSessionContext() {
         setSessionDisplay(t('sessions.new_chat'));
         showChatEmptyState();
     } catch (e) {
-        showToast(t('sessions.clear_context_error') || 'Could not clear context.', 'error');
+        showToast(t('sessions.clear_context_error'), 'error');
     } finally {
         if (clearBtn) {
             clearBtn.classList.remove('is-clearing');

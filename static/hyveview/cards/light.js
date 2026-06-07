@@ -3,9 +3,8 @@
  *
  * Outer article (rendered by dashboard.js) owns drag/edit/click plumbing
  * and the data-on/data-pending/data-unavailable attributes. The brightness
- * slider keeps the same legacy onclick/oninput handlers from window so the
- * existing dashboard.js logic continues to work — we only update the slider
- * value, display %, and CSS var in-place on setState() without re-render.
+ * slider keeps legacy window handlers — we only update the slider value, display
+ * %, and CSS var in-place on setState() without re-render.
  */
 import { HyveviewCardBase } from '../core/card-base.js';
 import { host, widgetTitle } from '../host.js';
@@ -77,13 +76,14 @@ export class HyveviewLightCard extends HyveviewCardBase {
         </div>
       </div>
       ${this._supportsBrightness && !editMode ? `
-        <div class="hyve-dashboard-card__brightness" data-brightness onclick="event.stopPropagation()" style="--brightness-pct: 0%">
+        <div class="hyve-dashboard-card__brightness" data-brightness style="--brightness-pct: 0%">
           <i class="fas fa-sun"></i>
           <input type="range" min="0" max="100" value="0"
             class="hyve-dashboard-card__brightness-slider"
             data-brightness-slider
-            oninput="onDashboardBrightnessInput(event, '${wid}')"
-            onchange="onDashboardBrightnessChange(event, '${wid}')"
+            data-dash-input="brightnessInput"
+            data-dash-change="brightnessChange"
+            data-widget-id="${wid}"
             aria-label="Luminozitate">
           <span class="hyve-dashboard-card__brightness-value" data-brightness-value>0%</span>
         </div>` : ''}

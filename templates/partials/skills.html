@@ -1,0 +1,33 @@
+            <div id="view-skills" class="h-full hidden overflow-y-auto animate-up">
+                <div class="max-w-5xl mx-auto py-4 px-4 sm:py-6 sm:px-6 lg:py-8 lg:px-8 space-y-6 sm:space-y-8">
+                    <header class="mb-6">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <button type="button" data-skills-action="backToConfig" class="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors flex-shrink-0" data-i18n-aria-label="common.back" aria-label="Back"><i class="fas fa-arrow-left text-sm"></i></button>
+                                <div class="min-w-0">
+                                    <h1 class="text-lg sm:text-2xl font-semibold text-white tracking-tight" data-i18n="skills.title">Skills</h1>
+                                    <p class="text-slate-500 text-xs sm:text-sm mt-0.5 truncate hidden sm:block" data-i18n="skills.subtitle">Custom tools created by Forge or added manually.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+                    <div id="skills-list" class="space-y-4">
+                        <div class="p-8 text-center text-slate-500 text-sm" data-i18n="skills.loading">Loading...</div>
+                    </div>
+                </div>
+                <div id="skill-edit-modal" class="app-subpage" aria-hidden="true">
+                    <div class="app-subpage-header">
+                        <button type="button" data-skills-action="closeModal" class="app-subpage-back" data-i18n-aria-label="common.back" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
+                        <h3 class="app-subpage-title" id="skill-edit-title" data-i18n="skills.edit_skill"><i class="fas fa-code"></i><span>Edit skill</span></h3>
+                    </div>
+                    <div class="app-subpage-body overflow-hidden flex flex-col">
+                        <div class="flex-1 min-h-0 p-4 sm:p-6">
+                            <textarea id="skill-edit-source" class="w-full h-full bg-slate-900 border border-white/5 rounded-xl p-4 font-mono text-xs text-slate-300 focus:border-accent outline-none resize-none" spellcheck="false" placeholder="# Python skill code..."></textarea>
+                        </div>
+                    </div>
+                    <div class="app-subpage-footer justify-end">
+                        <button type="button" data-skills-action="closeModal" class="px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:bg-white/5 transition-colors" data-i18n="common.cancel">Cancel</button>
+                        <button type="button" data-skills-action="saveEdit" class="px-4 py-2 rounded-xl text-sm font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n="common.save">Save</button>
+                    </div>
+                </div>
+            </div>

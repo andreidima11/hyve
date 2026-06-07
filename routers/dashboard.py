@@ -219,6 +219,12 @@ def _widget_renderer(widget: dict[str, Any] | None) -> str:
     return str(resolve_dashboard_card(widget.get("type"), widget.get("renderer")).get("renderer") or "button")
 
 
+# Cards that may intentionally omit a visible title; do not back-fill from entity_id.
+_RENDERERS_WITHOUT_DEFAULT_TITLE = frozenset({
+    "weather", "weather_rich", "fusion_solar",
+})
+
+
 def _normalize_visibility_condition(raw: Any) -> dict[str, Any] | None:
     if not isinstance(raw, dict):
         return None
@@ -618,7 +624,8 @@ def _apply_widget_patch(widget: dict[str, Any], patch: dict[str, Any]) -> dict[s
 
     if not entity_id:
         entity_id = f"label.{_slugify(title or entity_name or 'section')}"
-    if not title:
+    renderer = str(card_meta.get("renderer") or _widget_renderer(updated) or "").strip()
+    if not title and renderer not in _RENDERERS_WITHOUT_DEFAULT_TITLE:
         title = entity_name or entity_id
     if _widget_renderer(updated) == "label":
         entity_name = entity_name

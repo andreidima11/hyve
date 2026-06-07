@@ -1,0 +1,242 @@
+            <div id="view-smarthome" class="h-full hidden overflow-y-auto animate-up hy-page">
+                <div class="hy-page-inner"></div>
+                <!-- Add Devices Modal -->
+                <div id="add-devices-modal" class="modal-overlay app-modal fixed inset-0 z-50 hidden items-center justify-center p-2 sm:p-4">
+                    <div class="glass app-modal-panel max-w-2xl">
+                        <div class="app-modal-header">
+                            <h3 class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
+                                <i class="fas fa-plus-circle"></i>
+                                <span data-i18n="hy.add_devices_title">Adaugă dispozitive</span>
+                            </h3>
+                            <button data-smarthome-action="closeAddDevicesModal" class="app-modal-close touch-manipulation" aria-label="Close"><i class="fas fa-xmark"></i></button>
+                        </div>
+                        <div class="px-6 pb-2 flex items-center gap-3">
+                            <i class="fas fa-magnifying-glass text-slate-500 text-xs"></i>
+                            <input type="text" id="add-devices-search" data-smarthome-input="filterAvailableDevices" class="bg-transparent border-none focus:ring-0 text-sm text-white placeholder-slate-600 flex-1" placeholder="Search available entities...">
+                            <button data-smarthome-action="toggleAllAvailableDevices" class="text-[10px] font-bold text-accent hover:text-accent-hover uppercase tracking-widest transition-all" data-i18n="hy.select_all">Select all</button>
+                        </div>
+                        <div id="add-devices-list" class="app-modal-body !pt-3 !pb-3 space-y-1.5">
+                            <div class="text-center text-slate-500 text-sm py-8" data-i18n="hy.loading_available">Loading available entities...</div>
+                        </div>
+                        <div class="app-modal-footer items-center justify-between">
+                            <span class="text-xs text-slate-500" id="add-devices-count">0 selected</span>
+                            <div class="flex gap-3">
+                                <button data-smarthome-action="closeAddDevicesModal" class="px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:bg-white/5 transition-colors" data-i18n="hy.cancel">Cancel</button>
+                                <button data-smarthome-action="confirmAddDevices" class="px-4 py-2 rounded-xl text-sm font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n="hy.add_selected">Add Selected</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Integration Device / Entity Detail Modal -->
+                <div id="entity-detail-modal" class="modal-overlay app-modal fixed inset-0 z-[55] hidden items-center justify-center p-2 sm:p-4" data-smarthome-action="closeEntityDetailModal" data-smarthome-backdrop-dismiss="true">
+                    <div class="glass app-modal-panel max-w-lg w-full max-h-[78vh] flex flex-col" data-smarthome-stop-propagation="true">
+                        <div class="app-modal-header">
+                            <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2 min-w-0">
+                                <i id="entity-detail-modal-icon" class="fas fa-microchip text-accent"></i>
+                                <span id="entity-detail-modal-label" class="truncate" data-i18n="hy.device_default">Device</span>
+                            </h3>
+                            <button type="button" data-smarthome-action="closeEntityDetailModal" data-smarthome-stop-propagation="true" class="app-modal-close touch-manipulation" aria-label="Close"><i class="fas fa-xmark pointer-events-none"></i></button>
+                        </div>
+                        <div id="entity-detail-modal-body" class="app-modal-body flex-1 min-h-0 overflow-y-auto !pt-3 !pb-3"></div>
+                    </div>
+                </div>
+
+                <!-- Derived Entity Modal -->
+                <div id="derived-modal" class="modal-overlay app-modal fixed inset-0 z-50 hidden items-center justify-center p-2 sm:p-4">
+                    <div class="glass app-modal-panel max-w-4xl w-full max-h-[92vh] flex flex-col">
+                        <div class="app-modal-header">
+                            <h3 id="derived-modal-title" class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
+                                <i class="fas fa-wand-magic-sparkles"></i>
+                                <span data-i18n="derived.modal_title">New derived entity</span>
+                            </h3>
+                            <div class="flex items-center gap-2">
+                                <button id="derived-delete-btn" data-smarthome-action="deleteDerivedFromModal" class="hidden px-3 py-1.5 rounded-lg text-xs font-bold text-red-300 hover:bg-red-500/10 transition-colors" data-i18n="derived.delete">Delete</button>
+                                <button data-smarthome-action="closeDerivedModal" class="app-modal-close touch-manipulation" aria-label="Close"><i class="fas fa-xmark"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- View tabs (form / yaml) -->
+                        <div class="px-6 pt-3 flex items-center justify-between gap-3">
+                            <div class="inline-flex rounded-lg bg-white/[0.03] p-0.5">
+                                <button id="derived-view-form" data-smarthome-action="switchDerivedView" data-smarthome-view="form" class="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-100 bg-white/10" data-i18n="derived.view_form">Form</button>
+                                <button id="derived-view-yaml" data-smarthome-action="switchDerivedView" data-smarthome-view="yaml" class="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-400" data-i18n="derived.view_yaml">YAML</button>
+                            </div>
+                            <span id="derived-yaml-sync-badge" class="text-[10px] text-emerald-400"></span>
+                        </div>
+
+                        <div class="app-modal-body flex-1 overflow-y-auto !pt-3 !pb-3 space-y-4">
+                            <!-- FORM PANE -->
+                            <div id="derived-view-form-pane" class="space-y-4">
+                                <!-- Basic fields -->
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1" data-i18n="derived.name">Name</label>
+                                        <input type="text" id="derived-name" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white focus:outline-none focus:border-accent/40" placeholder="e.g. Total power">
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1" data-i18n="derived.value_type">Value type</label>
+                                        <select id="derived-value-type" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white focus:outline-none focus:border-accent/40">
+                                            <option value="number">number</option>
+                                            <option value="string">string</option>
+                                            <option value="boolean">boolean</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1" data-i18n="derived.unit">Unit</label>
+                                        <input type="text" id="derived-unit" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white focus:outline-none focus:border-accent/40" placeholder="W, °C, ...">
+                                    </div>
+                                </div>
+
+                                <!-- Builder selector -->
+                                <div class="inline-flex rounded-lg bg-white/[0.03] p-0.5">
+                                    <button id="derived-builder-preset" data-smarthome-action="switchDerivedBuilder" data-smarthome-builder="preset" class="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-100 bg-white/10" data-i18n="derived.builder_preset">Preset</button>
+                                    <button id="derived-builder-transform" data-smarthome-action="switchDerivedBuilder" data-smarthome-builder="transform" class="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-400" data-i18n="derived.builder_transform">Transform</button>
+                                    <button id="derived-builder-expression" data-smarthome-action="switchDerivedBuilder" data-smarthome-builder="expression" class="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-400" data-i18n="derived.builder_expression">Expression</button>
+                                </div>
+
+                                <!-- Builder panes -->
+                                <div id="derived-pane-preset" class="space-y-2">
+                                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="derived.preset">Preset</label>
+                                    <select id="derived-preset" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white focus:outline-none focus:border-accent/40">
+                                        <option value="sum">sum</option>
+                                        <option value="avg">avg</option>
+                                        <option value="min">min</option>
+                                        <option value="max">max</option>
+                                        <option value="count">count</option>
+                                        <option value="any">any</option>
+                                        <option value="all">all</option>
+                                    </select>
+                                </div>
+
+                                <div id="derived-pane-transform" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1" data-i18n="derived.transform_filter">Filter</label>
+                                        <select id="derived-transform-filter" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white focus:outline-none focus:border-accent/40">
+                                            <option value="none">none</option>
+                                            <option value="abs">abs</option>
+                                            <option value="round">round</option>
+                                            <option value="floor">floor</option>
+                                            <option value="ceil">ceil</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1" data-i18n="derived.transform_scale">Scale</label>
+                                        <input type="number" step="any" id="derived-transform-scale" value="1" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white focus:outline-none focus:border-accent/40">
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1" data-i18n="derived.transform_offset">Offset</label>
+                                        <input type="number" step="any" id="derived-transform-offset" value="0" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white focus:outline-none focus:border-accent/40">
+                                    </div>
+                                </div>
+
+                                <div id="derived-pane-expression" class="hidden space-y-2">
+                                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="derived.expression">Expression</label>
+                                    <textarea id="derived-expression" rows="3" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white font-mono focus:outline-none focus:border-accent/40" placeholder="e.g. sensor.a + sensor.b"></textarea>
+                                    <div class="flex items-center gap-2">
+                                        <select id="derived-expression-insert" class="flex-1 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-xs text-white focus:outline-none focus:border-accent/40"></select>
+                                        <button data-smarthome-action="insertDerivedExpressionEntity" class="px-3 py-2 rounded-lg text-xs font-bold bg-white/[0.05] text-slate-200 hover:bg-white/[0.08] transition-colors" data-i18n="derived.insert">Insert</button>
+                                    </div>
+                                </div>
+
+                                <!-- Inputs picker -->
+                                <div id="derived-inputs-section" class="space-y-2">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest" data-i18n="derived.inputs">Inputs</label>
+                                        <span class="text-[10px] text-slate-500"><span data-i18n="derived.selected">Selected</span>: <span id="derived-inputs-count">0</span></span>
+                                    </div>
+                                    <p id="derived-inputs-helper" class="text-[10px] text-slate-500"></p>
+                                    <input type="text" id="derived-inputs-search" data-smarthome-input="filterDerivedCandidates" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white focus:outline-none focus:border-accent/40" placeholder="Search entities...">
+                                    <div id="derived-candidates-list" class="max-h-64 overflow-y-auto rounded-lg border border-white/5 bg-white/[0.02] divide-y divide-white/[0.03]"></div>
+                                </div>
+                            </div>
+
+                            <!-- YAML PANE -->
+                            <div id="derived-view-yaml-pane" class="hidden space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest" for="derived-yaml" data-i18n="derived.yaml">YAML</label>
+                                    <button data-smarthome-action="reloadDerivedYaml" class="text-[10px] font-bold text-accent hover:text-accent-hover uppercase tracking-widest" data-i18n="derived.reload_yaml">Reload from form</button>
+                                </div>
+                                <textarea id="derived-yaml" rows="14" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-xs text-white font-mono focus:outline-none focus:border-accent/40"></textarea>
+                            </div>
+
+                            <!-- Preview -->
+                            <div class="rounded-lg border border-white/5 bg-white/[0.02] p-3 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest" data-i18n="derived.preview">Preview</span>
+                                    <span id="derived-preview-value" class="text-base font-bold text-accent">—</span>
+                                </div>
+                                <div id="derived-preview-inputs" class="text-[10px] text-slate-500 font-mono space-y-0.5"></div>
+                            </div>
+                        </div>
+
+                        <div class="app-modal-footer items-center justify-end">
+                            <div class="flex gap-3">
+                                <button data-smarthome-action="closeDerivedModal" class="px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:bg-white/5 transition-colors" data-i18n="common.cancel">Cancel</button>
+                                <button data-smarthome-action="saveDerived" class="px-4 py-2 rounded-xl text-sm font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n="common.save">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row actions modal (mobil: acțiuni dispozitiv într-un singur modal) -->
+            <div id="hy-row-actions-modal" class="modal-overlay app-modal fixed inset-0 z-[99] hidden items-center justify-center p-2 sm:p-4" data-smarthome-action="closeRowActionsModal" data-smarthome-backdrop-dismiss="true">
+                <div class="glass app-modal-panel max-w-md" data-smarthome-stop-propagation="true">
+                    <div class="app-modal-header">
+                        <h3 id="hy-row-actions-name" class="text-sm font-bold text-accent uppercase tracking-widest truncate min-w-0 flex items-center gap-2"><i class="fas fa-ellipsis-vertical"></i></h3>
+                        <button type="button" data-smarthome-action="closeRowActionsModal" class="app-modal-close" aria-label="Close"><i class="fas fa-xmark"></i></button>
+                    </div>
+                    <div class="app-modal-body space-y-4">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <p id="hy-row-actions-entity" class="text-xs text-slate-500 mono truncate flex-1 min-w-0"></p>
+                        <button type="button" data-smarthome-action="copyEntityIdFromRowActions" class="w-7 h-7 rounded-md bg-white/5 hover:bg-white/10 text-slate-400 hover:text-accent flex items-center justify-center flex-shrink-0 transition-colors" data-i18n-title="hy.copy_entity_id" title="Copiază entity ID" aria-label="Copy entity ID">
+                            <i class="fas fa-copy text-xs"></i>
+                        </button>
+                    </div>
+                    <div class="hy-row-actions-state-block py-3 px-4 rounded-xl bg-white/5 border border-white/5">
+                        <span class="hy-row-actions-state-label block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1" data-i18n="hy.col_state">Stare</span>
+                        <span id="hy-row-actions-state" class="hy-row-actions-state-value text-sm font-medium text-slate-200"></span>
+                    </div>
+                    <div id="hy-row-actions-control" class="hidden"></div>
+                    <div class="flex flex-col gap-3">
+                        <button type="button" id="hy-row-action-alias" class="hy-row-action-btn w-full py-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left px-4 flex items-center gap-3">
+                            <i class="fas fa-tag text-accent w-5 text-center"></i>
+                            <span data-i18n="hy.col_alias">Alias</span>
+                        </button>
+                        <button type="button" id="hy-row-action-toggle" class="hy-row-action-btn hidden w-full py-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left px-4 flex items-center gap-3">
+                            <i class="fas fa-power-off text-accent w-5 text-center"></i>
+                            <span data-i18n="hy.row_action_toggle">On / Off</span>
+                        </button>
+                        <label class="hy-row-action-btn w-full py-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer px-4 flex items-center gap-3">
+                            <i class="fas fa-robot text-purple-400 w-5 text-center"></i>
+                            <span class="flex-1" data-i18n="hy.row_action_ai">Include în AI</span>
+                            <input type="checkbox" id="hy-row-action-ai-cb" class="accent-accent w-5 h-5">
+                        </label>
+                        <button type="button" id="hy-row-action-delete" class="hy-row-action-btn w-full py-3.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-left px-4 flex items-center gap-3">
+                            <i class="fas fa-trash-can w-5 text-center"></i>
+                            <span data-i18n="hy.row_action_delete">Șterge dispozitiv</span>
+                        </button>
+                    </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alias Modal (la nivel de body ca să rămână vizibil la scroll) -->
+            <div id="hy-alias-modal" class="modal-overlay app-modal fixed inset-0 z-[100] hidden items-center justify-center p-2 sm:p-4" data-smarthome-action="closeAliasModal" data-smarthome-backdrop-dismiss="true">
+                <div class="glass app-modal-panel max-w-md" data-smarthome-stop-propagation="true">
+                    <div class="app-modal-header">
+                        <h3 class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2" id="hy-alias-modal-title" data-i18n="hy.alias_modal_title"><i class="fas fa-tag"></i>Alias</h3>
+                        <button type="button" data-smarthome-action="closeAliasModal" class="app-modal-close" aria-label="Close"><i class="fas fa-xmark"></i></button>
+                    </div>
+                    <div class="app-modal-body space-y-4">
+                        <p class="text-[11px] text-slate-500 mono truncate" id="hy-alias-modal-entity"></p>
+                        <div id="hy-alias-inputs" class="space-y-2 max-h-[40vh] overflow-y-auto"></div>
+                        <button type="button" data-smarthome-action="addAliasInput" class="w-full py-2 rounded-xl border border-dashed border-white/20 text-slate-400 hover:text-accent hover:border-accent/50 flex items-center justify-center gap-2 text-sm transition-colors" data-i18n="hy.alias_add_more"><i class="fas fa-plus"></i> Alt alias</button>
+                    </div>
+                    <div class="app-modal-footer justify-end">
+                        <button type="button" data-smarthome-action="closeAliasModal" class="px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:bg-white/5 transition-colors" data-i18n="common.cancel">Cancel</button>
+                        <button type="button" data-smarthome-action="saveAliasesFromModal" class="px-4 py-2 rounded-xl text-sm font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n="common.save">Save</button>
+                    </div>
+                </div>
+            </div>

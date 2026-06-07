@@ -2,59 +2,62 @@
  * Shared utility functions used across multiple JS modules.
  */
 import { t } from './lang/index.js';
+import { withCacheBust } from './asset_version.js';
 
 const _loadedScripts = new Map();
 const _loadedStyles = new Map();
 
 export function loadScriptOnce(src) {
     if (!src || typeof document === 'undefined') return Promise.reject(new Error('Missing script src'));
-    if (_loadedScripts.has(src)) return _loadedScripts.get(src);
+    const resolvedSrc = String(src).startsWith('/static/') ? withCacheBust(src) : src;
+    if (_loadedScripts.has(resolvedSrc)) return _loadedScripts.get(resolvedSrc);
     const promise = new Promise((resolve, reject) => {
-        const existing = document.querySelector(`script[src="${src}"]`);
+        const existing = document.querySelector(`script[src="${resolvedSrc}"]`);
         if (existing?.dataset.loaded === '1') {
             resolve(existing);
             return;
         }
         const script = existing || document.createElement('script');
-        script.src = src;
+        script.src = resolvedSrc;
         script.async = true;
         script.onload = () => {
             script.dataset.loaded = '1';
             resolve(script);
         };
         script.onerror = () => {
-            _loadedScripts.delete(src);
-            reject(new Error(`Could not load script: ${src}`));
+            _loadedScripts.delete(resolvedSrc);
+            reject(new Error(`Could not load script: ${resolvedSrc}`));
         };
         if (!existing) document.head.appendChild(script);
     });
-    _loadedScripts.set(src, promise);
+    _loadedScripts.set(resolvedSrc, promise);
     return promise;
 }
 
 export function loadStyleOnce(href) {
     if (!href || typeof document === 'undefined') return Promise.reject(new Error('Missing stylesheet href'));
-    if (_loadedStyles.has(href)) return _loadedStyles.get(href);
+    const resolvedHref = String(href).startsWith('/static/') ? withCacheBust(href) : href;
+    if (_loadedStyles.has(resolvedHref)) return _loadedStyles.get(resolvedHref);
     const promise = new Promise((resolve, reject) => {
-        const existing = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
+        const existing = document.querySelector(`link[rel="stylesheet"][href="${resolvedHref}"]`);
         if (existing?.dataset.loaded === '1') {
             resolve(existing);
             return;
         }
         const link = existing || document.createElement('link');
         link.rel = 'stylesheet';
-        link.href = href;
+        link.href = resolvedHref;
         link.onload = () => {
             link.dataset.loaded = '1';
             resolve(link);
         };
         link.onerror = () => {
-            _loadedStyles.delete(href);
-            reject(new Error(`Could not load stylesheet: ${href}`));
+            _loadedStyles.delete(resolvedHref);
+            reject(new Error(`Could not load stylesheet: ${resolvedHref}`));
         };
         if (!existing) document.head.appendChild(link);
     });
-    _loadedStyles.set(href, promise);
+    _loadedStyles.set(resolvedHref, promise);
     return promise;
 }
 
@@ -161,14 +164,14 @@ function _ensureSourcesModal() {
     modal.id = 'sources-modal';
     modal.className = 'modal-overlay app-modal fixed inset-0 z-[80] hidden flex items-center justify-center p-2 sm:p-4';
     modal.innerHTML = `
-        <div class="glass app-modal-panel app-modal-content max-w-2xl w-full" onclick="event.stopPropagation()">
+        <div class="glass app-modal-panel app-modal-content max-w-2xl w-full">
             <div class="app-modal-header">
                 <div>
                     <h3 id="sources-modal-title" class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
                         <i class="fas fa-book-open"></i>
                         <span>${escapeHtml(t('chat.sources_label') || 'Surse')}</span>
                     </h3>
-                    <p id="sources-modal-subtitle" class="app-modal-subtitle">0 surse</p>
+                    <p id="sources-modal-subtitle" class="app-modal-subtitle"></p>
                 </div>
                 <button type="button" class="app-modal-close" aria-label="Close">
                     <i class="fas fa-xmark"></i>
@@ -179,6 +182,7 @@ function _ensureSourcesModal() {
     modal.addEventListener('click', (e) => {
         if (e.target === modal) hideSourcesModal();
     });
+    modal.querySelector('.app-modal-panel')?.addEventListener('click', (e) => e.stopPropagation());
     modal.querySelector('.app-modal-close')?.addEventListener('click', hideSourcesModal);
     document.body.appendChild(modal);
     return modal;
@@ -190,7 +194,7 @@ export function showSourcesModal(groupId) {
     const modal = _ensureSourcesModal();
     const subtitle = modal.querySelector('#sources-modal-subtitle');
     const body = modal.querySelector('#sources-modal-body');
-    if (subtitle) subtitle.textContent = `${sources.length} ${sources.length === 1 ? 'sursă' : 'surse'}`;
+    if (subtitle) subtitle.textContent = t('chat.sources_count', { count: sources.length });
     if (body) {
         body.innerHTML = sources.map(src => {
             const domain = escapeHtml(src.domain);
@@ -235,8 +239,8 @@ export function buildSourcesHtml(sources, label) {
         const groupId = `src-${Date.now()}-${++_sourceGroupSeq}`;
         _sourceGroups.set(groupId, normalized);
         const hiddenCount = normalized.length - 3;
-        moreButton = `<button type="button" class="chat-source-more-btn" onclick="window.showSourcesModal && window.showSourcesModal('${groupId}')">
-            +${hiddenCount} ${hiddenCount === 1 ? 'sursă' : 'surse'}
+        moreButton = `<button type="button" class="chat-source-more-btn" data-chat-action="showSourcesModal" data-chat-source-group="${groupId}">
+            ${escapeHtml(t('chat.sources_more', { count: hiddenCount }))}
         </button>`;
     }
     return `<div class="chat-sources-row">

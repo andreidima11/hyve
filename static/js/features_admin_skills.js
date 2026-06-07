@@ -28,7 +28,7 @@ export async function loadAdminUsers() {
                     <div class="text-[11px] text-slate-500 mono">${userName}${u.is_admin ? ' • Admin' : ''}</div>
                     <div class="text-[11px] text-slate-400 mt-1" data-i18n="admin.phones">${t('admin.phones')}: ${phonesStr}</div>
                 </div>
-                <button type="button" onclick="deleteUser(${parseInt(u.id) || 0})" class="flex-shrink-0 px-3 py-1.5 rounded-lg text-[11px] text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors" data-i18n="admin.delete_user">${t('admin.delete_user')}</button>
+                <button type="button" data-config-action="deleteUser" data-config-user-id="${parseInt(u.id) || 0}" class="flex-shrink-0 px-3 py-1.5 rounded-lg text-[11px] text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors" data-i18n="admin.delete_user">${t('admin.delete_user')}</button>
             </div>`;
         }).join('');
     } catch (e) {
@@ -67,7 +67,7 @@ export async function loadSkills() {
     if (!listEl) return;
     try {
         const res = await apiCall('/api/skills');
-        if (!res.ok) { listEl.innerHTML = '<div class="p-4 text-slate-500 text-sm">Failed to load skills.</div>'; return; }
+        if (!res.ok) { listEl.innerHTML = `<div class="p-4 text-slate-500 text-sm">${t('skills.load_error')}</div>`; return; }
         const data = await res.json();
         if (!data.length) {
             listEl.innerHTML = `<div class="cfg-section p-8 text-center text-slate-500 text-sm" data-i18n="skills.empty">No skills yet. Create one from chat with "Fă un skill care..." or add a .py file in skills/generated/.</div>`;
@@ -90,19 +90,19 @@ export async function loadSkills() {
                     </div>
                     <div class="text-slate-400 text-sm mt-1 max-w-xl flex items-start gap-1 flex-wrap">
                         <span class="skill-desc-text" data-full="${fullDescEscaped}">${escapeHtml(shortDesc)}</span>
-                        ${isLong ? `<button type="button" class="skill-desc-toggle shrink-0 min-w-[44px] min-h-[44px] w-8 flex items-center justify-center rounded text-slate-500 hover:text-accent hover:bg-white/5" onclick="window.toggleSkillDesc('${escapeJs(s.name)}')" title="${(t('skills.show_description') || 'See full description').replace(/"/g, '&quot;')}"><i class="fas fa-chevron-down text-[10px]"></i></button>` : ''}
+                        ${isLong ? `<button type="button" class="skill-desc-toggle shrink-0 min-w-[44px] min-h-[44px] w-8 flex items-center justify-center rounded text-slate-500 hover:text-accent hover:bg-white/5" data-skills-action="toggleDesc" data-skill-name="${escapeHtml(s.name)}" title="${escapeHtml(t('skills.show_description'))}"><i class="fas fa-chevron-down text-[10px]"></i></button>` : ''}
                     </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-2 flex-shrink-0">
-                    ${isAdmin ? `<button type="button" onclick="toggleSkillDisabled('${escapeJs(s.name)}')" class="min-h-[44px] px-3 py-2 rounded-lg text-[10px] font-bold touch-manipulation ${s.disabled ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400' : 'bg-white/5 hover:bg-amber-500/20 text-slate-400 hover:text-amber-400'} transition-all" data-i18n="skills.${s.disabled ? 'enable' : 'disable'}">${t(s.disabled ? 'skills.enable' : 'skills.disable') || (s.disabled ? 'Enable' : 'Disable')}</button>` : ''}
-                    ${isAdmin ? `<button type="button" onclick="openSkillEdit('${escapeJs(s.name)}')" class="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-white/5 hover:bg-accent/20 text-slate-300 hover:text-accent transition-all touch-manipulation" data-i18n="common.edit">Edit</button>` : ''}
-                    ${isAdmin ? `<button type="button" onclick="deleteSkill('${escapeJs(s.name)}')" class="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all touch-manipulation" data-i18n="common.delete">Delete</button>` : ''}
+                    ${isAdmin ? `<button type="button" data-skills-action="toggleDisabled" data-skill-name="${escapeHtml(s.name)}" class="min-h-[44px] px-3 py-2 rounded-lg text-[10px] font-bold touch-manipulation ${s.disabled ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400' : 'bg-white/5 hover:bg-amber-500/20 text-slate-400 hover:text-amber-400'} transition-all" data-i18n="skills.${s.disabled ? 'enable' : 'disable'}">${t(s.disabled ? 'skills.enable' : 'skills.disable')}</button>` : ''}
+                    ${isAdmin ? `<button type="button" data-skills-action="openEdit" data-skill-name="${escapeHtml(s.name)}" class="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-white/5 hover:bg-accent/20 text-slate-300 hover:text-accent transition-all touch-manipulation" data-i18n="common.edit">Edit</button>` : ''}
+                    ${isAdmin ? `<button type="button" data-skills-action="deleteSkill" data-skill-name="${escapeHtml(s.name)}" class="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all touch-manipulation" data-i18n="common.delete">Delete</button>` : ''}
                 </div>
             </div>
         `;
         }).join('');
     } catch (e) {
-        listEl.innerHTML = `<div class="cfg-section p-8 text-center text-red-400 text-sm">${t('skills.load_error') || 'Failed to load skills.'}</div>`;
+        listEl.innerHTML = `<div class="cfg-section p-8 text-center text-red-400 text-sm">${t('skills.load_error')}</div>`;
     }
 }
 
@@ -117,7 +117,7 @@ export async function openSkillEdit(name) {
     const sourceEl = document.getElementById('skill-edit-source');
     const modalEl = document.getElementById('skill-edit-modal');
     if (!titleEl || !sourceEl || !modalEl) return;
-    titleEl.textContent = (t('skills.edit_skill') || 'Edit skill') + ': ' + name;
+    titleEl.textContent = (t('skills.edit_skill')) + ': ' + name;
     try {
         const res = await apiCall('/api/skills/' + encodeURIComponent(name));
         const data = await res.json();
@@ -148,27 +148,27 @@ export async function saveSkillEdit() {
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            throw new Error(err.detail || 'Failed to save');
+            throw new Error(err.detail || t('skills.save_error'));
         }
         closeSkillEditModal();
         await loadSkills();
-        showToast(t('config.save_success') || 'Saved.', 'success');
+        showToast(t('config.save_success'), 'success');
     } catch (e) {
-        showToast(e.message || t('skills.save_error') || 'Save failed.', 'error');
+        showToast(e.message || t('skills.save_error'), 'error');
     }
 }
 
 export async function deleteSkill(name) {
-    if (!(await showConfirm((t('skills.delete_confirm') || 'Delete skill "%s"?').replace('%s', name)))) return;
+    if (!(await showConfirm((t('skills.delete_confirm')).replace('%s', name)))) return;
     try {
         const res = await apiCall('/api/skills/' + encodeURIComponent(name), { method: 'DELETE' });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            throw new Error(err.detail || 'Failed to delete');
+            throw new Error(err.detail || t('skills.delete_error'));
         }
         await loadSkills();
     } catch (e) {
-        showToast(e.message || t('skills.delete_error') || 'Delete failed.', 'error');
+        showToast(e.message || t('skills.delete_error'), 'error');
     }
 }
 
@@ -186,12 +186,12 @@ export function toggleSkillDesc(skillName) {
         textEl.textContent = full.length > DESC_TRUNCATE_LEN ? full.slice(0, DESC_TRUNCATE_LEN) + '…' : full;
         textEl.removeAttribute('data-expanded');
         btn.innerHTML = '<i class="fas fa-chevron-down"></i>';
-        btn.title = t('skills.show_description') || 'See full description';
+        btn.title = t('skills.show_description');
     } else {
         textEl.textContent = full;
         textEl.setAttribute('data-expanded', '1');
         btn.innerHTML = '<i class="fas fa-chevron-up"></i>';
-        btn.title = t('skills.hide_description') || 'See less';
+        btn.title = t('skills.hide_description');
     }
 }
 
@@ -201,6 +201,6 @@ export async function toggleSkillDisabled(skillName) {
         if (!res.ok) throw new Error('Toggle failed');
         await loadSkills();
     } catch (e) {
-        showToast(e.message || (t('skills.toggle_error') || 'Could not update skill.'), 'error');
+        showToast(e.message || (t('skills.toggle_error')), 'error');
     }
 }

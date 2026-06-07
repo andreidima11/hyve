@@ -35,7 +35,7 @@ export class HyveviewWeatherRichCard extends HyveviewCardBase {
   static schema = {
     fields: [
       { key: 'entity_id', label: 'Weather entity', type: 'entity', domains: ['weather'], required: true },
-      { key: 'title', label: 'Title', type: 'string', placeholder: 'Auto from entity if blank' },
+      { key: 'title', label: 'Title', type: 'string', placeholder: 'Optional — leave empty for no title' },
     ],
   };
   static getStubConfig(entityId) {
@@ -97,6 +97,8 @@ export class HyveviewWeatherRichCard extends HyveviewCardBase {
     this._forecastDays = span.col >= 6 ? 4 : (span.col >= 4 ? 3 : 2);
 
     const titleFull = widgetTitle(w);
+    const titleClass = titleFull ? 'hyve-dashboard-card__title' : 'hyve-dashboard-card__title hidden';
+    const cityClass = titleFull ? 'hv-cp-weather__city' : 'hv-cp-weather__city hidden';
 
     if (this._isCompact) {
       const backdrop = `
@@ -111,7 +113,7 @@ export class HyveviewWeatherRichCard extends HyveviewCardBase {
           <i class="hyve-dashboard-card__weather-icon fas fa-cloud" data-icon></i>
           <div class="hyve-dashboard-card__weather-compact-body">
             <div class="hyve-dashboard-card__weather-temp" data-temp>—</div>
-            <div class="hyve-dashboard-card__title" data-title>${escape(titleFull)}</div>
+            <div class="${titleClass}" data-title>${escape(titleFull)}</div>
           </div>
         </div>
       `;
@@ -142,7 +144,7 @@ export class HyveviewWeatherRichCard extends HyveviewCardBase {
       <div class="hv-cp-weather" data-weather-root>
         <div class="hv-cp-weather__current">
           <div class="hv-cp-weather__left">
-            <h5 class="hv-cp-weather__city" data-cp-city>${escape(titleFull)}</h5>
+            <h5 class="${cityClass}" data-cp-city>${escape(titleFull)}</h5>
             <h6 class="hv-cp-weather__date" data-cp-date></h6>
           </div>
           <div class="hv-cp-weather__center">

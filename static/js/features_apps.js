@@ -27,9 +27,9 @@ const _colorMap = {
 // ── helpers ─────────────────────────────────────────────────────────────
 
 function _statusBadge(s) {
-    if (s === 'running') return '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400"><i class="fas fa-circle text-[6px] animate-pulse"></i>Running</span>';
-    if (s === 'exited')  return '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/15 text-red-400"><i class="fas fa-circle text-[6px]"></i>Exited</span>';
-    return '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400"><i class="fas fa-circle text-[6px]"></i>Stopped</span>';
+    if (s === 'running') return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400"><i class="fas fa-circle text-[6px] animate-pulse"></i>${escapeHtml(t('apps.process_status_running'))}</span>`;
+    if (s === 'exited')  return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/15 text-red-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('apps.process_status_exited'))}</span>`;
+    return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('apps.process_status_stopped'))}</span>`;
 }
 
 function _uptime(sec) {
@@ -118,10 +118,10 @@ function _renderConfigField(field, value, isAdmin) {
             <div class="flex gap-2">
                 <input type="${escapeHtml(inputType)}" data-addon-config="${escapeHtml(key)}" value="${escapeHtml(String(safeValue))}" placeholder="${escapeHtml(placeholder)}" ${disabled}
                     class="flex-1 rounded-xl border border-white/[0.06] bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40">
-                <button type="button" onclick="detectAddonSerialPorts('${escapeHtml(key)}')" ${disabled}
+                <button type="button" data-config-action="detectAddonSerialPorts" data-config-key="${escapeHtml(key)}" ${disabled}
                     class="px-3 py-2 rounded-xl text-xs font-semibold bg-accent/15 text-accent hover:bg-accent/25 transition-colors whitespace-nowrap"
-                    title="Scanează adaptoarele USB">
-                    <i class="fas fa-magnifying-glass mr-1"></i>Detectează
+                    title="${escapeHtml(t('apps.detect_serial_title'))}">
+                    <i class="fas fa-magnifying-glass mr-1"></i>${escapeHtml(t('apps.detect_serial'))}
                 </button>
             </div>
             <div data-addon-detect-results="${escapeHtml(key)}" class="hidden space-y-1"></div>
@@ -144,22 +144,22 @@ function _renderConfigSection(addon, isAdmin) {
     const cfg = addon.state?.config || {};
     const webUrl = _buildAddonWebUrl(addon);
     const intro = addon.state?.installed
-        ? 'Ajustează setările acestui add-on local.'
-        : 'Setările se aplică după instalarea locală a add-on-ului.';
+        ? t('apps.config_intro_installed')
+        : t('apps.config_intro_not_installed');
 
     return `
     <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 space-y-4">
         <div class="space-y-1">
-            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Configurare</span>
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${escapeHtml(t('apps.config_section'))}</span>
             <p class="text-xs text-slate-500">${escapeHtml(intro)}</p>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             ${schema.map(field => _renderConfigField(field, cfg[field.key], isAdmin)).join('')}
         </div>
         <div class="flex flex-wrap gap-2">
-            ${isAdmin ? `<button type="button" onclick="saveAddonConfig('${escapeHtml(addon.slug)}')" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent text-bg-main hover:bg-accent-hover transition-all shadow-lg shadow-accent/20"><i class="fas fa-save mr-1.5"></i>Salvează configurația</button>` : ''}
-            ${isAdmin ? `<button type="button" onclick="testAddonHealth('${escapeHtml(addon.slug)}')" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] transition-all"><i class="fas fa-heart-pulse mr-1.5"></i>Verifică conexiunea</button>` : ''}
-            ${webUrl ? `<button type="button" onclick="openAddonWebUI('${escapeHtml(addon.slug)}')" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-all"><i class="fas fa-up-right-from-square mr-1.5"></i>Open Web UI</button>` : ''}
+            ${isAdmin ? `<button type="button" data-config-action="saveAddonConfig" data-config-slug="${escapeHtml(addon.slug)}" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent text-bg-main hover:bg-accent-hover transition-all shadow-lg shadow-accent/20"><i class="fas fa-save mr-1.5"></i>${escapeHtml(t('apps.save_config'))}</button>` : ''}
+            ${isAdmin ? `<button type="button" data-config-action="testAddonHealth" data-config-slug="${escapeHtml(addon.slug)}" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] transition-all"><i class="fas fa-heart-pulse mr-1.5"></i>${escapeHtml(t('apps.test_connection'))}</button>` : ''}
+            ${webUrl ? `<button type="button" data-config-action="openAddonWebUI" data-config-slug="${escapeHtml(addon.slug)}" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-all"><i class="fas fa-up-right-from-square mr-1.5"></i>${escapeHtml(t('apps.open_web_ui'))}</button>` : ''}
         </div>
     </div>`;
 }
@@ -170,15 +170,15 @@ function _renderConfigSection(addon, isAdmin) {
 function _addonStatusBadge(addon, processStatus) {
     const installed = addon.state?.installed;
     const enabled = addon.state?.enabled;
-    if (!installed) return '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400">Disponibil</span>';
+    if (!installed) return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400">${escapeHtml(t('toast.addon_status_available'))}</span>`;
     if (addon.start_command && processStatus) return _statusBadge(processStatus.status || 'stopped');
-    if (enabled) return '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400"><i class="fas fa-circle text-[6px]"></i>Activ</span>';
-    return '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400"><i class="fas fa-circle text-[6px]"></i>Instalat</span>';
+    if (enabled) return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('toast.addon_status_active'))}</span>`;
+    return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('toast.addon_status_installed'))}</span>`;
 }
 
 function _updateIndicator(addon) {
     if (!addon || !addon.update_available) return '';
-    return `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500/15 text-amber-300 flex-shrink-0" title="${escapeHtml(t('updates.update_available') || 'Update available')}"><i class="fas fa-arrow-up text-[9px]"></i></span>`;
+    return `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500/15 text-amber-300 flex-shrink-0" title="${escapeHtml(t('updates.update_available'))}"><i class="fas fa-arrow-up text-[9px]"></i></span>`;
 }
 
 function _renderSummaryCard(addon, status) {
@@ -191,7 +191,7 @@ function _renderSummaryCard(addon, status) {
         : `<div class="w-10 h-10 rounded-xl ${cm.bg} flex items-center justify-center flex-shrink-0"><i class="${escapeHtml(icon)} ${cm.text}"></i></div>`;
 
     return `
-    <button type="button" onclick="openAppDetail('${escapeHtml(slug)}')"
+    <button type="button" data-config-action="openAppDetail" data-config-slug="${escapeHtml(slug)}"
         class="app-summary w-full text-left rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 transition-all hover:border-white/[0.12] hover:bg-white/[0.04] active:scale-[0.995]"
         data-slug="${escapeHtml(slug)}">
         <div class="flex items-center justify-between gap-4">
@@ -236,15 +236,15 @@ function _renderDetail(addon, status) {
         if (!installed) {
             lifecycleHtml = `
             <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 space-y-3">
-                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Instalare locală</span>
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${escapeHtml(t('apps.local_install_title'))}</span>
                 <div id="preflight-area" class="hidden space-y-2"></div>
-                <p class="text-xs text-slate-500">Serviciul nu este instalat local încă. Îl poți instala aici și apoi îi poți ajusta setările.</p>
+                <p class="text-xs text-slate-500">${escapeHtml(t('apps.local_install_desc'))}</p>
                 <div class="flex gap-2">
-                    <button type="button" id="preflight-btn" onclick="runPreflight('${escapeHtml(slug)}')" class="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] transition-colors">
-                        <i class="fas fa-stethoscope mr-1.5"></i>Verifică cerințe
+                    <button type="button" id="preflight-btn" data-config-action="runPreflight" data-config-slug="${escapeHtml(slug)}" class="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] transition-colors">
+                        <i class="fas fa-stethoscope mr-1.5"></i>${escapeHtml(t('apps.check_requirements'))}
                     </button>
-                    <button type="button" id="install-btn" onclick="installApp('${escapeHtml(slug)}')" class="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20">
-                        <i class="fas fa-download mr-1.5"></i>Instalează
+                    <button type="button" id="install-btn" data-config-action="installApp" data-config-slug="${escapeHtml(slug)}" class="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20">
+                        <i class="fas fa-download mr-1.5"></i>${escapeHtml(t('toast.addon_install_btn'))}
                     </button>
                 </div>
             </div>`;
@@ -252,25 +252,25 @@ function _renderDetail(addon, status) {
             const watchdogOn = !!addon.state?.watchdog;
             lifecycleHtml = `
             <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 space-y-3">
-                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Administrare</span>
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${escapeHtml(t('apps.admin_section'))}</span>
                 ${hasProcess ? `
                 <label class="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 flex items-start gap-3 cursor-pointer">
                     <input type="checkbox" id="addon-watchdog-${escapeHtml(slug)}" ${watchdogOn ? 'checked' : ''}
-                        onchange="toggleAddonWatchdog('${escapeHtml(slug)}', this.checked)"
+                        data-config-input="toggleAddonWatchdog" data-config-slug="${escapeHtml(slug)}"
                         class="mt-0.5 rounded border-white/10 bg-slate-900 text-accent focus:ring-accent/40">
                     <span class="min-w-0">
-                        <span class="block text-sm text-white"><i class="fas fa-shield-halved mr-1.5 opacity-70"></i>Restartare automată (watchdog)</span>
-                        <span class="block text-[11px] text-slate-500 mt-1">Pornește serviciul odată cu Hyve și îl repornește dacă procesul cade.</span>
+                        <span class="block text-sm text-white"><i class="fas fa-shield-halved mr-1.5 opacity-70"></i>${escapeHtml(t('apps.watchdog_auto_restart'))}</span>
+                        <span class="block text-[11px] text-slate-500 mt-1">${escapeHtml(t('apps.watchdog_auto_restart_hint'))}</span>
                     </span>
                 </label>
                 ` : ''}
                 <div class="flex flex-wrap gap-2">
                     ${enabled
-                        ? `<button type="button" onclick="toggleApp('${escapeHtml(slug)}', false)" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all"><i class="fas fa-power-off mr-1.5"></i>Disable</button>`
-                        : `<button type="button" onclick="toggleApp('${escapeHtml(slug)}', true)" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all"><i class="fas fa-check mr-1.5"></i>Enable</button>`
+                        ? `<button type="button" data-config-action="toggleApp" data-config-slug="${escapeHtml(slug)}" data-config-enabled="false" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all"><i class="fas fa-power-off mr-1.5"></i>${escapeHtml(t('common.disable'))}</button>`
+                        : `<button type="button" data-config-action="toggleApp" data-config-slug="${escapeHtml(slug)}" data-config-enabled="true" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all"><i class="fas fa-check mr-1.5"></i>${escapeHtml(t('common.enable'))}</button>`
                     }
-                    ${addon.update_available ? `<button type="button" onclick="goToAddonUpdates()" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 transition-all"><i class="fas fa-arrow-up mr-1.5"></i>${escapeHtml(t('updates.update_available') || 'Update available')}</button>` : ''}
-                    <button type="button" onclick="uninstallApp('${escapeHtml(slug)}')" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all"><i class="fas fa-trash-alt mr-1.5"></i>Dezinstalează</button>
+                    ${addon.update_available ? `<button type="button" data-config-action="goToAddonUpdates" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 transition-all"><i class="fas fa-arrow-up mr-1.5"></i>${escapeHtml(t('updates.update_available'))}</button>` : ''}
+                    <button type="button" data-config-action="uninstallApp" data-config-slug="${escapeHtml(slug)}" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all"><i class="fas fa-trash-alt mr-1.5"></i>${escapeHtml(t('apps.uninstall'))}</button>
                 </div>
             </div>`;
         }
@@ -280,7 +280,7 @@ function _renderDetail(addon, status) {
     <div id="app-detail" class="space-y-5" data-slug="${escapeHtml(slug)}">
         <!-- Header -->
         <div class="flex items-center gap-3">
-            <button type="button" onclick="closeAppDetail()" class="w-9 h-9 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] flex items-center justify-center text-slate-400 transition-all">
+            <button type="button" data-config-action="closeAppDetail" class="w-9 h-9 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] flex items-center justify-center text-slate-400 transition-all">
                 <i class="fas fa-arrow-left"></i>
             </button>
             ${addon.image
@@ -296,26 +296,26 @@ function _renderDetail(addon, status) {
         <!-- Status + Controls -->
         <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 space-y-4">
             <div class="flex items-center justify-between">
-                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Proces</span>
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${escapeHtml(t('apps.process_section'))}</span>
                 <div id="app-detail-badge">${_statusBadge(st)}</div>
             </div>
             <div class="flex items-center gap-4 text-xs text-slate-500">
                 <span><i class="fas fa-microchip mr-1 opacity-60"></i>PID: <span id="app-detail-pid">${pid}</span></span>
-                <span id="app-detail-uptime-wrap" class="${up ? '' : 'hidden'}"><i class="fas fa-clock mr-1 opacity-60"></i>Uptime: <span id="app-detail-uptime">${up}</span></span>
+                <span id="app-detail-uptime-wrap" class="${up ? '' : 'hidden'}"><i class="fas fa-clock mr-1 opacity-60"></i>${escapeHtml(t('apps.uptime'))}: <span id="app-detail-uptime">${up}</span></span>
                 <span><i class="fas fa-tag mr-1 opacity-60"></i>v${escapeHtml(displayVersion)}</span>
             </div>
             <div class="flex flex-wrap gap-2">
-                <button onclick="appAction('${slug}','start')" id="app-detail-start" class="px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${isRunning ? 'bg-white/[0.03] text-slate-600 cursor-not-allowed' : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'}" ${isRunning ? 'disabled' : ''}>
-                    <i class="fas fa-play mr-1.5"></i>Start
+                <button data-config-action="appAction" data-config-slug="${slug}" data-config-app-action="start" id="app-detail-start" class="px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${isRunning ? 'bg-white/[0.03] text-slate-600 cursor-not-allowed' : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'}" ${isRunning ? 'disabled' : ''}>
+                    <i class="fas fa-play mr-1.5"></i>${escapeHtml(t('apps.start'))}
                 </button>
-                <button onclick="appAction('${slug}','stop')" id="app-detail-stop" class="px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${!isRunning ? 'bg-white/[0.03] text-slate-600 cursor-not-allowed' : 'bg-red-500/10 text-red-400 hover:bg-red-500/20'}" ${!isRunning ? 'disabled' : ''}>
-                    <i class="fas fa-stop mr-1.5"></i>Stop
+                <button data-config-action="appAction" data-config-slug="${slug}" data-config-app-action="stop" id="app-detail-stop" class="px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${!isRunning ? 'bg-white/[0.03] text-slate-600 cursor-not-allowed' : 'bg-red-500/10 text-red-400 hover:bg-red-500/20'}" ${!isRunning ? 'disabled' : ''}>
+                    <i class="fas fa-stop mr-1.5"></i>${escapeHtml(t('apps.stop'))}
                 </button>
-                <button onclick="appAction('${slug}','restart')" id="app-detail-restart" class="px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${!isRunning ? 'bg-white/[0.03] text-slate-600 cursor-not-allowed' : 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'}" ${!isRunning ? 'disabled' : ''}>
-                    <i class="fas fa-sync-alt mr-1.5"></i>Restart
+                <button data-config-action="appAction" data-config-slug="${slug}" data-config-app-action="restart" id="app-detail-restart" class="px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${!isRunning ? 'bg-white/[0.03] text-slate-600 cursor-not-allowed' : 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'}" ${!isRunning ? 'disabled' : ''}>
+                    <i class="fas fa-sync-alt mr-1.5"></i>${escapeHtml(t('apps.restart'))}
                 </button>
-                <button onclick="openAppLogModal('${slug}', '${escapeHtml(addon.name)}')" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] transition-all">
-                    <i class="fas fa-terminal mr-1.5"></i>Loguri
+                <button data-config-action="openAppLogModal" data-config-slug="${slug}" data-config-app-name="${escapeHtml(addon.name)}" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] transition-all">
+                    <i class="fas fa-terminal mr-1.5"></i>${escapeHtml(t('apps.logs'))}
                 </button>
             </div>
         </div>
@@ -324,7 +324,7 @@ function _renderDetail(addon, status) {
         <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
             <div class="flex items-center gap-2 text-xs text-slate-500">
                 <i class="fas fa-tag mr-1 opacity-60"></i>v${escapeHtml(displayVersion)}
-                <span class="ml-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400">Disponibil</span>
+                <span class="ml-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400">${escapeHtml(t('toast.addon_status_available'))}</span>
             </div>
         </div>
         ` : `
@@ -366,7 +366,7 @@ export async function loadApps() {
         _addonsCache = addons;
 
         if (!addons.length) {
-            container.innerHTML = '<div class="p-8 text-center text-slate-500 text-sm">Niciun add-on disponibil.</div>';
+            container.innerHTML = `<div class="p-8 text-center text-slate-500 text-sm">${escapeHtml(t('toast.addon_list_empty'))}</div>`;
             return;
         }
 
@@ -383,7 +383,7 @@ export async function loadApps() {
         container.innerHTML = addons.map(a => _renderSummaryCard(a, statuses[a.slug])).join('');
         _startPoll();
     } catch (e) {
-        container.innerHTML = `<div class="p-8 text-center text-red-400 text-sm">Eroare: ${escapeHtml(String(e))}</div>`;
+        container.innerHTML = `<div class="p-8 text-center text-red-400 text-sm">${escapeHtml(t('common.error'))}: ${escapeHtml(String(e))}</div>`;
     }
 }
 
@@ -408,7 +408,7 @@ export async function openAppDetail(slug) {
 
         container.innerHTML = _renderDetail(addon, status);
     } catch (e) {
-        showToast(`Eroare: ${e.message}`, 'error');
+        showToast(t('apps.error_detail', { message: e.message }), 'error');
     }
 }
 
@@ -429,11 +429,11 @@ export async function appAction(slug, action) {
             const data = await res.json().catch(() => ({}));
             throw new Error(data.detail || res.statusText);
         }
-        showToast(`${slug}: ${action} OK`, 'success');
+        showToast(t('apps.process_action_ok', { slug, action }), 'success');
         // Re-fetch status to update buttons
         await _refreshDetailStatus(slug);
     } catch (e) {
-        showToast(`${slug}: ${e.message}`, 'error');
+        showToast(t('apps.process_action_error', { slug, message: e.message }), 'error');
     } finally {
         if (btn) { btn.disabled = false; btn.classList.remove('opacity-50'); }
     }
@@ -478,7 +478,7 @@ export function openAppLogModal(slug, name) {
     _currentLogSlug = slug;
     const modal = document.getElementById('app-log-modal');
     const title = document.getElementById('app-log-title');
-    if (title) title.innerHTML = `<i class="fas fa-terminal"></i><span>Loguri — ${escapeHtml(name)}</span>`;
+    if (title) title.innerHTML = `<i class="fas fa-terminal"></i><span>${escapeHtml(t('apps.log_title', { name }))}</span>`;
     if (modal) { modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
     refreshAppLogs();
     _stopLogPoll();
@@ -505,10 +505,10 @@ export async function refreshAppLogs() {
         const res = await apiCall(`/api/addons/${encodeURIComponent(_currentLogSlug)}/logs?tail=300`);
         const data = await res.json();
         const lines = data.lines || [];
-        pre.textContent = lines.length ? lines.join('\n') : '(niciun log disponibil)';
+        pre.textContent = lines.length ? lines.join('\n') : t('apps.logs_empty');
         pre.scrollTop = pre.scrollHeight;
     } catch (e) {
-        pre.textContent = `Eroare: ${e.message}`;
+        pre.textContent = t('apps.logs_error', { message: e.message });
     }
 }
 
@@ -519,22 +519,22 @@ export async function runPreflight(slug) {
     const btn  = document.getElementById('preflight-btn');
     if (!area) return;
 
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i>Se verifică...'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('apps.preflight_checking_btn'))}`; }
     area.classList.remove('hidden');
-    area.innerHTML = '<p class="text-xs text-slate-500"><i class="fas fa-spinner fa-spin mr-1.5"></i>Verificare cerințe...</p>';
+    area.innerHTML = `<p class="text-xs text-slate-500"><i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('apps.preflight_checking'))}</p>`;
 
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/install/preflight`);
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            area.innerHTML = `<p class="text-xs text-red-400"><i class="fas fa-exclamation-triangle mr-1.5"></i>${escapeHtml(err.detail || 'Eroare verificare')}</p>`;
+            area.innerHTML = `<p class="text-xs text-red-400"><i class="fas fa-exclamation-triangle mr-1.5"></i>${escapeHtml(err.detail || t('apps.preflight_error'))}</p>`;
             return;
         }
         const data = await res.json();
         const checks = data.checks || [];
 
         if (!checks.length) {
-            area.innerHTML = '<p class="text-xs text-emerald-400"><i class="fas fa-check-circle mr-1.5"></i>Nicio verificare necesară — gata de instalare.</p>';
+            area.innerHTML = `<p class="text-xs text-emerald-400"><i class="fas fa-check-circle mr-1.5"></i>${escapeHtml(t('apps.preflight_no_checks'))}</p>`;
             return;
         }
 
@@ -548,18 +548,18 @@ export async function runPreflight(slug) {
                 <p class="text-[11px] text-slate-400">${escapeHtml(c.detail)}</p>
                 ${c.fix ? `<div class="flex items-center gap-2 mt-1">
                     <code class="flex-1 text-[11px] bg-slate-800 text-amber-300 px-2.5 py-1.5 rounded-lg font-mono select-all">${escapeHtml(c.fix)}</code>
-                    <button type="button" onclick="navigator.clipboard.writeText('${escapeHtml(c.fix)}')" class="px-2 py-1.5 rounded-lg text-[10px] font-bold bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] transition-all flex-shrink-0"><i class="fas fa-copy"></i></button>
+                    <button type="button" data-config-action="copyPreflightFix" data-config-copy-text="${escapeHtml(c.fix)}" class="px-2 py-1.5 rounded-lg text-[10px] font-bold bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] transition-all flex-shrink-0"><i class="fas fa-copy"></i></button>
                 </div>` : ''}
             </div>`;
         }).join('');
 
         if (allOk) {
-            area.innerHTML += '<p class="text-xs text-emerald-400 mt-1"><i class="fas fa-check-circle mr-1.5"></i>Toate cerințele sunt îndeplinite!</p>';
+            area.innerHTML += `<p class="text-xs text-emerald-400 mt-1"><i class="fas fa-check-circle mr-1.5"></i>${escapeHtml(t('apps.preflight_all_ok'))}</p>`;
         }
     } catch (e) {
-        area.innerHTML = `<p class="text-xs text-red-400"><i class="fas fa-exclamation-triangle mr-1.5"></i>Eroare: ${escapeHtml(e.message)}</p>`;
+        area.innerHTML = `<p class="text-xs text-red-400"><i class="fas fa-exclamation-triangle mr-1.5"></i>${escapeHtml(t('common.error'))}: ${escapeHtml(e.message)}</p>`;
     } finally {
-        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-stethoscope mr-1.5"></i>Verifică cerințe'; }
+        if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fas fa-stethoscope mr-1.5"></i>${escapeHtml(t('apps.check_requirements'))}`; }
     }
 }
 
@@ -573,9 +573,9 @@ export async function installApp(slug) {
     const status  = document.getElementById('app-install-status');
     const closeBtn = document.getElementById('app-install-close-btn');
 
-    if (title) title.innerHTML = `<i class="fas fa-download"></i><span>Instalare — ${escapeHtml(slug)}</span>`;
-    if (content) content.textContent = `${t('apps.install_preparing') || 'Preparing installation...'}\n`;
-    if (status)  status.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i>Se instalează...';
+    if (title) title.innerHTML = `<i class="fas fa-download"></i><span>${escapeHtml(t('apps.install_log_title', { slug }))}</span>`;
+    if (content) content.textContent = `${t('apps.install_preparing')}\n`;
+    if (status)  status.innerHTML = `<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('config.app_install_status'))}`;
     if (closeBtn) closeBtn.classList.add('hidden');
     if (modal)  { modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
 
@@ -602,7 +602,7 @@ export async function installApp(slug) {
         if (line === '__DONE__') {
             es.close();
             _installEventSource = null;
-            if (status)  status.innerHTML = '<i class="fas fa-check-circle mr-1.5 text-emerald-400"></i><span class="text-emerald-400">Instalare completă!</span>';
+            if (status)  status.innerHTML = `<i class="fas fa-check-circle mr-1.5 text-emerald-400"></i><span class="text-emerald-400">${escapeHtml(t('apps.install_complete'))}</span>`;
             if (closeBtn) closeBtn.classList.remove('hidden');
             showToast(t('hy.addon_installed'), 'success');
             _openSlug = slug;
@@ -618,7 +618,7 @@ export async function installApp(slug) {
             _installEventSource = null;
             const msg = line.slice('__FAIL__:'.length);
             if (content) content.textContent += `\n❌ ${msg}\n`;
-            if (status)  status.innerHTML = '<i class="fas fa-times-circle mr-1.5 text-red-400"></i><span class="text-red-400">Instalare eșuată</span>';
+            if (status)  status.innerHTML = `<i class="fas fa-times-circle mr-1.5 text-red-400"></i><span class="text-red-400">${escapeHtml(t('apps.install_failed'))}</span>`;
             if (closeBtn) closeBtn.classList.remove('hidden');
             showToast(t('hy.addon_install_error'), 'error');
             return;
@@ -633,7 +633,7 @@ export async function installApp(slug) {
     es.onerror = () => {
         es.close();
         _installEventSource = null;
-        if (status)  status.innerHTML = '<i class="fas fa-times-circle mr-1.5 text-red-400"></i><span class="text-red-400">Conexiune pierdută</span>';
+        if (status)  status.innerHTML = `<i class="fas fa-times-circle mr-1.5 text-red-400"></i><span class="text-red-400">${escapeHtml(t('apps.install_connection_lost'))}</span>`;
         if (closeBtn) closeBtn.classList.remove('hidden');
     };
 }
@@ -651,7 +651,7 @@ export function goToAddonUpdates() {
 }
 
 export async function uninstallApp(slug) {
-    if (!(await showConfirm(`Dezinstalezi add-on-ul "${slug}"?`))) return;
+    if (!(await showConfirm(t('hy.addon_uninstall_confirm', { slug })))) return;
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/uninstall`, { method: 'POST' });
         if (res.ok) {
@@ -671,7 +671,7 @@ export async function toggleApp(slug, enabled) {
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/${ep}`, { method: 'POST' });
         if (res.ok) {
-            showToast(enabled ? 'Add-on activat' : 'Add-on dezactivat', 'success');
+            showToast(enabled ? t('hy.addon_enabled_toast') : t('hy.addon_disabled_toast'), 'success');
             _openSlug = slug;
             await loadApps();
         } else {
@@ -689,14 +689,14 @@ export async function toggleAddonWatchdog(slug, enabled) {
             body: { enabled: !!enabled },
         });
         if (res.ok) {
-            showToast(enabled ? 'Watchdog activat' : 'Watchdog dezactivat', 'success');
+            showToast(enabled ? t('apps.watchdog_enabled_toast') : t('apps.watchdog_disabled_toast'), 'success');
             const idx = _addonsCache.findIndex(a => a.slug === slug);
             if (idx >= 0) {
                 _addonsCache[idx].state = { ...(_addonsCache[idx].state || {}), watchdog: !!enabled };
             }
         } else {
             const data = await res.json().catch(() => ({}));
-            showToast(data.detail || 'Eroare la salvare watchdog', 'error');
+            showToast(data.detail || t('apps.watchdog_save_error'), 'error');
             const cb = document.getElementById(`addon-watchdog-${slug}`);
             if (cb) cb.checked = !enabled;
         }
@@ -714,17 +714,17 @@ export async function detectAddonSerialPorts(fieldKey) {
     const results = root.querySelector(`[data-addon-detect-results="${CSS.escape(safeKey)}"]`);
     if (!input || !results) return;
     results.classList.remove('hidden');
-    results.innerHTML = `<div class="text-[11px] text-slate-500"><i class="fas fa-spinner fa-spin mr-1"></i>Scanare adaptoare USB...</div>`;
+    results.innerHTML = `<div class="text-[11px] text-slate-500"><i class="fas fa-spinner fa-spin mr-1"></i>${escapeHtml(t('apps.usb_scanning'))}</div>`;
     try {
         const res = await apiCall('/api/addons/_helpers/detect-serial-ports');
         if (!res.ok) {
-            results.innerHTML = `<div class="text-[11px] text-rose-300">Eroare la scanare</div>`;
+            results.innerHTML = `<div class="text-[11px] text-rose-300">${escapeHtml(t('apps.scan_error'))}</div>`;
             return;
         }
         const data = await res.json();
         const ports = data.ports || [];
         if (!ports.length) {
-            results.innerHTML = `<div class="text-[11px] text-amber-300"><i class="fas fa-circle-info mr-1"></i>Niciun adaptor USB detectat. Verifică dacă dongle-ul Zigbee este conectat.</div>`;
+            results.innerHTML = `<div class="text-[11px] text-amber-300"><i class="fas fa-circle-info mr-1"></i>${escapeHtml(t('apps.no_usb_adapters'))}</div>`;
             return;
         }
         results.innerHTML = `
@@ -733,7 +733,7 @@ export async function detectAddonSerialPorts(fieldKey) {
                 <button type="button" data-detect-pick="${escapeHtml(p.path)}" class="w-full text-left px-3 py-2 rounded-lg bg-slate-950/80 hover:bg-slate-900 border border-white/[0.06] hover:border-accent/40 transition-colors flex items-center gap-2">
                     <i class="fas fa-plug text-accent text-xs"></i>
                     <span class="font-mono text-[11px] text-slate-300 flex-1 truncate">${escapeHtml(p.path)}</span>
-                    <span class="text-[10px] text-accent">Selectează</span>
+                    <span class="text-[10px] text-accent">${escapeHtml(t('apps.select_port'))}</span>
                 </button>
             `).join('')}
         `;
@@ -742,11 +742,11 @@ export async function detectAddonSerialPorts(fieldKey) {
                 input.value = btn.dataset.detectPick;
                 input.dispatchEvent(new Event('change', { bubbles: true }));
                 results.classList.add('hidden');
-                showToast('Port selectat — nu uita să salvezi configurația', 'success');
+                showToast(t('apps.port_selected_hint'), 'success');
             });
         });
     } catch (e) {
-        results.innerHTML = `<div class="text-[11px] text-rose-300">Eroare de rețea</div>`;
+        results.innerHTML = `<div class="text-[11px] text-rose-300">${escapeHtml(t('toast.network_error'))}</div>`;
     }
 }
 
@@ -792,11 +792,11 @@ export async function saveAddonConfig(slug) {
             const err = await res.json().catch(() => ({}));
             throw new Error(err.detail || 'Config save failed');
         }
-        showToast('Configurația a fost salvată', 'success');
+        showToast(t('toast.addon_config_saved'), 'success');
         _openSlug = slug;
         await openAppDetail(slug);
     } catch (e) {
-        showToast(e.message || 'Eroare la salvare', 'error');
+        showToast(e.message || t('toast.addon_config_save_error'), 'error');
     }
 }
 
@@ -808,13 +808,13 @@ export async function testAddonHealth(slug) {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/health`);
         const data = await res.json();
         if (data?.ok) {
-            showToast('Conexiune OK', 'success');
+            showToast(t('integrations.connection_ok'), 'success');
         } else {
-            showToast(data?.detail || 'Serviciul nu răspunde', 'warning');
+            showToast(data?.detail || t('toast.addon_health_no_response'), 'warning');
         }
         await _refreshDetailStatus(slug);
     } catch (e) {
-        showToast(e.message || 'Verificare eșuată', 'error');
+        showToast(e.message || t('apps.health_check_failed'), 'error');
     }
 }
 
@@ -822,7 +822,7 @@ export function openAddonWebUI(slug) {
     const addon = _addonsCache.find(a => a.slug === slug);
     const url = _buildAddonWebUrl(addon);
     if (!url) {
-        showToast('Configurează mai întâi host-ul sau URL-ul Web UI', 'warning');
+        showToast(t('apps.configure_web_ui_first'), 'warning');
         return;
     }
     window.open(url, '_blank', 'noopener,noreferrer');

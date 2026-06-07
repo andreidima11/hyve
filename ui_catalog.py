@@ -160,7 +160,11 @@ def dashboard_card_catalog() -> list[dict[str, Any]]:
 
 def resolve_dashboard_card(card_type: str | None, renderer: str | None = None) -> dict[str, Any]:
     card_id = str(card_type or "").strip()
+    if card_id == "weather_gradient":
+        card_id = "weather"
     resolved_renderer = str(renderer or "").strip()
+    if resolved_renderer == "weather_gradient":
+        resolved_renderer = "weather"
     catalog = {entry["id"]: entry for entry in dashboard_card_catalog()}
     entry = deepcopy(catalog.get(card_id) or {})
     if not entry and card_id in _CARD_RENDERERS:

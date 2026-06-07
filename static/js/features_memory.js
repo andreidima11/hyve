@@ -21,7 +21,7 @@ export async function loadMemoryEvents(offset = 0) {
     const tbody = document.getElementById('mem-log-tbody');
     const filterEl = document.getElementById('mem-log-type-filter');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-slate-500">' + (t('memory.log_loading') || 'Loading...') + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-slate-500">' + (t('memory.log_loading')) + '</td></tr>';
     const eventType = (filterEl && filterEl.value) || '';
     try {
         let url = `/api/memory/events?limit=${MEM_LOG_PAGE_SIZE}&offset=${offset}`;
@@ -34,7 +34,7 @@ export async function loadMemoryEvents(offset = 0) {
         renderMemoryEventsTable(events);
         updateMemLogPagination();
     } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-red-400">' + (t('memory.log_error') || 'Error loading log') + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-red-400">' + (t('memory.log_error')) + '</td></tr>';
     }
 }
 
@@ -42,7 +42,7 @@ function renderMemoryEventsTable(events) {
     const tbody = document.getElementById('mem-log-tbody');
     if (!tbody) return;
     if (!events.length) {
-        tbody.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-slate-500">' + (t('memory.log_empty') || 'No events') + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-slate-500">' + (t('memory.log_empty')) + '</td></tr>';
         return;
     }
     tbody.innerHTML = events.map((ev, i) => {
@@ -56,7 +56,7 @@ function renderMemoryEventsTable(events) {
             <td class="p-3 mono text-[11px] text-slate-500">${escapeHtml(ts)}</td>
             <td class="p-3"><span class="text-[11px] font-medium ${typeClass}">${escapeHtml(ev.event_type || '—')}</span></td>
             <td class="p-3 text-slate-300 max-w-md truncate" title="${escapeHtml(ev.summary || '')}">${escapeHtml(ev.summary || '—')}</td>
-            <td class="p-3 text-center">${hasDetails ? `<button type="button" onclick="toggleMemLogDetails('${detailsId}')" class="text-accent hover:underline text-[10px]">${t('memory.log_details') || 'Details'}</button>` : '—'}
+            <td class="p-3 text-center">${hasDetails ? `<button type="button" data-memory-action="toggleMemLogDetails" data-memory-details-id="${detailsId}" class="text-accent hover:underline text-[10px]">${t('memory.log_details')}</button>` : '—'}
             </td>
         </tr>
         <tr id="${detailsId}" class="hidden bg-white/[0.02] border-b border-white/5"><td colspan="4" class="p-3"><pre class="text-[10px] mono text-slate-500 overflow-x-auto whitespace-pre-wrap break-all">${escapeHtml(detailsJson)}</pre></td></tr>`;
@@ -93,39 +93,42 @@ export function toggleMemLogDetails(detailsId) {
 }
 
 export async function clearMemoryLog() {
-    const confirmed = await showConfirm(t('memory.log_clear_confirm') || 'Clear the entire memory log? This cannot be undone.');
+    const confirmed = await showConfirm(t('memory.log_clear_confirm'));
     if (!confirmed) return;
     try {
         const res = await apiCall('/api/memory/clear_events', { method: 'POST' });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Error');
-        showToast(t('memory.log_cleared') || 'Memory log cleared', 'success');
+        if (!res.ok) throw new Error(data.error || t('common.error'));
+        showToast(t('memory.log_cleared'), 'success');
         loadMemoryEvents(0);
     } catch (e) {
-        showToast((t('memory.log_clear_error') || 'Failed to clear log') + ': ' + (e.message || String(e)), 'error');
+        showToast((t('memory.log_clear_error')) + ': ' + (e.message || String(e)), 'error');
     }
 }
 
 export async function runConsolidationNow() {
     const resultEl = document.getElementById('consolidation-run-result');
-    if (resultEl) resultEl.textContent = t('memory.consolidation_running') || 'Running...';
+    if (resultEl) resultEl.textContent = t('memory.consolidation_running');
     try {
         const res = await apiCall('/api/memory/consolidation/run', { method: 'POST' });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Error');
+        if (!res.ok) throw new Error(data.error || t('common.error'));
         const r = data.result || {};
-        const msg = (t('memory.consolidation_done') || 'Done') + ': merged ' + (r.merged || 0) + ', deleted ' + (r.deleted_ids || []).length + '.';
+        const msg = t('memory.consolidation_result', {
+            merged: r.merged || 0,
+            deleted: (r.deleted_ids || []).length,
+        });
         if (resultEl) resultEl.textContent = msg;
         loadMemoryEvents(0);
     } catch (e) {
-        if (resultEl) resultEl.textContent = (t('memory.consolidation_error') || 'Error') + ': ' + (e.message || String(e));
+        if (resultEl) resultEl.textContent = (t('memory.consolidation_error')) + ': ' + (e.message || String(e));
     }
 }
 
 export async function fetchDefaultAmbientReasonerPrompt() {
     const res = await apiCall('/api/ambient/default-reasoner-prompt');
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || data.error || 'Error');
+    if (!res.ok) throw new Error(data.detail || data.error || t('common.error'));
     return String(data.prompt || '');
 }
 
@@ -134,52 +137,52 @@ export async function resetAmbientReasonerPrompt() {
     if (!el) return;
     try {
         el.value = await fetchDefaultAmbientReasonerPrompt();
-        showToast(t('config.ambient_reasoner_prompt_reset_done') || 'Prompt resetat la implicit.', 'success');
+        showToast(t('config.ambient_reasoner_prompt_reset_done'), 'success');
     } catch (e) {
-        showToast((t('config.ambient_reasoner_prompt_reset_error') || 'Eroare') + ': ' + (e.message || String(e)), 'error');
+        showToast((t('config.ambient_reasoner_prompt_reset_error')) + ': ' + (e.message || String(e)), 'error');
     }
 }
 
 export async function testAmbientNow() {
     const resultEl = document.getElementById('ambient-test-result');
-    if (resultEl) resultEl.textContent = t('config.ambient_test_running') || 'Se analizează...';
+    if (resultEl) resultEl.textContent = t('config.ambient_test_running');
     try {
         const res = await apiCall('/api/ambient/test', { method: 'POST' });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || data.error || 'Error');
+        if (!res.ok) throw new Error(data.detail || data.error || t('common.error'));
         if (!data.ok) {
-            const reason = data.error === 'disabled' ? (t('config.ambient_test_disabled') || 'Creierul ambient e dezactivat. Salvează cu „Activează" bifat întâi.')
-                : data.error === 'no_llm' ? (t('config.ambient_test_no_llm') || 'Niciun model LLM configurat pentru profilul ales.')
-                : (data.error || 'Error');
+            const reason = data.error === 'disabled' ? (t('config.ambient_test_disabled'))
+                : data.error === 'no_llm' ? (t('config.ambient_test_no_llm'))
+                : (data.error || t('common.error'));
             if (resultEl) resultEl.textContent = reason;
             return;
         }
         if (data.acted) {
-            if (resultEl) resultEl.textContent = (t('config.ambient_test_acted') || 'Sugestie generată — verifică notificările.') + (data.title ? ` „${data.title}"` : '');
-            showToast(data.body || data.title || 'Sugestie generată.', 'info', 5000);
+            if (resultEl) resultEl.textContent = (t('config.ambient_test_acted')) + (data.title ? ` „${data.title}"` : '');
+            showToast(data.body || data.title || t('config.ambient_test_acted'), 'info', 5000);
         } else {
-            if (resultEl) resultEl.textContent = (t('config.ambient_test_idle') || 'Analizat: nimic de sugerat acum.') + ` (${data.candidates || 0} candidați)`;
+            if (resultEl) resultEl.textContent = t('config.ambient_test_idle') + t('config.ambient_test_candidates', { count: data.candidates || 0 });
         }
     } catch (e) {
-        if (resultEl) resultEl.textContent = (t('config.ambient_test_error') || 'Eroare') + ': ' + (e.message || String(e));
+        if (resultEl) resultEl.textContent = (t('config.ambient_test_error')) + ': ' + (e.message || String(e));
     }
 }
 
 export async function testBriefingNow() {
     const resultEl = document.getElementById('briefing-test-result');
-    if (resultEl) resultEl.textContent = 'Se generează...';
+    if (resultEl) resultEl.textContent = t('config.briefings_test_generating');
     try {
         const res = await apiCall('/api/briefings/test', { method: 'POST' });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || data.error || 'Error');
+        if (!res.ok) throw new Error(data.detail || data.error || t('common.error'));
         if (data.ok) {
-            if (resultEl) resultEl.textContent = 'Briefing generat — verifică notificările.';
-            showToast(data.body?.substring(0, 120) || 'Briefing generat.', 'info', 6000);
+            if (resultEl) resultEl.textContent = t('config.briefings_test_generated');
+            showToast(data.body?.substring(0, 120) || t('config.briefings_test_generated_toast'), 'info', 6000);
         } else {
-            if (resultEl) resultEl.textContent = data.error || 'Nu s-a putut genera.';
+            if (resultEl) resultEl.textContent = data.error || t('config.briefings_test_failed');
         }
     } catch (e) {
-        if (resultEl) resultEl.textContent = 'Eroare: ' + (e.message || String(e));
+        if (resultEl) resultEl.textContent = `${t('common.error')}: ${e.message || String(e)}`;
     }
 }
 
@@ -210,7 +213,7 @@ export function renderExtractionExamples(examples) {
                     class="extraction-ex-output w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-xs mono text-slate-300 focus:border-accent outline-none"
                     value="${(Array.isArray(ex.output) ? ex.output.join(', ') : (ex.output || '')).replace(/"/g, '&quot;')}" placeholder="e.g. Is craving pasta">
             </div>
-            <button type="button" onclick="removeExtractionExample(${i})"
+            <button type="button" data-memory-action="removeExtractionExample" data-memory-index="${i}"
                 class="mt-5 sm:mt-5 px-2.5 py-2 rounded-lg text-xs text-red-400/60 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-colors flex-shrink-0 touch-manipulation"
                 title="Remove"><i class="fas fa-trash-can"></i></button>
         `;
@@ -272,7 +275,7 @@ export function setMemLogType(value, label) {
     if (dd) {
         dd.dataset.open = 'false';
         const valueEl = dd.querySelector('.dashboard-custom-select__value');
-        if (valueEl) valueEl.textContent = label || value || (t('memory.log_type_all') || 'Toate');
+        if (valueEl) valueEl.textContent = label || value || (t('memory.log_type_all'));
         dd.querySelectorAll('.dashboard-custom-select__option').forEach(o => {
             o.dataset.selected = o.dataset.value === value ? 'true' : 'false';
         });
@@ -332,9 +335,9 @@ function formatLearnedTime(ts) {
     const d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
     const now = Date.now();
     const diff = now - d.getTime();
-    if (diff < 60000) return (t('intelligence.updated_just_now') || 'just now');
-    if (diff < 3600000) return (t('intelligence.updated_minutes_ago') || '{n} min ago').replace('{n}', Math.floor(diff / 60000));
-    if (diff < 86400000) return (t('intelligence.updated_hours_ago') || '{n} h ago').replace('{n}', Math.floor(diff / 3600000));
+    if (diff < 60000) return (t('intelligence.updated_just_now'));
+    if (diff < 3600000) return (t('intelligence.updated_minutes_ago')).replace('{n}', Math.floor(diff / 60000));
+    if (diff < 86400000) return (t('intelligence.updated_hours_ago')).replace('{n}', Math.floor(diff / 3600000));
     return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
@@ -349,9 +352,9 @@ function formatMemoryDate(ts) {
     const days = Math.floor(diff / 86400000);
     let age = '';
     if (days === 0) age = formatLearnedTime(ts);
-    else if (days === 1) age = t('memory.saved_1_day_ago') || 'acum 1 zi';
-    else if (days < 30) age = (t('memory.saved_days_ago') || 'acum {n} zile').replace('{n}', String(days));
-    else age = (t('memory.saved_old') || 'veche');
+    else if (days === 1) age = t('memory.saved_1_day_ago');
+    else if (days < 30) age = (t('memory.saved_days_ago')).replace('{n}', String(days));
+    else age = (t('memory.saved_old'));
     return { dateTime: `${dateStr}, ${timeStr}`, age };
 }
 
@@ -382,17 +385,17 @@ export function renderMemoryTable() {
     container.innerHTML = slice.map(m => {
         const ts = m.timestamp ?? m.metadata?.timestamp ?? 0;
         const fd = formatMemoryDate(ts);
-        const dateLine = fd.dateTime !== '—' ? `${fd.age}` : (t('memory.no_date') || '—');
+        const dateLine = fd.dateTime !== '—' ? `${fd.age}` : (t('memory.no_date'));
         return `
         <div class="mem-card group relative rounded-xl border border-white/5 bg-white/[0.02] hover:border-accent/20 hover:bg-white/[0.04] transition-all overflow-hidden">
             <div class="absolute top-0 left-0 w-0.5 h-full bg-accent/40 group-hover:bg-accent transition-colors"></div>
             <div class="flex items-start gap-2.5 p-3 pl-3.5">
-                <input type="checkbox" class="mem-bulk-check accent-accent mt-0.5 w-3.5 h-3.5 rounded border-white/10 bg-white/5 flex-shrink-0" value="${escapeHtml(m.id)}" onchange="updateMemBulkCount()">
+                <input type="checkbox" class="mem-bulk-check accent-accent mt-0.5 w-3.5 h-3.5 rounded border-white/10 bg-white/5 flex-shrink-0" value="${escapeHtml(m.id)}" data-memory-input="updateMemBulkCount">
                 <div class="flex-1 min-w-0">
                     <p class="text-[12px] text-slate-200 leading-relaxed line-clamp-3" title="${escapeHtml(m.document)}">${escapeHtml(m.document)}</p>
                     <p class="text-[10px] text-slate-500 mt-1.5 flex items-center gap-1"><i class="far fa-clock text-[8px]"></i>${escapeHtml(dateLine)}</p>
                 </div>
-                <button type="button" onclick="deleteMemBulk(['${escapeHtml(m.id)}'])" class="flex-shrink-0 w-7 h-7 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Delete"><i class="fas fa-trash-alt text-[10px]"></i></button>
+                <button type="button" data-memory-action="deleteMemRow" data-memory-mem-id="${escapeHtml(m.id)}" class="flex-shrink-0 w-7 h-7 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Delete"><i class="fas fa-trash-alt text-[10px]"></i></button>
             </div>
         </div>`;
     }).join('');

@@ -1,5 +1,6 @@
-import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive } from './features.js?v=phase4-config-10';
-import { loadDashboard, dashboardHasRenderedContent, resetDashboardEditingState, disconnectDashboardLive, initDashboardSidebarNav } from './dashboard.js?v=hyveview-cards-57';
+import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive } from './features.js';
+import { loadDashboard, dashboardHasRenderedContent, resetDashboardEditingState, disconnectDashboardLive, initDashboardSidebarNav } from './dashboard.js';
+import { applyDashboardEditAccess } from './dashboard/edit_access.js';
 import { closeAllSubPages } from './utils.js';
 import { t } from './lang/index.js';
 
@@ -121,7 +122,7 @@ export function loadThemeSelector() {
             type="button"
             class="theme-option ${theme.id === currentThemeId ? 'theme-option-active' : ''}"
             data-theme-id="${theme.id}"
-            onclick="window.setTheme('${theme.id}')"
+            data-config-action="setTheme" data-config-theme-id="${theme.id}"
             aria-label="${theme.label} theme"
         >
             <div class="theme-option-preview" aria-hidden="true">
@@ -294,6 +295,7 @@ export function switchTab(tabId, options = {}) {
     }
 
     if (tabId === 'dashboard') {
+        try { applyDashboardEditAccess(); } catch (_) {}
         const hasContent = dashboardHasRenderedContent();
         loadDashboard(hasContent ? { soft: true } : { force: true });
         // Single safety retry: if 2.5s later the grid still shows only a
@@ -462,7 +464,7 @@ export function openConfigSection(section) {
         // Save button for legacy sections that still use explicit persistence.
         if (actionsEl) {
             if (['integrations'].includes(section)) {
-                actionsEl.innerHTML = `<button onclick="saveConfig(event)" class="bg-accent text-bg-main px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold hover:bg-accent-hover transition-all shadow-lg shadow-accent/20 min-h-[36px] sm:min-h-[44px] touch-manipulation" data-i18n="config.save_button">Save</button>`;
+                actionsEl.innerHTML = `<button type="button" data-config-action="saveConfig" class="bg-accent text-bg-main px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold hover:bg-accent-hover transition-all shadow-lg shadow-accent/20 min-h-[36px] sm:min-h-[44px] touch-manipulation" data-i18n="config.save_button">Save</button>`;
             } else {
                 actionsEl.innerHTML = '';
             }

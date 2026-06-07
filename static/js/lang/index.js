@@ -6,8 +6,8 @@
  * 2. In this file: add "import de from './de.js'", add de to LANGUAGES, add { code: 'de', nameKey: 'config.language_de' } to AVAILABLE_LANGUAGES.
  * 3. In en.js and ro.js (and de.js): add config.language_de: "Deutsch" (or "German", etc.) so the settings dropdown shows the label.
  */
-import en from './en.js?v=i18n-updates-32';
-import ro from './ro.js?v=i18n-updates-32';
+import en from './en.js';
+import ro from './ro.js';
 
 // Registry: add new language by adding one entry here and creating <code>.js
 export const LANGUAGES = { en, ro };

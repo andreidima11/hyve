@@ -1,13 +1,13 @@
 import { apiCall } from './api.js';
-import { getCameraStreamToken, peekCameraStreamToken, startCameraPreviewRefresh, stopCameraPreviewRefresh } from './camera_auth.js';
-import { t } from './lang/index.js';
+import { getCameraStreamToken, cameraProxyUrlSync, startCameraPreviewRefresh, stopCameraPreviewRefresh } from './camera_auth.js';
+import { t, tState, applyTranslations } from './lang/index.js';
 import { escapeHtml, showToast, showConfirm, debounce } from './utils.js';
 import { cameraPreferWebmPlayer } from './camera_live.js';
 import { renderEntityModal, getDomainIcon } from './entity_renderers.js';
 import { entityMatchesIntegration } from './integration_sources.js';
-import { ACTIVE_STATES, CONTROLLABLE, STATE_LABELS_RO } from './entity_constants.js';
+import { ACTIVE_STATES, CONTROLLABLE } from './entity_constants.js';
 
-export { ACTIVE_STATES, CONTROLLABLE, STATE_LABELS_RO };
+export { ACTIVE_STATES, CONTROLLABLE };
 
 // --- SMART HOME (IoT) ---
 let _haCurrentFilter = 'all';
@@ -44,47 +44,47 @@ function _mountDevicesPageShell() {
         <div id="hy-devices-root" class="hy-devices-root">
             <header class="hy-devices-hero">
                 <div class="hy-devices-heading-wrap">
-                    <button type="button" onclick="window.location.hash='#/config'; switchTab('config')" class="hy-devices-back" aria-label="Back" title="Back">
+                    <button type="button" data-smarthome-action="openConfigHub" class="hy-devices-back" data-i18n-title="hy.back" aria-label="Back">
                         <i class="fas fa-arrow-left"></i>
                     </button>
                     <div class="hy-devices-hero-copy">
-                        <span class="hy-devices-kicker">Hyve Devices</span>
+                        <span class="hy-devices-kicker" data-i18n="hy.kicker">Hyve Devices</span>
                         <h1 data-i18n="nav.smarthome">Devices</h1>
-                        <p>Entitati, status, arii si control intr-un tabel curat.</p>
+                        <p data-i18n="hy.page_subtitle">Devices and entities</p>
                     </div>
                 </div>
                 <div class="hy-devices-hero-actions">
-                    <button type="button" onclick="syncSmartHome()" class="hy-btn hy-btn-ghost" title="Refresh"><i class="fas fa-arrows-rotate"></i><span>Sync</span></button>
-                    <button type="button" onclick="openDerivedModal()" class="hy-btn hy-btn-primary" title="Create derived entity"><i class="fas fa-wand-magic-sparkles"></i><span>Derived</span></button>
+                    <button type="button" data-smarthome-action="syncSmartHome" class="hy-btn hy-btn-ghost" data-i18n-title="common.reload"><i class="fas fa-arrows-rotate"></i><span data-i18n="hy.sync_all">Sync</span></button>
+                    <button type="button" data-smarthome-action="openDerivedModal" class="hy-btn hy-btn-primary" data-i18n-title="hy.add_derived_title"><i class="fas fa-wand-magic-sparkles"></i><span data-i18n="hy.add_derived">Derived</span></button>
                 </div>
             </header>
 
-            <section class="hy-devices-commandbar" aria-label="Device tools">
+            <section class="hy-devices-commandbar" data-i18n-aria-label="hy.device_tools_aria" aria-label="Device tools">
                 <div class="hy-search-wrap hy-devices-search-wrap">
                     <i class="fas fa-magnifying-glass hy-search-icon" aria-hidden="true"></i>
-                    <input type="search" id="hy-search" class="hy-search-input" data-i18n-placeholder="hy.search_placeholder" placeholder="Cauta dispozitive..." autocomplete="off">
+                    <input type="search" id="hy-search" class="hy-search-input" data-i18n-placeholder="hy.search_placeholder" placeholder="Search..." autocomplete="off">
                 </div>
-                <button type="button" id="hy-mobile-filter-toggle" class="hy-mobile-filter-toggle" onclick="toggleSmarthomeFilters()" aria-controls="hy-filter-panel" aria-expanded="false" title="Filtre">
+                <button type="button" id="hy-mobile-filter-toggle" class="hy-mobile-filter-toggle" data-smarthome-action="toggleSmarthomeFilters" aria-controls="hy-filter-panel" aria-expanded="false" data-i18n-title="hy.filters">
                     <i class="fas fa-sliders" aria-hidden="true"></i>
-                    <span>Filtre</span>
+                    <span data-i18n="hy.filters">Filters</span>
                 </button>
             </section>
 
             <section class="hy-devices-statbar" aria-live="polite">
-                <div><span>Total</span><strong id="hy-count">--</strong></div>
-                <div><span>Active</span><strong id="hy-active-count">--</strong></div>
-                <div><span>AI</span><strong id="hy-ai-count">--</strong></div>
+                <div><span data-i18n="hy.total_devices">Total</span><strong id="hy-count">--</strong></div>
+                <div><span data-i18n="hy.active_now">Active</span><strong id="hy-active-count">--</strong></div>
+                <div><span data-i18n="hy.ai_selected">AI</span><strong id="hy-ai-count">--</strong></div>
             </section>
 
             <section class="hy-sticky-toolbar" data-filters-open="false">
-                <div class="hy-filter-panel" id="hy-filter-panel" aria-label="Filtre dispozitive">
+                <div class="hy-filter-panel" id="hy-filter-panel" data-i18n-aria-label="hy.filters_panel_aria" aria-label="Device filters">
                     <div class="hy-filter-picker-grid">
                         <div class="hy-filter-slot" id="hy-source-filters"></div>
                         <div class="hy-filter-slot" id="hy-area-filters"></div>
                         <div class="hy-filter-slot" id="hy-domain-filters"></div>
-                        <button type="button" class="hy-filter-reset" onclick="resetSmarthomeFilters()" title="Reseteaza filtrele">
+                        <button type="button" class="hy-filter-reset" data-smarthome-action="resetSmarthomeFilters" data-i18n-title="hy.reset_filters">
                             <i class="fas fa-rotate-left"></i>
-                            <span>Reset</span>
+                            <span data-i18n="hy.reset_filters">Reset filters</span>
                         </button>
                     </div>
                 </div>
@@ -93,18 +93,18 @@ function _mountDevicesPageShell() {
             <section id="hy-cards-grid" class="hy-list-wrap hy-devices-table-shell">
                 <div class="hy-table-header">
                     <div class="hy-devices-table-titlebar">
-                        <h2 class="hy-table-caption" data-i18n="hy.list_title">Dispozitive</h2>
+                        <h2 class="hy-table-caption" data-i18n="hy.list_title">Device list</h2>
                         <span id="hy-source-all-count" class="hy-devices-total-pill">--</span>
                     </div>
-                    <table class="hy-list-table" aria-label="Dispozitive">
+                    <table class="hy-list-table" data-i18n-aria-label="hy.table_aria" aria-label="Devices">
                         <thead>
                             <tr>
                                 <th class="hy-col-bulk" aria-hidden="true"></th>
                                 <th class="hy-col-icon" aria-hidden="true"></th>
-                                <th class="hy-col-name"><button type="button" class="hy-th-sort" onclick="sortDevicesBy('name')"><span>Nume</span><i class="fas fa-sort"></i></button></th>
-                                <th class="hy-col-alias">Alias</th>
-                                <th class="hy-col-state"><button type="button" class="hy-th-sort" onclick="sortDevicesBy('state')"><span>Stare</span><i class="fas fa-sort"></i></button></th>
-                                <th class="hy-col-ai"><label class="inline-flex items-center gap-1.5 cursor-pointer select-none" title="Toggle AI for visible entities"><input type="checkbox" id="hy-ai-select-all" class="accent-accent cursor-pointer" onchange="toggleAllAIVisible(this.checked)" aria-label="Toggle AI for all visible"><span>AI</span></label></th>
+                                <th class="hy-col-name"><button type="button" class="hy-th-sort" data-smarthome-action="sortDevices" data-smarthome-sort="name"><span data-i18n="hy.col_name">Name</span><i class="fas fa-sort"></i></button></th>
+                                <th class="hy-col-alias" data-i18n="hy.col_alias">Alias</th>
+                                <th class="hy-col-state"><button type="button" class="hy-th-sort" data-smarthome-action="sortDevices" data-smarthome-sort="state"><span data-i18n="hy.col_state">State</span><i class="fas fa-sort"></i></button></th>
+                                <th class="hy-col-ai"><label class="inline-flex items-center gap-1.5 cursor-pointer select-none" data-i18n-title="hy.toggle_ai_all_title"><input type="checkbox" id="hy-ai-select-all" class="accent-accent cursor-pointer" data-smarthome-change="toggleAllAIVisible" data-i18n-aria-label="hy.toggle_ai_all_aria"><span data-i18n="hy.ai_selected">AI</span></label></th>
                             </tr>
                         </thead>
                         <tbody id="hy-list-tbody"></tbody>
@@ -113,6 +113,7 @@ function _mountDevicesPageShell() {
                 </div>
             </section>
         </div>`;
+    applyTranslations();
     const searchInput = host.querySelector('#hy-search');
     if (searchInput && !searchInput.dataset.hySearchWired) {
         searchInput.dataset.hySearchWired = '1';
@@ -132,7 +133,7 @@ function _setDevicesError(message) {
     const pagination = document.getElementById('hy-devices-pagination');
     if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="hy-list-placeholder hy-list-error">
         <i class="fas fa-triangle-exclamation mr-2"></i>${escapeHtml(message || t('integrations.devices_load_error'))}
-        <button type="button" class="ml-3 text-accent hover:underline text-xs font-semibold" onclick="syncSmartHome()"><i class="fas fa-arrows-rotate mr-1"></i>${escapeHtml(t('integrations.retry'))}</button>
+        <button type="button" class="ml-3 text-accent hover:underline text-xs font-semibold" data-smarthome-action="syncSmartHome"><i class="fas fa-arrows-rotate mr-1"></i>${escapeHtml(t('integrations.retry'))}</button>
     </td></tr>`;
     if (pagination) pagination.innerHTML = '';
 }
@@ -164,11 +165,14 @@ const DOMAIN_COLORS = {
     person: 'bg-slate-500/15 text-slate-400',
     image: 'bg-violet-500/15 text-violet-400', camera: 'bg-sky-500/15 text-sky-400'
 };
-const DOMAIN_LABELS = {
-    light: 'Lumini', switch: 'Comutatoare', script: 'Scripturi', input_boolean: 'Comutatoare',
-    cover: 'Jaluzele', lock: 'Încuietori', sensor: 'Senzori', binary_sensor: 'Senzori binari',
-    climate: 'Climat', media_player: 'Media', vacuum: 'Aspirator', weather: 'Meteo',
-    person: 'Persoane', camera: 'Camere', image: 'Imagini', number: 'Numere', select: 'Selectoare', button: 'Butoane',
+const DOMAIN_LABEL_KEYS = {
+    light: 'hy.filter_lights',
+    switch: 'hy.filter_switches',
+    sensor: 'hy.filter_sensors',
+    binary_sensor: 'hy.filter_binary',
+    climate: 'hy.filter_climate',
+    cover: 'hy.filter_covers',
+    media_player: 'hy.filter_media',
 };
 const DOMAIN_ORDER = [
     'light', 'switch', 'sensor', 'binary_sensor', 'climate', 'cover', 'lock',
@@ -347,7 +351,7 @@ export async function loadSmarthome(options = {}) {
         if (!_integrationEntitiesCache.length) {
             const shouldRetry = !nextEntities || !!_devicesState.query;
             if (shouldRetry) {
-                _setDevicesLoading(_devicesState.query ? 'Se cauta in dispozitive...' : 'Se reincarca dispozitivele...');
+                _setDevicesLoading(_devicesState.query ? t('hy.searching') : t('hy.waiting_data'));
                 _scheduleSmarthomeLoadRetry();
                 return;
             }
@@ -370,7 +374,7 @@ export async function loadSmarthome(options = {}) {
             renderDeviceCards();
             return;
         }
-        _setDevicesLoading(_devicesState.query ? 'Se cauta in dispozitive...' : 'Se reincarca dispozitivele...');
+        _setDevicesLoading(_devicesState.query ? t('hy.searching') : t('hy.waiting_data'));
         _scheduleSmarthomeLoadRetry();
     } finally {
         _smarthomeLoadPromise = null;
@@ -593,15 +597,14 @@ function _patchRowInPlace(d) {
     // Update toggle buttons inside the modal for this entity
     const dom = String(eid).split('.')[0] || '';
     if (['switch', 'light', 'input_boolean'].includes(dom)) {
-        const btns = document.querySelectorAll(`button[onclick*="'${CSS.escape(eid)}'"]`);
+        const btns = document.querySelectorAll(`button[data-smarthome-entity-id="${CSS.escape(eid)}"][data-smarthome-device-action]`);
         for (const btn of btns) {
             if (!btn.closest('#entity-detail-modal-body') && !btn.closest('[data-entity-list]')) continue;
             const newAction = isOn ? 'turn_off' : 'turn_on';
             btn.setAttribute('aria-checked', String(isOn));
+            btn.dataset.smarthomeDeviceAction = newAction;
             btn.textContent = isOn ? 'ON' : 'OFF';
             btn.className = `px-3 py-1.5 rounded-full text-[11px] font-bold border transition-colors shrink-0 ${isOn ? 'bg-accent/20 border-accent/40 text-accent' : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'}`;
-            const oc = btn.getAttribute('onclick') || '';
-            btn.setAttribute('onclick', oc.replace(/turn_on|turn_off|toggle/, newAction));
         }
     }
 }
@@ -718,7 +721,7 @@ export function toggleHABulkMode() {
         updateHABulkCount();
     }
     btn.classList.toggle('active', _haBulkMode);
-    btn.querySelector('span').textContent = _haBulkMode ? (t('hy.cancel') || 'Cancel') : (t('hy.select') || 'Select');
+    btn.querySelector('span').textContent = _haBulkMode ? (t('hy.cancel')) : (t('hy.select'));
 }
 
 const SOURCE_ICONS = {
@@ -736,24 +739,24 @@ function renderDeviceCards() {
     if (!devices.length) {
         const totalAll = _getAllDevices().length;
         if (!totalAll && _smarthomeLoadPromise) {
-            _setDevicesLoading(_devicesState.query ? 'Se cauta in dispozitive...' : 'Se incarca dispozitivele...');
+            _setDevicesLoading(_devicesState.query ? t('hy.searching') : t('hy.waiting_data'));
             return;
         }
         if (!totalAll && _devicesState.query) {
-            _setDevicesLoading('Se cauta in dispozitive...');
+            _setDevicesLoading(t('hy.searching'));
             _scheduleSmarthomeLoadRetry();
             return;
         }
         const filtersActive = _devicesState.domain !== 'all' || _devicesState.source !== 'all' || _devicesState.area !== 'all' || !!_devicesState.query;
         if (totalAll > 0 && filtersActive) {
-            const msg = (typeof t === 'function' && t('hy.empty_no_results')) || 'Niciun rezultat pentru filtrele curente.';
-            const reset = (typeof t === 'function' && t('hy.reset_filters')) || 'Resetează filtrele';
+            const msg = t('hy.empty_no_results');
+            const reset = t('hy.reset_filters');
             tbody.innerHTML = `<tr><td colspan="6" class="hy-list-placeholder">
                 <i class="fas fa-filter-circle-xmark text-slate-600 mr-2"></i>${msg}
-                <button type="button" class="ml-3 text-accent hover:underline text-xs font-semibold" onclick="resetSmarthomeFilters()"><i class="fas fa-rotate-left mr-1"></i>${reset}</button>
+                <button type="button" class="ml-3 text-accent hover:underline text-xs font-semibold" data-smarthome-action="resetSmarthomeFilters"><i class="fas fa-rotate-left mr-1"></i>${reset}</button>
             </td></tr>`;
         } else {
-            tbody.innerHTML = `<tr><td colspan="6" class="hy-list-placeholder"><i class="fas fa-plug text-slate-600 mr-2"></i>${t('hy.no_devices_found') || 'Niciun dispozitiv găsit'}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="hy-list-placeholder"><i class="fas fa-plug text-slate-600 mr-2"></i>${t('hy.no_devices_found')}</td></tr>`;
         }
         if (pagination) pagination.innerHTML = '';
         updateHABulkCount();
@@ -778,10 +781,10 @@ function renderDeviceCards() {
         const fallbackIcon = isDerived ? 'fa-calculator' : (DOMAIN_ICONS[domain] || 'fa-microchip');
         const iconClass = customIconCls || `fas ${fallbackIcon}`;
         const color = isDerived ? 'bg-pink-500/15 text-pink-400' : (DOMAIN_COLORS[domain] || 'bg-slate-500/15 text-slate-400');
-        const stateDisplay = isUnavail ? 'Offline' : `${entity.state ?? ''}${entity.unit ? ' ' + entity.unit : ''}`;
+        const stateDisplay = isUnavail ? tState('unavailable') : `${entity.state ?? ''}${entity.unit ? ' ' + entity.unit : ''}`;
         const aliases = _entityAliases(entity);
         const aliasCount = aliases.length;
-        const aliasBtnText = aliasCount === 0 ? (t('hy.alias_add') || 'Adaugă alias') : aliasCount === 1 ? (t('hy.alias_1') || '1 alias') : (t('hy.alias_n', { count: aliasCount }) || `${aliasCount} aliasuri`);
+        const aliasBtnText = aliasCount === 0 ? t('hy.alias_add') : aliasCount === 1 ? t('hy.alias_1') : t('hy.alias_n', { count: aliasCount });
         const aliasStr = aliases.join(', ');
         const name = escapeHtml(entity.name || entityId);
         const escapedId = escapeHtml(entityId);
@@ -790,8 +793,10 @@ function renderDeviceCards() {
         const sourceLabel = srcMeta?.label || entity.entry_title || entity.source || 'Unknown';
         const sourceBadge = `<span class="hy-source-badge ${srcMeta?.color || 'text-slate-400'}"><i class="fas ${srcMeta?.icon || 'fa-puzzle-piece'}"></i>${escapeHtml(sourceLabel)}</span>`;
 
-        const rowClickHandler = isDerived ? `onclick="if(!event.target.closest('button, input, a, label')) openDerivedModal('${escapedIdAttr}')"` : `onclick="handleHaRowClick(event)"`;
-        return `<tr class="hy-row hy-row-clickable ${isUnavail ? 'hy-row-unavailable' : ''}" data-entity="${escapedIdAttr}" data-domain="${escapeHtmlAttr(domain)}" data-source="${escapeHtmlAttr(source)}" data-search="${escapeHtmlAttr(_deviceSearchText(entity))}" ${rowClickHandler}>
+        const rowAction = isDerived
+            ? `data-smarthome-action="openDerivedModal" data-smarthome-entity-id="${escapedIdAttr}"`
+            : `data-smarthome-action="haRowClick"`;
+        return `<tr class="hy-row hy-row-clickable ${isUnavail ? 'hy-row-unavailable' : ''}" data-entity="${escapedIdAttr}" data-domain="${escapeHtmlAttr(domain)}" data-source="${escapeHtmlAttr(source)}" data-search="${escapeHtmlAttr(_deviceSearchText(entity))}" ${rowAction}>
             <td class="hy-col-bulk"></td>
             <td class="hy-col-icon"><div class="hy-row-icon ${color}"><i class="${iconClass}"></i></div></td>
             <td class="hy-col-name">
@@ -801,7 +806,7 @@ function renderDeviceCards() {
             <td class="hy-col-alias">
                 ${isDerived
                     ? (aliasCount ? `<span class="hy-row-alias-btn text-slate-400">${escapeHtml(aliasBtnText)}</span>` : '')
-                        : `<button type="button" class="hy-row-alias-btn" onclick="event.stopPropagation();openAliasModal('${escapedIdAttr}')" title="${t('hy.alias_modal_title') || 'Alias'}">${escapeHtml(aliasBtnText)}</button>`}
+                        : `<button type="button" class="hy-row-alias-btn" data-smarthome-action="openAliasModal" data-smarthome-entity-id="${escapedIdAttr}" data-smarthome-stop-propagation="true" title="${t('hy.alias_modal_title')}">${escapeHtml(aliasBtnText)}</button>`}
             </td>
             <td class="hy-col-state">
                 <span class="hy-row-state-wrap">
@@ -809,8 +814,8 @@ function renderDeviceCards() {
                 </span>
             </td>
             <td class="hy-col-ai">${isDerived
-                ? `<label class="hy-row-ai cursor-pointer select-none" title="Include in AI context" onclick="event.stopPropagation()"><input type="checkbox" onchange="toggleDerivedSelection('${escapedIdAttr}', this.checked)" ${entity.selected ? 'checked' : ''} class="accent-accent cursor-pointer" aria-label="AI"></label>`
-                : `<label class="hy-row-ai cursor-pointer select-none" title="Include in AI context" onclick="event.stopPropagation()"><input type="checkbox" onchange="event.stopPropagation(); toggleSelection('${escapedIdAttr}', this.checked)" ${entity.selected ? 'checked' : ''} class="accent-accent cursor-pointer" aria-label="AI"></label>`}</td>
+                ? `<label class="hy-row-ai cursor-pointer select-none" title="${escapeHtmlAttr(t('hy.include_ai_context_title'))}" data-smarthome-stop-propagation="true"><input type="checkbox" data-smarthome-change="toggleDerivedSelection" data-smarthome-entity-id="${escapedIdAttr}" ${entity.selected ? 'checked' : ''} class="accent-accent cursor-pointer" aria-label="${escapeHtmlAttr(t('hy.ai_selected'))}"></label>`
+                : `<label class="hy-row-ai cursor-pointer select-none" title="${escapeHtmlAttr(t('hy.include_ai_context_title'))}" data-smarthome-stop-propagation="true"><input type="checkbox" data-smarthome-change="toggleSelection" data-smarthome-entity-id="${escapedIdAttr}" ${entity.selected ? 'checked' : ''} class="accent-accent cursor-pointer" aria-label="${escapeHtmlAttr(t('hy.ai_selected'))}"></label>`}</td>
         </tr>`;
     }).join('');
     if (pagination) pagination.innerHTML = _renderDevicesPagination(devices.length, startIndex + 1, Math.min(startIndex + pageDevices.length, devices.length), totalPages);
@@ -821,14 +826,14 @@ function _renderDevicesPagination(total, from, to, totalPages) {
     const sizes = DEVICE_PAGE_SIZE_OPTIONS.map(size => `<option value="${size}" ${size === _devicesState.pageSize ? 'selected' : ''}>${size}</option>`).join('');
     return `<div class="hy-devices-pager-info">
             <span>${from}-${to}</span>
-            <span>din</span>
+            <span>${escapeHtml(t('hy.pager_of'))}</span>
             <strong>${total}</strong>
         </div>
         <div class="hy-devices-pager-actions">
-            <label class="hy-page-size"><span>Rânduri</span><select onchange="setDevicesPageSize(this.value)">${sizes}</select></label>
-            <button type="button" class="hy-pager-btn" onclick="setDevicesPage(${_devicesState.page - 1})" ${_devicesState.page <= 1 ? 'disabled' : ''} aria-label="Pagina anterioară"><i class="fas fa-chevron-left"></i></button>
+            <label class="hy-page-size"><span>${escapeHtml(t('hy.pager_rows'))}</span><select data-smarthome-change="setDevicesPageSize">${sizes}</select></label>
+            <button type="button" class="hy-pager-btn" data-smarthome-action="setDevicesPage" data-smarthome-page="${_devicesState.page - 1}" ${_devicesState.page <= 1 ? 'disabled' : ''} aria-label="${escapeHtmlAttr(t('common.prev_page'))}"><i class="fas fa-chevron-left"></i></button>
             <span class="hy-page-index">${_devicesState.page} / ${totalPages}</span>
-            <button type="button" class="hy-pager-btn" onclick="setDevicesPage(${_devicesState.page + 1})" ${_devicesState.page >= totalPages ? 'disabled' : ''} aria-label="Pagina următoare"><i class="fas fa-chevron-right"></i></button>
+            <button type="button" class="hy-pager-btn" data-smarthome-action="setDevicesPage" data-smarthome-page="${_devicesState.page + 1}" ${_devicesState.page >= totalPages ? 'disabled' : ''} aria-label="${escapeHtmlAttr(t('common.next_page'))}"><i class="fas fa-chevron-right"></i></button>
         </div>`;
 }
 
@@ -890,18 +895,18 @@ function _filterChoiceText(choice) {
 
 function _filterPickerMarkup(id, label, icon, currentValue, choices, kind) {
     const list = Array.isArray(choices) ? choices : [];
-    const selected = list.find(choice => choice.value === String(currentValue)) || list[0] || _filterChoice('all', 'Toate');
+    const selected = list.find(choice => choice.value === String(currentValue)) || list[0] || _filterChoice('all', t('hy.filter_all'));
     const options = list.map(choice => {
         const selectedAttr = choice.value === selected.value ? 'true' : 'false';
         const count = Number.isFinite(choice.count) ? `<span class="hy-picker-option-count">${choice.count}</span>` : '';
-        return `<button type="button" role="option" class="hy-picker-option" data-filter-kind="${escapeHtmlAttr(kind)}" data-value="${escapeHtmlAttr(choice.value)}" data-label="${escapeHtmlAttr(_filterChoiceText(choice))}" data-selected="${selectedAttr}" aria-selected="${selectedAttr}" onclick="selectSmarthomePickerOption(event)">
+        return `<button type="button" role="option" class="hy-picker-option" data-filter-kind="${escapeHtmlAttr(kind)}" data-value="${escapeHtmlAttr(choice.value)}" data-label="${escapeHtmlAttr(_filterChoiceText(choice))}" data-selected="${selectedAttr}" aria-selected="${selectedAttr}" data-smarthome-action="selectPickerOption">
             <span class="hy-picker-option-label">${escapeHtml(choice.label)}</span>${count}
         </button>`;
     }).join('');
     return `<div class="hy-picker-field">
         <span class="hy-picker-label"><i class="fas ${escapeHtmlAttr(icon)}"></i>${escapeHtml(label)}</span>
         <div class="hy-picker" id="${escapeHtmlAttr(id)}" data-value="${escapeHtmlAttr(selected.value)}">
-        <button type="button" class="hy-picker-button" data-hy-picker-toggle aria-haspopup="listbox" aria-expanded="false" onclick="toggleSmarthomePicker(event)">
+        <button type="button" class="hy-picker-button" data-hy-picker-toggle aria-haspopup="listbox" aria-expanded="false" data-smarthome-action="togglePicker">
             <span class="hy-picker-current">${escapeHtml(_filterChoiceText(selected))}</span>
             <i class="fas fa-chevron-down hy-picker-chevron" aria-hidden="true"></i>
         </button>
@@ -912,7 +917,14 @@ function _filterPickerMarkup(id, label, icon, currentValue, choices, kind) {
 
 function _domainLabel(domain) {
     const key = String(domain || '').trim().toLowerCase();
-    return DOMAIN_LABELS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase()) || 'Unknown';
+    const mapped = DOMAIN_LABEL_KEYS[key];
+    if (mapped) {
+        const label = t(mapped);
+        if (label !== mapped) return label;
+    }
+    const nested = t(`hy.domains.${key}`);
+    if (nested !== `hy.domains.${key}`) return nested;
+    return key.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase()) || t('common.unknown');
 }
 
 function _domainCount(domain) {
@@ -1009,22 +1021,22 @@ function _buildSourceFilters(sources) {
     const nav = document.getElementById('hy-source-filters');
     if (!nav) return;
     const allCount = _getAllDevices().length;
-    const choices = [_filterChoice('all', 'Toate integrările', allCount)];
+    const choices = [_filterChoice('all', t('hy.filter_all_sources'), allCount)];
 
     for (const src of sources) {
         const count = _integrationEntitiesCache.filter(e => e.source === src.slug).length;
         if (count === 0) continue;
         choices.push(_filterChoice(src.slug, src.label, count));
     }
-    nav.innerHTML = _filterPickerMarkup('hy-source-picker', 'Integrare', 'fa-layer-group', _haCurrentSource, choices, 'source');
+    nav.innerHTML = _filterPickerMarkup('hy-source-picker', t('hy.filter_integration'), 'fa-layer-group', _haCurrentSource, choices, 'source');
 }
 
 function _buildAreaFilters(areas) {
     const nav = document.getElementById('hy-area-filters');
     if (!nav) return;
     nav.classList.remove('hidden');
-    const allLabel = (typeof t === 'function' && t('hy.area_all')) || 'Toate ariile';
-    const noneLabel = (typeof t === 'function' && t('hy.area_none')) || 'Fără arie';
+    const allLabel = t('hy.area_all');
+    const noneLabel = t('hy.area_none');
     const noneCount = _integrationEntitiesCache.filter(e => !(e.area || '').trim()).length;
     const choices = [_filterChoice('all', allLabel, _getAllDevices().length)];
     for (const a of areas) {
@@ -1035,7 +1047,7 @@ function _buildAreaFilters(areas) {
     if (noneCount > 0) {
         choices.push(_filterChoice('__none__', noneLabel, noneCount));
     }
-    nav.innerHTML = _filterPickerMarkup('hy-area-picker', 'Arie', 'fa-map-location-dot', _haCurrentArea, choices, 'area');
+    nav.innerHTML = _filterPickerMarkup('hy-area-picker', t('hy.filter_area'), 'fa-map-location-dot', _haCurrentArea, choices, 'area');
 }
 
 function _buildDomainFilters() {
@@ -1052,15 +1064,15 @@ function _buildDomainFilters() {
             return _domainLabel(a).localeCompare(_domainLabel(b));
         });
     const choices = [
-        _filterChoice('all', 'Toate entitățile', total),
-        _filterChoice('active', 'Active acum', active),
-        _filterChoice('ai', 'În context AI', aiSelected),
+        _filterChoice('all', t('hy.filter_all_entities'), total),
+        _filterChoice('active', t('hy.filter_active_now'), active),
+        _filterChoice('ai', t('hy.filter_in_ai'), aiSelected),
     ];
     domains.forEach(domain => {
         const count = _domainCount(domain);
         if (count > 0) choices.push(_filterChoice(domain, _domainLabel(domain), count));
     });
-    nav.innerHTML = _filterPickerMarkup('hy-domain-picker', 'Tip entitate', 'fa-shapes', _haCurrentFilter, choices, 'domain');
+    nav.innerHTML = _filterPickerMarkup('hy-domain-picker', t('hy.filter_entity_type'), 'fa-shapes', _haCurrentFilter, choices, 'domain');
 }
 
 export function filterDevices() {
@@ -1071,7 +1083,7 @@ export function filterDevices() {
             loadSmarthome().catch(() => {});
             return;
         }
-        _setDevicesLoading(_devicesState.query ? 'Se cauta in dispozitive...' : 'Se incarca dispozitivele...');
+        _setDevicesLoading(_devicesState.query ? t('hy.searching') : t('hy.waiting_data'));
         loadSmarthome().then(() => renderDeviceCards()).catch(() => {});
         return;
     }
@@ -1108,7 +1120,7 @@ export async function copyEntityIdFromRowActions() {
     if (!_haRowActionsEntityId) return;
     try {
         await navigator.clipboard.writeText(_haRowActionsEntityId);
-        showToast((typeof t === 'function' && t('hy.copied')) || 'Copiat', 'success');
+        showToast(t('hy.copied'), 'success');
     } catch (e) {
         showToast(t('hy.clipboard_error'), 'error');
     }
@@ -1208,7 +1220,7 @@ export function openAliasModal(eid) {
     if (!modal || !container) return;
     const d = _integrationEntitiesCache?.find(x => x.entity_id === eid);
     _haAliasModalEntityId = eid;
-    if (titleEl) titleEl.textContent = typeof t === 'function' ? t('hy.alias_modal_title') : 'Alias';
+    if (titleEl) titleEl.textContent = t('hy.alias_modal_title');
     if (entityEl) entityEl.textContent = eid;
     container.innerHTML = '';
     const list = d?.aliases?.length ? [...d.aliases] : [''];
@@ -1227,7 +1239,7 @@ function _appendAliasInput(container, value = '') {
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'flex-1 bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-accent outline-none';
-    input.placeholder = typeof t === 'function' ? t('hy.alias_placeholder') : 'Alias';
+    input.placeholder = t('hy.alias_placeholder');
     input.value = value;
     input.dataset.haAlias = '1';
     const rm = document.createElement('button');
@@ -1235,7 +1247,7 @@ function _appendAliasInput(container, value = '') {
     rm.className = 'w-9 h-9 rounded-lg bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 flex items-center justify-center flex-shrink-0';
     rm.innerHTML = '<i class="fas fa-minus text-xs"></i>';
     rm.setAttribute('aria-label', 'Remove alias');
-    rm.onclick = () => wrap.remove();
+    rm.setAttribute('data-smarthome-action', 'removeAliasRow');
     wrap.appendChild(input);
     wrap.appendChild(rm);
     container.appendChild(wrap);
@@ -1292,7 +1304,7 @@ export async function openRowActionsModal(entityId) {
     const domain = _entityDomain(entity);
     const stateLower = _norm(entity.state);
     const rawState = entity.state ?? 'unknown';
-    const stateDisplay = `${STATE_LABELS_RO[rawState.toLowerCase()] || rawState}${entity.unit ? ' ' + entity.unit : ''}`;
+    const stateDisplay = `${tState(rawState)}${entity.unit ? ' ' + entity.unit : ''}`;
     const iconClass = _iconClass(entity.icon) || `fas ${DOMAIN_ICONS[domain] || 'fa-microchip'}`;
     const sourceMeta = SOURCE_ICONS[entity.source] || { icon: 'fa-puzzle-piece', label: entity.source || 'Unknown', color: 'text-slate-400' };
     const attrs = entity.attributes && typeof entity.attributes === 'object' ? entity.attributes : {};
@@ -1304,7 +1316,7 @@ export async function openRowActionsModal(entityId) {
         </div>`).join('');
 
     if (iconEl) iconEl.className = iconClass;
-    if (labelEl) labelEl.textContent = entity.name || entity.entity_id || 'Dispozitiv';
+    if (labelEl) labelEl.textContent = entity.name || entity.entity_id || t('integrations.device');
 
     body.innerHTML = `
         <div class="hy-detail-hero">
@@ -1317,24 +1329,24 @@ export async function openRowActionsModal(entityId) {
         </div>
         <div class="hy-detail-status-row">
             <div class="hy-detail-status ${['unavailable', 'unknown', 'offline'].includes(stateLower) ? 'is-offline' : ACTIVE_STATES.includes(stateLower) ? 'is-active' : ''}">
-                <span>Stare</span>
+                <span>${escapeHtml(t('hy.detail_state'))}</span>
                 <strong>${escapeHtml(stateDisplay)}</strong>
             </div>
             <div class="hy-detail-status">
-                <span>Domeniu</span>
+                <span>${escapeHtml(t('hy.detail_domain'))}</span>
                 <strong>${escapeHtml(_domainLabel(domain))}</strong>
             </div>
         </div>
         ${cameraPreview}
         <div class="hy-detail-actions">
             ${_deviceControlButtons(entity)}
-            <button type="button" class="hy-detail-btn" onclick="copyEntityIdFromRowActions()"><i class="fas fa-copy"></i><span>Copiază ID</span></button>
-            <button type="button" class="hy-detail-btn" onclick="openAliasModalFromDetail('${escapeHtmlAttr(entityId)}')"><i class="fas fa-tag"></i><span>Alias</span></button>
-            ${entity.source === 'derived' ? '' : `<label class="hy-detail-toggle"><span><i class="fas fa-robot"></i>Include în AI</span><input type="checkbox" ${entity.selected ? 'checked' : ''} onchange="toggleSelection('${escapeHtmlAttr(entityId)}', this.checked)"></label>`}
+            <button type="button" class="hy-detail-btn" data-smarthome-action="copyEntityIdFromRowActions"><i class="fas fa-copy"></i><span>${escapeHtml(t('hy.copy_id_short'))}</span></button>
+            <button type="button" class="hy-detail-btn" data-smarthome-action="openAliasModalFromDetail" data-smarthome-entity-id="${escapeHtmlAttr(entityId)}"><i class="fas fa-tag"></i><span>${escapeHtml(t('hy.col_alias'))}</span></button>
+            ${entity.source === 'derived' ? '' : `<label class="hy-detail-toggle"><span><i class="fas fa-robot"></i>${escapeHtml(t('hy.row_action_ai'))}</span><input type="checkbox" data-smarthome-change="toggleSelection" data-smarthome-entity-id="${escapeHtmlAttr(entityId)}" ${entity.selected ? 'checked' : ''}></label>`}
         </div>
         <div class="hy-detail-section">
-            <div class="hy-detail-section-title">Atribute</div>
-            <div class="hy-detail-attrs">${attrsRows || '<div class="hy-detail-empty">Nu sunt atribute suplimentare.</div>'}</div>
+            <div class="hy-detail-section-title">${escapeHtml(t('hy.detail_attributes'))}</div>
+            <div class="hy-detail-attrs">${attrsRows || `<div class="hy-detail-empty">${escapeHtml(t('hy.detail_no_attributes'))}</div>`}</div>
         </div>`;
 
     if (modal.parentNode !== document.body) document.body.appendChild(modal);
@@ -1366,7 +1378,7 @@ function _cameraPreviewMarkup(entity, attrs) {
         const muted = !hasAudio;
         return `<div class="hy-detail-camera relative">
             <video src="${escapeHtmlAttr(playUrl)}" ${muted ? 'muted' : ''} autoplay playsinline controls data-camera-live-webm></video>
-            <button type="button" data-camera-mute-toggle class="absolute left-2 bottom-2 z-10 px-2 py-1 rounded-lg bg-black/60 text-white text-sm border-0 cursor-pointer" title="Sunet">${muted ? '🔇' : '🔊'}</button>
+            <button type="button" data-camera-mute-toggle class="absolute left-2 bottom-2 z-10 px-2 py-1 rounded-lg bg-black/60 text-white text-sm border-0 cursor-pointer" title="${escapeHtmlAttr(t('entity.render.sound'))}">${muted ? '🔇' : '🔊'}</button>
         </div>`;
     }
     const mjpeg = String(attrs.mjpeg_url || '').trim();
@@ -1398,22 +1410,16 @@ function _imagePreviewMarkup(entity, attrs) {
     </div>`;
 }
 
-function _cameraAuthToken() {
-    return peekCameraStreamToken() || localStorage.getItem('hyve_token') || '';
-}
-
 function _imageProxyUrl(entityId) {
-    const token = _cameraAuthToken();
-    if (!entityId || !token) return '';
-    return `/api/cameras/${encodeURIComponent(entityId)}/image?token=${encodeURIComponent(token)}`;
+    if (!entityId) return '';
+    return cameraProxyUrlSync(entityId, 'image');
 }
 
 function _cameraProxyUrl(entityId, mode = 'snapshot') {
-    const token = _cameraAuthToken();
-    if (!entityId || !token) return '';
+    if (!entityId) return '';
     const paths = { stream: 'stream', play: 'play', snapshot: 'snapshot' };
     const path = paths[mode] || 'snapshot';
-    return `/api/cameras/${encodeURIComponent(entityId)}/${path}?token=${encodeURIComponent(token)}`;
+    return cameraProxyUrlSync(entityId, path);
 }
 
 function _cacheBustCameraUrl(url) {
@@ -1430,39 +1436,40 @@ function _deviceControlButtons(entity) {
     const stateLower = _norm(entity.state);
     const isActive = ACTIVE_STATES.includes(stateLower) || stateLower === 'on';
     const pending = _deviceControlPending.has(entity.entity_id || '');
+    const _er = (key) => t('entity.render.' + key);
     const button = (action, icon, label, tone = '') => {
         const busyIcon = pending ? 'fa-circle-notch fa-spin' : icon;
         const busyLabel = pending ? t('integrations.applying') : label;
-        return `<button type="button" class="hy-detail-btn ${tone}${pending ? ' is-pending' : ''}" ${pending ? 'aria-busy="true" data-pending="true"' : ''} onclick="controlDeviceEntity('${source}', '${entityId}', '${action}', this)"><i class="fas ${busyIcon}"></i><span>${busyLabel}</span></button>`;
+        return `<button type="button" class="hy-detail-btn ${tone}${pending ? ' is-pending' : ''}" ${pending ? 'aria-busy="true" data-pending="true"' : ''} data-smarthome-action="controlDevice" data-smarthome-source="${source}" data-smarthome-entity-id="${entityId}" data-smarthome-device-action="${action}"><i class="fas ${busyIcon}"></i><span>${busyLabel}</span></button>`;
     };
 
     if (['light', 'switch', 'input_boolean', 'fan'].includes(domain)) {
-        return button(isActive ? 'turn_off' : 'turn_on', 'fa-power-off', isActive ? 'Oprește' : 'Pornește', isActive ? 'is-danger' : 'is-primary');
+        return button(isActive ? 'turn_off' : 'turn_on', 'fa-power-off', isActive ? _er('turn_off') : _er('turn_on'), isActive ? 'is-danger' : 'is-primary');
     }
     if (domain === 'cover') {
-        return [button('open_cover', 'fa-arrow-up', 'Deschide'), button('stop_cover', 'fa-stop', 'Stop'), button('close_cover', 'fa-arrow-down', 'Închide')].join('');
+        return [button('open_cover', 'fa-arrow-up', _er('up')), button('stop_cover', 'fa-stop', _er('stop')), button('close_cover', 'fa-arrow-down', _er('down'))].join('');
     }
     if (domain === 'lock') {
-        return button(isActive ? 'lock' : 'unlock', isActive ? 'fa-lock' : 'fa-unlock', isActive ? 'Blochează' : 'Deblochează', isActive ? '' : 'is-primary');
+        return button(isActive ? 'lock' : 'unlock', isActive ? 'fa-lock' : 'fa-unlock', isActive ? _er('lock_action') : _er('unlock_action'), isActive ? '' : 'is-primary');
     }
     if (domain === 'button' || domain === 'script') {
-        return button('press', 'fa-play', 'Rulează', 'is-primary');
+        return button('press', 'fa-play', _er('send'), 'is-primary');
     }
     if (domain === 'vacuum') {
         return [
-            button('start', 'fa-play', 'Start', 'is-primary'),
-            button('stop', 'fa-stop', 'Stop'),
-            button('return_to_base', 'fa-house', 'Acasă'),
-            button('locate', 'fa-location-crosshairs', 'Găsește'),
+            button('start', 'fa-play', _er('vacuum_start'), 'is-primary'),
+            button('stop', 'fa-stop', _er('stop')),
+            button('return_to_base', 'fa-house', _er('vacuum_dock')),
+            button('locate', 'fa-location-crosshairs', _er('vacuum_locate')),
         ].join('');
     }
     if (domain === 'media_player') {
-        return [button('media_play', 'fa-play', 'Play'), button('media_pause', 'fa-pause', 'Pause')].join('');
+        return [button('media_play', 'fa-play', _er('media_play')), button('media_pause', 'fa-pause', _er('media_pause'))].join('');
     }
     if (entity.controllable) {
-        return button('toggle', 'fa-sliders', 'Comută', 'is-primary');
+        return button('toggle', 'fa-sliders', _er('toggle'), 'is-primary');
     }
-    return '<div class="hy-detail-empty">Entitatea este doar pentru citire.</div>';
+    return `<div class="hy-detail-empty">${escapeHtml(_er('read_only'))}</div>`;
 }
 
 export async function controlDeviceEntity(source, entityId, action, buttonEl = null) {
@@ -1490,7 +1497,7 @@ export async function controlDeviceEntity(source, entityId, action, buttonEl = n
             body: { entity_id: entityId, action, data: {} },
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.detail || payload.message || 'Acțiunea a eșuat.');
+        if (!response.ok) throw new Error(payload.detail || payload.message || t('integrations.action_failed'));
         _deviceOptimisticGuards.set(entityId, { state: optimisticState, until: Date.now() + DEVICE_OPTIMISTIC_GUARD_MS });
         showToast(t('hy.command_sent'), 'success');
     } catch (error) {
@@ -1583,8 +1590,8 @@ function _renderAvailableDevices() {
         const icon = DOMAIN_ICONS[domain] || 'fa-microchip';
         const color = DOMAIN_COLORS[domain] || 'bg-slate-500/15 text-slate-400';
         const isActive = ACTIVE_STATES.includes(String(d.state).toLowerCase());
-        html += `<div class="add-device-item" onclick="toggleAvailableDevice(this, '${d.entity_id}')">
-            <input type="checkbox" class="add-device-check accent-accent cursor-pointer w-3.5 h-3.5 flex-shrink-0" value="${d.entity_id}" onclick="event.stopPropagation(); toggleAvailableDevice(this.parentElement, '${d.entity_id}')">
+        html += `<div class="add-device-item" data-smarthome-action="toggleAvailableDevice" data-smarthome-entity-id="${escapeHtmlAttr(d.entity_id)}">
+            <input type="checkbox" class="add-device-check accent-accent cursor-pointer w-3.5 h-3.5 flex-shrink-0" value="${d.entity_id}" data-smarthome-action="toggleAvailableDevice" data-smarthome-entity-id="${escapeHtmlAttr(d.entity_id)}" data-smarthome-stop-propagation="true">
             <div class="ha-card-icon ${color} w-8 h-8 text-xs"><i class="fas ${icon}"></i></div>
             <div class="min-w-0 flex-1">
                 <div class="text-sm text-white font-medium truncate">${escapeHtml(d.name || d.entity_id)}</div>

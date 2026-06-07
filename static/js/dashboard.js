@@ -1,8 +1,9 @@
 import { apiCall } from './api.js';
 import { cameraPreferWebmPlayer, cameraSupportsGo2rtc } from './camera_live.js';
+import { getCameraStreamToken } from './camera_auth.js';
 import { showConfirm, showToast, setupCodeEditor, setCodeEditorValue, getCodeEditorValue, refreshCodeEditor, syncModalViewportMetrics } from './utils.js';
 import { t, translateApiDetail, tVacuumStatus } from './lang/index.js';
-import './entity_renderers.js?v=hyveview-cards-53';
+import './entity_renderers.js';
 // Hyveview bare-path imports dedupe to a single module instance (see hyveview_setup.js).
 import '/static/hyveview/elements/camera_stream.js';
 import '/static/hyveview/elements/camera_carousel.js';
@@ -42,6 +43,7 @@ import {
     setupDashboardSortables,
     teardownDashboardSortables,
     syncDashboardPanelGridSpans,
+    dashboardPanelSpan,
 } from './dashboard/drag_resize.js';
 export {
     startDashboardDrag,
@@ -49,7 +51,7 @@ export {
     startDashboardResize,
     moveDashboardWidget,
 } from './dashboard/drag_resize.js';
-import { applyDashboardEditAccess, canEditDashboard, requireDashboardEditAccess } from './dashboard/edit_access.js';
+import { initDashboardEventBindings } from './dashboard/event_bindings.js';
 import { initDashboardClimate, renderClimateCard, climateConfiguredIds,
     toggleDashboardClimateModeMenu, selectDashboardClimateSlide, shiftDashboardClimateSlide,
     startDashboardClimateSwipe, moveDashboardClimateSwipe, endDashboardClimateSwipe,
@@ -831,8 +833,8 @@ function _syncPreferenceControls() {
         const compact = prefs.layout_mode === 'compact';
         layoutBtn.dataset.mode = compact ? 'compact' : 'comfortable';
         layoutBtn.innerHTML = compact
-            ? '<i class="fas fa-table-cells mr-1.5"></i>Compact'
-            : '<i class="fas fa-grip mr-1.5"></i>Comfort';
+            ? `<i class="fas fa-table-cells mr-1.5"></i>${t('dashboard.layout_compact')}`
+            : `<i class="fas fa-grip mr-1.5"></i>${t('dashboard.layout_comfortable')}`;
     }
 
     const hideCb = document.getElementById('dashboard-hide-unavailable');
@@ -1134,7 +1136,7 @@ function _renderDashboard() {
             grid.className = 'dashboard-panels-stack';
             grid.removeAttribute('data-panel-grid');
             grid.innerHTML = `
-                <button type="button" class="dashboard-panel dashboard-panel--add-section" onclick="openDashboardPanelCreator()" aria-label="${_escape(t('dashboard.aria.add_section'))}">
+                <button type="button" class="dashboard-panel dashboard-panel--add-section" data-dash-action="openPanelCreator" aria-label="${_escape(t('dashboard.aria.add_section'))}">
                     <i class="fas fa-plus"></i>
                     <span>${t('dashboard.create_section') || 'Secțiune nouă'}</span>
                 </button>`;
@@ -1167,7 +1169,7 @@ function _renderDashboard() {
 
     const items = sectionPanels.map(panel => _renderPanelSection(panel, compact));
     const addSectionBtn = _dashboardEditMode
-        ? `<button type="button" class="dashboard-panel dashboard-panel--add-section" onclick="openDashboardPanelCreator()" aria-label="${_escape(t('dashboard.aria.add_section'))}">
+        ? `<button type="button" class="dashboard-panel dashboard-panel--add-section" data-dash-action="openPanelCreator" aria-label="${_escape(t('dashboard.aria.add_section'))}">
                 <i class="fas fa-plus"></i>
                 <span>${t('dashboard.create_section') || 'Secțiune nouă'}</span>
            </button>`
@@ -1252,7 +1254,7 @@ function _renderPanelSection(panel, compact) {
                     return `<button type="button" role="tab"
                         class="dashboard-panel__tab"
                         data-active="${isActive ? 'true' : 'false'}"
-                        onclick="selectDashboardPanelPage('${_escape(panelId)}', '${_escape(id)}')">
+                        data-dash-action="selectPanelPage" data-panel-id="${_escape(panelId)}" data-page-id="${_escape(id)}">
                         ${p.icon ? `<i class="${_escape(_iconClass(p.icon))}"></i>` : ''}
                         <span>${_escape(p.title || 'Pagină')}</span>
                     </button>`;
@@ -1262,13 +1264,13 @@ function _renderPanelSection(panel, compact) {
 
     const editControls = _dashboardEditMode
         ? `<div class="dashboard-panel__edit">
-                <button type="button" class="dashboard-panel__add" onclick="openDashboardAddPicker()" aria-label="${_escape(t('dashboard.aria.add_card'))}"><i class="fas fa-plus"></i></button>
-                <button type="button" onclick="openDashboardPanelEditor('${_escape(panelId)}')" aria-label="${_escape(t('dashboard.aria.edit_section'))}"><i class="fas fa-pen"></i></button>
-                <button type="button" class="is-danger" onclick="removeDashboardPanel('${_escape(panelId)}')" aria-label="${_escape(t('dashboard.aria.delete_section'))}"><i class="fas fa-trash"></i></button>
+                <button type="button" class="dashboard-panel__add" data-dash-action="openAddPicker" aria-label="${_escape(t('dashboard.aria.add_card'))}"><i class="fas fa-plus"></i></button>
+                <button type="button" data-dash-action="openPanelEditor" data-panel-id="${_escape(panelId)}" aria-label="${_escape(t('dashboard.aria.edit_section'))}"><i class="fas fa-pen"></i></button>
+                <button type="button" class="is-danger" data-dash-action="removePanel" data-panel-id="${_escape(panelId)}" aria-label="${_escape(t('dashboard.aria.delete_section'))}"><i class="fas fa-trash"></i></button>
             </div>`
         : '';
     const dragHandle = _dashboardEditMode
-        ? `<button type="button" class="dashboard-panel__drag" title="${_escape(t('dashboard.aria.move_section'))}" aria-label="${_escape(t('dashboard.aria.move_section'))}" onpointerdown="startDashboardPanelDrag(event, '${_escape(panelId)}')"><i class="fas fa-grip-vertical"></i></button>`
+        ? `<button type="button" class="dashboard-panel__drag" data-dash-pointer="panelDrag" data-panel-id="${_escape(panelId)}" title="${_escape(t('dashboard.aria.move_section'))}" aria-label="${_escape(t('dashboard.aria.move_section'))}"><i class="fas fa-grip-vertical"></i></button>`
         : '';
 
     const gridClass = compact
@@ -1281,14 +1283,14 @@ function _renderPanelSection(panel, compact) {
     const body = visibleWidgets.length
         ? `<div class="${gridClassFull}" data-panel-grid="${_escape(panelId)}">${visibleWidgets.map(w => _renderWidgetCard(w)).join('')}</div>`
         : (_dashboardEditMode
-            ? `<div class="dashboard-panel__empty dashboard-panel__empty--edit" data-panel-grid="${_escape(panelId)}"><button type="button" class="dashboard-panel__add-card" onclick="openDashboardAddPicker()"><i class="fas fa-plus"></i></button></div>`
+            ? `<div class="dashboard-panel__empty dashboard-panel__empty--edit" data-panel-grid="${_escape(panelId)}"><button type="button" class="dashboard-panel__add-card" data-dash-action="openAddPicker"><i class="fas fa-plus"></i></button></div>`
             : `<div class="dashboard-panel__empty" data-panel-grid="${_escape(panelId)}">Niciun card pe această pagină.</div>`);
 
     const headerHtml = titleHtml || editControls
         ? `<header class="dashboard-panel__header"><div class="dashboard-panel__header-main">${dragHandle}${titleHtml || '<span></span>'}</div>${editControls}</header>`
         : '';
 
-    const span = _dashboardPanelSpan(panel);
+    const span = dashboardPanelSpan(panel);
     const panelBg = _dashboardPanelBackgroundCss(panel);
     const styleVars = [
         `--panel-col-span:${span.col}`,
@@ -1377,27 +1379,10 @@ function _openDashboardPanelModal(mode, panel = {}) {
     if (els.modalTitle) els.modalTitle.textContent = _dashboardPanelModalMode === 'edit' ? t('dashboard.edit_section') : t('dashboard.create_section');
     if (els.title) els.title.value = _dashboardPanelModalMode === 'edit' ? String(panel.title || '') : '';
     _setDashboardPanelSize(['sm', 'md', 'wide'].includes(panel.size) ? panel.size : 'sm');
-    els.sizeOptions.forEach(option => {
-        option.onclick = () => _setDashboardPanelSize(option.getAttribute('data-dashboard-panel-size-option'));
-        option.onkeydown = (event) => {
-            if (event.key !== 'Enter' && event.key !== ' ') return;
-            event.preventDefault();
-            _setDashboardPanelSize(option.getAttribute('data-dashboard-panel-size-option'));
-        };
-    });
     if (els.icon) els.icon.value = String(panel.icon || '');
     if (els.showPagination) els.showPagination.checked = panel.show_pagination !== false;
     _populateDashboardPanelBackground(panel);
     _populateDashboardPanelVisibility(panel);
-    if (els.addPage) els.addPage.onclick = () => {
-        const nextIndex = _dashboardPanelModalPages.length + 1;
-        _dashboardPanelModalPages.push({
-            id: `page_${Date.now().toString(36)}_${nextIndex}`,
-            title: `Pagina ${nextIndex}`,
-            icon: '',
-        });
-        _renderDashboardPanelPagesEditor();
-    };
 
     _renderDashboardPanelPagesEditor();
     closeDashboardMenu();
@@ -1825,7 +1810,7 @@ HVSetHost({
 function _widgetDragAttrs(widget) {
     const span = _widgetSpan(widget);
     const sizeStyle = _widgetSizeStyle(widget);
-    const dragHandler = ` onpointerdown="startDashboardDrag(event, '${_escape(widget.id)}')"`;
+    const dragHandler = _dashboardEditMode ? ' data-dash-pointer="widgetDrag" data-widget-id="' + _escape(widget.id) + '"' : '';
     return _dashboardEditMode
     ? `data-dashboard-widget-id="${_escape(widget.id)}" data-dashboard-cols="${span.col}" data-dashboard-rows="${span.row}" draggable="false" ${sizeStyle}${dragHandler}`
     : `data-dashboard-widget-id="${_escape(widget.id)}" data-dashboard-cols="${span.col}" data-dashboard-rows="${span.row}" draggable="false" ${sizeStyle}`;
@@ -1835,8 +1820,8 @@ function _widgetEditControls(widget) {
     if (!_dashboardEditMode) return '';
     return `
         <div class="hyve-dashboard-card__edit">
-            <button type="button" onclick="event.stopPropagation(); openDashboardWidgetEditor('${_escape(widget.id)}')" aria-label="${_escape(t('dashboard.aria.edit'))}"><i class="fas fa-pen text-[10px]"></i></button>
-            <button type="button" class="is-danger" onclick="event.stopPropagation(); removeDashboardWidget('${_escape(widget.id)}')" aria-label="${_escape(t('dashboard.aria.delete_widget'))}"><i class="fas fa-trash text-[10px]"></i></button>
+            <button type="button" data-dash-action="editWidget" data-dash-stop-propagation="true" data-widget-id="${_escape(widget.id)}" aria-label="${_escape(t('dashboard.aria.edit'))}"><i class="fas fa-pen text-[10px]"></i></button>
+            <button type="button" class="is-danger" data-dash-action="removeWidget" data-dash-stop-propagation="true" data-widget-id="${_escape(widget.id)}" aria-label="${_escape(t('dashboard.aria.delete_widget'))}"><i class="fas fa-trash text-[10px]"></i></button>
         </div>`;
 }
 
@@ -1993,7 +1978,7 @@ function _renderTileCard(widget, opts = {}) {
     const editControls = _widgetEditControls(widget);
     const clickable = !_dashboardEditMode && controllable && widget.available !== false;
     const cardActionAttrs = clickable
-        ? `role="button" tabindex="0" onclick="handleDashboardCardClick(event, '${_escape(widget.id)}')" onkeydown="handleDashboardCardKeydown(event, '${_escape(widget.id)}')"`
+        ? `role="button" tabindex="0" data-dash-action="cardActivate" data-dash-action-key="cardActivate" data-widget-id="${_escape(widget.id)}"`
         : '';
     return `
         <article ${dragAttrs} ${cardActionAttrs}
@@ -2007,22 +1992,6 @@ function _renderTileCard(widget, opts = {}) {
             ${HVBridge.renderCardElement(widget)}
             ${editControls}
         </article>`;
-}
-
-// --- Camera (fast live snapshots) ---
-function _cameraProxyUrl(entityId, kind, cacheValue = Date.now()) {
-    const params = new URLSearchParams({ _t: String(cacheValue) });
-    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('hyve_token') : '';
-    if (token) params.set('token', token);
-    return `/api/cameras/${encodeURIComponent(entityId)}/${kind}?${params.toString()}`;
-}
-
-function _cameraLiveLoaderMarkup(message = t('dashboard.loading_image')) {
-    return `
-        <div class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 text-slate-300 transition-opacity duration-300" data-camera-loader>
-            <div class="w-9 h-9 rounded-full border-2 border-white/10 border-t-accent animate-spin"></div>
-            <div class="text-[11px] uppercase tracking-widest text-slate-400">${_escape(message)}</div>
-        </div>`;
 }
 
 function _cameraCardMode(widget) {
@@ -2123,48 +2092,10 @@ function _renderPictureCard(widget) {
         </article>`;
 }
 
-if (typeof window !== 'undefined') {
-    // The legacy `__hyveCameraTimer` polled every visible camera <img> once
-    // per second, regardless of visibility or tab focus. The new
-    // <hv-camera-stream> element handles its own visibility-aware refresh
-    // via IntersectionObserver + visibilitychange, so the global timer is
-    // gone. We still clear any stale instance for hot-reload safety.
-    if (window.__hyveCameraTimer) {
-        clearInterval(window.__hyveCameraTimer);
-        window.__hyveCameraTimer = null;
-    }
-
-    window.openDashboardCameraStream = function(entityId, title) {
-        if (!entityId) return;
-        const id = String(entityId);
-        const label = String(title || id);
-        const src = _cameraProxyUrl(id, 'stream');
-        let overlay = document.getElementById('hyve-camera-overlay');
-        if (overlay) overlay.remove();
-        overlay = document.createElement('div');
-        overlay.id = 'hyve-camera-overlay';
-        overlay.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-4';
-        overlay.style.zIndex = '10000';
-        overlay.innerHTML = `
-            <button type="button" aria-label="Închide" class="absolute top-4 right-4 text-white/80 hover:text-white text-2xl"><i class="fas fa-xmark"></i></button>
-            <div class="max-w-5xl w-full">
-                <div class="flex items-center justify-between mb-3 text-white/90 gap-3">
-                    <div class="flex items-center gap-2 min-w-0"><i class="fas fa-video shrink-0"></i><span class="font-semibold truncate">${label.replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}</span></div>
-                </div>
-                <div class="relative rounded-xl overflow-hidden bg-black border border-white/10" data-camera-live-shell data-loading="true">
-                    <img src="${src}" alt="${label.replace(/"/g, '&quot;')}" class="w-full bg-black object-contain max-h-[80vh] opacity-0 transition-opacity duration-300"
-                         onload="this.closest('[data-camera-live-shell]')?.querySelector('[data-camera-loader]')?.classList.add('opacity-0','pointer-events-none'); this.classList.remove('opacity-0'); this.classList.add('opacity-100');"
-                         onerror="const loader=this.closest('[data-camera-live-shell]')?.querySelector('[data-camera-loader]'); if(loader){loader.classList.remove('opacity-0','pointer-events-none'); loader.innerHTML='<i class=&quot;fas fa-video-slash text-xl text-slate-500&quot;></i><div class=&quot;text-[11px] uppercase tracking-widest text-slate-400&quot;>Camera indisponibilă</div>';}">
-                    ${_cameraLiveLoaderMarkup()}
-                </div>
-            </div>`;
-        const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
-        const onKey = (e) => { if (e.key === 'Escape') close(); };
-        overlay.querySelector('button')?.addEventListener('click', close);
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-        document.addEventListener('keydown', onKey);
-        document.body.appendChild(overlay);
-    };
+if (typeof window !== 'undefined' && window.__hyveCameraTimer) {
+    // Legacy global camera poll timer; clear on hot-reload if still present.
+    clearInterval(window.__hyveCameraTimer);
+    window.__hyveCameraTimer = null;
 }
 
 // --- Light (tile + brightness slider) ---
@@ -2176,7 +2107,7 @@ function _renderLightCard(widget) {
     const editControls = _widgetEditControls(widget);
     const clickable = !_dashboardEditMode && widget.controllable !== false && widget.available !== false;
     const cardActionAttrs = clickable
-        ? `role="button" tabindex="0" onclick="handleDashboardCardClick(event, '${_escape(widget.id)}')" onkeydown="handleDashboardCardKeydown(event, '${_escape(widget.id)}')"`
+        ? `role="button" tabindex="0" data-dash-action="cardActivate" data-dash-action-key="cardActivate" data-widget-id="${_escape(widget.id)}"`
         : '';
     // Pass edit mode through the widget so the card can decide whether to
     // render the brightness slider.
@@ -2497,7 +2428,7 @@ function _renderDashboardPagesList() {
                     id="nav-dashboard-page-${id}"
                     class="nav-btn dashboard-page-nav-btn w-full flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-lg sm:rounded-xl text-slate-500 hover:text-slate-300 hover:bg-white/[0.03] active:bg-white/[0.06] transition-all group min-h-[40px]${activeCls}"
                     data-page-id="${id}"
-                    onclick="openDashboardPageNav('${id.replace(/'/g, "\\'")}')"
+                    data-dash-action="openPageNav" data-page-id="${id.replace(/'/g, "\\'")}"
                     title="${title}">
                     <i class="${iconClass} w-5 sm:w-5 flex-shrink-0 text-sm group-hover:text-accent transition-colors"></i>
                     <span class="font-medium text-sm truncate">${title}</span>
@@ -2698,7 +2629,7 @@ export async function selectDashboardPage(pageId) {
         if (g.textContent.includes(t('dashboard.loading_page'))) {
             g.innerHTML = `<div class="col-span-full p-6 text-sm rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-200">
                 <div class="font-semibold mb-1">${_escape(t('dashboard.page_load_timeout'))}</div>
-                <button type="button" onclick="selectDashboardPage('${String(pageId).replace(/'/g, "\\'")}')" class="mt-2 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-xs font-semibold">${_escape(t('common.try_again'))}</button>
+                <button type="button" data-dash-action="selectPage" data-page-id="${String(pageId).replace(/'/g, "\\'")}" class="mt-2 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-xs font-semibold">${_escape(t('common.try_again'))}</button>
             </div>`;
         }
     }, 12000);
@@ -2732,7 +2663,7 @@ export async function selectDashboardPage(pageId) {
             gridNow.innerHTML = `<div class="col-span-full p-6 text-sm rounded-2xl border border-red-500/20 bg-red-500/10 text-red-300">
                 <div class="font-semibold mb-1">${_escape(t('dashboard.load_failed_page'))}</div>
                 <div class="text-xs opacity-80 mb-2">${_escape(e.message || t('dashboard.unknown_error'))}</div>
-                <button type="button" onclick="selectDashboardPage('${String(pageId).replace(/'/g, "\\'")}')" class="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-xs font-semibold">${_escape(t('common.try_again'))}</button>
+                <button type="button" data-dash-action="selectPage" data-page-id="${String(pageId).replace(/'/g, "\\'")}" class="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-xs font-semibold">${_escape(t('common.try_again'))}</button>
             </div>`;
         }
     } finally {
@@ -3152,8 +3083,10 @@ function _renderEntityPickerMenu(mode = 'add') {
         return `<button type="button"
             data-active="${isActive ? 'true' : 'false'}"
             class="dashboard-entity-picker__item"
-            onmousedown="event.preventDefault()"
-            onclick="pickDashboardEntityOption('${safeMode}', '${safeId}')">
+            data-dash-prevent-default="true"
+            data-dash-action="pickEntity"
+            data-mode="${safeMode}"
+            data-entity-id="${safeId}">
             <i class="${icon} dashboard-entity-picker__icon"></i>
             <span class="dashboard-entity-picker__name">${_escape(it.name || it.entity_id)}</span>
             <span class="dashboard-entity-picker__id">${safeId}</span>
@@ -3257,6 +3190,7 @@ async function _loadDashboardImpl(signal = null, { soft = false } = {}) {
         grid.innerHTML = `<div class="col-span-full p-6 text-sm" style="color:var(--text-tertiary,#94a3b8);">${_escape(t('dashboard.loading_dashboard'))}</div>`;
     }
     try {
+        getCameraStreamToken().catch(() => {});
         await _refreshAvailableEntities({ includeEntities: false, signal });
         // After first fetch the server tells us the active page; reflect it in the URL.
         if (_currentPageId) _setHashForPage(_currentPageId);
@@ -3319,11 +3253,11 @@ function _applyDashboardModalMode(mode /* 'add' | 'edit' */) {
     if (isEdit) {
         apply('h3', 'dashboard.edit_card', 'Edit card');
         apply('h3 + p', 'dashboard.edit_card_hint', 'Modifică setările cardului și salvează.');
-        apply('button[onclick="addDashboardSwitch()"]', 'common.save', 'Salvează');
+        apply('button[data-dash-action="saveAddWidget"]', 'common.save', 'Salvează');
     } else {
         apply('h3', 'dashboard.add_card', 'Adaugă card');
         apply('h3 + p', 'dashboard.add_card_hint', 'Alege tipul de card și vezi preview înainte de salvare.');
-        apply('button[onclick="addDashboardSwitch()"]', 'common.add', 'Adaugă');
+        apply('button[data-dash-action="saveAddWidget"]', 'common.add', 'Adaugă');
     }
 }
 
@@ -3408,7 +3342,7 @@ export function closeDashboardAddModal() {
         _dashboardCurrentEditorId = null;
         const headerTitle = document.querySelector('#dashboard-add-modal h3');
         if (headerTitle) headerTitle.textContent = t('dashboard.add_card') || 'Add card';
-        const saveBtn = document.querySelector('#dashboard-add-modal button[onclick="addDashboardSwitch()"]');
+        const saveBtn = document.querySelector('#dashboard-add-modal button[data-dash-action="saveAddWidget"]');
         if (saveBtn) saveBtn.textContent = t('common.add') || 'Add';
     }
 }
@@ -4550,9 +4484,12 @@ function _normalizeLocalWidgetPatch(widget, patch) {
     const updated = { ...(widget || {}), ...(patch || {}) };
     updated.type = ['switch', 'info', 'button', 'label', 'climate', 'camera', 'picture', 'weather', 'weather_rich', 'gauge', 'fusion_solar'].includes(updated.type) ? updated.type : 'button';
     updated.size = ['sm', 'md', 'wide'].includes(updated.size) ? updated.size : 'md';
+    const noDefaultTitleTypes = new Set(['weather', 'weather_rich', 'fusion_solar']);
     updated.title = Object.prototype.hasOwnProperty.call(updated, 'title')
         ? String(updated.title ?? '').trim()
-        : String(updated.entity_name || updated.entity_id || 'Card').trim();
+        : (noDefaultTitleTypes.has(updated.type)
+            ? ''
+            : String(updated.entity_name || updated.entity_id || 'Card').trim());
     updated.entity_name = updated.type === 'label'
         ? String(updated.entity_name || '').trim()
         : String(updated.entity_name || updated.title || updated.entity_id || '').trim();
@@ -5036,6 +4973,78 @@ export async function reloadDashboardYaml() {
 export async function saveDashboardYaml() {
     return _ensureDashboardYamlEditor().saveDashboardYaml();
 }
+
+function _addDashboardPanelModalPage() {
+    const nextIndex = _dashboardPanelModalPages.length + 1;
+    _dashboardPanelModalPages.push({
+        id: `page_${Date.now().toString(36)}_${nextIndex}`,
+        title: `Pagina ${nextIndex}`,
+        icon: '',
+    });
+    _renderDashboardPanelPagesEditor();
+}
+
+initDashboardEventBindings({
+    closeMenu: () => closeDashboardMenu(),
+    toggleLayout: () => { toggleDashboardLayout(); },
+    toggleMenu: () => toggleDashboardMenu(),
+    toggleEditMode: () => { toggleDashboardEditMode(); },
+    openAddPicker: () => { openDashboardAddPicker(); },
+    createPage: () => { createDashboardPage(); },
+    openPageModal: () => { openDashboardPageModal(); },
+    openYamlEditor: () => { openDashboardYamlEditor(); },
+    closePanelModal: () => closeDashboardPanelModal(),
+    savePanel: () => { saveDashboardPanel(); },
+    closePageModal: () => closeDashboardPageModal(),
+    deletePage: () => { deleteDashboardPage(); },
+    savePageHeader: () => { saveDashboardHeader(); },
+    closeYamlEditor: () => closeDashboardYamlEditor(),
+    reloadYaml: () => { reloadDashboardYaml(); },
+    saveYaml: () => { saveDashboardYaml(); },
+    savePreferences: () => { saveDashboardPreferences(); },
+    setPanelSize: ({ el }) => {
+        const size = el.getAttribute('data-dashboard-panel-size-option');
+        if (size) _setDashboardPanelSize(size);
+    },
+    addPanelPage: () => _addDashboardPanelModalPage(),
+    openPanelCreator: () => openDashboardPanelCreator(),
+    openPanelEditor: ({ panelId }) => openDashboardPanelEditor(panelId),
+    removePanel: ({ panelId }) => { removeDashboardPanel(panelId); },
+    selectPanelPage: ({ panelId, pageId }) => selectDashboardPanelPage(panelId, pageId),
+    editWidget: ({ widgetId }) => { openDashboardWidgetEditor(widgetId); },
+    removeWidget: ({ widgetId }) => { removeDashboardWidget(widgetId); },
+    cardActivate: ({ event, widgetId }) => {
+        if (event.type === 'keydown') handleDashboardCardKeydown(event, widgetId);
+        else handleDashboardCardClick(event, widgetId);
+    },
+    selectPage: ({ pageId }) => { selectDashboardPage(pageId); },
+    openPageNav: ({ pageId }) => { openDashboardPageNav(pageId); },
+    pickEntity: ({ mode, entityId }) => pickDashboardEntityOption(mode, entityId),
+    saveAddWidget: () => { addDashboardSwitch(); },
+    widgetDrag: ({ event, widgetId }) => startDashboardDrag(event, widgetId),
+    panelDrag: ({ event, panelId }) => startDashboardPanelDrag(event, panelId),
+    climateSwipeStart: ({ event, widgetId }) => startDashboardClimateSwipe(event, widgetId),
+    climateAdjustTemp: ({ widgetId, entityId, delta }) => {
+        adjustDashboardClimateTemperature(widgetId, delta, entityId);
+    },
+    climateToggleModeMenu: ({ event, widgetId, entityId }) => {
+        toggleDashboardClimateModeMenu(widgetId, event, entityId);
+    },
+    climateSetMode: ({ widgetId, entityId, climateMode }) => {
+        setDashboardClimateMode(widgetId, climateMode, entityId);
+    },
+    climateSelectSlide: ({ event, widgetId, slideIndex }) => {
+        selectDashboardClimateSlide(widgetId, slideIndex, event);
+    },
+    climateRemoveEntity: ({ entityId }) => removeDashboardClimateEntity(entityId),
+    climateEntityMeta: ({ entityId, field, event }) => {
+        updateDashboardClimateEntityMeta(entityId, field, event.target.value);
+    },
+    lockAction: ({ widgetId, action }) => { onDashboardLockAction(widgetId, action); },
+    vacuumAction: ({ widgetId, action }) => { onDashboardVacuumAction(widgetId, action); },
+    brightnessInput: ({ event, widgetId }) => onDashboardBrightnessInput(event, widgetId),
+    brightnessChange: ({ event, widgetId }) => onDashboardBrightnessChange(event, widgetId),
+});
 
 registerHyveviewDashboardCards(_dashboardWidgetEntityIds);
 

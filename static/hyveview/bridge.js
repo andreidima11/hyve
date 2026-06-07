@@ -69,8 +69,10 @@ function _widgetEntityIds(widget) {
 
 /** Card type used for mount + render — dedicated types win over stale generic renderer. */
 export function effectiveCardType(widget) {
-  const type = String(widget?.type || '').trim();
-  const renderer = String(widget?.renderer || '').trim();
+  let type = String(widget?.type || '').trim();
+  if (type === 'weather_gradient') type = 'weather';
+  const rendererRaw = String(widget?.renderer || '').trim();
+  const renderer = rendererRaw === 'weather_gradient' ? 'weather' : rendererRaw;
   if (type && _registry.has(type) && (!renderer || _GENERIC_RENDERERS.has(renderer))) {
     return type;
   }

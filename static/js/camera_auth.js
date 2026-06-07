@@ -48,6 +48,30 @@ export function clearCameraStreamTokenCache() {
     _cache = { token: '', expiresAt: 0, inflight: null };
 }
 
+/** Sync URL builder — requires prior getCameraStreamToken() (uses cached short-lived token). */
+export function cameraProxyUrlSync(entityId, kind = 'snapshot', cacheValue = Date.now()) {
+    const params = new URLSearchParams();
+    const token = peekCameraStreamToken();
+    if (token) params.set('token', token);
+    if (kind === 'snapshot' || kind === 'image') {
+        params.set('t', String(cacheValue));
+    } else {
+        params.set('_t', String(cacheValue));
+    }
+    const qs = params.toString();
+    return `/api/cameras/${encodeURIComponent(entityId)}/${kind}${qs ? `?${qs}` : ''}`;
+}
+
+export function cameraGo2rtcWsUrlSync(entityId) {
+    const params = new URLSearchParams();
+    const token = peekCameraStreamToken();
+    if (token) params.set('token', token);
+    const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = typeof window !== 'undefined' ? window.location.host : '';
+    const qs = params.toString();
+    return `${protocol}//${host}/api/cameras/${encodeURIComponent(entityId)}/go2rtc/ws${qs ? `?${qs}` : ''}`;
+}
+
 let _cameraPreviewTimer = null;
 
 function _cacheBustCameraUrl(url) {

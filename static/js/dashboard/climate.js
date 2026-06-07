@@ -38,6 +38,27 @@ let _entitySelection = [];
 
 export function initDashboardClimate(deps) {
     _deps = deps;
+    _ensureClimateSwipeDocListeners();
+}
+
+let _climateSwipeDocBound = false;
+
+function _onClimateSwipeDocMove(event) {
+    if (!_swipeState) return;
+    moveDashboardClimateSwipe(event, _swipeState.widgetId);
+}
+
+function _onClimateSwipeDocEnd(event) {
+    if (!_swipeState) return;
+    endDashboardClimateSwipe(event, _swipeState.widgetId);
+}
+
+function _ensureClimateSwipeDocListeners() {
+    if (_climateSwipeDocBound) return;
+    _climateSwipeDocBound = true;
+    document.addEventListener('pointermove', _onClimateSwipeDocMove, { passive: false });
+    document.addEventListener('pointerup', _onClimateSwipeDocEnd);
+    document.addEventListener('pointercancel', _onClimateSwipeDocEnd);
 }
 
 function deps() {
@@ -189,18 +210,18 @@ function _climateSlideMarkup(widget, entity, index, isActive, hasSlides, editCon
     } catch (_e) { /* ignore */ }
     const modeMapAttr = esc(JSON.stringify(modeMap));
     const controls = controllable ? `
-            <div class="hyve-dashboard-card__climate-controls" onclick="event.stopPropagation()">
+            <div class="hyve-dashboard-card__climate-controls">
                 <div class="hyve-dashboard-card__climate-setpoint" aria-label="Setpoint">
-                    <button type="button" title="${esc(t('dashboard.climate.decrease_temp'))}" aria-label="${esc(t('dashboard.climate.decrease_temp'))}" onclick="adjustDashboardClimateTemperature('${widgetId}', -1, '${entityId}')"><i class="fas fa-minus"></i></button>
+                    <button type="button" title="${esc(t('dashboard.climate.decrease_temp'))}" aria-label="${esc(t('dashboard.climate.decrease_temp'))}" data-dash-action="climateAdjustTemp" data-dash-stop-propagation="true" data-widget-id="${widgetId}" data-entity-id="${entityId}" data-delta="-1"><i class="fas fa-minus"></i></button>
                     <span data-climate-target data-climate-unit="${esc(unit)}">${target != null ? esc(target) : '\u2014'}${esc(unit)}</span>
-                    <button type="button" title="${esc(t('dashboard.climate.increase_temp'))}" aria-label="${esc(t('dashboard.climate.increase_temp'))}" onclick="adjustDashboardClimateTemperature('${widgetId}', 1, '${entityId}')"><i class="fas fa-plus"></i></button>
+                    <button type="button" title="${esc(t('dashboard.climate.increase_temp'))}" aria-label="${esc(t('dashboard.climate.increase_temp'))}" data-dash-action="climateAdjustTemp" data-dash-stop-propagation="true" data-widget-id="${widgetId}" data-entity-id="${entityId}" data-delta="1"><i class="fas fa-plus"></i></button>
                 </div>
                 ${hvacOptions.length ? `<div class="hyve-dashboard-card__climate-mode-menu" data-widget-id="${widgetId}" data-entity-id="${entityId}" data-open="false">
-                    <button type="button" class="hyve-dashboard-card__climate-mode-button" title="${esc(t('dashboard.climate.hvac_mode'))}" aria-label="${esc(t('dashboard.climate.hvac_mode'))}" aria-haspopup="menu" aria-expanded="false" onclick="toggleDashboardClimateModeMenu('${widgetId}', event, '${entityId}')">
+                    <button type="button" class="hyve-dashboard-card__climate-mode-button" title="${esc(t('dashboard.climate.hvac_mode'))}" aria-label="${esc(t('dashboard.climate.hvac_mode'))}" aria-haspopup="menu" aria-expanded="false" data-dash-action="climateToggleModeMenu" data-dash-stop-propagation="true" data-widget-id="${widgetId}" data-entity-id="${entityId}">
                         <i class="fas fa-gear"></i><span data-climate-mode-label data-climate-mode-map="${modeMapAttr}">${esc(modeLabel)}</span><i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="hyve-dashboard-card__climate-mode-panel" role="menu">
-                        ${hvacOptions.map(opt => `<button type="button" role="menuitem" data-climate-mode-option data-climate-mode-value="${esc(opt.value)}" class="hyve-dashboard-card__climate-mode-option" data-active="${String(opt.value).toLowerCase() === mode ? 'true' : 'false'}" onclick="event.stopPropagation(); setDashboardClimateMode('${widgetId}', '${esc(opt.value)}', '${entityId}')"><span>${esc(opt.label)}</span>${String(opt.value).toLowerCase() === mode ? '<i class="fas fa-check"></i>' : ''}</button>`).join('')}
+                        ${hvacOptions.map(opt => `<button type="button" role="menuitem" data-climate-mode-option data-climate-mode-value="${esc(opt.value)}" class="hyve-dashboard-card__climate-mode-option" data-active="${String(opt.value).toLowerCase() === mode ? 'true' : 'false'}" data-dash-action="climateSetMode" data-dash-stop-propagation="true" data-widget-id="${widgetId}" data-entity-id="${entityId}" data-climate-mode="${esc(opt.value)}"><span>${esc(opt.label)}</span>${String(opt.value).toLowerCase() === mode ? '<i class="fas fa-check"></i>' : ''}</button>`).join('')}
                     </div>
                 </div>` : ''}
             </div>` : '';
@@ -238,7 +259,7 @@ export function renderClimateCard(widget) {
 
     const pipsHtml = hasSlides ? `
             <div class="hyve-dashboard-card__climate-pips" role="tablist" aria-label="${esc(t('dashboard.climate.zones'))}">
-                ${entities.map((entity, index) => `<button type="button" role="tab" class="hyve-dashboard-card__climate-pip" data-climate-pip="${index}" data-active="${index === activeIndex ? 'true' : 'false'}" aria-selected="${index === activeIndex ? 'true' : 'false'}" aria-label="${esc(entity.slide_title || entity.entity_name || t('dashboard.climate.zone', { n: index + 1 }))}" onclick="event.stopPropagation(); selectDashboardClimateSlide('${widgetId}', ${index}, event)"><span></span></button>`).join('')}
+                ${entities.map((entity, index) => `<button type="button" role="tab" class="hyve-dashboard-card__climate-pip" data-climate-pip="${index}" data-active="${index === activeIndex ? 'true' : 'false'}" aria-selected="${index === activeIndex ? 'true' : 'false'}" aria-label="${esc(entity.slide_title || entity.entity_name || t('dashboard.climate.zone', { n: index + 1 }))}" data-dash-action="climateSelectSlide" data-dash-stop-propagation="true" data-widget-id="${widgetId}" data-slide-index="${index}"><span></span></button>`).join('')}
             </div>` : '';
 
     widget._climateInner = `
@@ -257,10 +278,7 @@ export function renderClimateCard(widget) {
             data-clickable="false"
             data-edit="${getEditMode() ? 'true' : 'false'}"
             data-unavailable="${widget.available === false || active.available === false ? 'true' : 'false'}"
-            onpointerdown="startDashboardClimateSwipe(event, '${widgetId}')"
-            onpointermove="moveDashboardClimateSwipe(event, '${widgetId}')"
-            onpointerup="endDashboardClimateSwipe(event, '${widgetId}')"
-            onpointercancel="endDashboardClimateSwipe(event, '${widgetId}')">
+            data-dash-pointer="climateSwipeStart" data-widget-id="${widgetId}">
             ${renderCardElement(widget)}
         </article>`;
 }
@@ -528,11 +546,11 @@ export function renderDashboardClimateEntityChips() {
             <div class="dashboard-climate-entities__chip-head">
                 <span>${esc(_climateEntityLabel(record))}</span>
                 <small>${esc(entityId)}</small>
-                <button type="button" title="${esc(t('dashboard.climate.remove'))}" aria-label="${esc(t('dashboard.climate.remove'))}" onclick="removeDashboardClimateEntity('${esc(entityId)}')"><i class="fas fa-xmark"></i></button>
+                <button type="button" title="${esc(t('dashboard.climate.remove'))}" aria-label="${esc(t('dashboard.climate.remove'))}" data-dash-action="climateRemoveEntity" data-entity-id="${esc(entityId)}"><i class="fas fa-xmark"></i></button>
             </div>
             <div class="dashboard-climate-entities__fields">
-                <input type="text" value="${esc(record.title)}" placeholder="${esc(t('dashboard.climate.slide_title_placeholder'))}" oninput="updateDashboardClimateEntityMeta('${esc(entityId)}', 'title', this.value)">
-                <input type="text" value="${esc(record.subtitle)}" placeholder="${esc(t('dashboard.climate.slide_subtitle_placeholder'))}" oninput="updateDashboardClimateEntityMeta('${esc(entityId)}', 'subtitle', this.value)">
+                <input type="text" value="${esc(record.title)}" placeholder="${esc(t('dashboard.climate.slide_title_placeholder'))}" data-dash-input="climateEntityMeta" data-entity-id="${esc(entityId)}" data-field="title">
+                <input type="text" value="${esc(record.subtitle)}" placeholder="${esc(t('dashboard.climate.slide_subtitle_placeholder'))}" data-dash-input="climateEntityMeta" data-entity-id="${esc(entityId)}" data-field="subtitle">
             </div>
         </div>`;
     }).join('');

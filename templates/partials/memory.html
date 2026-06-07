@@ -1,0 +1,338 @@
+            <div id="view-memory" class="h-full hidden overflow-y-auto animate-up">
+                <div class="max-w-5xl mx-auto py-3 px-3 sm:py-6 sm:px-6 lg:py-8 lg:px-8">
+                    <header class="mb-4 sm:mb-6">
+                        <h1 class="text-lg sm:text-2xl font-semibold text-white tracking-tight" data-i18n="intelligence.title">Inteligenta</h1>
+                        <p class="text-slate-500 text-xs sm:text-sm mt-0.5 sm:mt-1 hidden sm:block" data-i18n="intelligence.subtitle">Memorii, automatizări</p>
+                        <div class="flex gap-1.5 sm:gap-2 mt-3 sm:mt-4 border-b border-white/5 pb-2 overflow-x-auto scrollbar-none">
+                            <button type="button" data-memory-action="switchIntelligenceTab" data-memory-tab="memories" id="intelligence-tab-memories" class="intelligence-tab-btn px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold border-b-2 border-accent text-accent transition-all flex-shrink-0 touch-manipulation" data-i18n="intelligence.tab_memories">Memorii</button>
+                            <button type="button" data-memory-action="switchIntelligenceTab" data-memory-tab="automations" id="intelligence-tab-automations" class="intelligence-tab-btn px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-white transition-all flex-shrink-0 touch-manipulation" data-i18n="intelligence.tab_automations">Automatizări</button>
+                        </div>
+                    </header>
+                    <div id="intelligence-panel-memories" class="intelligence-panel space-y-4">
+                    <!-- Sub-tabs: Memorii | Jurnal -->
+                    <div class="flex gap-2 mb-1">
+                        <button id="mem-subtab-memories" data-memory-action="switchMemorySubtab" data-memory-subtab="memories" class="int-subtab-btn px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors bg-accent/20 text-accent border border-accent/40">
+                            <i class="fas fa-brain mr-1 text-[9px]"></i><span data-i18n="memory.tab_memories">Memorii</span>
+                        </button>
+                        <button id="mem-subtab-log" data-memory-action="switchMemorySubtab" data-memory-subtab="log" class="int-subtab-btn px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors bg-white/5 text-slate-400 border border-white/10">
+                            <i class="fas fa-list-alt mr-1 text-[9px]"></i><span data-i18n="memory.tab_log">Jurnal</span>
+                        </button>
+                    </div>
+
+                    <!-- ═══ MEMORIES PANEL ═══ -->
+                    <div id="mem-panel-memories" class="space-y-6">
+
+                    <!-- ═══ TOOLBAR ═══ -->
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2">
+                            <div class="flex-1 flex items-center gap-2 bg-white/[0.03] border border-white/5 rounded-xl px-3 py-2 focus-within:border-accent/50 transition-colors">
+                                <i class="fas fa-search text-slate-500 text-xs"></i>
+                                <input type="text" id="mem-search" data-memory-input="filterMemory" class="flex-1 bg-transparent border-none focus:ring-0 text-sm text-white placeholder-slate-500 outline-none" data-i18n-placeholder="memory.filter_placeholder" placeholder="Search memories...">
+                            </div>
+                            <button data-memory-action="loadMemory" class="w-9 h-9 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-accent/10 hover:border-accent/30 flex items-center justify-center text-slate-400 hover:text-accent transition-all shrink-0" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-rotate text-xs"></i></button>
+                        </div>
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <label class="flex items-center gap-2 text-slate-400 text-xs cursor-pointer select-none">
+                                    <input type="checkbox" data-memory-input="toggleAllMem" class="accent-accent w-3.5 h-3.5 rounded border-white/10 bg-white/5">
+                                    <span data-i18n="memory.select_all">Select all</span>
+                                </label>
+                                <div id="mem-bulk-delete-btn" style="display:none">
+                                    <button data-memory-action="deleteMemBulk" class="px-3 py-1 rounded-lg text-xs font-medium text-red-400 hover:text-white hover:bg-red-500/20 border border-red-500/30 transition-colors" data-i18n="memory.delete_selected">Delete</button>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <p id="mem-page-info" class="text-slate-500 text-xs hidden" data-i18n="memory.page_info">Page 1</p>
+                                <div class="flex items-center gap-1">
+                                    <button id="mem-prev" type="button" data-memory-action="changeMemPage" data-memory-delta="-1" class="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed" aria-label="Previous"><i class="fas fa-chevron-left text-[10px]"></i></button>
+                                    <button id="mem-next" type="button" data-memory-action="changeMemPage" data-memory-delta="1" class="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed" aria-label="Next"><i class="fas fa-chevron-right text-[10px]"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ═══ MEMORY CARDS ═══ -->
+                    <div id="mem-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+
+                    </div><!-- /mem-panel-memories -->
+
+                    <!-- ═══ MEMORY LOG ═══ -->
+                    <div id="mem-panel-log" class="hidden">
+                    <section class="space-y-4" aria-labelledby="memory-log-heading">
+                        <div class="flex items-center justify-between gap-2">
+                                <input type="hidden" id="mem-log-type-filter" value="">
+                                <div class="relative dashboard-custom-select dashboard-custom-select--compact" id="mem_log_type_dropdown" data-open="false" data-target="mem-log-type-filter">
+                                    <button type="button" class="dashboard-custom-select__button" data-action="toggle-mem-log-type" style="min-height:32px;height:32px;">
+                                        <span class="dashboard-custom-select__value" data-i18n="memory.log_type_all">Toate</span>
+                                        <i class="fas fa-chevron-down"></i>
+                                    </button>
+                                    <div class="dashboard-custom-select__menu">
+                                        <button type="button" class="dashboard-custom-select__option" data-value="" data-selected="true" data-i18n="memory.log_type_all">Toate</button>
+                                        <button type="button" class="dashboard-custom-select__option" data-value="fact_added">fact_added</button>
+                                        <button type="button" class="dashboard-custom-select__option" data-value="fact_updated">fact_updated</button>
+                                        <button type="button" class="dashboard-custom-select__option" data-value="fact_deleted">fact_deleted</button>
+                                        <button type="button" class="dashboard-custom-select__option" data-value="consolidation_start">consolidation_start</button>
+                                        <button type="button" class="dashboard-custom-select__option" data-value="consolidation_end">consolidation_end</button>
+                                        <button type="button" class="dashboard-custom-select__option" data-value="consolidation_dedupe">consolidation_dedupe</button>
+                                        <button type="button" class="dashboard-custom-select__option" data-value="consolidation_merged">consolidation_merged</button>
+                                        <button type="button" class="dashboard-custom-select__option" data-value="consolidation_skip">consolidation_skip</button>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <button type="button" data-memory-action="loadMemoryEvents" data-memory-offset="0" class="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-accent/10 flex items-center justify-center text-slate-400 hover:text-accent transition-colors" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-rotate text-[10px]"></i></button>
+                                    <button type="button" data-memory-action="clearMemoryLog" class="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-red-500/10 flex items-center justify-center text-slate-400 hover:text-red-400 transition-colors" data-i18n-title="memory.log_clear" title="Clear log"><i class="fas fa-trash-alt text-[10px]"></i></button>
+                                </div>
+                        </div>
+                        <div id="mem-log-table-wrapper" class="overflow-x-auto rounded-xl border border-white/5">
+                            <table class="w-full text-left text-sm border-collapse">
+                                <thead class="bg-white/[0.02] border-b border-white/5 text-[9px] uppercase tracking-widest text-slate-500">
+                                    <tr>
+                                        <th class="px-3 py-2.5 w-28"><span data-i18n="memory.log_time">Time</span></th>
+                                        <th class="px-3 py-2.5 w-32"><span data-i18n="memory.log_type">Type</span></th>
+                                        <th class="px-3 py-2.5"><span data-i18n="memory.log_summary">Summary</span></th>
+                                        <th class="px-3 py-2.5 w-16 text-center"><i class="fas fa-ellipsis text-[10px]"></i></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mem-log-tbody" class="divide-y divide-white/5 text-slate-300">
+                                    <tr><td colspan="4" class="p-6 text-center text-slate-500" data-i18n="memory.log_loading">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="mem-log-pagination" class="flex items-center justify-between text-xs text-slate-500">
+                            <span id="mem-log-range"></span>
+                            <div class="flex gap-1.5">
+                                <button type="button" id="mem-log-prev" data-memory-action="memLogPrevPage" class="px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/10 text-slate-400 text-xs disabled:opacity-30 disabled:cursor-not-allowed transition-colors" data-i18n="common.prev">Prev</button>
+                                <button type="button" id="mem-log-next" data-memory-action="memLogNextPage" class="px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/10 text-slate-400 text-xs disabled:opacity-30 disabled:cursor-not-allowed transition-colors" data-i18n="common.next">Next</button>
+                            </div>
+                        </div>
+                    </section>
+                    </div><!-- /mem-panel-log -->
+                    </div><!-- /intelligence-panel-memories -->
+                    <div id="intelligence-panel-automations" class="intelligence-panel hidden">
+                        <div class="cfg-section mb-6">
+                            <div class="flex items-center justify-between gap-4 mb-4">
+                                <h2 class="text-sm font-bold text-accent uppercase tracking-widest" data-i18n="automations.title">Automatizări</h2>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" data-memory-action="openAutomationEditor" class="px-3 py-2 rounded-lg bg-accent text-bg-main hover:bg-accent-hover text-xs font-bold transition-colors" data-i18n="automations.new_button">Nouă</button>
+                                    <button type="button" data-memory-action="openBlueprintPicker" class="px-3 py-2 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 text-violet-300 text-xs font-bold transition-colors" data-i18n-title="automations.blueprint_button_title" title="Creează dintr-un blueprint"><i class="fas fa-cube text-xs mr-1"></i><span data-i18n="automations.blueprint_button">Blueprint</span></button>
+                                    <button type="button" data-memory-action="loadAutomations" class="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-accent transition-colors" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-rotate text-xs"></i></button>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-slate-500 mb-4" data-i18n="automations.subtitle">Automatizări declarative stocate ca YAML. Le poți crea din chat sau edita direct aici.</p>
+                            <div id="automations-list" class="space-y-3">
+                                <p class="text-slate-500 text-sm" data-i18n="automations.loading">Se încarcă...</p>
+                            </div>
+                            <div id="automations-empty" class="hidden py-8 text-center text-slate-500 text-sm" data-i18n="automations.empty">Nicio automatizare activă.</div>
+                        </div>
+                        <div id="automation-editor-modal" class="app-subpage" aria-hidden="true">
+                            <div class="app-subpage-header">
+                                <button type="button" data-memory-action="closeAutomationEditor" class="app-subpage-back" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
+                                <h3 class="app-subpage-title"><i class="fas fa-robot"></i><span id="automation-editor-title" data-i18n="automations.editor_edit_title">Editează automatizarea</span></h3>
+                                <span id="automation-editor-info" class="app-subpage-meta"></span>
+                            </div>
+                            <div class="app-subpage-body">
+                                <div class="max-w-4xl mx-auto p-4 sm:p-6 space-y-4">
+                                    <input type="hidden" id="automation-editor-id">
+                                    <input type="hidden" id="automation-editor-revision">
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] text-slate-500">
+                                        <div><span class="text-slate-400">ID:</span> <span id="automation-editor-id-display">YAML</span></div>
+                                        <div class="truncate"><span class="text-slate-400">Path:</span> <span id="automation-editor-path">—</span></div>
+                                    </div>
+                                    <div class="inline-flex rounded-xl border border-white/5 bg-slate-950/60 p-1 gap-1 self-start">
+                                        <button type="button" data-automation-editor-mode="builder" data-memory-action="switchAutomationEditorMode" data-memory-mode="builder" class="px-3 py-2 rounded-lg text-xs font-bold bg-accent text-bg-main transition-colors" data-i18n="automations.builder_tab">Builder</button>
+                                        <button type="button" data-automation-editor-mode="yaml" data-memory-action="switchAutomationEditorMode" data-memory-mode="yaml" class="px-3 py-2 rounded-lg text-xs font-bold text-slate-300 bg-white/5 transition-colors" data-i18n="automations.yaml_tab">YAML</button>
+                                        <button type="button" data-automation-editor-mode="history" data-memory-action="switchAutomationEditorMode" data-memory-mode="history" class="px-3 py-2 rounded-lg text-xs font-bold text-slate-300 bg-white/5 transition-colors" data-i18n="automations.history_tab">Istoric</button>
+                                    </div>
+                                    <div data-automation-editor-panel="builder" class="space-y-4">
+                                        <p class="text-[11px] text-slate-500" data-i18n="automations.builder_hint">Builder-ul generează YAML-ul canonic. Poți trece oricând pe tab-ul YAML pentru reglaj fin.</p>
+                                        <datalist id="automation-hy-entity-options"></datalist>
+                                        <div id="automation-builder-warning" class="hidden rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-300"></div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <div class="space-y-1">
+                                                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="automations.builder_title">Titlu</label>
+                                                <input type="text" id="automation-builder-title" data-memory-input="autoSyncAutomationId" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
+                                            </div>
+                                            <div class="space-y-1">
+                                                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="automations.builder_id">ID</label>
+                                                <input type="text" id="automation-builder-id" data-memory-input="markAutomationIdManual" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none placeholder-slate-600" data-i18n-placeholder="automations.builder_id_ph" placeholder="auto-generat din titlu">
+                                            </div>
+                                            <div class="space-y-1 sm:col-span-2">
+                                                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="automations.builder_description">Descriere</label>
+                                                <textarea id="automation-builder-description" data-memory-input="syncAutomationYamlFromBuilder" class="w-full min-h-[76px] bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none resize-y"></textarea>
+                                            </div>
+                                            <div class="space-y-1">
+                                                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="automations.builder_mode">Mode</label>
+                                                <select id="automation-builder-mode" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
+                                                    <option value="single">single</option>
+                                                    <option value="restart">restart</option>
+                                                    <option value="queued">queued</option>
+                                                    <option value="parallel">parallel</option>
+                                                </select>
+                                                <p class="text-[10px] text-slate-500" data-i18n="automations.builder_mode_hint">Controlează ce se întâmplă dacă automatizarea e declanșată din nou cât timp încă rulează.</p>
+                                            </div>
+                                            <label class="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3 cursor-pointer self-end">
+                                                <input type="checkbox" id="automation-builder-enabled" data-memory-input="syncAutomationYamlFromBuilder" class="w-4 h-4 rounded accent-blue-500 bg-slate-900 border-white/10" checked>
+                                                <span class="text-sm text-slate-200" data-i18n="automations.builder_enabled">Activată</span>
+                                            </label>
+                                        </div>
+                                        <div class="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-4">
+                                            <div class="flex items-center justify-between gap-3">
+                                                <div>
+                                                    <h4 class="text-xs font-bold uppercase tracking-widest text-slate-300" data-i18n="automations.builder_trigger_title">Triggere</h4>
+                                                    <p class="text-[11px] text-slate-500 mt-1" data-i18n="automations.builder_trigger_hint">Alege unul sau mai multe momente când trebuie să pornească automatizarea.</p>
+                                                </div>
+                                                <div class="flex flex-wrap gap-2 justify-end">
+                                                    <button type="button" data-memory-action="addAutomationBuilderTrigger" data-memory-kind="time" class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-300 transition-colors" data-i18n="automations.builder_add_trigger_time">+ Time</button>
+                                                    <button type="button" data-memory-action="addAutomationBuilderTrigger" data-memory-kind="datetime" class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-300 transition-colors" data-i18n="automations.builder_add_trigger_datetime">+ Datetime</button>
+                                                    <button type="button" data-memory-action="addAutomationBuilderTrigger" data-memory-kind="interval" class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-300 transition-colors" data-i18n="automations.builder_add_trigger_interval">+ Interval</button>
+                                                </div>
+                                            </div>
+                                            <div id="automation-builder-triggers" class="space-y-3"></div>
+                                        </div>
+                                        <div class="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-4">
+                                            <div class="flex items-center justify-between gap-3">
+                                                <div>
+                                                    <h4 class="text-xs font-bold uppercase tracking-widest text-slate-300" data-i18n="automations.builder_condition_title">Condiții</h4>
+                                                    <p class="text-[11px] text-slate-500 mt-1" data-i18n="automations.builder_condition_hint">Opțional. Rulează doar dacă toate condițiile sunt adevărate.</p>
+                                                </div>
+                                                <div class="flex flex-wrap gap-2 justify-end">
+                                                    <button type="button" data-memory-action="addAutomationBuilderCondition" data-memory-kind="time_window" class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-300 transition-colors" data-i18n="automations.builder_add_condition_time_window">+ Time window</button>
+                                                </div>
+                                            </div>
+                                            <div id="automation-builder-conditions" class="space-y-3"></div>
+                                        </div>
+                                        <div class="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-4">
+                                            <div class="flex items-center justify-between gap-3">
+                                                <div>
+                                                    <h4 class="text-xs font-bold uppercase tracking-widest text-slate-300" data-i18n="automations.builder_actions_title">Acțiuni</h4>
+                                                    <p class="text-[11px] text-slate-500 mt-1" data-i18n="automations.builder_actions_hint">Poți trimite notificări, apela servicii HA sau rula skill-uri.</p>
+                                                </div>
+                                                <div class="flex flex-wrap gap-2 justify-end">
+                                                    <button type="button" data-memory-action="addAutomationBuilderAction" data-memory-kind="notify" class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-300 transition-colors" data-i18n="automations.builder_add_notify">+ Notify</button>
+                                                    <button type="button" data-memory-action="addAutomationBuilderAction" data-memory-kind="service" class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-300 transition-colors" data-i18n="automations.builder_add_service">+ Service</button>
+                                                    <button type="button" data-memory-action="addAutomationBuilderAction" data-memory-kind="skill" class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-300 transition-colors" data-i18n="automations.builder_add_skill">+ Skill</button>
+                                                </div>
+                                            </div>
+                                            <div id="automation-builder-actions" class="space-y-3"></div>
+                                        </div>
+                                    </div>
+                                    <div data-automation-editor-panel="yaml" class="space-y-1 hidden">
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="automations.yaml_label">YAML</label>
+                                        <textarea id="automation-editor-yaml" class="w-full min-h-[380px] bg-slate-950 border border-white/5 rounded-xl p-4 text-sm mono text-slate-200 focus:border-accent outline-none resize-y" spellcheck="false"></textarea>
+                                    </div>
+                                    <div data-automation-editor-panel="history" class="space-y-3 hidden">
+                                        <div class="flex items-center justify-between gap-3">
+                                            <p class="text-[11px] text-slate-500" data-i18n="automations.history_hint">Ultimele execuții pentru această automatizare.</p>
+                                            <button type="button" data-memory-action="loadAutomationEditorHistory" class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-300 transition-colors shrink-0" data-i18n="automations.history_refresh">Reîncarcă</button>
+                                        </div>
+                                        <div id="automation-editor-history-list" class="hidden space-y-3"></div>
+                                        <div id="automation-editor-history-empty" class="text-[11px] text-slate-500" data-i18n="automations.history_unavailable">Istoricul va apărea după prima rulare.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="app-subpage-footer flex-wrap justify-between">
+                                <div class="flex gap-1.5">
+                                    <button type="button" data-memory-action="validateAutomationEditor" class="automation-footer-btn px-2.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-300 bg-white/5 hover:bg-white/10 transition-colors" data-i18n="automations.validate_button" title="Validează"><i class="fas fa-check-double text-xs sm:mr-1"></i><span class="hidden sm:inline">Validează</span></button>
+                                    <button type="button" data-memory-action="testAutomationEditor" class="automation-footer-btn px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors" data-i18n="automations.test_button" title="Dry-run: simulează fără efecte"><i class="fas fa-flask text-xs sm:mr-1"></i><span class="hidden sm:inline">Test</span></button>
+                                    <button type="button" data-memory-action="importAutomationYaml" class="automation-footer-btn px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 transition-colors" data-i18n="automations.import_button" title="Importă YAML"><i class="fas fa-file-import text-xs sm:mr-1"></i><span class="hidden sm:inline" data-i18n="automations.import_button">Import</span></button>
+                                    <button type="button" data-memory-action="exportAutomationYaml" class="automation-footer-btn px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 transition-colors" data-i18n="automations.export_button" title="Descarcă YAML"><i class="fas fa-file-export text-xs sm:mr-1"></i><span class="hidden sm:inline" data-i18n="automations.export_button">Export</span></button>
+                                    <input type="file" id="automation-yaml-import-input" accept=".yaml,.yml,text/yaml" class="hidden" />
+                                </div>
+                                <div class="flex gap-2 justify-end">
+                                    <button type="button" data-memory-action="closeAutomationEditor" class="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-400 hover:bg-white/5 transition-colors" data-i18n="common.cancel">Cancel</button>
+                                    <button type="button" data-memory-action="saveAutomationEditor" class="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n="common.save">Save</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Blueprint picker modal -->
+                    <div id="blueprint-picker-modal" class="app-subpage" aria-hidden="true">
+                        <div class="app-subpage-body">
+                            <div class="max-w-5xl mx-auto py-4 px-4 sm:py-6 sm:px-6 lg:py-8 lg:px-8">
+                                <header class="mb-6">
+                                    <div class="flex flex-wrap items-center justify-between gap-3">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <button type="button" data-memory-action="closeBlueprintPicker" class="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors flex-shrink-0" aria-label="Back"><i class="fas fa-arrow-left text-sm"></i></button>
+                                            <div class="min-w-0">
+                                                <h1 class="text-lg sm:text-2xl font-semibold text-white tracking-tight" data-i18n="blueprints.title">Blueprints</h1>
+                                                <p class="text-slate-500 text-xs sm:text-sm mt-0.5 truncate hidden sm:block" data-i18n="blueprints.subtitle">Șabloane YAML pentru automatizări reutilizabile.</p>
+                                            </div>
+                                        </div>
+                                        <div id="blueprint-picker-list-actions" class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                                            <button type="button" data-memory-action="openBlueprintCreator" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 transition-colors"><i class="fas fa-pen-to-square"></i><span data-i18n="blueprints.new">Nou blueprint</span></button>
+                                            <button type="button" data-memory-action="importBlueprintYaml" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors"><i class="fas fa-upload"></i><span data-i18n="blueprints.import">Import blueprint</span></button>
+                                            <input type="file" id="blueprint-yaml-import-input" accept=".yaml,.yml,text/yaml" class="hidden" />
+                                            <button type="button" data-memory-action="loadBlueprints" class="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-rotate text-xs"></i></button>
+                                        </div>
+                                        <div id="blueprint-picker-creator-actions" class="hidden items-center gap-2 sm:gap-3 flex-shrink-0">
+                                            <button type="button" data-memory-action="backToBlueprintList" class="px-3 py-2 rounded-xl text-xs font-bold text-slate-300 bg-white/5 hover:bg-white/10 transition-colors"><i class="fas fa-arrow-left text-xs mr-1"></i><span data-i18n="blueprints.list_back">Listă</span></button>
+                                            <button type="button" data-memory-action="saveCreatedBlueprint" id="blueprint-creator-save-btn" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n="blueprints.save">Salvează blueprint</button>
+                                        </div>
+                                        <div id="blueprint-picker-form-actions" class="hidden items-center gap-2 sm:gap-3 flex-shrink-0">
+                                            <button type="button" data-memory-action="deleteCurrentBlueprint" id="blueprint-picker-delete-btn" class="px-3 py-2 rounded-xl text-xs font-bold text-red-300 bg-red-500/10 hover:bg-red-500/20 transition-colors"><i class="fas fa-trash text-xs mr-1"></i><span data-i18n="blueprints.delete">Șterge</span></button>
+                                            <button type="button" data-memory-action="instantiateCurrentBlueprint" id="blueprint-picker-create-btn" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n="blueprints.create_automation">Creează automatizare</button>
+                                        </div>
+                                    </div>
+                                </header>
+                                <div id="blueprint-picker-list-pane" class="space-y-3">
+                                    <div id="blueprint-picker-list" class="space-y-2"></div>
+                                    <div id="blueprint-picker-empty" class="hidden text-center py-12 text-slate-500">
+                                        <div class="text-5xl mb-3"><i class="fas fa-cube"></i></div>
+                                        <p class="text-sm mb-4" data-i18n="blueprints.empty">Niciun blueprint salvat.</p>
+                                        <button type="button" data-memory-action="openBlueprintCreator" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors"><i class="fas fa-pen-to-square"></i><span data-i18n="blueprints.create_first">Creează blueprint</span></button>
+                                    </div>
+                                </div>
+                                <div id="blueprint-picker-creator-pane" class="hidden space-y-4">
+                                    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)] gap-4">
+                                        <section class="rounded-xl bg-white/[0.02] border border-white/5 p-4 space-y-4">
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <div class="space-y-1">
+                                                    <label for="blueprint-creator-title" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="blueprints.field_title">Titlu</label>
+                                                    <input type="text" id="blueprint-creator-title" data-memory-input="updateBlueprintCreatorYaml" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-accent outline-none" />
+                                                </div>
+                                                <div class="space-y-1">
+                                                    <label for="blueprint-creator-description" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="blueprints.field_description">Descriere</label>
+                                                    <input type="text" id="blueprint-creator-description" data-memory-input="updateBlueprintCreatorYaml" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-accent outline-none" />
+                                                </div>
+                                            </div>
+                                            <div class="space-y-3">
+                                                <div class="flex items-center justify-between gap-3">
+                                                    <h2 class="text-xs font-bold uppercase tracking-widest text-slate-300" data-i18n="blueprints.inputs_title">Inputuri</h2>
+                                                    <button type="button" data-memory-action="addBlueprintCreatorInput" class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-300 transition-colors"><i class="fas fa-plus text-[10px] mr-1"></i><span data-i18n="blueprints.add_input">Input</span></button>
+                                                </div>
+                                                <div id="blueprint-creator-inputs" class="space-y-3"></div>
+                                                <div id="blueprint-creator-placeholders" class="hidden flex flex-wrap gap-2"></div>
+                                            </div>
+                                            <div class="space-y-1">
+                                                <label for="blueprint-creator-template" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="blueprints.template_yaml">Template YAML</label>
+                                                <textarea id="blueprint-creator-template" data-memory-input="updateBlueprintCreatorYaml" class="w-full min-h-[360px] bg-slate-950 border border-white/10 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none resize-y" spellcheck="false"></textarea>
+                                            </div>
+                                            <div id="blueprint-creator-error" class="hidden rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-[11px] text-red-300"></div>
+                                        </section>
+                                        <section class="rounded-xl bg-white/[0.02] border border-white/5 p-4 space-y-3">
+                                            <div class="flex items-center justify-between gap-3">
+                                                <h2 class="text-xs font-bold uppercase tracking-widest text-slate-300" data-i18n="blueprints.generated_yaml">YAML generat</h2>
+                                                <button type="button" data-memory-action="saveCreatedBlueprint" class="px-3 py-2 rounded-lg bg-accent text-bg-main hover:bg-accent-hover text-xs font-bold transition-colors"><i class="fas fa-floppy-disk text-[10px] mr-1"></i><span data-i18n="common.save">Salvează</span></button>
+                                            </div>
+                                            <textarea id="blueprint-creator-source-yaml" class="w-full min-h-[520px] bg-slate-950 border border-white/10 rounded-xl p-3 text-xs mono text-slate-300 outline-none resize-y" spellcheck="false" readonly></textarea>
+                                        </section>
+                                    </div>
+                                </div>
+                                <div id="blueprint-picker-form-pane" class="hidden space-y-4">
+                                    <div class="rounded-xl bg-white/[0.02] border border-white/5 p-4 space-y-4">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <h2 id="blueprint-picker-form-title" class="text-base font-semibold text-white truncate"></h2>
+                                                <p id="blueprint-picker-form-description" class="text-xs text-slate-500 mt-1"></p>
+                                            </div>
+                                            <button type="button" data-memory-action="backToBlueprintList" class="text-[11px] text-slate-400 hover:text-accent flex-shrink-0"><i class="fas fa-arrow-left text-xs mr-1"></i><span data-i18n="blueprints.back_to_list">Înapoi la listă</span></button>
+                                        </div>
+                                        <div id="blueprint-picker-form-inputs" class="space-y-3"></div>
+                                        <div id="blueprint-picker-form-error" class="hidden rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-[11px] text-red-300"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>

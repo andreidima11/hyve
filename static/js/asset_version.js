@@ -1,5 +1,33 @@
 /**
- * Single source of truth for Hyveview/dashboard JS cache busting.
- * When changing dashboard or card code, bump this string AND index.html app.js suffix.
+ * Cache busting for Hyve static assets.
+ *
+ * The server injects `window.__cacheBust` (process start timestamp) in index.html.
+ * Entry scripts and dynamic imports should use `withCacheBust` / `importWithCacheBust`.
+ * Static ES module imports omit `?v=` and rely on no-store (see core/http/middleware.py).
  */
-export const HYVEVIEW_JS_VERSION = 'hyveview-cards-52';
+
+/** @returns {string} Server-provided cache token, or empty before bootstrap. */
+export function cacheBust() {
+    if (typeof globalThis !== 'undefined' && globalThis.__cacheBust) {
+        return String(globalThis.__cacheBust);
+    }
+    return '';
+}
+
+/** Append or replace `v` query param using the server cache token. */
+export function withCacheBust(url) {
+    const raw = String(url || '').trim();
+    if (!raw) return raw;
+    const v = cacheBust();
+    if (!v) return raw;
+    const [base, query = ''] = raw.split('?');
+    const params = new URLSearchParams(query);
+    params.set('v', v);
+    const qs = params.toString();
+    return qs ? `${base}?${qs}` : base;
+}
+
+/** Dynamic `import()` with the current server cache token. */
+export function importWithCacheBust(specifier) {
+    return import(withCacheBust(specifier));
+}

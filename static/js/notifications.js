@@ -120,28 +120,22 @@ function _formatDate(value) {
 }
 
 function _dayGroup(value) {
-    if (!value) return 'Mai vechi';
+    if (!value) return t('notifications.group_older');
     const date = new Date(value);
     const now = new Date();
     const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const days = Math.round((startToday - startDate) / 86400000);
-    if (days === 0) return 'Azi';
-    if (days === 1) return 'Ieri';
-    if (days < 7) return 'Săptămâna asta';
-    return 'Mai vechi';
+    if (days === 0) return t('notifications.group_today');
+    if (days === 1) return t('notifications.group_yesterday');
+    if (days < 7) return t('notifications.group_this_week');
+    return t('notifications.group_older');
 }
 
 function _categoryLabel(category) {
-    const map = {
-        reminder: 'Reminder',
-        automation: 'Automatizare',
-        planner: 'Planner',
-        system: 'Sistem',
-        security: 'Securitate',
-        integration: 'Integrare',
-    };
-    return map[category] || category || 'Notificare';
+    const key = `notifications.category_${String(category || '').trim().toLowerCase()}`;
+    const val = t(key);
+    return val !== key ? val : (category || t('notifications.category_default'));
 }
 
 function _severityClasses(severity) {
@@ -160,12 +154,12 @@ export function updateNotificationBadge(count) {
     const label = value > 9 ? '9+' : String(value);
     if (badge) {
         badge.textContent = label;
-        badge.setAttribute('aria-label', value > 0 ? `${value} notificări necitite` : 'Fără notificări necitite');
+        badge.setAttribute('aria-label', value > 0 ? t('notifications.unread_badge_aria', { count: value }) : t('notifications.unread_badge_none'));
         badge.classList.toggle('hidden', value <= 0);
     }
     if (tabCount) {
         tabCount.textContent = label;
-        tabCount.setAttribute('aria-label', value > 0 ? `${value} notificări necitite` : 'Fără notificări necitite');
+        tabCount.setAttribute('aria-label', value > 0 ? t('notifications.unread_badge_aria', { count: value }) : t('notifications.unread_badge_none'));
         tabCount.classList.toggle('hidden', value <= 0);
     }
     if (unreadCount) unreadCount.textContent = String(value);
@@ -200,7 +194,7 @@ export async function loadUserNotifications(filter = _currentFilter, options = {
     const statusEl = document.getElementById('user-notifications-status');
     if (!listEl) return;
     _syncFilterButtons();
-    if (statusEl) statusEl.textContent = 'Se încarcă...';
+    if (statusEl) statusEl.textContent = t('notifications.loading');
     emptyEl?.classList.add('hidden');
     try {
         const offset = (_notificationPage - 1) * _notificationPageSize;
@@ -268,7 +262,7 @@ function _renderNotifications(items, total = _notificationTotal) {
                 html.push(`
                     <div class="pt-2 flex items-center justify-between gap-3">
                         <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">${escapeHtml(group)}</span>
-                        <button type="button" onclick="clearAllUserNotifications()" title="${escapeHtml(t('notifications.clear_inbox_title'))}" class="inline-flex h-8 items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 text-[11px] font-bold text-red-300 hover:bg-red-500/20 hover:text-red-200 transition-colors">
+                        <button type="button" data-user-action="notifClearAll" data-i18n-title="notifications.clear_inbox_title" title="${escapeHtml(t('notifications.clear_inbox_title'))}" class="inline-flex h-8 items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 text-[11px] font-bold text-red-300 hover:bg-red-500/20 hover:text-red-200 transition-colors">
                             <i class="fas fa-trash text-[10px]"></i>
                             <span>${escapeHtml(t('notifications.clear'))}</span>
                         </button>
@@ -294,9 +288,9 @@ function _renderNotificationPagination(total) {
         <nav class="pt-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[11px] text-slate-500" aria-label="${escapeHtml(t('notifications.pagination_aria'))}">
             <span class="font-medium">${escapeHtml(t('notifications.status_range', { start, end, total }))}</span>
             <div class="inline-flex items-center gap-2 self-start sm:self-auto rounded-xl border border-white/10 bg-white/[0.025] p-1">
-                <button type="button" onclick="changeUserNotificationsPage(-1)" ${prevDisabled ? 'disabled' : ''} aria-label="${escapeHtml(t('notifications.prev_page'))}" class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:text-slate-400"><i class="fas fa-chevron-left text-[10px]"></i></button>
+                <button type="button" data-user-action="notifPage" data-user-delta="-1" ${prevDisabled ? 'disabled' : ''} aria-label="${escapeHtml(t('notifications.prev_page'))}" class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:text-slate-400"><i class="fas fa-chevron-left text-[10px]"></i></button>
                 <span class="min-w-[74px] text-center text-[10px] font-bold uppercase text-slate-400">${escapeHtml(t('notifications.page_of', { page: _notificationPage, total: pageCount }))}</span>
-                <button type="button" onclick="changeUserNotificationsPage(1)" ${nextDisabled ? 'disabled' : ''} aria-label="${escapeHtml(t('notifications.next_page'))}" class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:text-slate-400"><i class="fas fa-chevron-right text-[10px]"></i></button>
+                <button type="button" data-user-action="notifPage" data-user-delta="1" ${nextDisabled ? 'disabled' : ''} aria-label="${escapeHtml(t('notifications.next_page'))}" class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:text-slate-400"><i class="fas fa-chevron-right text-[10px]"></i></button>
             </div>
         </nav>`;
 }
@@ -312,7 +306,7 @@ function _renderNotificationItem(item) {
     const id = escapeHtml(item.id);
     const actionUrl = item.action_url || '';
     const hasAction = !!actionUrl;
-    const clickAttr = hasAction ? `onclick="navigateNotification('${escapeHtml(actionUrl)}', '${id}')" style="cursor:pointer"` : '';
+    const clickAttr = hasAction ? `data-user-action="notifNavigate" data-notif-url="${escapeHtml(actionUrl)}" data-notif-id="${id}" style="cursor:pointer"` : '';
     const chevron = hasAction ? `<i class="fas fa-chevron-right text-[10px] text-slate-500 ml-auto shrink-0"></i>` : '';
     const suggested = (item.payload && Array.isArray(item.payload.suggested_actions)) ? item.payload.suggested_actions : [];
     const isAmbient = !!(item.payload && item.payload.ambient);
@@ -324,11 +318,11 @@ function _renderNotificationItem(item) {
             const idx = parseInt(a.index, 10) || 0;
             if (a.tool === 'navigate' && a.args && a.args.url) {
                 const url = escapeHtml(a.args.url);
-                return `<button type="button" onclick="event.stopPropagation();navigateNotification('${url}', '${id}')" class="px-3 h-8 rounded-lg text-[12px] font-semibold bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 transition-colors"><i class="fas fa-arrow-right mr-1.5 text-[10px]"></i>${label}</button>`;
+                return `<button type="button" data-user-action="notifNavigate" data-user-stop-propagation="true" data-notif-url="${url}" data-notif-id="${id}" class="px-3 h-8 rounded-lg text-[12px] font-semibold bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 transition-colors"><i class="fas fa-arrow-right mr-1.5 text-[10px]"></i>${label}</button>`;
             }
-            return `<button type="button" onclick="event.stopPropagation();actOnAmbientSuggestion('${id}', ${idx})" class="px-3 h-8 rounded-lg text-[12px] font-semibold bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 transition-colors"><i class="fas fa-bolt mr-1.5 text-[10px]"></i>${label}</button>`;
+            return `<button type="button" data-user-action="notifAmbient" data-user-stop-propagation="true" data-notif-id="${id}" data-notif-index="${idx}" class="px-3 h-8 rounded-lg text-[12px] font-semibold bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 transition-colors"><i class="fas fa-bolt mr-1.5 text-[10px]"></i>${label}</button>`;
         }).join('');
-        suggestedHtml = `<div class="flex flex-wrap items-center gap-2 pt-1">${btns}<button type="button" onclick="event.stopPropagation();archiveUserNotification('${id}')" class="px-3 h-8 rounded-lg text-[12px] font-medium bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors">${escapeHtml(t('notifications.dismiss'))}</button></div>`;
+        suggestedHtml = `<div class="flex flex-wrap items-center gap-2 pt-1">${btns}<button type="button" data-user-action="notifArchive" data-user-stop-propagation="true" data-notif-id="${id}" class="px-3 h-8 rounded-lg text-[12px] font-medium bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors">${escapeHtml(t('notifications.dismiss'))}</button></div>`;
     }
     return `
         <article class="rounded-xl border ${archived ? 'border-[var(--border-light)] bg-[var(--overlay-6)]' : (unread ? 'border-accent/30 bg-accent/5' : 'border-[var(--border-light)] bg-[var(--overlay-6)]')} p-4 transition-colors ${hasAction ? 'hover:bg-[var(--overlay-8)]' : ''}" ${clickAttr}>
@@ -348,9 +342,9 @@ function _renderNotificationItem(item) {
                     <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
                         <span class="text-[11px] text-[var(--text-tertiary)]">${escapeHtml(_formatDate(item.created_at))}</span>
                         <div class="flex items-center gap-2">
-                            ${!archived && unread ? `<button type="button" onclick="event.stopPropagation();markUserNotificationRead('${id}')" title="${escapeHtml(t('notifications.mark_read_title'))}" class="w-8 h-8 rounded-lg text-[11px] bg-[var(--overlay-6)] hover:bg-[var(--overlay-10)] text-[var(--text-secondary)] hover:text-accent transition-colors"><i class="fas fa-check"></i></button>` : ''}
-                            ${!archived ? `<button type="button" onclick="event.stopPropagation();archiveUserNotification('${id}')" title="${escapeHtml(t('notifications.archive_title'))}" class="w-8 h-8 rounded-lg text-[11px] bg-[var(--overlay-6)] hover:bg-[var(--overlay-10)] text-[var(--text-secondary)] hover:text-accent transition-colors"><i class="fas fa-box-archive"></i></button>` : ''}
-                            ${archived ? `<button type="button" onclick="event.stopPropagation();deleteUserNotification('${id}')" title="${escapeHtml(t('notifications.delete_title'))}" class="w-8 h-8 rounded-lg text-[11px] bg-red-500/10 hover:bg-red-500/20 text-red-300 hover:text-red-200 transition-colors"><i class="fas fa-trash"></i></button>` : ''}
+                            ${!archived && unread ? `<button type="button" data-user-action="notifMarkRead" data-user-stop-propagation="true" data-notif-id="${id}" data-i18n-title="notifications.mark_read_title" title="${escapeHtml(t('notifications.mark_read_title'))}" class="w-8 h-8 rounded-lg text-[11px] bg-[var(--overlay-6)] hover:bg-[var(--overlay-10)] text-[var(--text-secondary)] hover:text-accent transition-colors"><i class="fas fa-check"></i></button>` : ''}
+                            ${!archived ? `<button type="button" data-user-action="notifArchive" data-user-stop-propagation="true" data-notif-id="${id}" data-i18n-title="notifications.archive_title" title="${escapeHtml(t('notifications.archive_title'))}" class="w-8 h-8 rounded-lg text-[11px] bg-[var(--overlay-6)] hover:bg-[var(--overlay-10)] text-[var(--text-secondary)] hover:text-accent transition-colors"><i class="fas fa-box-archive"></i></button>` : ''}
+                            ${archived ? `<button type="button" data-user-action="notifDelete" data-user-stop-propagation="true" data-notif-id="${id}" data-i18n-title="notifications.delete_title" title="${escapeHtml(t('notifications.delete_title'))}" class="w-8 h-8 rounded-lg text-[11px] bg-red-500/10 hover:bg-red-500/20 text-red-300 hover:text-red-200 transition-colors"><i class="fas fa-trash"></i></button>` : ''}
                         </div>
                     </div>
                 </div>
@@ -462,8 +456,8 @@ function _handleNotificationPayload(data) {
         updateNotificationBadge(data.unread_count || 0);
         if (data.notification?.category === 'ambient') {
             window.__hyveAmbientLastNotification = data.notification;
-            const ambientTitle = data.notification.title || 'Sugestie HYVE';
-            const ambientBody = data.notification.body || 'Am găsit ceva util.';
+            const ambientTitle = data.notification.title || t('notifications.ambient_default_title');
+            const ambientBody = data.notification.body || t('notifications.ambient_default_body');
             showToast(`${ambientTitle}: ${ambientBody}`, 'info', 5200);
             if (_isNotificationsPanelVisible()) loadUserNotifications(_currentFilter);
         } else if (_isNotificationsPanelVisible()) {
@@ -489,6 +483,39 @@ function _handleNotificationPayload(data) {
         if (Number.isFinite(Number(data.unread_count))) updateNotificationBadge(Number(data.unread_count));
         else if (!isSettingsTest) updateNotificationBadge(_lastKnownUnread + 1);
         loadNotificationCounts();
+    }
+}
+
+export async function navigateNotification(actionUrl, notifId) {
+    if (notifId) {
+        try { await apiCall(`/api/notifications/${encodeURIComponent(notifId)}/read`, { method: 'PATCH' }); } catch (_) {}
+    }
+    if (!actionUrl) return;
+    const _routeMap = {
+        '#updates/addons': () => {
+            if (typeof window.switchTab === 'function') window.switchTab('config');
+            if (typeof window.openConfigSection === 'function') window.openConfigSection('updates');
+        },
+        '#smarthome': () => {
+            if (typeof window.switchTab === 'function') window.switchTab('smarthome');
+        },
+        '#integrations': () => {
+            if (typeof window.switchTab === 'function') window.switchTab('smarthome');
+        },
+    };
+    const handler = _routeMap[actionUrl];
+    if (handler) {
+        handler();
+    } else if (actionUrl.startsWith('#')) {
+        const section = actionUrl.replace('#', '').split('/')[0];
+        if (['smarthome', 'integrations', 'devices'].includes(section)) {
+            if (typeof window.switchTab === 'function') window.switchTab('smarthome');
+        } else {
+            if (typeof window.switchTab === 'function') window.switchTab('config');
+            if (typeof window.openConfigSection === 'function') window.openConfigSection(section);
+        }
+    } else if (actionUrl.startsWith('http')) {
+        window.open(actionUrl, '_blank');
     }
 }
 
@@ -646,38 +673,7 @@ export function initNotifications() {
         if (message) showToast(message, 'info', 3500);
     };
 
-    window.navigateNotification = async function(actionUrl, notifId) {
-        if (notifId) {
-            try { await apiCall(`/api/notifications/${encodeURIComponent(notifId)}/read`, { method: 'PATCH' }); } catch (_) {}
-        }
-        if (!actionUrl) return;
-        const _routeMap = {
-            '#updates/addons': () => {
-                if (typeof window.switchTab === 'function') window.switchTab('config');
-                if (typeof window.openConfigSection === 'function') window.openConfigSection('updates');
-            },
-            '#smarthome': () => {
-                if (typeof window.switchTab === 'function') window.switchTab('smarthome');
-            },
-            '#integrations': () => {
-                if (typeof window.switchTab === 'function') window.switchTab('smarthome');
-            },
-        };
-        const handler = _routeMap[actionUrl];
-        if (handler) {
-            handler();
-        } else if (actionUrl.startsWith('#')) {
-            const section = actionUrl.replace('#', '').split('/')[0];
-            if (['smarthome', 'integrations', 'devices'].includes(section)) {
-                if (typeof window.switchTab === 'function') window.switchTab('smarthome');
-            } else {
-                if (typeof window.switchTab === 'function') window.switchTab('config');
-                if (typeof window.openConfigSection === 'function') window.openConfigSection(section);
-            }
-        } else if (actionUrl.startsWith('http')) {
-            window.open(actionUrl, '_blank');
-        }
-    };
+    window.navigateNotification = navigateNotification;
 
     loadNotificationCounts();
     startLiveFallbacks();

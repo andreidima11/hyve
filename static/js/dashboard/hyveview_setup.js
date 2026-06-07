@@ -15,7 +15,6 @@ import { HyveviewGaugeCard } from '/static/hyveview/cards/gauge.js';
 import { HyveviewLockCard } from '/static/hyveview/cards/lock.js';
 import { HyveviewWeatherSimpleCard } from '/static/hyveview/cards/weather_simple.js';
 import { HyveviewWeatherRichCard } from '/static/hyveview/cards/weather_rich.js';
-import { HyveviewWeatherGradientCard } from '/static/hyveview/cards/weather_gradient.js';
 import { HyveviewClimateCard } from '/static/hyveview/cards/climate.js';
 import { HyveviewCameraCard } from '/static/hyveview/cards/camera.js';
 import { HyveviewPictureCard } from '/static/hyveview/cards/picture.js';
@@ -52,7 +51,6 @@ export function registerHyveviewDashboardCards(widgetEntityIdsResolver) {
     HVBridge.registerCard('lock', HyveviewLockCard);
     HVBridge.registerCard('weather', HyveviewWeatherSimpleCard);
     HVBridge.registerCard('weather_rich', HyveviewWeatherRichCard);
-    HVBridge.registerCard('weather_gradient', HyveviewWeatherGradientCard);
     HVBridge.registerCard('climate', HyveviewClimateCard);
     HVBridge.registerCard('camera', HyveviewCameraCard);
     HVBridge.registerCard('picture', HyveviewPictureCard);

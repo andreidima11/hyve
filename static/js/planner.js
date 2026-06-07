@@ -143,7 +143,7 @@ function renderLists() {
     wrap.innerHTML = listsCache.map(list => {
         const active = selectedListId === list.id ? 'p-list-item--active' : '';
         return `<div class="p-list-item ${active}" data-list-id="${list.id}">
-            <button type="button" class="p-list-item-main" onclick="plannerSelectList(${list.id}); plannerCloseDrawer()">
+            <button type="button" class="p-list-item-main" data-planner-action="selectList" data-planner-list-id="${list.id}" data-planner-close-drawer="true">
                 <span class="p-list-item-title">${escapeHtml(list.title)}</span>
             </button>
             <span class="p-list-delete-wrap" data-list-id="${list.id}">
@@ -154,13 +154,13 @@ function renderLists() {
 }
 
 function _listDeleteButtonHtml(id) {
-    return `<button type="button" class="p-list-delete" title="${t('common.delete') || 'Delete'}" onclick="event.stopPropagation(); plannerRequestDeleteList(${id})"><i class="fas fa-xmark"></i></button>`;
+    return `<button type="button" class="p-list-delete" title="${escapeHtml(t('common.delete'))}" data-planner-action="requestDeleteList" data-planner-list-id="${id}" data-planner-stop-propagation="true"><i class="fas fa-xmark"></i></button>`;
 }
 
 function _listDeleteConfirmHtml(id) {
     return `
-        <button type="button" class="p-list-delete p-list-delete--confirm" title="${t('common.confirm') || 'Confirm'}" onclick="event.stopPropagation(); plannerDeleteList(${id})"><i class="fas fa-check"></i></button>
-        <button type="button" class="p-list-delete p-list-delete--cancel" title="${t('common.cancel') || 'Cancel'}" onclick="event.stopPropagation(); plannerCancelDeleteList(${id})"><i class="fas fa-xmark"></i></button>
+        <button type="button" class="p-list-delete p-list-delete--confirm" title="${escapeHtml(t('common.confirm'))}" data-planner-action="deleteList" data-planner-list-id="${id}" data-planner-stop-propagation="true"><i class="fas fa-check"></i></button>
+        <button type="button" class="p-list-delete p-list-delete--cancel" title="${escapeHtml(t('common.cancel'))}" data-planner-action="cancelDeleteList" data-planner-list-id="${id}" data-planner-stop-propagation="true"><i class="fas fa-xmark"></i></button>
     `;
 }
 
@@ -193,17 +193,18 @@ function renderTodoEntries() {
         const done = entry.task_status === 'done';
         const dateStr = entry.due_at ? formatDate(entry.due_at) : '';
         const prio = entry.priority;
+        const checkTitle = done ? t('planner.action_reopen_task') : t('planner.action_complete_task');
         return `<div class="p-entry ${done ? 'p-entry--done' : ''}" draggable="${canDrag}"
-                    ondragstart="plannerDragStart(event, ${entry.id})" ondragover="plannerDragOver(event)"
-                    ondrop="plannerDrop(event, ${entry.id})" ondragend="plannerDragEnd(event)">
-            <button class="p-entry-check" onclick="plannerToggleDone(${entry.id})" title="${done ? 'Reopen' : 'Complete'}">
+                    data-planner-drag-start="task" data-planner-entry-id="${entry.id}"
+                    data-planner-drag-over="task" data-planner-drop="task">
+            <button class="p-entry-check" data-planner-action="toggleDone" data-planner-entry-id="${entry.id}" title="${escapeHtml(checkTitle)}">
                 ${done ? '<i class="fas fa-check-circle"></i>' : '<i class="far fa-circle"></i>'}
             </button>
-            <div class="p-entry-body" onclick="plannerEntryActions(${entry.id})">
+            <div class="p-entry-body" data-planner-action="entryActions" data-planner-entry-id="${entry.id}">
                 <span class="p-entry-title ${done ? 'p-entry-title--done' : ''}">${escapeHtml(entry.title)}</span>
                 ${dateStr ? `<span class="p-entry-meta">${dateStr}</span>` : ''}
             </div>
-            ${prio ? `<span class="p-entry-prio" style="background:${priorityColor(prio)}" title="Priority ${prio}"></span>` : ''}
+            ${prio ? `<span class="p-entry-prio" style="background:${priorityColor(prio)}" title="${escapeHtml(t('planner.priority_title', { prio }))}"></span>` : ''}
         </div>`;
     }).join('');
 }
@@ -243,36 +244,42 @@ function renderCalHeader() {
         title = calDate.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     }
     return `<div class="p-cal-header">
-        <button class="p-cal-nav" onclick="plannerCalPrev()"><i class="fas fa-chevron-left"></i></button>
-        <button class="p-cal-title" onclick="plannerCalToday()">${title}</button>
-        <button class="p-cal-nav" onclick="plannerCalNext()"><i class="fas fa-chevron-right"></i></button>
+        <button type="button" class="p-cal-nav" data-planner-action="calPrev"><i class="fas fa-chevron-left"></i></button>
+        <button type="button" class="p-cal-title" data-planner-action="calToday">${escapeHtml(title)}</button>
+        <button type="button" class="p-cal-nav" data-planner-action="calNext"><i class="fas fa-chevron-right"></i></button>
     </div>`;
 }
 
 function renderCalViewSelector() {
-    const views = [['month','Month'],['week','Week'],['day','Day']];
+    const views = [
+        ['month', t('planner.cal_view_month')],
+        ['week', t('planner.cal_view_week')],
+        ['day', t('planner.cal_view_day')],
+    ];
     return `<div class="p-cal-views">${views.map(([v, label]) =>
-        `<button class="p-cal-view-btn ${calView === v ? 'p-cal-view-btn--active' : ''}" onclick="plannerSetCalView('${v}')">${label}</button>`
+        `<button type="button" class="p-cal-view-btn ${calView === v ? 'p-cal-view-btn--active' : ''}" data-planner-action="setCalView" data-planner-cal-view="${v}">${escapeHtml(label)}</button>`
     ).join('')}</div>`;
 }
 
 function renderMonthView() {
     const cells = monthGrid(calDate);
     const curMonth = calDate.getMonth();
-    const dayHeaders = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const dayHeaders = Array.from({ length: 7 }, (_, i) =>
+        new Date(2024, 0, 1 + i).toLocaleDateString(undefined, { weekday: 'short' }),
+    );
 
     let html = '<div class="p-month-grid">';
-    html += dayHeaders.map(d => `<div class="p-month-hdr">${d}</div>`).join('');
+    html += dayHeaders.map(d => `<div class="p-month-hdr">${escapeHtml(d)}</div>`).join('');
     cells.forEach(d => {
         const today = isToday(d);
         const other = d.getMonth() !== curMonth;
         const dayEvts = eventsForDate(d);
         const dk = dateKey(d);
-        html += `<div class="p-month-cell ${today ? 'p-month-cell--today' : ''} ${other ? 'p-month-cell--other' : ''}" onclick="plannerCalClickDay('${dk}')" ondragover="plannerEventDragOver(event)" ondrop="plannerEventDropDay(event, '${dk}')">
+        html += `<div class="p-month-cell ${today ? 'p-month-cell--today' : ''} ${other ? 'p-month-cell--other' : ''}" data-planner-action="calClickDay" data-planner-cal-day="${dk}" data-planner-drag-over="event" data-planner-drop="eventDay">
             <span class="p-month-num ${today ? 'p-month-num--today' : ''}">${d.getDate()}</span>
             <div class="p-month-events">${dayEvts.slice(0, 3).map(ev =>
-                `<div class="p-month-evt" draggable="true" ondragstart="plannerEventDragStart(event, ${ev.id})" ondragend="plannerEventDragEnd(event)" onclick="event.stopPropagation(); plannerEntryActions(${ev.id})" style="border-left-color:${escapeHtml(ev.event_color || '#4f46e5')}">${formatTime(ev.start_at) ? `<span class="p-month-evt-time">${formatTime(ev.start_at)}</span> ` : ''}${escapeHtml(ev.title)}</div>`
-            ).join('')}${dayEvts.length > 3 ? `<div class="p-month-more">+${dayEvts.length - 3} more</div>` : ''}</div>
+                `<div class="p-month-evt" draggable="true" data-planner-drag-start="event" data-planner-entry-id="${ev.id}" data-planner-action="entryActions" data-planner-stop-propagation="true" style="border-left-color:${escapeHtml(ev.event_color || '#4f46e5')}">${formatTime(ev.start_at) ? `<span class="p-month-evt-time">${formatTime(ev.start_at)}</span> ` : ''}${escapeHtml(ev.title)}</div>`
+            ).join('')}${dayEvts.length > 3 ? `<div class="p-month-more">${escapeHtml(t('planner.month_more', { count: dayEvts.length - 3 }))}</div>` : ''}</div>
         </div>`;
     });
     html += '</div>';
@@ -306,9 +313,9 @@ function renderWeekView() {
                 const s = new Date(ev.start_at);
                 return dateKey(s) === dk && s.getHours() === h;
             });
-            html += `<div class="p-week-cell${isNowCell ? ' p-week-cell--now' : ''}" onclick="plannerCalClickHour('${dk}', ${h})" ondragover="plannerEventDragOver(event)" ondrop="plannerEventDropHour(event, '${dk}', ${h})">
+            html += `<div class="p-week-cell${isNowCell ? ' p-week-cell--now' : ''}" data-planner-action="calClickHour" data-planner-cal-day="${dk}" data-planner-cal-hour="${h}" data-planner-drag-over="event" data-planner-drop="eventHour">
                 ${nowLineTop ? `<div class="p-now-line" style="top:${nowLineTop}"></div>` : ''}
-                ${hourEvts.map(ev => `<div class="p-week-evt" draggable="true" ondragstart="plannerEventDragStart(event, ${ev.id})" ondragend="plannerEventDragEnd(event)" onclick="event.stopPropagation(); plannerEntryActions(${ev.id})" style="background:${escapeHtml(ev.event_color || '#4f46e5')}">${escapeHtml(ev.title)}</div>`).join('')}
+                ${hourEvts.map(ev => `<div class="p-week-evt" draggable="true" data-planner-drag-start="event" data-planner-entry-id="${ev.id}" data-planner-action="entryActions" data-planner-stop-propagation="true" style="background:${escapeHtml(ev.event_color || '#4f46e5')}">${escapeHtml(ev.title)}</div>`).join('')}
             </div>`;
         });
         html += '</div>';
@@ -332,10 +339,10 @@ function renderDayView() {
             const s = new Date(ev.start_at);
             return dateKey(s) === dk && s.getHours() === h;
         });
-        html += `<div class="p-day-row${isNowRow ? ' p-day-row--now' : ''}" onclick="plannerCalClickHour('${dk}', ${h})" ondragover="plannerEventDragOver(event)" ondrop="plannerEventDropHour(event, '${dk}', ${h})">
+        html += `<div class="p-day-row${isNowRow ? ' p-day-row--now' : ''}" data-planner-action="calClickHour" data-planner-cal-day="${dk}" data-planner-cal-hour="${h}" data-planner-drag-over="event" data-planner-drop="eventHour">
             <div class="p-day-time">${label}</div>
             <div class="p-day-content">
-                ${hourEvts.map(ev => `<div class="p-day-evt" draggable="true" ondragstart="plannerEventDragStart(event, ${ev.id})" ondragend="plannerEventDragEnd(event)" onclick="event.stopPropagation(); plannerEntryActions(${ev.id})" style="border-left-color:${escapeHtml(ev.event_color || '#4f46e5')}">
+                ${hourEvts.map(ev => `<div class="p-day-evt" draggable="true" data-planner-drag-start="event" data-planner-entry-id="${ev.id}" data-planner-action="entryActions" data-planner-stop-propagation="true" style="border-left-color:${escapeHtml(ev.event_color || '#4f46e5')}">
                     <span class="p-day-evt-time">${formatTime(ev.start_at)}${ev.end_at ? ' – ' + formatTime(ev.end_at) : ''}</span>
                     <span class="p-day-evt-title">${escapeHtml(ev.title)}</span>
                     ${ev.location ? `<span class="p-day-evt-loc"><i class="fas fa-map-pin"></i> ${escapeHtml(ev.location)}</span>` : ''}
@@ -404,7 +411,7 @@ export async function loadPlanner() {
 function updateHeader() {
     const title = document.getElementById('planner-header-title');
     if (!title) return;
-    if (activeTab === 'tasks') title.textContent = selectedList()?.title || 'Planner';
+    if (activeTab === 'tasks') title.textContent = selectedList()?.title || t('nav.planner');
     else title.textContent = t('planner.events') || 'Events';
 }
 

@@ -13,7 +13,7 @@ export class HyveviewWeatherSimpleCard extends HyveviewCardBase {
   static schema = {
     fields: [
       { key: 'entity_id', label: 'Weather entity', type: 'entity', domains: ['weather'], required: true },
-      { key: 'title', label: 'Title', type: 'string', placeholder: 'Auto from entity if blank' },
+      { key: 'title', label: 'Title', type: 'string', placeholder: 'Optional — leave empty for no title' },
     ],
   };
   static getStubConfig(entityId) {
@@ -46,11 +46,12 @@ export class HyveviewWeatherSimpleCard extends HyveviewCardBase {
     const w = this._config || {};
     const escape = host.escape;
     const title = widgetTitle(w);
+    const titleClass = title ? 'hyve-dashboard-card__title' : 'hyve-dashboard-card__title hidden';
     this.innerHTML = `
       <div class="hyve-dashboard-card__row">
         <span class="hyve-dashboard-card__icon"><i data-icon class="fas fa-cloud"></i></span>
         <div class="hyve-dashboard-card__body">
-          <div class="hyve-dashboard-card__title" data-title>${escape(title)}</div>
+          <div class="${titleClass}" data-title>${escape(title)}</div>
           <div class="hyve-dashboard-card__state" data-state></div>
         </div>
       </div>

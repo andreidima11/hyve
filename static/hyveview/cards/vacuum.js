@@ -79,19 +79,19 @@ export class HyveviewVacuumCard extends HyveviewCardBase {
       ${showActions ? `
         <div class="hyve-dashboard-card__vacuum-actions">
           <button type="button" class="hyve-dashboard-card__vacuum-btn" data-start-btn data-active="false"
-            title="Start" onclick="event.stopPropagation(); onDashboardVacuumAction('${wid}', 'start')">
+            title="Start" data-dash-action="vacuumAction" data-dash-stop-propagation="true" data-widget-id="${wid}" data-action="start">
             <i class="fas fa-play"></i>
           </button>
           <button type="button" class="hyve-dashboard-card__vacuum-btn" data-stop-btn data-active="false"
-            title="Stop" onclick="event.stopPropagation(); onDashboardVacuumAction('${wid}', 'stop')">
+            title="Stop" data-dash-action="vacuumAction" data-dash-stop-propagation="true" data-widget-id="${wid}" data-action="stop">
             <i class="fas fa-stop"></i>
           </button>
           <button type="button" class="hyve-dashboard-card__vacuum-btn"
-            title="Acasă" onclick="event.stopPropagation(); onDashboardVacuumAction('${wid}', 'return_to_base')">
+            title="Acasă" data-dash-action="vacuumAction" data-dash-stop-propagation="true" data-widget-id="${wid}" data-action="return_to_base">
             <i class="fas fa-house"></i>
           </button>
           <button type="button" class="hyve-dashboard-card__vacuum-btn"
-            title="Găsește" onclick="event.stopPropagation(); onDashboardVacuumAction('${wid}', 'locate')">
+            title="Găsește" data-dash-action="vacuumAction" data-dash-stop-propagation="true" data-widget-id="${wid}" data-action="locate">
             <i class="fas fa-location-crosshairs"></i>
           </button>
         </div>` : ''}

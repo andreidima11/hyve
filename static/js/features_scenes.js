@@ -9,11 +9,7 @@ import { showToast, showConfirm } from './utils.js';
 import { t } from './lang/index.js';
 
 const _MAX_ENTRIES = 64;
-const _SERVICE_OPTIONS = [
-    { value: 'turn_on', label: 'Turn on' },
-    { value: 'turn_off', label: 'Turn off' },
-    { value: 'toggle', label: 'Toggle' },
-];
+const _SERVICE_VALUES = ['turn_on', 'turn_off', 'toggle'];
 
 let _scenesCache = [];
 let _entityCatalog = [];
@@ -61,8 +57,13 @@ async function _ensureEntityCatalog(force = false) {
 }
 
 function _serviceSelectHtml(idx, currentService) {
-    const opts = _SERVICE_OPTIONS.map(o =>
-        `<option value="${o.value}" ${o.value === currentService ? 'selected' : ''}>${o.label}</option>`
+    const labels = {
+        turn_on: t('scenes.service_turn_on'),
+        turn_off: t('scenes.service_turn_off'),
+        toggle: t('scenes.service_toggle'),
+    };
+    const opts = _SERVICE_VALUES.map(v =>
+        `<option value="${v}" ${v === currentService ? 'selected' : ''}>${_escapeHtml(labels[v] || v)}</option>`
     ).join('');
     return `<select data-scene-entry-service="${idx}" class="bg-slate-900 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:border-accent outline-none">${opts}</select>`;
 }
@@ -76,22 +77,22 @@ function _entryRowHtml(entry, idx) {
             <div class="flex items-center gap-2">
                 <span class="text-[10px] font-bold text-slate-500 w-6">${idx + 1}.</span>
                 <input type="text" data-scene-entry-entity="${idx}" value="${eid}"
-                    placeholder="entity.id (ex: light.bucatarie)"
+                    placeholder="${_escapeHtml(t('scenes.entity_id_ph'))}"
                     class="flex-1 min-w-0 bg-slate-900 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 mono focus:border-accent outline-none">
-                <button type="button" onclick="openSceneEntityPicker(${idx})"
-                    class="px-2 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/5 border border-white/10" title="Pick entity">
+                <button type="button" data-config-action="openSceneEntityPicker" data-config-index="${idx}"
+                    class="px-2 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/5 border border-white/10" title="${_escapeHtml(t('scenes.pick_entity_title'))}">
                     <i class="fas fa-magnifying-glass"></i>
                 </button>
                 ${_serviceSelectHtml(idx, service)}
-                <button type="button" onclick="removeSceneEntry(${idx})"
-                    class="w-7 h-7 rounded-lg text-red-400 hover:bg-red-500/10 flex items-center justify-center" title="Remove">
+                <button type="button" data-config-action="removeSceneEntry" data-config-index="${idx}"
+                    class="w-7 h-7 rounded-lg text-red-400 hover:bg-red-500/10 flex items-center justify-center" title="${_escapeHtml(t('scenes.remove_entry_title'))}">
                     <i class="fas fa-trash-can text-xs"></i>
                 </button>
             </div>
             <details class="text-[11px] text-slate-400">
-                <summary class="cursor-pointer select-none hover:text-slate-200">Service data (JSON, optional)</summary>
+                <summary class="cursor-pointer select-none hover:text-slate-200">${_escapeHtml(t('scenes.service_data_summary'))}</summary>
                 <input type="text" data-scene-entry-data="${idx}" value="${dataJson}"
-                    placeholder='{"brightness": 200}'
+                    placeholder="${_escapeHtml(t('scenes.service_data_ph'))}"
                     class="mt-1 w-full bg-slate-900 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-300 mono focus:border-accent outline-none">
             </details>
         </div>`;
@@ -102,7 +103,7 @@ function _renderEditorEntries() {
     if (!wrap) return;
     if (!_editorState.entries.length) {
         wrap.innerHTML = `<div class="rounded-xl border border-dashed border-white/10 p-6 text-center text-xs text-slate-500">
-            No entries yet. Click <strong class="text-slate-300">Add entry</strong> to start.
+            ${t('scenes.entries_empty_html')}
         </div>`;
         return;
     }
@@ -126,7 +127,7 @@ function _readEditorEntriesFromDOM() {
                     item.service_data = parsed;
                 }
             } catch (_) {
-                throw new Error(`Entry ${idx + 1}: invalid JSON in service_data`);
+                throw new Error(t('scenes.entry_invalid_json', { n: idx + 1 }));
             }
         }
         out.push(item);
@@ -141,25 +142,25 @@ function _renderScenesList() {
         wrap.innerHTML = `
             <div class="flex flex-col items-center justify-center text-center py-12">
                 <div class="text-5xl text-slate-600 mb-3"><i class="fas fa-film"></i></div>
-                <p class="text-sm text-slate-500 mb-4">Nicio scenă încă. Creează una.</p>
-                <button type="button" onclick="openSceneEditor()"
+                <p class="text-sm text-slate-500 mb-4">${_escapeHtml(t('scenes.empty_list'))}</p>
+                <button type="button" data-config-action="openSceneEditor"
                     class="px-3 py-2 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors">
-                    <i class="fas fa-plus mr-1.5"></i>Scenă nouă
+                    <i class="fas fa-plus mr-1.5"></i>${_escapeHtml(t('scenes.new_scene'))}
                 </button>
             </div>`;
         return;
     }
     wrap.innerHTML = _scenesCache.map((s) => {
         const icon = _escapeHtml(_iconClass(s.icon || 'fas fa-film'));
-        const name = _escapeHtml(s.name || 'Untitled');
+        const name = _escapeHtml(s.name || t('scenes.untitled'));
         const desc = _escapeHtml(s.description || '');
         const count = Number(s.entry_count || 0);
         const colorStyle = s.color ? `style="color: ${_escapeHtml(s.color)}"` : '';
         const enabledDot = s.enabled
-            ? '<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" title="Enabled"></span>'
-            : '<span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-600" title="Disabled"></span>';
+            ? `<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" title="${_escapeHtml(t('scenes.enabled_badge_title'))}"></span>`
+            : `<span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-600" title="${_escapeHtml(t('scenes.disabled_badge_title'))}"></span>`;
         const sharedBadge = s.is_shared
-            ? '<span class="inline-flex items-center gap-1 text-[9px] font-bold text-sky-300 bg-white/5 rounded-full px-2 py-0.5"><i class="fas fa-users text-[8px]"></i>Shared</span>'
+            ? `<span class="inline-flex items-center gap-1 text-[9px] font-bold text-sky-300 bg-white/5 rounded-full px-2 py-0.5"><i class="fas fa-users text-[8px]"></i>${_escapeHtml(t('scenes.shared_badge'))}</span>`
             : '';
         const countBadge = `<span class="inline-flex items-center gap-1 text-[10px] text-slate-400"><i class="fas fa-list-ol text-[9px]"></i>${count}</span>`;
         return `
@@ -178,9 +179,9 @@ function _renderScenesList() {
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
-                    <button type="button" onclick="activateScene('${_escapeHtml(s.id)}')" class="text-accent hover:text-accent-hover px-2 py-1.5 rounded-lg text-[11px] inline-flex items-center" title="Activate"><i class="fas fa-play text-[10px]"></i></button>
-                    <button type="button" onclick="openSceneEditor('${_escapeHtml(s.id)}')" class="text-slate-400 hover:text-white px-2 py-1.5 rounded-lg text-[11px] inline-flex items-center" title="Edit"><i class="fas fa-pen text-[10px]"></i></button>
-                    <button type="button" onclick="deleteScene('${_escapeHtml(s.id)}')" class="text-rose-400/70 hover:text-rose-300 px-2 py-1.5 rounded-lg text-[11px] inline-flex items-center" title="Delete"><i class="fas fa-trash text-[10px]"></i></button>
+                    <button type="button" data-config-action="activateScene" data-config-scene-id="${_escapeHtml(s.id)}" class="text-accent hover:text-accent-hover px-2 py-1.5 rounded-lg text-[11px] inline-flex items-center" title="${_escapeHtml(t('scenes.activate_title'))}"><i class="fas fa-play text-[10px]"></i></button>
+                    <button type="button" data-config-action="openSceneEditor" data-config-scene-id="${_escapeHtml(s.id)}" class="text-slate-400 hover:text-white px-2 py-1.5 rounded-lg text-[11px] inline-flex items-center" title="${_escapeHtml(t('scenes.edit_title'))}"><i class="fas fa-pen text-[10px]"></i></button>
+                    <button type="button" data-config-action="deleteScene" data-config-scene-id="${_escapeHtml(s.id)}" class="text-rose-400/70 hover:text-rose-300 px-2 py-1.5 rounded-lg text-[11px] inline-flex items-center" title="${_escapeHtml(t('scenes.delete_title'))}"><i class="fas fa-trash text-[10px]"></i></button>
                 </div>
             </div>`;
     }).join('');
@@ -190,7 +191,7 @@ export async function loadScenes() {
     const wrap = document.getElementById('scenes-list');
     if (wrap && !_scenesCache.length) {
         wrap.innerHTML = `<div class="col-span-full text-center text-xs text-slate-500 py-10">
-            <i class="fas fa-spinner fa-spin mr-1.5"></i>Loading scenes...
+            <i class="fas fa-spinner fa-spin mr-1.5"></i>${_escapeHtml(t('scenes.loading'))}
         </div>`;
     }
     try {
@@ -202,7 +203,7 @@ export async function loadScenes() {
     } catch (e) {
         if (wrap) {
             wrap.innerHTML = `<div class="col-span-full text-center text-xs text-red-400 py-10">
-                Failed to load scenes: ${_escapeHtml(e.message)}
+                ${_escapeHtml(t('scenes.load_failed', { message: e.message }))}
             </div>`;
         }
     }
@@ -246,7 +247,10 @@ export async function openSceneEditor(sceneId = null) {
     const sharedRow = $('scene-shared-row');
     const sharedEl = $('scene-shared');
 
-    if (titleEl) titleEl.textContent = sceneId ? 'Edit scene' : 'New scene';
+    if (titleEl) {
+        const label = _escapeHtml(sceneId ? t('scenes.editor_title_edit') : t('scenes.editor_title_new'));
+        titleEl.innerHTML = `<i class="fas fa-clapperboard"></i><span>${label}</span>`;
+    }
     if (deleteBtn) deleteBtn.classList.toggle('hidden', !sceneId);
 
     // admin-only field; show/hide by sniffing window state
@@ -266,7 +270,7 @@ export async function openSceneEditor(sceneId = null) {
             if (sharedEl) sharedEl.checked = !!scene.is_shared;
             _editorState.entries = Array.isArray(scene.entries) ? scene.entries.map(e => ({ ...e })) : [];
         } catch (e) {
-            showToast(`Failed to load scene: ${e.message}`, 'error');
+            showToast(t('scenes.load_scene_failed', { message: e.message }), 'error');
             closeSceneEditor();
             return;
         }
@@ -294,7 +298,7 @@ export function closeSceneEditor() {
 
 export function addSceneEntry() {
     if (_editorState.entries.length >= _MAX_ENTRIES) {
-        showToast(`Max ${_MAX_ENTRIES} entries per scene`, 'warning');
+        showToast(t('scenes.max_entries', { max: _MAX_ENTRIES }), 'warning');
         return;
     }
     // Persist current edits before re-rendering
@@ -360,20 +364,20 @@ export async function saveScene() {
         }
         showToast(
             _editorState.mode === 'edit'
-                ? (t('scenes.updated') || 'Scene updated')
-                : (t('scenes.created') || 'Scene created'),
+                ? (t('scenes.updated'))
+                : (t('scenes.created')),
             'success'
         );
         closeSceneEditor();
         await loadScenes();
     } catch (e) {
-        showToast(`${t('scenes.save_failed') || 'Save failed'}: ${e.message}`, 'error');
+        showToast(`${t('scenes.save_failed')}: ${e.message}`, 'error');
     }
 }
 
 export async function deleteSceneFromEditor() {
     if (!_editorState.sceneId) return;
-    const ok = await showConfirm(t('scenes.delete_confirm_hard') || 'Delete this scene? This cannot be undone.');
+    const ok = await showConfirm(t('scenes.delete_confirm_hard'));
     if (!ok) return;
     await deleteScene(_editorState.sceneId, { skipConfirm: true });
     closeSceneEditor();
@@ -382,7 +386,7 @@ export async function deleteSceneFromEditor() {
 export async function deleteScene(sceneId, opts = {}) {
     if (!sceneId) return;
     if (!opts.skipConfirm) {
-        const ok = await showConfirm(t('scenes.delete_confirm') || 'Delete this scene?');
+        const ok = await showConfirm(t('scenes.delete_confirm'));
         if (!ok) return;
     }
     try {
@@ -391,10 +395,10 @@ export async function deleteScene(sceneId, opts = {}) {
             const err = await res.json().catch(() => ({}));
             throw new Error(err.detail || `HTTP ${res.status}`);
         }
-        showToast(t('scenes.deleted') || 'Scene deleted', 'success');
+        showToast(t('scenes.deleted'), 'success');
         await loadScenes();
     } catch (e) {
-        showToast(`${t('scenes.delete_failed') || 'Delete failed'}: ${e.message}`, 'error');
+        showToast(`${t('scenes.delete_failed')}: ${e.message}`, 'error');
     }
 }
 
@@ -410,14 +414,14 @@ export async function activateScene(sceneId) {
         const failed = Number(data?.failed || 0);
         const total = Number(data?.total || 0);
         if (failed === 0) {
-            showToast((t('scenes.activated') || 'Scene activated') + ` (${succeeded}/${total})`, 'success');
+            showToast(t('scenes.activated') + ' ' + t('scenes.activated_count', { succeeded, total }), 'success');
         } else {
-            showToast(`${t('scenes.activated_with_errors') || 'Activated with errors'}: ${succeeded} ok, ${failed} failed`, 'warning');
+            showToast(`${t('scenes.activated_with_errors')}: ${t('scenes.activated_errors_detail', { succeeded, failed })}`, 'warning');
         }
         // Refresh in background to update last_activated_at + count
         loadScenes().catch(() => {});
     } catch (e) {
-        showToast(`${t('scenes.activation_failed') || 'Activation failed'}: ${e.message}`, 'error');
+        showToast(`${t('scenes.activation_failed')}: ${e.message}`, 'error');
     }
 }
 
@@ -464,7 +468,7 @@ function _renderEntityPickerList(query) {
     }).slice(0, 200);
 
     if (!filtered.length) {
-        list.innerHTML = `<div class="text-center text-xs text-slate-500 py-6">No entities match.</div>`;
+        list.innerHTML = `<div class="text-center text-xs text-slate-500 py-6">${_escapeHtml(t('scenes.picker_no_match'))}</div>`;
         return;
     }
     list.innerHTML = filtered.map(e => {
@@ -473,7 +477,7 @@ function _renderEntityPickerList(query) {
         const domain = _escapeHtml(_entityDomain(e.entity_id));
         const source = _escapeHtml(e.source || '');
         return `
-            <button type="button" onclick="pickSceneEntity('${eid}')"
+            <button type="button" data-config-action="pickSceneEntity" data-config-entity-id="${eid}"
                 class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 border border-transparent hover:border-white/10 flex items-center gap-2">
                 <span class="text-[10px] uppercase tracking-widest text-slate-500 w-20 flex-shrink-0">${domain}</span>
                 <span class="flex-1 min-w-0">

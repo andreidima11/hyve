@@ -252,7 +252,7 @@ function _acServiceItems(search, domain) {
 function _acRenderEntity(dropdown, search, domain) {
     const items = _acEntityItems(search, domain);
     if (!items.length) {
-        dropdown.innerHTML = `<div class="ac-empty">${t('automations.entity_empty_filtered') || 'Nicio entitate găsită.'}</div>`;
+        dropdown.innerHTML = `<div class="ac-empty">${t('automations.entity_empty_filtered')}</div>`;
         return;
     }
     dropdown.innerHTML = items.map((item, i) => {
@@ -272,7 +272,7 @@ function _acRenderEntity(dropdown, search, domain) {
 function _acRenderService(dropdown, search, domain) {
     const items = _acServiceItems(search, domain);
     if (!items.length) {
-        dropdown.innerHTML = `<div class="ac-empty">${t('automations.service_empty') || 'Niciun serviciu găsit.'}</div>`;
+        dropdown.innerHTML = `<div class="ac-empty">${t('automations.service_empty')}</div>`;
         return;
     }
     dropdown.innerHTML = items.map((item, i) => {
@@ -460,7 +460,7 @@ function _automationRenderServiceStructuredFields(action, index) {
             return `
                 <div class="space-y-1">
                     <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${label}</label>
-                    <select data-service-data-field="${field.key}" data-action-index="${index}" onchange="updateAutomationStructuredServiceData(${index})" class="auto-builder-select w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
+                    <select data-service-data-field="${field.key}" data-action-index="${index}" data-memory-input="updateAutomationServiceData" data-memory-index="${index}" class="auto-builder-select w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
                         <option value=""></option>
                         ${field.options.map(option => `<option value="${escapeHtml(option)}" ${rawValue === option ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
                     </select>
@@ -469,14 +469,14 @@ function _automationRenderServiceStructuredFields(action, index) {
         return `
             <div class="space-y-1">
                 <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${label}</label>
-                <input type="number" ${field.min != null ? `min="${field.min}"` : ''} ${field.max != null ? `max="${field.max}"` : ''} ${field.step != null ? `step="${field.step}"` : ''} data-service-data-field="${field.key}" data-action-index="${index}" value="${rawValue ?? ''}" oninput="updateAutomationStructuredServiceData(${index})" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                <input type="number" ${field.min != null ? `min="${field.min}"` : ''} ${field.max != null ? `max="${field.max}"` : ''} ${field.step != null ? `step="${field.step}"` : ''} data-service-data-field="${field.key}" data-action-index="${index}" value="${rawValue ?? ''}" data-memory-input="updateAutomationServiceData" data-memory-index="${index}" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
             </div>`;
     }).join('');
     return `
         <div class="space-y-3 sm:col-span-2 rounded-xl border border-white/5 bg-slate-950/50 p-3">
             <div>
-                <div class="text-[10px] font-bold uppercase tracking-widest text-slate-400">${t('automations.service_data_assist_title') || 'Quick fields'}</div>
-                <p class="text-[10px] text-slate-500 mt-1">${t('automations.service_data_assist_hint') || 'Common parameters for this service. The JSON stays editable below.'}</p>
+                <div class="text-[10px] font-bold uppercase tracking-widest text-slate-400">${t('automations.service_data_assist_title')}</div>
+                <p class="text-[10px] text-slate-500 mt-1">${t('automations.service_data_assist_hint')}</p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${body}</div>
         </div>`;
@@ -532,13 +532,13 @@ function _automationRenderBuilderTriggers() {
         return `
             <div class="rounded-xl border border-white/5 bg-white/[0.02] p-3 space-y-3 automation-builder-action-card" data-action-card-index="${index}">
                 <div class="flex items-center justify-between gap-3">
-                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">${t('automations.builder_trigger_item') || 'Trigger'}</div>
-                    <button type="button" onclick="removeAutomationBuilderTrigger(${index})" class="px-2 py-1 rounded-lg text-[11px] font-bold text-red-300 hover:bg-red-500/10">${t('common.delete') || 'Delete'}</button>
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">${t('automations.builder_trigger_item')}</div>
+                    <button type="button" data-memory-action="removeAutomationBuilderTrigger" data-memory-index="${index}" class="px-2 py-1 rounded-lg text-[11px] font-bold text-red-300 hover:bg-red-500/10">${t('common.delete')}</button>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div class="space-y-1">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_platform') || 'Trigger type'}</label>
-                        <select data-trigger-field="platform" data-trigger-index="${index}" onchange="syncAutomationYamlFromBuilder({ rerenderTriggers: true })" class="auto-builder-select w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_platform')}</label>
+                        <select data-trigger-field="platform" data-trigger-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" data-memory-rerender="triggers" class="auto-builder-select w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
                             <option value="time" ${platform === 'time' ? 'selected' : ''}>time</option>
                             <option value="datetime" ${platform === 'datetime' ? 'selected' : ''}>datetime</option>
                             <option value="interval" ${platform === 'interval' ? 'selected' : ''}>interval</option>
@@ -547,58 +547,58 @@ function _automationRenderBuilderTriggers() {
                         </select>
                     </div>
                     <div data-trigger-kind-wrap="time" class="space-y-1 ${platform === 'time' ? '' : 'hidden'}">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_at') || 'Time'}</label>
-                        <input type="text" data-trigger-field="at" data-trigger-index="${index}" value="${escapeHtml(trigger?.at || '')}" oninput="syncAutomationYamlFromBuilder()" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_at')}</label>
+                        <input type="text" data-trigger-field="at" data-trigger-index="${index}" value="${escapeHtml(trigger?.at || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
                     </div>
                     <div data-trigger-kind-wrap="time" class="space-y-1 sm:col-span-2 ${platform === 'time' ? '' : 'hidden'}">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_weekdays') || 'Weekdays'}</label>
-                        <input type="text" data-trigger-field="weekdays" data-trigger-index="${index}" value="${escapeHtml(trigger?.weekdays || '')}" oninput="syncAutomationYamlFromBuilder()" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_weekdays')}</label>
+                        <input type="text" data-trigger-field="weekdays" data-trigger-index="${index}" value="${escapeHtml(trigger?.weekdays || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
                     </div>
                     <div data-trigger-kind-wrap="datetime" class="space-y-1 sm:col-span-2 ${platform === 'datetime' ? '' : 'hidden'}">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_datetime') || 'ISO date and time'}</label>
-                        <input type="text" data-trigger-field="at" data-trigger-index="${index}" value="${escapeHtml(trigger?.at || '')}" oninput="syncAutomationYamlFromBuilder()" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_datetime')}</label>
+                        <input type="text" data-trigger-field="at" data-trigger-index="${index}" value="${escapeHtml(trigger?.at || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
                     </div>
                     <div data-trigger-kind-wrap="interval" class="space-y-1 ${platform === 'interval' ? '' : 'hidden'}">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_every_minutes') || 'Every minutes'}</label>
-                        <input type="number" min="1" max="10080" data-trigger-field="every_minutes" data-trigger-index="${index}" value="${escapeHtml(trigger?.every_minutes || '')}" oninput="syncAutomationYamlFromBuilder()" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_every_minutes')}</label>
+                        <input type="number" min="1" max="10080" data-trigger-field="every_minutes" data-trigger-index="${index}" value="${escapeHtml(trigger?.every_minutes || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
                     </div>
                     <div data-trigger-kind-wrap="interval" class="space-y-1 ${platform === 'interval' ? '' : 'hidden'}">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_start_at') || 'Start at'}</label>
-                        <input type="text" data-trigger-field="start_at" data-trigger-index="${index}" value="${escapeHtml(trigger?.start_at || '')}" oninput="syncAutomationYamlFromBuilder()" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_start_at')}</label>
+                        <input type="text" data-trigger-field="start_at" data-trigger-index="${index}" value="${escapeHtml(trigger?.start_at || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
                     </div>
                     <div data-trigger-kind-wrap="state" class="space-y-1 sm:col-span-2 ${platform === 'state' ? '' : 'hidden'}">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_entity') || 'Entity'}</label>
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_entity')}</label>
                         <div class="automation-inline-ac">
-                            <input type="text" data-automation-entity-input="1" data-trigger-field="entity_id" data-trigger-index="${index}" value="${escapeHtml(trigger?.entity_id || '')}" oninput="syncAutomationYamlFromBuilder()" autocomplete="off" placeholder="${t('automations.entity_search_placeholder') || 'Caută entități Hyve...'}" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                            <input type="text" data-automation-entity-input="1" data-trigger-field="entity_id" data-trigger-index="${index}" value="${escapeHtml(trigger?.entity_id || '')}" data-memory-input="syncAutomationYamlFromBuilder" autocomplete="off" placeholder="${t('automations.entity_search_placeholder')}" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
                             <div class="automation-inline-ac-dropdown"></div>
                         </div>
                     </div>
                     <div data-trigger-kind-wrap="state" class="space-y-1 ${platform === 'state' ? '' : 'hidden'}">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_from') || 'From (optional)'}</label>
-                        <input type="text" data-trigger-field="from" data-trigger-index="${index}" value="${escapeHtml(trigger?.from || '')}" oninput="syncAutomationYamlFromBuilder()" placeholder="e.g. off" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_from')}</label>
+                        <input type="text" data-trigger-field="from" data-trigger-index="${index}" value="${escapeHtml(trigger?.from || '')}" data-memory-input="syncAutomationYamlFromBuilder" placeholder="e.g. off" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
                     </div>
                     <div data-trigger-kind-wrap="state" class="space-y-1 ${platform === 'state' ? '' : 'hidden'}">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_to') || 'To (optional)'}</label>
-                        <input type="text" data-trigger-field="to" data-trigger-index="${index}" value="${escapeHtml(trigger?.to || '')}" oninput="syncAutomationYamlFromBuilder()" placeholder="e.g. on" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_to')}</label>
+                        <input type="text" data-trigger-field="to" data-trigger-index="${index}" value="${escapeHtml(trigger?.to || '')}" data-memory-input="syncAutomationYamlFromBuilder" placeholder="e.g. on" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
                     </div>
                     <div data-trigger-kind-wrap="numeric_state" class="space-y-1 sm:col-span-2 ${platform === 'numeric_state' ? '' : 'hidden'}">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_entity') || 'Entity'}</label>
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_entity')}</label>
                         <div class="automation-inline-ac">
-                            <input type="text" data-automation-entity-input="1" data-trigger-field="entity_id" data-trigger-index="${index}" value="${escapeHtml(trigger?.entity_id || '')}" oninput="syncAutomationYamlFromBuilder()" autocomplete="off" placeholder="${t('automations.entity_search_placeholder') || 'Caută entități Hyve...'}" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                            <input type="text" data-automation-entity-input="1" data-trigger-field="entity_id" data-trigger-index="${index}" value="${escapeHtml(trigger?.entity_id || '')}" data-memory-input="syncAutomationYamlFromBuilder" autocomplete="off" placeholder="${t('automations.entity_search_placeholder')}" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
                             <div class="automation-inline-ac-dropdown"></div>
                         </div>
                     </div>
                     <div data-trigger-kind-wrap="numeric_state" class="space-y-1 ${platform === 'numeric_state' ? '' : 'hidden'}">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_above') || 'Above (optional)'}</label>
-                        <input type="text" data-trigger-field="above" data-trigger-index="${index}" value="${escapeHtml(trigger?.above != null ? trigger.above : '')}" oninput="syncAutomationYamlFromBuilder()" placeholder="e.g. 25" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_above')}</label>
+                        <input type="text" data-trigger-field="above" data-trigger-index="${index}" value="${escapeHtml(trigger?.above != null ? trigger.above : '')}" data-memory-input="syncAutomationYamlFromBuilder" placeholder="e.g. 25" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
                     </div>
                     <div data-trigger-kind-wrap="numeric_state" class="space-y-1 ${platform === 'numeric_state' ? '' : 'hidden'}">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_below') || 'Below (optional)'}</label>
-                        <input type="text" data-trigger-field="below" data-trigger-index="${index}" value="${escapeHtml(trigger?.below != null ? trigger.below : '')}" oninput="syncAutomationYamlFromBuilder()" placeholder="e.g. 10" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_below')}</label>
+                        <input type="text" data-trigger-field="below" data-trigger-index="${index}" value="${escapeHtml(trigger?.below != null ? trigger.below : '')}" data-memory-input="syncAutomationYamlFromBuilder" placeholder="e.g. 10" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
                     </div>
                     <div data-trigger-kind-wrap="numeric_state" class="space-y-1 sm:col-span-2 ${platform === 'numeric_state' ? '' : 'hidden'}">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_attribute') || 'Attribute (optional)'}</label>
-                        <input type="text" data-trigger-field="attribute" data-trigger-index="${index}" value="${escapeHtml(trigger?.attribute || '')}" oninput="syncAutomationYamlFromBuilder()" placeholder="e.g. temperature" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_attribute')}</label>
+                        <input type="text" data-trigger-field="attribute" data-trigger-index="${index}" value="${escapeHtml(trigger?.attribute || '')}" data-memory-input="syncAutomationYamlFromBuilder" placeholder="e.g. temperature" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
                     </div>
                 </div>
             </div>`;
@@ -611,7 +611,7 @@ function _automationRenderBuilderConditions() {
     const host = document.getElementById('automation-builder-conditions');
     if (!host) return;
     if (!_automationBuilderConditions.length) {
-        host.innerHTML = `<div class="rounded-xl border border-dashed border-white/10 bg-white/[0.015] p-4 text-[11px] text-slate-500">${t('automations.builder_condition_empty') || 'No conditions. The automation will run whenever a trigger fires.'}</div>`;
+        host.innerHTML = `<div class="rounded-xl border border-dashed border-white/10 bg-white/[0.015] p-4 text-[11px] text-slate-500">${t('automations.builder_condition_empty')}</div>`;
         return;
     }
     host.innerHTML = _automationBuilderConditions.map((condition, index) => {
@@ -619,23 +619,23 @@ function _automationRenderBuilderConditions() {
         return `
             <div class="rounded-xl border border-white/5 bg-white/[0.02] p-3 space-y-3">
                 <div class="flex items-center justify-between gap-3">
-                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">${t('automations.builder_condition_item') || 'Condition'}</div>
-                    <button type="button" onclick="removeAutomationBuilderCondition(${index})" class="px-2 py-1 rounded-lg text-[11px] font-bold text-red-300 hover:bg-red-500/10">${t('common.delete') || 'Delete'}</button>
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">${t('automations.builder_condition_item')}</div>
+                    <button type="button" data-memory-action="removeAutomationBuilderCondition" data-memory-index="${index}" class="px-2 py-1 rounded-lg text-[11px] font-bold text-red-300 hover:bg-red-500/10">${t('common.delete')}</button>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div class="space-y-1 sm:col-span-2">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_condition_kind') || 'Condition type'}</label>
-                        <select data-condition-field="kind" data-condition-index="${index}" onchange="syncAutomationYamlFromBuilder({ rerenderConditions: true })" class="auto-builder-select w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_condition_kind')}</label>
+                        <select data-condition-field="kind" data-condition-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" data-memory-rerender="conditions" class="auto-builder-select w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
                             <option value="time_window" ${kind === 'time_window' ? 'selected' : ''}>time_window</option>
                         </select>
                     </div>
                     <div data-condition-kind-wrap="time_window" class="space-y-1 ${kind === 'time_window' ? '' : 'hidden'}">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_condition_after') || 'After'}</label>
-                        <input type="text" data-condition-field="after" data-condition-index="${index}" value="${escapeHtml(condition?.after || '')}" oninput="syncAutomationYamlFromBuilder()" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_condition_after')}</label>
+                        <input type="text" data-condition-field="after" data-condition-index="${index}" value="${escapeHtml(condition?.after || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
                     </div>
                     <div data-condition-kind-wrap="time_window" class="space-y-1 ${kind === 'time_window' ? '' : 'hidden'}">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_condition_before') || 'Before'}</label>
-                        <input type="text" data-condition-field="before" data-condition-index="${index}" value="${escapeHtml(condition?.before || '')}" oninput="syncAutomationYamlFromBuilder()" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_condition_before')}</label>
+                        <input type="text" data-condition-field="before" data-condition-index="${index}" value="${escapeHtml(condition?.before || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
                     </div>
                 </div>
             </div>`;
@@ -650,58 +650,58 @@ function _automationRenderBuilderActions() {
     host.innerHTML = _automationBuilderActions.map((action, index) => {
         const type = action?.kind || 'notify';
         const labelMap = {
-            notify: t('automations.builder_action_notify') || 'Notify',
-            service: t('automations.builder_action_service') || 'Service',
-            skill: t('automations.builder_action_skill') || 'Skill',
+            notify: t('automations.builder_action_notify'),
+            service: t('automations.builder_action_service'),
+            skill: t('automations.builder_action_skill'),
         };
         return `
             <div class="rounded-xl border border-white/5 bg-white/[0.02] p-3 space-y-3 automation-builder-action-card" data-action-card-index="${index}">
                 <div class="flex items-center justify-between gap-3">
                     <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">${labelMap[type] || type}</div>
-                    <button type="button" onclick="removeAutomationBuilderAction(${index})" class="px-2 py-1 rounded-lg text-[11px] font-bold text-red-300 hover:bg-red-500/10">${t('common.delete') || 'Delete'}</button>
+                    <button type="button" data-memory-action="removeAutomationBuilderAction" data-memory-index="${index}" class="px-2 py-1 rounded-lg text-[11px] font-bold text-red-300 hover:bg-red-500/10">${t('common.delete')}</button>
                 </div>
                 <div class="space-y-3">
                     <div class="space-y-1">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_action_type') || 'Type'}</label>
-                        <select data-action-field="kind" data-action-index="${index}" onchange="syncAutomationYamlFromBuilder({ rerenderActions: true })" class="auto-builder-select w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
-                            <option value="notify" ${type === 'notify' ? 'selected' : ''}>${t('automations.builder_action_notify') || 'Notify'}</option>
-                            <option value="service" ${type === 'service' ? 'selected' : ''}>${t('automations.builder_action_service') || 'Service'}</option>
-                            <option value="skill" ${type === 'skill' ? 'selected' : ''}>${t('automations.builder_action_skill') || 'Skill'}</option>
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_action_type')}</label>
+                        <select data-action-field="kind" data-action-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" data-memory-rerender="actions" class="auto-builder-select w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
+                            <option value="notify" ${type === 'notify' ? 'selected' : ''}>${t('automations.builder_action_notify')}</option>
+                            <option value="service" ${type === 'service' ? 'selected' : ''}>${t('automations.builder_action_service')}</option>
+                            <option value="skill" ${type === 'skill' ? 'selected' : ''}>${t('automations.builder_action_skill')}</option>
                         </select>
                     </div>
                     <div data-action-kind-wrap="notify" class="space-y-1 ${type === 'notify' ? '' : 'hidden'}">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_notify_text') || 'Message'}</label>
-                        <textarea data-action-field="text" data-action-index="${index}" oninput="syncAutomationYamlFromBuilder()" class="w-full min-h-[88px] bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none resize-y">${escapeHtml(action?.text || '')}</textarea>
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_notify_text')}</label>
+                        <textarea data-action-field="text" data-action-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full min-h-[88px] bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none resize-y">${escapeHtml(action?.text || '')}</textarea>
                     </div>
                     <div data-action-kind-wrap="service" class="grid grid-cols-1 sm:grid-cols-2 gap-3 ${type === 'service' ? '' : 'hidden'}">
                         <div class="space-y-1 sm:col-span-2">
-                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_service_name') || 'Service'}</label>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_service_name')}</label>
                             <div class="automation-inline-ac">
-                                <input type="text" data-automation-service-input="1" data-action-field="service" data-action-index="${index}" value="${escapeHtml(action?.service || '')}" autocomplete="off" onchange="syncAutomationYamlFromBuilder({ rerenderActions: true })" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none" placeholder="${t('automations.service_search_placeholder') || 'Caută servicii Hyve...'}">
+                                <input type="text" data-automation-service-input="1" data-action-field="service" data-action-index="${index}" value="${escapeHtml(action?.service || '')}" autocomplete="off" data-memory-input="syncAutomationYamlFromBuilder" data-memory-rerender="actions" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none" placeholder="${t('automations.service_search_placeholder')}">
                                 <div class="automation-inline-ac-dropdown"></div>
                             </div>
                         </div>
                         <div class="space-y-1">
-                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_service_entity_id') || 'Entity ID'}</label>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_service_entity_id')}</label>
                             <div class="automation-inline-ac">
-                                <input type="text" data-automation-entity-input="1" data-action-field="entity_id" data-action-index="${index}" value="${escapeHtml(action?.entity_id || '')}" autocomplete="off" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none" placeholder="${t('automations.entity_search_placeholder') || 'Caută entități Hyve...'}">
+                                <input type="text" data-automation-entity-input="1" data-action-field="entity_id" data-action-index="${index}" value="${escapeHtml(action?.entity_id || '')}" autocomplete="off" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none" placeholder="${t('automations.entity_search_placeholder')}">
                                 <div class="automation-inline-ac-dropdown"></div>
                             </div>
                         </div>
                         ${_automationRenderServiceStructuredFields(action, index)}
                         <div class="space-y-1">
-                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_service_data') || 'Data JSON'}</label>
-                            <textarea data-action-field="data" data-action-index="${index}" oninput="syncAutomationYamlFromBuilder({ rerenderActions: true })" class="w-full min-h-[88px] bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none resize-y">${escapeHtml(action?.data || '{}')}</textarea>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_service_data')}</label>
+                            <textarea data-action-field="data" data-action-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" data-memory-rerender="actions" class="w-full min-h-[88px] bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none resize-y">${escapeHtml(action?.data || '{}')}</textarea>
                         </div>
                     </div>
                     <div data-action-kind-wrap="skill" class="grid grid-cols-1 sm:grid-cols-2 gap-3 ${type === 'skill' ? '' : 'hidden'}">
                         <div class="space-y-1">
-                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_skill_name') || 'Skill name'}</label>
-                            <input type="text" data-action-field="name" data-action-index="${index}" value="${escapeHtml(action?.name || '')}" oninput="syncAutomationYamlFromBuilder()" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_skill_name')}</label>
+                            <input type="text" data-action-field="name" data-action-index="${index}" value="${escapeHtml(action?.name || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
                         </div>
                         <div class="space-y-1">
-                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_skill_input') || 'Input JSON'}</label>
-                            <textarea data-action-field="input" data-action-index="${index}" oninput="syncAutomationYamlFromBuilder()" class="w-full min-h-[88px] bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none resize-y">${escapeHtml(action?.input || '{}')}</textarea>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_skill_input')}</label>
+                            <textarea data-action-field="input" data-action-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full min-h-[88px] bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none resize-y">${escapeHtml(action?.input || '{}')}</textarea>
                         </div>
                     </div>
                 </div>
@@ -878,7 +878,7 @@ async function _automationHydrateBuilderFromNormalized(normalized, warningMessag
     const conditions = Array.isArray(normalized?.condition) ? normalized.condition : [];
     const actions = Array.isArray(normalized?.action) ? normalized.action : [];
     if (!triggers.length || !actions.length) {
-        _automationSetBuilderWarning(t('automations.builder_sync_error') || 'Builder could not load this YAML.');
+        _automationSetBuilderWarning(t('automations.builder_sync_error'));
         return false;
     }
     const nextState = {
@@ -998,15 +998,15 @@ function _automationDot(item) {
     let color, label;
     if (!enabled) {
         color = 'auto-dot--yellow';
-        label = t('automations.disabled_badge') || 'Inactivă';
+        label = t('automations.disabled_badge');
     } else if (lastStatus === 'error') {
         color = 'auto-dot--red';
-        label = (t('automations.last_run_error_detail') || 'Eroare') + (item?.last_error ? ': ' + item.last_error : '');
+        label = (t('automations.last_run_error_detail')) + (item?.last_error ? ': ' + item.last_error : '');
     } else {
         color = 'auto-dot--green';
-        label = t('automations.enabled_badge') || 'Activă';
+        label = t('automations.enabled_badge');
     }
-    return `<span class="auto-dot ${color} shrink-0" data-auto-dot="${escapeHtmlAttr(defId)}" data-auto-dot-label="${escapeHtmlAttr(label)}" onclick="showAutoDotTooltip(event)" onmouseenter="showAutoDotTooltip(event)" onmouseleave="hideAutoDotTooltip()"></span>`;
+    return `<span class="auto-dot ${color} shrink-0" data-auto-dot="${escapeHtmlAttr(defId)}" data-auto-dot-label="${escapeHtmlAttr(label)}" data-memory-action="showAutoDotTooltip" data-memory-hover="showAutoDotTooltip"></span>`;
 }
 
 function _formatAutoTimestamp(isoStr) {
@@ -1032,9 +1032,9 @@ function _automationRunStatusBadge(status) {
         error: 'text-red-400/90 bg-red-500/15',
     };
     const labelMap = {
-        ok: t('automations.history_status_ok') || 'OK',
-        skipped: t('automations.history_status_skipped') || 'Skipped',
-        error: t('automations.history_status_error') || 'Error',
+        ok: t('automations.history_status_ok'),
+        skipped: t('automations.history_status_skipped'),
+        error: t('automations.history_status_error'),
     };
     return `<span class="text-[9px] font-bold uppercase tracking-wider ${map[normalized] || 'text-slate-400 bg-slate-500/10'} px-2 py-0.5 rounded">${labelMap[normalized] || escapeHtml(normalized || '—')}</span>`;
 }
@@ -1065,7 +1065,7 @@ export async function loadAutomationEditorHistory(targetId) {
     if (!listEl || !emptyEl) return;
     listEl.classList.remove('hidden');
     emptyEl.classList.add('hidden');
-    listEl.innerHTML = `<p class="text-[11px] text-slate-500">${t('automations.loading') || 'Loading...'}</p>`;
+    listEl.innerHTML = `<p class="text-[11px] text-slate-500">${t('automations.loading')}</p>`;
     try {
         const res = await apiCall(`/api/automations/definitions/${encodeURIComponent(targetId)}/history`);
         const data = await res.json();
@@ -1075,7 +1075,7 @@ export async function loadAutomationEditorHistory(targetId) {
             listEl.innerHTML = '';
             listEl.classList.add('hidden');
             emptyEl.classList.remove('hidden');
-            emptyEl.textContent = t('automations.history_empty') || 'No runs yet.';
+            emptyEl.textContent = t('automations.history_empty');
             return;
         }
         _renderAutoHistoryPage();
@@ -1083,7 +1083,7 @@ export async function loadAutomationEditorHistory(targetId) {
         listEl.innerHTML = '';
         listEl.classList.add('hidden');
         emptyEl.classList.remove('hidden');
-        emptyEl.textContent = t('automations.history_error') || 'Could not load history.';
+        emptyEl.textContent = t('automations.history_error');
     }
 }
 
@@ -1107,7 +1107,7 @@ function _renderAutoHistoryPage() {
         const runIdShort = runId ? String(runId).slice(0, 8) : '';
         const traceHtml = trace ? _automationRenderTraceBlock(trace, `auto-trace-${idx}`) : '';
         const runIdBadge = runIdShort
-            ? `<span class="text-[10px] font-mono text-slate-500" title="${escapeHtml(runId)}">${escapeHtml(t('automations.trace_run_id') || 'Run')} ${escapeHtml(runIdShort)}</span>`
+            ? `<span class="text-[10px] font-mono text-slate-500" title="${escapeHtml(runId)}">${escapeHtml(t('automations.trace_run_id'))} ${escapeHtml(runIdShort)}</span>`
             : '';
         return `
             <div class="rounded-xl border border-white/5 bg-white/[0.02] p-3 space-y-2">
@@ -1119,8 +1119,8 @@ function _renderAutoHistoryPage() {
                     ${_automationRunStatusBadge(item.status)}
                 </div>
                 <div class="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
-                    <span><span class="text-slate-400">${t('automations.history_trigger') || 'Trigger'}:</span> ${escapeHtml(item.trigger_source || '—')}</span>
-                    <span><span class="text-slate-400">${t('automations.history_finished') || 'Finished'}:</span> ${escapeHtml(_formatAutomationHistoryAt(item.finished_at))}</span>
+                    <span><span class="text-slate-400">${t('automations.history_trigger')}:</span> ${escapeHtml(item.trigger_source || '—')}</span>
+                    <span><span class="text-slate-400">${t('automations.history_finished')}:</span> ${escapeHtml(_formatAutomationHistoryAt(item.finished_at))}</span>
                 </div>
                 ${item.message ? `<p class="text-[11px] text-slate-300 break-words">${escapeHtml(item.message)}</p>` : ''}
                 ${traceHtml}
@@ -1131,13 +1131,13 @@ function _renderAutoHistoryPage() {
         <div class="hy-devices-pagination" style="padding-top:0.5rem">
             <div class="hy-devices-pager-info">
                 <span>${from}–${to}</span>
-                <span>din</span>
+                <span>${t('hy.pager_of')}</span>
                 <strong>${total}</strong>
             </div>
             <div class="hy-devices-pager-actions">
-                <button type="button" class="hy-pager-btn" data-auto-hist-page="${_autoHistoryPage - 1}" ${_autoHistoryPage <= 1 ? 'disabled' : ''} aria-label="Pagina anterioară"><i class="fas fa-chevron-left"></i></button>
+                <button type="button" class="hy-pager-btn" data-auto-hist-page="${_autoHistoryPage - 1}" ${_autoHistoryPage <= 1 ? 'disabled' : ''} aria-label="${escapeHtml(t('common.pager_prev'))}"><i class="fas fa-chevron-left"></i></button>
                 <span class="hy-page-index">${_autoHistoryPage} / ${totalPages}</span>
-                <button type="button" class="hy-pager-btn" data-auto-hist-page="${_autoHistoryPage + 1}" ${_autoHistoryPage >= totalPages ? 'disabled' : ''} aria-label="Pagina următoare"><i class="fas fa-chevron-right"></i></button>
+                <button type="button" class="hy-pager-btn" data-auto-hist-page="${_autoHistoryPage + 1}" ${_autoHistoryPage >= totalPages ? 'disabled' : ''} aria-label="${escapeHtml(t('common.pager_next'))}"><i class="fas fa-chevron-right"></i></button>
             </div>
         </div>` : '';
 
@@ -1154,8 +1154,8 @@ function _automationRenderTraceBlock(trace, id) {
     const steps = Array.isArray(trace?.steps) ? trace.steps : [];
     if (!steps.length) return '';
     const truncated = !!trace.truncated;
-    const showLabel = escapeHtml(t('automations.trace_show') || 'Show trace');
-    const hideLabel = escapeHtml(t('automations.trace_hide') || 'Hide trace');
+    const showLabel = escapeHtml(t('automations.trace_show'));
+    const hideLabel = escapeHtml(t('automations.trace_hide'));
     const stepRows = steps.map(step => {
         const status = String(step?.status || 'ok');
         const dot = status === 'error'
@@ -1183,7 +1183,7 @@ function _automationRenderTraceBlock(trace, id) {
             </div>`;
     }).join('');
     const truncWarn = truncated
-        ? `<div class="text-[10px] text-amber-400">${escapeHtml(t('automations.trace_truncated') || 'Trace truncated')}</div>`
+        ? `<div class="text-[10px] text-amber-400">${escapeHtml(t('automations.trace_truncated'))}</div>`
         : '';
     return `
         <details class="mt-1" id="${id}">
@@ -1262,7 +1262,7 @@ export async function syncAutomationBuilderFromYaml(options = {}) {
         const normalized = data.normalized || {};
         return await _automationHydrateBuilderFromNormalized(normalized, '');
     } catch (e) {
-        _automationSetBuilderWarning(options.silent ? '' : (t('automations.builder_sync_error') || 'Builder could not load this YAML.'));
+        _automationSetBuilderWarning(options.silent ? '' : (t('automations.builder_sync_error')));
         return false;
     }
 }
@@ -1351,13 +1351,13 @@ async function _pollAutoStatuses() {
                 let cls, label;
                 if (!item.enabled) {
                     cls = 'auto-dot--yellow';
-                    label = t('automations.disabled_badge') || 'Inactivă';
+                    label = t('automations.disabled_badge');
                 } else if (lastStatus === 'error') {
                     cls = 'auto-dot--red';
-                    label = (t('automations.last_run_error_detail') || 'Eroare') + (item.last_error ? ': ' + item.last_error : '');
+                    label = (t('automations.last_run_error_detail')) + (item.last_error ? ': ' + item.last_error : '');
                 } else {
                     cls = 'auto-dot--green';
-                    label = t('automations.enabled_badge') || 'Activă';
+                    label = t('automations.enabled_badge');
                 }
                 dot.className = `auto-dot ${cls} shrink-0`;
                 dot.dataset.autoDotLabel = label;
@@ -1372,7 +1372,7 @@ export async function loadAutomations() {
     const listEl = document.getElementById('automations-list');
     const emptyEl = document.getElementById('automations-empty');
     if (!listEl) return;
-    listEl.innerHTML = `<p class="text-[11px] text-slate-500">${t('automations.loading') || 'Loading...'}</p>`;
+    listEl.innerHTML = `<p class="text-[11px] text-slate-500">${t('automations.loading')}</p>`;
     try {
         const res = await apiCall('/api/automations/definitions');
         const data = await res.json();
@@ -1388,7 +1388,7 @@ export async function loadAutomations() {
                 const desc = escapeHtml(a.description || '');
                 const lastTime = a.last_run_at ? _formatAutoTimestamp(a.last_run_at) : '—';
                 const nextTime = escapeHtml(_formatAutomationNextRun(a));
-                const toggleLabel = a.enabled ? (t('automations.disable') || 'Dezactivează') : (t('automations.enable') || 'Activează');
+                const toggleLabel = a.enabled ? (t('automations.disable')) : (t('automations.enable'));
                 const toggleIcon = a.enabled ? 'fa-pause' : 'fa-play-circle';
                 return `
                 <div class="py-2 px-3 rounded-lg bg-white/[0.02] border border-white/5 automation-card" data-automation-card="${escapeHtmlAttr(a.id)}">
@@ -1398,27 +1398,27 @@ export async function loadAutomations() {
                             <span class="text-[13px] text-slate-200 font-medium truncate">${escapeHtml(a.title || a.id || '—')}</span>
                         </div>
                         <div class="relative shrink-0">
-                            <button type="button" onclick="toggleAutoMenu(event,'${defId}')" class="dashboard-kebab-btn" style="width:28px;height:28px"><i class="fas fa-ellipsis-vertical"></i></button>
+                            <button type="button" data-memory-action="toggleAutoMenu" data-memory-def-id="${defId}" class="dashboard-kebab-btn" style="width:28px;height:28px"><i class="fas fa-ellipsis-vertical"></i></button>
                             <div id="auto-menu-${defId}" class="dashboard-more-menu hidden" style="width:200px">
-                                <button type="button" onclick="runAutomationDefinition('${defId}');closeAutoMenu()" class="dashboard-more-menu__item"><i class="fas fa-play text-emerald-400"></i><span>${t('automations.run') || 'Rulează'}</span></button>
-                                <button type="button" onclick="openAutomationEditor('${defId}');closeAutoMenu()" class="dashboard-more-menu__item"><i class="fas fa-pen"></i><span>${t('automations.edit') || 'Editează'}</span></button>
-                                <button type="button" onclick="toggleAutomationDefinition('${defId}',${!!a.enabled},${a.revision||1});closeAutoMenu()" class="dashboard-more-menu__item"><i class="fas ${toggleIcon} text-amber-400"></i><span>${toggleLabel}</span></button>
+                                <button type="button" data-memory-action="runAutomationDefinition" data-memory-def-id="${defId}" data-memory-close-menu="true" class="dashboard-more-menu__item"><i class="fas fa-play text-emerald-400"></i><span>${t('automations.run')}</span></button>
+                                <button type="button" data-memory-action="openAutomationEditorFromList" data-memory-def-id="${defId}" data-memory-close-menu="true" class="dashboard-more-menu__item"><i class="fas fa-pen"></i><span>${t('automations.edit')}</span></button>
+                                <button type="button" data-memory-action="toggleAutomationDefinition" data-memory-def-id="${defId}" data-memory-enabled="${!!a.enabled}" data-memory-revision="${a.revision || 1}" data-memory-close-menu="true" class="dashboard-more-menu__item"><i class="fas ${toggleIcon} text-amber-400"></i><span>${toggleLabel}</span></button>
                                 <div class="dashboard-more-menu__sep"></div>
-                                <button type="button" onclick="deleteAutomation('${defId}');closeAutoMenu()" class="dashboard-more-menu__item" style="color:var(--red-400,#f87171)"><i class="fas fa-trash-alt" style="color:inherit"></i><span>${t('automations.delete') || 'Șterge'}</span></button>
+                                <button type="button" data-memory-action="deleteAutomation" data-memory-def-id="${defId}" data-memory-close-menu="true" class="dashboard-more-menu__item" style="color:var(--red-400,#f87171)"><i class="fas fa-trash-alt" style="color:inherit"></i><span>${t('automations.delete')}</span></button>
                             </div>
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-x-3 gap-y-0 text-[10px] text-slate-500 mt-0.5 pl-4">
                         ${desc ? `<span class="text-slate-400">${desc}</span><span class="text-slate-600">·</span>` : ''}
-                        <span>${t('automations.last_run_label') || 'Ultima rulare'}: <span data-auto-last-time="${escapeHtmlAttr(a.id)}">${lastTime}</span></span>
+                        <span>${t('automations.last_run_label')}: <span data-auto-last-time="${escapeHtmlAttr(a.id)}">${lastTime}</span></span>
                         <span class="text-slate-600">·</span>
-                        <span>${t('automations.next_run') || 'Următoarea'}: ${nextTime}</span>
+                        <span>${t('automations.next_run')}: ${nextTime}</span>
                     </div>
                 </div>`;
             }).join('');
         }
     } catch (e) {
-        listEl.innerHTML = '<p class="text-red-400 text-sm">' + (t('automations.error') || 'Eroare la încărcare') + '</p>';
+        listEl.innerHTML = '<p class="text-red-400 text-sm">' + (t('automations.error')) + '</p>';
         if (emptyEl) emptyEl.classList.add('hidden');
     }
     const panel = document.getElementById('intelligence-panel-automations');
@@ -1434,7 +1434,7 @@ export async function loadAutomationEventLog() {
         const data = await res.json();
         const items = Array.isArray(data.items) ? data.items : [];
         if (!items.length) {
-            logEl.innerHTML = `<p class="text-[11px] text-slate-500">${t('automations.event_log_empty') || 'Nicio execuție încă.'}</p>`;
+            logEl.innerHTML = `<p class="text-[11px] text-slate-500">${t('automations.event_log_empty')}</p>`;
             return;
         }
         logEl.innerHTML = items.map(r => {
@@ -1450,27 +1450,27 @@ export async function loadAutomationEventLog() {
             </div>`;
         }).join('');
     } catch (_) {
-        logEl.innerHTML = `<p class="text-[11px] text-red-400">${t('automations.event_log_error') || 'Eroare la încărcare.'}</p>`;
+        logEl.innerHTML = `<p class="text-[11px] text-red-400">${t('automations.event_log_error')}</p>`;
     }
 }
 
 function _formatTriggerSource(src) {
     if (!src) return '';
-    if (src === 'manual') return t('automations.trigger_manual') || 'manual';
-    if (src.startsWith('trigger:')) return t('automations.trigger_auto') || 'auto';
+    if (src === 'manual') return t('automations.trigger_manual');
+    if (src.startsWith('trigger:')) return t('automations.trigger_auto');
     return escapeHtml(src);
 }
 
 export async function deleteAutomation(jobId) {
-    if (!(await showConfirm(t('automations.delete_confirm') || 'Ștergi această automatizare?'))) return;
+    if (!(await showConfirm(t('automations.delete_confirm')))) return;
     try {
         const res = await apiCall('/api/automations/definitions/' + encodeURIComponent(jobId), { method: 'DELETE' });
         if (!res.ok) throw new Error();
         if (_automationEditorId === jobId) closeAutomationEditor();
-        showToast(t('automations.deleted') || 'Automation deleted.', 'success');
+        showToast(t('automations.deleted'), 'success');
         await loadAutomations();
     } catch (e) {
-        showToast(t('automations.delete_error') || 'Could not delete.', 'error');
+        showToast(t('automations.delete_error'), 'error');
     }
 }
 
@@ -1497,7 +1497,7 @@ export async function openAutomationEditor(automationId) {
     // editor still works on stale cache (or empty) if the call is slow.
     _automationLoadCapabilities({ force: true });
     if (!automationId) {
-        if (titleEl) titleEl.textContent = t('automations.editor_new_title') || 'Automatizare nouă';
+        if (titleEl) titleEl.textContent = t('automations.editor_new_title');
         setCodeEditorValue('automation-editor-yaml', _buildAutomationTemplate());
         await refreshAutomationEntityOptions();
         openSubPage('automation-editor-modal');
@@ -1505,9 +1505,9 @@ export async function openAutomationEditor(automationId) {
         refreshCodeEditor('automation-editor-yaml');
         return;
     }
-    if (titleEl) titleEl.textContent = t('automations.editor_edit_title') || 'Editează automatizarea';
+    if (titleEl) titleEl.textContent = t('automations.editor_edit_title');
     setCodeEditorValue('automation-editor-yaml', '');
-    if (infoEl) infoEl.textContent = t('automations.loading') || 'Se încărcă...';
+    if (infoEl) infoEl.textContent = t('automations.loading');
     openSubPage('automation-editor-modal');
     _upgradeAutoBuilderSelects(document.getElementById('automation-editor-modal'));
     refreshCodeEditor('automation-editor-yaml');
@@ -1522,13 +1522,13 @@ export async function openAutomationEditor(automationId) {
         if (revEl) revEl.value = String(item.revision || 1);
         if (pathEl) pathEl.textContent = item.yaml_path || '—';
         setCodeEditorValue('automation-editor-yaml', item.source_yaml || _buildAutomationTemplate());
-        if (infoEl) infoEl.textContent = `${t('automations.revision') || 'Revision'} ${item.revision || 1} • ${item.enabled ? (t('automations.enabled_badge') || 'Activă') : (t('automations.disabled_badge') || 'Oprită')}`;
+        if (infoEl) infoEl.textContent = `${t('automations.revision')} ${item.revision || 1} • ${item.enabled ? (t('automations.enabled_badge')) : (t('automations.disabled_badge'))}`;
         await _automationHydrateBuilderFromNormalized(item.normalized || {}, '');
         await refreshAutomationEntityOptions();
         refreshCodeEditor('automation-editor-yaml');
         await loadAutomationEditorHistory(automationId);
     } catch (e) {
-        showToast(t('automations.load_error') || 'Could not load automation.', 'error');
+        showToast(t('automations.load_error'), 'error');
     }
 }
 
@@ -1538,7 +1538,7 @@ export function closeAutomationEditor() {
     if (historyList) historyList.innerHTML = '';
     if (historyEmpty) {
         historyEmpty.classList.remove('hidden');
-        historyEmpty.textContent = t('automations.history_unavailable') || 'History will appear after the first run.';
+        historyEmpty.textContent = t('automations.history_unavailable');
     }
     closeSubPage('automation-editor-modal');
 }
@@ -1558,11 +1558,11 @@ export async function validateAutomationEditor() {
         const data = await res.json();
         await _automationHydrateBuilderFromNormalized(data.normalized || {}, '');
         const name = data.normalized?.title || data.normalized?.id || '';
-        const msg = t('automations.validation_ok', { name }) || `Automation "${name}" is valid ✓`;
+        const msg = t('automations.validation_ok', { name });
         showToast(msg, 'success');
         _renderAutomationLintWarnings(data.warnings || []);
     } catch (e) {
-        let detail = t('automations.validation_error') || 'YAML invalid.';
+        let detail = t('automations.validation_error');
         try {
             const payload = JSON.parse(e?.message || '{}');
             if (payload?.detail) detail = payload.detail;
@@ -1576,7 +1576,7 @@ export async function saveAutomationEditor() {
     const revisionEl = document.getElementById('automation-editor-revision');
     const sourceYaml = getCodeEditorValue('automation-editor-yaml')?.trim();
     if (!sourceYaml) {
-        showToast(t('automations.validation_error') || 'YAML invalid.', 'error');
+        showToast(t('automations.validation_error'), 'error');
         return;
     }
     try {
@@ -1591,7 +1591,7 @@ export async function saveAutomationEditor() {
                 const detail = payload?.detail || payload?.error || `HTTP ${res.status}`;
                 throw new Error(String(detail));
             }
-            showToast(t('automations.saved') || 'Automation saved.', 'success');
+            showToast(t('automations.saved'), 'success');
         } else {
             const res = await apiCall('/api/automations/definitions', {
                 method: 'POST',
@@ -1602,11 +1602,11 @@ export async function saveAutomationEditor() {
                 const detail = payload?.detail || payload?.error || `HTTP ${res.status}`;
                 throw new Error(String(detail));
             }
-            showToast(t('automations.created') || 'Automation created.', 'success');
+            showToast(t('automations.created'), 'success');
         }
         await loadAutomations();
     } catch (e) {
-        const msg = (e && e.message) ? e.message : (t('automations.save_error') || 'Could not save automation.');
+        const msg = (e && e.message) ? e.message : (t('automations.save_error'));
         showToast(msg, 'error');
     }
 }
@@ -1618,14 +1618,14 @@ export async function toggleAutomationDefinition(automationId, enabled, revision
             body: { expected_revision: Number(revision || 1) },
         });
         if (!res.ok) throw new Error();
-        showToast(enabled ? (t('automations.disabled') || 'Automation disabled.') : (t('automations.enabled') || 'Automation enabled.'), 'success');
+        showToast(enabled ? (t('automations.disabled')) : (t('automations.enabled')), 'success');
         if (_automationEditorId === automationId) {
             const infoEl = document.getElementById('automation-editor-info');
-            if (infoEl) infoEl.textContent = enabled ? (t('automations.disabled_badge') || 'Oprită') : (t('automations.enabled_badge') || 'Activă');
+            if (infoEl) infoEl.textContent = enabled ? (t('automations.disabled_badge')) : (t('automations.enabled_badge'));
         }
         await loadAutomations();
     } catch (e) {
-        showToast(t('automations.toggle_error') || 'Could not update automation.', 'error');
+        showToast(t('automations.toggle_error'), 'error');
     }
 }
 
@@ -1633,11 +1633,11 @@ export async function runAutomationDefinition(automationId) {
     try {
         const res = await apiCall(`/api/automations/definitions/${encodeURIComponent(automationId)}/run`, { method: 'POST' });
         if (!res.ok) throw new Error();
-        showToast(t('automations.ran') || 'Automation executed.', 'success');
+        showToast(t('automations.ran'), 'success');
         if (_automationEditorId === automationId) await loadAutomationEditorHistory(automationId);
         _pollAutoStatuses();
     } catch (e) {
-        showToast(t('automations.run_error') || 'Could not run automation.', 'error');
+        showToast(t('automations.run_error'), 'error');
     }
 }
 
@@ -1645,7 +1645,7 @@ export async function testAutomationEditor() {
     // Dry-run the currently-open automation. Requires the automation to
     // already be saved (we need an id on the server to walk).
     if (!_automationEditorId) {
-        showToast(t('automations.test_save_first') || 'Save the automation first, then Test.', 'warning');
+        showToast(t('automations.test_save_first'), 'warning');
         return;
     }
     try {
@@ -1656,9 +1656,9 @@ export async function testAutomationEditor() {
         _renderAutomationDryRunTrace(result);
         const status = result.status || 'unknown';
         const tone = status === 'ok' ? 'success' : status === 'skipped' ? 'warning' : 'error';
-        showToast(`${t('automations.test_done') || 'Dry-run'}: ${status}`, tone);
+        showToast(`${t('automations.test_done')}: ${status}`, tone);
     } catch (e) {
-        showToast(t('automations.test_error') || 'Dry-run failed.', 'error');
+        showToast(t('automations.test_error'), 'error');
     }
 }
 
@@ -1685,12 +1685,12 @@ function _renderAutomationDryRunTrace(result) {
     if (!listEl) return;
     const trace = result.trace || { steps: [] };
     const steps = Array.isArray(trace.steps) ? trace.steps : [];
-    const headerLabel = t('automations.test_header') || 'Dry-run trace';
+    const headerLabel = t('automations.test_header');
     const statusLabel = (result.status || 'unknown').toUpperCase();
     const statusColor = result.status === 'ok' ? 'text-emerald-300'
         : result.status === 'skipped' ? 'text-amber-300' : 'text-red-300';
     const stepsHtml = steps.length === 0
-        ? `<p class="text-[11px] text-slate-500">${escapeHtml(t('automations.test_no_steps') || 'No steps recorded.')}</p>`
+        ? `<p class="text-[11px] text-slate-500">${escapeHtml(t('automations.test_no_steps'))}</p>`
         : steps.map(s => {
             const tone = s.status === 'ok' ? 'text-emerald-300'
                 : s.status === 'dry_run' ? 'text-sky-300'
@@ -1766,7 +1766,7 @@ export function exportAutomationYaml() {
     // from the automation id (or "automation" if unsaved).
     const yaml = getCodeEditorValue('automation-editor-yaml') || '';
     if (!yaml.trim()) {
-        showToast(t('automations.export_empty') || 'Editor is empty.', 'warning');
+        showToast(t('automations.export_empty'), 'warning');
         return;
     }
     const baseName = (_automationEditorId || 'automation').replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -1779,7 +1779,7 @@ export function exportAutomationYaml() {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast(t('automations.export_done') || 'YAML downloaded.', 'success');
+    showToast(t('automations.export_done'), 'success');
 }
 
 export function importAutomationYaml() {
@@ -1794,14 +1794,14 @@ export function importAutomationYaml() {
         try {
             const text = await file.text();
             if (!text.trim()) {
-                showToast(t('automations.import_empty') || 'File is empty.', 'warning');
+                showToast(t('automations.import_empty'), 'warning');
                 return;
             }
             setCodeEditorValue('automation-editor-yaml', text);
             refreshCodeEditor('automation-editor-yaml');
-            showToast(t('automations.import_done') || `Imported ${file.name}`, 'success');
+            showToast(t('automations.import_done', { name: file.name }), 'success');
         } catch (e) {
-            showToast(t('automations.import_error') || 'Could not read file.', 'error');
+            showToast(t('automations.import_error'), 'error');
         }
     };
     input.click();
@@ -1879,7 +1879,7 @@ trigger:
     at: "08:00"
 action:
   - notify:
-      text: "Bună dimineața"`;
+      text: "${t('blueprints.default_notify_text')}"`;
 }
 
 function _readBlueprintCreatorInputsFromDom() {
@@ -1907,15 +1907,15 @@ function _indentBlock(text) {
 
 function _validateBlueprintCreatorDraft(draft) {
     const title = String(draft.title || '').trim();
-    if (!title) return 'Titlul este obligatoriu.';
-    if (!String(draft.template || '').trim()) return 'Template-ul YAML este obligatoriu.';
+    if (!title) return t('blueprints.title_required');
+    if (!String(draft.template || '').trim()) return t('blueprints.template_required');
     const seen = new Set();
     for (const input of draft.inputs) {
-        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(input.id)) return `Input id invalid: ${input.id}`;
-        if (seen.has(input.id)) return `Input duplicat: ${input.id}`;
+        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(input.id)) return t('blueprints.invalid_input_id', { id: input.id });
+        if (seen.has(input.id)) return t('blueprints.duplicate_input', { id: input.id });
         seen.add(input.id);
         if (input.type === 'select' && !String(input.choices || '').split(',').map(v => v.trim()).filter(Boolean).length) {
-            return `Inputul ${input.id} are nevoie de cel puțin o opțiune.`;
+            return t('blueprints.select_needs_options', { id: input.id });
         }
     }
     const refs = new Set();
@@ -1924,7 +1924,7 @@ function _validateBlueprintCreatorDraft(draft) {
         return _m;
     });
     for (const key of refs) {
-        if (!seen.has(key)) return `Template-ul referă input necunoscut: ${key}`;
+        if (!seen.has(key)) return t('blueprints.unknown_input_ref', { key });
     }
     return '';
 }
@@ -1975,33 +1975,33 @@ function _renderBlueprintCreatorInputs() {
                 <div class="grid grid-cols-1 sm:grid-cols-[1fr_1fr_140px_auto] gap-2 items-end">
                     <div class="space-y-1">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">ID</label>
-                        <input type="text" data-bp-creator-field="id" value="${escapeHtml(input.id)}" oninput="updateBlueprintCreatorYaml()" class="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs mono text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-bp-creator-field="id" value="${escapeHtml(input.id)}" data-memory-input="updateBlueprintCreatorYaml" class="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs mono text-slate-200 focus:border-accent outline-none">
                     </div>
                     <div class="space-y-1">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Label</label>
-                        <input type="text" data-bp-creator-field="label" value="${escapeHtml(input.label)}" oninput="updateBlueprintCreatorYaml()" class="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-bp-creator-field="label" value="${escapeHtml(input.label)}" data-memory-input="updateBlueprintCreatorYaml" class="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-accent outline-none">
                     </div>
                     <div class="space-y-1">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Tip</label>
-                        <select data-bp-creator-field="type" onchange="changeBlueprintCreatorInputType(${idx}, this.value)" class="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-accent outline-none">
+                        <select data-bp-creator-field="type" data-memory-input="changeBlueprintCreatorInputType" data-memory-index="${idx}" class="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-accent outline-none">
                             ${['string', 'number', 'boolean', 'entity', 'area', 'select', 'duration'].map(type => `<option value="${type}" ${input.type === type ? 'selected' : ''}>${type}</option>`).join('')}
                         </select>
                     </div>
-                    <button type="button" onclick="removeBlueprintCreatorInput(${idx})" class="w-9 h-9 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 flex items-center justify-center transition-colors" title="Șterge input"><i class="fas fa-trash text-xs"></i></button>
+                    <button type="button" data-memory-action="removeBlueprintCreatorInput" data-memory-index="${idx}" class="w-9 h-9 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 flex items-center justify-center transition-colors" title="${escapeHtml(t('blueprints.remove_input_title'))}"><i class="fas fa-trash text-xs"></i></button>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
                     <div class="space-y-1">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Default</label>
-                        <input type="text" data-bp-creator-field="default" value="${escapeHtml(input.default)}" oninput="updateBlueprintCreatorYaml()" class="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-bp-creator-field="default" value="${escapeHtml(input.default)}" data-memory-input="updateBlueprintCreatorYaml" class="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-accent outline-none">
                     </div>
                     <label class="inline-flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-xs text-slate-300">
-                        <input type="checkbox" data-bp-creator-field="required" ${input.required ? 'checked' : ''} onchange="updateBlueprintCreatorYaml()" class="w-4 h-4 rounded accent-blue-500 bg-slate-900 border-white/10">
+                        <input type="checkbox" data-bp-creator-field="required" ${input.required ? 'checked' : ''} data-memory-input="updateBlueprintCreatorYaml" class="w-4 h-4 rounded accent-blue-500 bg-slate-900 border-white/10">
                         Obligatoriu
                     </label>
                 </div>
                 <div class="space-y-1 ${choicesVisible}">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Opțiuni</label>
-                    <input type="text" data-bp-creator-field="choices" value="${escapeHtml(input.choices)}" oninput="updateBlueprintCreatorYaml()" class="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-accent outline-none">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${escapeHtml(t('blueprints.options_label'))}</label>
+                    <input type="text" data-bp-creator-field="choices" value="${escapeHtml(input.choices)}" data-memory-input="updateBlueprintCreatorYaml" class="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-accent outline-none">
                 </div>
             </div>
         `;
@@ -2020,8 +2020,8 @@ function _renderBlueprintCreatorPlaceholders() {
     }
     host.classList.remove('hidden');
     host.innerHTML = inputs.flatMap(input => [
-        `<button type="button" onclick="insertBlueprintCreatorPlaceholder('${escapeHtml(input.id)}', false)" class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] mono text-slate-300 transition-colors">{{ inputs.${escapeHtml(input.id)} }}</button>`,
-        `<button type="button" onclick="insertBlueprintCreatorPlaceholder('${escapeHtml(input.id)}', true)" class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] mono text-violet-300 transition-colors">{{ inputs.${escapeHtml(input.id)} | slug }}</button>`,
+        `<button type="button" data-memory-action="insertBlueprintCreatorPlaceholder" data-memory-input-id="${escapeHtml(input.id)}" class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] mono text-slate-300 transition-colors">{{ inputs.${escapeHtml(input.id)} }}</button>`,
+        `<button type="button" data-memory-action="insertBlueprintCreatorPlaceholder" data-memory-input-id="${escapeHtml(input.id)}" data-memory-slugify="true" class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] mono text-violet-300 transition-colors">{{ inputs.${escapeHtml(input.id)} | slug }}</button>`,
     ]).join('');
 }
 
@@ -2138,7 +2138,7 @@ export async function saveCreatedBlueprint() {
     } catch (e) {
         if (errEl) {
             errEl.classList.remove('hidden');
-            errEl.textContent = e.message || 'Salvare eșuată.';
+            errEl.textContent = e.message || t('blueprints.save_failed');
         }
     } finally {
         if (saveBtn) saveBtn.disabled = false;
@@ -2150,16 +2150,16 @@ export async function loadBlueprints() {
     const emptyEl = document.getElementById('blueprint-picker-empty');
     if (!listEl) return;
     emptyEl?.classList.add('hidden');
-    listEl.innerHTML = '<p class="text-[11px] text-slate-500">Se încarcă...</p>';
+    listEl.innerHTML = `<p class="text-[11px] text-slate-500">${escapeHtml(t('common.loading'))}</p>`;
     try {
         const res = await _blueprintApiCall('/api/automations/blueprints');
-        if (!res.ok) throw new Error(res.status === 401 ? 'Session expired.' : 'Load failed.');
+        if (!res.ok) throw new Error(res.status === 401 ? t('login.session_expired') : t('blueprints.load_failed'));
         const data = await res.json();
         _blueprints = data.items || [];
     } catch (e) {
         _blueprints = [];
         emptyEl?.classList.add('hidden');
-        listEl.innerHTML = `<p class="text-[11px] text-red-300">${escapeHtml(e.message || 'Eroare la încărcarea blueprints.')}</p>`;
+        listEl.innerHTML = `<p class="text-[11px] text-red-300">${escapeHtml(e.message || t('blueprints.load_error'))}</p>`;
         return;
     }
     if (_blueprints.length === 0) {
@@ -2175,10 +2175,10 @@ export async function loadBlueprints() {
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-sm font-semibold text-white truncate">${escapeHtml(bp.title)}</span>
-                        <span class="inline-flex items-center gap-1 text-[10px] text-slate-400"><i class="fas fa-sliders text-[9px]"></i>${(bp.inputs || []).length} input(s)</span>
+                        <span class="inline-flex items-center gap-1 text-[10px] text-slate-400"><i class="fas fa-sliders text-[9px]"></i>${escapeHtml(t('blueprints.inputs_count', { count: (bp.inputs || []).length }))}</span>
                         <span class="text-[10px] text-slate-500">v${escapeHtml(bp.version || '1')}</span>
                     </div>
-                    <div class="text-[11px] text-slate-500 truncate mt-0.5">${escapeHtml(bp.description || 'Fără descriere.')}</div>
+                    <div class="text-[11px] text-slate-500 truncate mt-0.5">${escapeHtml(bp.description || t('blueprints.no_description'))}</div>
                 </div>
             </div>
             <i class="fas fa-chevron-right text-[10px] text-slate-600 shrink-0"></i>
@@ -2206,10 +2206,10 @@ export function importBlueprintYaml() {
                 const err = await res.json().catch(() => ({}));
                 throw new Error(err.detail || `HTTP ${res.status}`);
             }
-            showToast(`Blueprint importat: ${file.name}`, 'success');
+            showToast(t('blueprints.import_done', { name: file.name }), 'success');
             await loadBlueprints();
         } catch (e) {
-            showToast(`Import eșuat: ${e.message || 'eroare necunoscută'}`, 'error');
+            showToast(t('blueprints.import_failed', { detail: e.message || t('common.unknown') }), 'error');
         }
     };
     input.click();
@@ -2262,19 +2262,19 @@ function _renderBlueprintInputField(spec) {
         const opts = (_pickerEntityCache || []).map(e =>
             `<option value="${escapeHtml(e.id)}" ${e.id === defaultVal ? 'selected' : ''}>${escapeHtml(e.label)} (${escapeHtml(e.domain)})</option>`
         ).join('');
-        field = `<select id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="entity" class="${baseCls}"><option value="">— alege —</option>${opts}</select>`;
+        field = `<select id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="entity" class="${baseCls}"><option value="">${escapeHtml(t('blueprints.choose'))}</option>${opts}</select>`;
     } else if (spec.type === 'area') {
         const opts = (_pickerAreaCache || []).map(a =>
             `<option value="${escapeHtml(a.id)}" ${a.id === defaultVal ? 'selected' : ''}>${escapeHtml(a.label)}</option>`
         ).join('');
-        field = `<select id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="area" class="${baseCls}"><option value="">— alege —</option>${opts}</select>`;
+        field = `<select id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="area" class="${baseCls}"><option value="">${escapeHtml(t('blueprints.choose'))}</option>${opts}</select>`;
     } else if (spec.type === 'select') {
         const opts = (spec.choices || []).map(c =>
             `<option value="${escapeHtml(c)}" ${c === defaultVal ? 'selected' : ''}>${escapeHtml(c)}</option>`
         ).join('');
         field = `<select id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="select" class="${baseCls}">${opts}</select>`;
     } else if (spec.type === 'boolean') {
-        field = `<label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="boolean" ${defaultVal === 'true' || defaultVal === '1' ? 'checked' : ''} class="w-4 h-4">Activează</label>`;
+        field = `<label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="boolean" ${defaultVal === 'true' || defaultVal === '1' ? 'checked' : ''} class="w-4 h-4">${escapeHtml(t('common.enable'))}</label>`;
     } else if (spec.type === 'number' || spec.type === 'duration') {
         field = `<input type="number" id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="${spec.type}" value="${escapeHtml(defaultVal)}" class="${baseCls}" />`;
         if (spec.type === 'duration') field = field.replace('class="', 'placeholder="seconds" class="');
@@ -2312,7 +2312,7 @@ export async function instantiateCurrentBlueprint() {
             throw new Error(err.detail || `HTTP ${res.status}`);
         }
         const data = await res.json();
-        showToast(`Automatizare creată: ${data.item?.id || ''}`, 'success');
+        showToast(t('blueprints.automation_created', { id: data.item?.id || '' }), 'success');
         closeBlueprintPicker();
         if (typeof window.loadAutomations === 'function') {
             await window.loadAutomations();
@@ -2323,14 +2323,14 @@ export async function instantiateCurrentBlueprint() {
     } catch (e) {
         if (errEl) {
             errEl.classList.remove('hidden');
-            errEl.textContent = e.message || 'Eroare la creare.';
+            errEl.textContent = e.message || t('blueprints.instantiate_error');
         }
     }
 }
 
 export async function deleteCurrentBlueprint() {
     if (!_activeBlueprint) return;
-    const ok = await showConfirm(`Șterge blueprint "${_activeBlueprint.title}"?`);
+    const ok = await showConfirm(t('blueprints.delete_confirm', { title: _activeBlueprint.title }));
     if (!ok) return;
     try {
         const res = await apiCall(`/api/automations/blueprints/${encodeURIComponent(_activeBlueprint.id)}`, { method: 'DELETE' });
@@ -2352,7 +2352,7 @@ export async function refreshAutomationEntityOptions() {
         const entities = Array.isArray(data.entities) ? data.entities : [];
         selects.forEach(sel => {
             const current = sel.value;
-            sel.innerHTML = `<option value="">${t('automations.entity_placeholder') || '— alege entitate —'}</option>` +
+            sel.innerHTML = `<option value="">${t('automations.entity_placeholder')}</option>` +
                 entities.map(e => `<option value="${escapeHtml(e.entity_id)}"${e.entity_id === current ? ' selected' : ''}>${escapeHtml(e.entity_id)}${e.friendly_name ? ' — ' + escapeHtml(e.friendly_name) : ''}</option>`).join('');
         });
     } catch (_) {}

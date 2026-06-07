@@ -176,7 +176,11 @@ Add-ons may run processes (MQTT, Zigbee2MQTT); integrations **consume** entities
 | `features_smarthome.js` | ~1.6k | Devices list, filters, live WS |
 | `features_automations.js` | ~2.4k | Automation editor, blueprints |
 | `features_memory.js` | ~420 | Memory, log, extraction examples |
-| `features_config.js` | ~5.8k | Settings, integrations, addons, voice |
+| `features_config.js` | ~2.4k | Settings core, profiles, voice (facade) |
+| `features_integrations_settings.js` | ~2.3k | Integrations catalog, entries, entity browser |
+| `features_notifications_config.js` | ~360 | Notifications tab |
+| `features_addons_settings.js` | ~560 | Settings add-ons + updates hub |
+| `features_custom_selects.js` | ~245 | Custom dropdown / native select upgrade |
 | `dashboard.js` + `dashboard/*.js` | ~8k + slices | Grid + Hyveview bridge (split in progress) |
 | `chat.js` | 2.8k | Streaming UI |
 | `hyveview/*` | — | Preferred new card implementations |

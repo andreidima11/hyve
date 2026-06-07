@@ -83,7 +83,11 @@ hyve/
 │   ├── app.js              # Bootstrap, tab routing, lazy imports
 │   ├── api.js              # apiCall, token refresh
 │   ├── features.js         # Facade — re-exports feature modules (do not grow)
-│   ├── features_config.js  # Settings, integrations modal, notifications, addons
+│   ├── features_config.js  # Settings core; re-exports integrations/notifications/addons/selects
+│   ├── features_integrations_settings.js
+│   ├── features_notifications_config.js
+│   ├── features_addons_settings.js
+│   ├── features_custom_selects.js
 │   ├── features_smarthome.js
 │   ├── features_automations.js
 │   ├── features_memory.js
@@ -214,7 +218,7 @@ No JS changes if the preset fits an existing renderer. See [CARDS_AND_INTEGRATIO
 2. Register in `static/hyveview/bridge.js` via `registerCard()`.
 3. Import the module from `dashboard.js` (side-effect registration).
 4. Add schema editor fields in `static/hyveview/core/schema.js` if the card is configurable.
-5. Bump cache version on `dashboard.js` import query string (e.g. `?v=hyveview-cards-44`).
+5. Restart the server to refresh static assets (`window.__cacheBust` is set at process start). For dynamic imports use `importWithCacheBust()` from `static/js/asset_version.js`.
 
 ### C. Legacy renderer in `dashboard.js`
 
@@ -259,7 +263,7 @@ Full variable list: [../static/css/themes/README.md](../static/css/themes/README
 - Dictionaries: `static/js/lang/en.js`, `ro.js` (nested objects, dot keys).
 - Use `t('dashboard.save_failed')`, `t('integrations.test_ok', { count: 5 })`.
 - HTML shell: `data-i18n="app.boot_loading"` — applied by `applyTranslations()`.
-- After adding keys, bump `?v=i18n-updates-NN` in `lang/index.js`.
+- Static ES imports omit manual `?v=`; entry scripts use `{{ cache_bust }}` from the server. Restart uvicorn after JS/CSS changes if the browser still serves stale modules.
 
 ### Backend → frontend
 

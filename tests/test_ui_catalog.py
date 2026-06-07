@@ -25,6 +25,13 @@ def test_resolve_dashboard_card_ignores_stale_generic_renderer_on_dedicated_type
     assert resolved["renderer"] == "fusion_solar"
 
 
+def test_resolve_dashboard_card_maps_removed_weather_gradient_alias():
+    resolved = resolve_dashboard_card("weather_gradient", "weather_gradient")
+
+    assert resolved["id"] == "weather"
+    assert resolved["renderer"] == "weather"
+
+
 def test_integration_catalog_includes_sync_capable_sources():
     entries = integration_catalog()
     by_slug = {entry["slug"]: entry for entry in entries}

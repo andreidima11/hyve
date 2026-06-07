@@ -1,0 +1,160 @@
+            <div id="view-planner" class="h-full hidden animate-up p-2 sm:p-3 lg:p-0">
+                <div class="planner-shell">
+
+                    <div id="planner-drawer-backdrop" class="p-drawer-backdrop" data-planner-action="closeDrawer"></div>
+                    <nav id="planner-lists-drawer" class="p-lists-drawer">
+                        <div class="p-drawer-head">
+                            <span class="p-drawer-title" data-i18n="planner.lists">Lists</span>
+                            <div class="p-drawer-add">
+                                <input id="planner-new-list-input" type="text" class="p-drawer-add-input" data-i18n-placeholder="planner.new_list_placeholder" placeholder="New list…">
+                                <button type="button" class="p-drawer-add-btn" data-planner-action="createList" data-i18n="common.add">Add</button>
+                            </div>
+                        </div>
+                        <div id="planner-lists-drawer-body" class="p-drawer-body">
+                            <div class="p-empty" data-i18n="common.connecting">Loading…</div>
+                        </div>
+                    </nav>
+
+                    <div class="p-main">
+                        <div class="p-header">
+                            <div class="p-header-left">
+                                <button type="button" class="p-header-menu" data-planner-action="openDrawer" data-i18n-title="planner.lists" title="Lists"><i class="fas fa-bars"></i></button>
+                                <span id="planner-header-title" class="p-header-title" data-i18n="nav.planner">Planner</span>
+                            </div>
+                        </div>
+
+                        <div class="p-main-inner">
+                            <div class="p-tabs" role="tablist">
+                                <button type="button" data-tab="tasks" data-planner-action="setTab" data-planner-tab="tasks" class="pw-tab pw-tab--active"><i class="fas fa-list-check"></i> <span data-i18n="planner.tab_todo">To-Do</span></button>
+                                <button type="button" data-tab="events" data-planner-action="setTab" data-planner-tab="events" class="pw-tab"><i class="fas fa-calendar"></i> <span data-i18n="planner.events">Events</span></button>
+                            </div>
+
+                            <div id="planner-todo-panel">
+                                <div class="p-filters">
+                                    <button type="button" class="p-filter-chip p-filter-chip--active" data-filter="open" data-planner-action="setFilter" data-planner-filter="open" data-i18n="planner.filter_open">Open</button>
+                                    <button type="button" class="p-filter-chip" data-filter="done" data-planner-action="setFilter" data-planner-filter="done" data-i18n="planner.filter_done">Done</button>
+                                    <button type="button" class="p-filter-chip" data-filter="all" data-planner-action="setFilter" data-planner-filter="all" data-i18n="planner.filter_all">All</button>
+                                </div>
+                                <div id="planner-entries" class="p-entry-list">
+                                    <div class="p-empty" data-i18n="common.connecting">Loading…</div>
+                                </div>
+                            </div>
+
+                            <div id="planner-events-panel" style="display:none; flex:1; flex-direction:column; min-height:0;">
+                            </div>
+
+                        </div>
+
+                        <button type="button" class="p-fab" data-planner-action="openAdd" data-i18n-title="planner.add_entry" title="Add entry"><i class="fas fa-plus"></i></button>
+
+                        <div id="planner-add-backdrop" class="p-add-backdrop" data-planner-action="closeAdd"></div>
+                        <div id="planner-add-sheet" class="p-add-sheet" role="dialog" aria-modal="true">
+                            <div class="p-add-sheet-head">
+                                <div id="planner-add-sheet-title" class="p-add-sheet-title" data-i18n="planner.new_task">New Task</div>
+                                <button type="button" class="p-add-close" data-planner-action="closeAdd" data-i18n-title="common.close" title="Close"><i class="fas fa-xmark"></i></button>
+                            </div>
+                            <div class="p-add-row">
+                                <input id="planner-add-title" type="text" class="p-add-input" data-i18n-placeholder="planner.task_title_placeholder" placeholder="What needs doing?">
+                            </div>
+                            <div id="planner-add-content-row" class="p-add-row" style="display:none;">
+                                <textarea id="planner-add-content" class="p-add-input" data-i18n-placeholder="planner.notes_placeholder" placeholder="Notes…" rows="2"></textarea>
+                            </div>
+                            <div id="planner-add-task-datetime-row" class="p-add-row">
+                                <input id="planner-add-datetime" type="datetime-local" class="p-add-datetime">
+                            </div>
+                            <div id="planner-add-event-time-row" class="p-add-row" style="display:none;">
+                                <div class="p-add-row p-add-row-2col">
+                                    <div class="p-add-col">
+                                        <label class="p-add-label" data-i18n="planner.label_start">Start</label>
+                                        <input id="planner-add-event-start" type="datetime-local" class="p-add-datetime">
+                                    </div>
+                                    <div class="p-add-col">
+                                        <label class="p-add-label" data-i18n="planner.label_end">End</label>
+                                        <input id="planner-add-event-end" type="datetime-local" class="p-add-datetime">
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="planner-add-event-options-row" class="p-add-row" style="display:none;">
+                                <div class="p-add-row p-add-row-3col">
+                                    <div class="p-add-col" style="min-width:0;">
+                                        <label class="p-add-label" data-i18n="planner.label_color">Color</label>
+                                        <input type="hidden" id="planner-add-event-color" value="#4f46e5">
+                                        <div class="flex items-center gap-1.5" id="planner-color-swatches">
+                                            <button type="button" class="color-swatch active" data-color="#4f46e5" style="background:#4f46e5"></button>
+                                            <button type="button" class="color-swatch" data-color="#8b5cf6" style="background:#8b5cf6"></button>
+                                            <button type="button" class="color-swatch" data-color="#3b82f6" style="background:#3b82f6"></button>
+                                            <button type="button" class="color-swatch" data-color="#10b981" style="background:#10b981"></button>
+                                            <button type="button" class="color-swatch" data-color="#f59e0b" style="background:#f59e0b"></button>
+                                            <button type="button" class="color-swatch" data-color="#ef4444" style="background:#ef4444"></button>
+                                            <div class="color-hex-input-wrap">
+                                                <span class="color-hex-preview" id="planner-color-preview"></span>
+                                                <input type="text" id="planner-color-hex" maxlength="7" class="color-hex-input" placeholder="#hex" spellcheck="false" autocomplete="off">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="p-add-col p-add-col-grow">
+                                        <label class="p-add-label" data-i18n="planner.label_notify">Notify</label>
+                                        <label class="p-add-toggle-wrap"><input id="planner-add-event-notify" type="checkbox" checked> <span data-i18n="planner.notify_before">Before event</span></label>
+                                    </div>
+                                    <div class="p-add-col">
+                                        <label class="p-add-label" data-i18n="planner.label_minutes_before">Minutes before</label>
+                                        <select id="planner-add-event-notify-minutes" class="p-add-select">
+                                            <option value="0" data-i18n="planner.notify_at_start">At start</option>
+                                            <option value="5">5 min</option>
+                                            <option value="10">10 min</option>
+                                            <option value="15">15 min</option>
+                                            <option value="30" selected>30 min</option>
+                                            <option value="60" data-i18n="planner.hour_before">1 hour</option>
+                                            <option value="120" data-i18n="planner.hours_before">2 hours</option>
+                                            <option value="1440" data-i18n="planner.day_before">1 day</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="planner-add-event-action-row" class="p-add-row" style="display:none;">
+                                <div class="p-add-section" id="planner-add-action-section" data-disabled="true">
+                                    <div class="p-add-section-head">
+                                        <span class="p-add-section-title"><i class="fas fa-bolt"></i> <span data-i18n="planner.run_entity">Run an entity</span></span>
+                                        <label class="p-add-toggle-wrap"><input id="planner-add-event-action-enabled" type="checkbox"> <span data-i18n="planner.enable">Enable</span></label>
+                                    </div>
+                                    <div class="p-add-section-body">
+                                        <div class="p-add-col">
+                                            <label class="p-add-label" data-i18n="planner.entity_label">Entity</label>
+                                            <div class="p-entity-picker" id="planner-entity-picker">
+                                                <input id="planner-add-event-action-entity" type="text" class="p-add-input p-entity-picker-input" data-i18n-placeholder="planner.entity_search_placeholder" placeholder="Search entity…" autocomplete="off" spellcheck="false">
+                                                <button type="button" class="p-entity-picker-clear" data-planner-action="clearActionEntity" tabindex="-1" data-i18n-aria-label="common.remove" aria-label="Clear"><i class="fas fa-xmark"></i></button>
+                                                <div id="planner-entity-picker-menu" class="p-entity-picker-menu" role="listbox"></div>
+                                            </div>
+                                        </div>
+                                        <div class="p-add-col">
+                                            <label class="p-add-label" data-i18n="planner.action_label">Action</label>
+                                            <select id="planner-add-event-action-service" class="p-add-select">
+                                                <option value="turn_on" data-i18n="planner.turn_on">Turn on</option>
+                                                <option value="turn_off" data-i18n="planner.turn_off">Turn off</option>
+                                                <option value="toggle" data-i18n="planner.toggle">Toggle</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="p-add-section-body p-add-section-body--single" style="margin-top:0.5rem;">
+                                        <div class="p-add-col">
+                                            <label class="p-add-label" data-i18n="planner.run_label">Run</label>
+                                            <select id="planner-add-event-action-offset" class="p-add-select">
+                                                <option value="0" selected data-i18n="planner.run_at_start">At event start</option>
+                                                <option value="1">1 min</option>
+                                                <option value="5">5 min</option>
+                                                <option value="10">10 min</option>
+                                                <option value="15">15 min</option>
+                                                <option value="30">30 min</option>
+                                                <option value="60" data-i18n="planner.hour_before">1 hour before</option>
+                                                <option value="120" data-i18n="planner.hours_before">2 hours before</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" class="p-add-submit" data-planner-action="createEntry" data-i18n="planner.create">Create</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>

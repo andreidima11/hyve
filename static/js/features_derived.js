@@ -8,7 +8,7 @@
 import { apiCall } from './api.js';
 import { t } from './lang/index.js';
 import { escapeHtml, showToast, showConfirm } from './utils.js';
-import { loadSmarthome } from './features.js?v=phase4-config-10';
+import { loadSmarthome } from './features.js';
 
 const BUILDER_PRESET = 'preset';
 const BUILDER_TRANSFORM = 'transform';
@@ -43,8 +43,8 @@ function _setBuilderUi(builder) {
     const helper = $('derived-inputs-helper');
     if (helper) {
         helper.textContent = builder === BUILDER_TRANSFORM
-            ? (t('derived.inputs_helper_transform') || 'Pick exactly ONE entity — its value is filtered / scaled / offset.')
-            : (t('derived.inputs_helper_preset') || 'Pick one or more entities to feed into the preset.');
+            ? (t('derived.inputs_helper_transform'))
+            : (t('derived.inputs_helper_preset'));
     }
 
     // Visual state on the segmented builder buttons
@@ -114,8 +114,8 @@ function _updateYamlSyncBadge() {
     const badge = $('derived-yaml-sync-badge');
     if (!badge) return;
     badge.textContent = _yamlTouched
-        ? (t('derived.yaml_edited') || '• edited manually')
-        : (t('derived.yaml_synced') || '• synced with form');
+        ? (t('derived.yaml_edited'))
+        : (t('derived.yaml_synced'));
     badge.classList.toggle('text-amber-400', _yamlTouched);
     badge.classList.toggle('text-emerald-400', !_yamlTouched);
 }
@@ -133,7 +133,7 @@ async function _loadCandidates() {
     }
     _renderCandidates();
     if (insertSelect) {
-        const opts = ['<option value="">— ' + (t('derived.insert_entity') || 'Insert entity') + ' —</option>'];
+        const opts = ['<option value="">— ' + (t('derived.insert_entity')) + ' —</option>'];
         for (const e of _candidates) {
             opts.push(`<option value="${escapeHtml(e.entity_id)}">${escapeHtml(e.entity_id)} · ${escapeHtml(String(e.state ?? ''))}</option>`);
         }
@@ -151,7 +151,7 @@ function _renderCandidates() {
             || String(e.state ?? '').toLowerCase().includes(q);
     });
     if (!items.length) {
-        list.innerHTML = `<div class="text-center text-slate-500 text-sm py-6">${escapeHtml(t('derived.no_candidates') || 'No matching entities.')}</div>`;
+        list.innerHTML = `<div class="text-center text-slate-500 text-sm py-6">${escapeHtml(t('derived.no_candidates'))}</div>`;
         _updateInputsCount();
         return;
     }
@@ -163,7 +163,7 @@ function _renderCandidates() {
         const inputType = single ? 'radio' : 'checkbox';
         const name = single ? 'name="derived-single"' : '';
         return `<label class="flex items-center gap-3 px-3 py-2 hover:bg-white/5 cursor-pointer">
-            <input type="${inputType}" ${name} class="accent-accent" value="${escapeHtml(eid)}" ${checked} onchange="window.__toggleDerivedInput(this)">
+            <input type="${inputType}" ${name} class="accent-accent" value="${escapeHtml(eid)}" ${checked} data-smarthome-change="toggleDerivedInput">
             <div class="flex-1 min-w-0">
                 <div class="text-xs text-slate-200 mono truncate">${escapeHtml(eid)}</div>
                 <div class="text-[10px] text-slate-500 truncate">${escapeHtml(state)}</div>
@@ -381,7 +381,7 @@ function _resetForm() {
     _editingId = null;
     _yamlTouched = false;
     $('derived-delete-btn').classList.add('hidden');
-    $('derived-modal-title').textContent = t('derived.modal_title') || 'New derived entity';
+    $('derived-modal-title').textContent = t('derived.modal_title');
     _setBuilderUi(BUILDER_PRESET);
     _setViewUi(VIEW_FORM);
 }
@@ -436,7 +436,7 @@ export async function openDerivedModal(entityId) {
 
 function _populateForm(entry) {
     _editingId = entry.entity_id;
-    $('derived-modal-title').textContent = (t('derived.modal_edit_title') || 'Edit derived entity');
+    $('derived-modal-title').textContent = (t('derived.modal_edit_title'));
     $('derived-delete-btn').classList.remove('hidden');
     $('derived-name').value = entry.name || '';
     $('derived-value-type').value = entry.value_type || 'number';
@@ -478,23 +478,23 @@ export async function saveDerived() {
         let res;
         if (_view === VIEW_YAML) {
             const text = ($('derived-yaml')?.value || '').trim();
-            if (!text) { showToast(t('derived.err_yaml') || 'YAML is required', 'error'); return; }
+            if (!text) { showToast(t('derived.err_yaml'), 'error'); return; }
             res = await apiCall('/api/derived/yaml/save', {
                 method: 'POST',
                 body: { yaml: text, entity_id: _editingId || null },
             });
         } else {
             const name = $('derived-name').value.trim();
-            if (!name) { showToast(t('derived.err_name') || 'Name is required', 'error'); return; }
+            if (!name) { showToast(t('derived.err_name'), 'error'); return; }
             const formula = _buildFormulaPayload();
             if (formula.type === 'expression') {
                 if (!formula.expression) {
-                    showToast(t('derived.err_expression') || 'Expression is required', 'error');
+                    showToast(t('derived.err_expression'), 'error');
                     return;
                 }
             } else {
                 if (!formula.inputs || !formula.inputs.length) {
-                    showToast(t('derived.err_inputs') || 'Select at least one input', 'error');
+                    showToast(t('derived.err_inputs'), 'error');
                     return;
                 }
             }
@@ -513,10 +513,10 @@ export async function saveDerived() {
         }
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            showToast(err.detail || 'Save failed', 'error');
+            showToast(err.detail || t('derived.save_failed'), 'error');
             return;
         }
-        showToast(_editingId ? (t('derived.saved') || 'Saved') : (t('derived.created') || 'Created'), 'success');
+        showToast(_editingId ? (t('derived.saved')) : (t('derived.created')), 'success');
         closeDerivedModal();
         await loadSmarthome();
     } catch (e) {
@@ -527,7 +527,7 @@ export async function saveDerived() {
 export async function deleteDerivedFromModal() {
     if (!_editingId) return;
     const eid = _editingId;
-    const ok = await showConfirm((t('derived.confirm_delete_title') || 'Delete derived entity?') + `\n${eid}`);
+    const ok = await showConfirm((t('derived.confirm_delete_title')) + `\n${eid}`);
     if (!ok) return;
     try {
         const res = await apiCall(`/api/derived/${encodeURIComponent(eid)}`, { method: 'DELETE' });
@@ -535,7 +535,7 @@ export async function deleteDerivedFromModal() {
             showToast(t('hy.delete_failed'), 'error');
             return;
         }
-        showToast(t('derived.deleted') || 'Deleted', 'success');
+        showToast(t('derived.deleted'), 'success');
         closeDerivedModal();
         await loadSmarthome();
     } catch {

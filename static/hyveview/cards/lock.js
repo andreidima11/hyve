@@ -64,11 +64,11 @@ export class HyveviewLockCard extends HyveviewCardBase {
       ${showActions ? `
         <div class="hyve-dashboard-card__lock-actions">
           <button type="button" class="hyve-dashboard-card__lock-btn" data-lock-btn data-active="false"
-            onclick="event.stopPropagation(); onDashboardLockAction('${wid}', 'lock')">
+            data-dash-action="lockAction" data-dash-stop-propagation="true" data-widget-id="${wid}" data-action="lock">
             <i class="fas fa-lock"></i> ${t('entity.lock')}
           </button>
           <button type="button" class="hyve-dashboard-card__lock-btn" data-unlock-btn data-active="false"
-            onclick="event.stopPropagation(); onDashboardLockAction('${wid}', 'unlock')">
+            data-dash-action="lockAction" data-dash-stop-propagation="true" data-widget-id="${wid}" data-action="unlock">
             <i class="fas fa-lock-open"></i> ${t('entity.unlock')}
           </button>
         </div>` : ''}

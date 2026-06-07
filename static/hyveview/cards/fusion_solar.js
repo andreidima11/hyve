@@ -266,7 +266,7 @@ export class HyveviewFusionSolarCard extends HyveviewCardBase {
         type: 'entity',
         domains: ['sensor'],
       },
-      { key: 'title', label: 'Titlu card', type: 'string', placeholder: 'Auto din stație' },
+      { key: 'title', label: 'Titlu card', type: 'string', placeholder: 'Opțional — lasă gol fără titlu' },
       { key: 'capacity_kw', label: 'Capacitate (kWp)', type: 'number', placeholder: 'Opțional' },
     ],
   };
@@ -501,10 +501,13 @@ export class HyveviewFusionSolarCard extends HyveviewCardBase {
 
   _displayTitle() {
     const w = this._config || {};
-    if (Object.prototype.hasOwnProperty.call(w, 'title')) {
-      return String(w.title ?? '');
-    }
-    return this._resolvedTitle();
+    const raw = Object.prototype.hasOwnProperty.call(w, 'title')
+      ? String(w.title ?? '').trim()
+      : '';
+    if (!raw) return '';
+    // Legacy saves back-filled entity_id as title — treat as blank.
+    if (raw.startsWith('sensor.') || raw.startsWith('fusion_solar:')) return '';
+    return raw;
   }
 
   _resolvedTitle() {
@@ -538,12 +541,13 @@ export class HyveviewFusionSolarCard extends HyveviewCardBase {
     const escape = host.escape;
     const compact = this._isCompact();
     const title = this._displayTitle();
+    const nameClass = title ? 'hv-fsolar__name' : 'hv-fsolar__name hidden';
 
     if (compact) {
       this.innerHTML = `
         <div class="hv-fsolar hv-fsolar--compact">
           <div class="hv-fsolar__top">
-            <span class="hv-fsolar__name" data-title>${escape(title)}</span>
+            <span class="${nameClass}" data-title>${escape(title)}</span>
             <span class="hv-fsolar__chip" data-status>—</span>
           </div>
           <div class="hv-fsolar__metrics hv-fsolar__metrics--live">
@@ -556,7 +560,7 @@ export class HyveviewFusionSolarCard extends HyveviewCardBase {
     this.innerHTML = `
       <div class="hv-fsolar hv-fsolar--flow">
         <div class="hv-fsolar__top hv-fsolar__top--flow">
-          <span class="hv-fsolar__name" data-title>${escape(title)}</span>
+          <span class="${nameClass}" data-title>${escape(title)}</span>
           <span class="hv-fsolar__chip" data-status>—</span>
         </div>
         ${renderFlowCard({ showBattery: this._hasBattery() })}

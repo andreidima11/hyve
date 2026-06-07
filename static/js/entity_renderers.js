@@ -5,12 +5,17 @@
 // representing the primary control surface for that domain (toggle, slider,
 // segmented buttons, etc).
 //
-// All buttons/inputs delegate back to window.controlIntegrationEntity(...) so
-// the existing POST /api/integrations/{slug}/control endpoint remains the
-// single write path.
+// All controls use data-entity-action attributes; integrations/event_bindings.js
+// delegates to window.controlIntegrationEntity(...).
 
 import { escapeHtml } from './utils.js';
+import { t, tState } from './lang/index.js';
 import { cameraLiveTransport } from './camera_live.js';
+import { getCameraStreamToken, cameraProxyUrlSync, cameraGo2rtcWsUrlSync } from './camera_auth.js';
+
+function _er(key, params) {
+    return t('entity.render.' + key, params);
+}
 
 const DEVICE_CLASS_ICONS = {
     temperature: 'fa-temperature-half',
@@ -58,45 +63,40 @@ export function getDomainIcon(domain, deviceClass = '') {
     return DEVICE_CLASS_ICONS[deviceClass] || DOMAIN_ICONS[domain] || 'fa-circle-nodes';
 }
 
-// Single-quoted JS string literal safe for embedding inside onclick="..."
-// HTML attributes (avoids the double-quote conflict that JSON.stringify
-// would produce).
-function _js(s) {
-    return "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n') + "'";
+function _attr(s) {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;');
 }
 
-function _ctrl(slug, eid, action, dataJson = null) {
-    const args = [_js(slug), _js(eid), _js(action)];
-    if (dataJson != null) args.push(dataJson);
-    return `window.controlIntegrationEntity(${args.join(', ')}, this)`;
+function _ctrlAttrs(slug, eid, action, payload = null, { stop = false } = {}) {
+    const payloadAttr = payload != null ? ` data-int-payload="${_attr(JSON.stringify(payload))}"` : '';
+    const stopAttr = stop ? ' data-entity-stop="1"' : '';
+    return `data-entity-action="control" data-int-slug="${_attr(slug)}" data-int-entity-id="${_attr(eid)}" data-int-cmd="${_attr(action)}"${payloadAttr}${stopAttr}`;
 }
 
 function _stateLabel(state, unit = '') {
-    const text = (state == null || state === '') ? 'unknown' : String(state);
+    const text = tState(state == null || state === '' ? 'unknown' : state);
     if (!unit) return escapeHtml(text);
     return `${escapeHtml(text)}<span class="text-slate-400 text-base ml-1">${escapeHtml(unit)}</span>`;
 }
 
 function _cameraProxyUrl(entityId, kind) {
-    const params = new URLSearchParams({ _t: String(Date.now()) });
-    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('hyve_token') : '';
-    if (token) params.set('token', token);
-    return `/api/cameras/${encodeURIComponent(entityId)}/${kind}?${params.toString()}`;
+    return cameraProxyUrlSync(entityId, kind, Date.now());
 }
 
 function _cameraGo2rtcWsUrl(entityId) {
-    const params = new URLSearchParams();
-    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('hyve_token') : '';
-    if (token) params.set('token', token);
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.host}/api/cameras/${encodeURIComponent(entityId)}/go2rtc/ws?${params.toString()}`;
+    return cameraGo2rtcWsUrlSync(entityId);
 }
 
-function _cameraLoaderMarkup(message = 'Se încarcă imaginea') {
+function _cameraLoaderMarkup(message) {
+    const msg = message || _er('loading_image');
     return `
         <div class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 text-slate-300 transition-opacity duration-300" data-camera-loader>
             <div class="w-9 h-9 rounded-full border-2 border-white/10 border-t-accent animate-spin"></div>
-            <div class="text-[11px] uppercase tracking-widest text-slate-400">${escapeHtml(message)}</div>
+            <div class="text-[11px] uppercase tracking-widest text-slate-400">${escapeHtml(msg)}</div>
         </div>`;
 }
 
@@ -186,7 +186,7 @@ if (typeof window !== 'undefined' && !customElements.get('hyve-camera-live-playe
             const loader = this.querySelector('[data-camera-loader]');
             if (loader) {
                 loader.classList.remove('opacity-0', 'pointer-events-none');
-                loader.innerHTML = '<i class="fas fa-video-slash text-xl text-slate-500"></i><div class="text-[11px] uppercase tracking-widest text-slate-400">Camera indisponibilă</div>';
+                loader.innerHTML = `<i class="fas fa-video-slash text-xl text-slate-500"></i><div class="text-[11px] uppercase tracking-widest text-slate-400">${escapeHtml(_er('camera_unavailable'))}</div>`;
             }
         }
 
@@ -211,7 +211,7 @@ if (typeof window !== 'undefined' && !customElements.get('hyve-camera-live-playe
                         ${muted ? 'muted' : ''} playsinline autoplay controls data-camera-live-frame></video>
                     <button type="button" data-camera-mute-toggle
                         class="absolute left-2 bottom-2 z-10 px-2.5 py-1.5 rounded-lg bg-black/60 text-white text-sm border-0 cursor-pointer"
-                        title="Sunet" aria-label="Sunet">${muted ? '🔇' : '🔊'}</button>
+                        title="${escapeHtml(_er('sound'))}" aria-label="${escapeHtml(_er('sound'))}">${muted ? '🔇' : '🔊'}</button>
                 </div>`);
             const video = this.querySelector('video');
             const muteBtn = this.querySelector('[data-camera-mute-toggle]');
@@ -376,7 +376,7 @@ if (typeof window !== 'undefined' && !window.__hyveCameraFrameFailed) {
             const loader = frame.querySelector('[data-camera-loader]');
             if (loader) {
                 loader.classList.remove('opacity-0', 'pointer-events-none');
-                loader.innerHTML = '<i class="fas fa-video-slash text-xl text-slate-500"></i><div class="text-[11px] uppercase tracking-widest text-slate-400">Camera indisponibilă</div>';
+                loader.innerHTML = `<i class="fas fa-video-slash text-xl text-slate-500"></i><div class="text-[11px] uppercase tracking-widest text-slate-400">${escapeHtml(_er('camera_unavailable'))}</div>`;
             }
         }
     };
@@ -385,24 +385,24 @@ if (typeof window !== 'undefined' && !window.__hyveCameraFrameFailed) {
 function _mediaStateBadge(state) {
     const lower = String(state || '').toLowerCase();
     if (lower === 'streaming' || lower === 'on') {
-        return { label: 'Live', className: 'is-live' };
+        return { label: _er('live'), className: 'is-live' };
     }
     if (lower === 'idle' || lower === 'off') {
-        return { label: 'Inactiv', className: 'is-idle' };
+        return { label: tState(lower === 'off' ? 'off' : 'idle'), className: 'is-idle' };
     }
     if (lower === 'unavailable' || lower === 'unknown') {
-        return { label: 'Indisponibil', className: 'is-offline' };
+        return { label: tState(lower), className: 'is-offline' };
     }
-    return { label: String(state || '—'), className: '' };
+    return { label: tState(state || 'unknown'), className: '' };
 }
 
 function renderHeroMedia(entity, domain) {
     const dc = (entity.attributes || {}).device_class || '';
     const icon = getDomainIcon(domain, dc);
-    const title = entity.name || entity.entity_id || (domain === 'image' ? 'Imagine' : 'Cameră');
+    const title = entity.name || entity.entity_id || (domain === 'image' ? _er('image') : _er('camera'));
     const eid = entity.entity_id || '';
     const badge = _mediaStateBadge(entity.state);
-    const kicker = domain === 'image' ? 'Imagine' : 'Cameră';
+    const kicker = domain === 'image' ? _er('image') : _er('camera');
     return `
     <div class="hy-entity-hero hy-entity-hero--media mb-3">
         <div class="hy-entity-hero-icon" aria-hidden="true"><i class="fas ${icon}"></i></div>
@@ -440,7 +440,7 @@ function renderHero(entity) {
     <div class="hy-entity-hero mb-3">
         <div class="hy-entity-hero-icon" aria-hidden="true"><i class="fas ${icon}"></i></div>
         <div class="hy-entity-hero-body">
-            <div class="hy-entity-hero-kicker">${escapeHtml(domain || 'entity')}</div>
+            <div class="hy-entity-hero-kicker">${escapeHtml(domain || '')}</div>
             <div class="hy-entity-hero-state ${tone}" data-entity-state="${escapeHtml(entity.entity_id || '')}">${_stateLabel(state, unit)}</div>
             <div class="hy-entity-hero-sub mono">${subline}</div>
         </div>
@@ -454,13 +454,13 @@ function renderSwitch(entity, slug) {
     <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
         <div class="flex items-center justify-between gap-4">
             <div class="min-w-0">
-                <div class="text-[11px] uppercase tracking-wider text-slate-400">Stare</div>
-                <div class="text-sm font-semibold text-slate-100 mt-0.5">${isOn ? 'Pornit' : 'Oprit'}</div>
+                <div class="text-[11px] uppercase tracking-wider text-slate-400">${escapeHtml(_er('state'))}</div>
+                <div class="text-sm font-semibold text-slate-100 mt-0.5">${escapeHtml(isOn ? tState('on') : tState('off'))}</div>
             </div>
             <button type="button"
                     role="switch" aria-checked="${isOn}"
                     class="app-toggle-switch shrink-0" data-entity-toggle="${escapeHtml(eid)}" data-on="${isOn}"
-                    onclick="${_ctrl(slug, eid, isOn ? 'turn_off' : 'turn_on')}">
+                    ${_ctrlAttrs(slug, eid, isOn ? 'turn_off' : 'turn_on')}>
                 <span class="app-toggle-thumb"></span>
             </button>
         </div>
@@ -478,24 +478,24 @@ function renderLight(entity, slug) {
         bright = `
         <div class="mt-3 pt-3 border-t border-white/5">
             <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
-                <span>Luminozitate</span>
+                <span>${escapeHtml(_er('brightness'))}</span>
                 <span class="mono text-slate-200">${Math.round((current / scale) * 100)}%</span>
             </div>
             <input type="range" min="0" max="${scale}" step="1" value="${current}"
                    class="cfg-range w-full"
-                   onchange="window.controlIntegrationEntity(${_js(slug)}, ${_js(eid)}, 'set', this, { brightness: parseInt(this.value, 10) })">
+                   ${_ctrlAttrs(slug, eid, 'set')} data-int-input="brightness">
         </div>`;
     }
     return `
     <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
         <div class="flex items-center justify-between gap-4">
             <div class="min-w-0">
-                <div class="text-[11px] uppercase tracking-wider text-slate-400">Lumină</div>
-                <div class="text-sm font-semibold text-slate-100 mt-0.5">${isOn ? 'Aprinsă' : 'Stinsă'}</div>
+                <div class="text-[11px] uppercase tracking-wider text-slate-400">${escapeHtml(_er('light'))}</div>
+                <div class="text-sm font-semibold text-slate-100 mt-0.5">${escapeHtml(isOn ? _er('light_on') : _er('light_off'))}</div>
             </div>
             <button type="button" role="switch" aria-checked="${isOn}"
                     class="app-toggle-switch shrink-0" data-entity-toggle="${escapeHtml(eid)}" data-on="${isOn}"
-                    onclick="${_ctrl(slug, eid, isOn ? 'turn_off' : 'turn_on')}">
+                    ${_ctrlAttrs(slug, eid, isOn ? 'turn_off' : 'turn_on')}>
                 <span class="app-toggle-thumb"></span>
             </button>
         </div>
@@ -515,13 +515,12 @@ function renderNumber(entity, slug) {
     return `
     <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3" data-number-control-wrap="${escapeHtml(eid)}">
         <div class="flex items-center justify-between text-[11px] text-slate-400 mb-2">
-            <span>Valoare</span>
+            <span>${escapeHtml(_er('value'))}</span>
             <span class="mono text-slate-200 text-sm" data-entity-state="${escapeHtml(eid)}" data-number-live-value="${escapeHtml(eid)}">${escapeHtml(String(current))}${unit ? ' ' + escapeHtml(unit) : ''}</span>
         </div>
         <input type="range" min="${min}" max="${max}" step="${step}" value="${current}"
                class="cfg-range w-full" data-entity-control="${escapeHtml(eid)}"
-               oninput="event.stopPropagation(); window.__previewIntegrationNumberValue && window.__previewIntegrationNumberValue(${_js(eid)}, this.value, ${_js(unit)})"
-               onchange="window.controlIntegrationEntity(${_js(slug)}, ${_js(eid)}, 'set', this, { value: parseFloat(this.value) })">
+               ${_ctrlAttrs(slug, eid, 'set')} data-int-input="valueFloat" data-int-input-preview="1" data-int-unit="${_attr(unit)}" data-entity-stop="1">
         <div class="hidden"></div>
         <div class="flex items-center justify-between text-[10px] text-slate-500 mt-1.5 mono">
             <span>${min}${unit ? ' ' + escapeHtml(unit) : ''}</span>
@@ -544,13 +543,13 @@ function renderSelect(entity, slug) {
             ? 'bg-accent/20 border-accent/50 text-accent'
             : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10';
         return `<button type="button" class="px-3 py-1.5 rounded-lg text-xs border ${cls} transition-colors"
-                onclick="window.controlIntegrationEntity(${_js(slug)}, ${_js(eid)}, 'set', this, { value: ${_js(v)} })">
+                ${_ctrlAttrs(slug, eid, 'set', { value: v })}>
                 ${escapeHtml(lbl)}
             </button>`;
     }).join('');
     return `
     <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
-        <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Opțiune</div>
+        <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">${escapeHtml(_er('option'))}</div>
         <div class="flex flex-wrap gap-1.5">${buttons}</div>
     </div>`;
 }
@@ -560,31 +559,31 @@ function renderButton(entity, slug) {
     const attrs = entity.attributes || {};
     const ptzAction = attrs.tapo_feature || '';
     const ptzUi = {
-        ptz_up: { icon: 'fa-chevron-up', label: 'Sus' },
-        ptz_down: { icon: 'fa-chevron-down', label: 'Jos' },
-        ptz_left: { icon: 'fa-chevron-left', label: 'Stânga' },
-        ptz_right: { icon: 'fa-chevron-right', label: 'Dreapta' },
+        ptz_up: { icon: 'fa-chevron-up', label: _er('up') },
+        ptz_down: { icon: 'fa-chevron-down', label: _er('down') },
+        ptz_left: { icon: 'fa-chevron-left', label: _er('left') },
+        ptz_right: { icon: 'fa-chevron-right', label: _er('right') },
     }[ptzAction];
     if (attrs.tapo_button_kind === 'ptz' && ptzUi) {
         return `
         <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3 flex items-center justify-between gap-3">
             <div>
-                <div class="text-[11px] uppercase tracking-wider text-slate-400">Pan / Tilt</div>
+                <div class="text-[11px] uppercase tracking-wider text-slate-400">${escapeHtml(_er('pan_tilt'))}</div>
                 <div class="text-sm font-semibold text-slate-100 mt-0.5">${escapeHtml(ptzUi.label)}</div>
             </div>
             <button type="button" class="hy-ptz-btn hy-ptz-btn--inline"
                     title="${escapeHtml(ptzUi.label)}" aria-label="${escapeHtml(ptzUi.label)}"
-                    onclick="${_ctrl(slug, eid, 'press')}">
+                    ${_ctrlAttrs(slug, eid, 'press')}>
                 <i class="fas ${ptzUi.icon}"></i>
             </button>
         </div>`;
     }
     return `
     <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3 flex items-center justify-between gap-3">
-        <div class="text-[11px] uppercase tracking-wider text-slate-400">Acțiune</div>
+        <div class="text-[11px] uppercase tracking-wider text-slate-400">${escapeHtml(_er('action'))}</div>
         <button type="button" class="px-4 py-2 rounded-xl bg-accent/15 border border-accent/30 text-accent text-xs font-semibold hover:bg-accent/25"
-                onclick="${_ctrl(slug, eid, 'press')}">
-            <i class="fas fa-bolt mr-1"></i>Trimite
+                ${_ctrlAttrs(slug, eid, 'press')}>
+            <i class="fas fa-bolt mr-1"></i>${escapeHtml(_er('send'))}
         </button>
     </div>`;
 }
@@ -595,12 +594,12 @@ function renderLock(entity, slug) {
     return `
     <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3 flex items-center justify-between gap-3">
         <div>
-            <div class="text-[11px] uppercase tracking-wider text-slate-400">Lacăt</div>
-            <div class="text-sm font-semibold text-slate-100 mt-0.5">${isLocked ? 'Încuiat' : 'Descuiat'}</div>
+            <div class="text-[11px] uppercase tracking-wider text-slate-400">${escapeHtml(_er('lock'))}</div>
+            <div class="text-sm font-semibold text-slate-100 mt-0.5">${escapeHtml(isLocked ? _er('locked') : _er('unlocked'))}</div>
         </div>
         <button type="button" class="px-4 py-2 rounded-xl text-xs font-semibold border ${isLocked ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-300' : 'bg-rose-500/15 border-rose-400/30 text-rose-300'}"
-                onclick="${_ctrl(slug, eid, isLocked ? 'turn_off' : 'turn_on')}">
-            <i class="fas ${isLocked ? 'fa-lock-open' : 'fa-lock'} mr-1"></i>${isLocked ? 'Descuie' : 'Încuie'}
+                ${_ctrlAttrs(slug, eid, isLocked ? 'turn_off' : 'turn_on')}>
+            <i class="fas ${isLocked ? 'fa-lock-open' : 'fa-lock'} mr-1"></i>${escapeHtml(isLocked ? _er('unlock_action') : _er('lock_action'))}
         </button>
     </div>`;
 }
@@ -609,14 +608,14 @@ function renderCover(entity, slug) {
     const eid = entity.entity_id;
     return `
     <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
-        <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Jaluzea</div>
+        <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">${escapeHtml(_er('cover'))}</div>
         <div class="flex gap-2">
             <button type="button" class="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-200 text-xs hover:bg-white/10"
-                    onclick="${_ctrl(slug, eid, 'turn_on')}"><i class="fas fa-arrow-up mr-1"></i>Sus</button>
+                    ${_ctrlAttrs(slug, eid, 'turn_on')}><i class="fas fa-arrow-up mr-1"></i>${escapeHtml(_er('up'))}</button>
             <button type="button" class="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-200 text-xs hover:bg-white/10"
-                    onclick="${_ctrl(slug, eid, 'set', null, "{ value: 'STOP' }")}"><i class="fas fa-stop mr-1"></i>Stop</button>
+                    ${_ctrlAttrs(slug, eid, 'set', { value: 'STOP' })}><i class="fas fa-stop mr-1"></i>${escapeHtml(_er('stop'))}</button>
             <button type="button" class="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-200 text-xs hover:bg-white/10"
-                    onclick="${_ctrl(slug, eid, 'turn_off')}"><i class="fas fa-arrow-down mr-1"></i>Jos</button>
+                    ${_ctrlAttrs(slug, eid, 'turn_off')}><i class="fas fa-arrow-down mr-1"></i>${escapeHtml(_er('down'))}</button>
         </div>
     </div>`;
 }
@@ -632,7 +631,7 @@ function renderSensor(entity /*, slug */) {
     if (!interesting.length) return '';
     return `
     <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
-        <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Telemetrie</div>
+        <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">${escapeHtml(_er('telemetry'))}</div>
         <div class="grid grid-cols-2 gap-2">
             ${interesting.map(([k, v]) => `
                 <div class="bg-white/5 rounded-lg px-2.5 py-1.5">
@@ -654,23 +653,23 @@ function _renderCameraPtzPad(entity, slug) {
     const attrs = entity.attributes || {};
     if (!_cameraHasPtz(attrs)) return '';
     const eid = entity.entity_id || '';
-    const btn = (action, icon, title) => `<button type="button" title="${title}" aria-label="${title}"
+    const btn = (action, icon, title) => `<button type="button" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"
         class="hy-ptz-btn"
-        onclick="event.stopPropagation(); window.controlIntegrationEntity(${_js(slug)}, ${_js(eid)}, ${_js(action)}, this)">
+        ${_ctrlAttrs(slug, eid, action, null, { stop: true })}>
         <i class="fas ${icon}"></i>
     </button>`;
     return `
     <div class="hy-ptz-pad mb-3">
-        <div class="hy-ptz-pad-label">Pan / Tilt</div>
-        <div class="hy-ptz-grid" role="group" aria-label="Control pan tilt">
+        <div class="hy-ptz-pad-label">${escapeHtml(_er('pan_tilt'))}</div>
+        <div class="hy-ptz-grid" role="group" aria-label="${escapeHtml(_er('ptz_aria'))}">
             <span class="hy-ptz-spacer" aria-hidden="true"></span>
-            ${btn('ptz_up', 'fa-chevron-up', 'Sus')}
+            ${btn('ptz_up', 'fa-chevron-up', _er('up'))}
             <span class="hy-ptz-spacer" aria-hidden="true"></span>
-            ${btn('ptz_left', 'fa-chevron-left', 'Stânga')}
+            ${btn('ptz_left', 'fa-chevron-left', _er('left'))}
             <span class="hy-ptz-center" aria-hidden="true"><i class="fas fa-up-down-left-right"></i></span>
-            ${btn('ptz_right', 'fa-chevron-right', 'Dreapta')}
+            ${btn('ptz_right', 'fa-chevron-right', _er('right'))}
             <span class="hy-ptz-spacer" aria-hidden="true"></span>
-            ${btn('ptz_down', 'fa-chevron-down', 'Jos')}
+            ${btn('ptz_down', 'fa-chevron-down', _er('down'))}
             <span class="hy-ptz-spacer" aria-hidden="true"></span>
         </div>
     </div>`;
@@ -737,7 +736,7 @@ export function renderEntityModal(entity, slug) {
     if (flatAttrs.length) {
         body += `
         <details class="rounded-2xl bg-white/5 border border-white/10 p-3 mb-3">
-            <summary class="text-[11px] uppercase tracking-wider text-slate-400 cursor-pointer select-none">Atribute</summary>
+            <summary class="text-[11px] uppercase tracking-wider text-slate-400 cursor-pointer select-none">${escapeHtml(_er('attributes'))}</summary>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-3">
                 ${flatAttrs.map(([k, v]) => `
                     <div class="flex items-center justify-between gap-2 px-2 py-1 bg-white/[0.03] rounded">
@@ -752,7 +751,7 @@ export function renderEntityModal(entity, slug) {
     // Raw JSON (collapsed, for debugging)
     body += `
     <details class="rounded-2xl bg-white/5 border border-white/10 p-3">
-        <summary class="text-[11px] uppercase tracking-wider text-slate-400 cursor-pointer select-none">Vezi raw JSON</summary>
+        <summary class="text-[11px] uppercase tracking-wider text-slate-400 cursor-pointer select-none">${escapeHtml(_er('raw_json'))}</summary>
         <pre class="text-[10px] text-slate-400 mono whitespace-pre-wrap break-all mt-2 max-h-64 overflow-auto">${escapeHtml(JSON.stringify(entity, null, 2))}</pre>
     </details>`;
 
@@ -778,13 +777,13 @@ export function renderEntityCard(entity, slug) {
     if (entity.controllable && (entity.domain === 'switch' || entity.domain === 'light' || entity.domain === 'fan' || entity.domain === 'outlet' || entity.domain === 'plug')) {
         inlineCtl = `<button type="button" role="switch" aria-checked="${isOn}"
             class="app-toggle-switch shrink-0" data-entity-toggle="${escapeHtml(eid)}" data-on="${isOn}"
-            onclick="event.stopPropagation(); window.controlIntegrationEntity(${_js(slug)}, ${_js(eid)}, ${_js(isOn ? 'turn_off' : 'turn_on')}, this)">
+            ${_ctrlAttrs(slug, eid, isOn ? 'turn_off' : 'turn_on', null, { stop: true })}>
             <span class="app-toggle-thumb"></span>
         </button>`;
     }
 
     return `<div class="bg-white/[0.03] border border-white/5 rounded-xl p-3 hover:bg-white/[0.06] hover:border-accent/20 transition-all cursor-pointer"
-            onclick="window.__openIntegrationEntityCard('${encoded}')">
+            data-entity-action="openCard" data-int-encoded="${encoded}">
         <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2">
@@ -872,7 +871,7 @@ export function renderDeviceCard(group, slug) {
 
     return `<div class="bg-white/[0.03] border border-white/5 rounded-xl p-4 hover:bg-white/[0.06] hover:border-accent/20 transition-all cursor-pointer"
             data-device-card="${escapeHtml(group.device_id || '')}"
-            onclick="window.__openIntegrationDeviceCard('${encoded}', ${_js(slug)})">
+            data-entity-action="openDeviceCard" data-int-encoded="${encoded}" data-int-slug="${_attr(slug)}">
         <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2">
@@ -910,7 +909,7 @@ function renderDeviceEntityRow(entity, slug) {
         if (dom === 'switch' || dom === 'light' || dom === 'fan' || dom === 'outlet' || dom === 'plug') {
             control = `<button type="button" role="switch" aria-checked="${isOn}"
                 class="app-toggle-switch shrink-0" data-entity-toggle="${escapeHtml(eid)}" data-on="${isOn}"
-                onclick="event.stopPropagation(); ${_ctrl(slug, eid, isOn ? 'turn_off' : 'turn_on')}">
+                ${_ctrlAttrs(slug, eid, isOn ? 'turn_off' : 'turn_on', null, { stop: true })}>
                 <span class="app-toggle-thumb"></span>
             </button>`;
         } else if (dom === 'number') {
@@ -921,13 +920,10 @@ function renderDeviceEntityRow(entity, slug) {
             const unitText = entity.unit || caps.unit || '';
             control = `<input type="range" min="${min}" max="${max}" step="${step}" value="${val}"
                 class="cfg-range w-32 shrink-0" data-entity-control="${escapeHtml(eid)}"
-                onclick="event.stopPropagation()"
-                oninput="event.stopPropagation(); window.__previewIntegrationNumberValue && window.__previewIntegrationNumberValue(${_js(eid)}, this.value, ${_js(unitText)})"
-                onchange="event.stopPropagation(); window.controlIntegrationEntity(${_js(slug)}, ${_js(eid)}, 'set', this, { value: parseFloat(this.value) })">`;
+                ${_ctrlAttrs(slug, eid, 'set')} data-int-input="valueFloat" data-int-input-preview="1" data-int-unit="${_attr(unitText)}" data-entity-stop="1">`;
         } else if (dom === 'select' && Array.isArray(caps.options) && caps.options.length && caps.options.length <= 6) {
             control = `<select class="bg-white/5 border border-white/10 rounded-lg text-[11px] text-slate-200 px-2 py-1 shrink-0"
-                onclick="event.stopPropagation()"
-                onchange="event.stopPropagation(); window.controlIntegrationEntity(${_js(slug)}, ${_js(eid)}, 'set', this, { value: this.value })">
+                ${_ctrlAttrs(slug, eid, 'set')} data-int-input="valueString" data-entity-stop="1">
                 ${caps.options.map(o => {
                     const v = (o && typeof o === 'object') ? String(o.value ?? o.label ?? '') : String(o);
                     const lbl = (o && typeof o === 'object') ? String(o.label ?? o.value ?? '') : String(o);
@@ -936,7 +932,7 @@ function renderDeviceEntityRow(entity, slug) {
             </select>`;
         } else if (dom === 'button') {
             control = `<button type="button" class="px-3 py-1 rounded-lg bg-accent/15 border border-accent/30 text-accent text-[11px] font-semibold shrink-0"
-                onclick="event.stopPropagation(); ${_ctrl(slug, eid, 'press')}">
+                ${_ctrlAttrs(slug, eid, 'press', null, { stop: true })}>
                 <i class="fas fa-bolt"></i>
             </button>`;
         }
@@ -944,7 +940,7 @@ function renderDeviceEntityRow(entity, slug) {
 
     const encoded = encodeURIComponent(JSON.stringify(entity)).replace(/'/g, '%27');
     return `<div class="flex items-center gap-3 px-3 py-2.5 bg-white/[0.03] border border-white/5 rounded-xl hover:bg-white/[0.06] hover:border-accent/20 transition-colors cursor-pointer"
-        onclick="window.__openIntegrationEntityCard('${encoded}')">
+        data-entity-action="openCard" data-int-encoded="${encoded}">
         <i class="fas ${icon} text-accent/70 text-sm w-4 text-center shrink-0"></i>
         <div class="min-w-0 flex-1">
             <div class="text-[12px] font-semibold text-slate-100 truncate">${escapeHtml(title)}</div>
@@ -977,7 +973,7 @@ export function renderDeviceModal(group, slug) {
             <div class="flex items-center gap-2 text-[10px] uppercase tracking-widest text-slate-500">
                 <span>Dispozitiv</span>
                 <button type="button" class="hover:text-accent transition-colors" title="Redenumește dispozitivul"
-                    onclick="__renameIntegrationDevice(${_js(slug)}, ${_js(group.device_id || '')}, ${_js(name)})">
+                    data-entity-action="renameDevice" data-int-slug="${_attr(slug)}" data-int-device-id="${_attr(group.device_id || '')}" data-int-device-name="${_attr(name)}">
                     <i class="fas fa-pen text-[10px]"></i>
                 </button>
             </div>

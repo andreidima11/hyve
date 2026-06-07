@@ -1,14 +1,25 @@
 import { authToken, clearAuthToken } from './api.js';
-import { showToast, debounce, showConfirm } from './utils.js';
+import { showToast, debounce, showConfirm, showSourcesModal } from './utils.js';
 import { handleLogin, loadUserProfile, restoreRememberedCredentials, tryAutoLogin } from './auth.js';
-import { setTheme, loadThemeSelector, toggleSidebar, closeSidebar, isSidebarOpen, switchTab, switchConfigTab, openConfigSection, closeConfigSection, startLogStream, initSidebarGestures, getStoredThemeId } from './ui.js?v=hyveview-cards-57';
+import { setTheme, loadThemeSelector, toggleSidebar, closeSidebar, isSidebarOpen, switchTab, switchConfigTab, openConfigSection, closeConfigSection, startLogStream, initSidebarGestures, getStoredThemeId } from './ui.js';
 import { initI18n, setLanguage, t, loadComponentTranslations } from './lang/index.js';
 import { applyDashboardEditAccess } from './dashboard/edit_access.js';
 import { sendMessage, stopStreaming, currentSessionId, addAttachedImage, addAttachedDocument, applyInitialGreeting, handleSlashInput, handleSlashKeydown } from './chat.js';
-import { initThinkingModeSelector } from './thinking_mode.js';
+import { initThinkingModeSelector, setThinkingMode } from './thinking_mode.js';
+import { initChatEventBindings } from './chat/event_bindings.js';
+import { initPlannerEventBindings } from './planner/event_bindings.js';
+import { initUserEventBindings } from './user/event_bindings.js';
+import { initSkillsEventBindings } from './skills/event_bindings.js';
+import { initConfigEventBindings } from './config/event_bindings.js';
+import { initMemoryEventBindings } from './memory/event_bindings.js';
+import { initSmarthomeEventBindings } from './smarthome/event_bindings.js';
+import { initShellEventBindings } from './shell/event_bindings.js';
+import { initIntegrationEventBindings } from './integrations/event_bindings.js';
+import { toggleModelSelector, closeModelSelector } from './chat/model_selector.js';
 import { setUserProfileContext, loadUserProfilePage, switchUserProfileTab, saveUserProfileGeneral, saveUserProfileSecurity } from './user_profile.js';
-import { initNotifications, loadUserNotifications, switchUserNotificationFilter, toggleUserNotificationFilterMenu, markUserNotificationRead, archiveUserNotification, deleteUserNotification, clearAllUserNotifications, changeUserNotificationsPage, loadNotificationCounts, updateNotificationBadge, actOnAmbientSuggestion } from './notifications.js';
+import { initNotifications, loadUserNotifications, switchUserNotificationFilter, toggleUserNotificationFilterMenu, markUserNotificationRead, archiveUserNotification, deleteUserNotification, clearAllUserNotifications, changeUserNotificationsPage, loadNotificationCounts, updateNotificationBadge, actOnAmbientSuggestion, navigateNotification } from './notifications.js';
 import { startStartupStatusPolling, showHubStartupLoadingAfterRestart } from './startup_status.js';
+import { importWithCacheBust } from './asset_version.js';
 
 // Expose sendMessage globally so other modules (e.g. voice input in features.js) can call it
 window.sendMessage = sendMessage;
@@ -38,35 +49,13 @@ import {
     openBlueprintCreator, addBlueprintCreatorInput, removeBlueprintCreatorInput, changeBlueprintCreatorInputType, insertBlueprintCreatorPlaceholder, updateBlueprintCreatorYaml, saveCreatedBlueprint,
     switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, syncAutomationBuilderFromYaml, loadAutomationEditorHistory, refreshAutomationEntityOptions, updateAutomationStructuredServiceData,
     loadNotificationPrefs, saveNotificationSettings, selectNotifTransport, selectNotifChannel, testWsNotification, testFcmNotification, testNotification, refreshNotifWsNativeStatus,
-    testAmbientNow, resetAmbientReasonerPrompt, testBriefingNow, switchMemorySubtab, checkAddonUpdates, updateAllAddons, updateSingleAddon, closeAddonConfigModal, refreshUpdatesHeaderBadge,
-} from './features.js?v=phase4-config-10';
+    testAmbientNow, resetAmbientReasonerPrompt, testBriefingNow, switchMemorySubtab,     checkAddonUpdates, updateAllAddons, updateSingleAddon, closeAddonConfigModal, refreshUpdatesHeaderBadge, checkAddonHealth,
+    installAddon, uninstallAddon, toggleAddon, openAddonConfigModal,
+} from './features.js';
 import {
-    loadDashboard, openDashboardAddModal, closeDashboardAddModal,
+    loadDashboard,
     initDashboardSidebarNav,
-    addDashboardSwitch, removeDashboardWidget, toggleDashboardWidget,
-    setDashboardFilter, toggleDashboardLayout, saveDashboardPreferences,
-    moveDashboardWidget, updateDashboardEntityOptions, filterDashboardEntityOptions, toggleDashboardEditMode,
-    toggleDashboardMenu, closeDashboardMenu, saveDashboardHeader,
-    openDashboardPageModal, closeDashboardPageModal,
-    openDashboardYamlEditor, closeDashboardYamlEditor, saveDashboardYaml, reloadDashboardYaml,
-    openDashboardWidgetEditor, closeDashboardWidgetEditor,
-    setDashboardWidgetEditorMode, saveDashboardWidgetEdit,
-    updateDashboardTypeUI, updateDashboardEditTypeUI,
-    startDashboardDrag, startDashboardPanelDrag,
-    startDashboardResize,
-    handleDashboardCardClick, handleDashboardCardKeydown,
-    selectDashboardPage, createDashboardPage, openDashboardPageNav,
-    onDashboardBrightnessInput, onDashboardBrightnessChange, onDashboardLockAction, onDashboardVacuumAction,
-    adjustDashboardClimateTemperature, setDashboardClimateMode, toggleDashboardClimateModeMenu,
-    selectDashboardClimateSlide, shiftDashboardClimateSlide, startDashboardClimateSwipe, moveDashboardClimateSwipe, endDashboardClimateSwipe,
-    openDashboardAddPicker, closeDashboardAddPicker, pickDashboardAddType,
-    selectDashboardPanelPage, removeDashboardPanel, openDashboardPanelCreator, openDashboardPanelEditor,
-    closeDashboardPanelModal, saveDashboardPanel,
-    deleteDashboardPage,
-    openDashboardEntityPicker, closeDashboardEntityPicker, handleDashboardEntityPickerKeydown, pickDashboardEntityOption,
-    addSelectedDashboardClimateEntity, removeDashboardClimateEntity, updateDashboardClimateEntityMeta,
-    setDashboardAddEditorMode, toggleDashboardVisibilityEditor, addDashboardVisibilityCondition
-} from './dashboard.js?v=hyveview-cards-57';
+} from './dashboard.js';
 
 const _lazyModulePromises = new Map();
 
@@ -77,11 +66,11 @@ function _lazyModule(key, importer) {
     return _lazyModulePromises.get(key);
 }
 
-const _loadDerivedModule = () => _lazyModule('derived', () => import('./features_derived.js'));
-const _loadPlannerModule = () => _lazyModule('planner', () => import('./planner.js'));
-const _loadAppsModule = () => _lazyModule('apps', () => import('./features_apps.js'));
-const _loadScenesModule = () => _lazyModule('scenes', () => import('./features_scenes.js?v=icon-save-1'));
-const _loadAreasModule = () => _lazyModule('areas', () => import('./features_areas.js?v=icon-save-1'));
+const _loadDerivedModule = () => _lazyModule('derived', () => importWithCacheBust('./features_derived.js'));
+const _loadPlannerModule = () => _lazyModule('planner', () => importWithCacheBust('./planner.js'));
+const _loadAppsModule = () => _lazyModule('apps', () => importWithCacheBust('./features_apps.js'));
+const _loadScenesModule = () => _lazyModule('scenes', () => importWithCacheBust('./features_scenes.js'));
+const _loadAreasModule = () => _lazyModule('areas', () => importWithCacheBust('./features_areas.js'));
 
 function _lazyAction(moduleLoader, exportName) {
     return async (...args) => {
@@ -109,7 +98,7 @@ function _assignLazyGlobals(moduleLoader, names) {
 // Logout disponibil imediat (înainte de orice async), ca butonul să funcționeze mereu
 async function doLogout() {
     // Show confirmation dialog
-    const confirmMessage = (typeof t === 'function') ? t('header.logout_confirm') : 'Ești sigur că vrei să te deconectezi?';
+    const confirmMessage = t('header.logout_confirm');
     if (!(await showConfirm(confirmMessage))) {
         return;
     }
@@ -722,9 +711,7 @@ async function bootHyve() {
     // Step 2b: wait for the dashboard's first paint (entities + render).
     // switchTab() already kicked off loadDashboard(); the in-flight dedup
     // means this just awaits the same promise instead of double-fetching.
-    if (typeof window.loadDashboard === 'function') {
-        try { await window.loadDashboard(); } catch (e) { console.warn('Dashboard initial load failed', e); }
-    }
+    try { await loadDashboard(); } catch (e) { console.warn('Dashboard initial load failed', e); }
 
     // Step 3: reveal app — dashboard is already populated. Heavy loaders run in background.
     hideBootOverlay();
@@ -771,6 +758,282 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     } catch (_) {}
     initThinkingModeSelector();
+    initChatEventBindings({
+        toggleModelSelector: () => toggleModelSelector(),
+        selectThinkingMode: (mode) => setThinkingMode(mode),
+        openSession: (id) => openSession(id),
+        deleteSession: (id, event) => deleteSession(id, event),
+        confirmDeleteSession: (id) => confirmDeleteSession(id),
+        cancelDeleteSession: (id) => cancelDeleteSession(id),
+        activateProfile: (id) => window.activateProfile?.(id),
+        closeModelSelector: () => closeModelSelector(),
+        showSourcesModal: (groupId) => showSourcesModal(groupId),
+    });
+    initPlannerEventBindings({
+        closeDrawer: _lazyAction(_loadPlannerModule, 'plannerCloseDrawer'),
+        openDrawer: _lazyAction(_loadPlannerModule, 'plannerOpenDrawer'),
+        createList: _lazyAction(_loadPlannerModule, 'plannerCreateList'),
+        setTab: (tab) => _lazyAction(_loadPlannerModule, 'plannerSetTab')(tab),
+        setFilter: (filter) => _lazyAction(_loadPlannerModule, 'plannerSetFilter')(filter),
+        openAdd: _lazyAction(_loadPlannerModule, 'plannerOpenAdd'),
+        closeAdd: _lazyAction(_loadPlannerModule, 'plannerCloseAdd'),
+        createEntry: _lazyAction(_loadPlannerModule, 'plannerCreateEntry'),
+        clearActionEntity: _lazyAction(_loadPlannerModule, 'plannerClearActionEntity'),
+        selectList: (id) => _lazyAction(_loadPlannerModule, 'plannerSelectList')(id),
+        requestDeleteList: (id) => _lazyAction(_loadPlannerModule, 'plannerRequestDeleteList')(id),
+        deleteList: (id) => _lazyAction(_loadPlannerModule, 'plannerDeleteList')(id),
+        cancelDeleteList: (id) => _lazyAction(_loadPlannerModule, 'plannerCancelDeleteList')(id),
+        toggleDone: (id) => _lazyAction(_loadPlannerModule, 'plannerToggleDone')(id),
+        entryActions: (id) => _lazyAction(_loadPlannerModule, 'plannerEntryActions')(id),
+        calPrev: _lazyAction(_loadPlannerModule, 'plannerCalPrev'),
+        calNext: _lazyAction(_loadPlannerModule, 'plannerCalNext'),
+        calToday: _lazyAction(_loadPlannerModule, 'plannerCalToday'),
+        setCalView: (view) => _lazyAction(_loadPlannerModule, 'plannerSetCalView')(view),
+        calClickDay: (day) => _lazyAction(_loadPlannerModule, 'plannerCalClickDay')(day),
+        calClickHour: (day, hour) => _lazyAction(_loadPlannerModule, 'plannerCalClickHour')(day, hour),
+        taskDragStart: (event, id) => _lazyAction(_loadPlannerModule, 'plannerDragStart')(event, id),
+        taskDragOver: (event) => _lazyAction(_loadPlannerModule, 'plannerDragOver')(event),
+        taskDrop: (event, id) => _lazyAction(_loadPlannerModule, 'plannerDrop')(event, id),
+        taskDragEnd: (event) => _lazyAction(_loadPlannerModule, 'plannerDragEnd')(event),
+        eventDragStart: (event, id) => _lazyAction(_loadPlannerModule, 'plannerEventDragStart')(event, id),
+        eventDragOver: (event) => _lazyAction(_loadPlannerModule, 'plannerEventDragOver')(event),
+        eventDragEnd: (event) => _lazyAction(_loadPlannerModule, 'plannerEventDragEnd')(event),
+        eventDropDay: (event, day) => _lazyAction(_loadPlannerModule, 'plannerEventDropDay')(event, day),
+        eventDropHour: (event, day, hour) => _lazyAction(_loadPlannerModule, 'plannerEventDropHour')(event, day, hour),
+    });
+    initSkillsEventBindings({
+        backToConfig: () => switchTab('config'),
+        closeModal: () => closeSkillEditModal(),
+        saveEdit: () => saveSkillEdit(),
+        toggleDesc: (name) => toggleSkillDesc(name),
+        toggleDisabled: (name) => toggleSkillDisabled(name),
+        openEdit: (name) => openSkillEdit(name),
+        deleteSkill: (name) => deleteSkill(name),
+    });
+    initUserEventBindings({
+        logout: () => doLogout(),
+        switchTab: (tab) => switchUserProfileTab(tab),
+        toggleFilterMenu: () => toggleUserNotificationFilterMenu(),
+        switchNotificationFilter: (filter) => switchUserNotificationFilter(filter),
+        saveGeneral: () => saveUserProfileGeneral(),
+        saveSecurity: () => saveUserProfileSecurity(),
+        notifClearAll: () => clearAllUserNotifications(),
+        changeNotificationsPage: (delta) => changeUserNotificationsPage(delta),
+        markNotificationRead: (id) => markUserNotificationRead(id),
+        archiveNotification: (id) => archiveUserNotification(id),
+        deleteNotification: (id) => deleteUserNotification(id),
+        navigateNotification: (url, id) => navigateNotification(url, id),
+        actOnAmbientSuggestion: (id, idx) => actOnAmbientSuggestion(id, idx),
+    });
+    initConfigEventBindings({
+        saveConfig: (event) => saveConfig(event),
+        setTheme: (themeId) => setTheme(themeId),
+        openSection: (section) => openConfigSection(section),
+        closeSection: () => closeConfigSection(),
+        switchTab: (tab) => switchConfigTab(tab),
+        restartServer: () => restartServer(),
+        showProfileEditor: () => window.showProfileEditor?.(),
+        closeProfileCardMenu: () => window.closeProfileCardMenu?.(),
+        closeProfileEditor: () => window.closeProfileEditor?.(),
+        saveProfile: (event) => window.saveProfile?.(event),
+        switchIntegrationSubtab: (tab) => window.switchIntegrationSubtab?.(tab),
+        addExtractionExample: () => addExtractionExample(),
+        runConsolidationNow: () => runConsolidationNow(),
+        resetAmbientReasonerPrompt: () => resetAmbientReasonerPrompt(),
+        testAmbientNow: () => testAmbientNow(),
+        testBriefingNow: () => testBriefingNow(),
+        selectNotifChannel: (channel) => selectNotifChannel(channel),
+        selectNotifTransport: (transport) => selectNotifTransport(transport),
+        testNotification: () => testNotification(),
+        refreshNotifWsNativeStatus: () => refreshNotifWsNativeStatus(),
+        detectAppWifi: () => detectAppWifi(),
+        toggleAppBiometric: () => toggleAppBiometric(),
+        requestMicPermission: () => requestMicPermission(),
+        requestCameraPermission: () => requestCameraPermission(),
+        requestLocationPermission: () => requestLocationPermission(),
+        requestStoragePermission: () => requestStoragePermission(),
+        clearAppCache: () => clearAppCache(),
+        checkAddonUpdates: () => checkAddonUpdates(),
+        updateAllAddons: () => updateAllAddons(),
+        closeAddonConfigModal: () => closeAddonConfigModal(),
+        checkAddonHealth: () => checkAddonHealth(),
+        copyWebhook: () => copyWebhook(),
+        closeIntegrationConfigModal: () => closeIntegrationConfigModal(),
+        testComfyUIConnection: () => window.testComfyUIConnection?.(),
+        refreshComfyUICheckpoints: () => window.refreshComfyUICheckpoints?.(),
+        refreshComfyUIWorkflows: () => window.refreshComfyUIWorkflows?.(),
+        testWhisperConnection: () => window.testWhisperConnection?.(),
+        testPiperConnection: () => window.testPiperConnection?.(),
+        closeAppLogModal: _lazyAction(_loadAppsModule, 'closeAppLogModal'),
+        refreshAppLogs: _lazyAction(_loadAppsModule, 'refreshAppLogs'),
+        closeInstallLogModal: _lazyAction(_loadAppsModule, 'closeInstallLogModal'),
+        saveAddonConfig: _lazyAction(_loadAppsModule, 'saveAddonConfig'),
+        openSceneEditor: _lazyAction(_loadScenesModule, 'openSceneEditor'),
+        closeSceneEditor: _lazyAction(_loadScenesModule, 'closeSceneEditor'),
+        addSceneEntry: _lazyAction(_loadScenesModule, 'addSceneEntry'),
+        deleteSceneFromEditor: _lazyAction(_loadScenesModule, 'deleteSceneFromEditor'),
+        saveScene: _lazyAction(_loadScenesModule, 'saveScene'),
+        closeSceneEntityPicker: _lazyAction(_loadScenesModule, 'closeSceneEntityPicker'),
+        openCreateAreaModal: _lazyAction(_loadAreasModule, 'openCreateAreaModal'),
+        closeAreaEditor: _lazyAction(_loadAreasModule, 'closeAreaEditor'),
+        openAreaEntityPicker: _lazyAction(_loadAreasModule, 'openAreaEntityPicker'),
+        deleteAreaFromEditor: _lazyAction(_loadAreasModule, 'deleteAreaFromEditor'),
+        saveAreaFromEditor: _lazyAction(_loadAreasModule, 'saveAreaFromEditor'),
+        closeAreaEntityPicker: _lazyAction(_loadAreasModule, 'closeAreaEntityPicker'),
+        confirmAreaEntityPicker: _lazyAction(_loadAreasModule, 'confirmAreaEntityPicker'),
+        filterSceneEntityPicker: _lazyAction(_loadScenesModule, 'filterSceneEntityPicker'),
+        filterAreaEntityPicker: (value) => _lazyAction(_loadAreasModule, 'filterAreaEntityPicker')(value),
+        onProfileProviderChange: () => window.onProfileProviderChange?.(),
+        onProfileSubProviderChange: (type) => window.onProfileSubProviderChange?.(type),
+        syncVisionCapabilityCheckbox: () => window.syncVisionCapabilityCheckbox?.(),
+        uploadComfyUIWorkflow: (input) => window.uploadComfyUIWorkflow?.(input),
+        syncConfiguredIntegration: (slug, btn) => window.syncConfiguredIntegration?.(slug, btn),
+        openIntegrationConfigModal: (slug) => openIntegrationConfigModal(slug),
+        syncIntegrationEntities: (slug) => window.syncIntegrationEntities?.(slug),
+        navigateToSmartHomeSource: (slug) => window.navigateToSmartHomeSource?.(slug),
+        openSmarthomeTab: () => switchTab('smarthome'),
+        unlinkUserPhone: (phone) => unlinkUserPhone(phone),
+        moveProfileOrder: (profileId, direction) => window.moveProfileOrder?.(profileId, direction),
+        openProfileCardMenu: (profileId, event) => window.openProfileCardMenu?.(profileId, event),
+        openAddonConfigModal: (slug) => openAddonConfigModal(slug),
+        toggleAddon: (slug, enabled) => toggleAddon(slug, enabled),
+        uninstallAddon: (slug) => uninstallAddon(slug),
+        installAddon: (slug) => installAddon(slug),
+        updateSingleAddon: (slug) => updateSingleAddon(slug),
+        deleteUser: (id) => deleteUser(id),
+        deleteArea: (id) => _lazyAction(_loadAreasModule, 'deleteArea')(id),
+        editArea: (id) => _lazyAction(_loadAreasModule, 'editArea')(id),
+        removeAreaEditorEntity: (entityId) => _lazyAction(_loadAreasModule, 'removeAreaEditorEntity')(entityId),
+        toggleAreaPickerEntity: (entityId, checked) => _lazyAction(_loadAreasModule, 'toggleAreaPickerEntity')(entityId, checked),
+        openSceneEntityPicker: (index) => _lazyAction(_loadScenesModule, 'openSceneEntityPicker')(index),
+        removeSceneEntry: (index) => _lazyAction(_loadScenesModule, 'removeSceneEntry')(index),
+        openSceneEditor: (sceneId) => _lazyAction(_loadScenesModule, 'openSceneEditor')(sceneId),
+        activateScene: (sceneId) => _lazyAction(_loadScenesModule, 'activateScene')(sceneId),
+        deleteScene: (sceneId) => _lazyAction(_loadScenesModule, 'deleteScene')(sceneId),
+        pickSceneEntity: (entityId) => _lazyAction(_loadScenesModule, 'pickSceneEntity')(entityId),
+        detectAddonSerialPorts: (key) => _lazyAction(_loadAppsModule, 'detectAddonSerialPorts')(key),
+        openAppDetail: (slug) => _lazyAction(_loadAppsModule, 'openAppDetail')(slug),
+        runPreflight: (slug) => _lazyAction(_loadAppsModule, 'runPreflight')(slug),
+        installApp: (slug) => _lazyAction(_loadAppsModule, 'installApp')(slug),
+        toggleApp: (slug, enabled) => _lazyAction(_loadAppsModule, 'toggleApp')(slug, enabled),
+        goToAddonUpdates: () => _lazyAction(_loadAppsModule, 'goToAddonUpdates')(),
+        uninstallApp: (slug) => _lazyAction(_loadAppsModule, 'uninstallApp')(slug),
+        closeAppDetail: () => _lazyAction(_loadAppsModule, 'closeAppDetail')(),
+        appAction: (slug, action) => _lazyAction(_loadAppsModule, 'appAction')(slug, action),
+        openAppLogModal: (slug, name) => _lazyAction(_loadAppsModule, 'openAppLogModal')(slug, name),
+        openAddonWebUI: (slug) => _lazyAction(_loadAppsModule, 'openAddonWebUI')(slug),
+        testAddonHealth: (slug) => _lazyAction(_loadAppsModule, 'testAddonHealth')(slug),
+        saveAddonConfig: (slug) => _lazyAction(_loadAppsModule, 'saveAddonConfig')(slug),
+        copyPreflightFix: (text) => { if (text) navigator.clipboard.writeText(text).catch(() => {}); },
+        toggleAddonWatchdog: (slug, enabled) => _lazyAction(_loadAppsModule, 'toggleAddonWatchdog')(slug, enabled),
+    });
+    initMemoryEventBindings({
+        switchIntelligenceTab: (tab) => switchIntelligenceTab(tab),
+        switchMemorySubtab: (tab) => switchMemorySubtab(tab),
+        loadMemory: () => loadMemory(),
+        deleteMemBulk: () => deleteMemBulk(),
+        changeMemPage: (delta) => changeMemPage(delta),
+        loadMemoryEvents: (offset) => loadMemoryEvents(offset),
+        memLogPrevPage: () => memLogPrevPage(),
+        memLogNextPage: () => memLogNextPage(),
+        clearMemoryLog: () => clearMemoryLog(),
+        openAutomationEditor: (defId) => openAutomationEditor(defId),
+        openBlueprintPicker: () => openBlueprintPicker(),
+        loadAutomations: () => loadAutomations(),
+        closeAutomationEditor: () => closeAutomationEditor(),
+        switchAutomationEditorMode: (mode) => switchAutomationEditorMode(mode),
+        addAutomationBuilderTrigger: (kind) => addAutomationBuilderTrigger(kind),
+        addAutomationBuilderCondition: (kind) => addAutomationBuilderCondition(kind),
+        addAutomationBuilderAction: (kind) => addAutomationBuilderAction(kind),
+        removeAutomationBuilderTrigger: (idx) => removeAutomationBuilderTrigger(idx),
+        removeAutomationBuilderCondition: (idx) => removeAutomationBuilderCondition(idx),
+        removeAutomationBuilderAction: (idx) => removeAutomationBuilderAction(idx),
+        updateAutomationStructuredServiceData: (idx) => updateAutomationStructuredServiceData(idx),
+        runAutomationDefinition: (defId) => runAutomationDefinition(defId),
+        toggleAutomationDefinition: (defId, enabled, revision) => toggleAutomationDefinition(defId, enabled, revision),
+        deleteAutomation: (defId) => deleteAutomation(defId),
+        toggleAutoMenu: (event, defId) => toggleAutoMenu(event, defId),
+        closeAutoMenu: () => closeAutoMenu(),
+        showAutoDotTooltip: (event) => showAutoDotTooltip(event),
+        hideAutoDotTooltip: () => hideAutoDotTooltip(),
+        toggleMemLogDetails: (id) => toggleMemLogDetails(id),
+        removeExtractionExample: (idx) => removeExtractionExample(idx),
+        deleteMemBulk: (ids) => { if (Array.isArray(ids) && ids.length) return deleteMemBulk(ids); return deleteMemBulk(); },
+        removeBlueprintCreatorInput: (idx) => removeBlueprintCreatorInput(idx),
+        changeBlueprintCreatorInputType: (idx, type) => changeBlueprintCreatorInputType(idx, type),
+        insertBlueprintCreatorPlaceholder: (inputId, slugify) => insertBlueprintCreatorPlaceholder(inputId, slugify),
+        loadAutomationEditorHistory: () => loadAutomationEditorHistory(),
+        validateAutomationEditor: () => validateAutomationEditor(),
+        testAutomationEditor: () => testAutomationEditor(),
+        importAutomationYaml: () => importAutomationYaml(),
+        exportAutomationYaml: () => exportAutomationYaml(),
+        saveAutomationEditor: () => saveAutomationEditor(),
+        closeBlueprintPicker: () => closeBlueprintPicker(),
+        openBlueprintCreator: () => openBlueprintCreator(),
+        importBlueprintYaml: () => importBlueprintYaml(),
+        loadBlueprints: () => loadBlueprints(),
+        backToBlueprintList: () => backToBlueprintList(),
+        saveCreatedBlueprint: () => saveCreatedBlueprint(),
+        deleteCurrentBlueprint: () => deleteCurrentBlueprint(),
+        instantiateCurrentBlueprint: () => instantiateCurrentBlueprint(),
+        addBlueprintCreatorInput: () => addBlueprintCreatorInput(),
+        filterMemory: () => filterMemory(),
+        toggleAllMem: (checked) => toggleAllMem(checked),
+        autoSyncAutomationId: () => autoSyncAutomationId(),
+        markAutomationIdManual: () => markAutomationIdManual(),
+        syncAutomationYamlFromBuilder: () => syncAutomationYamlFromBuilder(),
+        updateBlueprintCreatorYaml: () => updateBlueprintCreatorYaml(),
+        updateMemBulkCount: () => updateMemBulkCount(),
+    });
+    initShellEventBindings({
+        toggleSidebar: () => toggleSidebar(),
+        switchTab: (tab) => switchTab(tab),
+        newChatSession: () => newChatSession(),
+        clearSessionContext: () => clearSessionContext(),
+    });
+    initSmarthomeEventBindings({
+        openConfigHub: () => {
+            window.location.hash = '#/config';
+            switchTab('config');
+        },
+        syncSmartHome: () => syncHA(),
+        openDerivedModal: (entityId) => _lazyAction(_loadDerivedModule, 'openDerivedModal')(entityId || undefined),
+        toggleSmarthomeFilters: () => toggleSmarthomeFilters(),
+        resetSmarthomeFilters: () => resetSmarthomeFilters(),
+        sortDevicesBy: (sortBy) => sortDevicesBy(sortBy),
+        handleHaRowClick: (event) => handleHaRowClick(event),
+        openAliasModal: (entityId) => openAliasModal(entityId),
+        setDevicesPage: (page) => setDevicesPage(page),
+        setDevicesPageSize: (value) => setDevicesPageSize(value),
+        toggleSmarthomePicker: (event) => toggleSmarthomePicker(event),
+        selectSmarthomePickerOption: (event) => selectSmarthomePickerOption(event),
+        toggleSelection: (entityId, checked) => toggleSelection(entityId, checked),
+        toggleDerivedSelection: (entityId, checked) => _lazyAction(_loadDerivedModule, 'toggleDerivedSelection')(entityId, checked),
+        toggleAllAIVisible: (checked) => toggleAllAI(checked),
+        openAliasModalFromDetail: (entityId) => openAliasModalFromDetail(entityId),
+        controlDeviceEntity: (source, entityId, action, btn) => controlDeviceEntity(source, entityId, action, btn),
+        toggleAvailableDevice: (el, entityId) => toggleAvailableDevice(el.closest?.('.add-device-item') || el, entityId),
+        closeAddDevicesModal: () => closeAddDevicesModal(),
+        toggleAllAvailableDevices: () => toggleAllAvailableDevices(),
+        confirmAddDevices: () => confirmAddDevices(),
+        closeEntityDetailModal: () => closeEntityDetailModal(),
+        closeDerivedModal: _lazyAction(_loadDerivedModule, 'closeDerivedModal'),
+        deleteDerivedFromModal: _lazyAction(_loadDerivedModule, 'deleteDerivedFromModal'),
+        switchDerivedView: (view) => _lazyAction(_loadDerivedModule, 'switchDerivedView')(view),
+        switchDerivedBuilder: (builder) => _lazyAction(_loadDerivedModule, 'switchDerivedBuilder')(builder),
+        insertDerivedExpressionEntity: _lazyAction(_loadDerivedModule, 'insertDerivedExpressionEntity'),
+        reloadDerivedYaml: _lazyAction(_loadDerivedModule, 'reloadDerivedYaml'),
+        saveDerived: _lazyAction(_loadDerivedModule, 'saveDerived'),
+        closeRowActionsModal: () => closeRowActionsModal(),
+        copyEntityIdFromRowActions: () => copyEntityIdFromRowActions(),
+        closeAliasModal: () => closeAliasModal(),
+        addAliasInput: () => addAliasInput(),
+        saveAliasesFromModal: () => saveAliasesFromModal(),
+        filterAvailableDevices: () => filterAvailableDevices(),
+        filterDerivedCandidates: () => _lazyAction(_loadDerivedModule, 'filterDerivedCandidates')(),
+        toggleDerivedInput: (el) => window.__toggleDerivedInput?.(el),
+    });
+    initIntegrationEventBindings();
     window.initDashboardSidebarNav = initDashboardSidebarNav;
     try { initDashboardSidebarNav(); } catch (_) {}
     applyInitialGreeting();
@@ -1089,81 +1352,6 @@ window.closeConfigSection = closeConfigSection;
 window.toggleSidebar = toggleSidebar;
 window.closeSidebar = closeSidebar;
 window.isSidebarOpen = isSidebarOpen;
-window.loadDashboard = loadDashboard;
-window.openDashboardAddModal = openDashboardAddModal;
-window.closeDashboardAddModal = closeDashboardAddModal;
-window.addDashboardSwitch = addDashboardSwitch;
-window.removeDashboardWidget = removeDashboardWidget;
-window.toggleDashboardWidget = toggleDashboardWidget;
-window.setDashboardFilter = setDashboardFilter;
-window.toggleDashboardLayout = toggleDashboardLayout;
-window.saveDashboardPreferences = saveDashboardPreferences;
-window.moveDashboardWidget = moveDashboardWidget;
-window.updateDashboardEntityOptions = updateDashboardEntityOptions;
-window.filterDashboardEntityOptions = filterDashboardEntityOptions;
-window.toggleDashboardEditMode = toggleDashboardEditMode;
-window.toggleDashboardMenu = toggleDashboardMenu;
-window.closeDashboardMenu = closeDashboardMenu;
-window.saveDashboardHeader = saveDashboardHeader;
-window.openDashboardPageModal = openDashboardPageModal;
-window.closeDashboardPageModal = closeDashboardPageModal;
-window.openDashboardYamlEditor = openDashboardYamlEditor;
-window.closeDashboardYamlEditor = closeDashboardYamlEditor;
-window.saveDashboardYaml = saveDashboardYaml;
-window.reloadDashboardYaml = reloadDashboardYaml;
-window.openDashboardWidgetEditor = openDashboardWidgetEditor;
-window.closeDashboardWidgetEditor = closeDashboardWidgetEditor;
-window.setDashboardWidgetEditorMode = setDashboardWidgetEditorMode;
-window.saveDashboardWidgetEdit = saveDashboardWidgetEdit;
-window.updateDashboardTypeUI = updateDashboardTypeUI;
-window.updateDashboardEditTypeUI = updateDashboardEditTypeUI;
-window.startDashboardDrag = startDashboardDrag;
-window.startDashboardPanelDrag = startDashboardPanelDrag;
-window.startDashboardResize = startDashboardResize;
-window.selectDashboardPage = selectDashboardPage;
-window.createDashboardPage = createDashboardPage;
-window.openDashboardPageNav = openDashboardPageNav;
-window.handleDashboardCardClick = handleDashboardCardClick;
-window.handleDashboardCardKeydown = handleDashboardCardKeydown;
-window.onDashboardBrightnessInput = onDashboardBrightnessInput;
-window.onDashboardBrightnessChange = onDashboardBrightnessChange;
-window.onDashboardLockAction = onDashboardLockAction;
-window.onDashboardVacuumAction = onDashboardVacuumAction;
-window.adjustDashboardClimateTemperature = adjustDashboardClimateTemperature;
-window.setDashboardClimateMode = setDashboardClimateMode;
-window.toggleDashboardClimateModeMenu = toggleDashboardClimateModeMenu;
-window.selectDashboardClimateSlide = selectDashboardClimateSlide;
-window.shiftDashboardClimateSlide = shiftDashboardClimateSlide;
-window.startDashboardClimateSwipe = startDashboardClimateSwipe;
-window.moveDashboardClimateSwipe = moveDashboardClimateSwipe;
-window.endDashboardClimateSwipe = endDashboardClimateSwipe;
-window.openDashboardAddPicker = openDashboardAddPicker;
-window.closeDashboardAddPicker = closeDashboardAddPicker;
-window.pickDashboardAddType = pickDashboardAddType;
-window.addSelectedDashboardClimateEntity = addSelectedDashboardClimateEntity;
-window.removeDashboardClimateEntity = removeDashboardClimateEntity;
-window.updateDashboardClimateEntityMeta = updateDashboardClimateEntityMeta;
-window.selectDashboardPanelPage = selectDashboardPanelPage;
-window.removeDashboardPanel = removeDashboardPanel;
-window.openDashboardPanelCreator = openDashboardPanelCreator;
-window.openDashboardPanelEditor = openDashboardPanelEditor;
-window.closeDashboardPanelModal = closeDashboardPanelModal;
-window.saveDashboardPanel = saveDashboardPanel;
-window.deleteDashboardPage = deleteDashboardPage;
-window.openDashboardEntityPicker = openDashboardEntityPicker;
-window.closeDashboardEntityPicker = closeDashboardEntityPicker;
-window.handleDashboardEntityPickerKeydown = handleDashboardEntityPickerKeydown;
-window.pickDashboardEntityOption = pickDashboardEntityOption;
-// Stubs for legacy add-modal helpers (color preview only).
-window.setDashboardAddEditorMode = setDashboardAddEditorMode;
-window.toggleDashboardVisibilityEditor = toggleDashboardVisibilityEditor;
-window.addDashboardVisibilityCondition = addDashboardVisibilityCondition;
-window.syncDashboardColorPreview = window.syncDashboardColorPreview || function (colorId, swatchId, valueId) {
-    const col = document.getElementById(colorId); const sw = document.getElementById(swatchId); const v = document.getElementById(valueId);
-    if (!col) return;
-    if (sw) sw.style.background = col.value;
-    if (v) v.textContent = String(col.value || '').toUpperCase();
-};
 window.saveConfig = saveConfig;
 window.restartServer = restartServer;
 window.saveNotificationSettings = saveNotificationSettings;

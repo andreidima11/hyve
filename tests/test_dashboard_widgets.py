@@ -820,6 +820,38 @@ def test_normalize_icon_accepts_fa_short_form():
     assert dashboard._normalize_icon("not-an-icon", "fas fa-table-cells-large") == "fas fa-table-cells-large"
 
 
+def test_apply_widget_patch_keeps_empty_weather_title():
+    for card_type in ("weather", "weather_rich"):
+        updated = dashboard._apply_widget_patch({
+            "type": card_type,
+            "entity_id": "weather.home",
+            "entity_name": "weather.home",
+            "title": "",
+        }, {})
+        assert updated["title"] == ""
+
+
+def test_apply_widget_patch_keeps_empty_fusion_solar_title():
+    entity_id = "sensor.fusion_solar_device_1000000150739012_active_power"
+    updated = dashboard._apply_widget_patch({
+        "type": "fusion_solar",
+        "entity_id": entity_id,
+        "entity_name": entity_id,
+        "title": "",
+    }, {})
+    assert updated["title"] == ""
+
+
+def test_apply_widget_patch_still_backfills_button_title():
+    updated = dashboard._apply_widget_patch({
+        "type": "button",
+        "entity_id": "switch.coffee_machine",
+        "entity_name": "Coffee Machine",
+        "title": "",
+    }, {})
+    assert updated["title"] == "Coffee Machine"
+
+
 def test_normalize_entities_includes_sensor_cards_for_dashboard():
     states = [
         {"entity_id": "sensor.living_temperature", "state": "23", "attributes": {"friendly_name": "Living Temperature"}},

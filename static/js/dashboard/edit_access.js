@@ -11,21 +11,6 @@ export function applyDashboardEditAccess() {
         wrap.classList.toggle('hidden', !canEdit);
         wrap.classList.toggle('flex', canEdit);
     }
-    const ids = [
-        'dashboard-menu-button',
-        'dashboard-layout-toggle',
-        'dashboard-hide-unavailable',
-    ];
-    ids.forEach((id) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.classList.toggle('hidden', !canEdit);
-        const label = el.closest('label');
-        if (label) label.classList.toggle('hidden', !canEdit);
-    });
-    document.querySelectorAll(
-        '#dashboard-more-menu [data-dashboard-admin-only="true"], .dashboard-page-nav__add'
-    ).forEach((el) => el.classList.toggle('hidden', !canEdit));
     if (!canEdit) {
         document.getElementById('dashboard-edit-banner')?.classList.add('hidden');
         document.documentElement.removeAttribute('data-dashboard-editing');

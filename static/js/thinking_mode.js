@@ -46,7 +46,3 @@ export function updateThinkingModeUi(mode = getThinkingMode()) {
 export function initThinkingModeSelector() {
     updateThinkingModeUi(getThinkingMode());
 }
-
-window.selectThinkingMode = function selectThinkingMode(mode) {
-    setThinkingMode(mode);
-};

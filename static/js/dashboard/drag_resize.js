@@ -69,8 +69,7 @@ function _sortableAvailable() {
 function _ensureSortableLoaded() {
     if (_sortableAvailable()) return Promise.resolve(window.Sortable);
     if (!_sortableLoadPromise) {
-        const bust = window.__cacheBust ? `?v=${encodeURIComponent(window.__cacheBust)}` : '';
-        _sortableLoadPromise = loadScriptOnce(`/static/vendor/sortable.min.js${bust}`)
+        _sortableLoadPromise = loadScriptOnce('/static/vendor/sortable.min.js')
             .then(() => window.Sortable)
             .catch((err) => {
                 _sortableLoadPromise = null;
@@ -623,6 +622,10 @@ function _dashboardPanelSpan(panel) {
     const rowStart = Number.isFinite(rawRowStart) && rawRowStart >= 1 ? rawRowStart : null;
     const row = Number.isFinite(rawRowSpan) && rawRowSpan >= 1 ? rawRowSpan : 1;
     return { col, row, colStart, rowStart };
+}
+
+export function dashboardPanelSpan(panel) {
+    return _dashboardPanelSpan(panel);
 }
 
 function _dashboardPanelElement(rootGrid, panel) {
