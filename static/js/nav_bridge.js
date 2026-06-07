@@ -37,3 +37,23 @@ export function switchUserProfileTab(tab) {
 export function loadUserProfilePage() {
     return _handlers.loadUserProfilePage?.();
 }
+
+export function populateAppTab() {
+    return _handlers.populateAppTab?.();
+}
+
+export function loadPlanner() {
+    return _handlers.loadPlanner?.();
+}
+
+export function loadApps() {
+    return _handlers.loadApps?.();
+}
+
+export function loadScenes() {
+    return _handlers.loadScenes?.();
+}
+
+export function loadAreas() {
+    return _handlers.loadAreas?.();
+}

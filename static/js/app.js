@@ -49,18 +49,6 @@ import {
     renameIntegrationDevice,
 } from './features_integrations_settings.js';
 
-import { registerNavBridge } from './nav_bridge.js';
-
-registerNavBridge({
-    switchTab,
-    closeSidebar,
-    toggleSidebar,
-    isSidebarOpen,
-    openConfigSection,
-    switchUserProfileTab,
-    loadUserProfilePage,
-});
-
 // Expose sendMessage globally so other modules (e.g. voice input in features.js) can call it
 window.sendMessage = sendMessage;
 import { 
@@ -129,11 +117,7 @@ function _lazyAction(moduleLoader, exportName) {
     };
 }
 
-function _assignLazyGlobals(moduleLoader, names) {
-    names.forEach(name => {
-        window[name] = _lazyAction(moduleLoader, name);
-    });
-}
+import { registerNavBridge } from './nav_bridge.js';
 
 // Logout disponibil imediat (înainte de orice async), ca butonul să funcționeze mereu
 async function doLogout() {
@@ -444,7 +428,6 @@ function clearAppCache() {
 window.saveAppConfig = saveAppConfig;
 window.detectAppWifi = detectAppWifi;
 window.clearAppCache = clearAppCache;
-window.populateAppTab = populateAppTab;
 window.toggleAppBiometric = toggleAppBiometric;
 window.refreshWsServiceStatus = refreshWsServiceStatus;
 
@@ -1375,36 +1358,18 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// --- Legacy window exports (native bridge, boot) ---
-_assignLazyGlobals(_loadPlannerModule, [
-    'loadPlanner', 'plannerCreateList', 'plannerDeleteList', 'plannerSelectList',
-    'plannerRequestDeleteList', 'plannerCancelDeleteList',
-    'plannerSelectActionEntity', 'plannerClearActionEntity',
-    'plannerOpenDrawer', 'plannerCloseDrawer', 'plannerSetTab', 'plannerSetFilter',
-    'plannerCalPrev', 'plannerCalNext', 'plannerCalToday', 'plannerSetCalView',
-    'plannerSelectDay', 'plannerCalClickDay', 'plannerCalClickHour',
-    'plannerEventDragStart', 'plannerEventDragOver', 'plannerEventDragEnd',
-    'plannerEventDropDay', 'plannerEventDropHour', 'plannerCreateEntry',
-    'plannerOpenAdd', 'plannerCloseAdd', 'plannerToggleDone', 'plannerDeleteEntry',
-    'plannerCycleType', 'plannerEntryActions', 'plannerDragStart', 'plannerDragOver',
-    'plannerDrop', 'plannerDragEnd',
-]);
-
-_assignLazyGlobals(_loadAppsModule, [
-    'loadApps', 'appAction', 'openAppLogModal', 'closeAppLogModal', 'refreshAppLogs',
-    'openAppDetail', 'closeAppDetail', 'installApp', 'updateApp', 'uninstallApp',
-    'toggleApp', 'saveAddonConfig', 'openAddonWebUI', 'testAddonHealth',
-    'closeInstallLogModal', 'runPreflight', 'toggleAddonWatchdog', 'detectAddonSerialPorts',
-]);
-_assignLazyGlobals(_loadScenesModule, [
-    'loadScenes', 'openScenesPage', 'closeScenesPage', 'openSceneEditor',
-    'closeSceneEditor', 'addSceneEntry', 'removeSceneEntry', 'saveScene',
-    'deleteScene', 'deleteSceneFromEditor', 'activateScene', 'openSceneEntityPicker',
-    'closeSceneEntityPicker', 'filterSceneEntityPicker', 'pickSceneEntity',
-]);
-_assignLazyGlobals(_loadAreasModule, [
-    'loadAreas', 'syncAreasFromHA', 'openCreateAreaModal', 'closeAreaEditor',
-    'editArea', 'saveAreaFromEditor', 'deleteArea', 'deleteAreaFromEditor',
-    'removeAreaEditorEntity', 'openAreaEntityPicker', 'closeAreaEntityPicker',
-    'filterAreaEntityPicker', 'toggleAreaPickerEntity', 'confirmAreaEntityPicker',
-]);
+// --- Section loaders + nav bridge (replaces lazy window.* globals) ---
+registerNavBridge({
+    switchTab,
+    closeSidebar,
+    toggleSidebar,
+    isSidebarOpen,
+    openConfigSection,
+    switchUserProfileTab,
+    loadUserProfilePage,
+    populateAppTab,
+    loadPlanner: _lazyAction(_loadPlannerModule, 'loadPlanner'),
+    loadApps: _lazyAction(_loadAppsModule, 'loadApps'),
+    loadScenes: _lazyAction(_loadScenesModule, 'loadScenes'),
+    loadAreas: _lazyAction(_loadAreasModule, 'loadAreas'),
+});

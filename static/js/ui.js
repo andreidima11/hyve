@@ -1,5 +1,6 @@
 import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive, refreshIntegrationsSettingsView, loadNotificationPrefs, loadAutomations, checkAddonUpdates } from './features.js';
 import { loadUserProfilePage } from './user_profile.js';
+import { loadPlanner, loadApps, loadScenes, loadAreas, populateAppTab } from './nav_bridge.js';
 import { loadDashboard, dashboardHasRenderedContent, resetDashboardEditingState, disconnectDashboardLive, initDashboardSidebarNav } from './dashboard.js';
 import { applyDashboardEditAccess } from './dashboard/edit_access.js';
 import { closeAllSubPages } from './utils.js';
@@ -320,7 +321,7 @@ export function switchTab(tabId, options = {}) {
         }, 2500);
     }
     if (tabId === 'memory') loadMemory();
-    if (tabId === 'planner' && typeof window.loadPlanner === 'function') window.loadPlanner();
+    if (tabId === 'planner') loadPlanner();
     if (tabId === 'config') {
         // Show hub, hide detail + standalone; return any borrowed panel
         closeConfigSection();
@@ -382,9 +383,9 @@ export function switchConfigTab(tabName) {
     }
 
     if (tabName === 'users') loadAdminUsers();
-    if (tabName === 'app' && typeof window.populateAppTab === 'function') window.populateAppTab();
-    if (tabName === 'scenes' && typeof window.loadScenes === 'function') window.loadScenes();
-    if (tabName === 'areas' && typeof window.loadAreas === 'function') window.loadAreas();
+    if (tabName === 'app') populateAppTab();
+    if (tabName === 'scenes') loadScenes();
+    if (tabName === 'areas') loadAreas();
     if (tabName === 'notifications') loadNotificationPrefs();
     if (tabName === 'integrations') {
         refreshIntegrationsSettingsView('auto');
@@ -480,14 +481,14 @@ export function openConfigSection(section) {
         // Trigger section-specific loaders
         if (section === 'integrations') refreshIntegrationsSettingsView('auto');
         if (section === 'users') loadAdminUsers();
-        if (section === 'app' && typeof window.populateAppTab === 'function') window.populateAppTab();
+        if (section === 'app') populateAppTab();
         if (section === 'notifications') loadNotificationPrefs();
         if (section === 'logs') startLogStream();
         if (section === 'memories') loadMemory();
         if (section === 'automations') loadAutomations();
-        if (section === 'addons' && typeof window.loadApps === 'function') window.loadApps();
-        if (section === 'scenes' && typeof window.loadScenes === 'function') window.loadScenes();
-        if (section === 'areas' && typeof window.loadAreas === 'function') window.loadAreas();
+        if (section === 'addons') loadApps();
+        if (section === 'scenes') loadScenes();
+        if (section === 'areas') loadAreas();
         if (section === 'updates') checkAddonUpdates();
 
     } else {
