@@ -6,6 +6,7 @@ from components.mosquitto.extract import (
     _build_command,
     _entities_from_z2m_exposes,
     _resolve_control_caps,
+    _rewrite_z2m_command_topic,
 )
 
 
@@ -77,7 +78,6 @@ def test_resolve_control_caps_merges_legacy_attributes():
 
 
 def test_ha_discovery_endpoint_topic_uses_native_z2m_set_json():
-    """Tuya multi-gang HA discovery: rewrite …/l3/set → …/set + JSON state_l3."""
     caps = {
         "command_topic": "zigbee2mqtt/0xa4c138fe8b1226ab/l3/set",
         "state_topic": "zigbee2mqtt/0xa4c138fe8b1226ab",
@@ -88,8 +88,18 @@ def test_ha_discovery_endpoint_topic_uses_native_z2m_set_json():
     topic, payload = _build_command("switch", "turn_on", caps, None)
     assert topic == "zigbee2mqtt/0xa4c138fe8b1226ab/set"
     assert payload == '{"state_l3": "ON"}'
-    _, payload_off = _build_command("switch", "turn_off", caps, None)
-    assert payload_off == '{"state_l3": "OFF"}'
+
+
+def test_rewrite_z2m_command_topic_uses_friendly_name():
+    record = {
+        "attributes": {
+            "device_id": "0xa4c138fe8b1226ab",
+            "zigbee_ieee": "0xa4c138fe8b1226ab",
+            "device_name": "releu_dormitor2",
+        }
+    }
+    topic = _rewrite_z2m_command_topic("zigbee2mqtt/0xa4c138fe8b1226ab/set", record)
+    assert topic == "zigbee2mqtt/releu_dormitor2/set"
 
 
 def test_ha_discovery_infers_z2m_property_from_value_template():

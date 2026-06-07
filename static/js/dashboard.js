@@ -4060,6 +4060,8 @@ function _dashboardNestedInteractiveTarget(event) {
     if (!target?.closest) return null;
     const interactive = target.closest('button, a, input, select, textarea, label, [role="button"]');
     if (!interactive) return null;
+    // Card activate surface is role=button — not a nested control (delegation uses document as currentTarget).
+    if (interactive.getAttribute?.('data-dash-action') === 'cardActivate') return null;
     const current = event?.currentTarget;
     if (current && interactive === current) return null;
     return interactive;

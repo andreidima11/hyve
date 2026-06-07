@@ -440,6 +440,24 @@ def _native_z2m_set_topic(command_topic: str) -> str:
     return cmd
 
 
+def _rewrite_z2m_command_topic(topic: str, record: dict[str, Any]) -> str:
+    """Replace IEEE segments in MQTT paths with the live Z2M friendly name."""
+    cmd = str(topic or "").strip()
+    if not cmd or "zigbee2mqtt/" not in cmd:
+        return cmd
+    attrs = record.get("attributes") if isinstance(record.get("attributes"), dict) else {}
+    ieee = str(attrs.get("zigbee_ieee") or attrs.get("device_id") or "").strip().lower()
+    friendly = str(attrs.get("device_name") or "").strip()
+    if not ieee or not friendly:
+        return cmd
+    if friendly.lower().startswith("0x") and all(c in "0123456789abcdef" for c in friendly.lower()[2:]):
+        return cmd
+    for needle in (ieee, ieee.upper()):
+        if needle in cmd:
+            return cmd.replace(needle, friendly, 1)
+    return cmd
+
+
 def _build_command(
     domain: str,
     verb: str,

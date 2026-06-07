@@ -35,6 +35,7 @@ _drain_broker = _extract_mod._drain_broker
 _find_entity_record = _extract_mod._find_entity_record
 _build_command = _extract_mod._build_command
 _resolve_control_caps = _extract_mod._resolve_control_caps
+_rewrite_z2m_command_topic = _extract_mod._rewrite_z2m_command_topic
 _publish = _extract_mod._publish
 
 from integrations.base import BaseEntity
@@ -207,6 +208,7 @@ class MosquittoEntity(BaseEntity):
             raise ValueError(
                 f"Entitatea {entity_id} nu suportă acțiunea {action!r}"
             )
+        topic = _rewrite_z2m_command_topic(topic, record)
 
         await _publish(self.config_section(settings.CFG), topic, mqtt_payload)
         return {"status": "ok", "topic": topic, "payload": mqtt_payload}
