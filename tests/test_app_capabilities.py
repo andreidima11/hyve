@@ -6,6 +6,15 @@ from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _APP_CAPABILITIES_PATH = Path(__file__).resolve().parent.parent / "brain" / "app_capabilities.py"
+
+
+def _package_source(package_dir: Path) -> str:
+    return "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted(package_dir.glob("*.py"))
+    )
+
+
 _SPEC = importlib.util.spec_from_file_location("app_capabilities_under_test", _APP_CAPABILITIES_PATH)
 app_capabilities = importlib.util.module_from_spec(_SPEC)
 assert _SPEC and _SPEC.loader
@@ -68,8 +77,8 @@ def test_navigation_help_rejects_settings_dashboard_path(monkeypatch):
 
 
 def test_guardrails_keep_app_help_available_in_filtered_tool_sets():
-    cortex_source = (_PROJECT_ROOT / "brain" / "cortex.py").read_text(encoding="utf-8")
-    toolbox_source = (_PROJECT_ROOT / "brain" / "toolbox.py").read_text(encoding="utf-8")
+    cortex_source = _package_source(_PROJECT_ROOT / "brain" / "cortex")
+    toolbox_source = _package_source(_PROJECT_ROOT / "brain" / "toolbox")
 
     untrusted_block = toolbox_source.partition("_UNTRUSTED_CONTEXT_SAFE_TOOL_NAMES")[2].partition("})")[0]
 
@@ -142,14 +151,14 @@ def test_get_system_status_entities_accepts_filters():
 
 
 def test_toolbox_has_system_status_tool():
-    toolbox_source = (_PROJECT_ROOT / "brain" / "toolbox.py").read_text(encoding="utf-8")
+    toolbox_source = _package_source(_PROJECT_ROOT / "brain" / "toolbox")
     assert "TOOL_GET_SYSTEM_STATUS" in toolbox_source
     assert '"get_system_status"' in toolbox_source
     assert "_exec_get_system_status" in toolbox_source
 
 
 def test_toolbox_has_new_omniscience_tools():
-    toolbox_source = (_PROJECT_ROOT / "brain" / "toolbox.py").read_text(encoding="utf-8")
+    toolbox_source = _package_source(_PROJECT_ROOT / "brain" / "toolbox")
     for tool_name in ("get_entity_history", "control_device", "get_device_state"):
         assert f'"name": "{tool_name}"' in toolbox_source, f"Tool {tool_name} not found in toolbox"
     assert "TOOL_GET_ENTITY_HISTORY" in toolbox_source
@@ -161,7 +170,7 @@ def test_toolbox_has_new_omniscience_tools():
 
 
 def test_untrusted_safe_includes_readonly_new_tools():
-    toolbox_source = (_PROJECT_ROOT / "brain" / "toolbox.py").read_text(encoding="utf-8")
+    toolbox_source = _package_source(_PROJECT_ROOT / "brain" / "toolbox")
     untrusted_block = toolbox_source.partition("_UNTRUSTED_CONTEXT_SAFE_TOOL_NAMES")[2].partition("})")[0]
     assert '"get_entity_history"' in untrusted_block
     assert '"get_device_state"' in untrusted_block
@@ -170,6 +179,6 @@ def test_untrusted_safe_includes_readonly_new_tools():
 
 
 def test_system_status_query_enum_includes_new_modes():
-    toolbox_source = (_PROJECT_ROOT / "brain" / "toolbox.py").read_text(encoding="utf-8")
+    toolbox_source = _package_source(_PROJECT_ROOT / "brain" / "toolbox")
     for mode in ("dashboard", "automations", "automation_history", "scenes", "areas", "notifications", "addons"):
         assert f'"{mode}"' in toolbox_source, f"Query mode {mode} not found in TOOL_GET_SYSTEM_STATUS enum"
