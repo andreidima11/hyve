@@ -64,36 +64,7 @@ def _diff_snapshot(prev: dict[str, dict], curr_items: list[dict]) -> tuple[list[
 
 
 async def _authenticate(token: str | None) -> models.User | None:
-    if not token:
-        return None
-    try:
-        sse_payload = auth.verify_sse_exchange_token(token)
-        if sse_payload:
-            username = sse_payload.get("sub")
-            payload = None
-        else:
-            payload = auth.verify_token(token)
-            if not payload or "sub" not in payload:
-                return None
-            username = payload["sub"]
-        if not username:
-            return None
-        db = next(database.get_db())
-        try:
-            if not sse_payload:
-                jti = payload.get("jti") if payload else None
-                if jti:
-                    is_revoked = db.query(models.RevokedToken).filter(models.RevokedToken.jti == jti).first()
-                    if is_revoked:
-                        return None
-            user = db.query(models.User).filter(models.User.username == username).first()
-            if user and not user.is_active:
-                return None
-            return user
-        finally:
-            db.close()
-    except Exception:
-        return None
+    return auth.authenticate_ws_token(token)
 
 
 @router.websocket("/ws/live")

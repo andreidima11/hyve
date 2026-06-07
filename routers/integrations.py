@@ -479,7 +479,7 @@ async def get_sync_status(user: models.User = Depends(get_current_user)):
 
 
 @router.post("/sync/{slug}")
-async def trigger_sync(slug: str, user: models.User = Depends(get_current_user)):
+async def trigger_sync(slug: str, user: models.User = Depends(auth.get_current_admin)):
     """Manually trigger immediate entity sync for an integration.
 
     When the slug refers to a multi-instance provider, fan out the sync
@@ -774,7 +774,7 @@ async def rename_integration_device(
     slug: str,
     device_id: str,
     body: DeviceRenameBody,
-    user: models.User = Depends(get_current_user),
+    user: models.User = Depends(auth.get_current_admin),
 ):
     """Rename a device for any integration.
 

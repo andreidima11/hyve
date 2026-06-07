@@ -20,8 +20,9 @@ def test_startup_migrations_idempotent():
 
     assert "location" in user_cols
     assert "about_me" in user_cols
+    assert "default_profile_id" in user_cols
     assert "event_color" in entry_cols
-    assert version == "001_baseline"
+    assert version == "002_users_default_profile_id"
 
 
 def test_alembic_ini_exists():

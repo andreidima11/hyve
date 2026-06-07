@@ -51,6 +51,7 @@ export {
     startDashboardResize,
     moveDashboardWidget,
 } from './dashboard/drag_resize.js';
+import { applyDashboardEditAccess, canEditDashboard, requireDashboardEditAccess } from './dashboard/edit_access.js';
 import { initDashboardEventBindings } from './dashboard/event_bindings.js';
 import { initDashboardClimate, renderClimateCard, climateConfiguredIds,
     toggleDashboardClimateModeMenu, selectDashboardClimateSlide, shiftDashboardClimateSlide,
@@ -60,6 +61,7 @@ import { initDashboardClimate, renderClimateCard, climateConfiguredIds,
     addDashboardClimateEntityId, climateEntityRecordsForSave,
     renderDashboardClimateEntityChips,
     updateDashboardClimateEntityMeta, addSelectedDashboardClimateEntity, removeDashboardClimateEntity,
+    closeDashboardClimateModeMenus,
 } from './dashboard/climate.js';
 export {
     toggleDashboardClimateModeMenu,
@@ -4924,7 +4926,7 @@ export async function saveDashboardWidgetEdit() {
 }
 
 document.addEventListener('click', (event) => {
-    _closeDashboardClimateModeMenus();
+    closeDashboardClimateModeMenus();
     const menu = document.getElementById('dashboard-more-menu');
     const wrap = menu?.parentElement;
     if (!menu || menu.classList.contains('hidden')) return;

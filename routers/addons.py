@@ -94,29 +94,21 @@ async def install_addon_stream(slug: str, token: str | None = None, request: Req
     import database
     if not token:
         raise HTTPException(401, "Token required")
+    db = next(database.get_db())
     try:
-        # Try short-lived SSE exchange token first
-        sse_payload = auth.verify_sse_exchange_token(token)
-        if sse_payload:
-            username = sse_payload["sub"]
-        else:
-            # Fall back to regular JWT (backward compat)
-            payload = auth.jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
-            username = payload.get("sub")
-            if not username:
-                raise HTTPException(401, "Invalid token")
-            db: SASession = next(database.get_db())
-            jti = payload.get("jti", "")
-            if jti and db.query(models.RevokedToken).filter(models.RevokedToken.jti == jti).first():
-                raise HTTPException(401, "Token revoked")
-        db_check: SASession = next(database.get_db())
-        user = db_check.query(models.User).filter(models.User.username == username).first()
+        sse_payload = auth.consume_sse_exchange_token(token, db)
+        if not sse_payload:
+            raise HTTPException(401, "Invalid token")
+        username = sse_payload["sub"]
+        user = db.query(models.User).filter(models.User.username == username).first()
         if not user or not user.is_admin:
             raise HTTPException(403, "Admin only")
     except HTTPException:
         raise
     except Exception:
         raise HTTPException(401, "Invalid token")
+    finally:
+        db.close()
 
     async def _generate():
         async for line in registry.install_addon_stream(slug):

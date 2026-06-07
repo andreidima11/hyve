@@ -6,7 +6,6 @@ import asyncio
 from contextlib import asynccontextmanager
 
 import httpx
-from sqlalchemy import text
 
 import database
 import scheduler_service
@@ -171,12 +170,6 @@ async def lifespan(app):
         try:
             db = next(database.get_db())
             try:
-                r = db.execute(text("PRAGMA table_info(users)"))
-                cols = [row[1] for row in r.fetchall()]
-                if "default_profile_id" not in cols:
-                    db.execute(text("ALTER TABLE users ADD COLUMN default_profile_id VARCHAR"))
-                    db.commit()
-                    log_line("sys", "🔧", "MIGRATION", "Added users.default_profile_id")
                 from auth import cleanup_expired_revocations
 
                 removed = cleanup_expired_revocations(db)
@@ -185,7 +178,7 @@ async def lifespan(app):
             finally:
                 db.close()
         except Exception as e:
-            log_line("error", "⚠️", "MIGRATION", str(e))
+            log_line("error", "⚠️", "AUTH", str(e))
 
     asyncio.create_task(_run_startup_db_maintenance(), name="startup-db-maintenance")
 

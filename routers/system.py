@@ -145,7 +145,7 @@ async def stream_logs(request: Request, token: Optional[str] = None, db: Session
     if not token:
         raise HTTPException(status_code=401, detail="Token required")
     try:
-        sse_payload = auth.verify_sse_exchange_token(token)
+        sse_payload = auth.consume_sse_exchange_token(token, db)
         if not sse_payload:
             raise HTTPException(status_code=401, detail="Invalid token")
         username = sse_payload["sub"]

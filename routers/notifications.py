@@ -161,7 +161,7 @@ async def test_ambient_now(current_user: models.User = Depends(auth.get_current_
 async def act_on_ambient_suggestion(
     notification_id: str,
     body: AmbientActBody,
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(auth.get_current_admin),
     db: Session = Depends(database.get_db),
 ):
     """Execute one suggested action attached to an ambient notification, then

@@ -143,7 +143,7 @@ async def chat_handle(
         finally:
             db.close()
 
-    use_bridge_agent = assist_cfg.get("assist_use_bridge_agent", True)
+    use_bridge_agent = bool(assist_cfg.get("assist_use_bridge_agent", True)) and user_id is not None
     bridge_user_id = f"user_{user_id}" if user_id else "web_assist"
 
     if use_bridge_agent:
@@ -168,6 +168,7 @@ async def chat_handle(
                     persona_override=None,
                     conversation_summary=None,
                     image_base64=None,
+                    is_anonymous=False,
                 ):
                     if isinstance(chunk, dict):
                         if chunk.get("t") == "clear_content":

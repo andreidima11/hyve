@@ -86,47 +86,18 @@ async def websocket_notifications(websocket: WebSocket, token: str = Query(None)
     }
     """
     
-    # Authenticate via token
+    # Authenticate via single-use SSE exchange token only.
     if not token:
         await websocket.close(code=1008, reason="No token provided")
         return
-    
-    try:
-        # Try short-lived SSE exchange token first
-        sse_payload = auth.verify_sse_exchange_token(token)
-        if sse_payload:
-            username = sse_payload["sub"]
-        else:
-            # Fall back to regular JWT (backward compat)
-            payload = auth.verify_token(token)
-            if not payload or "sub" not in payload:
-                await websocket.close(code=1008, reason="Invalid token")
-                return
-            username = payload["sub"]
-        
-        # Resolve user_id ("user_N") from DB so scheduler can find this connection
-        # Also check token revocation (jti) to reject logged-out users
-        try:
-            db = next(database.get_db())
-            # Only check revocation for regular JWTs (exchange tokens are single-use + short-lived)
-            if not sse_payload:
-                jti = payload.get("jti")
-                if jti:
-                    is_revoked = db.query(models.RevokedToken).filter(models.RevokedToken.jti == jti).first()
-                    if is_revoked:
-                        db.close()
-                        await websocket.close(code=1008, reason="Token revoked")
-                        return
-            user_obj = db.query(models.User).filter(models.User.username == username).first()
-            user_id = f"user_{user_obj.id}" if user_obj else username
-            db.close()
-        except Exception:
-            user_id = username
-    except Exception as e:
-        log_line("websocket", "❌", "WS_AUTH_FAIL", f"Token error: {e}")
-        await websocket.close(code=1008, reason="Authentication failed")
+
+    user = auth.authenticate_ws_token(token)
+    if not user:
+        await websocket.close(code=1008, reason="Invalid token")
         return
-    
+    username = user.username
+    user_id = f"user_{user.id}"
+
     # Connect and listen
     await manager.connect(user_id, websocket)
     log_line("websocket", "📡", "WS_OPEN", f"WebSocket opened for {user_id} (username={username})")
@@ -190,13 +161,15 @@ async def ws_status(current_user: models.User = Depends(auth.get_current_user)):
     user_id = f"user_{current_user.id}"
     has_conn = manager.has_active_connection(user_id)
     conn_count = len(manager.active_connections.get(user_id, set()))
-    return {
+    payload = {
         "user_id": user_id,
         "username": current_user.username,
         "connected": has_conn,
         "connection_count": conn_count,
-        "all_connections": manager.get_status()
     }
+    if current_user.is_admin:
+        payload["all_connections"] = manager.get_status()
+    return payload
 
 
 @router.post("/api/notifications/test")

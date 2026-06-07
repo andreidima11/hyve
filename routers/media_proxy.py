@@ -7,20 +7,20 @@ permissive same-origin content type, while enforcing SSRF protection so callers
 can't probe the internal network.
 """
 
-import asyncio
-from urllib.parse import urlparse
 
 import httpx
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import Response
 
 from brain.web_search import _is_internal_url
+from core.http.limiter import limiter
 from logger import log_line
 
 router = APIRouter(tags=["media-proxy"])
 
 _TIMEOUT = 8.0
 _MAX_BYTES = 5 * 1024 * 1024  # 5 MB cap per image
+_MAX_REDIRECTS = 5
 _FETCH_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -45,6 +45,11 @@ def _png_fallback() -> Response:
     )
 
 
+def _redirect_chain_is_safe(resp: httpx.Response) -> bool:
+    chain = list(getattr(resp, "history", []) or []) + [resp]
+    return not any(_is_internal_url(str(r.url)) for r in chain)
+
+
 async def _fetch_image(url: str) -> Response:
     if not url.startswith("http://") and not url.startswith("https://"):
         return _png_fallback()
@@ -52,8 +57,15 @@ async def _fetch_image(url: str) -> Response:
         log_line("agent", "🛡️", "SSRF_BLOCK", f"media-proxy blocked internal URL: {url[:80]}")
         return _png_fallback()
     try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
+        async with httpx.AsyncClient(
+            timeout=_TIMEOUT,
+            follow_redirects=True,
+            max_redirects=_MAX_REDIRECTS,
+        ) as client:
             async with client.stream("GET", url, headers=_FETCH_HEADERS) as resp:
+                if not _redirect_chain_is_safe(resp):
+                    log_line("agent", "🛡️", "SSRF_BLOCK", f"media-proxy blocked redirect chain: {url[:80]}")
+                    return _png_fallback()
                 if resp.status_code != 200:
                     return _png_fallback()
                 content_type = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
@@ -74,7 +86,8 @@ async def _fetch_image(url: str) -> Response:
 
 
 @router.get("/api/favicon")
-async def favicon_proxy(domain: str = Query(..., description="Domain to fetch a favicon for")):
+@limiter.limit("120/minute")
+async def favicon_proxy(request: Request, domain: str = Query(..., description="Domain to fetch a favicon for")):
     """Return a favicon for a domain, falling back to Google's favicon service."""
     domain = (domain or "").strip()
     if not domain:
@@ -90,6 +103,7 @@ async def favicon_proxy(domain: str = Query(..., description="Domain to fetch a 
 
 
 @router.get("/api/img-proxy")
-async def image_proxy(url: str = Query(..., description="Absolute http(s) image URL to proxy")):
+@limiter.limit("120/minute")
+async def image_proxy(request: Request, url: str = Query(..., description="Absolute http(s) image URL to proxy")):
     """Proxy an external image so hotlink-protected / CORS-blocked images still render."""
     return await _fetch_image((url or "").strip())

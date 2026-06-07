@@ -111,8 +111,16 @@ async def exec_run_shell(args: Dict[str, Any], user_id: str, project_root: str) 
     exe = parts[0].lower()
     if "/" in exe:
         exe = exe.split("/")[-1]
-    allowed = cfg.get("allowed_commands") or []
-    if allowed and isinstance(allowed, list) and exe not in [item.lower() for item in allowed]:
+    allowed = cfg.get("allowed_commands")
+    if not isinstance(allowed, list) or not allowed:
+        try:
+            from brain.shell_audit import append_run
+
+            append_run(user_id, command, blocked_reason="empty allowlist")
+        except Exception as exc:
+            log_line("error", "⚠️", "AUDIT", f"shell_audit.append_run failed: {exc}")
+        return "Error: Shell allowlist is empty. Configure security.allowed_commands before use."
+    if exe not in [item.lower() for item in allowed]:
         try:
             from brain.shell_audit import append_run
 

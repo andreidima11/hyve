@@ -46,7 +46,87 @@ CAMERA_STREAM_TOKEN_EXPIRE_SECONDS = 300  # 5 min — media elements cannot send
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/token")
 
+# JWT types — access tokens omit ``type`` (legacy) or use ``access``.
+_NON_ACCESS_TOKEN_TYPES = frozenset({"refresh", "sse_exchange", "camera_stream"})
+
 # --- UTILS ---
+def decode_token_payload(token: str) -> Optional[dict]:
+    """Decode JWT without DB checks. Returns None on failure."""
+    try:
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        return None
+
+
+def is_access_token_payload(payload: dict) -> bool:
+    """True for API bearer tokens (legacy untyped or explicit access)."""
+    if not payload or not payload.get("sub"):
+        return False
+    token_type = payload.get("type")
+    if token_type is None:
+        return True
+    return token_type == "access"
+
+
+def decode_access_token(token: str, db: Session | None = None) -> Optional[dict]:
+    """Decode and validate an API access token; optional revocation check."""
+    payload = decode_token_payload(token)
+    if not payload or not is_access_token_payload(payload):
+        return None
+    jti = payload.get("jti")
+    if db and jti:
+        if db.query(models.RevokedToken).filter(models.RevokedToken.jti == jti).first():
+            return None
+    return payload
+
+
+def consume_sse_exchange_token(token: str, db: Session) -> Optional[dict]:
+    """Validate a short-lived SSE/WS exchange token and revoke it (single-use)."""
+    payload = verify_sse_exchange_token(token)
+    if not payload:
+        return None
+    jti = payload.get("jti")
+    if not jti:
+        return None
+    if db.query(models.RevokedToken).filter(models.RevokedToken.jti == jti).first():
+        return None
+    if not revoke_token(token, db):
+        return None
+    return payload
+
+
+def authenticate_ws_token(token: str | None) -> Optional[models.User]:
+    """Authenticate WebSocket/SSE clients using a single-use exchange token only."""
+    if not token:
+        return None
+    db = next(database.get_db())
+    try:
+        payload = consume_sse_exchange_token(token, db)
+        if not payload:
+            return None
+        username = payload.get("sub")
+        if not username:
+            return None
+        user = db.query(models.User).filter(models.User.username == username).first()
+        if not user or not user.is_active:
+            return None
+        return user
+    except Exception:
+        return None
+    finally:
+        db.close()
+
+
+def _client_is_loopback(request: Request) -> bool:
+    if not request.client:
+        return False
+    host = (request.client.host or "").strip().lower()
+    if host in ("127.0.0.1", "::1", "localhost"):
+        return True
+    if host.startswith("127."):
+        return True
+    return False
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return _bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
@@ -182,14 +262,11 @@ def revoke_token(token: str, db: Session) -> bool:
     return True
 
 def verify_token(token: str) -> Optional[dict]:
-    """Decode and return JWT payload without DB checks. Returns None on failure."""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("sub"):
-            return payload
-        return None
-    except JWTError:
-        return None
+    """Decode access-token JWT payload without DB checks. Returns None on failure."""
+    payload = decode_token_payload(token)
+    if payload and is_access_token_payload(payload):
+        return payload
+    return None
 
 
 def extract_bearer_or_assist_token(request: Request) -> Optional[str]:
@@ -222,9 +299,6 @@ async def resolve_assist_user_id(request: Request, db: Session) -> int:
 
         payload = verify_token(token)
         if payload:
-            token_type = payload.get("type")
-            if token_type in ("refresh", "sse_exchange", "camera_stream"):
-                raise credentials_exception
             jti = payload.get("jti")
             if jti:
                 is_revoked = db.query(models.RevokedToken).filter(models.RevokedToken.jti == jti).first()
@@ -247,7 +321,8 @@ async def resolve_assist_user_id(request: Request, db: Session) -> int:
     assist_cfg = settings.CFG.get("assist") or {}
     default_id = assist_cfg.get("assist_default_user_id")
     if default_id is not None and isinstance(default_id, int) and default_id > 0:
-        return default_id
+        if _client_is_loopback(request):
+            return default_id
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -263,19 +338,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         detail={"key": "common.invalid_credentials"},
         headers={"WWW-Authenticate": "Bearer"},
     )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-        jti: str = payload.get("jti")
-        if jti:
-            is_revoked = db.query(models.RevokedToken).filter(models.RevokedToken.jti == jti).first()
-            if is_revoked:
-                raise credentials_exception
-    except JWTError:
+    payload = decode_access_token(token, db)
+    if not payload:
         raise credentials_exception
-    
+    username = payload.get("sub")
+    if not username:
+        raise credentials_exception
+
     user = db.query(models.User).filter(models.User.username == username).first()
     if user is None:
         raise credentials_exception

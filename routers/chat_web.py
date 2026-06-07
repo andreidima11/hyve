@@ -97,19 +97,12 @@ async def chat_web_impl(request: Request, req: ChatRequest, background_tasks: Ba
         token = req.token or (request.headers.get("Authorization") or "").replace("Bearer ", "").strip()
         user_obj = None
         if token:
-            try:
-                from jose import jwt
-                payload = jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
-                username = payload.get("sub")
-                if username:
-                    # Check token revocation
-                    jti = payload.get("jti", "")
-                    if jti and db.query(models.RevokedToken).filter(models.RevokedToken.jti == jti).first():
-                        raise HTTPException(status_code=401, detail="Token revoked")
-                    user_obj = db.query(models.User).filter(models.User.username == username).first()
-            except HTTPException:
-                raise
-            except Exception:  # Invalid/expired token — reject
+            payload = auth.decode_access_token(token, db)
+            if not payload:
+                raise HTTPException(status_code=401, detail="Invalid or expired token")
+            username = payload.get("sub")
+            user_obj = db.query(models.User).filter(models.User.username == username).first()
+            if not user_obj:
                 raise HTTPException(status_code=401, detail="Invalid or expired token")
 
         if not user_obj:

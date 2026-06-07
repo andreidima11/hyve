@@ -283,7 +283,7 @@ export function renderClimateCard(widget) {
         </article>`;
 }
 
-function _closeDashboardClimateModeMenus(except = null) {
+export function closeDashboardClimateModeMenus(except = null) {
     document.querySelectorAll('.hyve-dashboard-card__climate-mode-menu[data-open="true"]').forEach(menu => {
         if (except && menu === except) return;
         menu.dataset.open = 'false';
@@ -314,7 +314,7 @@ export function toggleDashboardClimateModeMenu(widgetId, event = null, entityId 
         .find(item => item.dataset.widgetId === id && (!targetEntity || item.dataset.entityId === targetEntity));
     if (!menu) return;
     const nextOpen = menu.dataset.open !== 'true';
-    _closeDashboardClimateModeMenus(nextOpen ? menu : null);
+    closeDashboardClimateModeMenus(nextOpen ? menu : null);
     menu.dataset.open = nextOpen ? 'true' : 'false';
     menu.querySelector('.hyve-dashboard-card__climate-mode-button')?.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
     _setDashboardClimateMenuLayer(menu, nextOpen);
@@ -370,7 +370,7 @@ export function selectDashboardClimateSlide(widgetId, index, event = null) {
     const current = _climateActiveIndex(widget, total);
     const next = Math.max(0, Math.min(total - 1, Number(index) || 0));
     if (next === current) return;
-    _closeDashboardClimateModeMenus();
+    closeDashboardClimateModeMenus();
     _commitClimateSlide(widgetId, next, { animate: true });
 }
 
@@ -442,7 +442,7 @@ export function endDashboardClimateSwipe(event, widgetId) {
     if (dx <= -threshold) target = st.index + 1;
     else if (dx >= threshold) target = st.index - 1;
     target = Math.max(0, Math.min(st.total - 1, target));
-    _closeDashboardClimateModeMenus();
+    closeDashboardClimateModeMenus();
     _commitClimateSlide(widgetId, target, { animate: true });
 }
 
@@ -609,7 +609,7 @@ export async function adjustDashboardClimateTemperature(widgetId, direction, ent
 export async function setDashboardClimateMode(widgetId, mode, entityId = '') {
     const value = String(mode || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
     if (!value) return;
-    _closeDashboardClimateModeMenus();
+    closeDashboardClimateModeMenus();
     await _controlClimate(widgetId, 'set_hvac_mode', { hvac_mode: value, value }, { hvac_mode: value }, value, entityId);
 }
 
