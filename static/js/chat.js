@@ -3,6 +3,7 @@ import { t, tRaw } from './lang/index.js';
 import { getThinkingMode } from './thinking_mode.js';
 import { escapeHtml, showToast, TOOL_ICONS, TOOL_ICON_FALLBACK, buildSourcesHtml, loadScriptOnce, loadStyleOnce } from './utils.js';
 import { switchUserProfileTab, switchTab } from './nav_bridge.js';
+import { isVoiceLoopActive, isVoiceInputPending, setVoiceInputPending } from './voice_state.js';
 
 if (typeof marked !== 'undefined') {
     // Custom renderer for better chat markdown rendering
@@ -716,7 +717,8 @@ function _stripForTTS(text) {
         menu.innerHTML = `<button type="button" class="tts-context-menu-item"><i class="fas fa-play"></i> Citește de aici</button>`;
         menu.querySelector('button').addEventListener('click', () => {
             _removeMenu();
-            if (window.__tts) window.__tts.speak(bubble, { fromOffset: offset });
+            const tts = getTts();
+            if (tts) tts.speak(bubble, { fromOffset: offset });
         });
         document.body.appendChild(menu);
     });
@@ -865,7 +867,7 @@ const _tts = {
                 btn._audio = null;
             }
             URL.revokeObjectURL(url);
-            const wasVoiceLoop = !!window.__voiceLoopActive;
+            const wasVoiceLoop = isVoiceLoopActive();
             this.audio = null;
             const bub = this.bubble;
             this.bubble = null;
@@ -895,7 +897,7 @@ const _tts = {
 
     streamPush(sentence) {
         if (!sentence || !this._isPiperOn()) return;
-        const shouldStream = window.__voiceInputPending || this.alwaysSpeak;
+        const shouldStream = isVoiceInputPending() || this.alwaysSpeak;
         if (!shouldStream) return;
         this._streamQueue.push(sentence);
         if (!this._streamPlaying) this._streamPlayNext(this._streamRunId);
@@ -907,7 +909,7 @@ const _tts = {
             this._streamPlaying = false;
             this._resetBubbleBtn(this._streamBubble);
             this._setIndicator(false);
-            this._emit('ended', { bubble: this._streamBubble, voiceLoop: !!window.__voiceLoopActive });
+            this._emit('ended', { bubble: this._streamBubble, voiceLoop: isVoiceLoopActive() });
             return;
         }
         this._streamPlaying = true;
@@ -955,7 +957,10 @@ const _tts = {
     },
 };
 
-window.__tts = _tts;
+/** @returns {typeof _tts} Piper/TTS controller singleton. */
+export function getTts() {
+    return _tts;
+}
 
 /** Speak a bubble's text — convenience wrapper */
 async function _speakBubble(bubble, opts) {
@@ -2494,8 +2499,8 @@ export async function sendMessage(optionalMessage) {
             appendConsciousnessFeedbackBar(bubble, aiBubbleId, responseStats);
 
             // Auto-speak response if triggered by voice input or always-speak
-            const shouldAutoSpeak = window.__voiceInputPending || _tts.alwaysSpeak;
-            if (window.__voiceInputPending) window.__voiceInputPending = false;
+            const shouldAutoSpeak = isVoiceInputPending() || _tts.alwaysSpeak;
+            if (isVoiceInputPending()) setVoiceInputPending(false);
 
             if (shouldAutoSpeak && !_tts.streamWasActive()) {
                 _speakBubble(bubble);

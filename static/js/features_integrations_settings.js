@@ -10,6 +10,7 @@ import { ACTIVE_STATES, CONTROLLABLE } from './entity_constants.js';
 import { startCameraPreviewRefresh, stopCameraPreviewRefresh } from './camera_auth.js';
 import { closeEntityDetailModal, filterHABySource } from './features_smarthome.js';
 import { integrationSlugsMatch } from './integration_sources.js';
+import { toggleVoiceRecording, isVoiceLoopActive } from './voice.js';
 
 function _integrationSlugCandidates(slug) {
     const raw = String(slug || '').trim();
@@ -80,19 +81,14 @@ export function syncIntegrationToggles() {
         const whisperEnabled = !!(whisperCheckbox && whisperCheckbox.checked);
         voiceBtn.classList.toggle('hidden', !whisperEnabled);
         if (!whisperEnabled) {
-            if (_voiceMediaRecorder && _voiceMediaRecorder.state === 'recording') {
-                try { _voiceMediaRecorder.stop(); } catch (e) {}
+            if (voiceBtn.classList.contains('recording')) {
+                toggleVoiceRecording({ btn: voiceBtn });
+            } else {
+                voiceBtn.disabled = false;
+                voiceBtn.classList.remove('recording');
+                const icon = voiceBtn.querySelector('i');
+                if (icon) icon.className = isVoiceLoopActive() ? 'fas fa-sync-alt' : 'fas fa-microphone';
             }
-            if (_voiceSilenceTimer) { cancelAnimationFrame(_voiceSilenceTimer); _voiceSilenceTimer = null; }
-            if (_voiceAudioCtx) { _voiceAudioCtx.close().catch(() => {}); _voiceAudioCtx = null; }
-            if (_voiceStream) {
-                _voiceStream.getTracks().forEach(t => t.stop());
-                _voiceStream = null;
-            }
-            voiceBtn.disabled = false;
-            voiceBtn.classList.remove('recording');
-            const icon = voiceBtn.querySelector('i');
-            if (icon) icon.className = window.__voiceLoopActive ? 'fas fa-sync-alt' : 'fas fa-microphone';
         }
     }
     updateIntegrationSubtab();

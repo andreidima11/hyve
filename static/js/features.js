@@ -1,5 +1,7 @@
 /** Facade — re-exports feature modules for stable `app.js` / `ui.js` imports. */
 
+export { toggleVoiceRecording, isVoiceLoopActive } from './voice.js';
+
 export {
     loadSessionsList,
     openSession,

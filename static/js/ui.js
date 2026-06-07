@@ -1,4 +1,4 @@
-import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive, refreshIntegrationsSettingsView, loadNotificationPrefs, loadAutomations, checkAddonUpdates } from './features.js';
+import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive, refreshIntegrationsSettingsView, loadNotificationPrefs, loadAutomations, checkAddonUpdates, toggleVoiceRecording } from './features.js';
 import { loadUserProfilePage } from './user_profile.js';
 import { loadPlanner, loadApps, loadScenes, loadAreas, populateAppTab } from './nav_bridge.js';
 import { loadDashboard, dashboardHasRenderedContent, resetDashboardEditingState, disconnectDashboardLive, initDashboardSidebarNav } from './dashboard.js';
@@ -337,10 +337,10 @@ export function switchTab(tabId, options = {}) {
     if (tabId === 'user') loadUserProfilePage();
 
     // Stop voice recording when navigating away from chat
-    if (tabId !== 'chat' && typeof window.toggleVoiceRecording === 'function') {
+    if (tabId !== 'chat') {
         const voiceBtn = document.getElementById('btn-voice');
         if (voiceBtn && voiceBtn.classList.contains('recording')) {
-            window.toggleVoiceRecording({ btn: voiceBtn });
+            toggleVoiceRecording({ btn: voiceBtn });
         }
     }
 
