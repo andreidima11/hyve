@@ -1,8 +1,5 @@
 # Cum se scrie o integrare Hyve
 
-> **AI agents:** citește mai întâi [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md) și [ARCHITECTURE.md](ARCHITECTURE.md).  
-> Entry point: [AGENTS.md](../AGENTS.md).
-
 Hyve folosește un model **declarativ, inspirat din Home Assistant**: un fișier
 provider într-un singur loc + o schemă declarativă = UI auto-generat,
 multi-cont, secrete criptate, sync periodic și control. **Nu trebuie modificat

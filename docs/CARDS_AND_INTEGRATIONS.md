@@ -1,7 +1,5 @@
 # Cards And Integrations
 
-> **AI agents:** see [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md) § Dashboard cards and § Golden rules.
-
 This document defines how new integrations and dashboard cards must be added in Hyve.
 
 The rule is simple:

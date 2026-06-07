@@ -20,5 +20,4 @@
 
 ## References
 
-- [AI_AGENT_GUIDE.md](../AI_AGENT_GUIDE.md)
 - [ARCHITECTURE.md](../ARCHITECTURE.md)

@@ -83,6 +83,11 @@ def sync_readme(version: str) -> None:
     path = ROOT / "README.md"
     text = _read(path)
     text = re.sub(
+        r'(\*\*Current version:\*\* )[^\n]+',
+        rf'\g<1>{version}',
+        text,
+    )
+    text = re.sub(
         r'(Versiunea curentă:\s*`)[^`]+(`)',
         rf'\g<1>{version}\2',
         text,

@@ -252,15 +252,13 @@ frontend/src/            # Vite-built modules
 
 **Migrated to `components/`:** all bundled entity integrations. Extraction logic for Pago, E.ON, Ariston, Open-Meteo, Midea, Rețele Electrice, FusionSolar lives in each component's `extract.py`. `integrations/extractors.py` is a thin compatibility layer.
 
-**Rule for AI agents:** new bundled integrations go in `components/<domain>/`. Legacy flat files in `integrations/providers/` still load when no component folder exists for that slug.
+**Rule:** new bundled integrations go in `components/<domain>/`. Legacy flat files in `integrations/providers/` still load when no component folder exists for that slug.
 
-See [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) §0 and [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md) for workflows.
+See [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) for workflows.
 
 ---
 
 ## Related docs
 
-- [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md) — how to implement changes
 - [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) — provider authoring
 - [CARDS_AND_INTEGRATIONS.md](CARDS_AND_INTEGRATIONS.md) — catalog + cards
-- [../AGENTS.md](../AGENTS.md) — entry point for coding agents

@@ -31,4 +31,3 @@ See [`demo_sensor/`](demo_sensor/) — a minimal sensor integration for testing 
 
 - [INTEGRATION_GUIDE.md](../docs/INTEGRATION_GUIDE.md) — authoring (v2 folder layout)
 - [ARCHITECTURE.md](../docs/ARCHITECTURE.md) — platform map
-- [AI_AGENT_GUIDE.md](../docs/AI_AGENT_GUIDE.md) — agent workflows

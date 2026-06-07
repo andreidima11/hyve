@@ -1,5 +1,6 @@
 node_modules/
 venv/
+.venv/
 __pycache__/
 *.pyc
 .env
@@ -8,6 +9,20 @@ ha_entities.json
 assist_keys.json
 .DS_Store
 .pytest_cache/
+
+# Local-only tooling & automation playbooks (never commit)
+dev-local/
+.cursor/
+AGENTS.md
+docs/AI_AGENT_GUIDE.md
+
+# Private credentials / keys
+secrets/
+.secret_key
+*.pem
+*.key
+id_rsa*
+*.p12
 
 # Local app output
 logs/
@@ -35,7 +50,7 @@ android/HyveBridge/local.properties
 android/HyveBridge/app/google-services.json
 secrets/firebase-service-account.json
 secrets/*.service-account.json
-secrets/*.json
+secrets/*
 .secret_key
 .hyve_server.pid
 
