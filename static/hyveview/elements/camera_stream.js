@@ -361,9 +361,18 @@ class HyveCameraStream extends HTMLElement {
     this._img.dataset.streamMode = 'live';
     this._img.dataset.entityId = this._entity;
     this.dataset.state = 'loading';
+    const onStreamError = () => {
+      this._img?.removeEventListener('error', onStreamError);
+      if (!this.isConnected || this._mode !== 'live') return;
+      // Avoid console 404 spam: fall back to snapshot when MJPEG proxy is unavailable.
+      this.setAttribute('mode', 'snapshot');
+      this._img.dataset.streamMode = '';
+      this._startRefresh();
+    };
+    this._img.addEventListener('error', onStreamError);
     _streamUrl(this._entity).then((url) => {
       if (this._img && this.isConnected) this._img.src = url;
-    }).catch(() => { this.dataset.state = 'error'; });
+    }).catch(onStreamError);
   }
 
   _startRefresh() {
