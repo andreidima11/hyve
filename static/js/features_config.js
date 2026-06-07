@@ -17,6 +17,7 @@ import {
 } from './features_integrations_settings.js';
 import { closeModelSelector } from './chat/model_selector.js';
 import { getTts } from './chat.js';
+import { setIsAdmin, isExplicitNonAdmin } from './user_context.js';
 
 const _SEARCH_TENDENCY_HINTS = {
     1: 'Minimal — almost never searches. Only when you explicitly ask it to.',
@@ -584,7 +585,7 @@ export async function loadConfig() {
         const meRes = await apiCall('/api/users/me');
         if (!meRes.ok) return;
         const profile = await meRes.json();
-        window.__isAdmin = profile.is_admin;
+        setIsAdmin(profile.is_admin);
         const isAdmin = profile.is_admin;
 
         document.querySelectorAll('.config-admin-only').forEach(el => {
@@ -1394,7 +1395,7 @@ export async function saveConfig(eOrOptions) {
     const langEl = document.getElementById('ui_language');
     const language = langEl ? langEl.value : 'en';
 
-    if (window.__isAdmin === false) {
+    if (isExplicitNonAdmin()) {
         try {
             const resp = await apiCall('/api/config', { method: 'PATCH', body: { ui: { language } } });
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);

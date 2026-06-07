@@ -3,6 +3,7 @@
  */
 import { apiCall } from './api.js';
 import { t } from './lang/index.js';
+import { getNotificationTimer } from './user_context.js';
 import { showToast } from './utils.js';
 
 // ═══════════════════════════════════════════
@@ -17,8 +18,9 @@ let _notifAutoSaveTimer = null;
 function _applyNotifRuntimeTransport(transport) {
     const wsEnabled = transport === 'websocket';
     try {
-        if (window.notificationTimer && typeof window.notificationTimer.setEnabled === 'function') {
-            window.notificationTimer.setEnabled(wsEnabled);
+        const timer = getNotificationTimer();
+        if (timer && typeof timer.setEnabled === 'function') {
+            timer.setEnabled(wsEnabled);
         }
     } catch (_) {}
 

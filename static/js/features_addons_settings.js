@@ -4,6 +4,7 @@
 import { apiCall } from './api.js';
 import { t } from './lang/index.js';
 import { showToast, showConfirm, escapeHtml } from './utils.js';
+import { isExplicitNonAdmin } from './user_context.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ADDONS / APPS
@@ -330,7 +331,7 @@ export function updateHeaderUpdatesBadge(count) {
 
 /** Background poll for available add-on updates and refresh the header badge. */
 export async function refreshUpdatesHeaderBadge() {
-    if (window.__isAdmin === false) return;
+    if (isExplicitNonAdmin()) return;
     try {
         const res = await apiCall('/api/updates/addons');
         if (!res.ok) return;

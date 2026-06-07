@@ -1,7 +1,9 @@
 /** Dashboard layout editing is admin-only; card toggles stay available to all users. */
 
+import { isAdmin } from './user_context.js';
+
 export function canEditDashboard() {
-    return window.__isAdmin === true;
+    return isAdmin();
 }
 
 export function applyDashboardEditAccess() {

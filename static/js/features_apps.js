@@ -5,6 +5,7 @@ import { apiCall } from './api.js';
 import { showToast, escapeHtml, showConfirm } from './utils.js';
 import { t } from './lang/index.js';
 import { switchTab, openConfigSection } from './nav_bridge.js';
+import { isAdmin } from './user_context.js';
 
 let _currentLogSlug = null;
 let _pollTimer = null;
@@ -225,15 +226,15 @@ function _renderDetail(addon, status) {
     const installed = addon.state?.installed;
     const enabled = addon.state?.enabled;
     const hasProcess = !!addon.start_command;
-    const isAdmin = !!window.__isAdmin;
-    const configHtml = _renderConfigSection(addon, isAdmin);
+    const isAdminUser = isAdmin();
+    const configHtml = _renderConfigSection(addon, isAdminUser);
     // Show the real installed version (resolved from the package) when installed;
     // fall back to the manifest version for not-installed add-ons.
     const displayVersion = (installed && addon.state?.version) ? addon.state.version : (addon.version || '?');
 
     // Lifecycle controls (install / enable-disable / uninstall) — admin only
     let lifecycleHtml = '';
-    if (isAdmin) {
+    if (isAdminUser) {
         if (!installed) {
             lifecycleHtml = `
             <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 space-y-3">
@@ -803,7 +804,7 @@ export async function saveAddonConfig(slug) {
 
 export async function testAddonHealth(slug) {
     try {
-        if (window.__isAdmin) {
+        if (isAdmin()) {
             await saveAddonConfig(slug);
         }
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/health`);

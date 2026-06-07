@@ -1,5 +1,6 @@
 import { apiCall } from './api.js';
 import { t } from './lang/index.js';
+import { isAdmin } from './user_context.js';
 import { escapeHtml, showToast, showConfirm, setupCodeEditor, setCodeEditorValue, getCodeEditorValue, refreshCodeEditor, openSubPage, closeSubPage } from './utils.js';
 
 // --- ADMIN (gestionare utilizatori) ---
@@ -73,7 +74,7 @@ export async function loadSkills() {
             listEl.innerHTML = `<div class="cfg-section p-8 text-center text-slate-500 text-sm" data-i18n="skills.empty">No skills yet. Create one from chat with "Fă un skill care..." or add a .py file in skills/generated/.</div>`;
             return;
         }
-        const isAdmin = !!window.__isAdmin;
+        const isAdminUser = isAdmin();
         const DESC_MAX = 80;
         listEl.innerHTML = data.map(s => {
             const desc = s.description || '—';
@@ -94,9 +95,9 @@ export async function loadSkills() {
                     </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-2 flex-shrink-0">
-                    ${isAdmin ? `<button type="button" data-skills-action="toggleDisabled" data-skill-name="${escapeHtml(s.name)}" class="min-h-[44px] px-3 py-2 rounded-lg text-[10px] font-bold touch-manipulation ${s.disabled ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400' : 'bg-white/5 hover:bg-amber-500/20 text-slate-400 hover:text-amber-400'} transition-all" data-i18n="skills.${s.disabled ? 'enable' : 'disable'}">${t(s.disabled ? 'skills.enable' : 'skills.disable')}</button>` : ''}
-                    ${isAdmin ? `<button type="button" data-skills-action="openEdit" data-skill-name="${escapeHtml(s.name)}" class="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-white/5 hover:bg-accent/20 text-slate-300 hover:text-accent transition-all touch-manipulation" data-i18n="common.edit">Edit</button>` : ''}
-                    ${isAdmin ? `<button type="button" data-skills-action="deleteSkill" data-skill-name="${escapeHtml(s.name)}" class="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all touch-manipulation" data-i18n="common.delete">Delete</button>` : ''}
+                    ${isAdminUser ? `<button type="button" data-skills-action="toggleDisabled" data-skill-name="${escapeHtml(s.name)}" class="min-h-[44px] px-3 py-2 rounded-lg text-[10px] font-bold touch-manipulation ${s.disabled ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400' : 'bg-white/5 hover:bg-amber-500/20 text-slate-400 hover:text-amber-400'} transition-all" data-i18n="skills.${s.disabled ? 'enable' : 'disable'}">${t(s.disabled ? 'skills.enable' : 'skills.disable')}</button>` : ''}
+                    ${isAdminUser ? `<button type="button" data-skills-action="openEdit" data-skill-name="${escapeHtml(s.name)}" class="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-white/5 hover:bg-accent/20 text-slate-300 hover:text-accent transition-all touch-manipulation" data-i18n="common.edit">Edit</button>` : ''}
+                    ${isAdminUser ? `<button type="button" data-skills-action="deleteSkill" data-skill-name="${escapeHtml(s.name)}" class="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all touch-manipulation" data-i18n="common.delete">Delete</button>` : ''}
                 </div>
             </div>
         `;

@@ -2,6 +2,7 @@ import { apiCall, getSSEToken } from './api.js';
 import { escapeHtml, showConfirm, showToast } from './utils.js';
 import { t } from './lang/index.js';
 import { switchTab, openConfigSection, switchUserProfileTab } from './nav_bridge.js';
+import { refreshUpdatesHeaderBadge } from './features_addons_settings.js';
 
 let _currentFilter = 'all';
 let _notificationPage = 1;
@@ -468,8 +469,8 @@ function _handleNotificationPayload(data) {
         }
         _playNotificationCue();
         // If it's an update-availability notification, refresh the header updates badge
-        if (data.notification?.action_url === '#updates/addons' && typeof window.refreshUpdatesHeaderBadge === 'function') {
-            window.refreshUpdatesHeaderBadge();
+        if (data.notification?.action_url === '#updates/addons') {
+            refreshUpdatesHeaderBadge().catch(() => {});
         }
         return;
     }

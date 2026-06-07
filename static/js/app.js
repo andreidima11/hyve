@@ -20,6 +20,7 @@ import { setUserProfileContext, loadUserProfilePage, switchUserProfileTab, saveU
 import { initNotifications, loadUserNotifications, switchUserNotificationFilter, toggleUserNotificationFilterMenu, markUserNotificationRead, archiveUserNotification, deleteUserNotification, clearAllUserNotifications, changeUserNotificationsPage, loadNotificationCounts, updateNotificationBadge, actOnAmbientSuggestion, navigateNotification } from './notifications.js';
 import { startStartupStatusPolling, showHubStartupLoadingAfterRestart } from './startup_status.js';
 import { importWithCacheBust } from './asset_version.js';
+import { setIsAdmin, setNotificationTimer } from './user_context.js';
 import {
     showProfileEditor,
     closeProfileEditor,
@@ -645,7 +646,7 @@ async function syncUiLanguageFromConfig() {
 }
 
 function applyProfileFlags(profile) {
-    window.__isAdmin = !!profile.is_admin;
+    setIsAdmin(!!profile.is_admin);
     setUserProfileContext(profile);
     try { applyDashboardEditAccess(); } catch (_) {}
     if (profile.is_admin) {
@@ -660,8 +661,7 @@ function startBackgroundLoaders(profile) {
         loadSessionsList().catch(e => console.warn('Sessions list load failed', e));
         if (profile.is_admin) { try { startLogStream(); } catch (e) { console.warn('Log stream failed', e); } }
         try {
-            if (window.notificationTimer?.stop) window.notificationTimer.stop();
-            window.notificationTimer = initNotifications(`user_${profile.id}`);
+            setNotificationTimer(initNotifications(`user_${profile.id}`));
         } catch (e) { console.warn('Notifications init failed', e); }
         loadModelProfiles().catch(e => console.warn('Model profiles load failed', e));
         try { startStartupStatusPolling(); } catch (e) { console.warn('Startup status polling failed', e); }
