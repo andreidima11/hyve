@@ -498,9 +498,11 @@ function _intervalLabel(val) {
     return key ? t(key) : val;
 }
 
+let _updatesDropdownBound = false;
+
 // Bind once at module load — works even before loadConfig has run
-if (typeof document !== 'undefined' && !window.__updatesDropdownBound) {
-    window.__updatesDropdownBound = true;
+if (typeof document !== 'undefined' && !_updatesDropdownBound) {
+    _updatesDropdownBound = true;
     document.addEventListener('click', (e) => {
         const dd = document.getElementById('updates_interval_dropdown');
         if (!dd) return;

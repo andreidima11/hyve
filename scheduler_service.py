@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 import settings as settings_mod
-from storage import collection
 from logger import log_detail, log_line
 import push_fcm
 

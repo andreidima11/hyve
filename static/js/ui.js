@@ -140,9 +140,11 @@ export function toggleSidebar() {
     else openSidebar();
 }
 
+let _sidebarGesturesInitialized = false;
+
 export function initSidebarGestures() {
-    if (window.__hyveSidebarGesturesInitialized) return;
-    window.__hyveSidebarGesturesInitialized = true;
+    if (_sidebarGesturesInitialized) return;
+    _sidebarGesturesInitialized = true;
 
     let startX = 0;
     let startY = 0;

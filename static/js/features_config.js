@@ -53,8 +53,10 @@ function _refreshUiLanguageSelect(language) {
     }
 }
 
-if (typeof document !== 'undefined' && !window.__uiLanguageDropdownBound) {
-    window.__uiLanguageDropdownBound = true;
+let _uiLanguageDropdownBound = false;
+
+if (typeof document !== 'undefined' && !_uiLanguageDropdownBound) {
+    _uiLanguageDropdownBound = true;
     document.addEventListener('click', (e) => {
         const dd = document.getElementById('ui_language_dropdown');
         if (!dd) return;

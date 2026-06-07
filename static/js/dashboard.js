@@ -103,6 +103,7 @@ let _dashboardCache = {
 let _pageEditorMode = 'edit';
 let _entityPickerMode = 'add';
 let _entityPickerActiveIndex = -1;
+let _entityPickerOutsideBound = false;
 let _dashboardEditMode = false;
 let _dashboardCurrentEditorId = null;
 let _dashboardWidgetEditorMode = 'visual';
@@ -2983,8 +2984,8 @@ export function openDashboardEntityPicker(mode = 'add') {
     if (menu) menu.classList.remove('hidden');
     _renderEntityPickerMenu(mode);
     // Bind a single outside-click closer.
-    if (!window.__dashboardEntityPickerOutsideBound) {
-        window.__dashboardEntityPickerOutsideBound = true;
+    if (!_entityPickerOutsideBound) {
+        _entityPickerOutsideBound = true;
         document.addEventListener('click', (ev) => {
             ['add', 'edit'].forEach(m => {
                 const wrap = document.getElementById(m === 'edit' ? 'dashboard-edit-entity-picker' : 'dashboard-entity-picker');

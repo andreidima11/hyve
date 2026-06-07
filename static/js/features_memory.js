@@ -284,8 +284,10 @@ export function setMemLogType(value, label) {
     loadMemoryEvents(0);
 }
 
-if (typeof document !== 'undefined' && !window.__memLogTypeDropdownBound) {
-    window.__memLogTypeDropdownBound = true;
+let _memLogTypeDropdownBound = false;
+
+if (typeof document !== 'undefined' && !_memLogTypeDropdownBound) {
+    _memLogTypeDropdownBound = true;
     document.addEventListener('click', e => {
         const dd = document.getElementById('mem_log_type_dropdown');
         if (!dd) return;
