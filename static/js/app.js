@@ -1019,6 +1019,7 @@ window.addEventListener('DOMContentLoaded', () => {
         newChatSession: () => newChatSession(),
         clearSessionContext: () => clearSessionContext(),
     });
+    const debouncedFilterAvailableDevices = debounce(() => filterAvailableDevices(), 200);
     initSmarthomeEventBindings({
         openConfigHub: () => {
             window.location.hash = '#/config';
@@ -1057,9 +1058,9 @@ window.addEventListener('DOMContentLoaded', () => {
         closeAliasModal: () => closeAliasModal(),
         addAliasInput: () => addAliasInput(),
         saveAliasesFromModal: () => saveAliasesFromModal(),
-        filterAvailableDevices: () => filterAvailableDevices(),
+        filterAvailableDevices: () => debouncedFilterAvailableDevices(),
         filterDerivedCandidates: () => _lazyAction(_loadDerivedModule, 'filterDerivedCandidates')(),
-        toggleDerivedInput: (el) => window.__toggleDerivedInput?.(el),
+        toggleDerivedInput: (el) => _lazyAction(_loadDerivedModule, 'toggleDerivedInput')(el),
     });
     initIntegrationEventBindings({
         controlIntegrationEntity: (...args) => controlIntegrationEntity(...args),
@@ -1395,59 +1396,10 @@ window.testWsNotification = testWsNotification;
 window.testFcmNotification = testFcmNotification;
 window.testNotification = testNotification;
 window.refreshNotifWsNativeStatus = refreshNotifWsNativeStatus;
-window.syncHA = syncHA;
-window.toggleDevice = toggleDevice;
-window.toggleSelection = toggleSelection;
-window.toggleAllAI = toggleAllAI;
 window.loadMemory = loadMemory;
-window.filterDevices = debounce(filterDevices, 200);
 window.changeMemPage = changeMemPage;
 window.deleteMemBulk = deleteMemBulk;
 window.filterMemory = debounce(filterMemory, 200);
-window.toggleAllHA = toggleAllHA;
-window.updateHABulkCount = updateHABulkCount;
-window.deleteHABulk = deleteHABulk;
-window.toggleHABulkMode = toggleHABulkMode;
-window.deleteHASingle = deleteHASingle;
-window.saveAliases = saveAliases;
-window.filterHAByDomain = filterHAByDomain;
-window.filterHABySource = filterHABySource;
-window.filterHAByArea = filterHAByArea;
-// Aliases used by the smarthome (devices) page markup.
-window.filterByDomain = filterHAByDomain;
-window.syncSmartHome = syncHA;
-window.loadSmarthome = loadSmarthome;
-window.toggleAllAIVisible = toggleAllAI;
-window.openAliasModal = openAliasModal;
-window.addAliasInput = addAliasInput;
-window.closeAliasModal = closeAliasModal;
-window.saveAliasesFromModal = saveAliasesFromModal;
-window.openRowActionsModal = openRowActionsModal;
-window.closeRowActionsModal = closeRowActionsModal;
-window.handleHaRowClick = handleHaRowClick;
-window.setDevicesPage = setDevicesPage;
-window.setDevicesPageSize = setDevicesPageSize;
-window.sortDevicesBy = sortDevicesBy;
-window.controlDeviceEntity = controlDeviceEntity;
-window.openAliasModalFromDetail = openAliasModalFromDetail;
-window.closeEntityDetailModal = closeEntityDetailModal;
-window.openAddDevicesModal = openAddDevicesModal;
-window.closeAddDevicesModal = closeAddDevicesModal;
-window.confirmAddDevices = confirmAddDevices;
-window.toggleAvailableDevice = toggleAvailableDevice;
-window.toggleAllAvailableDevices = toggleAllAvailableDevices;
-window.filterAvailableDevices = debounce(filterAvailableDevices, 200);
-window.resetSmarthomeFilters = resetSmarthomeFilters;
-window.copyEntityIdFromRowActions = copyEntityIdFromRowActions;
-window.toggleSmarthomeFilters = toggleSmarthomeFilters;
-window.toggleSmarthomePicker = toggleSmarthomePicker;
-window.selectSmarthomePickerOption = selectSmarthomePickerOption;
-_assignLazyGlobals(_loadDerivedModule, [
-    'openDerivedModal', 'closeDerivedModal', 'saveDerived', 'deleteDerivedFromModal',
-    'switchDerivedMode', 'runDerivedPreview', 'insertDerivedExpressionEntity',
-    'toggleDerivedSelection',
-]);
-window.filterDerivedCandidates = debounce(_lazyAction(_loadDerivedModule, 'filterDerivedCandidates'), 150);
 window.toggleAllMem = toggleAllMem;
 window.updateMemBulkCount = updateMemBulkCount;
 _assignLazyGlobals(_loadPlannerModule, [

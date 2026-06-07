@@ -178,7 +178,7 @@ function _updateInputsCount() {
     if (el) el.textContent = String(_selectedInputs.size);
 }
 
-function _toggleInput(el) {
+export function toggleDerivedInput(el) {
     if (_builder === BUILDER_TRANSFORM) {
         _selectedInputs = new Set([el.value]);
         _renderCandidates();
@@ -561,6 +561,3 @@ export function switchDerivedMode(kind) {
         return switchDerivedBuilder(kind);
     }
 }
-
-// expose for inline onchange in candidates list
-window.__toggleDerivedInput = _toggleInput;

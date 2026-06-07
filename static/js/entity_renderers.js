@@ -6,7 +6,7 @@
 // segmented buttons, etc).
 //
 // All controls use data-entity-action attributes; integrations/event_bindings.js
-// delegates to window.controlIntegrationEntity(...).
+// Integration entity controls are wired via integrations/event_bindings.js.
 
 import { escapeHtml } from './utils.js';
 import { t, tState } from './lang/index.js';
