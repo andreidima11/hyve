@@ -34,6 +34,7 @@ import {
     DASHBOARD_CUSTOM_SELECT_IDS,
 } from './dashboard/constants.js';
 import { dashApiError as _dashApiError, escapeHtml as _escape, stateOn as _stateOn } from './dashboard/helpers.js';
+import { findEntityById } from './entity_aliases.js';
 import { initDashboardWidgetActions } from './dashboard/widget_actions.js';
 import {
     initDashboardDragResize,
@@ -1980,7 +1981,9 @@ function _renderTileCard(widget, opts = {}) {
         && (renderer === 'tile' || renderer === 'button' || renderer === 'switch' || renderer === 'scene');
     const dragAttrs = _widgetDragAttrs(widget);
     const editControls = _widgetEditControls(widget);
-    const clickable = !_dashboardEditMode && controllable && widget.available !== false;
+    const hasEntity = Boolean(String(widget.entity_id || '').trim());
+    const clickable = !_dashboardEditMode && controllable
+        && (widget.available !== false || hasEntity);
     const cardActionAttrs = clickable
         ? `role="button" tabindex="0" data-dash-action="cardActivate" data-dash-action-key="cardActivate" data-widget-id="${_escape(widget.id)}"`
         : '';
@@ -2869,6 +2872,10 @@ async function _refreshAvailableEntities(options = {}) {
         columns: fallbackSection.columns,
     });
     return items;
+}
+
+function _dashboardAvailableEntity(entityId) {
+    return findEntityById(_dashboardCache.available_entities, entityId);
 }
 
 function _renderEntityOptions(input, type = 'button', selectedValue = '') {

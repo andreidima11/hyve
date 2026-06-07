@@ -29,6 +29,7 @@ from integrations.extractors import (
 )
 from routers import scenes as scenes_module
 from smart_home_registry import controllable_domains, entity_domain, is_controllable_domain, normalize_entity_record, visible_domains
+from integrations.entity_utils import entity_id_lookup_variants, resolve_entity_by_id
 from ui_catalog import dashboard_card_catalog, resolve_dashboard_card
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -1310,11 +1311,11 @@ def _hydrate_widgets(widgets: list[dict[str, Any]], entity_items: list[dict[str,
             entity_map[uid] = item
     result: list[dict[str, Any]] = []
     for widget in widgets:
-        entity = entity_map.get(widget.get("entity_id"), {})
+        entity = resolve_entity_by_id(str(widget.get("entity_id") or ""), entity_map) or {}
         hydrated_entities: list[dict[str, Any]] = []
         for entity_record in _widget_entity_records(widget):
             entity_id = entity_record["entity_id"]
-            item = entity_map.get(entity_id, {})
+            item = resolve_entity_by_id(entity_id, entity_map) or {}
             hydrated_entities.append({
                 "entity_id": entity_id,
                 "title": entity_record.get("title") or "",
@@ -2324,6 +2325,9 @@ def _expand_entity_id_aliases(
 ) -> set[str]:
     """Allow widget control when the card stores either entity_id or unique_id."""
     expanded = {str(eid).strip() for eid in entity_ids if str(eid).strip()}
+    for raw in list(expanded):
+        for variant in entity_id_lookup_variants(raw):
+            expanded.add(variant)
     by_key: dict[str, dict[str, Any]] = {}
     for ent in entity_items:
         if not isinstance(ent, dict):
@@ -2393,12 +2397,10 @@ async def toggle_dashboard_widget(
     source = str(widget.get("source") or "").strip().lower()
     entity_snapshot: dict[str, Any] | None = None
     target_id = entity_id
-    for entity in entity_items:
-        if entity.get("entity_id") == entity_id or entity.get("unique_id") == entity_id:
-            entity_snapshot = entity
-            target_id = str(entity.get("unique_id") or entity_id)
-            source = str(entity.get("source") or source).strip().lower()
-            break
+    entity_snapshot = resolve_entity_by_id(entity_id, entity_items)
+    if entity_snapshot:
+        target_id = str(entity_snapshot.get("unique_id") or entity_snapshot.get("entity_id") or entity_id)
+        source = str(entity_snapshot.get("source") or source).strip().lower()
     manager = get_integration_manager()
     component = _resolve_integration_component(
         manager,

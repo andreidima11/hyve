@@ -1,6 +1,7 @@
 /** Apply WS entity diffs to dashboard cache + Hyveview fast-path patching. */
 
 import { fusionSolarWidgetEntityIds } from '/static/hyveview/cards/fusion_solar.js';
+import { entityIdVariants, findEntityById, updatesGetWithAliases, updatesHasWithAliases } from '../entity_aliases.js';
 
 export function createDashboardEntityPatcher(deps) {
     const {
@@ -56,7 +57,7 @@ export function createDashboardEntityPatcher(deps) {
                 available: fromChild.available !== false,
             };
         }
-        const fromCache = (cache.available_entities || []).find((e) => e?.entity_id === id);
+        const fromCache = findEntityById(cache.available_entities, id);
         if (fromCache) {
             return {
                 entity_id: id,
@@ -110,7 +111,7 @@ export function createDashboardEntityPatcher(deps) {
             const touchedWidgetIds = new Set();
             const collectTouched = (widget) => {
                 if (!widget || !widget.id) return;
-                if (widgetEntityIds(widget).some((id) => updates.has(id))) {
+                if (widgetEntityIds(widget).some((id) => updatesHasWithAliases(updates, id))) {
                     touchedWidgetIds.add(String(widget.id));
                 }
             };
@@ -139,8 +140,10 @@ export function createDashboardEntityPatcher(deps) {
         const cache = getCache();
         const updates = new Map();
         const addFromEntity = (entity) => {
-            if (!entity || !entity.entity_id || !targets.has(entity.entity_id)) return;
-            if (updates.has(entity.entity_id)) return;
+            if (!entity || !entity.entity_id) return;
+            const eid = String(entity.entity_id);
+            if (!entityIdVariants(eid).some((variant) => targets.has(variant))) return;
+            if (updates.has(eid)) return;
             updates.set(entity.entity_id, {
                 entity_id: entity.entity_id,
                 state: entity.current_state ?? entity.state,
@@ -162,7 +165,7 @@ export function createDashboardEntityPatcher(deps) {
         });
         targets.forEach(id => {
             if (updates.has(id)) return;
-            const item = (cache.available_entities || []).find(it => it?.entity_id === id);
+            const item = findEntityById(cache.available_entities, id);
             if (item) updates.set(id, {
                 entity_id: id,
                 state: item.state,
@@ -223,7 +226,7 @@ export function createDashboardEntityPatcher(deps) {
                 const targetIds = widgetEntityIds(widget);
                 if (!targetIds.length && widget.entity_id) targetIds.push(widget.entity_id);
                 targetIds.forEach(entityId => {
-                    const upd = updates.get(entityId);
+                    const upd = updatesGetWithAliases(updates, entityId);
                     if (!upd) return;
                     const pending = pendingForEntity(entityId);
                     if (pending) {

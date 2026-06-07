@@ -108,3 +108,58 @@ def test_toggle_mosquitto_switch_sends_turn_on(monkeypatch):
     assert result["status"] == "ok"
     assert result["action"] == "turn_on"
     assert calls == [("z2m:0xa4c138fe8b1226ab:state_l3", "turn_on", None)]
+
+
+def test_toggle_resolves_ha_discovery_alias_for_z2m_widget_id(monkeypatch):
+    calls = []
+
+    class FakeMosquitto:
+        async def control_entity(self, target_id, action, payload):
+            calls.append((target_id, action, payload))
+            return {"ok": True}
+
+    class FakeManager:
+        def get_by_entry(self, entry_id):
+            return FakeMosquitto()
+
+        def get(self, slug):
+            return FakeMosquitto() if slug == "mosquitto" else None
+
+        def entries_for(self, slug):
+            return [FakeMosquitto()] if slug == "mosquitto" else []
+
+    async def fake_available_entities():
+        return [{
+            "entity_id": "switch.releu_dormitor2_l3",
+            "unique_id": "z2m:releu_dormitor2:state_l3",
+            "source": "mosquitto",
+            "entry_id": "mqtt_entry",
+            "state": "off",
+            "domain": "switch",
+            "controllable": True,
+        }]
+
+    monkeypatch.setattr(dashboard, "_dashboard_section", lambda page_id=None: {
+        "panels": [{
+            "widgets": [{
+                "id": "733292e0",
+                "type": "button",
+                "renderer": "button",
+                "entity_id": "switch.releu_dormitor2_state_l3",
+                "source": "mosquitto",
+            }]
+        }]
+    })
+    monkeypatch.setattr(dashboard, "_available_entities", fake_available_entities)
+    monkeypatch.setattr(dashboard, "get_integration_manager", lambda: FakeManager())
+
+    result = asyncio.run(dashboard.toggle_dashboard_widget(
+        "733292e0",
+        dashboard.DashboardToggleBody(desired_state="on", action="toggle"),
+        page_id="acasa",
+        db=None,
+        user=None,
+    ))
+
+    assert result["status"] == "ok"
+    assert calls == [("z2m:releu_dormitor2:state_l3", "turn_on", None)]

@@ -481,9 +481,12 @@ def _build_command(
 
 
 def _find_entity_record(items: list[dict[str, Any]], entity_id: str) -> dict[str, Any] | None:
-    for item in items:
-        if item.get("entity_id") == entity_id or item.get("unique_id") == entity_id:
-            return item
+    from integrations.entity_utils import entity_id_lookup_variants
+
+    for variant in entity_id_lookup_variants(entity_id):
+        for item in items:
+            if item.get("entity_id") == variant or item.get("unique_id") == variant:
+                return item
     return None
 
 
