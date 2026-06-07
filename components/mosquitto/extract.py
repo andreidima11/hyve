@@ -424,6 +424,14 @@ def _z2m_set_payload(prop: str, value: Any) -> str:
     return json.dumps({prop: value}, ensure_ascii=False)
 
 
+_ENDPOINT_SET_TOPIC = re.compile(r"/l\d+/set$", re.I)
+
+
+def _command_prefers_plain_payload(command_topic: str) -> bool:
+    """HA MQTT discovery uses per-endpoint topics (…/l3/set) with plain ON/OFF."""
+    return bool(_ENDPOINT_SET_TOPIC.search(str(command_topic or "")))
+
+
 def _build_command(
     domain: str,
     verb: str,
@@ -438,10 +446,10 @@ def _build_command(
     payload_on = caps.get("payload_on") if caps.get("payload_on") is not None else "ON"
     payload_off = caps.get("payload_off") if caps.get("payload_off") is not None else "OFF"
     z2m_prop = str(caps.get("z2m_property") or "").strip()
-    if not z2m_prop and cmd.endswith("/set"):
+    if not z2m_prop and cmd.endswith("/set") and not _command_prefers_plain_payload(cmd):
         z2m_prop = _extract_z2m_property_from_template(str(caps.get("value_template") or ""))
 
-    if z2m_prop:
+    if z2m_prop and not _command_prefers_plain_payload(cmd):
         if verb in {"turn_on", "on"}:
             return cmd, _z2m_set_payload(z2m_prop, payload_on)
         if verb in {"turn_off", "off"}:

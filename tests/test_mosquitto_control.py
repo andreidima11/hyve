@@ -76,6 +76,22 @@ def test_resolve_control_caps_merges_legacy_attributes():
     assert caps["z2m_property"] == "state_l2"
 
 
+def test_ha_discovery_endpoint_topic_uses_plain_on_off():
+    """Tuya multi-gang HA discovery: …/l3/set expects ON/OFF, not JSON."""
+    caps = {
+        "command_topic": "zigbee2mqtt/0xa4c138fe8b1226ab/l3/set",
+        "state_topic": "zigbee2mqtt/0xa4c138fe8b1226ab",
+        "value_template": "{{ value_json.state_l3 }}",
+        "payload_on": "ON",
+        "payload_off": "OFF",
+    }
+    topic, payload = _build_command("switch", "turn_on", caps, None)
+    assert topic == "zigbee2mqtt/0xa4c138fe8b1226ab/l3/set"
+    assert payload == "ON"
+    _, payload_off = _build_command("switch", "turn_off", caps, None)
+    assert payload_off == "OFF"
+
+
 def test_ha_discovery_infers_z2m_property_from_value_template():
     caps = {
         "command_topic": "zigbee2mqtt/lamp/set",
