@@ -764,7 +764,7 @@ function renderProfilesList() {
     bindProfileCardDragDrop(container);
 }
 
-window.moveProfileOrder = async function(profileId, direction) {
+export async function moveProfileOrder(profileId, direction) {
     const ids = _modelProfiles.map(p => p.id);
     const idx = ids.indexOf(profileId);
     if (idx === -1) return;
@@ -924,7 +924,7 @@ function updateChatAttachVisibility() {
     }
 }
 
-window.syncVisionCapabilityCheckbox = function() {
+export function syncVisionCapabilityCheckbox() {
     const visionEnabledEl = document.getElementById('profile-vision-enabled');
     const visionUrlEl = document.getElementById('profile-vision-url');
     const visionModelEl = document.getElementById('profile-vision-model');
@@ -939,7 +939,7 @@ window.syncVisionCapabilityCheckbox = function() {
     }
 };
 
-window.showProfileEditor = function(profileId) {
+export function showProfileEditor(profileId) {
     const overlay = document.getElementById('profile-editor-overlay');
     if (!overlay) return;
     const titleEl = document.getElementById('profile-editor-title');
@@ -1116,11 +1116,11 @@ window.showProfileEditor = function(profileId) {
     openSubPage('profile-editor-overlay');
 };
 
-window.closeProfileEditor = function() {
+export function closeProfileEditor() {
     closeSubPage('profile-editor-overlay');
 };
 
-window.onProfileProviderChange = function() {
+export function onProfileProviderChange() {
     const prov = document.getElementById('profile-provider');
     const url = document.getElementById('profile-url');
     const model = document.getElementById('profile-model');
@@ -1146,7 +1146,7 @@ window.onProfileProviderChange = function() {
     }
 };
 
-window.onProfileSubProviderChange = function(type) {
+export function onProfileSubProviderChange(type) {
     const prov = document.getElementById(`profile-${type}-provider`);
     const url = document.getElementById(`profile-${type}-url`);
     const model = document.getElementById(`profile-${type}-model`);
@@ -1171,7 +1171,7 @@ window.onProfileSubProviderChange = function(type) {
     }
 };
 
-window.saveProfile = async function(e) {
+export async function saveProfile(e) {
     if (e) e.preventDefault();
     const payload = {
         id: document.getElementById('profile-edit-id')?.value || '',
@@ -1232,7 +1232,7 @@ window.saveProfile = async function(e) {
     } catch (e) { showToast(t('config.profile_save_error'), 'error'); }
 };
 
-window.deleteProfile = async function(profileId) {
+export async function deleteProfile(profileId) {
     if (!(await showConfirm(t('config.profile_delete_confirm')))) return;
     try {
         const res = await apiCall(`/api/model-profiles/${profileId}`, { method: 'DELETE' });
@@ -1243,7 +1243,7 @@ window.deleteProfile = async function(profileId) {
     } catch (e) { showToast(t('common.error'), 'error'); }
 };
 
-window.openProfileCardMenu = function(profileId, ev) {
+export function openProfileCardMenu(profileId, ev) {
     if (ev) ev.stopPropagation();
     const modal = document.getElementById('profile-card-menu-modal');
     if (!modal) return;
@@ -1267,12 +1267,12 @@ window.openProfileCardMenu = function(profileId, ev) {
     modal.setAttribute('aria-hidden', 'false');
 };
 
-window.closeProfileCardMenu = function() {
+export function closeProfileCardMenu() {
     const modal = document.getElementById('profile-card-menu-modal');
     if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); }
 };
 
-window.setProfileVisibility = async function(profileId, visible) {
+export async function setProfileVisibility(profileId, visible) {
     try {
         const res = await apiCall(`/api/model-profiles/${profileId}`, { method: 'PATCH', body: { visible_in_selector: visible } });
         if (!res.ok) throw new Error();
@@ -1301,7 +1301,7 @@ window.setProfileVisibility = async function(profileId, visible) {
     }
 }
 
-window.duplicateProfile = async function(profileId) {
+export async function duplicateProfile(profileId) {
     const p = _modelProfiles.find(x => x.id === profileId);
     if (!p) return;
     const newId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36).slice(-8);
@@ -1354,7 +1354,7 @@ function playChatBarGlow(profileId) {
     bar.addEventListener('animationend', () => bar.classList.remove('chat-input-bar-flash'), { once: true });
 }
 
-window.activateProfile = async function(profileId) {
+export async function activateProfile(profileId) {
     try {
         const res = await apiCall(`/api/model-profiles/${profileId}/activate`, { method: 'POST' });
         if (!res.ok) throw new Error();
@@ -1792,7 +1792,7 @@ function startReconnectPolling() {
 }
 // --- WHISPER / VOICE INPUT ---
 
-window.testWhisperConnection = async function() {
+export async function testWhisperConnection() {
     const btn = document.getElementById('whisper-test-btn');
     const resultDiv = document.getElementById('whisper-test-result');
     if (btn) btn.disabled = true;
@@ -1822,7 +1822,7 @@ window.testWhisperConnection = async function() {
     }
 };
 
-window.testPiperConnection = async function() {
+export async function testPiperConnection() {
     const btn = document.getElementById('piper-test-btn');
     if (!btn) return;
     btn.disabled = true;
