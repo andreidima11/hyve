@@ -1512,7 +1512,7 @@ async def list_dashboard_templates(_: models.User = Depends(auth.get_current_use
 
 
 @router.post("/templates")
-async def save_dashboard_template(data: DashboardTemplateSaveBody, _: models.User = Depends(auth.get_current_user)):
+async def save_dashboard_template(data: DashboardTemplateSaveBody, _: models.User = Depends(auth.get_current_admin)):
     name = data.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail={"key": "dashboard.api.template_name_required"})
@@ -1553,7 +1553,7 @@ async def save_dashboard_template(data: DashboardTemplateSaveBody, _: models.Use
 
 
 @router.delete("/templates/{template_id}")
-async def delete_dashboard_template(template_id: str, _: models.User = Depends(auth.get_current_user)):
+async def delete_dashboard_template(template_id: str, _: models.User = Depends(auth.get_current_admin)):
     cfg = settings.reload_config()
     store = _normalize_dashboard_store(_read_dashboard_raw())
     templates = [t for t in (store.get("templates") or []) if str(t.get("id")) != str(template_id)]
@@ -1565,7 +1565,7 @@ async def delete_dashboard_template(template_id: str, _: models.User = Depends(a
 async def instantiate_dashboard_template(
     template_id: str,
     data: DashboardTemplateInstantiateBody,
-    _: models.User = Depends(auth.get_current_user),
+    _: models.User = Depends(auth.get_current_admin),
 ):
     cfg = settings.reload_config()
     store = _normalize_dashboard_store(_read_dashboard_raw())
@@ -2029,7 +2029,7 @@ async def get_dashboard_widgets(
 
 
 @router.post("/panels")
-async def add_dashboard_panel(data: DashboardPanelBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_user)):
+async def add_dashboard_panel(data: DashboardPanelBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_admin)):
     section = _dashboard_section(page_id)
     panels = list(section.get("panels") or [])
     panel_pages = [p.model_dump() for p in (data.pages or [])] if data.pages else []
@@ -2042,7 +2042,7 @@ async def add_dashboard_panel(data: DashboardPanelBody, page_id: str | None = No
 
 
 @router.patch("/panels/{panel_id}")
-async def update_dashboard_panel(panel_id: str, data: DashboardPanelUpdateBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_user)):
+async def update_dashboard_panel(panel_id: str, data: DashboardPanelUpdateBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_admin)):
     section = _dashboard_section(page_id)
     panel_idx, panel = _find_panel(section, panel_id)
     if panel is None or panel_idx is None:
@@ -2063,7 +2063,7 @@ async def update_dashboard_panel(panel_id: str, data: DashboardPanelUpdateBody, 
 
 
 @router.patch("/panels/{panel_id}/layout")
-async def update_dashboard_panel_layout(panel_id: str, data: DashboardPanelLayoutBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_user)):
+async def update_dashboard_panel_layout(panel_id: str, data: DashboardPanelLayoutBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_admin)):
     section = _dashboard_section(page_id)
     panel_idx, panel = _find_panel(section, panel_id)
     if panel is None or panel_idx is None:
@@ -2080,7 +2080,7 @@ async def update_dashboard_panel_layout(panel_id: str, data: DashboardPanelLayou
 
 
 @router.delete("/panels/{panel_id}")
-async def delete_dashboard_panel(panel_id: str, page_id: str | None = None, _: models.User = Depends(auth.get_current_user)):
+async def delete_dashboard_panel(panel_id: str, page_id: str | None = None, _: models.User = Depends(auth.get_current_admin)):
     section = _dashboard_section(page_id)
     panels = list(section.get("panels") or [])
     remaining = [panel for panel in panels if panel.get("id") != panel_id]
@@ -2092,7 +2092,7 @@ async def delete_dashboard_panel(panel_id: str, page_id: str | None = None, _: m
 
 
 @router.post("/panels/{panel_id}/move")
-async def move_dashboard_panel(panel_id: str, data: DashboardMoveBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_user)):
+async def move_dashboard_panel(panel_id: str, data: DashboardMoveBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_admin)):
     section = _dashboard_section(page_id)
     panels = list(section.get("panels") or [])
     idx = next((i for i, item in enumerate(panels) if item.get("id") == panel_id), None)
@@ -2108,7 +2108,7 @@ async def move_dashboard_panel(panel_id: str, data: DashboardMoveBody, page_id: 
 
 
 @router.post("/panels/{panel_id}/reorder")
-async def reorder_dashboard_panel(panel_id: str, data: DashboardReorderBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_user)):
+async def reorder_dashboard_panel(panel_id: str, data: DashboardReorderBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_admin)):
     section = _dashboard_section(page_id)
     panels = list(section.get("panels") or [])
     from_idx = next((i for i, item in enumerate(panels) if item.get("id") == panel_id), None)
@@ -2127,7 +2127,7 @@ async def reorder_dashboard_panel(panel_id: str, data: DashboardReorderBody, pag
 
 
 @router.post("/widgets")
-async def add_dashboard_widget(data: DashboardWidgetBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_user)):
+async def add_dashboard_widget(data: DashboardWidgetBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_admin)):
     section = _dashboard_section(page_id)
     panels = [panel for panel in list(section.get("panels") or []) if panel.get("id") != STANDALONE_PANEL_ID and panel.get("kind") != "standalone"]
     section["panels"] = panels
@@ -2154,7 +2154,7 @@ async def add_dashboard_widget(data: DashboardWidgetBody, page_id: str | None = 
 
 
 @router.patch("/preferences")
-async def patch_dashboard_preferences(data: DashboardPreferencesBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_user)):
+async def patch_dashboard_preferences(data: DashboardPreferencesBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_admin)):
     section = _dashboard_section(page_id)
     section["preferences"] = {
         **_DEFAULT_PREFS,
@@ -2170,7 +2170,7 @@ async def patch_dashboard_preferences(data: DashboardPreferencesBody, page_id: s
 
 
 @router.patch("/widgets/{widget_id}")
-async def update_dashboard_widget(widget_id: str, data: DashboardWidgetUpdateBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_user)):
+async def update_dashboard_widget(widget_id: str, data: DashboardWidgetUpdateBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_admin)):
     section = _dashboard_section(page_id)
     panel_idx, panel, widget_idx, widget = _find_widget(section, widget_id)
     if widget is None or widget_idx is None or panel is None or panel_idx is None:
@@ -2199,7 +2199,7 @@ async def update_dashboard_widget(widget_id: str, data: DashboardWidgetUpdateBod
 
 
 @router.delete("/widgets/{widget_id}")
-async def delete_dashboard_widget(widget_id: str, page_id: str | None = None, _: models.User = Depends(auth.get_current_user)):
+async def delete_dashboard_widget(widget_id: str, page_id: str | None = None, _: models.User = Depends(auth.get_current_admin)):
     section = _dashboard_section(page_id)
     panel_idx, panel, _, _ = _find_widget(section, widget_id)
     if panel is None or panel_idx is None:
@@ -2210,7 +2210,7 @@ async def delete_dashboard_widget(widget_id: str, page_id: str | None = None, _:
 
 
 @router.post("/widgets/{widget_id}/move")
-async def move_dashboard_widget(widget_id: str, data: DashboardMoveBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_user)):
+async def move_dashboard_widget(widget_id: str, data: DashboardMoveBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_admin)):
     section = _dashboard_section(page_id)
     panel_idx, panel, widget_idx, _ = _find_widget(section, widget_id)
     if panel is None or panel_idx is None or widget_idx is None:
@@ -2226,7 +2226,7 @@ async def move_dashboard_widget(widget_id: str, data: DashboardMoveBody, page_id
 
 
 @router.post("/widgets/{widget_id}/relocate")
-async def relocate_dashboard_widget(widget_id: str, data: DashboardWidgetRelocateBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_user)):
+async def relocate_dashboard_widget(widget_id: str, data: DashboardWidgetRelocateBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_admin)):
     section = _dashboard_section(page_id)
     source_panel_idx, source_panel, widget_idx, widget = _find_widget(section, widget_id)
     if source_panel is None or source_panel_idx is None or widget_idx is None or widget is None:

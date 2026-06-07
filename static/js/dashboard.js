@@ -33,6 +33,7 @@ import {
 } from './dashboard/constants.js';
 import { dashApiError as _dashApiError, escapeHtml as _escape, stateOn as _stateOn } from './dashboard/helpers.js';
 import { initDashboardWidgetActions } from './dashboard/widget_actions.js';
+import { applyDashboardEditAccess, canEditDashboard, requireDashboardEditAccess } from './dashboard/edit_access.js';
 export {
     onDashboardBrightnessInput,
     onDashboardBrightnessChange,
@@ -1398,6 +1399,7 @@ export function selectDashboardPanelPage(panelId, pageId) {
 }
 
 export async function removeDashboardPanel(panelId) {
+    if (!requireDashboardEditAccess()) return;
     if (!panelId) return;
     const ok = await showConfirm('Ștergi această secțiune și cardurile din ea?', { title: 'Șterge secțiunea', danger: true, confirmText: 'Șterge' });
     if (!ok) return;
@@ -1720,10 +1722,12 @@ function _readDashboardPanelVisibility() {
 }
 
 export function openDashboardPanelCreator() {
+    if (!requireDashboardEditAccess()) return;
     _openDashboardPanelModal('add', { title: '', size: 'sm', icon: '', show_pagination: true, pages: [] });
 }
 
 export function openDashboardPanelEditor(panelId) {
+    if (!requireDashboardEditAccess()) return;
     const panel = (_dashboardCache.panels || []).find(p => String(p.id) === String(panelId));
     if (!panel) return;
     _openDashboardPanelModal('edit', panel);
@@ -1740,6 +1744,7 @@ export function closeDashboardPanelModal() {
 }
 
 export async function saveDashboardPanel() {
+    if (!requireDashboardEditAccess()) return;
     const body = _readDashboardPanelModalBody();
     try {
         const params = _currentPageId ? `?page_id=${encodeURIComponent(_currentPageId)}` : '';
@@ -2845,6 +2850,7 @@ function _cardIcon(card) {
 }
 
 export async function openDashboardAddPicker() {
+    if (!requireDashboardEditAccess()) return;
     // R5.2: route the "Add card" action through the schema-driven editor.
     // The new editor renders its own card picker (built from the registry),
     // so we no longer open the legacy `dashboard-add-picker-modal`.
@@ -3201,6 +3207,7 @@ export async function selectDashboardPage(pageId) {
 }
 
 export async function createDashboardPage() {
+    if (!requireDashboardEditAccess()) return;
     // fill in title, icon, columns, layout, etc. before the page is created.
     openDashboardPageModal({ create: true });
 }
@@ -3783,14 +3790,10 @@ async function _loadDashboardImpl(signal = null, { soft = false } = {}) {
     const grid = document.getElementById('dashboard-grid');
     if (!grid) return;
     _setDashboardRefreshIndicator(false);
-    // Reveal the dashboard header menu (3-dots, layout density, edit-mode,
-    // add card / panel / page). The HTML keeps it hidden by default so it
-    // doesn't bleed onto other tabs; we toggle it on every time the user
-    // lands on the dashboard view.
-    const menuWrap = document.getElementById('dashboard-header-menu-wrap');
-    if (menuWrap) {
-        menuWrap.classList.remove('hidden');
-        menuWrap.classList.add('flex');
+    // Reveal admin-only dashboard header controls when the user can edit layout.
+    applyDashboardEditAccess();
+    if (!canEditDashboard() && _dashboardEditMode) {
+        resetDashboardEditingState();
     }
     _bindHashRouter();
     // If the URL hash points to a specific page, prefer it over the cached one.
@@ -3897,6 +3900,7 @@ function _applyDashboardModalMode(mode /* 'add' | 'edit' */) {
 }
 
 export async function openDashboardAddModal(kind = 'button') {
+    if (!requireDashboardEditAccess()) return;
     const modal = document.getElementById('dashboard-add-modal');
     if (!modal) return;
     // Default to add-mode; openDashboardWidgetEditor flips it after we return.
@@ -3982,6 +3986,7 @@ export function closeDashboardAddModal() {
 }
 
 export function toggleDashboardEditMode() {
+    if (!requireDashboardEditAccess()) return;
     _resolveCurrentDashboardPageId();
     _dashboardEditMode = !_dashboardEditMode;
     if (_dashboardEditMode) {
@@ -3997,12 +4002,14 @@ export function toggleDashboardEditMode() {
 }
 
 export async function setDashboardFilter(mode) {
+    if (!requireDashboardEditAccess()) return;
     _dashboardCache.preferences = { ...DEFAULT_PREFS, ...(_dashboardCache.preferences || {}), filter_mode: mode || 'all' };
     _renderDashboard();
     await saveDashboardPreferences(true);
 }
 
 export async function toggleDashboardLayout() {
+    if (!requireDashboardEditAccess()) return;
     const next = (_dashboardCache.preferences?.layout_mode === 'compact') ? 'comfortable' : 'compact';
     _dashboardCache.preferences = { ...DEFAULT_PREFS, ...(_dashboardCache.preferences || {}), layout_mode: next };
     _renderDashboard();
@@ -4010,6 +4017,7 @@ export async function toggleDashboardLayout() {
 }
 
 export async function saveDashboardPreferences(silent = false) {
+    if (!requireDashboardEditAccess()) return;
     const hideCb = document.getElementById('dashboard-hide-unavailable');
     const prefs = {
         ...DEFAULT_PREFS,
@@ -4377,6 +4385,7 @@ async function _deleteDashboardWidgetSilent(widgetId) {
 }
 
 export async function addDashboardSwitch() {
+    if (!requireDashboardEditAccess()) return;
     const entityInput = document.getElementById('dashboard-entity-select');
     const title = document.getElementById('dashboard-widget-title');
     const subtitle = document.getElementById('dashboard-widget-subtitle');
@@ -4512,6 +4521,7 @@ export async function addDashboardSwitch() {
 }
 
 export async function removeDashboardWidget(widgetId) {
+    if (!requireDashboardEditAccess()) return;
     if (!(await showConfirm(t('dashboard.delete_widget_confirm') || 'Delete this dashboard widget?'))) return;
     try {
         const res = await apiCall(`/api/dashboard/widgets/${encodeURIComponent(widgetId)}`, { method: 'DELETE' });
@@ -4974,6 +4984,7 @@ function _cardCurrentPosition(card, gridEl, geom, span) {
 }
 
 export function startDashboardDrag(event, widgetId) {
+    if (!canEditDashboard()) return;
     if (!_dashboardEditMode) return;
     if (event.button !== undefined && event.button !== 0) return;
     // Don't start a drag from buttons / resize handles inside the card.
@@ -5490,6 +5501,7 @@ function _touchHoldGate(event, begin) {
 // Public entry point bound on the drag handle. For touch we apply the
 // press-and-hold gate so a normal finger swipe still scrolls the page.
 export function startDashboardPanelDrag(event, panelId) {
+    if (!canEditDashboard()) return;
     if (!_dashboardEditMode) return;
     if (event.button !== undefined && event.button !== 0) return;
     if (_touchHoldGate(event, (synthetic) => _beginDashboardPanelDrag(synthetic, panelId))) return;
@@ -6274,6 +6286,7 @@ function _renderDashboardWithFlip() {
 let _dashboardResizeState = null;
 
 export function startDashboardResize(event, widgetId, direction = 'se') {
+    if (!canEditDashboard()) return;
     if (!_dashboardEditMode) return;
     if (event.button !== undefined && event.button !== 0) return;
     event.preventDefault();
@@ -6433,6 +6446,7 @@ async function _finishDashboardResize(event) {
 }
 
 export async function moveDashboardWidget(widgetId, direction = 'right') {
+    if (!requireDashboardEditAccess()) return;
     try {
         const res = await apiCall(`/api/dashboard/widgets/${encodeURIComponent(widgetId)}/move`, {
             method: 'POST',
@@ -6721,6 +6735,7 @@ function _patchDashboardEntityState(entityId, state, attributesPatch = null) {
 }
 
 export function openDashboardPageModal(opts = {}) {
+    if (!requireDashboardEditAccess()) return;
     closeDashboardMenu();
     syncModalViewportMetrics();
     const modal = document.getElementById('dashboard-page-modal');
@@ -6787,6 +6802,7 @@ export function closeDashboardPageModal() {
 }
 
 export async function saveDashboardHeader() {
+    if (!requireDashboardEditAccess()) return;
     const titleInput = document.getElementById('dashboard-page-title-input') || document.getElementById('dashboard-title-input');
     const iconInput = document.getElementById('dashboard-page-icon-input');
     const columnsInput = document.getElementById('dashboard-page-columns');
@@ -6920,6 +6936,7 @@ export async function saveDashboardHeader() {
 }
 
 export async function deleteDashboardPage() {
+    if (!requireDashboardEditAccess()) return;
     const pageId = _currentPageId || _dashboardCache.current_page_id || _dashboardCache.page_id;
     if (!pageId) return;
     const pages = Array.isArray(_dashboardCache.pages) ? _dashboardCache.pages : [];
@@ -7008,6 +7025,7 @@ function _normalizeLocalWidgetPatch(widget, patch) {
 // schema-driven editor now owns both flows; this function simply maps the
 // widget into the editor card shape and dispatches the result.
 export async function openDashboardWidgetEditor(widgetId) {
+    if (!requireDashboardEditAccess()) return;
     const widget = _findWidget(widgetId);
     if (!widget) {
         showToast(t('dashboard.card_not_found') || 'Card not found', 'error');
@@ -7368,6 +7386,7 @@ export function setDashboardWidgetEditorMode(mode = 'visual') {
 }
 
 export async function saveDashboardWidgetEdit() {
+    if (!requireDashboardEditAccess()) return;
     if (!_dashboardCurrentEditorId) return;
 
     let patch = {};
@@ -7458,6 +7477,7 @@ function _ensureDashboardYamlEditor() {
 }
 
 export async function openDashboardYamlEditor() {
+    if (!requireDashboardEditAccess()) return;
     return _ensureDashboardYamlEditor().openDashboardYamlEditor();
 }
 

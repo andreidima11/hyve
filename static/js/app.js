@@ -3,6 +3,7 @@ import { showToast, debounce, showConfirm } from './utils.js';
 import { handleLogin, loadUserProfile, restoreRememberedCredentials, tryAutoLogin } from './auth.js';
 import { setTheme, loadThemeSelector, toggleSidebar, closeSidebar, isSidebarOpen, switchTab, switchConfigTab, openConfigSection, closeConfigSection, startLogStream, initSidebarGestures, getStoredThemeId } from './ui.js?v=hyveview-cards-51';
 import { initI18n, setLanguage, t, loadComponentTranslations } from './lang/index.js';
+import { applyDashboardEditAccess } from './dashboard/edit_access.js';
 import { sendMessage, stopStreaming, currentSessionId, addAttachedImage, addAttachedDocument, applyInitialGreeting, handleSlashInput, handleSlashKeydown } from './chat.js';
 import { initThinkingModeSelector } from './thinking_mode.js';
 import { setUserProfileContext, loadUserProfilePage, switchUserProfileTab, saveUserProfileGeneral, saveUserProfileSecurity } from './user_profile.js';
@@ -65,7 +66,7 @@ import {
     openDashboardEntityPicker, closeDashboardEntityPicker, handleDashboardEntityPickerKeydown, pickDashboardEntityOption,
     addSelectedDashboardClimateEntity, removeDashboardClimateEntity, updateDashboardClimateEntityMeta,
     setDashboardAddEditorMode, toggleDashboardVisibilityEditor, addDashboardVisibilityCondition
-} from './dashboard.js?v=hyveview-cards-54';
+} from './dashboard.js?v=hyveview-cards-55';
 
 const _lazyModulePromises = new Map();
 
@@ -634,6 +635,7 @@ async function syncUiLanguageFromConfig() {
 function applyProfileFlags(profile) {
     window.__isAdmin = !!profile.is_admin;
     setUserProfileContext(profile);
+    try { applyDashboardEditAccess(); } catch (_) {}
     if (profile.is_admin) {
         const navAdmin = document.getElementById('nav-admin');
         if (navAdmin) navAdmin.classList.remove('hidden');
