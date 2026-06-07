@@ -1,6 +1,7 @@
 import { apiCall, getSSEToken } from './api.js';
 import { escapeHtml, showConfirm, showToast } from './utils.js';
 import { t } from './lang/index.js';
+import { switchTab, openConfigSection, switchUserProfileTab } from './nav_bridge.js';
 
 let _currentFilter = 'all';
 let _notificationPage = 1;
@@ -382,8 +383,8 @@ export async function actOnAmbientSuggestion(id, actionIndex) {
             updateNotificationBadge(data.unread_count || 0);
             const navUrl = data.navigate_url
                 || (data.results && data.results[0]?.tool === 'navigate' ? data.results[0]?.args?.url : '');
-            if (navUrl && typeof window.navigateNotification === 'function') {
-                await window.navigateNotification(navUrl, id);
+            if (navUrl) {
+                await navigateNotification(navUrl, id);
             } else {
                 const msg = data.message || data.results?.[0]?.result || t('notifications.done');
                 showToast(msg, 'success', 4500);
@@ -493,14 +494,14 @@ export async function navigateNotification(actionUrl, notifId) {
     if (!actionUrl) return;
     const _routeMap = {
         '#updates/addons': () => {
-            if (typeof window.switchTab === 'function') window.switchTab('config');
-            if (typeof window.openConfigSection === 'function') window.openConfigSection('updates');
+            switchTab('config');
+            openConfigSection('updates');
         },
         '#smarthome': () => {
-            if (typeof window.switchTab === 'function') window.switchTab('smarthome');
+            switchTab('smarthome');
         },
         '#integrations': () => {
-            if (typeof window.switchTab === 'function') window.switchTab('smarthome');
+            switchTab('smarthome');
         },
     };
     const handler = _routeMap[actionUrl];
@@ -509,10 +510,10 @@ export async function navigateNotification(actionUrl, notifId) {
     } else if (actionUrl.startsWith('#')) {
         const section = actionUrl.replace('#', '').split('/')[0];
         if (['smarthome', 'integrations', 'devices'].includes(section)) {
-            if (typeof window.switchTab === 'function') window.switchTab('smarthome');
+            switchTab('smarthome');
         } else {
-            if (typeof window.switchTab === 'function') window.switchTab('config');
-            if (typeof window.openConfigSection === 'function') window.openConfigSection(section);
+            switchTab('config');
+            openConfigSection(section);
         }
     } else if (actionUrl.startsWith('http')) {
         window.open(actionUrl, '_blank');
@@ -667,13 +668,11 @@ export function initNotifications() {
     });
 
     window.__hyveShowNotification = function(title, message) {
-        if (typeof window.switchTab === 'function') window.switchTab('user');
-        if (typeof window.switchUserProfileTab === 'function') window.switchUserProfileTab('notifications');
+        switchTab('user');
+        switchUserProfileTab('notifications');
         loadUserNotifications('all');
         if (message) showToast(message, 'info', 3500);
     };
-
-    window.navigateNotification = navigateNotification;
 
     loadNotificationCounts();
     startLiveFallbacks();

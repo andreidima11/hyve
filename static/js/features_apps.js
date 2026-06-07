@@ -4,6 +4,7 @@
 import { apiCall } from './api.js';
 import { showToast, escapeHtml, showConfirm } from './utils.js';
 import { t } from './lang/index.js';
+import { switchTab, openConfigSection } from './nav_bridge.js';
 
 let _currentLogSlug = null;
 let _pollTimer = null;
@@ -646,8 +647,8 @@ export function closeInstallLogModal() {
 
 /** Navigate to the Updates page where add-on updates are applied (generic, no slug needed). */
 export function goToAddonUpdates() {
-    try { if (typeof window.switchTab === 'function') window.switchTab('config'); } catch (_) {}
-    if (typeof window.openConfigSection === 'function') window.openConfigSection('updates');
+    try { switchTab('config'); } catch (_) {}
+    openConfigSection('updates');
 }
 
 export async function uninstallApp(slug) {

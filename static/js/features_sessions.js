@@ -2,6 +2,7 @@ import { apiCall } from './api.js';
 import { t } from './lang/index.js';
 import { setCurrentSessionId, loadSessionHistory, currentSessionId, setSessionDisplay, showChatEmptyState } from './chat.js';
 import { escapeHtml, showToast } from './utils.js';
+import { switchTab, toggleSidebar } from './nav_bridge.js';
 
 async function findExistingEmptySession(excludeSessionId = null) {
     try {
@@ -78,7 +79,7 @@ export async function loadSessionsList() {
 
 export async function openSession(id) {
     if (!id) return;
-    if (typeof window.switchTab === 'function') window.switchTab('chat');
+    switchTab('chat');
     await loadSessionHistory(id);
     setCurrentSessionId(id);
 
@@ -92,7 +93,7 @@ export async function openSession(id) {
 }
 
 export async function newChatSession() {
-    if (typeof window.switchTab === 'function') window.switchTab('chat');
+    switchTab('chat');
 
     /* If already on an empty chat session, don't create another one */
     if (currentSessionId) {
@@ -193,9 +194,7 @@ function _closeSidebarOnMobileIfOpen() {
     if (window.innerWidth >= 1024) return;
     const sb = document.getElementById('sidebar');
     const isOpen = !!(sb && !sb.classList.contains('-translate-x-full'));
-    if (isOpen && typeof window.toggleSidebar === 'function') {
-        window.toggleSidebar();
-    }
+    if (isOpen) toggleSidebar();
 }
 
 export async function clearSessionContext() {

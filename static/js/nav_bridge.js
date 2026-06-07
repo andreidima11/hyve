@@ -1,0 +1,39 @@
+/**
+ * Navigation callbacks registered once from app.js — avoids circular imports
+ * (e.g. dashboard.js ↔ ui.js) while replacing window.switchTab bridges.
+ */
+
+/** @type {Record<string, (...args: unknown[]) => unknown>} */
+const _handlers = {};
+
+export function registerNavBridge(handlers) {
+    Object.assign(_handlers, handlers || {});
+}
+
+export function switchTab(tabId, options) {
+    return _handlers.switchTab?.(tabId, options);
+}
+
+export function closeSidebar() {
+    return _handlers.closeSidebar?.();
+}
+
+export function toggleSidebar() {
+    return _handlers.toggleSidebar?.();
+}
+
+export function isSidebarOpen() {
+    return _handlers.isSidebarOpen?.();
+}
+
+export function openConfigSection(section) {
+    return _handlers.openConfigSection?.(section);
+}
+
+export function switchUserProfileTab(tab) {
+    return _handlers.switchUserProfileTab?.(tab);
+}
+
+export function loadUserProfilePage() {
+    return _handlers.loadUserProfilePage?.();
+}

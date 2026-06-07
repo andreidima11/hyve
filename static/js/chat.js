@@ -2,6 +2,7 @@ import { apiCall, authToken, suppressLogout } from './api.js';
 import { t, tRaw } from './lang/index.js';
 import { getThinkingMode } from './thinking_mode.js';
 import { escapeHtml, showToast, TOOL_ICONS, TOOL_ICON_FALLBACK, buildSourcesHtml, loadScriptOnce, loadStyleOnce } from './utils.js';
+import { switchUserProfileTab, switchTab } from './nav_bridge.js';
 
 if (typeof marked !== 'undefined') {
     // Custom renderer for better chat markdown rendering
@@ -1613,10 +1614,12 @@ async function handleSlashCommand(msg) {
 
         // Handle post-command actions
         const action = data.action;
-        if (action === 'clear_context' && typeof window.clearSessionContext === 'function') {
-            window.clearSessionContext();
-        } else if (action === 'new_session' && typeof window.newChatSession === 'function') {
-            window.newChatSession();
+        if (action === 'clear_context') {
+            const { clearSessionContext } = await import('./features_sessions.js');
+            await clearSessionContext();
+        } else if (action === 'new_session') {
+            const { newChatSession } = await import('./features_sessions.js');
+            await newChatSession();
         } else if (action === 'restart') {
             suppressLogout(true);
             showToast(t('chat.server_restarting'), 'info', 8000);
@@ -2826,8 +2829,8 @@ function _showNotificationBubble(message, type) {
 // If a session_id is provided and matches the current session, just append.
 // If different session, switch to that session first.
 window.__hyveShowNotification = function(title, message, sessionId) {
-    if (typeof window.switchTab === 'function') window.switchTab('user');
-    if (typeof window.switchUserProfileTab === 'function') window.switchUserProfileTab('notifications');
+    switchTab('user');
+    switchUserProfileTab('notifications');
     if (message) showToast(message, 'info', 3500);
 };
 

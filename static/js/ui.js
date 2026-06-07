@@ -1,4 +1,5 @@
 import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive, refreshIntegrationsSettingsView, loadNotificationPrefs, loadAutomations, checkAddonUpdates } from './features.js';
+import { loadUserProfilePage } from './user_profile.js';
 import { loadDashboard, dashboardHasRenderedContent, resetDashboardEditingState, disconnectDashboardLive, initDashboardSidebarNav } from './dashboard.js';
 import { applyDashboardEditAccess } from './dashboard/edit_access.js';
 import { closeAllSubPages } from './utils.js';
@@ -332,7 +333,7 @@ export function switchTab(tabId, options = {}) {
     if (tabId === 'smarthome') loadSmarthome();
     else { try { disconnectSmarthomeLive(); } catch (_) {} }
     if (tabId === 'skills') loadSkills();
-    if (tabId === 'user' && typeof window.loadUserProfilePage === 'function') window.loadUserProfilePage();
+    if (tabId === 'user') loadUserProfilePage();
 
     // Stop voice recording when navigating away from chat
     if (tabId !== 'chat' && typeof window.toggleVoiceRecording === 'function') {

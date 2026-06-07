@@ -4,6 +4,7 @@
 import { apiCall } from './api.js';
 import { t, translateApiDetail, integrationApiMessage, getLanguage, tState } from './lang/index.js';
 import { escapeHtml, showToast, showConfirm, openSubPage, closeSubPage } from './utils.js';
+import { switchTab } from './nav_bridge.js';
 import { renderEntityModal, getDomainIcon } from './entity_renderers.js';
 import { ACTIVE_STATES, CONTROLLABLE } from './entity_constants.js';
 import { startCameraPreviewRefresh, stopCameraPreviewRefresh } from './camera_auth.js';
@@ -2156,7 +2157,7 @@ const _DETAIL_RENDERERS = {
 // ---- sync & load --------------------------------------------------------
 
 export function navigateToSmartHomeSource(slug) {
-    if (typeof window.switchTab === 'function') window.switchTab('smarthome');
+    switchTab('smarthome');
     const catalogSlug = _integrationCatalogSlug(slug);
     setTimeout(() => filterHABySource(catalogSlug), 200);
 };

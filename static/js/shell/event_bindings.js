@@ -19,6 +19,15 @@ function _run(action, el, event) {
     case 'switchTab':
         _handlers.switchTab?.(el.dataset.navTab || '', event, el);
         return;
+    case 'toggleSidebar':
+        _handlers.toggleSidebar?.(event, el);
+        return;
+    case 'newChatSession':
+        _handlers.newChatSession?.(event, el);
+        return;
+    case 'clearSessionContext':
+        _handlers.clearSessionContext?.(event, el);
+        return;
     default: {
         const fn = _handlers[action];
         if (typeof fn === 'function') fn(event, el);

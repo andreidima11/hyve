@@ -49,6 +49,18 @@ import {
     renameIntegrationDevice,
 } from './features_integrations_settings.js';
 
+import { registerNavBridge } from './nav_bridge.js';
+
+registerNavBridge({
+    switchTab,
+    closeSidebar,
+    toggleSidebar,
+    isSidebarOpen,
+    openConfigSection,
+    switchUserProfileTab,
+    loadUserProfilePage,
+});
+
 // Expose sendMessage globally so other modules (e.g. voice input in features.js) can call it
 window.sendMessage = sendMessage;
 import { 
@@ -1363,30 +1375,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// --- Legacy window exports (shell, chat, planner lazy modules) ---
-window.setTheme = setTheme;
-window.switchTab = switchTab;
-window.switchConfigTab = switchConfigTab;
-window.loadUserProfilePage = loadUserProfilePage;
-window.switchUserProfileTab = switchUserProfileTab;
-window.loadUserNotifications = loadUserNotifications;
-window.switchUserNotificationFilter = switchUserNotificationFilter;
-window.toggleUserNotificationFilterMenu = toggleUserNotificationFilterMenu;
-window.markUserNotificationRead = markUserNotificationRead;
-window.actOnAmbientSuggestion = actOnAmbientSuggestion;
-window.archiveUserNotification = archiveUserNotification;
-window.deleteUserNotification = deleteUserNotification;
-window.clearAllUserNotifications = clearAllUserNotifications;
-window.changeUserNotificationsPage = changeUserNotificationsPage;
-window.loadNotificationCounts = loadNotificationCounts;
-window.updateNotificationBadge = updateNotificationBadge;
-window.saveUserProfileGeneral = saveUserProfileGeneral;
-window.saveUserProfileSecurity = saveUserProfileSecurity;
-window.openConfigSection = openConfigSection;
-window.closeConfigSection = closeConfigSection;
-window.toggleSidebar = toggleSidebar;
-window.closeSidebar = closeSidebar;
-window.isSidebarOpen = isSidebarOpen;
+// --- Legacy window exports (native bridge, boot) ---
 _assignLazyGlobals(_loadPlannerModule, [
     'loadPlanner', 'plannerCreateList', 'plannerDeleteList', 'plannerSelectList',
     'plannerRequestDeleteList', 'plannerCancelDeleteList',
@@ -1401,14 +1390,6 @@ _assignLazyGlobals(_loadPlannerModule, [
     'plannerDrop', 'plannerDragEnd',
 ]);
 
-// doLogout e deja pe window (definit la început)
-// Multi-chat: expunem în window acțiunile pentru sesiuni
-window.newChatSession = newChatSession;
-window.openSession = openSession;
-window.deleteSession = deleteSession;
-window.confirmDeleteSession = confirmDeleteSession;
-window.cancelDeleteSession = cancelDeleteSession;
-window.clearSessionContext = clearSessionContext;
 _assignLazyGlobals(_loadAppsModule, [
     'loadApps', 'appAction', 'openAppLogModal', 'closeAppLogModal', 'refreshAppLogs',
     'openAppDetail', 'closeAppDetail', 'installApp', 'updateApp', 'uninstallApp',

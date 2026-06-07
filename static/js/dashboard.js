@@ -8,6 +8,7 @@ import './entity_renderers.js';
 import '/static/hyveview/elements/camera_stream.js';
 import '/static/hyveview/elements/camera_carousel.js';
 import { dashDebug, DASH_DEBUG_ENABLED } from './dashboard/debug.js';
+import { switchTab, closeSidebar, isSidebarOpen } from './nav_bridge.js';
 import { HVBridge, HVSetHost, hvOpenEditor, registerHyveviewDashboardCards } from './dashboard/hyveview_setup.js';
 import { createDashboardYamlEditor } from './dashboard/yaml_editor.js';
 import { initDashboardPullToRefresh } from './dashboard/pull_refresh.js';
@@ -2498,18 +2499,17 @@ export async function openDashboardPageNav(pageId) {
     // Only switch tabs (and trigger a full dashboard reload) when we're actually
     // coming from another tab. When already on the dashboard, going through
     // switchTab would needlessly race a forced reload against the page select.
-    if (!onDash && typeof window.switchTab === 'function') {
+    if (!onDash) {
         // Keep the explicit page hash we just wrote above; otherwise switchTab
         // may rewrite it to the previously remembered dashboard page.
-        window.switchTab('dashboard', { syncHash: false });
+        switchTab('dashboard', { syncHash: false });
     }
     if (pageId) await selectDashboardPage(pageId);
     // Mobile/tablet: collapse the side menu after picking a dashboard page
     // (the main tabs already do this via switchTab, but staying on the
     // dashboard tab skips switchTab so we close it here too).
-    if (window.innerWidth < 1024 && typeof window.closeSidebar === 'function'
-        && (typeof window.isSidebarOpen !== 'function' || window.isSidebarOpen())) {
-        window.closeSidebar();
+    if (window.innerWidth < 1024 && (typeof isSidebarOpen !== 'function' || isSidebarOpen())) {
+        closeSidebar();
     }
 }
 
