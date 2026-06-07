@@ -18,6 +18,7 @@ import derived_entities
 import auth
 from auth import get_current_user
 from addons.entity_store import SyncThrottledError, get_entity_store
+from core.live_entity_hub import LiveEntityWsHub
 from routers.dashboard_ws import _authenticate as _ws_authenticate, _entity_signature, _diff_snapshot
 from smart_home_registry import normalize_entity_record
 from ui_catalog import integration_catalog
@@ -1113,6 +1114,19 @@ def _redact_entry(entry: dict[str, Any], schema: list[dict[str, Any]]) -> dict[s
 #   <- {"type":"diff","items":[...]}
 #   <- {"type":"removed","entity_ids":[...]}
 _LIVE_POLL_INTERVAL_SEC = 2.0
+_integrations_live_hub: LiveEntityWsHub | None = None
+
+
+def _get_integrations_live_hub() -> LiveEntityWsHub:
+    global _integrations_live_hub
+    if _integrations_live_hub is None:
+        _integrations_live_hub = LiveEntityWsHub(
+            name="integ",
+            poll_interval_sec=_LIVE_POLL_INTERVAL_SEC,
+            fetch_items=_all_entities,
+            log_icon="🏠",
+        )
+    return _integrations_live_hub
 
 
 @router.websocket("/ws/live")
@@ -1126,55 +1140,8 @@ async def integrations_live_ws(websocket: WebSocket, token: str = Query(default=
     await websocket.accept()
     log_line("websocket", "🏠", "INTEG_WS_OPEN", f"user={user.username}")
 
-    last_signatures: dict[str, dict[str, Any]] = {}
-    stop = asyncio.Event()
-
-    async def _poller():
-        nonlocal last_signatures
-        try:
-            while not stop.is_set():
-                try:
-                    items = await _all_entities()
-                    if not items and last_signatures:
-                        log_line(
-                            "websocket", "⚠️", "INTEG_WS_POLL",
-                            "empty entity snapshot ignored; keeping previous live state"
-                        )
-                        try:
-                            await asyncio.wait_for(stop.wait(), timeout=_LIVE_POLL_INTERVAL_SEC)
-                        except asyncio.TimeoutError:
-                            continue
-                        continue
-                    if not last_signatures:
-                        sigs = [_entity_signature(it) for it in items if it.get("entity_id")]
-                        last_signatures = {sig["entity_id"]: sig for sig in sigs}
-                        await websocket.send_json({"type": "snapshot", "items": sigs})
-                    else:
-                        changed, removed = _diff_snapshot(last_signatures, items)
-                        if changed:
-                            await websocket.send_json({"type": "diff", "items": changed})
-                            for sig in changed:
-                                last_signatures[sig["entity_id"]] = sig
-                        if removed:
-                            if len(removed) >= max(10, int(len(last_signatures) * 0.8)):
-                                log_line(
-                                    "websocket", "⚠️", "INTEG_WS_POLL",
-                                    f"large removal ignored ({len(removed)}/{len(last_signatures)})"
-                                )
-                                continue
-                            await websocket.send_json({"type": "removed", "entity_ids": removed})
-                            for eid in removed:
-                                last_signatures.pop(eid, None)
-                except Exception as exc:
-                    log_line("websocket", "⚠️", "INTEG_WS_POLL", f"{exc}")
-                try:
-                    await asyncio.wait_for(stop.wait(), timeout=_LIVE_POLL_INTERVAL_SEC)
-                except asyncio.TimeoutError:
-                    continue
-        except Exception:
-            pass
-
-    poll_task = asyncio.create_task(_poller())
+    hub = _get_integrations_live_hub()
+    hub.attach(websocket, user)
 
     try:
         while True:
@@ -1186,9 +1153,7 @@ async def integrations_live_ws(websocket: WebSocket, token: str = Query(default=
     except Exception as exc:
         log_line("websocket", "⚠️", "INTEG_WS_ERR", f"{exc}")
     finally:
-        stop.set()
-        with contextlib.suppress(Exception):
-            await asyncio.wait_for(poll_task, timeout=1.0)
+        await hub.detach(websocket)
         with contextlib.suppress(Exception):
             await websocket.close()
         log_line("websocket", "🏠", "INTEG_WS_CLOSE", f"user={user.username}")

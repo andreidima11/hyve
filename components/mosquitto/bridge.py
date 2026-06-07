@@ -17,6 +17,7 @@ diffs without re-parsing discovery itself.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import logging
@@ -305,14 +306,18 @@ class MosquittoBridge:
     async def _dispatch(self, event: dict[str, Any]) -> None:
         if not self._listeners:
             return
-        dead: list[asyncio.Queue] = []
         for q in list(self._listeners):
             try:
                 q.put_nowait(event)
             except asyncio.QueueFull:
-                dead.append(q)
-        for q in dead:
-            self._listeners.discard(q)
+                # Drop the oldest event but keep the subscriber — evicting slow
+                # consumers permanently was causing live state to freeze.
+                try:
+                    q.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+                with contextlib.suppress(asyncio.QueueFull):
+                    q.put_nowait(event)
 
     async def _refresh_z2m_states(self, devices: list[Any]) -> None:
         """Ask Z2M to republish current state for each device.
