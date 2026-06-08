@@ -164,6 +164,16 @@ import {
     tryFastPathForEntities,
 } from './dashboard/live_bridge.js';
 import {
+    closeDashboardMenu,
+    initDashboardMenu,
+    toggleDashboardMenu,
+} from './dashboard/dashboard_menu.js';
+import {
+    dashboardWidgetById,
+    findWidget,
+    initDashboardWidgetStore,
+} from './dashboard/widget_store.js';
+import {
     dashboardSnapshotFingerprint,
     getDashboardPageSnapshot,
     isDashboardStandalonePanel,
@@ -192,6 +202,8 @@ import {
 } from './dashboard/entity_picker.js';
 export { loadDashboard, dashboardHasRenderedContent } from './dashboard/dashboard_loader.js';
 export { disconnectDashboardLive } from './dashboard/live_bridge.js';
+export { closeDashboardMenu, toggleDashboardMenu } from './dashboard/dashboard_menu.js';
+export { findWidget } from './dashboard/widget_store.js';
 export {
     addDashboardVisibilityCondition,
     setDashboardAddEditorMode,
@@ -388,7 +400,7 @@ function _dashboardDefaultRowsForType(type) {
 }
 
 function _dashboardEditorRenderer(type) {
-    const editingWidget = _dashboardCurrentEditorId ? _findWidget(_dashboardCurrentEditorId) : null;
+    const editingWidget = _dashboardCurrentEditorId ? findWidget(_dashboardCurrentEditorId) : null;
     const editingRenderer = editingWidget ? _widgetRenderer(editingWidget) : '';
     return dashboardEditorRenderer(type, { editingRenderer });
 }
@@ -412,45 +424,6 @@ function _entityIconForState(domain, on) {
         case 'fan':          return on ? 'fas fa-fan'         : 'far fa-circle';
         default:             return _entityIcon(domain);
     }
-}
-
-/**
- * Resolve a widget object by its id from anywhere in the dashboard cache
- * (top-level widgets, panel widgets, paged widgets/panels). Used by the
- * Hyveview bridge to configure mounted custom-element cards.
- */
-function _dashboardWidgetById(widgetId) {
-    if (!widgetId) return null;
-    const id = String(widgetId);
-    const walk = (list) => {
-        if (!Array.isArray(list)) return null;
-        for (const w of list) {
-            if (w && String(w.id) === id) return w;
-        }
-        return null;
-    };
-    const hit = walk(_dashboardCache.widgets);
-    if (hit) return hit;
-    if (Array.isArray(_dashboardCache.panels)) {
-        for (const p of _dashboardCache.panels) {
-            const h = walk(p && p.widgets);
-            if (h) return h;
-        }
-    }
-    if (Array.isArray(_dashboardCache.pages)) {
-        for (const pg of _dashboardCache.pages) {
-            if (!pg) continue;
-            const h = walk(pg.widgets);
-            if (h) return h;
-            if (Array.isArray(pg.panels)) {
-                for (const p of pg.panels) {
-                    const h2 = walk(p && p.widgets);
-                    if (h2) return h2;
-                }
-            }
-        }
-    }
-    return null;
 }
 
 function _isDashboardStandalonePanel(panel) {
@@ -478,44 +451,6 @@ function _ensureDashboardStandalonePanelLocal() {
     panels.unshift(panel);
     _dashboardCache.panels = panels;
     return panel;
-}
-
-function _positionDashboardMenu() {
-    const menu = document.getElementById('dashboard-more-menu');
-    if (!menu || menu.classList.contains('hidden')) return;
-
-    menu.style.transform = 'translateX(0)';
-    const padding = 8;
-    const rect = menu.getBoundingClientRect();
-
-    if (rect.right > window.innerWidth - padding) {
-        const shift = rect.right - (window.innerWidth - padding);
-        menu.style.transform = `translateX(-${shift}px)`;
-        return;
-    }
-    if (rect.left < padding) {
-        const shift = padding - rect.left;
-        menu.style.transform = `translateX(${shift}px)`;
-    }
-}
-
-function _setDashboardMenuOpen(open) {
-    const menu = document.getElementById('dashboard-more-menu');
-    const btn = document.getElementById('dashboard-menu-button');
-    if (!menu) return;
-    menu.classList.toggle('hidden', !open);
-    if (btn) btn.classList.toggle('is-open', !!open);
-    if (open) requestAnimationFrame(_positionDashboardMenu);
-}
-
-export function toggleDashboardMenu() {
-    const menu = document.getElementById('dashboard-more-menu');
-    if (!menu) return;
-    _setDashboardMenuOpen(menu.classList.contains('hidden'));
-}
-
-export function closeDashboardMenu() {
-    _setDashboardMenuOpen(false);
 }
 
 export function resetDashboardEditingState() {
@@ -761,139 +696,6 @@ export async function removeDashboardWidget(widgetId) {
 }
 
 
-// Locate a widget across the dashboard cache (top-level + panels).
-// Returns { container, index, panel?, panelIndex? } or null.
-function _locateDashboardWidget(widgetId) {
-    const panels = Array.isArray(_dashboardCache.panels) ? _dashboardCache.panels : [];
-    for (let pi = 0; pi < panels.length; pi++) {
-        const panel = panels[pi];
-        const list = Array.isArray(panel?.widgets) ? panel.widgets : null;
-        if (!list) continue;
-        const idx = list.findIndex(w => w && w.id === widgetId);
-        if (idx >= 0) return { container: list, index: idx, panel, panelIndex: pi };
-    }
-    const top = Array.isArray(_dashboardCache.widgets) ? _dashboardCache.widgets : null;
-    if (top) {
-        const idx = top.findIndex(w => w && w.id === widgetId);
-        if (idx >= 0) return { container: top, index: idx };
-    }
-    const pages = Array.isArray(_dashboardCache.pages) ? _dashboardCache.pages : [];
-    for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
-        const page = pages[pageIndex];
-        const pageWidgets = Array.isArray(page?.widgets) ? page.widgets : null;
-        if (pageWidgets) {
-            const idx = pageWidgets.findIndex(w => w && w.id === widgetId);
-            if (idx >= 0) return { container: pageWidgets, index: idx, page, pageIndex };
-        }
-        const pagePanels = Array.isArray(page?.panels) ? page.panels : [];
-        for (let panelIndex = 0; panelIndex < pagePanels.length; panelIndex++) {
-            const panel = pagePanels[panelIndex];
-            const list = Array.isArray(panel?.widgets) ? panel.widgets : null;
-            if (!list) continue;
-            const idx = list.findIndex(w => w && w.id === widgetId);
-            if (idx >= 0) return { container: list, index: idx, page, pageIndex, panel, panelIndex };
-        }
-    }
-    return null;
-}
-
-/** Look up a widget object across panels + top-level by id. */
-function _findWidget(widgetId) {
-    const loc = _locateDashboardWidget(widgetId);
-    return loc ? loc.container[loc.index] : null;
-}
-
-// Pending reorder state to be persisted after the gesture ends.
-let _pendingDashboardReorder = null;
-
-function _reorderDashboardWidgets(sourceId, targetId) {
-    if (!sourceId || !targetId || sourceId === targetId) return false;
-    const src = _locateDashboardWidget(sourceId);
-    const dst = _locateDashboardWidget(targetId);
-    if (!src || !dst) return false;
-
-    const moved = src.container[src.index];
-    if (!moved) return false;
-
-    // Remove from source, then compute insertion index in destination.
-    src.container.splice(src.index, 1);
-    let insertAt = dst.container === src.container && src.index < dst.index
-        ? dst.index - 1
-        : dst.index;
-    insertAt = Math.max(0, Math.min(insertAt, dst.container.length));
-    dst.container.splice(insertAt, 0, moved);
-
-    // If we crossed panels and the destination panel has multi-page tabs,
-    // inherit the target widget's page_id.
-    if (dst.panel && Array.isArray(dst.panel.pages) && dst.panel.pages.length) {
-        const targetWidget = dst.container[insertAt + 1] || null; // the widget that was at targetId before
-        const fallbackPage = (dst.panel.pages[0] && dst.panel.pages[0].id) || null;
-        if (targetWidget && targetWidget.page_id) moved.page_id = targetWidget.page_id;
-        else if (!moved.page_id) moved.page_id = fallbackPage;
-    }
-
-    // The widget AFTER moved (in destination) is the "before_widget_id" anchor.
-    const afterIdx = insertAt + 1;
-    const beforeWidgetId = afterIdx < dst.container.length
-        ? (dst.container[afterIdx] && dst.container[afterIdx].id) || null
-        : null;
-
-    _pendingDashboardReorder = {
-        sourceId,
-        targetPanelId: dst.panel ? dst.panel.id : null,
-        targetPageId: moved.page_id || null,
-        beforeWidgetId,
-    };
-
-    renderDashboard();
-    return true;
-}
-
-async function _persistDashboardOrder() {
-    const pending = _pendingDashboardReorder;
-    _pendingDashboardReorder = null;
-    if (!pending) return;
-
-    // Multi-panel layout: use the relocate endpoint (handles cross-panel + ordering).
-    if (pending.targetPanelId) {
-        const body = { target_panel_id: pending.targetPanelId };
-        if (pending.targetPageId) body.target_page_id = pending.targetPageId;
-        if (pending.beforeWidgetId) body.before_widget_id = pending.beforeWidgetId;
-        const url = _currentPageId
-            ? `/api/dashboard/widgets/${encodeURIComponent(pending.sourceId)}/relocate?page_id=${encodeURIComponent(_currentPageId)}`
-            : `/api/dashboard/widgets/${encodeURIComponent(pending.sourceId)}/relocate`;
-        const res = await apiCall(url, { method: 'POST', body });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(_dashApiError(err.detail, 'dashboard.rearrange_widget_failed'));
-        }
-        return;
-    }
-
-    // Legacy single-list fallback (no panels).
-    const section = await readDashboardSectionFallback();
-    const storedWidgets = Array.isArray(section.widgets) ? section.widgets : [];
-    const orderedIds = (_dashboardCache.widgets || []).map(item => item.id);
-    section.widgets = orderedIds.map(id => storedWidgets.find(item => item.id === id)).filter(Boolean);
-    await writeDashboardSectionFallback(section);
-}
-
-
-
-document.addEventListener('click', (event) => {
-    closeDashboardClimateModeMenus();
-    const menu = document.getElementById('dashboard-more-menu');
-    const wrap = menu?.parentElement;
-    if (!menu || menu.classList.contains('hidden')) return;
-    if (wrap && !wrap.contains(event.target)) {
-        closeDashboardMenu();
-    }
-});
-
-window.addEventListener('resize', () => {
-    _positionDashboardMenu();
-});
-
 let _dashboardYamlEditor = null;
 
 function _ensureDashboardYamlEditor() {
@@ -931,6 +733,18 @@ export async function saveDashboardYaml() {
     return _ensureDashboardYamlEditor().saveDashboardYaml();
 }
 
+initDashboardMenu({
+    closeDashboardClimateModeMenus,
+});
+
+initDashboardWidgetStore({
+    getCache: () => _dashboardCache,
+    getCurrentPageId: () => _currentPageId,
+    renderDashboard,
+    readDashboardSectionFallback,
+    writeDashboardSectionFallback,
+});
+
 initDashboardPreferences({
     getCache: () => _dashboardCache,
     getCurrentPageId: _activeDashboardPageId,
@@ -949,7 +763,7 @@ initDashboardWidgetToggle({
     getCache: () => _dashboardCache,
     getEditMode: () => _dashboardEditMode,
     controlPending,
-    findWidget: _findWidget,
+    findWidget,
     dashboardIntentAction: _dashboardIntentAction,
     tryFastPathForEntities,
     renderDashboard,
@@ -963,7 +777,7 @@ initDashboardLiveBridge({
     climateConfiguredIds,
     cameraWidgetEntities,
     widgetRenderer: _widgetRenderer,
-    widgetById: _dashboardWidgetById,
+    widgetById: dashboardWidgetById,
     renderDashboard,
 });
 
@@ -1143,7 +957,7 @@ initDashboardDragResize({
     getCache: () => _dashboardCache,
     getCurrentPageId: () => _currentPageId || _dashboardCache.page_id || _dashboardCache.current_page_id || '',
     getEditMode: () => _dashboardEditMode,
-    findWidget: _findWidget,
+    findWidget,
     widgetSpan: widgetSpan,
     panelColSpan: dashboardPanelColSpan,
     isStandalonePanel: _isDashboardStandalonePanel,
@@ -1197,7 +1011,7 @@ initDashboardWidgetLegacyEdit({
 
 initDashboardWidgetEditorBridge({
     requireDashboardEditAccess,
-    findWidget: _findWidget,
+    findWidget,
     getDashboardCache: () => _dashboardCache,
     getCurrentPageId: _activeDashboardPageId,
     refreshAvailableEntities,
@@ -1218,7 +1032,7 @@ initDashboardEntityPicker({
 
 initDashboardClimate({
     getCache: () => _dashboardCache,
-    findWidget: _findWidget,
+    findWidget,
     renderDashboard: renderDashboard,
     renderDashboardAddPreview,
     getEditMode: () => _dashboardEditMode,
@@ -1248,7 +1062,7 @@ initDashboardWidgetActions({
     apiCall,
     t,
     showToast,
-    findWidget: _findWidget,
+    findWidget,
     tryFastPathForEntities: tryFastPathForEntities,
     renderDashboard: renderDashboard,
 });
