@@ -2,7 +2,7 @@
 
 Self-hosted smart home hub with an integrated AI assistant. One FastAPI process serves the web UI, device integrations, automations, dashboards, and chat — similar in spirit to Home Assistant, with a built-in LLM agent for control, memory, and skills.
 
-**Current version:** 0.7.16
+**Current version:** 0.7.17
 
 ## Features
 
