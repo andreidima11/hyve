@@ -1,558 +1,64 @@
+import './chat/marked_setup.js';
 import { apiCall, authToken, suppressLogout } from './api.js';
-import { t, tRaw } from './lang/index.js';
+import { t } from './lang/index.js';
 import { getThinkingMode } from './thinking_mode.js';
-import { escapeHtml, showToast, TOOL_ICONS, TOOL_ICON_FALLBACK, buildSourcesHtml, loadScriptOnce, loadStyleOnce } from './utils.js';
+import { escapeHtml, showToast, buildSourcesHtml, loadScriptOnce, loadStyleOnce } from './utils.js';
 import { switchUserProfileTab, switchTab, loadSessionsList } from './nav_bridge.js';
 import { isVoiceLoopActive, isVoiceInputPending, setVoiceInputPending } from './voice_state.js';
 import { getCameraStreamToken, imgProxyUrlSync } from './camera_auth.js';
 
+import {
+    addAttachedDocument,
+    addAttachedImage,
+    clearAttachedDocument,
+    clearAttachedImage,
+    getAttachedDocumentFileName,
+    getAttachedDocumentText,
+    getAttachedImageBase64,
+    waitForImageReady,
+} from './chat/attachments.js';
+
+export {
+    addAttachedDocument,
+    addAttachedImage,
+    clearAttachedDocument,
+    clearAttachedImage,
+    getAttachedDocumentFileName,
+    getAttachedDocumentText,
+    getAttachedImageBase64,
+    waitForImageReady,
+};
+
+import {
+    applyInitialGreeting,
+    hideChatEmptyState,
+    maybeRefreshAiGreetings,
+    showChatEmptyState,
+} from './chat/empty_state.js';
+import { playNotificationCue } from './chat/notification.js';
+import { scrollChatToBottom } from './chat/scroll.js';
+import {
+    currentSessionId,
+    setCurrentSessionId,
+    setSessionDisplay,
+} from './chat/session_state.js';
+import {
+    buildAgentTimelineHtml,
+    buildPendingStateHtml,
+    buildTimelineStructureKey,
+} from './chat/timeline.js';
+
+export {
+    applyInitialGreeting,
+    currentSessionId,
+    maybeRefreshAiGreetings,
+    setCurrentSessionId,
+    setSessionDisplay,
+    showChatEmptyState,
+};
+
 if (authToken) {
     getCameraStreamToken().catch(() => {});
-}
-
-if (typeof marked !== 'undefined') {
-    // Custom renderer for better chat markdown rendering
-    // Uses marked.use() API (compatible with marked v5+)
-    marked.use({
-        breaks: true,
-        gfm: true,
-        renderer: {
-            // Links open in new tab with noopener
-            link({ href, title, text }) {
-                const titleAttr = title ? ` title="${title}"` : '';
-                const displayText = text || href;
-                return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${displayText}</a>`;
-            },
-            // Tables get a wrapper div for horizontal scroll
-            table({ header, rows }) {
-                let headerHtml = '';
-                let bodyHtml = '';
-                if (header && header.length) {
-                    headerHtml = '<thead><tr>' + header.map(cell => {
-                        const align = cell.align ? ` style="text-align:${cell.align}"` : '';
-                        return `<th${align}>${cell.text || ''}</th>`;
-                    }).join('') + '</tr></thead>';
-                }
-                if (rows && rows.length) {
-                    bodyHtml = '<tbody>' + rows.map(row => {
-                        return '<tr>' + row.map(cell => {
-                            const align = cell.align ? ` style="text-align:${cell.align}"` : '';
-                            return `<td${align}>${cell.text || ''}</td>`;
-                        }).join('') + '</tr>';
-                    }).join('') + '</tbody>';
-                }
-                return `<div class="chat-table-wrap"><table>${headerHtml}${bodyHtml}</table></div>`;
-            },
-            // Blockquotes get styled class
-            blockquote({ text }) {
-                return `<blockquote class="chat-blockquote">${text || ''}</blockquote>\n`;
-            },
-            // External images are proxied server-side so hotlink-protected /
-            // CORS-blocked images still render instead of showing a broken icon.
-            image({ href, title, text }) {
-                let src = href || '';
-                if (/^https?:\/\//i.test(src)) {
-                    src = imgProxyUrlSync(src);
-                }
-                const titleAttr = title ? ` title="${title}"` : '';
-                const altAttr = text ? ` alt="${text}"` : ' alt=""';
-                return `<img src="${src}"${altAttr}${titleAttr} class="chat-md-image" loading="lazy">`;
-            }
-        }
-    });
-}
-
-// ID-ul conversației curente (multi-chat), păstrat și în localStorage
-export let currentSessionId = localStorage.getItem('hyve_session_id') || null;
-
-function _playNotificationCue() {
-    if (typeof window.__hyvePlayNotificationCue === 'function') {
-        window.__hyvePlayNotificationCue();
-        return;
-    }
-    try {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass) return;
-        const ctx = new AudioContextClass();
-        const oscillator = ctx.createOscillator();
-        const gain = ctx.createGain();
-        const now = ctx.currentTime;
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(880, now);
-        gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.exponentialRampToValueAtTime(0.045, now + 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
-        oscillator.connect(gain);
-        gain.connect(ctx.destination);
-        oscillator.start(now);
-        oscillator.stop(now + 0.2);
-        setTimeout(() => { try { ctx.close(); } catch (_) {} }, 320);
-    } catch (_) {}
-}
-
-// Imagine atașată pentru mesajul curent (data URL sau null)
-let attachedImageDataUrl = null;
-// Document atașat: text extras (PDF/DOCX/TXT) și nume fișier pentru preview
-let attachedDocumentText = null;
-let attachedDocumentFileName = null;
-
-/**
- * Resize & compress an image to fit within MAX_DIM and MAX_BYTES before attaching.
- * This prevents "Could not connect" errors caused by oversized payloads.
- * Similar to how Claude / ChatGPT handle image uploads.
- */
-const IMG_MAX_DIM   = 1536;   // max px on longest edge (matches vision model sweet-spot)
-const IMG_MAX_BYTES = 1_500_000; // ~1.5 MB base64 budget
-const IMG_QUALITY   = 0.82;   // JPEG quality
-
-function _resizeImage(dataUrl) {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-            let { width: w, height: h } = img;
-            // Downscale if needed
-            if (w > IMG_MAX_DIM || h > IMG_MAX_DIM) {
-                const ratio = Math.min(IMG_MAX_DIM / w, IMG_MAX_DIM / h);
-                w = Math.round(w * ratio);
-                h = Math.round(h * ratio);
-            }
-            const canvas = document.createElement('canvas');
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, w, h);
-
-            // Try JPEG at target quality; if still too large, reduce quality iteratively
-            let quality = IMG_QUALITY;
-            let result = canvas.toDataURL('image/jpeg', quality);
-            while (result.length > IMG_MAX_BYTES && quality > 0.3) {
-                quality -= 0.1;
-                result = canvas.toDataURL('image/jpeg', quality);
-            }
-            // Last resort: shrink dimensions further
-            if (result.length > IMG_MAX_BYTES) {
-                const shrink = Math.sqrt(IMG_MAX_BYTES / result.length);
-                canvas.width  = Math.round(w * shrink);
-                canvas.height = Math.round(h * shrink);
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                result = canvas.toDataURL('image/jpeg', 0.7);
-            }
-            resolve(result);
-        };
-        img.onerror = () => resolve(dataUrl); // fallback: keep original
-        img.src = dataUrl;
-    });
-}
-
-// Promise that resolves when the current image resize is complete
-let _imageResizePromise = null;
-
-export async function addAttachedImage(dataUrl) {
-    // Show preview immediately with original (perceived speed)
-    attachedImageDataUrl = dataUrl;
-    _updateImagePreview();
-    // Resize in background, update when done
-    const resizeP = _resizeImage(dataUrl);
-    _imageResizePromise = resizeP;
-    const optimized = await resizeP;
-    if (attachedImageDataUrl === dataUrl) {
-        // Only update if user hasn't cleared/changed it meanwhile
-        attachedImageDataUrl = optimized;
-    }
-    if (_imageResizePromise === resizeP) _imageResizePromise = null;
-}
-
-export function clearAttachedImage() {
-    attachedImageDataUrl = null;
-    _imageResizePromise = null;
-    _updateImagePreview();
-}
-
-/** Wait for any in-progress resize to finish before reading the base64. */
-export async function waitForImageReady() {
-    if (_imageResizePromise) await _imageResizePromise;
-}
-
-export function getAttachedImageBase64() {
-    if (!attachedImageDataUrl) return null;
-    // Strip any data URL prefix (handles all MIME types: jpeg, png, webp, heic, svg+xml, etc.)
-    const idx = attachedImageDataUrl.indexOf(';base64,');
-    if (idx !== -1) return attachedImageDataUrl.substring(idx + 8);
-    return attachedImageDataUrl;
-}
-
-export function addAttachedDocument(text, fileName) {
-    attachedDocumentText = text;
-    attachedDocumentFileName = fileName || null;
-    _updateDocumentPreview();
-}
-
-export function clearAttachedDocument() {
-    attachedDocumentText = null;
-    attachedDocumentFileName = null;
-    _updateDocumentPreview();
-}
-
-export function getAttachedDocumentText() {
-    return attachedDocumentText;
-}
-
-export function getAttachedDocumentFileName() {
-    return attachedDocumentFileName;
-}
-
-/** Icon Font Awesome în funcție de extensie (pentru preview și balon) */
-function _documentIconClass(fileName) {
-    const n = (fileName || '').toLowerCase();
-    if (n.endsWith('.pdf')) return 'fa-file-pdf';
-    if (n.endsWith('.docx') || n.endsWith('.doc')) return 'fa-file-word';
-    if (n.endsWith('.txt')) return 'fa-file-lines';
-    return 'fa-file-alt';
-}
-
-function _updateDocumentPreview() {
-    const el = document.getElementById('chat-document-preview');
-    if (!el) return;
-    if (!attachedDocumentText) {
-        el.classList.add('hidden');
-        el.innerHTML = '';
-        return;
-    }
-    el.classList.remove('hidden');
-    const name = attachedDocumentFileName || 'document';
-    const iconClass = _documentIconClass(name);
-    el.innerHTML = `<span class="chat-document-name"><i class="fas ${iconClass}"></i> ${escapeHtml(name)}</span><button type="button" class="chat-document-remove" aria-label="${escapeHtml(t('chat.remove_document') || 'Remove document')}"><i class="fas fa-times"></i></button>`;
-    const btn = el.querySelector('.chat-document-remove');
-    if (btn) btn.onclick = () => clearAttachedDocument();
-}
-
-function _updateImagePreview() {
-    const el = document.getElementById('chat-image-preview');
-    if (!el) return;
-    if (!attachedImageDataUrl) {
-        el.classList.add('hidden');
-        el.innerHTML = '';
-        return;
-    }
-    el.classList.remove('hidden');
-    el.innerHTML = '<img src="" alt="" /><button type="button" class="chat-image-remove" aria-label="Remove"><i class="fas fa-times"></i></button>';
-    const img = el.querySelector('img');
-    if (img) img.src = attachedImageDataUrl;
-    const btn = el.querySelector('.chat-image-remove');
-    if (btn) btn.onclick = () => clearAttachedImage();
-}
-
-export function setCurrentSessionId(id) {
-    currentSessionId = id;
-    try {
-        if (id) localStorage.setItem('hyve_session_id', id);
-        else localStorage.removeItem('hyve_session_id');
-    } catch (e) {}
-    const disp = document.getElementById('session-display');
-    if (disp) disp.innerText = id ? id.slice(0, 8) + '…' : t('status.connected');
-    const btnClear = document.getElementById('btn-clear-context');
-    if (btnClear) {
-        btnClear.classList.toggle('hidden', !id);
-        if (id) btnClear.title = t('sessions.clear_context_tooltip');
-    }
-}
-
-/** Actualizează numele conversației afișat în sidebar */
-export function setSessionDisplay(title) {
-    const el = document.getElementById('session-name-display');
-    if (el) el.textContent = title || '—';
-    if (el && title) el.setAttribute('title', title);
-}
-
-function syncChatEmptyLayoutState() {
-    const view = document.querySelector('.chat-view');
-    const emptyState = document.getElementById('chat-empty-state');
-    if (!view || !emptyState) return;
-    view.classList.toggle('chat-view-empty', !emptyState.classList.contains('is-hidden'));
-}
-
-function hideChatEmptyState() {
-    const el = document.getElementById('chat-empty-state');
-    if (el) el.classList.add('is-hidden');
-    syncChatEmptyLayoutState();
-}
-
-export function showChatEmptyState() {
-    const el = document.getElementById('chat-empty-state');
-    if (el) {
-        el.classList.remove('is-hidden');
-        _applyRandomGreeting(el);
-    }
-    syncChatEmptyLayoutState();
-}
-
-/** Pick a random time-aware greeting and apply it with a fade. */
-function _applyRandomGreeting(container) {
-    const titleEl = container.querySelector('.chat-empty-title');
-    if (!titleEl) return;
-
-    // Build combined pool: general + time-of-day
-    const general  = tRaw('chat.welcome_greetings') || [];
-    const hour     = new Date().getHours();
-    const todKey   = hour >= 5 && hour < 12 ? 'chat.welcome_greetings_morning'
-                   : hour >= 12 && hour < 18 ? 'chat.welcome_greetings_afternoon'
-                   : 'chat.welcome_greetings_evening';
-    const todPool  = tRaw(todKey) || [];
-
-    // Merge AI-generated greetings from localStorage (if any)
-    let aiPool = [];
-    try {
-        const cached = JSON.parse(localStorage.getItem('hyve_ai_greetings') || '{}');
-        if (Array.isArray(cached.greetings) && cached.greetings.length) aiPool = cached.greetings;
-    } catch {}
-
-    const pool = [...general, ...todPool, ...aiPool];
-    if (!pool.length) return;
-
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-
-    // Set text immediately then play a subtle fade-in
-    titleEl.textContent = pick.text;
-    titleEl.classList.remove('greeting-fade-in');
-    // Force reflow so the animation restarts
-    void titleEl.offsetWidth;
-    titleEl.classList.add('greeting-fade-in');
-    titleEl.addEventListener('animationend', () => titleEl.classList.remove('greeting-fade-in'), { once: true });
-}
-
-/**
- * Check if AI greetings should be refreshed (based on frequency/time settings).
- * Called once on page load. Fetches from /api/welcome-greetings if due.
- */
-export async function maybeRefreshAiGreetings() {
-    try {
-        const cached = JSON.parse(localStorage.getItem('hyve_ai_greetings') || '{}');
-        const enabled = cached.enabled;
-        if (!enabled) return;
-
-        const freqHours = cached.frequencyHours || 24;
-        const lastGen   = cached.generatedAt || 0;
-        const elapsed   = (Date.now() - lastGen) / 3600000;
-        if (elapsed < freqHours) return;
-
-        const res = await apiCall('/api/welcome-greetings', { method: 'POST' });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data && Array.isArray(data.greetings) && data.greetings.length) {
-            cached.greetings    = data.greetings;
-            cached.generatedAt  = Date.now();
-            localStorage.setItem('hyve_ai_greetings', JSON.stringify(cached));
-        }
-    } catch {}
-}
-
-function _initEmptyState() {
-    syncChatEmptyLayoutState();
-    const el = document.getElementById('chat-empty-state');
-    if (el && !el.classList.contains('is-hidden')) _applyRandomGreeting(el);
-}
-
-/** Called from app.js after initI18n so the correct language pool is used. */
-export function applyInitialGreeting() {
-    _initEmptyState();
-}
-
-// ─── Shared constants & helpers (used by both sendMessage and loadSessionHistory) ───
-// TOOL_ICONS, TOOL_ICON_FALLBACK now imported from utils.js
-const statusIcons = TOOL_ICONS;
-const statusIconFallback = TOOL_ICON_FALLBACK;
-const CHAT_AUTO_SCROLL_THRESHOLD = 10;
-let chatAutoScrollPinnedToBottom = true;
-let chatScrollTrackingInitialized = false;
-let chatProgrammaticScroll = false;
-
-function getChatWrapper() {
-    return document.querySelector('.chat-messages-wrapper');
-}
-
-function isNearBottom(el, threshold = CHAT_AUTO_SCROLL_THRESHOLD) {
-    if (!el) return true;
-    return (el.scrollHeight - el.scrollTop - el.clientHeight) <= threshold;
-}
-
-function initChatScrollTracking() {
-    const wrapper = getChatWrapper();
-    if (!wrapper || chatScrollTrackingInitialized) return;
-    chatScrollTrackingInitialized = true;
-    chatAutoScrollPinnedToBottom = isNearBottom(wrapper);
-    wrapper.addEventListener('scroll', () => {
-        if (chatProgrammaticScroll) return;
-        chatAutoScrollPinnedToBottom = isNearBottom(wrapper);
-    }, { passive: true });
-}
-
-function scrollChatToBottom({ behavior = 'auto', force = false } = {}) {
-    const wrapper = getChatWrapper();
-    if (!wrapper) return;
-    initChatScrollTracking();
-    if (!force && !chatAutoScrollPinnedToBottom) return;
-
-    chatProgrammaticScroll = true;
-    if (force) chatAutoScrollPinnedToBottom = true;
-    requestAnimationFrame(() => {
-        wrapper.scrollTo({ top: wrapper.scrollHeight, behavior });
-        // Clear flag after scroll animation finishes
-        setTimeout(() => { chatProgrammaticScroll = false; }, 400);
-    });
-}
-
-/** Thinking block: collapsed "Thought for Xs" + dropdown (reused by loadSessionHistory). */
-function buildThinkingBlock(streaming, content, durationSec, isOpen = false) {
-    const expandLabel = escapeHtml(t("chat.thinking_expand") || "Arată gândirea");
-    if (streaming) {
-        const safe = escapeHtml(content || "").replace(/\n/g, "<br>");
-        const openClass = " chat-thinking-open";
-        return `<div class="chat-thinking-block chat-thinking-streaming${openClass}">
-            <button type="button" class="chat-thinking-toggle" aria-expanded="true" aria-label="${expandLabel}">
-                <span class="chat-thinking-indicator"><span></span><span></span><span></span></span>
-                <span class="chat-thinking-label">Se gândește</span>
-                <i class="fas fa-chevron-down chat-thinking-chevron"></i>
-            </button>
-            <div class="chat-thinking-content"><div class="chat-thinking-stream">${safe}</div></div>
-        </div>`;
-    }
-    if (!content && durationSec == null) return "";
-    const safe = escapeHtml(content || "").replace(/\n/g, "<br>");
-    const paragraphs = safe
-        .split(/\n\n+/)
-        .map(p => p.trim())
-        .filter(Boolean)
-        .map(p => `<p class="chat-thinking-p">${p.replace(/\n/g, "<br>")}</p>`)
-        .join("");
-    const contentHtml = paragraphs || `<p class="chat-thinking-p">${safe.replace(/\n/g, "<br>")}</p>`;
-    const durationLabel = durationSec != null
-        ? `A gândit ${durationSec}s`
-        : "A gândit";
-    const openAttr = isOpen ? ' chat-thinking-open' : '';
-    return `<div class="chat-thinking-block${openAttr}">
-        <button type="button" class="chat-thinking-toggle" aria-expanded="${isOpen}" aria-label="${expandLabel}">
-            <i class="fas fa-brain chat-thinking-done-icon"></i>
-            <span class="chat-thinking-label">${escapeHtml(durationLabel)}</span>
-            <i class="fas fa-chevron-down chat-thinking-chevron"></i>
-        </button>
-        <div class="chat-thinking-content">${contentHtml}</div>
-    </div>`;
-}
-
-function buildPendingStateHtml(label, icon = "") {
-    const safeLabel = escapeHtml(label || "Se gândește");
-    const iconHtml = icon ? `<i class="fas ${icon} chat-pending-icon"></i>` : "";
-    return `<div class="chat-pending-state" aria-live="polite">
-        <span class="chat-pending-indicator"><span></span><span></span><span></span></span>
-        ${iconHtml}<span class="chat-pending-label">${safeLabel}</span>
-    </div>`;
-}
-
-function normalizeAgentTimelineLabel(statusType, label) {
-    const raw = (label || '').trim();
-    const type = (statusType || '').trim();
-    if (type === 'search_web') return raw || 'Căutare pe web';
-    if (type === 'search_web_images') return raw || 'Căutare imagini';
-    if (type === 'read_web_page') return raw || 'Citește pagina';
-    if (type === 'cctv_describe') return raw || 'Analizează camera';
-    if (type === 'create_skill') return raw || 'Construiește skill-ul';
-    if (/^found\s+\d+\s+results?$/i.test(raw)) {
-        return raw.replace(/^Found\s+(\d+)\s+results?$/i, '$1 rezultate găsite');
-    }
-    if (/^search error \(http\)$/i.test(raw)) return 'Eroare la căutare';
-    if (/^no results$/i.test(raw)) return 'Niciun rezultat';
-    if (/^descărcat pagină:/i.test(raw)) return raw.replace(/^Descărcat pagină:/i, 'Citește pagina:');
-    if (/^fetching page/i.test(raw)) return raw.replace(/^Fetching page/i, 'Citește pagina');
-    return raw;
-}
-
-/** Fingerprint for timeline structure — excludes reasoning text so detail can update without restarting spinners. */
-function buildTimelineStructureKey({ statusLines = [], thinkingStarted = false, thinkingDurationSec = null, generating = false, preparing = false, streaming = false, hasThinkingContent = false } = {}) {
-    return JSON.stringify({
-        thinkingStarted: !!thinkingStarted,
-        thinkingDurationSec,
-        generating: !!generating,
-        preparing: !!preparing,
-        streaming: !!streaming,
-        hasThinkingContent: !!hasThinkingContent,
-        steps: statusLines.map(s => ({ type: s.type || '', label: s.label || '' })),
-    });
-}
-
-/**
- * Unified VS Code-style activity timeline: thinking → tool steps → generating.
- * While streaming it stays open with the active step animated. Reasoning streams
- * live under the thinking step (VS Code-style). Once finished it collapses into
- * a dropdown so the user can review what the agent did.
- */
-function buildAgentTimelineHtml({ statusLines = [], thinkingStarted = false, thinkingContent = '', thinkingDurationSec = null, generating = false, preparing = false, streaming = false } = {}) {
-    const steps = [];
-    if (thinkingStarted || (thinkingContent && thinkingContent.trim())) {
-        steps.push({
-            icon: 'fa-brain',
-            label: thinkingDurationSec ? `A gândit ${thinkingDurationSec}s` : 'Se gândește',
-            detail: thinkingContent || '',
-        });
-    } else if (preparing && statusLines.length === 0 && !generating) {
-        steps.push({ icon: 'fa-circle-notch', label: 'Pregătesc răspunsul' });
-    }
-    for (const s of statusLines) {
-        steps.push({
-            icon: statusIcons[s.type] || 'fa-circle-dot',
-            label: normalizeAgentTimelineLabel(s.type, s.label || s.type || ''),
-        });
-    }
-    if (generating) {
-        steps.push({ icon: 'fa-pen-nib', label: 'Generez răspunsul' });
-    }
-    if (steps.length === 0) return '';
-    const lastIndex = steps.length - 1;
-
-    const itemsHtml = steps.map((step, i) => {
-        const isCurrent = streaming && i === lastIndex;
-        const stateClass = isCurrent ? ' chat-agent-timeline__item--current' : ' chat-agent-timeline__item--done';
-        const node = isCurrent
-            ? '<span class="chat-agent-timeline__spinner"></span>'
-            : '<i class="fas fa-check chat-agent-timeline__check"></i>';
-        const detailText = (step.detail || '').trim();
-        const isThinkingStep = step.icon === 'fa-brain';
-        const showDetail = isThinkingStep && (detailText || (streaming && isCurrent));
-        const isLiveReasoning = streaming && isThinkingStep && isCurrent;
-        const detailHtml = showDetail
-            ? `<div class="chat-agent-timeline__detail${isLiveReasoning ? ' chat-agent-timeline__detail--streaming' : ''}">
-                <div class="chat-agent-timeline__detail-stream">${detailText ? escapeHtml(detailText).replace(/\n/g, '<br>') : ''}</div>
-                ${isLiveReasoning ? '<span class="chat-agent-timeline__detail-cursor" aria-hidden="true"></span>' : ''}
-            </div>`
-            : '';
-        return `<div class="chat-agent-timeline__item${stateClass}">
-            <span class="chat-agent-timeline__node">${node}</span>
-            <i class="fas ${step.icon} chat-agent-timeline__icon"></i>
-            <span class="chat-agent-timeline__label">${escapeHtml(step.label)}</span>
-            ${detailHtml}
-        </div>`;
-    }).join('');
-
-    const timeline = `<div class="chat-agent-timeline" aria-live="polite">${itemsHtml}</div>`;
-
-    if (streaming) {
-        // Live: always visible, current step animated.
-        return `<div class="chat-agent-timeline-wrap chat-agent-timeline-open">${timeline}</div>`;
-    }
-
-    // Final: collapsible dropdown, collapsed by default.
-    const stepWord = steps.length === 1 ? 'pas' : 'pași';
-    const summaryLabel = thinkingDurationSec
-        ? `A gândit ${thinkingDurationSec}s · ${steps.length} ${stepWord}`
-        : `Activitate · ${steps.length} ${stepWord}`;
-    const expandLabel = escapeHtml(t('chat.thinking_expand') || 'Arată activitatea');
-    return `<div class="chat-agent-timeline-wrap chat-agent-timeline-collapsible">
-        <button type="button" class="chat-agent-timeline-summary" aria-expanded="false" aria-label="${expandLabel}">
-            <i class="fas fa-list-check chat-agent-timeline-summary__icon"></i>
-            <span class="chat-agent-timeline-summary__label">${escapeHtml(summaryLabel)}</span>
-            <i class="fas fa-chevron-down chat-agent-timeline-summary__chevron"></i>
-        </button>
-        <div class="chat-agent-timeline-body">${timeline}</div>
-    </div>`;
 }
 
 export function appendMessage(role, text, options = {}) {
@@ -2827,10 +2333,9 @@ const _shownNotificationIds = new Set();
  */
 function _showNotificationBubble(message, type) {
     if (!message) return;
-    _playNotificationCue();
+    playNotificationCue();
     const role = (type === 'automation') ? 'automation' : 'reminder';
     appendMessage(role, message);
-    chatAutoScrollPinnedToBottom = true;
     scrollChatToBottom({ behavior: 'smooth', force: true });
 }
 

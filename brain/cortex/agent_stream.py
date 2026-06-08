@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
-import re
 import time
 from typing import Dict, List, Optional
 
@@ -14,15 +12,14 @@ from logger import log_line, log_detail, log_conversation_model_activity
 from brain.cortex.agent_context import prepare_agent_turn
 from brain.cortex.agent_helpers import (
     _effective_tool_intent,
-    _event_status,
     _should_suppress_thinking,
-    _tool_call_status_label,
 )
 from brain.cortex.agent_stream_llm import (
     apply_glm_thinking_payload,
     llm_stream_error_message,
     stream_agent_llm_turn,
 )
+from brain.cortex.agent_stream_tools import AgentToolLoopState, execute_agent_tool_calls
 from brain.cortex.config import DEFAULT_MAX_AGENT_TURNS, TIMEOUT_LLM
 from brain.cortex.llm import _llm_headers, _normalize_chat_url, _stream_llm_turn
 from llm_client import get_llm_client
@@ -31,10 +28,8 @@ from brain.cortex.messages import (
     _message_content_to_text,
     sanitize_input,
 )
-from brain.cortex.prompt import _should_skip_web_search
 from brain.cortex.prompt_cache import (
     _filter_tools_for_untrusted_context,
-    _tool_result_taints_context,
 )
 from brain.cortex.thinking import (
     RE_HA_CALL_LOG,
@@ -238,260 +233,42 @@ async def generate_response_stream(
         if fr == "length":
             log_line("agent", "⚠️", "TRUNCATED", f"Model stopped with finish_reason=length (max_tokens={max_tokens}). Response may be incomplete.")
 
-        # Case A: AI returned tool calls — execute them and loop
         if tool_calls:
-            # Add assistant message with tool calls to conversation (content must be string for API compatibility)
-            # z.ai Preserved Thinking: return reasoning_content so the model keeps reasoning coherent (docs.z.ai/guides/capabilities/thinking-mode)
-            reasoning_content = stream_done.get("reasoning_content") or ""
-            assistant_msg = {"role": "assistant", "content": text_content or "", "tool_calls": tool_calls}
-            if reasoning_content and isinstance(reasoning_content, str):
-                assistant_msg["reasoning_content"] = reasoning_content
-            llm_messages.append(assistant_msg)
-            agent_turn_messages.append({"role": "assistant", "content": text_content or "", "tool_calls": tool_calls})
-
-            # PARALLEL SEARCH OPTIMIZATION: if multiple search_web calls, run them in parallel
-            search_calls_to_parallel = []
-            knowledge_cutoff_str = (settings_mod.CFG.get("intelligence") or {}).get("knowledge_cutoff", "").strip()
-            
-            for idx, tc in enumerate(tool_calls):
-                fn = tc.get("function", {})
-                fn_name = fn.get("name", "")
-                if fn_name == "search_web" and search_web_calls_this_request < max_searches_per_request:
-                    fn_args_raw = fn.get("arguments", "")
-                    try:
-                        fn_args = json.loads(fn_args_raw) if fn_args_raw else {}
-                    except json.JSONDecodeError:
-                        continue
-                    query = fn_args.get("query", "").strip()
-                    
-                    # Apply same pre-search validation (with freshness check)
-                    skip_search = False
-                    skip_reason = ""
-                    skip_search, skip_reason = _should_skip_web_search(query, knowledge_cutoff_str, user_msg)
-                    
-                    if not skip_search:
-                        search_calls_to_parallel.append((idx, fn_name, fn_args, tc.get("id")))
-            
-            # Execute searches in parallel if 2+
-            parallel_results = {}
-            if len(search_calls_to_parallel) >= 2:
-                log_line("agent", "⚡", "PARALLEL_SEARCH", f"Running {len(search_calls_to_parallel)} searches in parallel")
-                tasks = [execute_tool(fn_name, fn_args, user_id, untrusted_context=untrusted_context_active) for (_, fn_name, fn_args, _) in search_calls_to_parallel]
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-                for i, (idx, fn_name, fn_args, tc_id) in enumerate(search_calls_to_parallel):
-                    result = results[i]
-                    if isinstance(result, Exception):
-                        result = f"Search error: {type(result).__name__}: {result}"
-                    parallel_results[tc_id or idx] = result
-                search_web_calls_this_request += len(search_calls_to_parallel)
-
-            # PARALLEL DEVICE CONTROL: if multiple control_device calls, run them in parallel
-            device_calls_to_parallel = []
-            for idx, tc in enumerate(tool_calls):
-                fn = tc.get("function", {})
-                fn_name = fn.get("name", "")
-                if fn_name == "control_device":
-                    fn_args_raw = fn.get("arguments", "")
-                    try:
-                        fn_args = json.loads(fn_args_raw) if fn_args_raw else {}
-                    except json.JSONDecodeError:
-                        continue
-                    device_calls_to_parallel.append((idx, fn_name, fn_args, tc.get("id")))
-
-            if len(device_calls_to_parallel) >= 2:
-                log_line("agent", "⚡", "PARALLEL_DEVICE", f"Running {len(device_calls_to_parallel)} device controls in parallel")
-                tasks = [execute_tool(fn_name, fn_args, user_id, untrusted_context=untrusted_context_active) for (_, fn_name, fn_args, _) in device_calls_to_parallel]
-                dev_results = await asyncio.gather(*tasks, return_exceptions=True)
-                for i, (idx, fn_name, fn_args, tc_id) in enumerate(device_calls_to_parallel):
-                    result = dev_results[i]
-                    if isinstance(result, Exception):
-                        result = f"Device error: {type(result).__name__}: {result}"
-                    parallel_results[tc_id or f"dev_{idx}"] = result
-
-            for tc in tool_calls:
-                fn = tc.get("function", {})
-                fn_name = fn.get("name", "")
-                # Sanitize: some models (Qwen) emit XML-corrupted names like "search_web>query</string>="
-                if fn_name and not fn_name.replace("_", "").isalpha():
-                    clean = re.match(r"^[a-zA-Z_]+", fn_name)
-                    if clean:
-                        log_line("agent", "🩹", "TOOL NAME FIX", f"'{fn_name}' → '{clean.group()}'")
-                        fn_name = clean.group()
-                fn_args_raw = fn.get("arguments", "")
-                try:
-                    fn_args = json.loads(fn_args_raw) if fn_args_raw else {}
-                except json.JSONDecodeError:
-                    # Fallback: try to salvage args from garbled JSON (e.g. swapped key/value)
-                    fn_args = {}
-                    if fn_args_raw:
-                        # Extract any quoted strings as potential argument values
-                        quoted = re.findall(r'"([^"]{2,})"', fn_args_raw)
-                        if quoted and fn_name in ("search_web", "search_web_images"):
-                            # Pick the longest quoted string as query
-                            best = max(quoted, key=len)
-                            fn_args = {"query": best}
-                            log_line("agent", "🩹", "ARGS FIX", f"Salvaged query from malformed args: '{best[:60]}'")
-                        elif quoted:
-                            log_line("agent", "⚠️", "ARGS PARSE", f"Could not parse args for {fn_name}: {fn_args_raw[:100]}")
-
-                # Yield status event to frontend (type = tool name so UI can show the right icon)
-                status_label = _tool_call_status_label(fn_name, fn_args)
-                yield _event_status(fn_name, label=status_label)
-                log_conversation_model_activity("calls", f"{fn_name}" + (f"({fn_args_raw[:60]}…)" if len(fn_args_raw or "") > 60 else (f"({fn_args_raw})" if fn_args_raw else "")))
-
-                # Limit search_web and read_web_page calls per request to avoid loops
-                if fn_name == "search_web":
-                    # Check if this search was already executed in parallel batch
-                    tc_id = tc.get("id")
-                    if tc_id in parallel_results or (tc_id is None and parallel_results):
-                        # Use pre-computed parallel result
-                        result = parallel_results.get(tc_id) or parallel_results.get(list(parallel_results.keys())[0])
-                        if tc_id in parallel_results:
-                            del parallel_results[tc_id]
-                        else:
-                            parallel_results.pop(list(parallel_results.keys())[0])
-                    elif search_web_calls_this_request >= max_searches_per_request:
-                        result = f"Search limit reached (max {max_searches_per_request} per message). Use the previous search results to answer."
-                        log_line("agent", "🔎", "SEARCH_LIMIT", f"{search_web_calls_this_request} >= {max_searches_per_request}")
-                    else:
-                        # PRE-SEARCH VALIDATION: check if search is truly necessary (single search, not parallelized)
-                        query = fn_args.get("query", "").strip()
-                        knowledge_cutoff_str = (settings_mod.CFG.get("intelligence") or {}).get("knowledge_cutoff", "").strip()
-                        
-                        skip_search = False
-                        skip_reason = ""
-                        skip_search, skip_reason = _should_skip_web_search(query, knowledge_cutoff_str, user_msg)
-                        
-                        if skip_search:
-                            result = f"[SEARCH SKIPPED] {skip_reason}\n\nUse your existing knowledge to answer this question directly."
-                            log_line("agent", "🚫", "SEARCH_SKIP", skip_reason)
-                        else:
-                            result = await execute_tool(fn_name, fn_args, user_id, untrusted_context=untrusted_context_active)
-                            search_web_calls_this_request += 1
-                elif fn_name == "read_web_page":
-                    if read_web_page_calls_this_request >= max_read_pages_per_request:
-                        result = f"Read-page limit reached (max {max_read_pages_per_request} per message). Use the content already fetched to answer."
-                        log_line("agent", "📄", "READ_PAGE_LIMIT", f"{read_web_page_calls_this_request} >= {max_read_pages_per_request}")
-                    else:
-                        result = await execute_tool(fn_name, fn_args, user_id, untrusted_context=untrusted_context_active)
-                        read_web_page_calls_this_request += 1
-                elif fn_name == "create_skill":
-                    status_queue = asyncio.Queue()
-                    task = asyncio.create_task(execute_tool(fn_name, fn_args, user_id, status_queue=status_queue, untrusted_context=untrusted_context_active))
-                    _skill_timeout = 180  # max seconds to wait for forge
-                    _skill_elapsed = 0.0
-                    while True:
-                        try:
-                            ev = await asyncio.wait_for(status_queue.get(), timeout=0.05)
-                            if isinstance(ev, dict) and ev.get("t") == "status":
-                                yield _event_status(ev.get("type", ""), label=ev.get("label", ""))
-                            elif isinstance(ev, dict) and ev.get("t"):
-                                if ev.get("t") == "forge_preview":
-                                    last_forge_preview = ev.get("content") or ""
-                                    last_forge_preview_language = ev.get("language") or "python"
-                                yield ev
-                            _skill_elapsed = 0.0
-                        except asyncio.TimeoutError:
-                            _skill_elapsed += 0.05
-                            if task.done():
-                                try:
-                                    result = task.result()
-                                except Exception as _forge_exc:
-                                    result = f"Error creating skill: {_forge_exc}"
-                                break
-                            if _skill_elapsed >= _skill_timeout:
-                                task.cancel()
-                                result = "Error creating skill: timed out after 3 minutes."
-                                break
-                    if isinstance(result, str) and (result.startswith("Forge:") or result.startswith("Error creating skill:")):
-                        friendly = result
-                        if not friendly.lower().startswith("i couldn't"):
-                            friendly = (
-                                "I couldn't create the skill automatically. "
-                                + result
-                                + " Try a narrower request, or ask for a smaller first version and then improve it."
-                            )
-                        yield friendly
-                        log_line("agent", "⚠️", "CREATE_SKILL_FAIL", result[:220])
-                        return
-                elif fn_name == "control_device":
-                    # Check if already executed in parallel batch
-                    tc_id = tc.get("id")
-                    if tc_id and tc_id in parallel_results:
-                        result = parallel_results.pop(tc_id)
-                    else:
-                        result = await execute_tool(fn_name, fn_args, user_id, untrusted_context=untrusted_context_active)
-                else:
-                    result = await execute_tool(fn_name, fn_args, user_id, untrusted_context=untrusted_context_active)
-                log_detail("agent", "TOOL_RESULT", tool=fn_name, result_len=len(result))
-                if restrict_mutating_tools and not untrusted_context_active and _tool_result_taints_context(fn_name, result):
-                    untrusted_context_active = True
-                    restricted_count = len(_filter_tools_for_untrusted_context(tool_catalog, safe_untrusted_tool_names))
-                    log_line("agent", "🛡️", "TOOL POLICY", f"Restricted tools after untrusted content from {fn_name}: {len(tool_catalog)}→{restricted_count}")
-                # Truncate tool result so context stays bounded (performance)
-                tool_result_max = int((settings_mod.CFG.get("intelligence") or {}).get("tool_result_max_chars", 6000) or 6000)
-                if len(result) > tool_result_max:
-                    result = result[:tool_result_max] + "\n... (output truncated)"
-                    log_line("agent", "✂️", "TOOL TRUNCATE", f"{fn_name} result truncated to {tool_result_max} chars")
-
-                # Emit memory_saved status for UI (store_memory)
-                if fn_name == "store_memory" and ("saved" in result.lower() or "updated" in result.lower()):
-                    yield _event_status("store_memory", label="Memorie actualizată")
-                # Emit search_sources for UI (search_web) — structured source cards
-                if fn_name == "search_web":
-                    try:
-                        from brain.toolbox import get_last_search_sources, clear_last_search_sources
-                        sources = get_last_search_sources()
-                        if sources:
-                            yield {"t": "search_sources", "sources": sources}
-                            clear_last_search_sources()
-                    except Exception as e:
-                        log_line("warn", "⚠️", "UI_EMIT", f"search_sources emit failed: {e}")
-                # Emit shell_done or shell_request for UI transparency (run_shell only)
-                if fn_name == "run_shell":
-                    try:
-                        from brain.tool_shell import get_last_shell_run
-                        last = get_last_shell_run()
-                        if last:
-                            if last.get("requested_but_denied"):
-                                yield {"t": "shell_request", "command": last.get("command", "")}
-                            else:
-                                yield {"t": "shell_done", "command": last.get("command", ""), "exit_code": last.get("exit_code"), "output_preview": last.get("output_preview", "")}
-                    except Exception as e:
-                        log_line("warn", "⚠️", "UI_EMIT", f"shell_done emit failed: {e}")
-                # Emit shell_suggest for UI (suggest_shell)
-                if fn_name == "suggest_shell":
-                    try:
-                        from brain.tool_shell import get_last_suggest_shell
-                        last = get_last_suggest_shell()
-                        if last:
-                            yield {"t": "shell_suggest", "command": last.get("command", ""), "reason": last.get("reason", "")}
-                    except Exception as e:
-                        log_line("warn", "⚠️", "UI_EMIT", f"shell_suggest emit failed: {e}")
-                # Emit proposal for UI (propose_patch / propose_file)
-                if fn_name in ("propose_patch", "propose_file"):
-                    try:
-                        from brain.tool_workspace import get_last_proposal
-                        prop = get_last_proposal()
-                        if prop:
-                            yield {"t": "proposal", "proposal": prop}
-                    except Exception as e:
-                        log_line("warn", "⚠️", "UI_EMIT", f"proposal emit failed: {e}")
-
-                # Add tool result to conversation
-                tool_msg = {"role": "tool", "tool_call_id": tc.get("id", ""), "content": result}
-                llm_messages.append(tool_msg)
-                agent_turn_messages.append(tool_msg)
-
-            # Flush markdown buffer before clearing content for tool calls
-            _buf_tail = _md_buf.flush()
-            if _buf_tail:
-                yield _buf_tail
-
-            # Clear any reasoning text the LLM streamed before making tool calls
-            yield {"t": "clear_content"}
-
-            continue  # next turn — let the AI see the results
+            tool_state = AgentToolLoopState(
+                user_msg=user_msg,
+                user_id=user_id,
+                llm_messages=llm_messages,
+                agent_turn_messages=agent_turn_messages,
+                tool_catalog=tool_catalog,
+                restrict_mutating_tools=restrict_mutating_tools,
+                untrusted_context_active=untrusted_context_active,
+                safe_untrusted_tool_names=safe_untrusted_tool_names,
+                max_searches_per_request=max_searches_per_request,
+                max_read_pages_per_request=max_read_pages_per_request,
+                search_web_calls_this_request=search_web_calls_this_request,
+                read_web_page_calls_this_request=read_web_page_calls_this_request,
+                forge_preview=last_forge_preview,
+                forge_preview_language=last_forge_preview_language,
+            )
+            async for event in execute_agent_tool_calls(
+                tool_calls=tool_calls,
+                text_content=text_content,
+                stream_done=stream_done,
+                state=tool_state,
+                execute_tool=execute_tool,
+                md_buf=_md_buf,
+            ):
+                if isinstance(event, dict) and event.get("t") == "_tool_loop_abort":
+                    return
+                if isinstance(event, dict) and event.get("t") == "_tool_loop_complete":
+                    break
+                yield event
+            untrusted_context_active = tool_state.untrusted_context_active
+            search_web_calls_this_request = tool_state.search_web_calls_this_request
+            read_web_page_calls_this_request = tool_state.read_web_page_calls_this_request
+            last_forge_preview = tool_state.forge_preview
+            last_forge_preview_language = tool_state.forge_preview_language
+            continue
 
         # Case B: AI returned text content — we already streamed thinking + content; just persist and finish
         if text_content:

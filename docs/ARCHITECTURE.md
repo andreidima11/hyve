@@ -182,7 +182,7 @@ Add-ons may run processes (MQTT, Zigbee2MQTT); integrations **consume** entities
 | `features_addons_settings.js` | ~560 | Settings add-ons + updates hub |
 | `features_custom_selects.js` | ~245 | Custom dropdown / native select upgrade |
 | `dashboard.js` + `dashboard/*.js` | ~100 + ~30 modules | Grid facade, wire orchestrator, Hyveview bridge |
-| `chat.js` | 2.8k | Streaming UI |
+| `chat.js` + `chat/*.js` | ~2.3k + slices | Streaming UI (split in progress: session, empty state, scroll, timeline, attachments) |
 | `hyveview/*` | — | Preferred new card implementations |
 
 ### Hyveview

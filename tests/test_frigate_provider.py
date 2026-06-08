@@ -1,4 +1,7 @@
-from integrations.providers.frigate import FrigateEntity
+from integrations.component_loader import get_component_entity_class
+
+FrigateEntity = get_component_entity_class("frigate")
+assert FrigateEntity is not None
 
 
 def _sample_payload():

@@ -6,7 +6,10 @@ import pytest
 
 import midea_ac_client
 from integrations.extractors import extract_midea_ac_candidates, infer_source
-from integrations.providers.midea_ac import MideaAcEntity
+from integrations.component_loader import get_component_entity_class
+
+MideaAcEntity = get_component_entity_class("midea_ac")
+assert MideaAcEntity is not None
 from midea_ac_client import MideaAcClient, MideaAcError, normalize_cloud_region, parse_devices_field
 
 

@@ -46,12 +46,16 @@ def test_sun_calculator_find_next_event():
     assert nxt > now
 
 
-def test_sun_legacy_shim_exports():
-    from integrations.providers import sun as sun_shim
+def test_sun_component_exports():
+    from components.sun.calculator import find_next_event
+    from components.sun.entity import ensure_default_entry
+    from integrations.component_loader import get_component_entity_class
 
-    assert sun_shim.SunEntity.slug == "sun"
-    assert callable(sun_shim.ensure_default_entry)
-    assert callable(sun_shim._find_next_event)
+    SunEntity = get_component_entity_class("sun")
+    assert SunEntity is not None
+    assert SunEntity.slug == "sun"
+    assert callable(ensure_default_entry)
+    assert callable(find_next_event)
 
 
 def test_integration_manager_prefers_component_over_legacy_provider():
