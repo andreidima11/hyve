@@ -171,7 +171,7 @@ const en = {
         load_error: "Load error",
         page_load_timeout: "Page load timed out",
         preview_unavailable: "Preview unavailable: {message}",
-        confirm_delete_section: "Delete this section?",
+        confirm_delete_section: "Delete this section and all cards inside it?",
         menu: "Menu",
         edit_yaml: "Edit YAML",
         hide_unavailable_title: "Hide unavailable entities",

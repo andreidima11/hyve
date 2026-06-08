@@ -22,8 +22,7 @@ export async function removeDashboardPanel(panelId) {
     if (!d.requireDashboardEditAccess()) return;
     if (!panelId) return;
     const ok = await d.showConfirm(
-        'Ștergi această secțiune și cardurile din ea?',
-        { title: 'Șterge secțiunea', danger: true, confirmText: 'Șterge' }
+        d.t('dashboard.confirm_delete_section') || 'Delete this section and all cards inside it?'
     );
     if (!ok) return;
     try {

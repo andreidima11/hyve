@@ -172,7 +172,7 @@ const ro = {
         load_error: "Eroare la încărcare",
         page_load_timeout: "Încărcarea paginii a expirat",
         preview_unavailable: "Preview indisponibil: {message}",
-        confirm_delete_section: "Ștergi această secțiune?",
+        confirm_delete_section: "Ștergi această secțiune și cardurile din ea?",
         menu: "Meniu",
         edit_yaml: "Editează YAML",
         hide_unavailable_title: "Ascunde entitățile indisponibile",
