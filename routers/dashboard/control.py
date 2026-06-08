@@ -29,21 +29,18 @@ def _resolve_integration_component(
     widget_source: str,
 ) -> Any:
     """Pick the integration instance that owns a dashboard widget entity."""
-    slug_map = {"zigbee2mqtt": "mosquitto", "mosquitto": "mosquitto"}
-    entry_id = str((entity_snapshot or {}).get("entry_id") or "").strip()
-    source = str((entity_snapshot or {}).get("source") or widget_source or "").strip().lower()
-    unique_id = str((entity_snapshot or {}).get("unique_id") or "").strip()
+    from core.device_control import integration_for_entity
 
-    component = manager.get_by_entry(entry_id) if entry_id else None
-    if component is None and source:
-        component = manager.get(slug_map.get(source, source))
-    if component is None and (unique_id.startswith("z2m:") or source in slug_map):
+    if entity_snapshot:
+        inst = integration_for_entity(entity_snapshot, raw_entity_id=entity_id)
+        if inst is not None:
+            return inst
+    source = str(widget_source or "").strip().lower()
+    slug_map = {"zigbee2mqtt": "mosquitto", "mosquitto": "mosquitto"}
+    if source in slug_map:
         entries = manager.entries_for("mosquitto")
-        component = entries[0] if entries else manager.get("mosquitto")
-    if component is None and not entity_snapshot and source in slug_map:
-        entries = manager.entries_for("mosquitto")
-        component = entries[0] if entries else manager.get("mosquitto")
-    return component
+        return entries[0] if entries else manager.get("mosquitto")
+    return manager.get(source) if source else None
 
 
 def _normalize_widget_control_action(
@@ -147,10 +144,8 @@ async def toggle_dashboard_widget(
     # Non-HA entities (Mosquitto/Z2M, etc.) — route through integration manager.
     source = str(widget.get("source") or "").strip().lower()
     entity_snapshot: dict[str, Any] | None = None
-    target_id = entity_id
     entity_snapshot = resolve_entity_by_id(entity_id, entity_items)
     if entity_snapshot:
-        target_id = str(entity_snapshot.get("unique_id") or entity_snapshot.get("entity_id") or entity_id)
         source = str(entity_snapshot.get("source") or source).strip().lower()
     manager = dash.get_integration_manager()
     component = _resolve_integration_component(
@@ -187,7 +182,9 @@ async def toggle_dashboard_widget(
         )
         payload = body.data if body and isinstance(body.data, dict) else None
         try:
-            result = await component.control_entity(target_id, action, payload)
+            from core.device_control import control_entity
+
+            result = await control_entity(entity_id, action, payload, entity=entity_snapshot)
         except NotImplementedError as exc:
             raise HTTPException(status_code=501, detail=str(exc))
         except (ValueError, TypeError) as exc:

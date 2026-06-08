@@ -14,8 +14,8 @@ import settings as settings_mod
 from logger import log_line, log_detail, log_conversation_model_activity
 from rich.panel import Panel
 
+from brain.cortex.agent_context import prepare_agent_turn
 from brain.cortex.agent_helpers import (
-    _AGENT_MINIMAL_TOOL_NAMES,
     _append_no_think,
     _effective_tool_intent,
     _event_status,
@@ -23,18 +23,15 @@ from brain.cortex.agent_helpers import (
     _tool_call_status_label,
 )
 from brain.cortex.config import DEFAULT_MAX_AGENT_TURNS, console
-from brain.cortex.llm import _describe_image_with_vision_llm, _get_aux_or_main_llm, _llm_headers, _normalize_chat_url, _stream_llm_turn
+from brain.cortex.llm import _get_aux_or_main_llm, _llm_headers, _normalize_chat_url, _stream_llm_turn
+from llm_client import get_llm_client
 from brain.cortex.messages import (
-    _collapse_old_tool_turns,
-    clean_history,
-    ensure_alternating_roles,
+    _ensure_text_user_message,
+    _message_content_to_text,
     sanitize_input,
 )
-from brain.cortex.prompt import _build_dynamic_prompt_suffix, _build_static_prompt_prefix
 from brain.cortex.prompt_cache import (
     _filter_tools_for_untrusted_context,
-    _prompt_cache,
-    _prompt_cache_fingerprint,
     _tool_result_taints_context,
 )
 from brain.cortex.thinking import (
@@ -73,7 +70,6 @@ async def generate_response_stream(
         yield "Error: Message is empty after sanitization."
         return
 
-    intel = (settings_mod.CFG.get("intelligence") or {})
     tool_intent = _effective_tool_intent(routed_intent, user_msg)
     _thinking_mode = thinking_mode
     try:
@@ -81,259 +77,44 @@ async def generate_response_stream(
         _thinking_mode = normalize_thinking_mode(thinking_mode)
     except Exception:
         _thinking_mode = "auto"
-    light_context = tool_intent in ("simple_chat", "memory")
-    if tool_intent != (routed_intent or "complex"):
-        log_line("agent", "⚡", "INTENT", f"tool path: {routed_intent or 'none'} → {tool_intent}")
 
-    async def _resolve_profile() -> Optional[dict]:
-        if user_profile_context:
-            return user_profile_context
-        try:
-            from core.user_profile import load_user_profile_context
-            return await asyncio.to_thread(load_user_profile_context, user_id)
-        except Exception:
-            return None
-
-    async def _fetch_relevant_facts() -> Optional[str]:
-        if not intel.get("inject_relevant_facts", True):
-            return None
-        if _is_trivial_message(user_msg):
-            return None
-        try:
-            from memory_context import get_memory_context
-            raw = await asyncio.to_thread(get_memory_context, user_msg, "", user_id)
-            if raw and isinstance(raw, str):
-                lines = [ln.strip() for ln in raw.strip().split("\n") if ln.strip()][:5]
-                return "\n".join(lines) if lines else None
-        except Exception:
-            return None
-        return None
-
-    async def _fetch_selected_entities() -> list[dict]:
-        if light_context:
-            return []
-        try:
-            from core.entity_catalog import get_entities
-            all_items = await get_entities(include_derived=True, sort_mode="name")
-            return [e for e in all_items if e.get("selected")]
-        except Exception:
-            return []
-
-    resolved_profile, relevant_facts, selected_entities_snapshot = await asyncio.gather(
-        _resolve_profile(),
-        _fetch_relevant_facts(),
-        _fetch_selected_entities(),
+    turn = await prepare_agent_turn(
+        user_msg=user_msg,
+        history=history,
+        user_id=user_id,
+        persona_override=persona_override,
+        conversation_summary=conversation_summary,
+        image_base64=image_base64,
+        llm_cfg=llm_cfg,
+        is_anonymous=is_anonymous,
+        routed_intent=routed_intent,
+        user_profile_context=user_profile_context,
     )
-    user_profile_context = resolved_profile
+    if turn.direct_vision_response is not None:
+        yield turn.direct_vision_response
+        return
 
-    # --- Prompt + tools cache: skip expensive rebuild when config hasn't changed ---
-    from brain.toolbox import get_available_tools, execute_tool, is_tool_allowed_for_untrusted_context
-    _cache_fp = _prompt_cache_fingerprint(user_id, persona_override)
-    _cached = _prompt_cache.get(_cache_fp)
-    if _cached:
-        static_prefix = _cached["static_prefix"]
-        tools = _cached["tools"]
-        tools_token_estimate = _cached["tools_token_est"]
-        log_line("agent", "⚡", "PROMPT CACHE", f"HIT — reusing prefix + {len(tools)} tools ({_prompt_cache.stats})")
-    else:
-        tools = get_available_tools(user_id, is_anonymous=is_anonymous)
-        tools_token_estimate = _estimate_tokens(json.dumps(tools)) if tools else 0
-        llm_cfg_pre = llm_cfg
-        max_ctx_pre = int(llm_cfg_pre.get("context_length", 0) or 0)
-        if max_ctx_pre <= 0:
-            max_ctx_pre = 24000
-        system_prompt_budget = max_ctx_pre - tools_token_estimate - 3024
-        if system_prompt_budget < 2000:
-            system_prompt_budget = 2000
-        static_prefix = _build_static_prompt_prefix(user_id, persona_override,
-                                                     max_prompt_tokens=system_prompt_budget)
-        _prompt_cache.put(_cache_fp, {
-            "static_prefix": static_prefix,
-            "tools": tools,
-            "tools_token_est": tools_token_estimate,
-        })
-        log_line("agent", "🔨", "PROMPT CACHE", f"MISS — built prefix + {len(tools)} tools ({_prompt_cache.stats})")
+    tools = turn.tools
+    tool_catalog = turn.tool_catalog
+    tools_token_estimate = turn.tools_token_estimate
+    llm_messages = turn.llm_messages
+    safe_max_tokens = turn.safe_max_tokens
+    lazy_history_enabled = turn.lazy_history_enabled
+    model_name = turn.model_name
+    light_context = turn.light_context
+    tool_intent = turn.tool_intent
+    user_profile_context = turn.user_profile_context
 
-    # ── Intent-based tool filtering: reduce tools array for simple intents ──
-    # Saves ~6500 tokens for simple_chat by removing HA/search/shell tools
-    _MEMORY_TOOL_NAMES = frozenset({
-        "recall_memory",
-        "store_memory",
-        "get_conversation_history",
-        "get_app_help",
-        "get_system_status",
-    })
-    if tool_intent == "simple_chat" and tools:
-        tools = [t for t in tools if (t.get("function") or {}).get("name") in _AGENT_MINIMAL_TOOL_NAMES]
-        tools_token_estimate = _estimate_tokens(json.dumps(tools)) if tools else 0
-        log_line("agent", "✂️", "INTENT FILTER", f"simple_chat → reduced to {len(tools)} tools")
-    elif tool_intent == "memory" and tools:
-        tools = [t for t in tools if (t.get("function") or {}).get("name") in _MEMORY_TOOL_NAMES]
-        tools_token_estimate = _estimate_tokens(json.dumps(tools)) if tools else 0
-        log_line("agent", "✂️", "INTENT FILTER", f"memory → reduced to {len(tools)} tools")
+    from brain.toolbox import execute_tool, is_tool_allowed_for_untrusted_context
 
-    tool_catalog = tools
     sec_cfg = settings_mod.CFG.get("security") or {}
     restrict_mutating_tools = bool(sec_cfg.get("restrict_mutating_tools_on_untrusted_content", True))
+    untrusted_context_active = bool(restrict_mutating_tools and image_base64 and image_base64.strip())
     safe_untrusted_tool_names = {
         (t.get("function") or {}).get("name")
         for t in tool_catalog
         if is_tool_allowed_for_untrusted_context((t.get("function") or {}).get("name", ""))
     }
-    untrusted_context_active = bool(restrict_mutating_tools and image_base64 and image_base64.strip())
-    if untrusted_context_active and tool_catalog:
-        tools = _filter_tools_for_untrusted_context(tool_catalog, safe_untrusted_tool_names)
-        tools_token_estimate = _estimate_tokens(json.dumps(tools)) if tools else 0
-        log_line("agent", "🛡️", "TOOL POLICY", f"Image input detected → restricted tools {len(tool_catalog)}→{len(tools)}")
-
-    dynamic_suffix = _build_dynamic_prompt_suffix(
-        conversation_summary, relevant_facts, selected_entities_snapshot, user_profile_context,
-        light_context=light_context,
-        user_msg=user_msg,
-    )
-    system_prompt = static_prefix + dynamic_suffix
-
-    # Build messages
-    clean_hist = clean_history(history)
-    # Collapse tool noise from older turns so the model sees a clean conversational flow
-    clean_hist = _collapse_old_tool_turns(clean_hist, keep_recent_turns=1)
-
-    # --- Cross-model awareness: tell the current model which past messages came from a different profile ---
-    current_profile_name = (getattr(settings_mod, "get_active_profile_name", lambda: "")() or "").strip()
-    current_model_id = (llm_cfg.get("model_name") or "").strip()
-    _foreign_labels: list = []
-    _own_count = 0
-    _unlabeled_count = 0
-    _has_foreign = False
-    for _cm in clean_hist:
-        if _cm.get("role") != "assistant":
-            continue
-        _mn = (_cm.get("model_name") or "").strip()
-        if not _mn:
-            _unlabeled_count += 1
-            continue
-        # Foreign = stored model_name differs from both current profile name and current model id
-        is_foreign = _mn != current_profile_name and _mn != current_model_id
-        if is_foreign:
-            if _mn not in _foreign_labels:
-                _foreign_labels.append(_mn)
-            _has_foreign = True
-        else:
-            _own_count += 1
-    log_line("agent", "🔀", "CROSS-MODEL",
-             f"current={current_profile_name!r} model_id={current_model_id!r} | "
-             f"assistant msgs: own={_own_count} foreign={len(_foreign_labels)} unlabeled={_unlabeled_count}"
-             + (f" foreign_names={_foreign_labels}" if _foreign_labels else ""))
-    if _has_foreign:
-        # Annotate assistant messages in history so the model sees WHO said what
-        for _cm in clean_hist:
-            if _cm.get("role") != "assistant":
-                continue
-            _mn = (_cm.get("model_name") or "").strip()
-            if not _mn:
-                continue
-            is_foreign = _mn != current_profile_name and _mn != current_model_id
-            if is_foreign:
-                _cm["content"] = f"[{_mn} answered:] {_cm.get('content', '')}"
-            else:
-                _cm["content"] = f"[You ({_mn}) answered:] {_cm.get('content', '')}"
-        _foreign_str = ", ".join(_foreign_labels)
-        _me = current_profile_name or current_model_id
-        _cross_note = (
-            f"[CONTEXT] In this conversation the user switched AI profiles. "
-            f"Messages marked [{_foreign_str} answered:] were NOT your responses — "
-            f"they came from a different AI. You are {_me}. "
-            f"When the user refers to earlier exchanges, understand they may have been talking to {_foreign_str}, not to you. "
-            f"If you notice anything incorrect or worth improving in those responses, say so."
-        )
-        system_prompt = system_prompt + "\n\n" + _cross_note
-        log_line("agent", "🔀", "CROSS-MODEL", f"Annotated history — foreign: {_foreign_str}, self: {_me}")
-
-    # --- Lazy history: keep only last N messages, buffer the rest ---
-    lazy_history_enabled = bool(intel.get("lazy_history", True))
-    lazy_keep = max(2, int(intel.get("lazy_history_keep", 4) or 4))  # messages to keep (default: ~2 exchanges)
-    if lazy_history_enabled and len(clean_hist) > lazy_keep:
-        older = clean_hist[:-lazy_keep]
-        recent = clean_hist[-lazy_keep:]
-        from brain.toolbox import set_lazy_history
-        set_lazy_history(user_id, older)
-        clean_hist = recent
-        log_line("agent", "📦", "LAZY HISTORY",
-                 f"Buffered {len(older)} older messages, keeping {len(recent)} recent")
-    else:
-        from brain.toolbox import clear_lazy_history
-        clear_lazy_history(user_id)
-
-    if image_base64 and image_base64.strip():
-        vision_cfg = settings_mod.CFG.get("vision_llm") or {}
-        vision_url = _normalize_chat_url((vision_cfg.get("target_url") or "").strip())
-        vision_model = (vision_cfg.get("model_name") or "").strip()
-        if vision_url and vision_model:
-            # Model principal fără vision: descriem imaginea cu modelul vision, apoi trimitem doar text la principal
-            prompts_cfg = settings_mod.CFG.get("prompts") or {}
-            image_placeholder = prompts_cfg.get("image_placeholder") or "What do you see in this image?"
-            prompt_for_vision = (user_msg or image_placeholder).strip()
-            description = await _describe_image_with_vision_llm(image_base64, prompt_for_vision)
-            if vision_cfg.get("respond_directly"):
-                # Răspunde direct modelul vision; nu trimitem la modelul principal
-                if description:
-                    log_line("agent", "🖼", "VISION", "Direct vision model response")
-                    sec = (settings_mod.CFG.get("security") or {})
-                    yield sanitize_untrusted_content(description, "vision") if sec.get("anti_injection", True) else description
-                else:
-                    yield "[Descrierea imaginii nu a putut fi obținută.]"
-                return
-            if description:
-                log_line("agent", "🖼", "VISION", "Description obtained, sent to main model")
-                sec = (settings_mod.CFG.get("security") or {})
-                safe_desc = sanitize_untrusted_content(description, "vision") if sec.get("anti_injection", True) else description
-                combined = (user_msg or "").strip()
-                combined += "\n\n[Descriere imagine: " + safe_desc + "]" if combined else "[Descriere imagine: " + safe_desc + "]"
-                last_user_content = combined or "[Utilizatorul a încărcat o imagine.]"
-            else:
-                last_user_content = (user_msg or "").strip() + "\n\n[Imagine încărcată; descrierea de la modelul vision nu a putut fi obținută.]"
-        else:
-            # Main model supports vision — send image inline (non-streaming handles it)
-            prompts_cfg = settings_mod.CFG.get("prompts") or {}
-            image_placeholder = prompts_cfg.get("image_placeholder") or "What do you see in this image?"
-            text_part = (user_msg or image_placeholder).strip()
-            data_url = image_base64 if image_base64.startswith("data:") else f"data:image/jpeg;base64,{image_base64.strip()}"
-            last_user_content = [{"type": "text", "text": text_part}, {"type": "image_url", "image_url": {"url": data_url}}]
-    else:
-        last_user_content = user_msg
-
-    messages = ensure_alternating_roles(clean_hist + [{"role": "user", "content": last_user_content}])
-    while messages and messages[0].get("role") == "assistant":
-        messages = messages[1:]
-    
-    # Safeguard: ensure at least one user message exists (for jinja template rendering in local LLMs)
-    has_user_msg = any(msg.get("role") == "user" and msg.get("content") for msg in messages)
-    if not has_user_msg:
-        log_line("agent", "⚠️", "MSG_VALIDATION", "No user message found, adding placeholder")
-        if not messages or messages[-1].get("role") != "user":
-            messages.append({"role": "user", "content": last_user_content or "[continuing conversation]"})
-
-    model_name = llm_cfg.get("model_name", "")
-    llm_messages = [{"role": "system", "content": system_prompt}] + messages
-
-    # Trim history to fit within context window
-    max_ctx = int(llm_cfg.get("context_length", 0) or 0)
-    if max_ctx <= 0:
-        max_ctx = 24000  # safe default (~32K minus overhead)
-    # tools_token_estimate already set by prompt cache above
-    effective_max = max_ctx - tools_token_estimate
-    requested_max_tokens = int(llm_cfg.get("max_tokens", 0) or 2048)
-    reserve_for_response = max(256, min(requested_max_tokens, max_ctx // 3))
-    llm_messages = _trim_messages_to_fit(
-        llm_messages,
-        effective_max,
-        reserve_for_response=reserve_for_response,
-        enable_summary_buffer=not lazy_history_enabled,  # summary buffer disabled in lazy mode (older messages are in toolbox, not dropped)
-        model_name=model_name,
-    )
-    prompt_tokens = _estimate_messages_tokens(llm_messages, model_name=model_name) + tools_token_estimate
-    safe_max_tokens = _compute_safe_completion_tokens(max_ctx, prompt_tokens, requested_max_tokens)
-    log_line("agent", "📏", "TOKENS", f"prompt~{prompt_tokens}/{max_ctx}, completion_max={safe_max_tokens}")
 
     intel_cfg = settings_mod.CFG.get("intelligence") or {}
     max_agent_turns = int(intel_cfg.get("max_agent_turns", DEFAULT_MAX_AGENT_TURNS) or DEFAULT_MAX_AGENT_TURNS)

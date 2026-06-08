@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger("integrations.base")
+_LEGACY_CONFIG_WARNED: set[str] = set()
 
 
 class BaseEntity(ABC):
@@ -111,6 +115,15 @@ class BaseEntity(ABC):
             section.setdefault("enabled", True)
             return section
         section = cfg.get(self.config_key)
+        if isinstance(section, dict) and section:
+            warn_key = self.slug or self.config_key
+            if warn_key and warn_key not in _LEGACY_CONFIG_WARNED:
+                _LEGACY_CONFIG_WARNED.add(warn_key)
+                log.warning(
+                    "integration %s using legacy config.json[%s]; migrate to config entries",
+                    self.slug,
+                    self.config_key,
+                )
         return section if isinstance(section, dict) else {}
 
     def is_configured(self, cfg: dict[str, Any]) -> bool:

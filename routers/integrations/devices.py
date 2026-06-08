@@ -35,37 +35,18 @@ async def control_integration_entity(
     body: DeviceControlBody,
     user: models.User = Depends(auth.get_current_admin),
 ):
-    from integrations import get_integration_manager
-
-    manager = get_integration_manager()
-    integration = manager.get(slug)
+    from core.device_control import ControlTargetNotFound, control_entity
 
     raw_id = body.entity_id.strip()
-    target_id = raw_id
-    target_entry_id = ""
-    target_source = ""
     try:
-        for entity in await helpers.all_entities():
-            if entity.get("entity_id") == raw_id or entity.get("unique_id") == raw_id:
-                target_id = str(entity.get("unique_id") or raw_id)
-                target_entry_id = str(entity.get("entry_id") or "")
-                target_source = str(entity.get("source") or "")
-                break
-    except Exception:
-        pass
-
-    if target_entry_id:
-        integration = manager.get_by_entry(target_entry_id) or integration
-    if integration is None and target_source:
-        integration = manager.get(target_source)
-
-    if not integration:
-        raise HTTPException(status_code=404, detail=f"Integration '{slug}' not found")
-
-    try:
-        result = await integration.control_entity(
-            target_id, body.action.strip(), body.data or {}
+        result = await control_entity(
+            raw_id,
+            body.action.strip(),
+            body.data or {},
+            slug_hint=slug,
         )
+    except ControlTargetNotFound:
+        raise HTTPException(status_code=404, detail=f"Integration '{slug}' not found")
     except NotImplementedError as exc:
         raise HTTPException(status_code=501, detail=str(exc))
     except (ValueError, KeyError) as exc:

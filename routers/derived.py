@@ -1,6 +1,7 @@
 """Derived entities API — CRUD + live preview + YAML import/export."""
 from __future__ import annotations
 
+import logging
 from typing import Any, List, Optional
 
 import yaml
@@ -10,6 +11,8 @@ from pydantic import BaseModel, Field
 import auth
 import derived_entities
 import models
+
+log = logging.getLogger("derived")
 
 router = APIRouter(prefix="/api/derived", tags=["derived_entities"])
 
@@ -115,12 +118,11 @@ async def _build_state_map() -> dict[str, Any]:
     """Aggregate states from every integration into entity_id -> {state, unit}."""
     state_map: dict[str, Any] = {}
     try:
-        from routers.integrations import _all_entities  # lazy to avoid circular import
-        entities = await _all_entities(include_derived=False)
-    except TypeError:
-        from routers.integrations import _all_entities  # older signature
-        entities = await _all_entities()
-    except Exception:
+        from core.entity_catalog import get_entities
+
+        entities = await get_entities(include_derived=False)
+    except Exception as exc:
+        log.warning("build_state_map entity fetch failed: %s", exc)
         entities = []
     for item in entities:
         eid = item.get("entity_id")

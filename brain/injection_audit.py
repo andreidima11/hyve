@@ -4,36 +4,37 @@ import sqlite3
 import time
 from typing import List, Optional
 
+from core.sqlite_sidecar import SidecarPool
+
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INJECTION_AUDIT_DB = os.path.join(_ROOT, "injection_audit.sqlite")
-_CONN = None
+
+
+def _init_schema(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS injection_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts REAL NOT NULL,
+            source_label TEXT NOT NULL,
+            risk_score INTEGER NOT NULL,
+            primary_category TEXT,
+            action TEXT NOT NULL,
+            snippet TEXT,
+            content_len INTEGER NOT NULL,
+            details_json TEXT
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_injection_events_ts ON injection_events(ts DESC)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_injection_events_source ON injection_events(source_label, ts DESC)")
+
+
+_POOL = SidecarPool(INJECTION_AUDIT_DB, _init_schema, row_factory=True)
 
 
 def _get_conn():
-    global _CONN
-    if _CONN is None:
-        _CONN = sqlite3.connect(INJECTION_AUDIT_DB)
-        _CONN.execute("PRAGMA journal_mode=WAL")
-        _CONN.row_factory = sqlite3.Row
-        _CONN.execute(
-            """
-            CREATE TABLE IF NOT EXISTS injection_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ts REAL NOT NULL,
-                source_label TEXT NOT NULL,
-                risk_score INTEGER NOT NULL,
-                primary_category TEXT,
-                action TEXT NOT NULL,
-                snippet TEXT,
-                content_len INTEGER NOT NULL,
-                details_json TEXT
-            )
-            """
-        )
-        _CONN.execute("CREATE INDEX IF NOT EXISTS idx_injection_events_ts ON injection_events(ts DESC)")
-        _CONN.execute("CREATE INDEX IF NOT EXISTS idx_injection_events_source ON injection_events(source_label, ts DESC)")
-        _CONN.commit()
-    return _CONN
+    return _POOL.connection()
 
 
 def append_event(

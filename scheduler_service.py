@@ -13,6 +13,7 @@ from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 import settings as settings_mod
 from logger import log_detail, log_line
 import push_fcm
+from core.sqlite_sidecar import SidecarPool
 
 # --- CONFIGURARE PERSISTENTĂ ---
 jobstores = {
@@ -23,8 +24,41 @@ scheduler = BackgroundScheduler(jobstores=jobstores)
 
 # --- JOB METADATA STORAGE (SQLite, replaces separate JSON files) ---
 _META_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scheduler_meta.sqlite")
-_meta_conn = None
 _meta_lock = threading.Lock()
+
+
+def _init_meta_schema(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS reminder_display (
+            job_id TEXT PRIMARY KEY,
+            display_text TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS automation_specs (
+            job_id TEXT PRIMARY KEY,
+            spec_json TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS life_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            description TEXT NOT NULL,
+            event_time_iso TEXT,
+            session_id TEXT,
+            created_at REAL NOT NULL
+        )
+        """
+    )
+
+
+_meta_pool = SidecarPool(_META_DB_PATH, _init_meta_schema, check_same_thread=False)
 
 # Throttle config reload in scheduler (run_automation / trigger_notification)
 _CONFIG_RELOAD_INTERVAL = 30
@@ -44,45 +78,19 @@ def _reload_config_if_needed():
             log_detail("scheduler", "CONFIG_RELOAD_ERROR", error=str(e))
 
 def _get_meta_conn():
-    global _meta_conn
-    if _meta_conn is None:
-        with _meta_lock:
-            if _meta_conn is None:
-                _meta_conn = sqlite3.connect(_META_DB_PATH, check_same_thread=False)
-                _meta_conn.execute("PRAGMA journal_mode=WAL")
-                _meta_conn.execute("PRAGMA busy_timeout=5000")
-                _meta_conn.execute("""
-                    CREATE TABLE IF NOT EXISTS reminder_display (
-                        job_id TEXT PRIMARY KEY,
-                        display_text TEXT NOT NULL
-                    )
-                """)
-                _meta_conn.execute("""
-                    CREATE TABLE IF NOT EXISTS automation_specs (
-                        job_id TEXT PRIMARY KEY,
-                        spec_json TEXT NOT NULL
-                    )
-                """)
-                _meta_conn.execute("""
-                    CREATE TABLE IF NOT EXISTS life_events (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id TEXT NOT NULL,
-                        description TEXT NOT NULL,
-                        event_time_iso TEXT,
-                        session_id TEXT,
-                        created_at REAL NOT NULL
-                    )
-                """)
-                _meta_conn.commit()
-                _migrate_json_to_sqlite()
-    return _meta_conn
+    conn = _meta_pool.connection()
+    with _meta_lock:
+        if not getattr(_get_meta_conn, "_migrated", False):
+            _migrate_json_to_sqlite()
+            _get_meta_conn._migrated = True  # type: ignore[attr-defined]
+    return conn
 
 def _migrate_json_to_sqlite():
     """One-time migration from old JSON files to SQLite."""
     _root = os.path.dirname(os.path.abspath(__file__))
     rd_path = os.path.join(_root, "reminders_display.json")
     as_path = os.path.join(_root, "automation_specs.json")
-    conn = _meta_conn
+    conn = _meta_pool.connection()
     migrated = False
     if os.path.isfile(rd_path):
         try:
@@ -248,43 +256,13 @@ def run_automation(job_id):
 
 
 def _execute_ha_action(entity_id: str, action: str, data: dict | None = None):
-    """Resolve entity_id → integration and execute control_entity synchronously."""
-    import asyncio as _asyncio
-    from integrations import get_integration_manager
-    from routers.integrations import _build_all_entities_uncached
-
-    manager = get_integration_manager()
-    target_id = entity_id
-    integration = None
+    """Resolve entity_id → integration and execute control_entity on the main loop."""
+    from core.device_control import ControlTargetNotFound, control_entity_sync
 
     try:
-        for e in _build_all_entities_uncached(include_derived=False):
-            if e.get("entity_id") == entity_id or e.get("unique_id") == entity_id:
-                target_id = str(e.get("unique_id") or entity_id)
-                entry_id = str(e.get("entry_id") or "")
-                if entry_id:
-                    integration = manager.get_by_entry(entry_id)
-                if integration is None:
-                    slug = str(e.get("source") or "")
-                    if slug:
-                        integration = manager.get(slug)
-                break
-    except Exception as exc:
-        log_detail("scheduler", "AUTO_RUN_HA_LOOKUP_ERROR", entity_id=entity_id, error=str(exc))
-
-    if integration is None:
-        slug_guess = (entity_id.split(".")[0] or "").lower()
-        integration = manager.get(slug_guess)
-    if integration is None:
-        raise RuntimeError(f"No integration found for {entity_id}")
-
-    new_loop = _asyncio.new_event_loop()
-    try:
-        return new_loop.run_until_complete(
-            integration.control_entity(target_id, action, data or {})
-        )
-    finally:
-        new_loop.close()
+        return control_entity_sync(entity_id, action, data or {})
+    except ControlTargetNotFound as exc:
+        raise RuntimeError(str(exc)) from exc
 
 def _format_skill_result(skill_name, result):
     """Format a skill execution result into a readable notification message.
@@ -376,33 +354,17 @@ def _try_send_websocket_notification(user_id, message, notification_id=None, ses
             create_tracked_task(send_reminder_via_websocket(str(user_id), message, **_kwargs), name="reminder_ws_send")
             return True  # Optimistic — connection exists
         else:
-            # We're in a thread (APScheduler) — use run_coroutine_threadsafe on the main loop
             try:
-                from core.http.runtime import get_main_loop
+                from core.http.runtime import run_coroutine_on_main_loop
 
-                main_loop = get_main_loop()
-                if main_loop and main_loop.is_running():
-                    future = asyncio.run_coroutine_threadsafe(
-                        send_reminder_via_websocket(str(user_id), message, **_kwargs),
-                        main_loop
-                    )
-                    result = future.result(timeout=5)  # Wait max 5s
-                    return bool(result)
-                else:
-                    new_loop = asyncio.new_event_loop()
-                    try:
-                        result = new_loop.run_until_complete(send_reminder_via_websocket(str(user_id), message, **_kwargs))
-                        return bool(result)
-                    finally:
-                        new_loop.close()
+                result = run_coroutine_on_main_loop(
+                    send_reminder_via_websocket(str(user_id), message, **_kwargs),
+                    timeout=5,
+                )
+                return bool(result)
             except Exception as inner_e:
-                log_line("error", "⚠️", "REMINDER_WS", f"Loop fallback: {inner_e}")
-                new_loop = asyncio.new_event_loop()
-                try:
-                    result = new_loop.run_until_complete(send_reminder_via_websocket(str(user_id), message, **_kwargs))
-                    return bool(result)
-                finally:
-                    new_loop.close()
+                log_line("error", "⚠️", "REMINDER_WS", f"Loop dispatch failed: {inner_e}")
+                return False
     except Exception as e:
         log_line("error", "❌", "REMINDER_WS", f"WebSocket send failed: {e}")
         log_detail("scheduler", "WEBSOCKET_SEND_ERROR", error=str(e))

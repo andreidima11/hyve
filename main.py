@@ -42,12 +42,6 @@ def _port_bind_error(host: str, port: int) -> str | None:
         sock.close()
 
 
-def extract_json_payload(text):
-    from core.chat_helpers import extract_json_payload_safe
-    from core.log_stream import log_line
-    return extract_json_payload_safe(text, log_line)
-
-
 if __name__ == "__main__":
     disabled_marker = os.path.join(os.path.dirname(__file__), ".server_disabled")
     if os.path.exists(disabled_marker):

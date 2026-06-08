@@ -259,42 +259,26 @@ async def activate_scene_internal(db: Session, scene: models.Scene) -> dict[str,
         if service_data is not None and not isinstance(service_data, dict):
             service_data = None
         try:
+            from core.device_control import ControlTargetNotFound, control_entity
             from integrations import get_integration_manager
-            from addons.entity_store import get_entity_store
 
-            manager = get_integration_manager()
-            store = get_entity_store()
-
-            # Resolve entity to its owning integration
-            target_id = eid
-            integration = None
-            from routers.integrations import _build_all_entities_uncached
-            all_ents = _build_all_entities_uncached(include_derived=False) or []
-            for ent in all_ents:
-                if ent.get("entity_id") == eid or ent.get("unique_id") == eid:
-                    target_id = str(ent.get("unique_id") or eid)
-                    entry_id = str(ent.get("entry_id") or "")
-                    source = str(ent.get("source") or "")
-                    if entry_id:
-                        integration = manager.get_by_entry(entry_id)
-                    if not integration and source:
-                        integration = manager.get(source)
-                    break
-
-            if not integration:
-                # Fallback: try all integrations that support control
+            try:
+                result = await control_entity(eid, service, service_data)
+                res = {"ok": True, "result": result}
+            except ControlTargetNotFound:
+                integration = None
+                manager = get_integration_manager()
                 for inst in manager.all_instances():
-                    if hasattr(inst, 'control_entity'):
+                    if hasattr(inst, "control_entity"):
                         integration = inst
                         break
-
-            if not integration:
-                res = {"ok": False, "error": "no_integration_found"}
-            else:
-                result = await integration.control_entity(
-                    target_id, service, service_data or {}
-                )
-                res = {"ok": True, "result": result}
+                if not integration:
+                    res = {"ok": False, "error": "no_integration_found"}
+                else:
+                    result = await integration.control_entity(
+                        eid, service, service_data or {}
+                    )
+                    res = {"ok": True, "result": result}
         except Exception as exc:  # noqa: BLE001 — surface error per entry
             results.append({"entity_id": eid, "ok": False, "error": str(exc)[:200]})
             continue

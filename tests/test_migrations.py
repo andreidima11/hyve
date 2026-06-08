@@ -22,7 +22,7 @@ def test_startup_migrations_idempotent():
     assert "about_me" in user_cols
     assert "default_profile_id" in user_cols
     assert "event_color" in entry_cols
-    assert version == "003_entity_store"
+    assert version == "004_entity_history"
 
 
 def test_users_db_uses_wal():
@@ -52,6 +52,34 @@ def test_entity_store_tables_from_migrations():
     assert "integration_entity_schedule" in tables
     assert "integration_entity_overrides" in tables
     assert "selected" in override_cols
+
+
+def test_entity_state_history_table_from_migrations():
+    run_startup_migrations()
+
+    with database.engine.connect() as conn:
+        tables = {
+            row[0]
+            for row in conn.execute(
+                text("SELECT name FROM sqlite_master WHERE type='table'")
+            )
+        }
+        index_names = {
+            row[1]
+            for row in conn.execute(text("PRAGMA index_list(entity_state_history)"))
+        }
+
+    assert "entity_state_history" in tables
+    assert "idx_entity_state_history_eid_ts" in index_names
+
+
+def test_entity_store_initialize_schema_verifies_tables():
+    import asyncio
+
+    from addons.entity_store import IntegrationEntityStore
+
+    run_startup_migrations()
+    asyncio.run(IntegrationEntityStore().initialize_schema())
 
 
 def test_alembic_ini_exists():

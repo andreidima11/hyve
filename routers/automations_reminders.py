@@ -76,8 +76,9 @@ async def get_automation_capabilities(
     entities: list[dict] = []
     areas: list[dict] = []
     try:
-        from routers.integrations import _all_entities  # lazy: heavy module
-        raw_entities = await _all_entities(include_derived=True)
+        from core.entity_catalog import get_entities
+
+        raw_entities = await get_entities(include_derived=True)
         for ent in raw_entities:
             eid = ent.get("entity_id") or ""
             if not eid or "." not in eid:

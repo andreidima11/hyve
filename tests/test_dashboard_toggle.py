@@ -96,6 +96,7 @@ def test_toggle_mosquitto_switch_sends_turn_on(monkeypatch):
     })
     monkeypatch.setattr(dashboard, "_available_entities", fake_available_entities)
     monkeypatch.setattr(dashboard, "get_integration_manager", lambda: FakeManager())
+    monkeypatch.setattr("integrations.get_integration_manager", lambda: FakeManager())
 
     result = asyncio.run(dashboard.toggle_dashboard_widget(
         "fe794909",
@@ -107,7 +108,7 @@ def test_toggle_mosquitto_switch_sends_turn_on(monkeypatch):
 
     assert result["status"] == "ok"
     assert result["action"] == "turn_on"
-    assert calls == [("z2m:0xa4c138fe8b1226ab:state_l3", "turn_on", None)]
+    assert calls == [("z2m:0xa4c138fe8b1226ab:state_l3", "turn_on", {})]
 
 
 def test_toggle_resolves_ha_discovery_alias_for_z2m_widget_id(monkeypatch):
@@ -152,6 +153,7 @@ def test_toggle_resolves_ha_discovery_alias_for_z2m_widget_id(monkeypatch):
     })
     monkeypatch.setattr(dashboard, "_available_entities", fake_available_entities)
     monkeypatch.setattr(dashboard, "get_integration_manager", lambda: FakeManager())
+    monkeypatch.setattr("integrations.get_integration_manager", lambda: FakeManager())
 
     result = asyncio.run(dashboard.toggle_dashboard_widget(
         "733292e0",
@@ -162,4 +164,4 @@ def test_toggle_resolves_ha_discovery_alias_for_z2m_widget_id(monkeypatch):
     ))
 
     assert result["status"] == "ok"
-    assert calls == [("z2m:releu_dormitor2:state_l3", "turn_on", None)]
+    assert calls == [("z2m:releu_dormitor2:state_l3", "turn_on", {})]

@@ -149,8 +149,9 @@ async def _llm_complete(messages: list[dict], max_tokens: int = 1200) -> str:
 def _get_weather_context() -> str:
     """Get current weather data from the entity store."""
     try:
-        from routers.integrations import _build_all_entities_uncached
-        entities = _build_all_entities_uncached(include_derived=False)
+        from core.entity_catalog import build_entities_uncached
+
+        entities = build_entities_uncached(include_derived=False)
         weather_entities = [e for e in entities if "weather" in (e.get("entity_id") or "").lower()
                            or "temperature" in (e.get("entity_id") or "").lower()
                            or "humidity" in (e.get("entity_id") or "").lower()]
@@ -222,8 +223,9 @@ def _get_planner_context(user_id: int) -> str:
 def _get_home_status_context() -> str:
     """Get compact home state for relevant devices."""
     try:
-        from routers.integrations import _build_all_entities_uncached
-        entities = _build_all_entities_uncached(include_derived=False)
+        from core.entity_catalog import build_entities_uncached
+
+        entities = build_entities_uncached(include_derived=False)
         relevant_domains = {"light", "switch", "lock", "cover", "climate", "fan", "alarm_control_panel"}
         on_states = {"on", "open", "unlocked", "heat", "cool", "auto", "playing"}
 

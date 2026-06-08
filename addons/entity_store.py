@@ -88,35 +88,19 @@ class IntegrationEntityStore:
         self._descriptions: Dict[str, str] = {}
 
     async def initialize_schema(self):
-        """Create tables if they don't exist."""
-        with _db() as db:
-            db.execute(text("""
-                CREATE TABLE IF NOT EXISTS integration_entities (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    integration_slug TEXT NOT NULL UNIQUE,
-                    entity_data TEXT NOT NULL,
-                    timestamp REAL NOT NULL,
-                    last_error TEXT
-                )
-            """))
-            db.execute(text("""
-                CREATE TABLE IF NOT EXISTS integration_entity_schedule (
-                    integration_slug TEXT PRIMARY KEY,
-                    fetch_interval_seconds INTEGER NOT NULL DEFAULT 300,
-                    enabled BOOLEAN NOT NULL DEFAULT 1,
-                    last_fetch_time REAL,
-                    next_fetch_time REAL
-                )
-            """))
-            db.execute(text("""
-                CREATE TABLE IF NOT EXISTS integration_entity_overrides (
-                    entity_id TEXT PRIMARY KEY,
-                    custom_name TEXT,
-                    aliases TEXT NOT NULL DEFAULT '[]',
-                    selected INTEGER NOT NULL DEFAULT 0
-                )
-            """))
-            db.commit()
+        """Verify Alembic created integration entity tables (see migrations/003)."""
+        import asyncio
+
+        import database
+        from core.db_schema import require_sqlite_tables
+
+        await asyncio.to_thread(
+            require_sqlite_tables,
+            database.engine,
+            "integration_entities",
+            "integration_entity_schedule",
+            "integration_entity_overrides",
+        )
 
     # -- Registry ----------------------------------------------------------
 

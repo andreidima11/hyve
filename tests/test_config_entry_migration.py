@@ -9,16 +9,17 @@ import pytest
 
 from integrations import config_entries
 from integrations.config_entries import migrate_from_cfg
+from core import sqlite_sidecar
 
 
 @pytest.fixture()
 def isolated_entries_db(tmp_path, monkeypatch):
     db_path = tmp_path / "integration_entries.sqlite"
     monkeypatch.setattr(config_entries, "_DB_PATH", db_path)
-    config_entries._INITIALIZED = False
+    sqlite_sidecar.reset_initialized()
     config_entries._init()
     yield db_path
-    config_entries._INITIALIZED = False
+    sqlite_sidecar.reset_initialized()
 
 
 def test_migrate_from_cfg_creates_entry_and_disables_legacy(isolated_entries_db, tmp_path, monkeypatch):

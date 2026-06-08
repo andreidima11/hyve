@@ -4,32 +4,35 @@ import sqlite3
 import time
 from typing import List, Optional
 
+from core.sqlite_sidecar import SidecarPool
+
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHELL_AUDIT_DB = os.path.join(_ROOT, "shell_audit.sqlite")
-_CONN = None
+
+
+def _init_schema(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS shell_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            ts REAL NOT NULL,
+            command TEXT NOT NULL,
+            exit_code INTEGER,
+            output_preview TEXT,
+            output_len INTEGER,
+            blocked_reason TEXT
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_shell_runs_user_ts ON shell_runs(user_id, ts DESC)")
+
+
+_POOL = SidecarPool(SHELL_AUDIT_DB, _init_schema, row_factory=True)
 
 
 def _get_conn():
-    global _CONN
-    if _CONN is None:
-        _CONN = sqlite3.connect(SHELL_AUDIT_DB)
-        _CONN.execute("PRAGMA journal_mode=WAL")
-        _CONN.row_factory = sqlite3.Row
-        _CONN.execute("""
-            CREATE TABLE IF NOT EXISTS shell_runs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT NOT NULL,
-                ts REAL NOT NULL,
-                command TEXT NOT NULL,
-                exit_code INTEGER,
-                output_preview TEXT,
-                output_len INTEGER,
-                blocked_reason TEXT
-            )
-        """)
-        _CONN.execute("CREATE INDEX IF NOT EXISTS idx_shell_runs_user_ts ON shell_runs(user_id, ts DESC)")
-        _CONN.commit()
-    return _CONN
+    return _POOL.connection()
 
 
 def append_run(

@@ -6,10 +6,11 @@ import time
 import threading
 from typing import Optional, List, Dict, Any
 
+from core.sqlite_sidecar import SidecarPool
+
 # DB în rădăcina proiectului, nu în brain/
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MEMORY_LOG_DB = os.path.join(_ROOT, "memory_log.sqlite")
-_CONN = None
 _LOCK = threading.Lock()
 
 EVENT_ADDED = "fact_added"
@@ -21,31 +22,30 @@ EVENT_CONSOLIDATION_DEDUPE = "consolidation_dedupe"
 EVENT_CONSOLIDATION_AI_PRUNE = "consolidation_ai_prune"
 
 
+def _init_schema(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS memory_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts REAL NOT NULL,
+            event_type TEXT NOT NULL,
+            user_id TEXT,
+            summary TEXT,
+            details TEXT,
+            created_at DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_mem_ev_ts ON memory_events(ts)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_mem_ev_type ON memory_events(event_type)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_mem_ev_user ON memory_events(user_id)")
+
+
+_POOL = SidecarPool(MEMORY_LOG_DB, _init_schema, check_same_thread=False, row_factory=True)
+
+
 def _get_conn():
-    global _CONN
-    if _CONN is None:
-        with _LOCK:
-            if _CONN is None:
-                _CONN = sqlite3.connect(MEMORY_LOG_DB, check_same_thread=False)
-                _CONN.execute("PRAGMA journal_mode=WAL")
-                _CONN.execute("PRAGMA busy_timeout=5000")
-                _CONN.row_factory = sqlite3.Row
-                _CONN.execute("""
-                    CREATE TABLE IF NOT EXISTS memory_events (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        ts REAL NOT NULL,
-                        event_type TEXT NOT NULL,
-                        user_id TEXT,
-                        summary TEXT,
-                        details TEXT,
-                        created_at DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-                _CONN.execute("CREATE INDEX IF NOT EXISTS idx_mem_ev_ts ON memory_events(ts)")
-                _CONN.execute("CREATE INDEX IF NOT EXISTS idx_mem_ev_type ON memory_events(event_type)")
-                _CONN.execute("CREATE INDEX IF NOT EXISTS idx_mem_ev_user ON memory_events(user_id)")
-                _CONN.commit()
-    return _CONN
+    return _POOL.connection()
 
 
 def append_event(

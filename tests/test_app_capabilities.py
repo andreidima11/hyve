@@ -78,16 +78,19 @@ def test_navigation_help_rejects_settings_dashboard_path(monkeypatch):
 
 def test_guardrails_keep_app_help_available_in_filtered_tool_sets():
     cortex_source = _package_source(_PROJECT_ROOT / "brain" / "cortex")
+    helpers_source = (_PROJECT_ROOT / "brain" / "cortex" / "agent_helpers.py").read_text(encoding="utf-8")
+    context_source = (_PROJECT_ROOT / "brain" / "cortex" / "agent_context.py").read_text(encoding="utf-8")
     toolbox_source = _package_source(_PROJECT_ROOT / "brain" / "toolbox")
 
     untrusted_block = toolbox_source.partition("_UNTRUSTED_CONTEXT_SAFE_TOOL_NAMES")[2].partition("})")[0]
 
-    assert '"get_app_help"' in cortex_source.partition("_MINIMAL_TOOL_NAMES")[2][:200]
-    assert '"get_system_status"' in cortex_source.partition("_MINIMAL_TOOL_NAMES")[2][:200]
-    assert '"get_app_help"' in cortex_source.partition("_MEMORY_TOOL_NAMES")[2][:200]
-    assert '"get_system_status"' in cortex_source.partition("_MEMORY_TOOL_NAMES")[2][:200]
+    assert '"get_app_help"' in helpers_source.partition("_AGENT_MINIMAL_TOOL_NAMES")[2][:300]
+    assert '"get_system_status"' in helpers_source.partition("_AGENT_MINIMAL_TOOL_NAMES")[2][:300]
+    assert '"get_app_help"' in context_source.partition("_MEMORY_TOOL_NAMES")[2][:300]
+    assert '"get_system_status"' in context_source.partition("_MEMORY_TOOL_NAMES")[2][:300]
     assert '"get_app_help",' in untrusted_block
     assert '"get_system_status",' in untrusted_block
+    assert "agent_context" in cortex_source or "prepare_agent_turn" in context_source
 
 
 def _load_intent_router(monkeypatch):

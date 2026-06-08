@@ -287,6 +287,7 @@ def test_toggle_dashboard_widget_routes_to_target_climate_entity(monkeypatch):
     })
     monkeypatch.setattr(dashboard, "_available_entities", fake_available_entities)
     monkeypatch.setattr(dashboard, "get_integration_manager", lambda: FakeManager())
+    monkeypatch.setattr("integrations.get_integration_manager", lambda: FakeManager())
 
     result = asyncio.run(dashboard.toggle_dashboard_widget(
         "climate_card",

@@ -198,13 +198,16 @@ class IntegrationManager:
     def _store_key(self, integration: BaseEntity) -> str:
         return integration.store_key
 
-    def _is_bootstrap_eligible(self, integration: BaseEntity, *, include_disabled: bool = False) -> bool:
+    def is_bootstrap_eligible(self, integration: BaseEntity, *, include_disabled: bool = False) -> bool:
         if integration.entry_id:
             return True
         cfg = settings.CFG
         if include_disabled:
             return integration.is_configured(cfg)
         return integration.is_enabled(cfg)
+
+    def _is_bootstrap_eligible(self, integration: BaseEntity, *, include_disabled: bool = False) -> bool:
+        return self.is_bootstrap_eligible(integration, include_disabled=include_disabled)
 
     def register_fetcher(self, slug_or_entry: str, store, *, include_disabled: bool = False) -> bool:
         integration = self.get(slug_or_entry)

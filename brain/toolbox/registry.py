@@ -5,7 +5,7 @@ from typing import Dict, List
 
 import settings as settings_mod
 from logger import log_line
-from brain.tool_shell import _shell_config
+from brain.tool_shell import _shell_config, is_run_script_enabled, is_shell_enabled
 from brain.toolbox.definitions import *  # noqa: F401,F403 — tool constants used in builder
 
 # Cache for tool list (invalidated when config changes)
@@ -20,7 +20,8 @@ def _tools_fingerprint() -> str:
         str(cfg.get("searxng", {}).get("url", "")),
         str((cfg.get("intelligence") or {}).get("lazy_history", True)),
         str((cfg.get("intelligence") or {}).get("file_read", {}).get("enabled", True)),
-        str((cfg.get("intelligence") or {}).get("run_script", {}).get("enabled", True)),
+        str((cfg.get("intelligence") or {}).get("run_script", {}).get("enabled", False)),
+        str((cfg.get("intelligence") or {}).get("shell", {}).get("enabled", False)),
         str((cfg.get("intelligence") or {}).get("propose_patch", {}).get("enabled", True)),
         str((cfg.get("security") or {}).get("restrict_mutating_tools_on_untrusted_content", True)),
         str(cfg.get("skills_disabled") or []),
@@ -120,7 +121,7 @@ def _build_tools_list(is_anonymous: bool) -> List[Dict]:
         log_line("error", "⚠️", "TOOLS", f"Skill registry error: {e}")
 
     # Shell (allow_shell + run_shell + suggest_shell) — only when enabled in config; never for anon
-    if not is_anonymous and _shell_config().get("enabled", True):
+    if not is_anonymous and is_shell_enabled():
         tools.append(TOOL_ALLOW_SHELL)
         tools.append(TOOL_RUN_SHELL)
         tools.append(TOOL_SUGGEST_SHELL)
@@ -132,7 +133,7 @@ def _build_tools_list(is_anonymous: bool) -> List[Dict]:
 
     # run_script (when enabled; same permission as shell; never for anon)
     rs_cfg = (cfg.get("intelligence") or {}).get("run_script") or {}
-    if not is_anonymous and rs_cfg.get("enabled", True) and _shell_config().get("enabled", True):
+    if not is_anonymous and is_run_script_enabled():
         tools.append(TOOL_RUN_SCRIPT)
 
     # propose_patch / propose_file (when enabled; never for anon)

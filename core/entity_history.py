@@ -36,20 +36,10 @@ _last_sample: dict[str, tuple[float, float]] = {}  # entity_id -> (ts, value)
 
 
 def init_history_table() -> None:
-    with database.engine.begin() as conn:
-        conn.execute(text(
-            """
-            CREATE TABLE IF NOT EXISTS entity_state_history (
-                entity_id TEXT NOT NULL,
-                ts        INTEGER NOT NULL,
-                value     REAL NOT NULL
-            )
-            """
-        ))
-        conn.execute(text(
-            "CREATE INDEX IF NOT EXISTS idx_entity_state_history_eid_ts "
-            "ON entity_state_history (entity_id, ts)"
-        ))
+    """Verify Alembic created entity_state_history (see migrations/004)."""
+    from core.db_schema import require_sqlite_tables
+
+    require_sqlite_tables(database.engine, "entity_state_history")
 
 
 def _coerce_numeric(state: Any) -> float | None:

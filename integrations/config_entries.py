@@ -21,38 +21,40 @@ from . import secrets as _secrets
 
 _DB_PATH = Path(__file__).resolve().parent.parent / "config" / "integration_entries.sqlite"
 _LOCK = threading.RLock()
-_INITIALIZED = False
+
+
+def _init_schema(cx: sqlite3.Connection) -> None:
+    cx.execute(
+        """
+        CREATE TABLE IF NOT EXISTS integration_entries (
+            entry_id   TEXT PRIMARY KEY,
+            slug       TEXT NOT NULL,
+            title      TEXT NOT NULL DEFAULT '',
+            data_json  TEXT NOT NULL DEFAULT '{}',
+            enabled    INTEGER NOT NULL DEFAULT 1,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )
+        """
+    )
+    cx.execute("CREATE INDEX IF NOT EXISTS idx_ie_slug ON integration_entries(slug)")
 
 
 def _conn() -> sqlite3.Connection:
-    _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    cx = sqlite3.connect(str(_DB_PATH))
-    cx.row_factory = sqlite3.Row
-    cx.execute("PRAGMA journal_mode=WAL")
-    cx.execute("PRAGMA foreign_keys=ON")
-    return cx
+    from core.sqlite_sidecar import open_sqlite
+
+    return open_sqlite(
+        _DB_PATH,
+        row_factory=True,
+        foreign_keys=True,
+        init=_init_schema,
+    )
 
 
 def _init() -> None:
-    global _INITIALIZED
-    if _INITIALIZED:
-        return
-    with _LOCK, _conn() as cx:
-        cx.execute(
-            """
-            CREATE TABLE IF NOT EXISTS integration_entries (
-                entry_id   TEXT PRIMARY KEY,
-                slug       TEXT NOT NULL,
-                title      TEXT NOT NULL DEFAULT '',
-                data_json  TEXT NOT NULL DEFAULT '{}',
-                enabled    INTEGER NOT NULL DEFAULT 1,
-                created_at INTEGER NOT NULL,
-                updated_at INTEGER NOT NULL
-            )
-            """
-        )
-        cx.execute("CREATE INDEX IF NOT EXISTS idx_ie_slug ON integration_entries(slug)")
-    _INITIALIZED = True
+    """Ensure sidecar schema exists (idempotent)."""
+    with _LOCK:
+        _conn().close()
 
 
 def _now() -> int:

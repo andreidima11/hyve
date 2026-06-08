@@ -8,7 +8,7 @@ from env_bootstrap import ensure_env_loaded
 ensure_env_loaded()
 
 CONFIG_FILE = "config.json"
-RELEASE_VERSION = "0.7.2"
+RELEASE_VERSION = "0.7.3"
 APP_VERSION = RELEASE_VERSION
 _settings_log = logging.getLogger("settings")
 
@@ -113,7 +113,7 @@ DEFAULT_CONFIG = {
             "enabled": False
         },
         "shell": {
-            "enabled": True,
+            "enabled": False,
             "allowed_commands": ["curl", "wget", "ping", "nslookup", "dig", "hostname", "whoami", "ifconfig", "ip", "date", "uname", "cat", "echo", "getent", "grep", "head", "tail", "wc", "tr", "cut", "sort", "uniq", "df", "free", "uptime", "ss", "lsof", "top"],
             "blocked_patterns": ["sudo", " su ", "su\n", "rm -rf", "rm -fr", "mkfs", "> /dev/sd", "dd if=", "chmod 777", "wget -O - |", "curl | sh", "curl | bash", "bash -c", "eval ", "python -c ", "perl -e ", "base64 -d", "chown ", "mknod ", ":(){", ">$("],
             "max_output_chars": 8000,
@@ -127,7 +127,7 @@ DEFAULT_CONFIG = {
             "rate_limit_per_minute": 10
         },
         "run_script": {
-            "enabled": True,
+            "enabled": False,
             "timeout_seconds": 15,
             "max_output_chars": 20000,
             "rate_limit_per_minute": 3
@@ -505,6 +505,8 @@ def _apply_env_overlay(data: dict):
         data.setdefault("waha", {})["password"] = waha_pass
     if os.environ.get("DISABLE_SHELL") == "1":
         data.setdefault("intelligence", {}).setdefault("shell", {})["enabled"] = False
+    if os.environ.get("ENABLE_SHELL") == "1":
+        data.setdefault("intelligence", {}).setdefault("shell", {})["enabled"] = True
     if os.environ.get("DISABLE_SEARXNG") == "1":
         data.setdefault("searxng", {})["enabled"] = False
     if os.environ.get("DISABLE_WAHA") == "1":

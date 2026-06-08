@@ -367,18 +367,12 @@ def _emit_event(user_id: str, event: str, payload: dict) -> bool:
             create_tracked_task(_send(), name="notification_ws_send")
             return True
         try:
-            from core.http.runtime import get_main_loop
+            from core.http.runtime import run_coroutine_on_main_loop
 
-            main_loop = get_main_loop()
-            if main_loop and main_loop.is_running():
-                return bool(asyncio.run_coroutine_threadsafe(_send(), main_loop).result(timeout=5))
+            return bool(run_coroutine_on_main_loop(_send(), timeout=5))
         except Exception as exc:
             log_detail("notifications", "WS_LOOP_ERROR", error=str(exc))
-        temp_loop = asyncio.new_event_loop()
-        try:
-            return bool(temp_loop.run_until_complete(_send()))
-        finally:
-            temp_loop.close()
+            return False
     except Exception as exc:
         log_detail("notifications", "WS_EMIT_ERROR", error=str(exc))
         return False

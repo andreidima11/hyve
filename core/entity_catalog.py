@@ -77,7 +77,7 @@ def build_entities_uncached(
         manager = get_integration_manager()
         provider_items: list[dict[str, Any]] = []
         for integration in manager.all_instances():
-            if integration.supports_sync and not manager._is_bootstrap_eligible(integration):
+            if integration.supports_sync and not manager.is_bootstrap_eligible(integration):
                 continue
             if not integration.supports_sync:
                 continue
@@ -87,8 +87,13 @@ def build_entities_uncached(
                 if hasattr(integration, "live_payload"):
                     try:
                         payload = integration.live_payload(payload)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        log.debug(
+                            "live_payload failed slug=%s entry=%s: %s",
+                            integration.slug,
+                            integration.entry_id,
+                            exc,
+                        )
                 for item in integration.extract_entities(payload):
                     item.setdefault("entry_id", integration.entry_id or "")
                     item.setdefault(
@@ -97,11 +102,18 @@ def build_entities_uncached(
                     )
                     normalize_entity_record(item, default_source=integration.slug)
                     provider_items.append(item)
-            except Exception:
+            except Exception as exc:
+                log.warning(
+                    "entity extract failed slug=%s entry=%s: %s",
+                    integration.slug,
+                    integration.entry_id,
+                    exc,
+                    exc_info=exc,
+                )
                 continue
         _add(provider_items)
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("entity catalog provider pass failed: %s", exc, exc_info=exc)
 
     if include_derived:
         try:
@@ -114,8 +126,8 @@ def build_entities_uncached(
                 if item.get("entity_id")
             }
             _add(derived_entities.evaluate_all(state_map))
-        except Exception:
-            pass
+        except Exception as exc:
+            log.warning("derived entity evaluation failed: %s", exc, exc_info=exc)
 
     try:
         from integrations import device_aliases
@@ -126,8 +138,8 @@ def build_entities_uncached(
         for slug, items in by_slug.items():
             if slug:
                 device_aliases.apply_to_entities(slug, items)
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("device alias apply failed: %s", exc, exc_info=exc)
 
     _sort_entities(merged, sort_mode)
     get_entity_store().apply_overrides(merged)
@@ -146,8 +158,8 @@ def build_entities_uncached(
             )
             if area:
                 ent["area"] = area
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("area map apply failed: %s", exc, exc_info=exc)
 
     return merged
 

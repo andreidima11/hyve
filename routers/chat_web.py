@@ -172,14 +172,17 @@ async def chat_web_impl(request: Request, req: ChatRequest, background_tasks: Ba
         max_image_bytes = int(sec_cfg.get("uploaded_image_max_bytes") or 3_000_000)
         req.image = validate_incoming_image_base64(req.image, max_bytes=max_image_bytes)
 
-        # ── TIER 1: Regex fast-path (instant, single command) ────────
+        # ── Fast paths: scene → regex (short msgs, no attachments) ───
         direct_reply = None
-        if not req.image and not (req.document_text or "").strip() and effective_message and len(effective_message) <= 250:
+        if not req.image and not (req.document_text or "").strip() and effective_message:
             try:
-                from direct_commands import try_regex_command
-                direct_reply = await try_regex_command(effective_message, user_id)
+                from direct_commands import try_scene_command, try_regex_command
+
+                direct_reply = await try_scene_command(effective_message, user_id)
+                if direct_reply is None and len(effective_message) <= 250:
+                    direct_reply = await try_regex_command(effective_message, user_id)
             except Exception as e:
-                log_line("error", "⚠️", "REGEX_CMD", str(e))
+                log_line("error", "⚠️", "DIRECT_CMD", str(e))
 
         # ── Intent router: classify message ──────────────────────────
         routed_intent = None

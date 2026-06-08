@@ -37,6 +37,16 @@ def _shell_config() -> Dict[str, Any]:
     return (settings_mod.CFG.get("intelligence") or {}).get("shell") or {}
 
 
+def is_shell_enabled() -> bool:
+    """Shell tools are opt-in (default off in DEFAULT_CONFIG)."""
+    return bool(_shell_config().get("enabled", False))
+
+
+def is_run_script_enabled() -> bool:
+    rs = (settings_mod.CFG.get("intelligence") or {}).get("run_script") or {}
+    return bool(rs.get("enabled", False)) and is_shell_enabled()
+
+
 def _shell_check_rate_limit(user_id: str) -> Optional[str]:
     cfg = _shell_config()
     limit = int(cfg.get("rate_limit_per_minute", 5))
@@ -74,8 +84,7 @@ def get_last_suggest_shell() -> Optional[Dict[str, Any]]:
 
 
 def exec_allow_shell(user_id: str) -> str:
-    cfg = _shell_config()
-    if not cfg.get("enabled", True):
+    if not is_shell_enabled():
         return "Shell is disabled in configuration. An admin can enable it under Intelligence -> Shell."
     with _SHELL_LOCK:
         _SHELL_ALLOWED[user_id] = time.time() + _SHELL_TTL
@@ -85,8 +94,7 @@ def exec_allow_shell(user_id: str) -> str:
 
 async def exec_run_shell(args: Dict[str, Any], user_id: str, project_root: str) -> str:
     global _SHELL_LAST_RUN
-    cfg = _shell_config()
-    if not cfg.get("enabled", True):
+    if not is_shell_enabled():
         return "Shell is disabled in configuration."
     if not _is_shell_allowed(user_id):
         if not _tool_guardrails_enabled():
@@ -99,6 +107,7 @@ async def exec_run_shell(args: Dict[str, Any], user_id: str, project_root: str) 
                 "Shell is not allowed yet. Ask the user: 'Do you want me to run this command?' "
                 "If they say yes, call allow_shell first, then call run_shell again with the same command."
             )
+    cfg = _shell_config()
     command = (args.get("command") or "").strip()
     if not command:
         return "Error: No command specified."
@@ -225,11 +234,11 @@ def exec_suggest_shell(args: Dict[str, Any], user_id: str) -> str:
 
 
 async def exec_run_script(args: Dict[str, Any], user_id: str, project_root: str) -> str:
+    if not is_run_script_enabled():
+        return "run_script is disabled in configuration."
     if not _is_shell_allowed(user_id):
         return "Shell access is required for run_script. Ask the user to confirm, then call allow_shell, then run_script again."
     cfg = (settings_mod.CFG.get("intelligence") or {}).get("run_script") or {}
-    if not cfg.get("enabled", True):
-        return "run_script is disabled in configuration."
     lang = (args.get("language") or "shell").strip().lower()
     if lang not in ("shell", "python"):
         return "Error: language must be 'shell' or 'python'."

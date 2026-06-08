@@ -210,14 +210,14 @@ def _hydrate_frigate_stream_attrs(ent: dict[str, Any], attrs: dict[str, Any]) ->
 
 async def _camera_entity(entity_id: str) -> dict[str, Any]:
     """Find a camera entity in the unified registry."""
-    from routers.integrations import _all_entities
+    from core.entity_catalog import get_entities
 
     needle = (entity_id or "").strip()
     if not needle:
         raise HTTPException(404, f"Camera {entity_id!r} not found.")
     needle_lower = needle.lower()
 
-    for ent in await _all_entities():
+    for ent in await get_entities():
         eid = str(ent.get("entity_id") or "").strip()
         if not eid:
             continue
