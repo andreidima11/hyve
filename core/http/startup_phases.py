@@ -51,7 +51,7 @@ async def startup_integrations(mark_startup_task_done) -> None:
         from addons.entity_store import get_entity_store as entity_store
 
         try:
-            from integrations.providers.sun import ensure_default_entry as sun_default
+            from components.sun.entity import ensure_default_entry as sun_default
 
             sun_default()
         except Exception as exc:
@@ -104,7 +104,7 @@ async def startup_integrations(mark_startup_task_done) -> None:
 async def startup_mqtt_bridges() -> None:
     try:
         from integrations import get_integration_manager
-        from integrations.providers import mosquitto_bridge
+        from components.mosquitto import bridge as mosquitto_bridge
 
         for inst in get_integration_manager().entries_for("mosquitto"):
             section = inst.config_section(settings.CFG)
@@ -260,7 +260,7 @@ async def shutdown_services(app) -> None:
     except Exception as exc:
         log_line("error", "⚠️", "SHUTDOWN", f"history.stop: {exc}")
     try:
-        from integrations.providers import mosquitto_bridge
+        from components.mosquitto import bridge as mosquitto_bridge
 
         await mosquitto_bridge.stop_bridge()
     except Exception as exc:

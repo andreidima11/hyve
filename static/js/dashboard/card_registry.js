@@ -38,3 +38,45 @@ export function _debugRegistry() {
         hasUpdate: !!v.update,
     }));
 }
+
+/**
+ * Fast-path patch for legacy card shells registered with an `update` hook.
+ * Returns widget IDs that were patched successfully.
+ */
+export function patchRegistryCardStates(updates, widgetById, opts = {}) {
+    const handled = new Set();
+    if (!updates || typeof updates.size !== 'number' || updates.size === 0) return handled;
+    if (typeof widgetById !== 'function') return handled;
+
+    const {
+        widgetRenderer,
+        buildCtx,
+        widgetEntityIds,
+        widgetArticleEl,
+    } = opts;
+    if (typeof widgetRenderer !== 'function' || typeof buildCtx !== 'function'
+        || typeof widgetEntityIds !== 'function' || typeof widgetArticleEl !== 'function') {
+        return handled;
+    }
+
+    const touchedWidgetIds = opts.touchedWidgetIds instanceof Set
+        ? opts.touchedWidgetIds
+        : new Set(Array.isArray(opts.touchedWidgetIds) ? opts.touchedWidgetIds : []);
+
+    for (const wid of touchedWidgetIds) {
+        const widget = widgetById(wid);
+        if (!widget) continue;
+        const renderer = widgetRenderer(widget);
+        const reg = getCard(renderer);
+        if (!reg?.update) continue;
+        const articleEl = widgetArticleEl(wid);
+        if (!articleEl) continue;
+        const entityIds = widgetEntityIds(widget);
+        try {
+            if (reg.update(widget, updates, articleEl, buildCtx(renderer), entityIds)) {
+                handled.add(wid);
+            }
+        } catch (_) {}
+    }
+    return handled;
+}

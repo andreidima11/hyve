@@ -4,6 +4,7 @@ import sqlite3
 import time
 from typing import List, Optional
 
+from core.sidecar_migrations import run_sidecar_migrations
 from core.sqlite_sidecar import SidecarPool
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -30,7 +31,11 @@ def _init_schema(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_injection_events_source ON injection_events(source_label, ts DESC)")
 
 
-_POOL = SidecarPool(INJECTION_AUDIT_DB, _init_schema, row_factory=True)
+def _bootstrap_schema(conn: sqlite3.Connection) -> None:
+    run_sidecar_migrations(conn, {1: _init_schema})
+
+
+_POOL = SidecarPool(INJECTION_AUDIT_DB, _bootstrap_schema, row_factory=True)
 
 
 def _get_conn():

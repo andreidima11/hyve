@@ -2,6 +2,9 @@
 
 import { fusionSolarWidgetEntityIds } from '/static/hyveview/cards/fusion_solar.js';
 import { entityIdVariants, findEntityById, updatesGetWithAliases, updatesHasWithAliases } from '../entity_aliases.js';
+import { patchRegistryCardStates } from './card_registry.js';
+import { widgetArticleEl } from './cards/updates.js';
+import { buildCardRenderCtx } from './widget_cards.js';
 
 export function createDashboardEntityPatcher(deps) {
     const {
@@ -124,6 +127,16 @@ export function createDashboardEntityPatcher(deps) {
                 (pg.panels || []).forEach(p => walkTouched(p && p.widgets));
             });
             if (touchedWidgetIds.size === 0) return true;
+
+            const registryHandled = patchRegistryCardStates(updates, widgetById, {
+                widgetRenderer,
+                buildCtx: buildCardRenderCtx,
+                widgetEntityIds,
+                widgetArticleEl,
+                touchedWidgetIds,
+            });
+            registryHandled.forEach((id) => handled.add(id));
+
             return Array.from(touchedWidgetIds).every((id) => {
                 if (handled.has(id)) return true;
                 return widgetSkipsLiveRerender(widgetById(id));

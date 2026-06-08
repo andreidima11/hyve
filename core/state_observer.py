@@ -135,7 +135,7 @@ async def _emit_state_change(
 
 async def _mqtt_listener():
     """Subscribe to the MQTT bridge and publish entity events in real time."""
-    from integrations.providers import mosquitto_bridge
+    from components.mosquitto import bridge as mosquitto_bridge
 
     log.info("MQTT real-time listener waiting for bridge...")
     # Wait for the bridge to start (it starts slightly after the observer).

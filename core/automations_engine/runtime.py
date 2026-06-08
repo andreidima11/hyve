@@ -291,7 +291,7 @@ def _schedule_sun_trigger(definition_id: str, trigger_index: int, trigger: dict)
     def _arm():
         try:
             from integrations import config_entries as _ce
-            from integrations.providers.sun import _find_next_event
+            from components.sun.calculator import find_next_event as _find_next_event
             entries = _ce.list_entries("sun")
             if not entries:
                 log_detail("automation", "SUN_TRIGGER_NO_ENTRY", automation_id=definition_id)

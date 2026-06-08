@@ -31,7 +31,8 @@ The rule is simple:
 
 - card preset metadata lives in [ui_catalog.json](ui_catalog.json)
 - server-side card catalog API lives in [routers/dashboard.py](routers/dashboard.py)
-- dashboard editor and renderer selection live in [static/js/dashboard.js](static/js/dashboard.js)
+- dashboard editor and renderer selection live in [static/js/dashboard.js](static/js/dashboard.js) (facade) and [static/js/dashboard/](static/js/dashboard/) modules
+- card renderers register via [static/js/dashboard/cards/register.js](static/js/dashboard/cards/register.js) and [static/js/dashboard/card_registry.js](static/js/dashboard/card_registry.js)
 - shared visual styling lives in [static/css/components.css](static/css/components.css)
 
 ## Integration Architecture
@@ -135,7 +136,7 @@ Current built-in renderers are:
 
 If you only need a new preset, add a new `type` in [ui_catalog.json](ui_catalog.json) that points to one of these renderers.
 
-If you need a truly new visual behavior, then you must implement a new renderer in [static/js/dashboard.js](static/js/dashboard.js) and style it in [static/css/components.css](static/css/components.css).
+If you need a truly new visual behavior, add a renderer in [static/js/dashboard/cards/renderers.js](static/js/dashboard/cards/renderers.js), register it in [static/js/dashboard/cards/register.js](static/js/dashboard/cards/register.js), and style it in [static/css/components.css](static/css/components.css).
 
 ### Card catalog fields
 
@@ -193,7 +194,7 @@ Use this only when the card cannot be represented by an existing renderer.
 
 Checklist:
 
-1. Add the renderer branch to [static/js/dashboard.js](static/js/dashboard.js).
+1. Add the renderer in [static/js/dashboard/cards/renderers.js](static/js/dashboard/cards/renderers.js) and register it in [static/js/dashboard/cards/register.js](static/js/dashboard/cards/register.js).
 2. Update any backend semantics in [routers/dashboard.py](routers/dashboard.py) if the renderer changes controllability, hydration, or validation behavior.
 3. Add styling in [static/css/components.css](static/css/components.css).
 4. Add at least one card catalog entry in [ui_catalog.json](ui_catalog.json) that references the new renderer.
@@ -230,7 +231,7 @@ Before merging a new integration or card extension, verify:
 
 1. The change adds or updates [ui_catalog.json](ui_catalog.json) if UI metadata is needed.
 2. No new hardcoded list row or select option was introduced in [templates/index.html](templates/index.html).
-3. The implementation reuses shared paths in [static/js/features.js](static/js/features.js) or [static/js/dashboard.js](static/js/dashboard.js).
+3. The implementation reuses shared paths in [static/js/features.js](static/js/features.js) or the [static/js/dashboard/](static/js/dashboard/) modules (via [static/js/dashboard.js](static/js/dashboard.js) exports).
 4. The backend accepts the new preset via the catalog contract and does not reject it due to a fixed enum path.
 5. Tests cover discovery, normalization, or behavior where appropriate.
 

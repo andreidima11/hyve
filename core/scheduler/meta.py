@@ -8,6 +8,7 @@ import sqlite3
 import threading
 from pathlib import Path
 
+from core.sidecar_migrations import run_sidecar_migrations
 from core.sqlite_sidecar import SidecarPool
 from logger import log_detail
 
@@ -47,7 +48,11 @@ def _init_meta_schema(conn: sqlite3.Connection) -> None:
     )
 
 
-_meta_pool = SidecarPool(str(_META_DB_PATH), _init_meta_schema, check_same_thread=False)
+def _bootstrap_meta_schema(conn: sqlite3.Connection) -> None:
+    run_sidecar_migrations(conn, {1: _init_meta_schema})
+
+
+_meta_pool = SidecarPool(str(_META_DB_PATH), _bootstrap_meta_schema, check_same_thread=False)
 
 
 def _get_meta_conn():

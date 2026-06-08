@@ -97,7 +97,7 @@ async def wire_new_entry(manager, slug: str, entry_id: str) -> None:
 
     if slug == "mosquitto":
         try:
-            from integrations.providers import mosquitto_bridge
+            from components.mosquitto import bridge as mosquitto_bridge
 
             inst2 = manager.get_by_entry(entry_id)
             if inst2:

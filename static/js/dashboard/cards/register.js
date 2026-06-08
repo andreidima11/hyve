@@ -18,6 +18,12 @@ import {
     renderWeatherRichCard,
     renderWeatherSimpleCard,
 } from './renderers.js';
+import {
+    updateGaugeCard,
+    updateLabelCard,
+    updateSensorCard,
+    updateTileCard,
+} from './updates.js';
 
 if (typeof window !== 'undefined' && window.__hyveCameraTimer) {
     clearInterval(window.__hyveCameraTimer);
@@ -30,10 +36,10 @@ export function registerDashboardCards() {
     if (_registered) return;
     _registered = true;
 
-    registerCard({ type: 'label', render: renderLabelCard });
+    registerCard({ type: 'label', render: renderLabelCard, update: updateLabelCard });
     registerCard({ type: 'light', render: renderLightCard });
-    registerCard({ type: 'sensor', render: renderSensorCard });
-    registerCard({ type: 'gauge', render: renderGaugeCard });
+    registerCard({ type: 'sensor', render: renderSensorCard, update: updateSensorCard });
+    registerCard({ type: 'gauge', render: renderGaugeCard, update: updateGaugeCard });
     registerCard({ type: 'lock', render: renderLockCard });
     registerCard({ type: 'vacuum', render: renderVacuumCard });
     registerCard({ type: 'weather', render: renderWeatherSimpleCard });
@@ -46,11 +52,11 @@ export function registerDashboardCards() {
     const tileInteractive = (widget, ctx) => renderTileCard(widget, ctx, { interactive: true });
     const tileStatic = (widget, ctx) => renderTileCard(widget, ctx, { interactive: false });
 
-    registerCard({ type: 'tile', render: tileInteractive });
-    registerCard({ type: 'button', render: tileInteractive });
-    registerCard({ type: 'switch', render: tileInteractive });
-    registerCard({ type: 'scene', render: tileInteractive });
-    registerCard({ type: 'info', render: tileStatic });
+    registerCard({ type: 'tile', render: tileInteractive, update: updateTileCard });
+    registerCard({ type: 'button', render: tileInteractive, update: updateTileCard });
+    registerCard({ type: 'switch', render: tileInteractive, update: updateTileCard });
+    registerCard({ type: 'scene', render: tileInteractive, update: updateTileCard });
+    registerCard({ type: 'info', render: tileStatic, update: updateTileCard });
 }
 
 export { cameraWidgetEntities } from './renderers.js';

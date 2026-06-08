@@ -26,5 +26,6 @@ New schema changes: `alembic revision -m "description"` → edit upgrade → com
 
 ## Deferred
 
-- `dashboard.js` further split — `debug.js`, `hyveview_setup.js`, `yaml_editor.js`, `pull_refresh.js`, `live_ws.js`, `entity_patch.js`; core grid/render still in `dashboard.js` (~7.6k lines).
+- `dashboard.js` split complete (v0.7.14): ~100-line facade + `dashboard/*` modules (`wire/`, `cards/`, `entity_patch.js`, etc.).
+- Alembic for auxiliary SQLite sidecars (`scheduler_meta`, audit logs) — deferred.
 - Docker / multi-worker packaging.

@@ -3,43 +3,43 @@
 from __future__ import annotations
 
 import asyncio
-import copy
 import json
+import re
 import time
-import uuid
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
-import httpx
 import settings as settings_mod
 from logger import log_line, log_detail, log_conversation_model_activity
-from rich.panel import Panel
 
 from brain.cortex.agent_context import prepare_agent_turn
 from brain.cortex.agent_helpers import (
-    _append_no_think,
     _effective_tool_intent,
     _event_status,
     _should_suppress_thinking,
     _tool_call_status_label,
 )
-from brain.cortex.config import DEFAULT_MAX_AGENT_TURNS, console
-from brain.cortex.llm import _get_aux_or_main_llm, _llm_headers, _normalize_chat_url, _stream_llm_turn
+from brain.cortex.agent_stream_llm import (
+    apply_glm_thinking_payload,
+    llm_stream_error_message,
+    stream_agent_llm_turn,
+)
+from brain.cortex.config import DEFAULT_MAX_AGENT_TURNS, TIMEOUT_LLM
+from brain.cortex.llm import _llm_headers, _normalize_chat_url, _stream_llm_turn
 from llm_client import get_llm_client
 from brain.cortex.messages import (
     _ensure_text_user_message,
     _message_content_to_text,
     sanitize_input,
 )
+from brain.cortex.prompt import _should_skip_web_search
 from brain.cortex.prompt_cache import (
     _filter_tools_for_untrusted_context,
     _tool_result_taints_context,
 )
 from brain.cortex.thinking import (
-    RE_TOOL_CALL_BLOCK,
+    RE_HA_CALL_LOG,
     _MarkdownStreamBuffer,
-    _ThinkContentStreamParser,
-    strip_think,
-    strip_think_content,
+    _strip_think_robust,
 )
 
 async def generate_response_stream(
@@ -200,150 +200,36 @@ async def generate_response_stream(
         elif turn_tools and _has_image_in_msgs:
             log_line("agent", "🖼", "VISION", "Skipping tools for image request (tools + multimodal not supported by most local LLMs)")
 
-        # GLM models: enable Deep Thinking + Preserved Thinking + Stream Tool Call
-        # Only for GLM variants that explicitly support thinking (flash/thinking models)
-        # Plain glm-4.7 does NOT support the thinking parameter and returns HTTP 400
-        model_name = (llm_cfg.get("model_name") or "").lower()
-        _glm_supports_thinking = (
-            ("glm" in model_name and ("flash" in model_name or "thinking" in model_name))
-            or "4.7-flash" in model_name
-        )
-        if _glm_supports_thinking:
-            payload["thinking"] = {"type": "enabled"}
-            if tools:
-                payload["thinking"]["clear_thinking"] = False
-                payload["tool_stream"] = True
+        apply_glm_thinking_payload(payload, llm_cfg, tools)
 
-        # --- LLM call: streaming for both text and vision ---
-        # We try streaming first even for image turns; if the backend returns an
-        # error related to multimodal+stream, we fall back to a non-streaming
-        # call. Some local backends (older llama.cpp, vLLM) need this fallback.
-        llm_timeout = float(llm_cfg.get("timeout", TIMEOUT_LLM))
         stream_done = None
-        _vision_stream_failed = False
-        try:
-            if _has_image_in_msgs:
-                yield _event_status("search_web_images", label="Analizez imaginea")
-            if _has_image_in_msgs:
-                # Try streaming first for vision
-                try:
-                    async for event in _stream_llm_turn(client, llm_url, payload, llm_timeout, llm_headers):
-                        if isinstance(event, dict) and event.get("t") == "_stream_done":
-                            stream_done = event
-                            # Detect multimodal+stream errors → trigger fallback
-                            err_detail = str(event.get("error_detail") or "").lower()
-                            if event.get("error") and ("image" in err_detail or "multimodal" in err_detail or "vision" in err_detail):
-                                _vision_stream_failed = True
-                                stream_done = None
-                            break
-                        if isinstance(event, dict) and event.get("t") == "thinking":
-                            if not _t_first_content_yielded:
-                                _t_first_content_yielded = True
-                                _ttft_total = round((time.monotonic() - _t_request_start) * 1000)
-                                log_line("agent", "⏱️", "TTFT", f"{_ttft_total}ms (first thinking token)")
-                            yield event
-                            continue
-                        if isinstance(event, str):
-                            if not _t_first_content_yielded:
-                                _t_first_content_yielded = True
-                                _ttft_total = round((time.monotonic() - _t_request_start) * 1000)
-                                log_line("agent", "⏱️", "TTFT", f"{_ttft_total}ms (first content token)")
-                            for _buf_chunk in _md_buf.feed(event):
-                                yield _buf_chunk
-                            continue
-                    _buf_tail = _md_buf.flush()
-                    if _buf_tail:
-                        yield _buf_tail
-                except Exception as e:
-                    log_line("agent", "🖼", "VISION", f"Streaming failed ({type(e).__name__}: {str(e)[:120]}), falling back to non-streaming")
-                    _vision_stream_failed = True
-
-                if _vision_stream_failed:
-                    log_line("agent", "🖼", "VISION", "Non-streaming fallback for vision call")
-                    _ns_payload = {**payload, "stream": False}
-                    r = await client.post(llm_url, json=_ns_payload, timeout=llm_timeout, headers=llm_headers or {})
-                    if r.status_code != 200:
-                        body_hint = r.text[:300] if r.text else "(empty)"
-                        stream_done = {"t": "_stream_done", "content": "", "tool_calls": [], "finish_reason": "error", "error": r.status_code, "error_detail": body_hint}
-                    else:
-                        _ns_data = r.json()
-                        _ns_choice = (_ns_data.get("choices") or [{}])[0]
-                        _ns_msg = _ns_choice.get("message") or {}
-                        _ns_content = (_ns_msg.get("content") or "").strip()
-                        _ns_reasoning = (_ns_msg.get("reasoning_content") or "").strip()
-                        if _ns_reasoning:
-                            yield {"t": "thinking", "content": _ns_reasoning}
-                        if not _ns_content and _ns_reasoning:
-                            _ns_content = _ns_reasoning
-                        if _ns_content:
-                            yield _ns_content
-                        stream_done = {
-                            "t": "_stream_done",
-                            "content": _ns_content,
-                            "tool_calls": [],
-                            "finish_reason": _ns_choice.get("finish_reason") or "stop",
-                            "reasoning_content": _ns_reasoning or None,
-                        }
-            else:
-                async for event in _stream_llm_turn(client, llm_url, payload, llm_timeout, llm_headers):
-                    if isinstance(event, dict) and event.get("t") == "_stream_done":
-                        stream_done = event
-                        break
-                    if isinstance(event, dict) and event.get("t") == "thinking":
-                        if not _t_first_content_yielded:
-                            _t_first_content_yielded = True
-                            _ttft_total = round((time.monotonic() - _t_request_start) * 1000)
-                            log_line("agent", "⏱️", "TTFT", f"{_ttft_total}ms (first thinking token)")
-                        yield event
-                        continue
-                    if isinstance(event, str):
-                        if not _t_first_content_yielded:
-                            _t_first_content_yielded = True
-                            _ttft_total = round((time.monotonic() - _t_request_start) * 1000)
-                            log_line("agent", "⏱️", "TTFT", f"{_ttft_total}ms (first content token)")
-                        for _buf_chunk in _md_buf.feed(event):
-                            yield _buf_chunk
-                        continue
-                # Flush any buffered markdown at end of this streaming pass
-                _buf_tail = _md_buf.flush()
-                if _buf_tail:
-                    yield _buf_tail
-        except Exception as e:
-            log_line("agent", "⚠️", "LLM ERROR", f"{type(e).__name__}: {e}")
-            yield f"Error: {str(e)}"
-            return
+        first_content_state = {"yielded": _t_first_content_yielded}
+        async for event in stream_agent_llm_turn(
+            client=client,
+            llm_url=llm_url,
+            payload=payload,
+            llm_cfg=llm_cfg,
+            llm_headers=llm_headers,
+            has_image_in_msgs=_has_image_in_msgs,
+            request_start=_t_request_start,
+            md_buf=_md_buf,
+            first_content_state=first_content_state,
+        ):
+            if isinstance(event, dict) and event.get("t") == "_agent_stream_done":
+                stream_done = event.get("stream_done")
+                break
+            if isinstance(event, str) and event.startswith("Error:"):
+                yield event
+                return
+            yield event
+        _t_first_content_yielded = first_content_state.get("yielded", _t_first_content_yielded)
 
         if not stream_done:
             yield "Error: No response from model."
             return
-        if stream_done.get("error"):
-            err_code = stream_done.get("error")
-            err_detail = stream_done.get("error_detail") or ""
-            err_str = str(err_code) + " " + str(err_detail)
-            # DeepSeek (and similar) return 400 when reasoning_content is missing in assistant messages — do not treat as context overflow
-            if "reasoning_content" in err_detail:
-                log_line("agent", "⚠️", "LLM REQUEST", f"API rejected: {err_detail[:200]}")
-                yield "Model request error: assistant messages must include reasoning_content. Try a new session."
-                return
-            # Detect context overflow (LM Studio SSE error or HTTP 400 with context/n_ctx/exceeds)
-            is_context_overflow = (
-                err_code == 400
-                and ("context" in err_str.lower() or "n_ctx" in err_str.lower() or "exceeds" in err_str.lower())
-            ) or ("context" in err_str.lower() and "exceeds" in err_str.lower())
-            if is_context_overflow:
-                log_line("agent", "🚨", "CONTEXT OVERFLOW",
-                         f"Prompt too large for model context window. "
-                         f"Config context_length={llm_cfg.get('context_length')}, "
-                         f"tools_tokens~{tools_token_estimate}, "
-                         f"prompt_tokens~{prompt_tokens}. "
-                         f"Increase model context in LM Studio or reduce context_length in config.")
-                _prompts = settings_mod.CFG.get("prompts") or {}
-                yield _prompts.get("conversation_too_long") or "Conversation too long. Please start a new session or send a shorter message."
-            else:
-                msg = f"Model Error: {err_code}"
-                if err_detail:
-                    msg += " — " + (err_detail[:200] if len(err_detail) > 200 else err_detail)
-                yield msg
+        err_msg = llm_stream_error_message(stream_done, llm_cfg, tools_token_estimate)
+        if err_msg:
+            yield err_msg
             return
 
         text_content = (stream_done.get("content") or "").strip()
