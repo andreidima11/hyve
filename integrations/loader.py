@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import importlib.util
-import inspect
 import logging
 from pathlib import Path
 from typing import Any
@@ -11,7 +9,7 @@ import settings
 
 from . import config_entries
 from .base import BaseEntity
-from .component_loader import discover_component_classes
+from .component_loader import discover_integration_classes
 
 log = logging.getLogger(__name__)
 
@@ -57,32 +55,7 @@ class IntegrationManager:
     def _discover_classes(self, force: bool = False) -> dict[str, type[BaseEntity]]:
         if self._loaded and not force:
             return self._classes
-        self._classes = discover_component_classes(force=force)
-        if self.providers_dir.is_dir():
-            for path in sorted(self.providers_dir.glob("*.py")):
-                if path.name.startswith("_") or path.stem == "__init__":
-                    continue
-                module_name = f"hyve_integrations_{path.stem}"
-                spec = importlib.util.spec_from_file_location(module_name, path)
-                if not spec or not spec.loader:
-                    continue
-                module = importlib.util.module_from_spec(spec)
-                try:
-                    spec.loader.exec_module(module)
-                except Exception as exc:
-                    logging.getLogger("integrations.loader").warning(
-                        "Provider module %s failed to load: %s", path.name, exc
-                    )
-                    continue
-                for _, obj in inspect.getmembers(module, inspect.isclass):
-                    if not issubclass(obj, BaseEntity) or obj is BaseEntity:
-                        continue
-                    slug = getattr(obj, "slug", "")
-                    if not slug:
-                        continue
-                    if slug in self._classes:
-                        continue
-                    self._classes[slug] = obj
+        self._classes = discover_integration_classes(providers_dir=self.providers_dir, force=force)
         self._loaded = True
         return self._classes
 

@@ -102,6 +102,47 @@ def discover_component_classes(*, force: bool = False) -> dict[str, type[BaseEnt
     return classes
 
 
+def discover_legacy_provider_classes(providers_dir: Path) -> dict[str, type[BaseEntity]]:
+    """Load flat ``integrations/providers/*.py`` modules (legacy layout)."""
+    classes: dict[str, type[BaseEntity]] = {}
+    if not providers_dir.is_dir():
+        return classes
+    for path in sorted(providers_dir.glob("*.py")):
+        if path.name.startswith("_") or path.stem == "__init__":
+            continue
+        module_name = f"hyve_integrations_{path.stem}"
+        spec = importlib.util.spec_from_file_location(module_name, path)
+        if not spec or not spec.loader:
+            continue
+        module = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(module)
+        except Exception as exc:
+            log.warning("Provider module %s failed to load: %s", path.name, exc)
+            continue
+        for _, obj in inspect.getmembers(module, inspect.isclass):
+            if not issubclass(obj, BaseEntity) or obj is BaseEntity:
+                continue
+            slug = getattr(obj, "slug", "")
+            if not slug or slug in classes:
+                continue
+            classes[slug] = obj
+    return classes
+
+
+def discover_integration_classes(
+    *,
+    providers_dir: Path | None = None,
+    force: bool = False,
+) -> dict[str, type[BaseEntity]]:
+    """Unified discovery: ``components/`` + ``custom_components/`` + legacy providers."""
+    root = providers_dir or Path(__file__).resolve().parent / "providers"
+    classes = discover_component_classes(force=force)
+    for slug, cls in discover_legacy_provider_classes(root).items():
+        classes.setdefault(slug, cls)
+    return classes
+
+
 def get_component_entity_class(slug: str) -> type[BaseEntity] | None:
     """Load a single bundled/custom component class (for legacy import shims)."""
     key = str(slug or "").strip()

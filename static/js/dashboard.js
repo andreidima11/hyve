@@ -54,7 +54,7 @@ export {
     moveDashboardWidget,
 } from './dashboard/drag_resize.js';
 import { applyDashboardEditAccess, canEditDashboard, requireDashboardEditAccess } from './dashboard/edit_access.js';
-import { initDashboardEventBindings } from './dashboard/event_bindings.js';
+import { getCard } from './dashboard/card_registry.js';
 import { initDashboardClimate, renderClimateCard, climateConfiguredIds,
     toggleDashboardClimateModeMenu, selectDashboardClimateSlide, shiftDashboardClimateSlide,
     startDashboardClimateSwipe, moveDashboardClimateSwipe, endDashboardClimateSwipe,
@@ -1916,6 +1916,10 @@ function _dashboardPanelColSpan(panel) {
 
 function _renderWidgetCard(widget) {
     const renderer = _widgetRenderer(widget);
+    const registered = getCard(renderer);
+    if (registered?.render) {
+        return registered.render(widget, { renderer, editMode: _dashboardEditMode });
+    }
     switch (renderer) {
         case 'label':       return _renderLabelCard(widget);
         case 'light':       return _renderLightCard(widget);
