@@ -1,5 +1,4 @@
 import { apiCall } from './api.js';
-import { cameraPreferWebmPlayer, cameraSupportsGo2rtc } from './camera_live.js';
 import { getCameraStreamToken } from './camera_auth.js';
 import { showConfirm, showToast } from './utils.js';
 import { t, translateApiDetail, tVacuumStatus } from './lang/index.js';
@@ -7,13 +6,10 @@ import './entity_renderers.js';
 // Hyveview bare-path imports dedupe to a single module instance (see hyveview_setup.js).
 import '/static/hyveview/elements/camera_stream.js';
 import '/static/hyveview/elements/camera_carousel.js';
-import { dashDebug, DASH_DEBUG_ENABLED } from './dashboard/debug.js';
 import { switchTab, closeSidebar, isSidebarOpen } from './nav_bridge.js';
 import { HVBridge, HVSetHost, hvOpenEditor, registerHyveviewDashboardCards } from './dashboard/hyveview_setup.js';
 import { createDashboardYamlEditor } from './dashboard/yaml_editor.js';
 import { initDashboardPullToRefresh } from './dashboard/pull_refresh.js';
-import { createDashboardLiveWs } from './dashboard/live_ws.js';
-import { createDashboardEntityPatcher } from './dashboard/entity_patch.js';
 import { widgetTitle } from '/static/hyveview/host.js';
 import { normalizeIconClass, widgetIconSpec } from './icon_utils.js';
 import {
@@ -22,8 +18,6 @@ import {
     DASHBOARD_LOCAL_KEY,
     DASHBOARD_LAST_PAGE_KEY,
     DASHBOARD_STANDALONE_PANEL_ID,
-    DASHBOARD_OPTIMISTIC_GUARD_MS,
-    DASHBOARD_PENDING_VISUAL_MS,
     SECTION_COLS,
     DASHBOARD_COL_POINTS_MIN,
     DASHBOARD_COL_POINTS_MAX,
@@ -61,8 +55,7 @@ import {
     setHashForPage,
     resolveCurrentDashboardPageId,
 } from './dashboard/pages_nav.js';
-import { getCard } from './dashboard/card_registry.js';
-import { registerDashboardCards, cameraWidgetEntities as _cameraEntitiesHelper } from './dashboard/cards/register.js';
+import { registerDashboardCards } from './dashboard/cards/register.js';
 import { weatherIcon, weatherIsNight, weatherVariant } from './dashboard/weather_host.js';
 import { enhanceSparklines, enhanceSparklinesIn, trendCache } from './dashboard/sparklines.js';
 import {
@@ -120,6 +113,56 @@ import {
     openDashboardWidgetEditor,
     saveDashboardWidgetFromEditor,
 } from './dashboard/widget_editor_bridge.js';
+import { initDashboardVisibility } from './dashboard/dashboard_visibility.js';
+import {
+    cameraWidgetEntities,
+    dashboardPanelColSpan,
+    initDashboardWidgetCards,
+    renderWidgetCardForPreview,
+    widgetDragAttrs,
+    widgetEditControls,
+    widgetSizeClass,
+    widgetSpan,
+} from './dashboard/widget_cards.js';
+import {
+    initDashboardRender,
+    renderDashboard,
+    selectDashboardPanelPage,
+} from './dashboard/dashboard_render.js';
+import {
+    filteredWidgets,
+    initDashboardPreferences,
+    saveDashboardPreferences,
+    setDashboardFilter,
+    syncPreferenceControls,
+    toggleDashboardEditMode,
+    toggleDashboardLayout,
+    updateStats,
+} from './dashboard/dashboard_preferences.js';
+import {
+    handleDashboardCardClick,
+    handleDashboardCardKeydown,
+    initDashboardWidgetToggle,
+    patchDashboardEntityState,
+    restoreDashboardEntitySnapshot,
+    snapshotDashboardEntityState,
+    toggleDashboardWidget,
+} from './dashboard/widget_toggle.js';
+import {
+    controlPending,
+    controlVisuallyPending,
+    deletePendingControl,
+    setPendingControl,
+} from './dashboard/control_state.js';
+import {
+    configureHyveviewMounted,
+    connectDashboardLive,
+    dashboardWidgetEntityIds,
+    disconnectDashboardLive,
+    initDashboardLiveBridge,
+    resumeDashboardCameras,
+    tryFastPathForEntities,
+} from './dashboard/live_bridge.js';
 import {
     dashboardSnapshotFingerprint,
     getDashboardPageSnapshot,
@@ -148,6 +191,7 @@ import {
     setEntitySelectState,
 } from './dashboard/entity_picker.js';
 export { loadDashboard, dashboardHasRenderedContent } from './dashboard/dashboard_loader.js';
+export { disconnectDashboardLive } from './dashboard/live_bridge.js';
 export {
     addDashboardVisibilityCondition,
     setDashboardAddEditorMode,
@@ -167,6 +211,18 @@ export {
     setDashboardWidgetEditorMode,
 } from './dashboard/widget_legacy_edit.js';
 export { openDashboardWidgetEditor } from './dashboard/widget_editor_bridge.js';
+export { selectDashboardPanelPage } from './dashboard/dashboard_render.js';
+export {
+    saveDashboardPreferences,
+    setDashboardFilter,
+    toggleDashboardEditMode,
+    toggleDashboardLayout,
+} from './dashboard/dashboard_preferences.js';
+export {
+    handleDashboardCardClick,
+    handleDashboardCardKeydown,
+    toggleDashboardWidget,
+} from './dashboard/widget_toggle.js';
 export {
     closeDashboardEntityPicker,
     filterDashboardEntityOptions,
@@ -247,9 +303,6 @@ let _dashboardEditMode = false;
 let _dashboardCurrentEditorId = null;
 let _currentPageId = null;
 let _dashboardPageNavToken = 0;
-const _dashboardPendingControls = new Map();
-const _dashboardOptimisticGuards = new Map();
-
 function _normalizeCache(payload = {}) {
     return normalizeCache(payload);
 }
@@ -264,59 +317,13 @@ function _renderCachedDashboardIfEmpty() {
         available_entities: Array.isArray(_dashboardCache.available_entities) ? _dashboardCache.available_entities : [],
     };
     if (_dashboardCache.page_id) _currentPageId = _dashboardCache.page_id;
-    _renderDashboard();
+    renderDashboard();
     return true;
 }
 
 let _dashboardPrefetchTimer = null;
 function _schedulePagePrefetch() {
     // Prefetch disabled — see dashboard_loader.js / page snapshots.
-}
-
-function _dashboardControlPending(widgetId) {
-    return _dashboardPendingControls.has(String(widgetId || ''));
-}
-
-function _dashboardControlVisuallyPending(widgetId) {
-    const pending = _dashboardPendingControls.get(String(widgetId || ''));
-    if (!pending) return false;
-    return Date.now() - Number(pending.startedAt || 0) <= DASHBOARD_PENDING_VISUAL_MS;
-}
-
-function _dashboardPendingForEntity(entityId) {
-    const target = String(entityId || '');
-    if (!target) return null;
-    for (const entry of _dashboardPendingControls.values()) {
-        if (entry && entry.entityId === target) return entry;
-    }
-    return null;
-}
-
-function _dashboardExpectedStateForEntity(entityId) {
-    const target = String(entityId || '');
-    if (!target) return null;
-    const pending = _dashboardPendingForEntity(target);
-    if (pending?.nextState != null) return String(pending.nextState);
-    const guard = _dashboardOptimisticGuards.get(target);
-    if (!guard) return null;
-    if (Date.now() > guard.until) {
-        _dashboardOptimisticGuards.delete(target);
-        return null;
-    }
-    return String(guard.state);
-}
-
-function _shouldHoldDashboardOptimisticState(entityId, incomingState) {
-    const expected = _dashboardExpectedStateForEntity(entityId);
-    if (expected == null) return false;
-    const matches = String(incomingState || '').toLowerCase() === expected.toLowerCase();
-    if (matches) {
-        _dashboardOptimisticGuards.delete(String(entityId || ''));
-        const pending = _dashboardPendingForEntity(entityId);
-        if (pending) _dashboardPendingControls.delete(pending.widgetId);
-        return false;
-    }
-    return true;
 }
 
 function _isControllableDomain(domain) {
@@ -407,74 +414,6 @@ function _entityIconForState(domain, on) {
     }
 }
 
-function _syncPreferenceControls() {
-    const prefs = _dashboardCache.preferences || DEFAULT_PREFS;
-
-    const titleEl = document.getElementById('dashboard-page-title');
-    const titleInput = document.getElementById('dashboard-page-title-input');
-    const pageLayoutInput = document.getElementById('dashboard-page-layout-mode');
-    const pageHideInput = document.getElementById('dashboard-page-hide-unavailable');
-    const effectiveTitle = _dashboardCache.title || DEFAULT_META.title;
-    if (titleEl) titleEl.textContent = effectiveTitle;
-    if (titleInput) titleInput.value = effectiveTitle;
-    if (pageLayoutInput) pageLayoutInput.value = prefs.layout_mode || DEFAULT_PREFS.layout_mode;
-    if (pageHideInput) pageHideInput.checked = !prefs.show_unavailable;
-
-    // Reflect the active page title in the global header (where it used to say "Dashboard").
-    const headerTitleEl = document.getElementById('current-view-title');
-    if (headerTitleEl) {
-        const onDashTab = (() => {
-            const view = document.getElementById('view-dashboard');
-            return !!view && !view.classList.contains('hidden');
-        })();
-        if (onDashTab) headerTitleEl.textContent = effectiveTitle;
-    }
-    // Cache the resolved title so the next tab switch can render it instantly
-    // instead of flashing "Dashboard" while the page config is fetched.
-    try { if (effectiveTitle) localStorage.setItem('hyve.lastDashboardTitle', effectiveTitle); } catch (_) {}
-
-    // Keep the sidebar pages list in sync with the active page's title.
-    const activeId = _currentPageId || _dashboardCache.current_page_id || _dashboardCache.page_id;
-    if (activeId && Array.isArray(_dashboardCache.pages)) {
-        const page = _dashboardCache.pages.find(p => p && String(p.id) === String(activeId));
-        if (page && page.title !== effectiveTitle) {
-            page.title = effectiveTitle;
-        }
-    }
-
-    const layoutBtn = document.getElementById('dashboard-layout-toggle');
-    if (layoutBtn) {
-        const compact = prefs.layout_mode === 'compact';
-        layoutBtn.dataset.mode = compact ? 'compact' : 'comfortable';
-        layoutBtn.innerHTML = compact
-            ? `<i class="fas fa-table-cells mr-1.5"></i>${t('dashboard.layout_compact')}`
-            : `<i class="fas fa-grip mr-1.5"></i>${t('dashboard.layout_comfortable')}`;
-    }
-
-    const hideCb = document.getElementById('dashboard-hide-unavailable');
-    if (hideCb) hideCb.checked = !prefs.show_unavailable;
-
-    const editModeLabel = document.getElementById('dashboard-edit-mode-label');
-    const editModeIcon = document.getElementById('dashboard-edit-mode-icon');
-    if (editModeLabel) editModeLabel.textContent = _dashboardEditMode ? t('dashboard.done') : t('dashboard.edit_mode');
-    if (editModeIcon) editModeIcon.className = _dashboardEditMode ? 'fas fa-check' : 'fas fa-pen-to-square';
-
-    const editModeLabelMenu = document.getElementById('dashboard-edit-mode-label-menu');
-    const editModeIconMenu = document.getElementById('dashboard-edit-mode-icon-menu');
-    if (editModeLabelMenu) editModeLabelMenu.textContent = _dashboardEditMode ? t('dashboard.done') : t('common.edit');
-    if (editModeIconMenu) editModeIconMenu.className = _dashboardEditMode ? 'fas fa-check w-4' : 'fas fa-pen-to-square w-4';
-}
-
-function _updateStats() {
-    const widgets = Array.isArray(_dashboardCache.widgets) ? _dashboardCache.widgets : [];
-    const count = document.getElementById('dashboard-count');
-    if (count) count.textContent = String(widgets.length);
-}
-
-function _filteredWidgets() {
-    return Array.isArray(_dashboardCache.widgets) ? _dashboardCache.widgets : [];
-}
-
 /**
  * Resolve a widget object by its id from anywhere in the dashboard cache
  * (top-level widgets, panel widgets, paged widgets/panels). Used by the
@@ -512,59 +451,6 @@ function _dashboardWidgetById(widgetId) {
         }
     }
     return null;
-}
-
-let _entityPatcher = null;
-let _dashboardLive = null;
-
-function _ensureDashboardEntityLive() {
-    if (!_entityPatcher) {
-        _entityPatcher = createDashboardEntityPatcher({
-            HVBridge,
-            getCache: () => _dashboardCache,
-            shouldHoldOptimisticState: _shouldHoldDashboardOptimisticState,
-            pendingForEntity: _dashboardPendingForEntity,
-            clearPendingControl: (widgetId) => _dashboardPendingControls.delete(widgetId),
-            climateConfiguredIds,
-            cameraWidgetEntities: _cameraWidgetEntities,
-            widgetRenderer: _widgetRenderer,
-            widgetById: _dashboardWidgetById,
-            renderDashboard: _renderDashboard,
-        });
-        _dashboardLive = createDashboardLiveWs({
-            apiCall,
-            dashDebug,
-            DASH_DEBUG_ENABLED,
-            onLiveItems: (items, isSnapshot) => _entityPatcher.applyLiveItems(items, isSnapshot),
-            onLiveRemoved: (entityIds) => _entityPatcher.removeLiveItems(entityIds),
-        });
-        _dashboardLive.initTabWatch();
-    }
-    return { patcher: _entityPatcher, live: _dashboardLive };
-}
-
-function _dashboardWidgetEntityIds(widget) {
-    return _ensureDashboardEntityLive().patcher.widgetEntityIds(widget);
-}
-
-function _configureHyveviewMounted(root) {
-    _ensureDashboardEntityLive().patcher.configureHyveviewMounted(root);
-}
-
-function _tryFastPathForEntities(entityIds) {
-    return _ensureDashboardEntityLive().patcher.tryFastPathForEntities(entityIds);
-}
-
-export function disconnectDashboardLive() {
-    if (_dashboardLive) _dashboardLive.disconnectDashboardLive();
-}
-
-export function resumeDashboardCameras() {
-    if (_dashboardLive) _dashboardLive.resumeDashboardCameras();
-}
-
-function _connectDashboardLive() {
-    _ensureDashboardEntityLive().live.connectDashboardLive();
 }
 
 function _isDashboardStandalonePanel(panel) {
@@ -648,285 +534,9 @@ export function resetDashboardEditingState() {
     const grid = document.getElementById('dashboard-grid');
     const view = document.getElementById('view-dashboard');
     const onDashboardTab = !!view && !view.classList.contains('hidden');
-    if (grid && onDashboardTab) _renderDashboard();
+    if (grid && onDashboardTab) renderDashboard();
 }
 
-// ── Section / card conditional visibility + background (HA-style) ──────────
-// The server folds entity + user conditions into a `visible` boolean. Screen /
-// media-query conditions are device-dependent, so the client resolves those
-// here as an additional AND gate and re-renders on viewport changes.
-function _dashboardScreenGate(visibility) {
-    if (!visibility || visibility.enabled === false) return true;
-    const conditions = Array.isArray(visibility.conditions) ? visibility.conditions : [];
-    const screens = conditions.filter(c => String((c && (c.condition || c.type)) || '').toLowerCase() === 'screen' && (c.media || c.value));
-    if (!screens.length) return true;
-    return screens.every(c => {
-        const query = String(c.media || c.value || '').trim();
-        if (!query) return true;
-        try { return window.matchMedia(query).matches; } catch (_) { return true; }
-    });
-}
-
-function _dashboardElementVisible(obj) {
-    if (_dashboardEditMode) return true;
-    if (!obj) return true;
-    if (obj.visible === false) return false;
-    return _dashboardScreenGate(obj.visibility);
-}
-
-function _visibleDashboardWidgets(list) {
-    const widgets = Array.isArray(list) ? list : [];
-    if (_dashboardEditMode) return widgets;
-    return widgets.filter(_dashboardElementVisible);
-}
-
-function _hexToRgba(hex, alpha) {
-    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || '').trim());
-    if (!m) return '';
-    const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
-    const a = (typeof alpha === 'number' && alpha >= 0 && alpha <= 1) ? alpha : 1;
-    return `rgba(${r}, ${g}, ${b}, ${a})`;
-}
-
-function _dashboardPanelBackgroundCss(panel) {
-    const bg = panel && panel.background;
-    if (!bg || !bg.color) return '';
-    const opacity = (typeof bg.opacity === 'number') ? bg.opacity : 1;
-    return _hexToRgba(bg.color, opacity);
-}
-
-let _dashboardScreenWatchBound = false;
-function _bindDashboardScreenWatch() {
-    if (_dashboardScreenWatchBound) return;
-    _dashboardScreenWatchBound = true;
-    let raf = null;
-    window.addEventListener('resize', () => {
-        if (_dashboardEditMode) return;
-        if (raf) cancelAnimationFrame(raf);
-        raf = requestAnimationFrame(() => {
-            const view = document.getElementById('view-dashboard');
-            if (view && !view.classList.contains('hidden')) _renderDashboard();
-        });
-    }, { passive: true });
-}
-
-function _renderDashboard() {
-    const grid = document.getElementById('dashboard-grid');
-    if (!grid) return;
-    _bindDashboardScreenWatch();
-
-    teardownDashboardSortables();
-
-    _syncPreferenceControls();
-    _updateStats();
-    renderDashboardPagesList();
-
-    const compact = (_dashboardCache.preferences || DEFAULT_PREFS).layout_mode === 'compact';
-    const panels = Array.isArray(_dashboardCache.panels) ? _dashboardCache.panels : [];
-    const sectionPanels = panels.filter(panel => !_isDashboardStandalonePanel(panel));
-    const hasGroupedPanels = sectionPanels.length > 0;
-
-    // Reset grid container styling — when grouped we use HA-like responsive sections.
-    if (hasGroupedPanels) {
-        grid.className = _dashboardEditMode
-            ? 'dashboard-panels-stack dashboard-panel__grid--editing'
-            : 'dashboard-panels-stack';
-        grid.removeAttribute('data-panel-grid');
-    } else {
-        const standaloneGridClass = compact
-            ? 'grid dashboard-panel__grid dashboard-panel__grid--compact dashboard-panel__grid--standalone'
-            : 'grid dashboard-panel__grid dashboard-panel__grid--standalone';
-        grid.className = _dashboardEditMode
-            ? `${standaloneGridClass} dashboard-panel__grid--editing`
-            : standaloneGridClass;
-        grid.setAttribute('data-panel-grid', '');
-    }
-
-    // Empty state — no panels at all, or all panels empty.
-    const totalWidgets = panels.reduce((acc, p) => acc + (Array.isArray(p.widgets) ? p.widgets.length : 0), 0)
-        || _filteredWidgets().length;
-    if (!totalWidgets && !hasGroupedPanels) {
-        if (_dashboardEditMode) {
-            grid.className = 'dashboard-panels-stack';
-            grid.removeAttribute('data-panel-grid');
-            grid.innerHTML = `
-                <button type="button" class="dashboard-panel dashboard-panel--add-section" data-dash-action="openPanelCreator" aria-label="${_escape(t('dashboard.aria.add_section'))}">
-                    <i class="fas fa-plus"></i>
-                    <span>${t('dashboard.create_section') || 'Secțiune nouă'}</span>
-                </button>`;
-        } else {
-            grid.innerHTML = `
-                <div class="hyve-dashboard-empty">
-                    <div class="hyve-dashboard-empty__icon"><i class="fas fa-table-cells-large"></i></div>
-                    <h3 class="hyve-dashboard-empty__title">Dashboard gol</h3>
-                    <p class="hyve-dashboard-empty__sub">Apasă pe cele 3 puncte din dreapta sus ca să adaugi un card sau un panou.</p>
-                </div>`;
-        }
-        setupDashboardSortables();
-        return;
-    }
-
-    if (!hasGroupedPanels) {
-        const standalonePanel = panels.find(_isDashboardStandalonePanel);
-        const widgets = standalonePanel
-            ? (standalonePanel.widgets || [])
-            : panels.length
-            ? (panels[0].widgets || [])
-            : _filteredWidgets();
-        grid.innerHTML = _visibleDashboardWidgets(widgets).map(widget => _renderWidgetCard(widget)).join('');
-        enhanceSparklines();
-        try { _configureHyveviewMounted(grid); } catch (_) {}
-        setupDashboardSortables();
-        try { resumeDashboardCameras(); } catch (_) {}
-        return;
-    }
-
-    const items = sectionPanels.map(panel => _renderPanelSection(panel, compact));
-    const addSectionBtn = _dashboardEditMode
-        ? `<button type="button" class="dashboard-panel dashboard-panel--add-section" data-dash-action="openPanelCreator" aria-label="${_escape(t('dashboard.aria.add_section'))}">
-                <i class="fas fa-plus"></i>
-                <span>${t('dashboard.create_section') || 'Secțiune nouă'}</span>
-           </button>`
-        : '';
-    grid.innerHTML = items.join('') + addSectionBtn;
-    enhanceSparklines();
-        try { _configureHyveviewMounted(grid); } catch (_) {}
-    syncDashboardPanelGridSpans();
-    setupDashboardSortables();
-    try { resumeDashboardCameras(); } catch (_) {}
-}
-
-const _panelActivePage = new Map(); // panel.id -> active page id
-
-function _renderStandaloneDashboardItems(panel) {
-    const widgets = _visibleDashboardWidgets(Array.isArray(panel?.widgets) ? panel.widgets : []);
-    if (!widgets.length && !_dashboardEditMode) return '';
-    if (widgets.length) return widgets.map(widget => _renderWidgetCard(widget)).join('');
-    return '<div class="dashboard-standalone-drop-hint dashboard-standalone-drop-hint--root">Carduri fără secțiune</div>';
-}
-
-function _renderStandaloneDashboardPanel(panel, compact) {
-    const widgets = Array.isArray(panel?.widgets) ? panel.widgets : [];
-    if (!widgets.length && !_dashboardEditMode) return '';
-    const gridClass = compact
-        ? 'dashboard-panel__grid dashboard-panel__grid--compact dashboard-panel__grid--standalone'
-        : 'dashboard-panel__grid dashboard-panel__grid--standalone';
-    const gridClassFull = _dashboardEditMode
-        ? `${gridClass} dashboard-panel__grid--editing`
-        : gridClass;
-    const body = widgets.length
-        ? widgets.map(widget => _renderWidgetCard(widget)).join('')
-        : '<div class="dashboard-standalone-drop-hint">Carduri fără secțiune</div>';
-    return `
-        <section class="dashboard-panel dashboard-panel--standalone" data-panel-kind="standalone" data-empty="${widgets.length ? 'false' : 'true'}">
-            <div class="${gridClassFull}" data-panel-grid="${DASHBOARD_STANDALONE_PANEL_ID}">${body}</div>
-        </section>`;
-}
-
-/**
- * Lay sections out on the free 2D grid: measure each section's content height
- * (to derive its row span), then pack them so stored positions are honored and
- * the rest fall into the first free slot — never overlapping.
- */
-
-function _renderPanelSection(panel, compact) {
-    const panelId = String(panel.id || '');
-    if (!_dashboardElementVisible(panel)) return '';
-    const widgets = Array.isArray(panel.widgets) ? panel.widgets : [];
-    const pages = Array.isArray(panel.pages) ? panel.pages : [];
-    const showTabs = pages.length > 0 && panel.show_pagination !== false;
-
-    // Determine active page (per-panel) and filter widgets accordingly.
-    let activePageId = _panelActivePage.get(panelId);
-    if (showTabs) {
-        if (!activePageId || !pages.some(p => String(p.id) === String(activePageId))) {
-            activePageId = String(pages[0].id);
-            _panelActivePage.set(panelId, activePageId);
-        }
-    } else {
-        activePageId = null;
-    }
-
-    const visibleWidgets = _visibleDashboardWidgets(activePageId
-        ? widgets.filter(w => String(w.page_id || '') === String(activePageId))
-        : widgets);
-
-    const title = String(panel.title || '').trim();
-    const icon = String(panel.icon || '').trim();
-    const titleHtml = title || icon || _dashboardEditMode
-        ? `<div class="dashboard-panel__title">
-                ${icon ? `<i class="${_escape(_iconClass(icon))} dashboard-panel__icon"></i>` : ''}
-                ${title ? `<span>${_escape(title)}</span>` : ''}
-            </div>`
-        : '';
-
-    const tabsHtml = showTabs
-        ? `<div class="dashboard-panel__tabs" role="tablist">
-                ${pages.map(p => {
-                    const id = String(p.id);
-                    const isActive = id === activePageId;
-                    return `<button type="button" role="tab"
-                        class="dashboard-panel__tab"
-                        data-active="${isActive ? 'true' : 'false'}"
-                        data-dash-action="selectPanelPage" data-panel-id="${_escape(panelId)}" data-page-id="${_escape(id)}">
-                        ${p.icon ? `<i class="${_escape(_iconClass(p.icon))}"></i>` : ''}
-                        <span>${_escape(p.title || 'Pagină')}</span>
-                    </button>`;
-                }).join('')}
-            </div>`
-        : '';
-
-    const editControls = _dashboardEditMode
-        ? `<div class="dashboard-panel__edit">
-                <button type="button" class="dashboard-panel__add" data-dash-action="openAddPicker" aria-label="${_escape(t('dashboard.aria.add_card'))}"><i class="fas fa-plus"></i></button>
-                <button type="button" data-dash-action="openPanelEditor" data-panel-id="${_escape(panelId)}" aria-label="${_escape(t('dashboard.aria.edit_section'))}"><i class="fas fa-pen"></i></button>
-                <button type="button" class="is-danger" data-dash-action="removePanel" data-panel-id="${_escape(panelId)}" aria-label="${_escape(t('dashboard.aria.delete_section'))}"><i class="fas fa-trash"></i></button>
-            </div>`
-        : '';
-    const dragHandle = _dashboardEditMode
-        ? `<button type="button" class="dashboard-panel__drag" data-dash-pointer="panelDrag" data-panel-id="${_escape(panelId)}" title="${_escape(t('dashboard.aria.move_section'))}" aria-label="${_escape(t('dashboard.aria.move_section'))}"><i class="fas fa-grip-vertical"></i></button>`
-        : '';
-
-    const gridClass = compact
-        ? 'dashboard-panel__grid dashboard-panel__grid--compact'
-        : 'dashboard-panel__grid';
-    const gridClassFull = _dashboardEditMode
-        ? `${gridClass} dashboard-panel__grid--editing`
-        : gridClass;
-
-    const body = visibleWidgets.length
-        ? `<div class="${gridClassFull}" data-panel-grid="${_escape(panelId)}">${visibleWidgets.map(w => _renderWidgetCard(w)).join('')}</div>`
-        : (_dashboardEditMode
-            ? `<div class="dashboard-panel__empty dashboard-panel__empty--edit" data-panel-grid="${_escape(panelId)}"><button type="button" class="dashboard-panel__add-card" data-dash-action="openAddPicker"><i class="fas fa-plus"></i></button></div>`
-            : `<div class="dashboard-panel__empty" data-panel-grid="${_escape(panelId)}">Niciun card pe această pagină.</div>`);
-
-    const headerHtml = titleHtml || editControls
-        ? `<header class="dashboard-panel__header"><div class="dashboard-panel__header-main">${dragHandle}${titleHtml || '<span></span>'}</div>${editControls}</header>`
-        : '';
-
-    const span = dashboardPanelSpan(panel);
-    const panelBg = _dashboardPanelBackgroundCss(panel);
-    const styleVars = [
-        `--panel-col-span:${span.col}`,
-        span.colStart ? `--panel-col-start:${span.colStart}` : '',
-        span.rowStart ? `--panel-row-start:${span.rowStart}` : '',
-        `--panel-row-span:${span.row}`,
-        panelBg ? `--panel-bg:${panelBg}` : '',
-    ].filter(Boolean).join('; ');
-
-    return `
-        <section class="dashboard-panel" data-panel-id="${_escape(panelId)}" data-size="${_escape(panel.size || 'md')}" style="${styleVars}">
-            ${headerHtml}
-            ${tabsHtml}
-            ${body}
-        </section>`;
-}
-
-export function selectDashboardPanelPage(panelId, pageId) {
-    if (!panelId || !pageId) return;
-    _panelActivePage.set(String(panelId), String(pageId));
-    _renderDashboard();
-}
 
 export async function removeDashboardPanel(panelId) {
     if (!requireDashboardEditAccess()) return;
@@ -941,7 +551,7 @@ export async function removeDashboardPanel(panelId) {
             throw new Error(_dashApiError(err.detail, 'dashboard.section_delete_error'));
         }
         await refreshAvailableEntities();
-        _renderDashboard();
+        renderDashboard();
         showToast(t('dashboard.section_deleted'), 'success');
     } catch (e) {
         showToast(e.message || t('dashboard.section_delete_error'), 'error');
@@ -958,7 +568,7 @@ HVSetHost({
     enhanceSparklinesIn,
     trendCache,
     stateOn: _stateOn,
-    controlVisuallyPending: _dashboardControlVisuallyPending,
+    controlVisuallyPending: controlVisuallyPending,
     weatherIcon,
     weatherVariant,
     weatherIsNight,
@@ -966,148 +576,6 @@ HVSetHost({
     t,
 });
 
-function _widgetDragAttrs(widget) {
-    const span = _widgetSpan(widget);
-    const sizeStyle = _widgetSizeStyle(widget);
-    const dragHandler = _dashboardEditMode ? ' data-dash-pointer="widgetDrag" data-widget-id="' + _escape(widget.id) + '"' : '';
-    return _dashboardEditMode
-    ? `data-dashboard-widget-id="${_escape(widget.id)}" data-dashboard-cols="${span.col}" data-dashboard-rows="${span.row}" draggable="false" ${sizeStyle}${dragHandler}`
-    : `data-dashboard-widget-id="${_escape(widget.id)}" data-dashboard-cols="${span.col}" data-dashboard-rows="${span.row}" draggable="false" ${sizeStyle}`;
-}
-
-function _widgetEditControls(widget) {
-    if (!_dashboardEditMode) return '';
-    return `
-        <div class="hyve-dashboard-card__edit">
-            <button type="button" data-dash-action="editWidget" data-dash-stop-propagation="true" data-widget-id="${_escape(widget.id)}" aria-label="${_escape(t('dashboard.aria.edit'))}"><i class="fas fa-pen text-[10px]"></i></button>
-            <button type="button" class="is-danger" data-dash-action="removeWidget" data-dash-stop-propagation="true" data-widget-id="${_escape(widget.id)}" aria-label="${_escape(t('dashboard.aria.delete_widget'))}"><i class="fas fa-trash text-[10px]"></i></button>
-        </div>`;
-}
-
-/**
- * Resolve the {col_span, row_span, col_start, row_start} for a widget.
- * Section-based layout: col_span is 1-4 within a 4-column section grid.
- */
-function _widgetSpan(widget) {
-    const renderer = _widgetRenderer(widget);
-    let col = parseInt(widget.col_span, 10);
-    let row = parseInt(widget.row_span, 10);
-
-    if (!Number.isFinite(col) || col < 1) {
-        if (renderer === 'weather_rich') col = 4;
-        else if (renderer === 'fusion_solar') col = 2;
-        else if (renderer === 'climate' || renderer === 'gauge') col = 2;
-        else if (renderer === 'camera' || renderer === 'picture') col = 2;
-        else if (renderer === 'label') col = 4;
-        else col = 1;
-    }
-
-    if (!Number.isFinite(row) || row < 1) {
-        if (renderer === 'weather_rich') row = 2;
-        else if (renderer === 'fusion_solar') row = _dashboardDefaultRowsForType('fusion_solar');
-        else if (renderer === 'climate' || renderer === 'gauge') row = 2;
-        else if (renderer === 'camera' || renderer === 'picture') row = 3;
-        else row = 1;
-    }
-    col = Math.min(Math.max(col, 1), SECTION_COLS);
-    row = Math.min(Math.max(row, 1), 12);
-
-    let colStart = parseInt(widget.col_start, 10);
-    let rowStart = parseInt(widget.row_start, 10);
-    if (!Number.isFinite(colStart) || colStart < 1) colStart = null;
-    else colStart = Math.min(Math.max(colStart, 1), SECTION_COLS);
-    if (!Number.isFinite(rowStart) || rowStart < 1) rowStart = null;
-    if (colStart !== null && (colStart + col - 1) > SECTION_COLS) {
-        colStart = Math.max(1, SECTION_COLS - col + 1);
-    }
-    return { col, row, colStart, rowStart };
-}
-
-/**
- * Inline `style="grid-column: <pos>; grid-row: <pos>"` for a widget card.
- * When col_start/row_start are set, uses explicit grid positions; otherwise
- * falls back to spans (CSS auto-flow handles placement).
- */
-function _widgetArrayIndex(widget) {
-    for (const panel of (_dashboardCache?.panels || [])) {
-        const idx = (panel.widgets || []).indexOf(widget);
-        if (idx >= 0) return idx;
-    }
-    return 9999;
-}
-
-function _widgetSizeStyle(widget) {
-    const { col, row, colStart, rowStart } = _widgetSpan(widget);
-    const colRule = colStart ? `${colStart} / span ${col}` : `span ${col}`;
-    const rowRule = rowStart ? `${rowStart} / span ${row}` : `span ${row}`;
-    const arrayOrder = _widgetArrayIndex(widget);
-    // Mobile single-column flow order. Desktop positions by grid-column/grid-row,
-    // but on phones every card is forced full-width and ordered only by CSS `order`
-    // (var --hyve-mobile-order). Derive that order from the logical grid position
-    // (row-major, then column) so a drop that changes col_start/row_start also
-    // reorders the card on mobile. Cards without an explicit position fall back to
-    // their array index so untouched layouts keep their current order.
-    const mobileOrder = (rowStart && colStart)
-        ? (rowStart * (SECTION_COLS + 1) + colStart)
-        : (1000 + arrayOrder);
-    return `style="--hc:${col}; --hr:${row}; grid-column: ${colRule}; grid-row: ${rowRule}; order: ${arrayOrder}; --hyve-mobile-order: ${mobileOrder};"`;
-}
-
-/** Legacy alias kept so existing call sites compile; now returns inline style. */
-function _widgetSizeClass(widget) {
-    // Backward-compat marker class is no longer needed (we use inline style),
-    // but keep the function so renderers don't break. Returns empty class list.
-    return '';
-}
-
-/** Section width (in grid columns) derived from its size: sm=1, md=2, wide=4. */
-function _dashboardPanelColSpan(panel) {
-    const size = String(panel?.size || 'md');
-    if (size === 'sm') return 1;
-    if (size === 'wide') return SECTION_COLS;
-    return 2;
-}
-
-function _buildCardRenderCtx(renderer, extra = {}) {
-    return {
-        renderer,
-        getEditMode: () => _dashboardEditMode,
-        widgetDragAttrs: _widgetDragAttrs,
-        widgetEditControls: _widgetEditControls,
-        widgetSizeClass: _widgetSizeClass,
-        widgetSpan: _widgetSpan,
-        widgetRenderer: _widgetRenderer,
-        escapeHtml: _escape,
-        stateOn: _stateOn,
-        controlVisuallyPending: _dashboardControlVisuallyPending,
-        renderCardElement: (w) => HVBridge.renderCardElement(w),
-        widgetTitle,
-        getCache: () => _dashboardCache,
-        cameraPreferWebmPlayer,
-        cameraSupportsGo2rtc,
-        ...extra,
-    };
-}
-
-function _cameraWidgetEntities(widget) {
-    return _cameraEntitiesHelper(widget, _buildCardRenderCtx(_widgetRenderer(widget)));
-}
-
-function _renderWidgetCard(widget) {
-    const renderer = _widgetRenderer(widget);
-    const registered = getCard(renderer) || getCard('button');
-    return registered.render(widget, _buildCardRenderCtx(renderer));
-}
-
-function _renderWidgetCardForPreview(widget) {
-    const wasEditing = _dashboardEditMode;
-    _dashboardEditMode = false;
-    try {
-        return _renderWidgetCard(widget);
-    } finally {
-        _dashboardEditMode = wasEditing;
-    }
-}
 
 // ===== Add picker (single entry point for all "Adaugă …" actions) =====
 
@@ -1189,7 +657,7 @@ export async function selectDashboardPage(pageId) {
             };
             if (_dashboardCache.page_id) _currentPageId = _dashboardCache.page_id;
             snapFp = dashboardSnapshotFingerprint(snap);
-            _renderDashboard();
+            renderDashboard();
             renderedFromSnapshot = true;
             if (grid) requestAnimationFrame(() => { grid.style.opacity = '1'; });
         }
@@ -1222,7 +690,7 @@ export async function selectDashboardPage(pageId) {
         // Only repaint if we didn't already render this exact content from the
         // snapshot — avoids a redundant flash on every switch.
         const freshFp = dashboardSnapshotFingerprint(_dashboardCache);
-        if (!renderedFromSnapshot || freshFp !== snapFp) _renderDashboard();
+        if (!renderedFromSnapshot || freshFp !== snapFp) renderDashboard();
         if (grid) requestAnimationFrame(() => { grid.style.opacity = '1'; });
     } catch (e) {
         if (myToken !== _dashboardPageNavToken) { if (watchdog) clearTimeout(watchdog); return; }
@@ -1258,80 +726,6 @@ function _dashboardAvailableEntity(entityId) {
 
 function _activeDashboardPageId() {
     return _currentPageId || _dashboardCache.current_page_id || _dashboardCache.page_id || '';
-}
-
-export function toggleDashboardEditMode() {
-    if (!requireDashboardEditAccess()) return;
-    resolveCurrentDashboardPageId();
-    _dashboardEditMode = !_dashboardEditMode;
-    if (_dashboardEditMode) {
-        document.documentElement.setAttribute('data-dashboard-editing', 'true');
-    } else {
-        document.documentElement.removeAttribute('data-dashboard-editing');
-    }
-    closeDashboardMenu();
-    _renderDashboard();
-    showToast(_dashboardEditMode
-        ? (t('dashboard.edit_mode_on') || 'Edit mode enabled')
-        : (t('dashboard.edit_mode_off') || 'Edit mode disabled'), 'success');
-}
-
-export async function setDashboardFilter(mode) {
-    if (!requireDashboardEditAccess()) return;
-    _dashboardCache.preferences = { ...DEFAULT_PREFS, ...(_dashboardCache.preferences || {}), filter_mode: mode || 'all' };
-    _renderDashboard();
-    await saveDashboardPreferences(true);
-}
-
-export async function toggleDashboardLayout() {
-    if (!requireDashboardEditAccess()) return;
-    const next = (_dashboardCache.preferences?.layout_mode === 'compact') ? 'comfortable' : 'compact';
-    _dashboardCache.preferences = { ...DEFAULT_PREFS, ...(_dashboardCache.preferences || {}), layout_mode: next };
-    _renderDashboard();
-    await saveDashboardPreferences(true);
-}
-
-export async function saveDashboardPreferences(silent = false) {
-    if (!requireDashboardEditAccess()) return;
-    const hideCb = document.getElementById('dashboard-hide-unavailable');
-    const prefs = {
-        ...DEFAULT_PREFS,
-        ...(_dashboardCache.preferences || {}),
-        show_unavailable: !(hideCb?.checked),
-    };
-
-    try {
-        const res = await apiCall('/api/dashboard/preferences', {
-            method: 'PATCH',
-            body: {
-                ...prefs,
-                title: _dashboardCache.title || DEFAULT_META.title,
-                subtitle: _dashboardCache.subtitle || DEFAULT_META.subtitle,
-            }
-        });
-        if (res.ok) {
-            const data = await res.json().catch(() => ({}));
-            _dashboardCache.preferences = { ...DEFAULT_PREFS, ...(data.preferences || prefs) };
-            _renderDashboard();
-            if (!silent) showToast(t('dashboard.preferences_saved'), 'success');
-            return;
-        }
-        if (res.status !== 404) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(_dashApiError(err.detail, 'dashboard.save_preferences_failed'));
-        }
-    } catch (e) {
-        if (!String(e?.message || '').includes(t('dashboard.save_widget_failed'))) {
-            // continue to fallback
-        }
-    }
-
-    const section = await readDashboardSectionFallback();
-    section.preferences = prefs;
-    await writeDashboardSectionFallback(section);
-    _dashboardCache.preferences = section.preferences;
-    _renderDashboard();
-    if (!silent) showToast(t('dashboard.preferences_saved'), 'success');
 }
 
 export async function removeDashboardWidget(widgetId) {
@@ -1451,7 +845,7 @@ function _reorderDashboardWidgets(sourceId, targetId) {
         beforeWidgetId,
     };
 
-    _renderDashboard();
+    renderDashboard();
     return true;
 }
 
@@ -1484,188 +878,6 @@ async function _persistDashboardOrder() {
     await writeDashboardSectionFallback(section);
 }
 
-
-export function handleDashboardCardClick(event, widgetId) {
-    dashDebug('card.click', { widgetId, target: event?.target?.tagName, type: event?.type });
-    if (widgetId === '__preview__') {
-        _toggleDashboardPreviewCard(event);
-        return;
-    }
-    if (_dashboardEditMode) { dashDebug('card.skip', 'editMode'); return; }
-    const nested = _dashboardNestedInteractiveTarget(event);
-    if (nested) { dashDebug('card.skip', { reason: 'nested', el: nested.tagName, role: nested.getAttribute?.('role') }); return; }
-    if (_dashboardControlPending(widgetId)) { dashDebug('card.skip', 'pending'); return; }
-    toggleDashboardWidget(widgetId);
-}
-
-function _dashboardNestedInteractiveTarget(event) {
-    const target = event?.target;
-    if (!target?.closest) return null;
-    const interactive = target.closest('button, a, input, select, textarea, label, [role="button"]');
-    if (!interactive) return null;
-    // Card activate surface is role=button — not a nested control (delegation uses document as currentTarget).
-    if (interactive.getAttribute?.('data-dash-action') === 'cardActivate') return null;
-    const current = event?.currentTarget;
-    if (current && interactive === current) return null;
-    return interactive;
-}
-
-function _toggleDashboardPreviewCard(event) {
-    if (_dashboardNestedInteractiveTarget(event)) return;
-    const card = event?.currentTarget || event?.target?.closest?.('.hyve-dashboard-card');
-    if (!card) return;
-    const nextOn = card.getAttribute('data-on') !== 'true';
-    card.setAttribute('data-on', nextOn ? 'true' : 'false');
-    card.setAttribute('data-preview-pressed', 'true');
-    const toggle = card.querySelector('.app-toggle-switch');
-    if (toggle) toggle.setAttribute('data-on', nextOn ? 'true' : 'false');
-    window.setTimeout(() => card.removeAttribute('data-preview-pressed'), 180);
-}
-
-export function handleDashboardCardKeydown(event, widgetId) {
-    if (event?.key !== 'Enter' && event?.key !== ' ') return;
-    event.preventDefault();
-    handleDashboardCardClick(event, widgetId);
-}
-
-export async function toggleDashboardWidget(widgetId, btn) {
-    const widget = _findWidget(widgetId);
-    if (!widget) {
-        const topIds = (Array.isArray(_dashboardCache.widgets) ? _dashboardCache.widgets : []).map(w => w?.id).slice(0, 8);
-        const panelInfo = (Array.isArray(_dashboardCache.panels) ? _dashboardCache.panels : []).map(p => ({ id: p?.id, n: (p?.widgets || []).length, ids: (p?.widgets || []).map(w => w?.id).slice(0, 4) }));
-        const pageInfo = (Array.isArray(_dashboardCache.pages) ? _dashboardCache.pages : []).map(p => ({ id: p?.id, panels: Array.isArray(p?.panels) ? p.panels.length : 0, widgets: Array.isArray(p?.widgets) ? p.widgets.length : 0 }));
-        dashDebug('toggle.skip', { widgetId, reason: 'widget-not-found', currentPage: _currentPageId, cachePage: _dashboardCache.page_id, topCount: topIds.length, topIds, panels: panelInfo, pages: pageInfo });
-        return;
-    }
-    if (_dashboardControlPending(widgetId)) { dashDebug('toggle.skip', { widgetId, reason: 'pending' }); return; }
-    dashDebug('toggle.start', { widgetId, entity: widget.entity_id, current: widget.current_state });
-
-    const snapshot = _snapshotDashboardEntityState(widget.entity_id);
-    const current = String(widget.current_state || '').toLowerCase();
-    const nextState = _stateOn(current) ? 'off' : 'on';
-    const action = _dashboardIntentAction(widget, nextState);
-    _dashboardPendingControls.set(String(widgetId), {
-        widgetId: String(widgetId),
-        entityId: String(widget.entity_id || ''),
-        nextState,
-        action,
-        startedAt: Date.now(),
-    });
-    _patchDashboardEntityState(widget.entity_id, nextState);
-    if (!_tryFastPathForEntities([widget.entity_id])) _renderDashboard();
-    setTimeout(() => {
-        const pending = _dashboardPendingControls.get(String(widgetId));
-        if (pending && pending.nextState === nextState) {
-            if (!_tryFastPathForEntities([widget.entity_id])) _renderDashboard();
-        }
-    }, DASHBOARD_PENDING_VISUAL_MS + 40);
-
-    if (btn) btn.disabled = true;
-    try {
-        const activePageId = _currentPageId || _dashboardCache.page_id || _dashboardCache.current_page_id || '';
-        const pageQS = activePageId ? `?page_id=${encodeURIComponent(activePageId)}` : '';
-        const url = `/api/dashboard/widgets/${encodeURIComponent(widgetId)}/toggle${pageQS}`;
-        dashDebug('toggle.req', { url, next: nextState, action });
-        const res = await apiCall(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ desired_state: nextState, action: action || 'toggle' }),
-        });
-        dashDebug('toggle.res', { status: res.status });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(_dashApiError(err.detail, 'dashboard.toggle_failed'));
-        }
-        _dashboardPendingControls.delete(String(widgetId));
-        _dashboardOptimisticGuards.set(String(widget.entity_id || ''), {
-            state: nextState,
-            until: Date.now() + DASHBOARD_OPTIMISTIC_GUARD_MS,
-        });
-        if (!_tryFastPathForEntities([widget.entity_id])) _renderDashboard();
-    } catch (e) {
-        dashDebug('toggle.err', { widgetId, msg: String(e?.message || e) });
-        _dashboardPendingControls.delete(String(widgetId));
-        _dashboardOptimisticGuards.delete(String(widget.entity_id || ''));
-        _restoreDashboardEntitySnapshot(snapshot);
-        if (!_tryFastPathForEntities([widget.entity_id])) _renderDashboard();
-        showToast(e.message || t('dashboard.toggle_failed'), 'error');
-    } finally {
-        if (btn) btn.disabled = false;
-    }
-}
-
-
-function _snapshotDashboardEntityState(entityId) {
-    const target = String(entityId || '');
-    const snapshot = [];
-    if (!target) return snapshot;
-    const seen = new Set();
-    const remember = (item) => {
-        if (!item || item.entity_id !== target || seen.has(item)) return;
-        seen.add(item);
-        snapshot.push({ item, state: item.current_state, attributes: item.attributes, available: item.available });
-    };
-    const rememberWidget = (widget) => {
-        remember(widget);
-        if (Array.isArray(widget?.entities)) widget.entities.forEach(remember);
-    };
-    (_dashboardCache.widgets || []).forEach(rememberWidget);
-    (_dashboardCache.panels || []).forEach(panel => (panel?.widgets || []).forEach(rememberWidget));
-    (_dashboardCache.pages || []).forEach(page => {
-        (page?.widgets || []).forEach(rememberWidget);
-        (page?.panels || []).forEach(panel => (panel?.widgets || []).forEach(rememberWidget));
-    });
-    (_dashboardCache.available_entities || []).forEach(item => {
-        if (item?.entity_id === target && !seen.has(item)) {
-            seen.add(item);
-            snapshot.push({ item, state: item.state, attributes: item.attributes, available: item.available, availableEntity: true });
-        }
-    });
-    return snapshot;
-}
-
-function _restoreDashboardEntitySnapshot(snapshot) {
-    (snapshot || []).forEach(entry => {
-        if (!entry?.item) return;
-        if (entry.availableEntity) {
-            entry.item.state = entry.state;
-        } else {
-            entry.item.current_state = entry.state;
-        }
-        entry.item.attributes = entry.attributes;
-        entry.item.available = entry.available;
-    });
-}
-
-function _patchDashboardEntityState(entityId, state, attributesPatch = null) {
-    const target = String(entityId || '');
-    if (!target) return;
-    const patchWidget = (widget) => {
-        if (!widget) return;
-        if (widget.entity_id === target) {
-            widget.current_state = state;
-            if (attributesPatch) widget.attributes = { ...(widget.attributes || {}), ...attributesPatch };
-        }
-        if (Array.isArray(widget.entities)) {
-            widget.entities.forEach(item => {
-                if (item?.entity_id !== target) return;
-                item.current_state = state;
-                if (attributesPatch) item.attributes = { ...(item.attributes || {}), ...attributesPatch };
-            });
-        }
-    };
-    (_dashboardCache.widgets || []).forEach(patchWidget);
-    (_dashboardCache.panels || []).forEach(panel => (panel?.widgets || []).forEach(patchWidget));
-    (_dashboardCache.pages || []).forEach(page => {
-        (page?.widgets || []).forEach(patchWidget);
-        (page?.panels || []).forEach(panel => (panel?.widgets || []).forEach(patchWidget));
-    });
-    (_dashboardCache.available_entities || []).forEach(item => {
-        if (item?.entity_id !== target) return;
-        item.state = state;
-        if (attributesPatch) item.attributes = { ...(item.attributes || {}), ...attributesPatch };
-    });
-}
 
 
 document.addEventListener('click', (event) => {
@@ -1719,6 +931,80 @@ export async function saveDashboardYaml() {
     return _ensureDashboardYamlEditor().saveDashboardYaml();
 }
 
+initDashboardPreferences({
+    getCache: () => _dashboardCache,
+    getCurrentPageId: _activeDashboardPageId,
+    getEditMode: () => _dashboardEditMode,
+    setEditMode: (value) => { _dashboardEditMode = value; },
+    requireDashboardEditAccess,
+    resolveCurrentDashboardPageId,
+    closeDashboardMenu,
+    renderDashboard,
+    readDashboardSectionFallback,
+    writeDashboardSectionFallback,
+    t,
+});
+
+initDashboardWidgetToggle({
+    getCache: () => _dashboardCache,
+    getEditMode: () => _dashboardEditMode,
+    controlPending,
+    findWidget: _findWidget,
+    dashboardIntentAction: _dashboardIntentAction,
+    tryFastPathForEntities,
+    renderDashboard,
+    getActivePageId: _activeDashboardPageId,
+    t,
+});
+
+initDashboardLiveBridge({
+    HVBridge,
+    getCache: () => _dashboardCache,
+    climateConfiguredIds,
+    cameraWidgetEntities,
+    widgetRenderer: _widgetRenderer,
+    widgetById: _dashboardWidgetById,
+    renderDashboard,
+});
+
+initDashboardVisibility({
+    getEditMode: () => _dashboardEditMode,
+    renderDashboard,
+});
+
+initDashboardWidgetCards({
+    getCache: () => _dashboardCache,
+    getEditMode: () => _dashboardEditMode,
+    withoutEditMode: (fn) => {
+        const was = _dashboardEditMode;
+        _dashboardEditMode = false;
+        try { return fn(); } finally { _dashboardEditMode = was; }
+    },
+    widgetRenderer: _widgetRenderer,
+    dashboardDefaultRowsForType: _dashboardDefaultRowsForType,
+    escapeHtml: _escape,
+    stateOn: _stateOn,
+    controlVisuallyPending: controlVisuallyPending,
+    HVBridge,
+    t,
+});
+
+initDashboardRender({
+    getCache: () => _dashboardCache,
+    getEditMode: () => _dashboardEditMode,
+    syncPreferenceControls,
+    updateStats,
+    renderDashboardPagesList,
+    isStandalonePanel: _isDashboardStandalonePanel,
+    filteredWidgets,
+    escapeHtml: _escape,
+    t,
+    iconClass: _iconClass,
+    enhanceSparklines,
+    configureHyveviewMounted: configureHyveviewMounted,
+    resumeDashboardCameras,
+});
+
 initDashboardLoader({
     getDashboardCache: () => _dashboardCache,
     setDashboardCache: (cache) => { _dashboardCache = cache; },
@@ -1727,14 +1013,14 @@ initDashboardLoader({
     isControllableDomain: _isControllableDomain,
     isInfoDomain: _isInfoDomain,
     renderCachedDashboardIfEmpty: _renderCachedDashboardIfEmpty,
-    renderDashboard: _renderDashboard,
+    renderDashboard: renderDashboard,
     applyDashboardEditAccess,
     canEditDashboard,
     getEditMode: () => _dashboardEditMode,
     resetDashboardEditingState,
     resumeDashboardCameras,
-    connectDashboardLive: _connectDashboardLive,
-    configureHyveviewMounted: _configureHyveviewMounted,
+    connectDashboardLive: connectDashboardLive,
+    configureHyveviewMounted: configureHyveviewMounted,
     updateDashboardEntityOptions,
     setEntitySelectState,
     escapeHtml: _escape,
@@ -1760,7 +1046,7 @@ initDashboardPanelModal({
     getDashboardCache: () => _dashboardCache,
     getCurrentPageId: () => _currentPageId,
     refreshAvailableEntities,
-    renderDashboard: _renderDashboard,
+    renderDashboard: renderDashboard,
     closeDashboardMenu,
     t,
     showToast,
@@ -1772,7 +1058,7 @@ initDashboardPageModal({
     getCurrentPageId: () => _currentPageId,
     setCurrentPageId: (id) => { _currentPageId = id; },
     closeDashboardMenu,
-    syncPreferenceControls: _syncPreferenceControls,
+    syncPreferenceControls,
     renderDashboardPagesList,
     selectDashboardPage,
     loadDashboard,
@@ -1842,7 +1128,7 @@ initDashboardEventBindings({
     brightnessChange: ({ event, widgetId }) => onDashboardBrightnessChange(event, widgetId),
 });
 
-registerHyveviewDashboardCards(_dashboardWidgetEntityIds);
+registerHyveviewDashboardCards(dashboardWidgetEntityIds);
 
 initDashboardPullToRefresh({
     loadDashboard,
@@ -1858,11 +1144,11 @@ initDashboardDragResize({
     getCurrentPageId: () => _currentPageId || _dashboardCache.page_id || _dashboardCache.current_page_id || '',
     getEditMode: () => _dashboardEditMode,
     findWidget: _findWidget,
-    widgetSpan: _widgetSpan,
-    panelColSpan: _dashboardPanelColSpan,
+    widgetSpan: widgetSpan,
+    panelColSpan: dashboardPanelColSpan,
     isStandalonePanel: _isDashboardStandalonePanel,
     ensureStandalonePanelLocal: _ensureDashboardStandalonePanelLocal,
-    renderDashboard: _renderDashboard,
+    renderDashboard: renderDashboard,
     loadDashboard,
     readDashboardSectionFallback: readDashboardSectionFallback,
     writeDashboardSectionFallback: writeDashboardSectionFallback,
@@ -1874,7 +1160,7 @@ initDashboardDragResize({
 initDashboardWidgetAddEditor({
     getDashboardCache: () => _dashboardCache,
     getAvailableEntity: _dashboardAvailableEntity,
-    renderWidgetCardForPreview: _renderWidgetCardForPreview,
+    renderWidgetCardForPreview: renderWidgetCardForPreview,
     climateEntityRecordsForSave,
     t,
 });
@@ -1933,12 +1219,12 @@ initDashboardEntityPicker({
 initDashboardClimate({
     getCache: () => _dashboardCache,
     findWidget: _findWidget,
-    renderDashboard: _renderDashboard,
+    renderDashboard: renderDashboard,
     renderDashboardAddPreview,
     getEditMode: () => _dashboardEditMode,
-    widgetDragAttrs: _widgetDragAttrs,
-    widgetEditControls: _widgetEditControls,
-    widgetSizeClass: _widgetSizeClass,
+    widgetDragAttrs: widgetDragAttrs,
+    widgetEditControls,
+    widgetSizeClass,
     resolveEntityMatch,
     apiCall,
     t,
@@ -1948,13 +1234,13 @@ initDashboardClimate({
     stateOn: _stateOn,
     widgetTitle,
     HVBridge,
-    controlPending: _dashboardControlPending,
-    setPendingControl: (widgetId, data) => _dashboardPendingControls.set(widgetId, data),
-    deletePendingControl: (widgetId) => _dashboardPendingControls.delete(widgetId),
-    snapshotEntityState: _snapshotDashboardEntityState,
-    restoreEntitySnapshot: _restoreDashboardEntitySnapshot,
-    patchEntityState: _patchDashboardEntityState,
-    tryFastPathForEntities: _tryFastPathForEntities,
+    controlPending,
+    setPendingControl,
+    deletePendingControl,
+    snapshotEntityState: snapshotDashboardEntityState,
+    restoreEntitySnapshot: restoreDashboardEntitySnapshot,
+    patchEntityState: patchDashboardEntityState,
+    tryFastPathForEntities: tryFastPathForEntities,
     getCurrentPageId: () => _currentPageId || _dashboardCache.page_id || _dashboardCache.current_page_id || '',
 });
 
@@ -1963,6 +1249,6 @@ initDashboardWidgetActions({
     t,
     showToast,
     findWidget: _findWidget,
-    tryFastPathForEntities: _tryFastPathForEntities,
-    renderDashboard: _renderDashboard,
+    tryFastPathForEntities: tryFastPathForEntities,
+    renderDashboard: renderDashboard,
 });
