@@ -8,7 +8,6 @@ import '/static/hyveview/elements/camera_stream.js';
 import '/static/hyveview/elements/camera_carousel.js';
 import { switchTab, closeSidebar, isSidebarOpen } from './nav_bridge.js';
 import { HVBridge, HVSetHost, hvOpenEditor, registerHyveviewDashboardCards } from './dashboard/hyveview_setup.js';
-import { createDashboardYamlEditor } from './dashboard/yaml_editor.js';
 import { initDashboardPullToRefresh } from './dashboard/pull_refresh.js';
 import { widgetTitle } from '/static/hyveview/host.js';
 import { widgetIconSpec } from './icon_utils.js';
@@ -22,7 +21,6 @@ import {
     DASHBOARD_GRID_COLS,
 } from './dashboard/constants.js';
 import { dashApiError as _dashApiError, escapeHtml as _escape, stateOn as _stateOn } from './dashboard/helpers.js';
-import { findEntityById } from './entity_aliases.js';
 import { initDashboardWidgetActions } from './dashboard/widget_actions.js';
 import {
     initDashboardDragResize,
@@ -195,20 +193,40 @@ import {
     removeDashboardWidget,
 } from './dashboard/widget_delete.js';
 import {
+    initDashboardAddPicker,
+    openDashboardAddPicker,
+} from './dashboard/add_picker.js';
+import {
+    closeDashboardYamlEditor,
+    initDashboardYamlBridge,
+    openDashboardYamlEditor,
+    reloadDashboardYaml,
+    saveDashboardYaml,
+} from './dashboard/yaml_bridge.js';
+import {
+    initDashboardPanelDelete,
+    removeDashboardPanel,
+} from './dashboard/panel_delete.js';
+import {
+    initDashboardEditingState,
+    resetDashboardEditingState,
+} from './dashboard/editing_state.js';
+import {
+    activeDashboardPageId,
+    dashboardAvailableEntity,
+    dashboardEditorRendererForType,
+    fetchDashboardCardCatalog,
+    initDashboardContext,
+} from './dashboard/dashboard_context.js';
+import {
     normalizeCache,
     readDashboardViewCache,
     saveDashboardViewCache,
     stashDashboardPageSnapshot,
 } from './dashboard/dashboard_cache.js';
-import {
-    dashboardDefaultRowsForType,
-    dashboardEditorRenderer,
-    getDashboardCardMeta,
-    loadDashboardCardCatalog,
-} from './dashboard/card_catalog.js';
+import { dashboardDefaultRowsForType } from './dashboard/card_catalog.js';
 import {
     closeDashboardEntityPicker,
-    entityAllowedForCard,
     filterDashboardEntityOptions,
     handleDashboardEntityPickerKeydown,
     initDashboardEntityPicker,
@@ -224,6 +242,7 @@ export { closeDashboardMenu, toggleDashboardMenu } from './dashboard/dashboard_m
 export { findWidget } from './dashboard/widget_store.js';
 export { selectDashboardPage } from './dashboard/page_select.js';
 export { removeDashboardWidget } from './dashboard/widget_delete.js';
+export { resetDashboardEditingState } from './dashboard/editing_state.js';
 export {
     addDashboardVisibilityCondition,
     setDashboardAddEditorMode,
@@ -354,64 +373,6 @@ function _schedulePagePrefetch() {
     // Prefetch disabled — see dashboard_loader.js / page snapshots.
 }
 
-function _dashboardCardMeta(type) {
-    return getDashboardCardMeta(type);
-}
-
-function _entityAllowedForCard(item, type = 'button') {
-    return entityAllowedForCard(item, type);
-}
-
-function _dashboardDefaultRowsForType(type) {
-    return dashboardDefaultRowsForType(type);
-}
-
-function _dashboardEditorRenderer(type) {
-    const editingWidget = _dashboardCurrentEditorId ? findWidget(_dashboardCurrentEditorId) : null;
-    const editingRenderer = editingWidget ? widgetRenderer(editingWidget) : '';
-    return dashboardEditorRenderer(type, { editingRenderer });
-}
-
-export function resetDashboardEditingState() {
-    // Leaving the dashboard should cancel any visual loading state. A pending
-    // request may still finish, but it must not keep the top bar stuck when
-    // the user comes back from another tab.
-    try { abortDashboardPageNavigation(); } catch (_) {}
-    try { setDashboardRefreshIndicator(false); } catch (_) {}
-    _dashboardEditMode = false;
-    document.documentElement.removeAttribute('data-dashboard-editing');
-    _dashboardCurrentEditorId = null;
-    closeDashboardMenu();
-    closeDashboardAddModal();
-    closeDashboardPageModal();
-    closeDashboardWidgetEditor();
-    const grid = document.getElementById('dashboard-grid');
-    const view = document.getElementById('view-dashboard');
-    const onDashboardTab = !!view && !view.classList.contains('hidden');
-    if (grid && onDashboardTab) renderDashboard();
-}
-
-
-export async function removeDashboardPanel(panelId) {
-    if (!requireDashboardEditAccess()) return;
-    if (!panelId) return;
-    const ok = await showConfirm('Ștergi această secțiune și cardurile din ea?', { title: 'Șterge secțiunea', danger: true, confirmText: 'Șterge' });
-    if (!ok) return;
-    try {
-        const params = _currentPageId ? `?page_id=${encodeURIComponent(_currentPageId)}` : '';
-        const res = await apiCall(`/api/dashboard/panels/${encodeURIComponent(panelId)}${params}`, { method: 'DELETE' });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(_dashApiError(err.detail, 'dashboard.section_delete_error'));
-        }
-        await refreshAvailableEntities();
-        renderDashboard();
-        showToast(t('dashboard.section_deleted'), 'success');
-    } catch (e) {
-        showToast(e.message || t('dashboard.section_delete_error'), 'error');
-    }
-}
-
 // Publish helpers to Hyveview card classes (avoids circular imports).
 HVSetHost({
     iconClass,
@@ -431,86 +392,57 @@ HVSetHost({
 });
 
 
-// ===== Add picker (single entry point for all "Adaugă …" actions) =====
+initDashboardContext({
+    getCache: () => _dashboardCache,
+    getCurrentPageId: () => _currentPageId,
+    getCurrentEditorId: () => _dashboardCurrentEditorId,
+    apiCall,
+});
 
-async function _loadDashboardCardCatalog(force = false) {
-    return loadDashboardCardCatalog(apiCall, force);
-}
+initDashboardEditingState({
+    abortDashboardPageNavigation,
+    setDashboardRefreshIndicator,
+    setEditMode: (value) => { _dashboardEditMode = value; },
+    setCurrentEditorId: (id) => { _dashboardCurrentEditorId = id; },
+    closeDashboardMenu,
+    closeDashboardAddModal,
+    closeDashboardPageModal,
+    closeDashboardWidgetEditor,
+    renderDashboard,
+});
 
-export async function openDashboardAddPicker() {
-    if (!requireDashboardEditAccess()) return;
-    // R5.2: route the "Add card" action through the schema-driven editor.
-    // The new editor renders its own card picker (built from the registry),
-    // so we no longer open the legacy `dashboard-add-picker-modal`.
-    closeDashboardMenu();
-    await ensureHyveviewEntitySeed();
-    const result = await hvOpenEditor({ mode: 'add' });
-    if (!result) return;
-    await saveDashboardWidgetFromEditor(result, { editingId: null, original: null });
-}
+initDashboardAddPicker({
+    requireDashboardEditAccess,
+    closeDashboardMenu,
+    ensureHyveviewEntitySeed,
+    hvOpenEditor,
+    saveDashboardWidgetFromEditor,
+});
 
-export function closeDashboardAddPicker() {
-    // Legacy modal — kept as a no-op so old onclicks don't throw. The new
-    // schema editor closes itself when the user picks/cancels.
-    const modal = document.getElementById('dashboard-add-picker-modal');
-    if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
-}
+initDashboardYamlBridge({
+    requireDashboardEditAccess,
+    apiCall,
+    t,
+    showToast,
+    loadDashboard,
+    getActivePageId: activeDashboardPageId,
+    getActivePageName: () => {
+        const pid = activeDashboardPageId();
+        const pages = Array.isArray(_dashboardCache.pages) ? _dashboardCache.pages : [];
+        const found = pages.find(p => p && String(p.id) === String(pid));
+        return (found && found.title) || _dashboardCache.title || pid || '';
+    },
+});
 
-export async function pickDashboardAddType(kind, id) {
-    closeDashboardAddPicker();
-    if (kind === 'panel') {
-        openDashboardPanelCreator();
-        return;
-    }
-    // Forward to the schema editor; it shows its own picker regardless of
-    // the tile the user clicked (legacy two-step picker is gone).
-    return openDashboardAddPicker();
-}
-
-function _dashboardAvailableEntity(entityId) {
-    return findEntityById(_dashboardCache.available_entities, entityId);
-}
-
-function _activeDashboardPageId() {
-    return _currentPageId || _dashboardCache.current_page_id || _dashboardCache.page_id || '';
-}
-
-let _dashboardYamlEditor = null;
-
-function _ensureDashboardYamlEditor() {
-    if (_dashboardYamlEditor) return _dashboardYamlEditor;
-    _dashboardYamlEditor = createDashboardYamlEditor({
-        apiCall,
-        t,
-        showToast,
-        getActivePageId: () => _currentPageId || _dashboardCache.current_page_id || _dashboardCache.page_id || '',
-        getActivePageName: () => {
-            const pid = _currentPageId || _dashboardCache.current_page_id || _dashboardCache.page_id || '';
-            const pages = Array.isArray(_dashboardCache.pages) ? _dashboardCache.pages : [];
-            const found = pages.find(p => p && String(p.id) === String(pid));
-            return (found && found.title) || _dashboardCache.title || pid || '';
-        },
-        reloadDashboard: () => loadDashboard(),
-    });
-    return _dashboardYamlEditor;
-}
-
-export async function openDashboardYamlEditor() {
-    if (!requireDashboardEditAccess()) return;
-    return _ensureDashboardYamlEditor().openDashboardYamlEditor();
-}
-
-export function closeDashboardYamlEditor() {
-    return _ensureDashboardYamlEditor().closeDashboardYamlEditor();
-}
-
-export async function reloadDashboardYaml() {
-    return _ensureDashboardYamlEditor().reloadDashboardYaml();
-}
-
-export async function saveDashboardYaml() {
-    return _ensureDashboardYamlEditor().saveDashboardYaml();
-}
+initDashboardPanelDelete({
+    requireDashboardEditAccess,
+    showConfirm,
+    getCurrentPageId: () => _currentPageId,
+    refreshAvailableEntities,
+    renderDashboard,
+    showToast,
+    t,
+});
 
 initDashboardMenu({
     closeDashboardClimateModeMenus,
@@ -554,7 +486,7 @@ initDashboardWidgetStore({
 
 initDashboardPreferences({
     getCache: () => _dashboardCache,
-    getCurrentPageId: _activeDashboardPageId,
+    getCurrentPageId: activeDashboardPageId,
     getEditMode: () => _dashboardEditMode,
     setEditMode: (value) => { _dashboardEditMode = value; },
     requireDashboardEditAccess,
@@ -574,7 +506,7 @@ initDashboardWidgetToggle({
     dashboardIntentAction,
     tryFastPathForEntities,
     renderDashboard,
-    getActivePageId: _activeDashboardPageId,
+    getActivePageId: activeDashboardPageId,
     t,
 });
 
@@ -602,7 +534,7 @@ initDashboardWidgetCards({
         try { return fn(); } finally { _dashboardEditMode = was; }
     },
     widgetRenderer,
-    dashboardDefaultRowsForType: _dashboardDefaultRowsForType,
+    dashboardDefaultRowsForType,
     escapeHtml: _escape,
     stateOn: _stateOn,
     controlVisuallyPending: controlVisuallyPending,
@@ -780,7 +712,7 @@ initDashboardDragResize({
 
 initDashboardWidgetAddEditor({
     getDashboardCache: () => _dashboardCache,
-    getAvailableEntity: _dashboardAvailableEntity,
+    getAvailableEntity: dashboardAvailableEntity,
     renderWidgetCardForPreview: renderWidgetCardForPreview,
     climateEntityRecordsForSave,
     t,
@@ -790,13 +722,13 @@ initDashboardWidgetAddModal({
     requireDashboardEditAccess,
     closeDashboardMenu,
     closeDashboardWidgetEditor,
-    getCurrentPageId: _activeDashboardPageId,
+    getCurrentPageId: activeDashboardPageId,
     getCurrentEditorId: () => _dashboardCurrentEditorId,
     clearCurrentEditorId: () => { _dashboardCurrentEditorId = null; },
-    getAvailableEntity: _dashboardAvailableEntity,
-    dashboardEditorRenderer: _dashboardEditorRenderer,
-    dashboardDefaultRowsForType: _dashboardDefaultRowsForType,
-    loadDashboardCardCatalog: _loadDashboardCardCatalog,
+    getAvailableEntity: dashboardAvailableEntity,
+    dashboardEditorRenderer: dashboardEditorRendererForType,
+    dashboardDefaultRowsForType,
+    loadDashboardCardCatalog: fetchDashboardCardCatalog,
     refreshAvailableEntities,
     loadDashboard,
     readDashboardSectionFallback,
@@ -820,7 +752,7 @@ initDashboardWidgetEditorBridge({
     requireDashboardEditAccess,
     findWidget,
     getDashboardCache: () => _dashboardCache,
-    getCurrentPageId: _activeDashboardPageId,
+    getCurrentPageId: activeDashboardPageId,
     refreshAvailableEntities,
     loadDashboard,
     readDashboardSectionFallback,
