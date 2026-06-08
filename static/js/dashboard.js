@@ -1,7 +1,7 @@
 import { apiCall } from './api.js';
 import { cameraPreferWebmPlayer, cameraSupportsGo2rtc } from './camera_live.js';
 import { getCameraStreamToken } from './camera_auth.js';
-import { showConfirm, showToast, setupCodeEditor, setCodeEditorValue, getCodeEditorValue, refreshCodeEditor, syncModalViewportMetrics } from './utils.js';
+import { showConfirm, showToast } from './utils.js';
 import { t, translateApiDetail, tVacuumStatus } from './lang/index.js';
 import './entity_renderers.js';
 // Hyveview bare-path imports dedupe to a single module instance (see hyveview_setup.js).
@@ -14,7 +14,6 @@ import { createDashboardYamlEditor } from './dashboard/yaml_editor.js';
 import { initDashboardPullToRefresh } from './dashboard/pull_refresh.js';
 import { createDashboardLiveWs } from './dashboard/live_ws.js';
 import { createDashboardEntityPatcher } from './dashboard/entity_patch.js';
-import { fusionSolarEntityIdsFromPower, fusionSolarWidgetEntityIds } from '/static/hyveview/cards/fusion_solar.js';
 import { widgetTitle } from '/static/hyveview/host.js';
 import { normalizeIconClass, widgetIconSpec } from './icon_utils.js';
 import {
@@ -28,9 +27,7 @@ import {
     SECTION_COLS,
     DASHBOARD_COL_POINTS_MIN,
     DASHBOARD_COL_POINTS_MAX,
-    DEFAULT_CAMERA_INTERVAL,
     DASHBOARD_GRID_COLS,
-    DASHBOARD_CUSTOM_SELECT_IDS,
 } from './dashboard/constants.js';
 import { dashApiError as _dashApiError, escapeHtml as _escape, stateOn as _stateOn } from './dashboard/helpers.js';
 import { findEntityById } from './entity_aliases.js';
@@ -67,6 +64,71 @@ import {
 import { getCard } from './dashboard/card_registry.js';
 import { registerDashboardCards, cameraWidgetEntities as _cameraEntitiesHelper } from './dashboard/cards/register.js';
 import { weatherIcon, weatherIsNight, weatherVariant } from './dashboard/weather_host.js';
+import { enhanceSparklines, enhanceSparklinesIn, trendCache } from './dashboard/sparklines.js';
+import {
+    addDashboardPanelModalPage,
+    closeDashboardPanelModal,
+    initDashboardPanelModal,
+    openDashboardPanelCreator,
+    openDashboardPanelEditor,
+    saveDashboardPanel,
+    setDashboardPanelSize,
+} from './dashboard/panel_modal.js';
+import {
+    closeDashboardPageModal,
+    createDashboardPage,
+    deleteDashboardPage,
+    initDashboardPageModal,
+    openDashboardPageModal,
+    saveDashboardHeader,
+} from './dashboard/page_modal.js';
+import {
+    abortPendingLoad,
+    dashboardHasRenderedContent,
+    initDashboardLoader,
+    loadDashboard,
+    readDashboardSectionFallback,
+    refreshAvailableEntities,
+    setDashboardRefreshIndicator,
+    withDashboardTimeout,
+    writeDashboardSectionFallback,
+} from './dashboard/dashboard_loader.js';
+import {
+    addDashboardVisibilityCondition,
+    initDashboardWidgetAddEditor,
+    renderDashboardAddPreview,
+    toggleDashboardVisibilityEditor,
+} from './dashboard/widget_add_editor.js';
+import {
+    addDashboardSwitch,
+    closeDashboardAddModal,
+    initDashboardWidgetAddModal,
+    openDashboardAddModal,
+    updateDashboardEditTypeUI,
+    updateDashboardEntityOptions,
+    updateDashboardTypeUI,
+} from './dashboard/widget_add_modal.js';
+import {
+    closeDashboardWidgetEditor,
+    initDashboardWidgetLegacyEdit,
+    saveDashboardWidgetEdit,
+    setDashboardWidgetEditorMode,
+} from './dashboard/widget_legacy_edit.js';
+import {
+    ensureHyveviewEntitySeed,
+    initDashboardWidgetEditorBridge,
+    openDashboardWidgetEditor,
+    saveDashboardWidgetFromEditor,
+} from './dashboard/widget_editor_bridge.js';
+import {
+    dashboardSnapshotFingerprint,
+    getDashboardPageSnapshot,
+    isDashboardStandalonePanel,
+    normalizeCache,
+    readDashboardViewCache,
+    saveDashboardViewCache,
+    stashDashboardPageSnapshot,
+} from './dashboard/dashboard_cache.js';
 import {
     dashboardDefaultRowsForType,
     dashboardEditorRenderer,
@@ -85,6 +147,26 @@ import {
     resolveEntityMatch,
     setEntitySelectState,
 } from './dashboard/entity_picker.js';
+export { loadDashboard, dashboardHasRenderedContent } from './dashboard/dashboard_loader.js';
+export {
+    addDashboardVisibilityCondition,
+    setDashboardAddEditorMode,
+    toggleDashboardVisibilityEditor,
+} from './dashboard/widget_add_editor.js';
+export {
+    addDashboardSwitch,
+    closeDashboardAddModal,
+    openDashboardAddModal,
+    updateDashboardEditTypeUI,
+    updateDashboardEntityOptions,
+    updateDashboardTypeUI,
+} from './dashboard/widget_add_modal.js';
+export {
+    closeDashboardWidgetEditor,
+    saveDashboardWidgetEdit,
+    setDashboardWidgetEditorMode,
+} from './dashboard/widget_legacy_edit.js';
+export { openDashboardWidgetEditor } from './dashboard/widget_editor_bridge.js';
 export {
     closeDashboardEntityPicker,
     filterDashboardEntityOptions,
@@ -93,6 +175,26 @@ export {
     pickDashboardEntityOption,
 } from './dashboard/entity_picker.js';
 export { initDashboardSidebarNav, openDashboardPageNav } from './dashboard/pages_nav.js';
+export {
+    closeDashboardPageModal,
+    createDashboardPage,
+    deleteDashboardPage,
+    openDashboardPageModal,
+    saveDashboardHeader,
+} from './dashboard/page_modal.js';
+export {
+    addDashboardPanelVisibilityCondition,
+    closeDashboardPanelModal,
+    openDashboardPanelCreator,
+    openDashboardPanelEditor,
+    saveDashboardPanel,
+    toggleDashboardPanelBackground,
+    toggleDashboardPanelVisibility,
+} from './dashboard/panel_modal.js';
+import {
+    enhanceDashboardCustomSelects,
+    syncDashboardCustomSelect,
+} from './dashboard/custom_selects.js';
 import { initDashboardClimate, climateConfiguredIds,
     toggleDashboardClimateModeMenu, selectDashboardClimateSlide, shiftDashboardClimateSlide,
     startDashboardClimateSwipe, moveDashboardClimateSwipe, endDashboardClimateSwipe,
@@ -141,250 +243,21 @@ let _dashboardCache = {
     icon: '',
     columns: 0,
 };
-let _pageEditorMode = 'edit';
 let _dashboardEditMode = false;
 let _dashboardCurrentEditorId = null;
-let _dashboardWidgetEditorMode = 'visual';
 let _currentPageId = null;
 let _dashboardPageNavToken = 0;
 const _dashboardPendingControls = new Map();
 const _dashboardOptimisticGuards = new Map();
-let _dashboardPanelModalMode = 'add';
-let _dashboardPanelModalPanelId = null;
-let _dashboardPanelModalPages = [];
-const _dashboardCustomSelects = new WeakMap();
-let _dashboardCustomSelectOutsideBound = false;
-
-function _dashboardSelectLabel(option) {
-    return String(option?.label || option?.textContent || option?.value || '').trim() || '—';
-}
-
-function _closeDashboardCustomSelects(exceptWrap = null) {
-    document.querySelectorAll('.dashboard-custom-select[data-open="true"]').forEach(wrap => {
-        if (exceptWrap && wrap === exceptWrap) return;
-        wrap.dataset.open = 'false';
-        const button = wrap.querySelector('.dashboard-custom-select__button');
-        if (button) button.setAttribute('aria-expanded', 'false');
-    });
-}
-
-function _syncDashboardCustomSelect(select) {
-    const state = _dashboardCustomSelects.get(select);
-    if (!state) return;
-    const options = Array.from(select.options || []);
-    const selectedIndex = Math.max(0, select.selectedIndex);
-    const selected = options[selectedIndex] || options[0];
-    state.value.textContent = _dashboardSelectLabel(selected);
-    state.button.disabled = !!select.disabled || !options.length;
-    state.wrap.dataset.disabled = state.button.disabled ? 'true' : 'false';
-    state.menu.innerHTML = options.map((option, index) => {
-        const isSelected = index === selectedIndex;
-        const disabled = option.disabled ? ' disabled' : '';
-        return `<button type="button" role="option" class="dashboard-custom-select__option" data-index="${index}" data-selected="${isSelected ? 'true' : 'false'}" aria-selected="${isSelected ? 'true' : 'false'}"${disabled}>${_escape(_dashboardSelectLabel(option))}</button>`;
-    }).join('');
-}
-
-function _enhanceDashboardCustomSelect(select) {
-    if (!select || select.tagName !== 'SELECT') return;
-    if (!DASHBOARD_CUSTOM_SELECT_IDS.has(select.id) && !select.matches('[data-vis-field="op"]')) return;
-
-    let state = _dashboardCustomSelects.get(select);
-    if (!state) {
-        // The global native-<select> auto-upgrade (features.js) may have already
-        // wrapped this select with its own `.js-generic-select` overlay on page
-        // load. If we build a second wrapper on top, the user sees two stacked
-        // dropdowns. The dashboard system owns these specific IDs (richer
-        // keyboard nav + labels), so drop the generic overlay first.
-        const genericOverlay = select.nextElementSibling;
-        if (genericOverlay
-            && genericOverlay.classList.contains('dashboard-custom-select')
-            && genericOverlay.classList.contains('js-generic-select')
-            && genericOverlay.getAttribute('data-target') === select.id) {
-            genericOverlay.remove();
-        }
-        const wrap = document.createElement('div');
-        wrap.className = 'dashboard-custom-select';
-        if (select.matches('[data-vis-field="op"]') || String(select.className || '').includes('text-xs')) {
-            wrap.classList.add('dashboard-custom-select--compact');
-        }
-        wrap.dataset.open = 'false';
-        wrap.innerHTML = `
-            <button type="button" class="dashboard-custom-select__button" aria-haspopup="listbox" aria-expanded="false">
-                <span class="dashboard-custom-select__value"></span>
-                <i class="fas fa-chevron-down"></i>
-            </button>
-            <div class="dashboard-custom-select__menu" role="listbox"></div>
-        `;
-        select.classList.add('dashboard-custom-select-native');
-        select.setAttribute('aria-hidden', 'true');
-        select.tabIndex = -1;
-        select.insertAdjacentElement('afterend', wrap);
-
-        state = {
-            wrap,
-            button: wrap.querySelector('.dashboard-custom-select__button'),
-            value: wrap.querySelector('.dashboard-custom-select__value'),
-            menu: wrap.querySelector('.dashboard-custom-select__menu'),
-        };
-        _dashboardCustomSelects.set(select, state);
-
-        state.button.addEventListener('click', event => {
-            event.preventDefault();
-            event.stopPropagation();
-            const willOpen = state.wrap.dataset.open !== 'true';
-            _closeDashboardCustomSelects(state.wrap);
-            state.wrap.dataset.open = willOpen ? 'true' : 'false';
-            state.button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-        });
-        state.button.addEventListener('keydown', event => {
-            if (!['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) return;
-            event.preventDefault();
-            _closeDashboardCustomSelects(state.wrap);
-            state.wrap.dataset.open = 'true';
-            state.button.setAttribute('aria-expanded', 'true');
-            const selectedButton = state.menu.querySelector('[data-selected="true"]') || state.menu.querySelector('.dashboard-custom-select__option:not(:disabled)');
-            selectedButton?.focus?.();
-        });
-        state.menu.addEventListener('click', event => {
-            const optionButton = event.target.closest('.dashboard-custom-select__option');
-            if (!optionButton || optionButton.disabled) return;
-            event.preventDefault();
-            event.stopPropagation();
-            const index = Number(optionButton.getAttribute('data-index'));
-            if (Number.isFinite(index) && select.options[index]) {
-                select.selectedIndex = index;
-                select.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-            _syncDashboardCustomSelect(select);
-            _closeDashboardCustomSelects();
-            state.button.focus?.();
-        });
-        state.menu.addEventListener('keydown', event => {
-            const items = Array.from(state.menu.querySelectorAll('.dashboard-custom-select__option:not(:disabled)'));
-            const currentIndex = items.indexOf(document.activeElement);
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                _closeDashboardCustomSelects();
-                state.button.focus?.();
-            } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                event.preventDefault();
-                const delta = event.key === 'ArrowDown' ? 1 : -1;
-                const nextIndex = Math.min(Math.max(currentIndex + delta, 0), items.length - 1);
-                items[nextIndex]?.focus?.();
-            } else if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                document.activeElement?.click?.();
-            }
-        });
-        select.addEventListener('change', () => _syncDashboardCustomSelect(select));
-    }
-
-    _syncDashboardCustomSelect(select);
-
-    if (!_dashboardCustomSelectOutsideBound) {
-        _dashboardCustomSelectOutsideBound = true;
-        document.addEventListener('click', event => {
-            if (event.target.closest('.dashboard-custom-select')) return;
-            _closeDashboardCustomSelects();
-        });
-        document.addEventListener('keydown', event => {
-            if (event.key === 'Escape') _closeDashboardCustomSelects();
-        });
-    }
-}
-
-function _enhanceDashboardCustomSelects(root = document) {
-    const scope = root?.querySelectorAll ? root : document;
-    const selectors = [
-        ...Array.from(DASHBOARD_CUSTOM_SELECT_IDS, id => `#${id}`),
-        'select[data-vis-field="op"]',
-    ].join(',');
-    scope.querySelectorAll(selectors).forEach(select => _enhanceDashboardCustomSelect(select));
-}
 
 function _normalizeCache(payload = {}) {
-    const panels = _normalizeDashboardSectionPanels(payload.panels, payload.widgets);
-    return {
-        widgets: panels.flatMap(panel => Array.isArray(panel.widgets) ? panel.widgets : []),
-        available_entities: Array.isArray(payload.available_entities) ? payload.available_entities : [],
-        preferences: { ...DEFAULT_PREFS, ...(payload.preferences || {}) },
-        title: String(payload.title || DEFAULT_META.title),
-        subtitle: String(payload.subtitle || DEFAULT_META.subtitle),
-        pages: Array.isArray(payload.pages) ? payload.pages : [],
-        panels,
-        page_id: payload.page_id || null,
-        current_page_id: payload.current_page_id || payload.page_id || null,
-        default_page_id: payload.default_page_id || null,
-        icon: String(payload.icon || ''),
-        columns: Number.isFinite(payload.columns) ? Number(payload.columns) : 0,
-    };
-}
-
-function _normalizeDashboardSectionPanels(rawPanels = [], rawWidgets = []) {
-    const panels = Array.isArray(rawPanels) ? rawPanels : [];
-    const sectionPanels = [];
-    const standaloneWidgets = [];
-    panels.forEach(panel => {
-        if (!panel || typeof panel !== 'object') return;
-        const copy = { ...panel, widgets: Array.isArray(panel.widgets) ? panel.widgets : [] };
-        if (_isDashboardStandalonePanel(copy)) standaloneWidgets.push(...copy.widgets);
-        else sectionPanels.push(copy);
-    });
-    if (sectionPanels.length) {
-        if (standaloneWidgets.length) {
-            sectionPanels[0] = {
-                ...sectionPanels[0],
-                widgets: [...standaloneWidgets, ...(sectionPanels[0].widgets || [])],
-            };
-        }
-        return sectionPanels;
-    }
-    const looseWidgets = !panels.length && Array.isArray(rawWidgets) ? rawWidgets : [];
-    const widgets = [...standaloneWidgets, ...looseWidgets];
-    if (!widgets.length) return [];
-    return [{
-        id: 'panel_1',
-        title: 'Panou',
-        size: 'wide',
-        icon: '',
-        pages: [],
-        show_pagination: true,
-        widgets,
-    }];
-}
-
-function _dashboardViewCachePayload(payload = {}) {
-    const normalized = _normalizeCache(payload);
-    return {
-        ...normalized,
-        available_entities: [],
-        cached_at: Date.now(),
-    };
-}
-
-function _saveDashboardViewCache(payload = _dashboardCache) {
-    try {
-        localStorage.setItem(DASHBOARD_LOCAL_KEY, JSON.stringify(_dashboardViewCachePayload(payload)));
-    } catch (_) {}
-}
-
-function _readDashboardViewCache() {
-    try {
-        const raw = localStorage.getItem(DASHBOARD_LOCAL_KEY);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        const normalized = _normalizeCache(parsed);
-        if (!normalized.panels.length && !normalized.widgets.length && !normalized.pages.length) return null;
-        return normalized;
-    } catch (_) {
-        return null;
-    }
+    return normalizeCache(payload);
 }
 
 function _renderCachedDashboardIfEmpty() {
     const grid = document.getElementById('dashboard-grid');
     if (!grid || grid.firstElementChild) return false;
-    const cached = _readDashboardViewCache();
+    const cached = readDashboardViewCache();
     if (!cached) return false;
     _dashboardCache = {
         ...cached,
@@ -395,219 +268,9 @@ function _renderCachedDashboardIfEmpty() {
     return true;
 }
 
-// ===========================================================================
-// Per-page snapshot cache. Lets us render the new page INSTANTLY when the
-// user switches, then refresh silently in the background.
-// ===========================================================================
-const DASHBOARD_PAGE_SNAPSHOTS_KEY = 'hyve.dash.pageSnapshots';
-const DASHBOARD_PAGE_SNAPSHOTS_VERSION = '2';
-const DASHBOARD_PAGE_SNAPSHOTS_VERSION_KEY = 'hyve.dash.pageSnapshots.v';
-const DASHBOARD_PAGE_SNAPSHOTS_MAX = 24;
-const _dashboardPageSnapshots = new Map(); // pageId -> normalized cache (panels/widgets/title/...)
-let _dashboardPageSnapshotsHydrated = false;
-
-function _hydrateDashboardPageSnapshots() {
-    if (_dashboardPageSnapshotsHydrated) return;
-    _dashboardPageSnapshotsHydrated = true;
-    try {
-        // Drop the cache if the schema version changed (avoids feeding stale
-        // shapes into _normalizeCache after an app upgrade).
-        const v = localStorage.getItem(DASHBOARD_PAGE_SNAPSHOTS_VERSION_KEY);
-        if (v !== DASHBOARD_PAGE_SNAPSHOTS_VERSION) {
-            localStorage.removeItem(DASHBOARD_PAGE_SNAPSHOTS_KEY);
-            localStorage.setItem(DASHBOARD_PAGE_SNAPSHOTS_VERSION_KEY, DASHBOARD_PAGE_SNAPSHOTS_VERSION);
-            return;
-        }
-        const raw = localStorage.getItem(DASHBOARD_PAGE_SNAPSHOTS_KEY);
-        if (!raw) return;
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') {
-            for (const [pid, snap] of Object.entries(parsed)) {
-                if (pid && snap && typeof snap === 'object' && Array.isArray(snap.panels)) {
-                    _dashboardPageSnapshots.set(String(pid), snap);
-                }
-            }
-        }
-    } catch (_) {}
-}
-
-function _persistDashboardPageSnapshots() {
-    try {
-        // Keep map bounded; drop oldest if needed.
-        if (_dashboardPageSnapshots.size > DASHBOARD_PAGE_SNAPSHOTS_MAX) {
-            const overflow = _dashboardPageSnapshots.size - DASHBOARD_PAGE_SNAPSHOTS_MAX;
-            const keys = Array.from(_dashboardPageSnapshots.keys()).slice(0, overflow);
-            for (const k of keys) _dashboardPageSnapshots.delete(k);
-        }
-        const obj = {};
-        for (const [pid, snap] of _dashboardPageSnapshots) obj[pid] = snap;
-        localStorage.setItem(DASHBOARD_PAGE_SNAPSHOTS_KEY, JSON.stringify(obj));
-    } catch (_) {}
-}
-
-function _stashDashboardPageSnapshot(pageId, cache) {
-    if (!pageId || !cache) return;
-    _hydrateDashboardPageSnapshots();
-    const lite = {
-        panels: cache.panels || [],
-        widgets: cache.widgets || [],
-        pages: cache.pages || [],
-        preferences: cache.preferences || DEFAULT_PREFS,
-        title: cache.title || DEFAULT_META.title,
-        subtitle: cache.subtitle || DEFAULT_META.subtitle,
-        icon: cache.icon || '',
-        columns: cache.columns || 0,
-        page_id: cache.page_id || pageId,
-        current_page_id: cache.current_page_id || pageId,
-        cached_at: Date.now(),
-    };
-    _dashboardPageSnapshots.delete(String(pageId)); // re-insert for recency
-    _dashboardPageSnapshots.set(String(pageId), lite);
-    _persistDashboardPageSnapshots();
-}
-
-function _getDashboardPageSnapshot(pageId) {
-    if (!pageId) return null;
-    _hydrateDashboardPageSnapshots();
-    return _dashboardPageSnapshots.get(String(pageId)) || null;
-}
-
-function _dashboardSnapshotFingerprint(snap) {
-    if (!snap) return '';
-    // Cheap structural hash; ignores volatile fields like cached_at + available_entities.
-    try {
-        return JSON.stringify({
-            p: snap.panels,
-            t: snap.title,
-            s: snap.subtitle,
-            i: snap.icon,
-            c: snap.columns,
-            pr: snap.preferences,
-        });
-    } catch (_) { return String(Date.now()); }
-}
-
-// Fetch a page's config WITHOUT touching the global cache; used for background
-// prefetch + silent refresh.
-async function _fetchDashboardPageSnapshot(pageId) {
-    if (!pageId) return null;
-    try {
-        const params = new URLSearchParams();
-        params.set('page_id', pageId);
-        params.set('include_entities', 'false');
-        const res = await apiCall(`/api/dashboard/widgets?${params.toString()}`);
-        if (!res.ok) return null;
-        const payload = await res.json();
-        const normalized = _normalizeCache(payload);
-        _stashDashboardPageSnapshot(pageId, normalized);
-        return normalized;
-    } catch (_) { return null; }
-}
-
 let _dashboardPrefetchTimer = null;
 function _schedulePagePrefetch() {
-    // Prefetch disabled: it floods the backend `_AVAIL_BUILD_LOCK` (TTL 5s)
-    // and starves the foreground request. Live WS keeps cards fresh; we'll
-    // rely on the per-page snapshot cache populated as the user navigates.
-}
-
-let _dashboardRefreshIndicatorSafetyTimer = null;
-function _setDashboardRefreshIndicator(active) {
-    let bar = document.getElementById('dashboard-refresh-bar');
-    if (!bar) {
-        const grid = document.getElementById('dashboard-grid');
-        if (!grid || !grid.parentElement) return;
-        bar = document.createElement('div');
-        bar.id = 'dashboard-refresh-bar';
-        bar.style.cssText = 'position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent,#6366f1),transparent);background-size:200% 100%;animation:hyveDashRefresh 1.1s linear infinite;opacity:0;transition:opacity .2s;z-index:5;pointer-events:none;';
-        if (!document.getElementById('hyve-dash-refresh-style')) {
-            const st = document.createElement('style');
-            st.id = 'hyve-dash-refresh-style';
-            st.textContent = '@keyframes hyveDashRefresh{0%{background-position:200% 0}100%{background-position:-200% 0}}';
-            document.head.appendChild(st);
-        }
-        const host = grid.parentElement;
-        if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
-        host.appendChild(bar);
-    }
-    bar.style.opacity = active ? '1' : '0';
-    // Safety: never leave the indicator running for more than 15s, even if
-    // the caller forgot (or couldn't) clear it (hung request, navigation, etc.).
-    if (_dashboardRefreshIndicatorSafetyTimer) {
-        clearTimeout(_dashboardRefreshIndicatorSafetyTimer);
-        _dashboardRefreshIndicatorSafetyTimer = null;
-    }
-    if (active) {
-        _dashboardRefreshIndicatorSafetyTimer = setTimeout(() => {
-            const b = document.getElementById('dashboard-refresh-bar');
-            if (b) b.style.opacity = '0';
-            _dashboardRefreshIndicatorSafetyTimer = null;
-        }, 15000);
-    }
-}
-
-function _withDashboardTimeout(promise, ms, message) {
-    let timer = null;
-    const timeout = new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error(message || 'Dashboard refresh timeout')), ms);
-    });
-    return Promise.race([promise, timeout]).finally(() => {
-        if (timer) clearTimeout(timer);
-    });
-}
-
-async function _fetchDashboardLayoutJson(url, timeoutMs = 8000, externalSignal = null) {
-    const ctrl = new AbortController();
-    let timedOut = false;
-    const timeoutId = setTimeout(() => { timedOut = true; ctrl.abort(); }, timeoutMs);
-    let externalAborted = false;
-    const onExternalAbort = () => {
-        externalAborted = true;
-        try { ctrl.abort(); } catch (_) {}
-    };
-    if (externalSignal) {
-        if (externalSignal.aborted) onExternalAbort();
-        else externalSignal.addEventListener('abort', onExternalAbort, { once: true });
-    }
-    const headers = {};
-    const token = localStorage.getItem('hyve_token') || '';
-    if (token) headers.Authorization = `Bearer ${token}`;
-    try {
-        let res = await fetch(url, { headers, signal: ctrl.signal, cache: 'no-store' });
-        if (res.status === 401) {
-            const refreshToken = localStorage.getItem('hyve_refresh_token') || '';
-            if (refreshToken) {
-                const refreshRes = await fetch('/api/token/refresh', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ refresh_token: refreshToken }),
-                    signal: ctrl.signal,
-                });
-                if (refreshRes.ok) {
-                    const data = await refreshRes.json();
-                    if (data?.access_token) localStorage.setItem('hyve_token', data.access_token);
-                    if (data?.refresh_token) localStorage.setItem('hyve_refresh_token', data.refresh_token);
-                    headers.Authorization = `Bearer ${data.access_token}`;
-                    res = await fetch(url, { headers, signal: ctrl.signal, cache: 'no-store' });
-                }
-            }
-        }
-        if (!res.ok) throw new Error(`Dashboard page request failed (${res.status})`);
-        return await res.json();
-    } catch (err) {
-        if (err && err.name === 'AbortError') {
-            if (timedOut) throw new Error('Refresh-ul dashboardului a expirat.');
-            const abortErr = new Error('Dashboard refresh superseded.');
-            abortErr.name = 'DashboardRefreshAbortError';
-            throw abortErr;
-        }
-        throw err;
-    } finally {
-        clearTimeout(timeoutId);
-        if (externalSignal) {
-            try { externalSignal.removeEventListener('abort', onExternalAbort); } catch (_) {}
-        }
-    }
+    // Prefetch disabled — see dashboard_loader.js / page snapshots.
 }
 
 function _dashboardControlPending(widgetId) {
@@ -905,7 +568,7 @@ function _connectDashboardLive() {
 }
 
 function _isDashboardStandalonePanel(panel) {
-    return String(panel?.id || '') === DASHBOARD_STANDALONE_PANEL_ID || panel?.kind === 'standalone';
+    return isDashboardStandalonePanel(panel);
 }
 
 function _makeDashboardStandalonePanel(widgets = []) {
@@ -974,7 +637,7 @@ export function resetDashboardEditingState() {
     // request may still finish, but it must not keep the top bar stuck when
     // the user comes back from another tab.
     try { _dashboardPageNavToken += 1; } catch (_) {}
-    try { _setDashboardRefreshIndicator(false); } catch (_) {}
+    try { setDashboardRefreshIndicator(false); } catch (_) {}
     _dashboardEditMode = false;
     document.documentElement.removeAttribute('data-dashboard-editing');
     _dashboardCurrentEditorId = null;
@@ -1111,7 +774,7 @@ function _renderDashboard() {
             ? (panels[0].widgets || [])
             : _filteredWidgets();
         grid.innerHTML = _visibleDashboardWidgets(widgets).map(widget => _renderWidgetCard(widget)).join('');
-        _enhanceSparklines();
+        enhanceSparklines();
         try { _configureHyveviewMounted(grid); } catch (_) {}
         setupDashboardSortables();
         try { resumeDashboardCameras(); } catch (_) {}
@@ -1126,7 +789,7 @@ function _renderDashboard() {
            </button>`
         : '';
     grid.innerHTML = items.join('') + addSectionBtn;
-    _enhanceSparklines();
+    enhanceSparklines();
         try { _configureHyveviewMounted(grid); } catch (_) {}
     syncDashboardPanelGridSpans();
     setupDashboardSortables();
@@ -1277,467 +940,12 @@ export async function removeDashboardPanel(panelId) {
             const err = await res.json().catch(() => ({}));
             throw new Error(_dashApiError(err.detail, 'dashboard.section_delete_error'));
         }
-        await _refreshAvailableEntities();
+        await refreshAvailableEntities();
         _renderDashboard();
         showToast(t('dashboard.section_deleted'), 'success');
     } catch (e) {
         showToast(e.message || t('dashboard.section_delete_error'), 'error');
     }
-}
-
-function _panelModalElements() {
-    return {
-        modal: document.getElementById('dashboard-panel-modal'),
-        modalTitle: document.getElementById('dashboard-panel-modal-title'),
-        title: document.getElementById('dashboard-panel-title-input'),
-        size: document.getElementById('dashboard-panel-size-input'),
-        sizeOptions: Array.from(document.querySelectorAll('[data-dashboard-panel-size-option]')),
-        icon: document.getElementById('dashboard-panel-icon-input'),
-        showPagination: document.getElementById('dashboard-panel-show-pagination-input'),
-        pagesList: document.getElementById('dashboard-panel-pages-list'),
-        pagesEmpty: document.getElementById('dashboard-panel-pages-empty'),
-        addPage: document.getElementById('dashboard-panel-page-add'),
-    };
-}
-
-function _setDashboardPanelSize(value) {
-    const els = _panelModalElements();
-    const normalized = ['sm', 'md', 'wide'].includes(value) ? value : 'sm';
-    if (els.size) els.size.value = normalized;
-    _syncDashboardCustomSelect(els.size);
-    els.sizeOptions.forEach(option => {
-        const isActive = option.getAttribute('data-dashboard-panel-size-option') === normalized;
-        option.dataset.active = isActive ? 'true' : 'false';
-        option.setAttribute('aria-checked', isActive ? 'true' : 'false');
-        option.tabIndex = isActive ? 0 : -1;
-    });
-}
-
-function _openDashboardPanelModal(mode, panel = {}) {
-    const els = _panelModalElements();
-    if (!els.modal) return;
-    _enhanceDashboardCustomSelects(els.modal);
-    _dashboardPanelModalMode = mode === 'edit' ? 'edit' : 'add';
-    _dashboardPanelModalPanelId = mode === 'edit' ? String(panel.id || '') : null;
-    _dashboardPanelModalPages = Array.isArray(panel.pages)
-        ? panel.pages.map(page => ({
-            id: String(page.id || '').trim(),
-            title: String(page.title || '').trim(),
-            icon: String(page.icon || '').trim(),
-        }))
-        : [];
-
-    if (els.modalTitle) els.modalTitle.textContent = _dashboardPanelModalMode === 'edit' ? t('dashboard.edit_section') : t('dashboard.create_section');
-    if (els.title) els.title.value = _dashboardPanelModalMode === 'edit' ? String(panel.title || '') : '';
-    _setDashboardPanelSize(['sm', 'md', 'wide'].includes(panel.size) ? panel.size : 'sm');
-    if (els.icon) els.icon.value = String(panel.icon || '');
-    if (els.showPagination) els.showPagination.checked = panel.show_pagination !== false;
-    _populateDashboardPanelBackground(panel);
-    _populateDashboardPanelVisibility(panel);
-
-    _renderDashboardPanelPagesEditor();
-    closeDashboardMenu();
-    syncModalViewportMetrics();
-    els.modal.classList.remove('hidden');
-    els.modal.classList.add('flex');
-    window.setTimeout(() => els.title?.focus?.(), 0);
-}
-
-function _renderDashboardPanelPagesEditor() {
-    const { pagesList, pagesEmpty } = _panelModalElements();
-    if (pagesEmpty) pagesEmpty.classList.toggle('hidden', _dashboardPanelModalPages.length > 0);
-    if (!pagesList) return;
-    if (!_dashboardPanelModalPages.length) {
-        pagesList.innerHTML = '';
-        return;
-    }
-    pagesList.innerHTML = _dashboardPanelModalPages.map((page, index) => `
-        <div class="grid grid-cols-[1fr_1fr_auto] gap-2 rounded-xl border border-white/10 bg-slate-950/35 p-2" data-panel-page-row="${index}">
-            <input type="text" value="${_escape(page.title || '')}" placeholder="Titlu pagină"
-                class="min-w-0 rounded-lg bg-slate-950/60 border border-white/10 px-2.5 py-2 text-xs text-slate-100 outline-none focus:border-accent/50"
-                data-panel-page-title="${index}">
-            <input type="text" value="${_escape(page.icon || '')}" placeholder="Icon"
-                class="min-w-0 rounded-lg bg-slate-950/60 border border-white/10 px-2.5 py-2 text-xs text-slate-100 outline-none focus:border-accent/50"
-                data-panel-page-icon="${index}" data-icon-picker>
-            <button type="button" class="w-9 h-9 rounded-lg bg-white/5 hover:bg-red-500/10 text-slate-400 hover:text-red-300"
-                aria-label="Șterge pagina" data-panel-page-remove="${index}"><i class="fas fa-trash"></i></button>
-        </div>
-    `).join('');
-    pagesList.querySelectorAll('[data-panel-page-title]').forEach(input => {
-        input.addEventListener('input', () => {
-            const index = Number(input.getAttribute('data-panel-page-title'));
-            if (_dashboardPanelModalPages[index]) _dashboardPanelModalPages[index].title = input.value;
-        });
-    });
-    pagesList.querySelectorAll('[data-panel-page-icon]').forEach(input => {
-        input.addEventListener('input', () => {
-            const index = Number(input.getAttribute('data-panel-page-icon'));
-            if (_dashboardPanelModalPages[index]) _dashboardPanelModalPages[index].icon = input.value;
-        });
-    });
-    pagesList.querySelectorAll('[data-panel-page-remove]').forEach(button => {
-        button.addEventListener('click', () => {
-            const index = Number(button.getAttribute('data-panel-page-remove'));
-            _dashboardPanelModalPages.splice(index, 1);
-            _renderDashboardPanelPagesEditor();
-        });
-    });
-}
-
-function _readDashboardPanelModalBody() {
-    const els = _panelModalElements();
-    const title = String(els.title?.value || '').trim();
-    const sizeValue = String(els.size?.value || 'md');
-    return {
-        title,
-        size: ['sm', 'md', 'wide'].includes(sizeValue) ? sizeValue : 'md',
-        icon: String(els.icon?.value || '').trim(),
-        show_pagination: els.showPagination?.checked !== false,
-        pages: _dashboardPanelModalPages
-            .map((page, index) => ({
-                id: String(page.id || '').trim() || `page_${index + 1}`,
-                title: String(page.title || '').trim() || `Pagina ${index + 1}`,
-                icon: String(page.icon || '').trim(),
-            }))
-            .slice(0, 10),
-        background: _readDashboardPanelBackground(),
-        visibility: _readDashboardPanelVisibility(),
-    };
-}
-
-// ── Section background editor ──────────────────────────────────────────────
-export function toggleDashboardPanelBackground() {
-    const enabled = document.getElementById('dashboard-panel-bg-enabled');
-    const body = document.getElementById('dashboard-panel-bg-body');
-    if (body) body.classList.toggle('hidden', !enabled?.checked);
-}
-
-function _populateDashboardPanelBackground(panel) {
-    const enabled = document.getElementById('dashboard-panel-bg-enabled');
-    const body = document.getElementById('dashboard-panel-bg-body');
-    const color = document.getElementById('dashboard-panel-bg-color');
-    const opacity = document.getElementById('dashboard-panel-bg-opacity');
-    const opacityVal = document.getElementById('dashboard-panel-bg-opacity-value');
-    const bg = panel?.background || null;
-    const on = !!(bg && bg.color);
-    if (enabled) enabled.checked = on;
-    if (body) body.classList.toggle('hidden', !on);
-    if (color) color.value = (bg && bg.color) || '#1e293b';
-    const pct = on && typeof bg.opacity === 'number' ? Math.round(bg.opacity * 100) : 60;
-    if (opacity) opacity.value = String(pct);
-    if (opacityVal) opacityVal.textContent = `${pct}%`;
-}
-
-function _readDashboardPanelBackground() {
-    const enabled = document.getElementById('dashboard-panel-bg-enabled');
-    if (!enabled?.checked) return null;
-    const color = String(document.getElementById('dashboard-panel-bg-color')?.value || '#1e293b');
-    const pct = parseInt(document.getElementById('dashboard-panel-bg-opacity')?.value || '60', 10);
-    return { color, opacity: Math.min(Math.max(pct, 0), 100) / 100 };
-}
-
-// ── Section conditional visibility editor (entity / user / screen) ─────────
-export function toggleDashboardPanelVisibility() {
-    const enabled = document.getElementById('dashboard-panel-visibility-enabled');
-    const body = document.getElementById('dashboard-panel-visibility-body');
-    if (body) body.classList.toggle('hidden', !enabled?.checked);
-    if (enabled?.checked) {
-        const wrap = document.getElementById('dashboard-panel-visibility-conditions');
-        if (wrap && !wrap.children.length) addDashboardPanelVisibilityCondition();
-    }
-}
-
-const _SCREEN_PRESETS = [
-    { label: 'Mobil (≤1023px)', value: '(max-width: 1023px)' },
-    { label: 'Desktop (≥1024px)', value: '(min-width: 1024px)' },
-];
-
-let _panelVisCondSeq = 0;
-export function addDashboardPanelVisibilityCondition(cond = null) {
-    const wrap = document.getElementById('dashboard-panel-visibility-conditions');
-    if (!wrap) return;
-    const idx = ++_panelVisCondSeq;
-    const type = String((cond && (cond.condition || cond.type)) || 'entity').toLowerCase();
-    const row = document.createElement('div');
-    row.className = 'rounded-xl border border-white/10 bg-white/[0.02] p-2 space-y-2';
-    row.dataset.panelCond = String(idx);
-    row.innerHTML = `
-        <div class="flex items-center gap-2">
-            <select data-pvis-field="type" class="rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
-                <option value="entity">Entitate</option>
-                <option value="user">Utilizator</option>
-                <option value="screen">Ecran / dispozitiv</option>
-            </select>
-            <button type="button" data-pvis-remove class="ml-auto text-slate-500 hover:text-red-400 text-xs px-1" aria-label="Șterge condiție"><i class="fas fa-xmark"></i></button>
-        </div>
-        <div data-pvis-fields></div>`;
-    const typeSel = row.querySelector('[data-pvis-field="type"]');
-    typeSel.value = ['entity', 'user', 'screen'].includes(type) ? type : 'entity';
-    const renderFields = () => {
-        row.querySelector('[data-pvis-fields]').innerHTML = _panelVisibilityFieldsHtml(typeSel.value, idx, cond);
-        _enhanceDashboardCustomSelects(row);
-    };
-    typeSel.addEventListener('change', () => { renderFields(); });
-    row.querySelector('[data-pvis-remove]').addEventListener('click', () => row.remove());
-    wrap.appendChild(row);
-    renderFields();
-    _enhanceDashboardCustomSelects(row);
-}
-
-function _panelVisibilityFieldsHtml(type, idx, cond) {
-    if (type === 'user') {
-        const users = Array.isArray(cond?.users) ? cond.users.join(', ') : '';
-        const op = cond?.operator === 'is_not' ? 'is_not' : 'is';
-        return `
-            <div class="flex items-center gap-2">
-                <select data-pvis-field="op" class="rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
-                    <option value="is"${op === 'is' ? ' selected' : ''}>este</option>
-                    <option value="is_not"${op === 'is_not' ? ' selected' : ''}>nu este</option>
-                </select>
-                <input type="text" data-pvis-field="users" value="${_escape(users)}" placeholder="utilizatori (separați prin virgulă)"
-                    class="flex-1 min-w-0 rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
-            </div>`;
-    }
-    if (type === 'screen') {
-        const media = String(cond?.media || cond?.value || '').trim();
-        const listId = `pvis-screen-${idx}`;
-        return `
-            <input type="text" list="${listId}" data-pvis-field="media" value="${_escape(media)}" placeholder="(max-width: 1023px)"
-                class="w-full rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
-            <datalist id="${listId}">${_SCREEN_PRESETS.map(p => `<option value="${_escape(p.value)}">${_escape(p.label)}</option>`).join('')}</datalist>`;
-    }
-    const items = Array.isArray(_dashboardCache.available_entities) ? _dashboardCache.available_entities : [];
-    const listId = `pvis-ent-${idx}`;
-    const opts = items.slice(0, 200).map(it => `<option value="${_escape(it.entity_id)}">${_escape(it.name || it.entity_id)}</option>`).join('');
-    const ent = _escape(cond?.entity_id || '');
-    const op = String(cond?.operator || cond?.op || 'is');
-    const val = _escape(cond?.value != null ? String(cond.value) : '');
-    const opSel = (v, label) => `<option value="${v}"${op === v ? ' selected' : ''}>${label}</option>`;
-    return `
-        <div class="flex items-center gap-2">
-            <input type="text" list="${listId}" data-pvis-field="entity" value="${ent}" placeholder="entity_id"
-                class="flex-1 min-w-0 rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
-            <datalist id="${listId}">${opts}</datalist>
-            <select data-pvis-field="op" class="rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
-                ${opSel('is', '=')}${opSel('is_not', '≠')}${opSel('>', '&gt;')}${opSel('>=', '≥')}${opSel('<', '&lt;')}${opSel('<=', '≤')}
-            </select>
-            <input type="text" data-pvis-field="value" value="${val}" placeholder="valoare"
-                class="w-24 rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
-        </div>`;
-}
-
-function _populateDashboardPanelVisibility(panel) {
-    const enabled = document.getElementById('dashboard-panel-visibility-enabled');
-    const body = document.getElementById('dashboard-panel-visibility-body');
-    const logic = document.getElementById('dashboard-panel-visibility-logic');
-    const wrap = document.getElementById('dashboard-panel-visibility-conditions');
-    if (!enabled || !wrap) return;
-    const cfg = panel?.visibility || null;
-    const conditions = Array.isArray(cfg?.conditions) ? cfg.conditions : [];
-    const on = !!(cfg?.enabled && conditions.length);
-    enabled.checked = on;
-    if (body) body.classList.toggle('hidden', !on);
-    if (logic) logic.value = cfg?.logic === 'or' ? 'or' : 'and';
-    wrap.innerHTML = '';
-    if (!on) return;
-    for (const cond of conditions) addDashboardPanelVisibilityCondition(cond);
-}
-
-function _readDashboardPanelVisibility() {
-    const enabled = document.getElementById('dashboard-panel-visibility-enabled');
-    if (!enabled?.checked) return { enabled: false, logic: 'and', conditions: [] };
-    const logic = document.getElementById('dashboard-panel-visibility-logic')?.value === 'or' ? 'or' : 'and';
-    const wrap = document.getElementById('dashboard-panel-visibility-conditions');
-    const conditions = [];
-    if (wrap) {
-        for (const row of wrap.querySelectorAll('[data-panel-cond]')) {
-            const type = row.querySelector('[data-pvis-field="type"]')?.value || 'entity';
-            if (type === 'user') {
-                const users = String(row.querySelector('[data-pvis-field="users"]')?.value || '')
-                    .split(',').map(s => s.trim()).filter(Boolean);
-                const op = row.querySelector('[data-pvis-field="op"]')?.value === 'is_not' ? 'is_not' : 'is';
-                if (users.length) conditions.push({ condition: 'user', users, operator: op });
-            } else if (type === 'screen') {
-                const media = String(row.querySelector('[data-pvis-field="media"]')?.value || '').trim();
-                if (media) conditions.push({ condition: 'screen', media });
-            } else {
-                const ent = String(row.querySelector('[data-pvis-field="entity"]')?.value || '').trim();
-                const op = row.querySelector('[data-pvis-field="op"]')?.value || 'is';
-                const value = String(row.querySelector('[data-pvis-field="value"]')?.value || '');
-                if (ent) conditions.push({ condition: 'entity', entity_id: ent, operator: op, value });
-            }
-        }
-    }
-    return { enabled: conditions.length > 0, logic, conditions };
-}
-
-export function openDashboardPanelCreator() {
-    if (!requireDashboardEditAccess()) return;
-    _openDashboardPanelModal('add', { title: '', size: 'sm', icon: '', show_pagination: true, pages: [] });
-}
-
-export function openDashboardPanelEditor(panelId) {
-    if (!requireDashboardEditAccess()) return;
-    const panel = (_dashboardCache.panels || []).find(p => String(p.id) === String(panelId));
-    if (!panel) return;
-    _openDashboardPanelModal('edit', panel);
-}
-
-export function closeDashboardPanelModal() {
-    const modal = document.getElementById('dashboard-panel-modal');
-    if (!modal) return;
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-    _dashboardPanelModalMode = 'add';
-    _dashboardPanelModalPanelId = null;
-    _dashboardPanelModalPages = [];
-}
-
-export async function saveDashboardPanel() {
-    if (!requireDashboardEditAccess()) return;
-    const body = _readDashboardPanelModalBody();
-    try {
-        const params = _currentPageId ? `?page_id=${encodeURIComponent(_currentPageId)}` : '';
-        const isEdit = _dashboardPanelModalMode === 'edit' && _dashboardPanelModalPanelId;
-        const path = isEdit
-            ? `/api/dashboard/panels/${encodeURIComponent(_dashboardPanelModalPanelId)}${params}`
-            : `/api/dashboard/panels${params}`;
-        const res = await apiCall(path, {
-            method: isEdit ? 'PATCH' : 'POST',
-            body,
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(_dashApiError(err.detail, isEdit ? 'dashboard.section_update_error' : 'dashboard.section_save_error'));
-        }
-        closeDashboardPanelModal();
-        await _refreshAvailableEntities();
-        _renderDashboard();
-        showToast(isEdit ? t('dashboard.section_updated') : t('dashboard.section_added'), 'success');
-    } catch (e) {
-        showToast(e.message || t('dashboard.section_save_error'), 'error');
-    }
-}
-
-async function _patchDashboardPanel(panelId, body) {
-    try {
-        const params = _currentPageId ? `?page_id=${encodeURIComponent(_currentPageId)}` : '';
-        const res = await apiCall(`/api/dashboard/panels/${encodeURIComponent(panelId)}${params}`, {
-            method: 'PATCH',
-            body,
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(_dashApiError(err.detail, 'dashboard.section_update_error'));
-        }
-        await _refreshAvailableEntities();
-        _renderDashboard();
-    } catch (e) {
-        showToast(e.message || t('dashboard.section_update_error'), 'error');
-    }
-}
-
-// ===== Phase 2: rich card dispatcher =====
-
-const _trendCache = new Map(); // entity_id -> { value, ts }
-
-// ===== Phase 5: sparkline charts =====
-const _sparklineCache = new Map(); // entity_id -> { ts, points }
-const _SPARKLINE_TTL_MS = 60_000;
-const _SPARKLINE_HOURS = 24;
-const _sparklineFetching = new Set();
-
-function _renderSparklineSVG(points) {
-    if (!Array.isArray(points) || points.length < 2) return '';
-    const width = 100;
-    const height = 28;
-    const padY = 2;
-    const xs = points.map(p => p.ts);
-    const ys = points.map(p => p.value);
-    const minX = xs[0];
-    const maxX = xs[xs.length - 1];
-    const spanX = Math.max(1, maxX - minX);
-    let minY = Math.min(...ys);
-    let maxY = Math.max(...ys);
-    if (minY === maxY) { minY -= 1; maxY += 1; }
-    const spanY = maxY - minY;
-
-    const coords = points.map(p => {
-        const x = ((p.ts - minX) / spanX) * width;
-        const y = height - padY - ((p.value - minY) / spanY) * (height - padY * 2);
-        return [x, y];
-    });
-
-    const linePath = coords.map((c, i) => (i === 0 ? `M${c[0].toFixed(2)},${c[1].toFixed(2)}` : `L${c[0].toFixed(2)},${c[1].toFixed(2)}`)).join(' ');
-    const areaPath = `${linePath} L${width.toFixed(2)},${height.toFixed(2)} L0,${height.toFixed(2)} Z`;
-
-    return `
-        <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <defs>
-                <linearGradient id="sparkfill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stop-color="var(--accent, #60a5fa)" stop-opacity="0.35"/>
-                    <stop offset="100%" stop-color="var(--accent, #60a5fa)" stop-opacity="0"/>
-                </linearGradient>
-            </defs>
-            <path d="${areaPath}" fill="url(#sparkfill)" stroke="none"/>
-            <path d="${linePath}" fill="none" stroke="var(--accent, #60a5fa)" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
-        </svg>`;
-}
-
-async function _fetchSparklineHistory(entityId) {
-    if (_sparklineFetching.has(entityId)) return null;
-    _sparklineFetching.add(entityId);
-    try {
-        const res = await apiCall(`/api/dashboard/history?entity_id=${encodeURIComponent(entityId)}&hours=${_SPARKLINE_HOURS}`);
-        if (!res || !res.ok) return null;
-        const data = await res.json();
-        const points = Array.isArray(data?.points) ? data.points : [];
-        _sparklineCache.set(entityId, { ts: Date.now(), points });
-        return points;
-    } catch (_) {
-        return null;
-    } finally {
-        _sparklineFetching.delete(entityId);
-    }
-}
-
-function _enhanceSparklines() {
-    const grid = document.getElementById('dashboard-grid');
-    if (!grid) return;
-    _enhanceSparklinesIn(grid);
-}
-
-/**
- * Enhance every `[data-sparkline-entity]` slot inside `root`. Used by both
- * the legacy full-grid path (`_enhanceSparklines()`) and Hyveview cards
- * that mount their own sparkline after a state diff.
- */
-function _enhanceSparklinesIn(root) {
-    if (!root) return;
-    const slots = root.querySelectorAll('[data-sparkline-entity]');
-    slots.forEach(slot => {
-        const entityId = slot.getAttribute('data-sparkline-entity');
-        if (!entityId) return;
-        const cached = _sparklineCache.get(entityId);
-        if (cached && (Date.now() - cached.ts) < _SPARKLINE_TTL_MS) {
-            const svg = _renderSparklineSVG(cached.points);
-            if (svg) slot.innerHTML = svg;
-            return;
-        }
-        // Show last cached SVG (if any) immediately to avoid layout flicker.
-        if (cached) {
-            const svg = _renderSparklineSVG(cached.points);
-            if (svg) slot.innerHTML = svg;
-        }
-        _fetchSparklineHistory(entityId).then(points => {
-            if (!points) return;
-            // Slot may have been re-rendered; query freshly within the same root.
-            const fresh = root.querySelector(`[data-sparkline-entity="${CSS.escape(entityId)}"]`);
-            if (!fresh) return;
-            const svg = _renderSparklineSVG(points);
-            if (svg) fresh.innerHTML = svg;
-        });
-    });
 }
 
 // Publish helpers to Hyveview card classes (avoids circular imports).
@@ -1747,8 +955,8 @@ HVSetHost({
     entityIcon: _entityIcon,
     entityIconForState: _entityIconForState,
     escape: _escape,
-    enhanceSparklinesIn: _enhanceSparklinesIn,
-    trendCache: _trendCache,
+    enhanceSparklinesIn,
+    trendCache,
     stateOn: _stateOn,
     controlVisuallyPending: _dashboardControlVisuallyPending,
     weatherIcon,
@@ -1913,10 +1121,10 @@ export async function openDashboardAddPicker() {
     // The new editor renders its own card picker (built from the registry),
     // so we no longer open the legacy `dashboard-add-picker-modal`.
     closeDashboardMenu();
-    await _ensureHyveviewEntitySeed();
+    await ensureHyveviewEntitySeed();
     const result = await hvOpenEditor({ mode: 'add' });
     if (!result) return;
-    await _saveDashboardWidgetFromEditor(result, { editingId: null, original: null });
+    await saveDashboardWidgetFromEditor(result, { editingId: null, original: null });
 }
 
 export function closeDashboardAddPicker() {
@@ -1935,26 +1143,6 @@ export async function pickDashboardAddType(kind, id) {
     // Forward to the schema editor; it shows its own picker regardless of
     // the tile the user clicked (legacy two-step picker is gone).
     return openDashboardAddPicker();
-}
-
-function _mergeCreatedPageIntoCache(createdPage, newId) {
-    if (!newId) return;
-    _currentPageId = String(newId);
-    try { localStorage.setItem(DASHBOARD_LAST_PAGE_KEY, _currentPageId); } catch (_) {}
-    setHashForPage(_currentPageId);
-    if (!createdPage || typeof createdPage !== 'object') return;
-    if (createdPage.title) {
-        _dashboardCache.title = String(createdPage.title);
-        try { localStorage.setItem('hyve.lastDashboardTitle', _dashboardCache.title); } catch (_) {}
-    }
-    if (createdPage.icon != null) _dashboardCache.icon = String(createdPage.icon || '');
-    if (createdPage.columns != null) _dashboardCache.columns = Number(createdPage.columns) || 0;
-    const pages = Array.isArray(_dashboardCache.pages) ? [..._dashboardCache.pages] : [];
-    const idx = pages.findIndex(p => p && String(p.id) === String(newId));
-    const merged = { ...(idx >= 0 ? pages[idx] : {}), ...createdPage, id: String(newId) };
-    if (idx >= 0) pages[idx] = merged;
-    else pages.push(merged);
-    _dashboardCache.pages = pages;
 }
 
 export async function selectDashboardPage(pageId) {
@@ -1991,7 +1179,7 @@ export async function selectDashboardPage(pageId) {
     let renderedFromSnapshot = false;
     let snapFp = null;
     try {
-        const snap = _getDashboardPageSnapshot(_currentPageId);
+        const snap = getDashboardPageSnapshot(_currentPageId);
         if (snap) {
             _dashboardCache = {
                 ...snap,
@@ -2000,7 +1188,7 @@ export async function selectDashboardPage(pageId) {
                     : [],
             };
             if (_dashboardCache.page_id) _currentPageId = _dashboardCache.page_id;
-            snapFp = _dashboardSnapshotFingerprint(snap);
+            snapFp = dashboardSnapshotFingerprint(snap);
             _renderDashboard();
             renderedFromSnapshot = true;
             if (grid) requestAnimationFrame(() => { grid.style.opacity = '1'; });
@@ -2010,7 +1198,7 @@ export async function selectDashboardPage(pageId) {
     if (!renderedFromSnapshot && grid && !grid.firstElementChild) {
         grid.innerHTML = `<div class="col-span-full p-6 text-sm" style="color:var(--text-tertiary,#94a3b8);">${_escape(t('dashboard.loading_page'))}</div>`;
     }
-    _setDashboardRefreshIndicator(true);
+    setDashboardRefreshIndicator(true);
 
     const watchdog = setTimeout(() => {
         if (myToken !== _dashboardPageNavToken) return;
@@ -2025,15 +1213,15 @@ export async function selectDashboardPage(pageId) {
     }, 12000);
 
     try {
-        await _withDashboardTimeout(
-            _refreshAvailableEntities({ includeEntities: false }),
+        await withDashboardTimeout(
+            refreshAvailableEntities({ includeEntities: false }),
             8000,
             t('dashboard.refresh_timeout')
         );
         if (myToken !== _dashboardPageNavToken) { if (watchdog) clearTimeout(watchdog); return; }
         // Only repaint if we didn't already render this exact content from the
         // snapshot — avoids a redundant flash on every switch.
-        const freshFp = _dashboardSnapshotFingerprint(_dashboardCache);
+        const freshFp = dashboardSnapshotFingerprint(_dashboardCache);
         if (!renderedFromSnapshot || freshFp !== snapFp) _renderDashboard();
         if (grid) requestAnimationFrame(() => { grid.style.opacity = '1'; });
     } catch (e) {
@@ -2058,518 +1246,18 @@ export async function selectDashboardPage(pageId) {
         }
     } finally {
         if (watchdog) clearTimeout(watchdog);
-        if (myToken === _dashboardPageNavToken) _setDashboardRefreshIndicator(false);
+        if (myToken === _dashboardPageNavToken) setDashboardRefreshIndicator(false);
         const gridEl = document.getElementById('dashboard-grid');
         if (gridEl) gridEl.style.opacity = '1';
     }
-}
-
-export async function createDashboardPage() {
-    if (!requireDashboardEditAccess()) return;
-    // fill in title, icon, columns, layout, etc. before the page is created.
-    openDashboardPageModal({ create: true });
-}
-
-async function _readDashboardSectionFallback() {
-    try {
-        const res = await apiCall('/api/config');
-        if (res.ok) {
-            const cfg = await res.json();
-            const section = cfg?.dashboard || {};
-            const result = {
-                widgets: Array.isArray(section.widgets) ? section.widgets : [],
-                panels: Array.isArray(section.panels) ? section.panels : [],
-                pages: Array.isArray(section.pages) ? section.pages : [],
-                preferences: { ...DEFAULT_PREFS, ...(section.preferences || {}) },
-                title: String(section.title || DEFAULT_META.title),
-                subtitle: String(section.subtitle || DEFAULT_META.subtitle),
-                icon: String(section.icon || ''),
-                columns: Number(section.columns || 0) || 0,
-            };
-            try { localStorage.setItem(DASHBOARD_LOCAL_KEY, JSON.stringify(result)); } catch (_) {}
-            return result;
-        }
-    } catch (_) {}
-
-    try {
-        const localRaw = localStorage.getItem(DASHBOARD_LOCAL_KEY);
-        if (localRaw) {
-            const parsed = JSON.parse(localRaw);
-            return {
-                widgets: Array.isArray(parsed.widgets) ? parsed.widgets : [],
-                panels: Array.isArray(parsed.panels) ? parsed.panels : [],
-                pages: Array.isArray(parsed.pages) ? parsed.pages : [],
-                preferences: { ...DEFAULT_PREFS, ...(parsed.preferences || {}) },
-                title: String(parsed.title || DEFAULT_META.title),
-                subtitle: String(parsed.subtitle || DEFAULT_META.subtitle),
-                icon: String(parsed.icon || ''),
-                columns: Number(parsed.columns || 0) || 0,
-            };
-        }
-    } catch (_) {}
-
-    return {
-        widgets: [],
-        panels: [],
-        pages: [],
-        preferences: { ...DEFAULT_PREFS },
-        title: DEFAULT_META.title,
-        subtitle: DEFAULT_META.subtitle,
-        icon: '',
-        columns: 0,
-    };
-}
-
-async function _writeDashboardSectionFallback(section) {
-    const payload = {
-        widgets: Array.isArray(section.widgets) ? section.widgets : [],
-        panels: Array.isArray(section.panels) ? section.panels : [],
-        pages: Array.isArray(section.pages) ? section.pages : [],
-        preferences: { ...DEFAULT_PREFS, ...(section.preferences || {}) },
-        title: String(section.title || DEFAULT_META.title),
-        subtitle: String(section.subtitle || DEFAULT_META.subtitle),
-        icon: String(section.icon || ''),
-        columns: Number(section.columns || 0) || 0,
-    };
-
-    const res = await apiCall('/api/config', {
-        method: 'PATCH',
-        body: { dashboard: payload },
-    });
-    if (!res.ok && res.status !== 403) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(_dashApiError(err.detail, 'dashboard.save_failed'));
-    }
-
-    try { localStorage.setItem(DASHBOARD_LOCAL_KEY, JSON.stringify(payload)); } catch (_) {}
-}
-
-async function _refreshAvailableEntities(options = {}) {
-    const includeEntities = options.includeEntities !== false;
-    const externalSignal = options.signal || null;
-    let fallbackSection = {
-        widgets: _dashboardCache.widgets || [],
-        panels: _dashboardCache.panels || [],
-        pages: _dashboardCache.pages || [],
-        preferences: _dashboardCache.preferences || DEFAULT_PREFS,
-        title: _dashboardCache.title || DEFAULT_META.title,
-        subtitle: _dashboardCache.subtitle || DEFAULT_META.subtitle,
-        icon: _dashboardCache.icon || '',
-        columns: _dashboardCache.columns || 0,
-    };
-    if (includeEntities) {
-        try {
-            fallbackSection = await _readDashboardSectionFallback();
-        } catch (_) {}
-    }
-
-    try {
-        const params = new URLSearchParams();
-        if (_currentPageId) params.set('page_id', _currentPageId);
-        if (!includeEntities) params.set('include_entities', 'false');
-        if (!includeEntities) params.set('_layout_refresh', String(Date.now()));
-        const query = params.toString();
-        const url = query ? `/api/dashboard/widgets?${query}` : '/api/dashboard/widgets';
-        if (!includeEntities) {
-            const payload = await _fetchDashboardLayoutJson(url, 20000, externalSignal);
-            const normalized = _normalizeCache(payload);
-            normalized.available_entities = Array.isArray(_dashboardCache.available_entities)
-                ? _dashboardCache.available_entities
-                : [];
-            _dashboardCache = normalized;
-            _saveDashboardViewCache(_dashboardCache);
-            // Sync the active page id with whatever the server confirmed.
-            if (_dashboardCache.page_id) _currentPageId = _dashboardCache.page_id;
-            // Snapshot this page for instant render on next visit.
-            _stashDashboardPageSnapshot(_dashboardCache.page_id || _currentPageId, _dashboardCache);
-            return _dashboardCache.available_entities;
-        }
-
-        const res = await apiCall(url);
-        if (res.ok) {
-            const payload = await res.json();
-            const normalized = _normalizeCache(payload);
-            if (!Array.isArray(payload.available_entities)) {
-                normalized.available_entities = Array.isArray(_dashboardCache.available_entities)
-                    ? _dashboardCache.available_entities
-                    : [];
-            }
-            _dashboardCache = normalized;
-            _saveDashboardViewCache(_dashboardCache);
-            // Sync the active page id with whatever the server confirmed.
-            if (_dashboardCache.page_id) _currentPageId = _dashboardCache.page_id;
-            // Snapshot this page for instant render on next visit.
-            _stashDashboardPageSnapshot(_dashboardCache.page_id || _currentPageId, _dashboardCache);
-            return _dashboardCache.available_entities;
-        }
-    } catch (err) {
-        if (!includeEntities) throw err;
-    }
-
-    const [statesRes, manageRes] = await Promise.all([
-        apiCall('/api/integrations/all-entities').catch(() => null),
-        Promise.resolve(null),
-    ]);
-
-    // Smart-home backend is just one integration — if it's unreachable we still
-    // render an empty entity picker rather than blocking the whole dashboard.
-    const states = statesRes && statesRes.ok ? await statesRes.json() : [];
-    const managed = manageRes && manageRes.ok ? await manageRes.json() : [];
-    const managedMap = new Map((Array.isArray(managed) ? managed : []).map(item => [item.entity_id, item]));
-
-    const items = (Array.isArray(states) ? states : [])
-        .filter(raw => {
-            const entityId = String(raw?.entity_id || '');
-            const domain = entityId.includes('.') ? entityId.split('.', 1)[0] : '';
-            return _isControllableDomain(domain) || _isInfoDomain(domain);
-        })
-        .map(raw => {
-            const entityId = String(raw.entity_id || '');
-            const attrs = raw.attributes || {};
-            const managedItem = managedMap.get(entityId) || {};
-            const name = managedItem.name || attrs.friendly_name || entityId;
-            const domain = entityId.split('.', 1)[0] || 'switch';
-            const source = managedItem.source
-                || (/zigbee|z2m/i.test(`${entityId} ${name}`) ? 'zigbee2mqtt' : 'unknown');
-            return {
-                entity_id: entityId,
-                name,
-                state: String(raw.state || 'unknown'),
-                domain,
-                source,
-                aliases: Array.isArray(managedItem.aliases) ? managedItem.aliases : [],
-                unit: attrs.unit_of_measurement || '',
-                controllable: _isControllableDomain(domain),
-            };
-        })
-        .sort((a, b) => `${a.source}:${a.name}`.localeCompare(`${b.source}:${b.name}`, 'ro'));
-
-    _dashboardCache = _normalizeCache({
-        widgets: fallbackSection.widgets,
-        panels: fallbackSection.panels,
-        pages: fallbackSection.pages,
-        preferences: fallbackSection.preferences,
-        available_entities: items,
-        title: fallbackSection.title,
-        subtitle: fallbackSection.subtitle,
-        icon: fallbackSection.icon,
-        columns: fallbackSection.columns,
-    });
-    return items;
 }
 
 function _dashboardAvailableEntity(entityId) {
     return findEntityById(_dashboardCache.available_entities, entityId);
 }
 
-export function updateDashboardTypeUI() {
-    const type = document.getElementById('dashboard-widget-type')?.value || 'button';
-    const renderer = _dashboardEditorRenderer(type);
-    const entityGroup = document.getElementById('dashboard-entity-group');
-    const titleSubtitleGroup = document.getElementById('dashboard-title-subtitle-group')
-        || document.getElementById('dashboard-widget-title')?.closest?.('.grid');
-    const subtitleLabel = document.getElementById('dashboard-widget-subtitle-label');
-    const subtitleInput = document.getElementById('dashboard-widget-subtitle');
-    const bgWrap = document.getElementById('dashboard-label-background-wrap');
-    const switchWrap = document.getElementById('dashboard-button-switch-wrap');
-    const climateEntitiesGroup = document.getElementById('dashboard-climate-entities-group');
-    const cameraModeWrap = document.getElementById('dashboard-camera-mode-wrap');
-    if (entityGroup) entityGroup.classList.toggle('hidden', type === 'label');
-    if (titleSubtitleGroup) titleSubtitleGroup.classList.toggle('hidden', type === 'climate');
-    if (climateEntitiesGroup) climateEntitiesGroup.classList.toggle('hidden', type !== 'climate');
-    if (cameraModeWrap) cameraModeWrap.classList.toggle('hidden', renderer !== 'camera');
-    if (bgWrap) bgWrap.classList.toggle('hidden', type !== 'label');
-    if (switchWrap) switchWrap.classList.toggle('hidden', type !== 'button');
-    if (subtitleLabel) {
-        subtitleLabel.textContent = type === 'label'
-            ? (t('dashboard.optional_text') || 'Optional text')
-            : (t('dashboard.subtitle_or_text') || 'Subtitle / text');
-    }
-    if (subtitleInput) {
-        subtitleInput.placeholder = type === 'label'
-            ? (t('dashboard.subtitle_placeholder_label') || 'You can leave this empty for title only')
-            : (t('dashboard.subtitle_placeholder_default') || 'e.g. Ground floor or short text');
-    }
-    const rowSpan = document.getElementById('dashboard-widget-row-span');
-    const defaultRows = _dashboardDefaultRowsForType(type);
-    if (!_dashboardCurrentEditorId && rowSpan && defaultRows > (parseInt(rowSpan.value || '1', 10) || 1)) {
-        rowSpan.value = String(defaultRows);
-        _syncDashboardSizeSlidersFromSelects();
-        _syncDashboardCustomSelect(rowSpan);
-    }
-    renderEntityOptions(document.getElementById('dashboard-entity-select'), type);
-    renderDashboardClimateEntityChips();
-    _enhanceDashboardCustomSelects(document.getElementById('dashboard-add-modal'));
-    _renderDashboardAddPreview();
-}
-
-export function updateDashboardEditTypeUI() {
-    const type = document.getElementById('dashboard-edit-widget-type')?.value || 'button';
-    const entityGroup = document.getElementById('dashboard-edit-entity-group');
-    const bgWrap = document.getElementById('dashboard-edit-label-background-wrap');
-    const switchWrap = document.getElementById('dashboard-edit-button-switch-wrap');
-    if (entityGroup) entityGroup.classList.toggle('hidden', type === 'label');
-    if (bgWrap) bgWrap.classList.toggle('hidden', type !== 'label');
-    if (switchWrap) switchWrap.classList.toggle('hidden', type !== 'button');
-    const current = document.getElementById('dashboard-edit-entity-select')?.dataset?.currentValue || '';
-    renderEntityOptions(document.getElementById('dashboard-edit-entity-select'), type, current);
-}
-
-export function updateDashboardEntityOptions() {
-    const select = document.getElementById('dashboard-entity-select');
-    const type = document.getElementById('dashboard-widget-type')?.value || 'button';
-    renderEntityOptions(select, type);
-}
-
-let _loadDashboardInFlight = null;
-let _loadDashboardStartedAt = 0;
-let _loadDashboardAbortController = null;
-
-function _transientDashboardGridMatches(text) {
-    const haystack = String(text || '');
-    const patterns = [
-        t('dashboard.loading_dashboard'),
-        t('dashboard.loading_page'),
-        t('dashboard.page_load_timeout'),
-        t('dashboard.refresh_timeout'),
-        t('dashboard.load_failed_short'),
-        t('dashboard.load_error'),
-    ];
-    return patterns.some((p) => p && haystack.includes(p));
-}
-
-function _dashboardGridHasRealContent(grid = document.getElementById('dashboard-grid')) {
-    if (!grid || !grid.firstElementChild) return false;
-    return !_transientDashboardGridMatches(grid.textContent || '');
-}
-
-export function dashboardHasRenderedContent() {
-    return _dashboardGridHasRealContent();
-}
-
-export function loadDashboard(options = {}) {
-    const force = !!options.force;
-    const soft = !!options.soft;
-    const now = Date.now();
-    // If the previous load got wedged somewhere below fetch/paint, don't let
-    // tab navigation keep returning the same stale promise forever.
-    if (_loadDashboardInFlight && !force && (now - _loadDashboardStartedAt) < 12000) return _loadDashboardInFlight;
-    if (_loadDashboardInFlight && (force || (now - _loadDashboardStartedAt) >= 12000)) {
-        // Abort the still-pending fetch (if any) so it doesn't keep holding
-        // the backend `_AVAIL_BUILD_LOCK` and starve the new attempt.
-        try { _loadDashboardAbortController?.abort?.(); } catch (_) {}
-        _loadDashboardAbortController = null;
-        _loadDashboardInFlight = null;
-        _loadDashboardStartedAt = 0;
-        _setDashboardRefreshIndicator(false);
-    }
-    _loadDashboardStartedAt = now;
-    _loadDashboardAbortController = new AbortController();
-    _loadDashboardInFlight = _loadDashboardImpl(_loadDashboardAbortController.signal, { soft }).finally(() => {
-        _loadDashboardInFlight = null;
-        _loadDashboardStartedAt = 0;
-        _loadDashboardAbortController = null;
-    });
-    return _loadDashboardInFlight;
-}
-
-async function _loadDashboardImpl(signal = null, { soft = false } = {}) {
-    const grid = document.getElementById('dashboard-grid');
-    if (!grid) return;
-    _setDashboardRefreshIndicator(false);
-    // Reveal admin-only dashboard header controls when the user can edit layout.
-    applyDashboardEditAccess();
-    if (!canEditDashboard() && _dashboardEditMode) {
-        resetDashboardEditingState();
-    }
-    bindHashRouter();
-    const hashPage = readHashPageId();
-    if (hashPage) {
-        _currentPageId = hashPage;
-    } else if (!_currentPageId) {
-        try {
-            const storedPage = String(localStorage.getItem(DASHBOARD_LAST_PAGE_KEY) || '');
-            if (storedPage) _currentPageId = storedPage;
-        } catch (_) {}
-    }
-    // If the grid currently only holds a transient placeholder/error from a
-    // previous attempt (e.g. a timeout banner shown while the user was on
-    // another tab), wipe it so the cached snapshot can render instantly and
-    // the user doesn't keep staring at a stale error message.
-    const transientText = String(grid.textContent || '');
-    if (grid.firstElementChild && _transientDashboardGridMatches(transientText)) {
-        grid.innerHTML = '';
-    }
-    const layoutFpBefore = _dashboardSnapshotFingerprint(_dashboardCache);
-    const renderedFromCache = _renderCachedDashboardIfEmpty();
-    const hadRealContent = renderedFromCache || _dashboardGridHasRealContent(grid);
-    // If we re-rendered cached cards, any previously paused camera streams
-    // are still in the DOM but paused — resume them now that the dashboard
-    // is visible again.
-    if (renderedFromCache) {
-        try { resumeDashboardCameras(); } catch (_) {}
-    }
-    // Only show the inline placeholder when the grid is currently empty —
-    // otherwise we flash an unnecessary "loading" message over already-rendered cards.
-    if (!renderedFromCache && !grid.firstElementChild) {
-        grid.innerHTML = `<div class="col-span-full p-6 text-sm" style="color:var(--text-tertiary,#94a3b8);">${_escape(t('dashboard.loading_dashboard'))}</div>`;
-    }
-    try {
-        getCameraStreamToken().catch(() => {});
-        await _refreshAvailableEntities({ includeEntities: false, signal });
-        // After first fetch the server tells us the active page; reflect it in the URL.
-        if (_currentPageId) setHashForPage(_currentPageId);
-        const layoutFpAfter = _dashboardSnapshotFingerprint(_dashboardCache);
-        const layoutChanged = layoutFpBefore !== layoutFpAfter;
-        if (!hadRealContent || layoutChanged || !soft) {
-            _renderDashboard();
-        } else {
-            try { _configureHyveviewMounted(grid); } catch (_) {}
-        }
-        try { resumeDashboardCameras(); } catch (_) {}
-        updateDashboardEntityOptions();
-        // Phase 4: open live WS so cards update without polling.
-        _connectDashboardLive();
-        // After the initial page is rendered, quietly prefetch the other
-        // pages so subsequent navigation is instant.
-        _schedulePagePrefetch();
-    } catch (e) {
-        // If a newer load aborted us, stay silent.
-        if (e && (e.name === 'AbortError' || e.name === 'DashboardRefreshAbortError')) return;
-        setEntitySelectState(t('dashboard.load_entities_failed'), true);
-        // If the grid is already showing real cached content, do NOT replace
-        // it with a red banner just because a background refresh timed out.
-        // The user keeps seeing their dashboard, and the live WS will keep
-        // values fresh. Only surface the error if the grid is empty / had
-        // nothing to show in the first place.
-        const gridHasRealContent = !!grid.firstElementChild
-            && !(grid.children.length === 1
-                && _transientDashboardGridMatches(grid.textContent || ''));
-        if (!gridHasRealContent) {
-            grid.innerHTML = `<div class="col-span-full rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">${_escape(e.message || t('dashboard.load_error'))}</div>`;
-        } else {
-            try { console.warn('[dashboard] refresh failed, keeping cached cards:', e?.message || e); } catch (_) {}
-        }
-    }
-}
-
-
-/**
- * Switch all add/edit-only labels in the dashboard add modal. Updates both
- * textContent AND data-i18n so a later translation pass does not restore the
- * add-mode strings. Also tags the modal with data-mode so CSS hooks can react.
- */
-function _applyDashboardModalMode(mode /* 'add' | 'edit' */) {
-    const modal = document.getElementById('dashboard-add-modal');
-    if (!modal) return;
-    const isEdit = mode === 'edit';
-    modal.dataset.mode = isEdit ? 'edit' : 'add';
-
-    const apply = (selector, i18nKey, fallback) => {
-        const el = modal.querySelector(selector);
-        if (!el) return;
-        el.setAttribute('data-i18n', i18nKey);
-        const translated = t(i18nKey);
-        // Some t() implementations return the key itself when no translation
-        // exists; treat that as a miss and use the human fallback.
-        el.textContent = (translated && translated !== i18nKey) ? translated : fallback;
-    };
-
-    if (isEdit) {
-        apply('h3', 'dashboard.edit_card', 'Edit card');
-        apply('h3 + p', 'dashboard.edit_card_hint', 'Modifică setările cardului și salvează.');
-        apply('button[data-dash-action="saveAddWidget"]', 'common.save', 'Salvează');
-    } else {
-        apply('h3', 'dashboard.add_card', 'Adaugă card');
-        apply('h3 + p', 'dashboard.add_card_hint', 'Alege tipul de card și vezi preview înainte de salvare.');
-        apply('button[data-dash-action="saveAddWidget"]', 'common.add', 'Adaugă');
-    }
-}
-
-export async function openDashboardAddModal(kind = 'button') {
-    if (!requireDashboardEditAccess()) return;
-    const modal = document.getElementById('dashboard-add-modal');
-    if (!modal) return;
-    // Default to add-mode; openDashboardWidgetEditor flips it after we return.
-    _applyDashboardModalMode('add');
-    closeDashboardMenu();
-    syncModalViewportMetrics();
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-
-    // Populate the type <select> from the catalog (it's empty in HTML).
-    const type = document.getElementById('dashboard-widget-type');
-    try {
-        const cards = await _loadDashboardCardCatalog();
-        if (type && cards.length) {
-            type.innerHTML = cards.map(c =>
-                `<option value="${_escape(c.id)}">${_escape(c.label)}</option>`
-            ).join('');
-        }
-    } catch (_) { /* keep existing options */ }
-
-    const title = document.getElementById('dashboard-widget-title');
-    const subtitle = document.getElementById('dashboard-widget-subtitle');
-    const icon = document.getElementById('dashboard-widget-icon');
-    const size = document.getElementById('dashboard-widget-size');
-    const colSpan = document.getElementById('dashboard-widget-col-span');
-    const rowSpan = document.getElementById('dashboard-widget-row-span');
-    const showBackground = document.getElementById('dashboard-widget-label-bg');
-    const cameraMode = document.getElementById('dashboard-widget-camera-mode');
-    if (title) title.value = '';
-    if (subtitle) subtitle.value = '';
-    if (icon) icon.value = '';
-    if (type) type.value = kind || 'button';
-    if (size) size.value = 'md';
-    if (colSpan) colSpan.value = String(DASHBOARD_COL_POINTS_MAX);
-    if (rowSpan) rowSpan.value = String(_dashboardDefaultRowsForType(kind || 'button'));
-    if (showBackground) showBackground.checked = false;
-    if (cameraMode) cameraMode.value = 'snapshots';
-    const switchStyle = document.getElementById('dashboard-widget-switch-style');
-    if (switchStyle) switchStyle.checked = false;
-    const picker = document.getElementById('dashboard-entity-select');
-    if (picker) {
-        picker.value = '';
-        picker.dataset.currentValue = '';
-    }
-    clearDashboardClimateEntitySelection();
-    _enhanceDashboardCustomSelects(modal);
-
-    setEntitySelectState(t('dashboard.loading_entities') || 'Loading entities...', true);
-    try {
-        await _refreshAvailableEntities();
-        updateDashboardTypeUI();
-    } catch (e) {
-        setEntitySelectState(t('dashboard.loading_entities_error') || 'Could not load entities.', true);
-        showToast(e.message || (t('dashboard.loading_entities_error_toast') || 'Error loading entities'), 'error');
-    }
-
-    // Wire live preview listeners on first open and reset to "visual" tab.
-    _wireDashboardAddPreviewListeners();
-    setDashboardAddEditorMode('visual');
-    const visEnabled = document.getElementById('dashboard-visibility-enabled');
-    if (visEnabled) visEnabled.checked = false;
-    const visBody = document.getElementById('dashboard-visibility-body');
-    if (visBody) visBody.classList.add('hidden');
-    const visConds = document.getElementById('dashboard-visibility-conditions');
-    if (visConds) visConds.innerHTML = '';
-    _renderDashboardAddPreview();
-}
-
-export function closeDashboardAddModal() {
-    const modal = document.getElementById('dashboard-add-modal');
-    if (!modal) return;
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-    clearDashboardClimateEntitySelection();
-    // Reset edit-mode hijack so the next open is a fresh add.
-    if (_dashboardCurrentEditorId) {
-        _dashboardCurrentEditorId = null;
-        const headerTitle = document.querySelector('#dashboard-add-modal h3');
-        if (headerTitle) headerTitle.textContent = t('dashboard.add_card') || 'Add card';
-        const saveBtn = document.querySelector('#dashboard-add-modal button[data-dash-action="saveAddWidget"]');
-        if (saveBtn) saveBtn.textContent = t('common.add') || 'Add';
-    }
+function _activeDashboardPageId() {
+    return _currentPageId || _dashboardCache.current_page_id || _dashboardCache.page_id || '';
 }
 
 export function toggleDashboardEditMode() {
@@ -2638,473 +1326,12 @@ export async function saveDashboardPreferences(silent = false) {
         }
     }
 
-    const section = await _readDashboardSectionFallback();
+    const section = await readDashboardSectionFallback();
     section.preferences = prefs;
-    await _writeDashboardSectionFallback(section);
+    await writeDashboardSectionFallback(section);
     _dashboardCache.preferences = section.preferences;
     _renderDashboard();
     if (!silent) showToast(t('dashboard.preferences_saved'), 'success');
-}
-
-function _slug(value) {
-    return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'section';
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// R5.2: schema-driven editor bridge (add/edit/delete dashboard widgets).
-// ──────────────────────────────────────────────────────────────────────
-
-async function _ensureHyveviewEntitySeed() {
-    // The new editor reads from `core/store.js` (WebSocket-fed). Until the
-    // dashboard switches its own data source to that store, seed it from the
-    // REST-backed dashboard cache so entity pickers are populated immediately.
-    if (!Array.isArray(_dashboardCache.available_entities) || !_dashboardCache.available_entities.length) {
-        try { await _refreshAvailableEntities(); } catch { /* non-fatal */ }
-    }
-    const seed = (_dashboardCache.available_entities || []).map(e => ({
-        entity_id: e.entity_id,
-        friendly_name: e.name || e.friendly_name || e.entity_id,
-        source: e.source || '',
-        attributes: e.attributes || {},
-        state: e.state ?? null,
-        unit: e.unit || '',
-    }));
-    try {
-        const mod = await import('/static/hyveview/core/store.js');
-        if (mod && typeof mod.seedEntities === 'function') mod.seedEntities(seed);
-    } catch { /* offline ok */ }
-}
-
-function _widgetToEditorCard(widget) {
-    const type = widget.type || 'button';
-    const rawCol = Number(widget.col_span);
-    const col = Math.min(Math.max(Number.isFinite(rawCol) ? rawCol : SECTION_COLS, 1), SECTION_COLS);
-    const row = Math.min(Math.max(Number(widget.row_span) || 2, 1), 12);
-
-    const cfg = {
-        title: widget.title || '',
-        icon: widget.icon || widget?.config?.icon || '',
-        color: widget.color || '',
-        switch_style: !!widget.switch_style,
-        show_background: !!widget.show_background,
-        entity_name: widget.entity_name || '',
-    };
-    if (type !== 'label') cfg.entity_id = widget.entity_id || '';
-    if (type === 'camera') {
-        cfg.entity = widget.entity_id || '';
-        const raw = widget?.config?.camera_mode || 'snapshot';
-        cfg.mode = raw === 'live' ? 'live' : 'snapshot';
-        cfg.interval = Number(widget?.config?.interval) || DEFAULT_CAMERA_INTERVAL;
-        cfg.default_audio = !!widget?.config?.default_audio;
-        cfg.default_microphone = !!widget?.config?.default_microphone;
-        cfg.preload = !!widget?.config?.preload;
-        cfg.preload_scope = widget?.config?.preload_scope === 'all' ? 'all' : 'adjacent';
-        const ents = widget?.config?.entities || [];
-        cfg.entities = (Array.isArray(ents) ? ents : []).map((e) => typeof e === 'string'
-            ? { entity_id: e, title: '', subtitle: '' }
-            : { entity_id: e.entity_id || '', title: e.title || '', subtitle: e.subtitle || '' }
-        ).filter((e) => e.entity_id);
-        if (!cfg.entities.length && widget.entity_id) {
-            cfg.entities = [{ entity_id: widget.entity_id, title: widget.title || '', subtitle: '' }];
-        }
-    }
-    if (type === 'picture') {
-        cfg.sources = Array.isArray(widget?.config?.sources) ? widget.config.sources : [];
-        if (!cfg.sources.length && widget.entity_id && widget.entity_id.startsWith('image.')) {
-            cfg.sources = [{ type: 'entity', value: widget.entity_id }];
-        }
-        cfg.interval = Number(widget?.config?.interval) || 15;
-    }
-    if (type === 'climate') {
-        const ents = widget?.config?.entities || widget?.config?.entity_ids || [];
-        cfg.entities = ents.map(e => typeof e === 'string'
-            ? { entity_id: e, title: '', subtitle: '' }
-            : { entity_id: e.entity_id, title: e.title || '', subtitle: e.subtitle || '' });
-    }
-    if (type === 'fusion_solar') {
-        const cfgIn = widget?.config && typeof widget.config === 'object' ? widget.config : {};
-        const powerEnts = Array.isArray(cfgIn.power_entities) ? cfgIn.power_entities : [];
-        cfg.power_entities = powerEnts.length
-            ? powerEnts.map((e) => typeof e === 'string'
-                ? { entity_id: e, title: '', subtitle: '' }
-                : { entity_id: e.entity_id || '', title: e.title || '', subtitle: e.subtitle || '' })
-            : (widget.entity_id ? [{ entity_id: widget.entity_id, title: '', subtitle: '' }] : []);
-        cfg.entity_load = cfgIn.entity_load || '';
-        cfg.entity_grid = cfgIn.entity_grid || '';
-        cfg.entity_grid_export = cfgIn.entity_grid_export || '';
-        cfg.entity_grid_import = cfgIn.entity_grid_import || '';
-        cfg.entity_daily = cfgIn.entity_daily || '';
-        cfg.entity_monthly = cfgIn.entity_monthly || '';
-        cfg.entity_yearly = cfgIn.entity_yearly || '';
-        cfg.entity_feed_in = cfgIn.entity_feed_in || '';
-        cfg.entity_consumption = cfgIn.entity_consumption || '';
-        cfg.capacity_kw = cfgIn.capacity_kw ?? '';
-    }
-
-    return {
-        id: widget.id,
-        type,
-        entity: widget.entity_id || null,
-        layout: { col, row },
-        config: cfg,
-        visibility: widget.visibility || null,
-    };
-}
-
-function _editorResultToWidgetBody(result, { existingWidget = null } = {}) {
-    const type = result.type || 'button';
-    const cfg = result.config || {};
-    const col = Math.min(Math.max(Number(result.layout?.col) || SECTION_COLS, 1), SECTION_COLS);
-    const row = Math.min(Math.max(Number(result.layout?.row) || 2, 1), 12);
-
-    let entityId;
-    if (type === 'label') {
-        const baseTitle = cfg.title || cfg.entity_name || 'section';
-        entityId = existingWidget?.entity_id || `label.${_slug(baseTitle)}`;
-    } else if (type === 'climate') {
-        const entities = Array.isArray(cfg.entities) ? cfg.entities : [];
-        const first = entities[0];
-        entityId = (typeof first === 'string' ? first : first?.entity_id) || '';
-    } else if (type === 'camera') {
-        const entities = Array.isArray(cfg.entities) ? cfg.entities : [];
-        const first = entities[0];
-        entityId = (typeof first === 'string' ? first : first?.entity_id) || (cfg.entity || cfg.entity_id || '').trim();
-    } else if (type === 'picture') {
-        const sources = Array.isArray(cfg.sources) ? cfg.sources : [];
-        const firstEnt = sources.find(s => s.type === 'entity');
-        entityId = firstEnt ? firstEnt.value : (existingWidget?.entity_id || `picture.gallery_${Date.now()}`);
-    } else if (type === 'fusion_solar') {
-        const powerRecords = (Array.isArray(cfg.power_entities) ? cfg.power_entities : [])
-            .map((e) => typeof e === 'string'
-                ? { entity_id: e, title: '', subtitle: '' }
-                : { entity_id: e.entity_id || '', title: e.title || '', subtitle: e.subtitle || '' })
-            .filter((e) => e.entity_id);
-        entityId = powerRecords[0]?.entity_id || (cfg.entity_id || cfg.entity || '').trim();
-    } else {
-        entityId = (cfg.entity_id || cfg.entity || '').trim();
-    }
-
-    // Look up source from the entity cache (label is always manual).
-    let source = existingWidget?.source || '';
-    if (!source) {
-        if (type === 'label') source = 'manual';
-        else {
-            const ent = (_dashboardCache.available_entities || []).find(e => e.entity_id === entityId);
-            source = ent?.source || 'zigbee2mqtt';
-        }
-    }
-
-    const body = {
-        type,
-        entity_id: entityId,
-        entity_name: (cfg.entity_name || cfg.title || entityId || '').toString().trim(),
-        title: (cfg.title || '').toString().trim(),
-        icon: (cfg.icon || '').toString().trim(),
-        source,
-        size: existingWidget?.size || 'md',
-        favorite: !!existingWidget?.favorite,
-        show_background: type === 'label' ? !!cfg.show_background : false,
-        switch_style: (type === 'button' || type === 'switch') ? !!cfg.switch_style : false,
-        col_span: col,
-        row_span: row,
-    };
-    if (cfg.color) body.color = cfg.color;
-    if (type === 'climate') {
-        const records = (Array.isArray(cfg.entities) ? cfg.entities : []).map(e =>
-            typeof e === 'string'
-                ? { entity_id: e }
-                : { entity_id: e.entity_id, title: e.title || '', subtitle: e.subtitle || '' }
-        ).filter(r => r.entity_id);
-        body.config = { entities: records, entity_ids: records.map(r => r.entity_id) };
-    }
-    if (type === 'camera') {
-        const cameraMode = (cfg.mode || cfg.camera_mode || 'snapshot') === 'live' ? 'live' : 'snapshots';
-        const interval = Number(cfg.interval) || DEFAULT_CAMERA_INTERVAL;
-        const records = (Array.isArray(cfg.entities) ? cfg.entities : []).map((e) =>
-            typeof e === 'string'
-                ? { entity_id: e, title: '', subtitle: '' }
-                : { entity_id: e.entity_id, title: e.title || '', subtitle: e.subtitle || '' }
-        ).filter((r) => r.entity_id);
-        if (!records.length && entityId) {
-            records.push({ entity_id: entityId, title: cfg.title || '', subtitle: '' });
-        }
-        body.config = {
-            ...(body.config || {}),
-            camera_mode: cameraMode,
-            interval,
-            entities: records,
-            entity_ids: records.map((r) => r.entity_id),
-            default_audio: !!cfg.default_audio,
-            default_microphone: !!cfg.default_microphone,
-            preload: !!cfg.preload,
-            preload_scope: cfg.preload_scope === 'all' ? 'all' : 'adjacent',
-        };
-        if (records[0]?.title && !Object.prototype.hasOwnProperty.call(cfg, 'title')) body.title = records[0].title;
-    }
-    if (type === 'picture') {
-        const sources = Array.isArray(cfg.sources) ? cfg.sources.filter(s => s && s.value) : [];
-        const interval = Number(cfg.interval) || 15;
-        body.config = { ...(body.config || {}), sources, interval };
-        const firstEntity = sources.find(s => s.type === 'entity');
-        if (firstEntity) body.entity_id = firstEntity.value;
-        else if (!body.entity_id) body.entity_id = `picture.gallery_${Date.now()}`;
-    }
-    if (type === 'fusion_solar') {
-        const powerRecords = (Array.isArray(cfg.power_entities) ? cfg.power_entities : [])
-            .map((e) => typeof e === 'string'
-                ? { entity_id: e, title: '', subtitle: '' }
-                : { entity_id: e.entity_id || '', title: e.title || '', subtitle: e.subtitle || '' })
-            .filter((e) => e.entity_id);
-        const powerId = powerRecords[0]?.entity_id || body.entity_id || '';
-        const slotKeys = [
-            'entity_load', 'entity_grid', 'entity_grid_export', 'entity_grid_import',
-            'entity_daily', 'entity_monthly', 'entity_yearly', 'entity_feed_in', 'entity_consumption',
-        ];
-        const slotCfg = {};
-        slotKeys.forEach((k) => {
-            const v = String(cfg[k] || '').trim();
-            if (v) slotCfg[k] = v;
-        });
-        body.config = {
-            ...(body.config || {}),
-            power_entities: powerRecords,
-            ...slotCfg,
-            capacity_kw: cfg.capacity_kw === '' || cfg.capacity_kw == null ? undefined : Number(cfg.capacity_kw),
-        };
-        body.config.entity_ids = fusionSolarWidgetEntityIds({ entity_id: powerId, config: body.config });
-        if (!body.source || body.source === 'zigbee2mqtt') {
-            const ent = (_dashboardCache.available_entities || []).find(e => e.entity_id === powerId);
-            if (ent?.source) body.source = ent.source;
-        }
-    }
-    if (result.visibility) body.visibility = result.visibility;
-    return body;
-}
-
-async function _saveDashboardWidgetFromEditor(result, { editingId = null, original = null } = {}) {
-    const body = _editorResultToWidgetBody(result, { existingWidget: original });
-    // Minimum validation: non-label cards must have an entity_id.
-    const _entitylessTypes = ['label', 'picture'];
-    if (!_entitylessTypes.includes(body.type) && !body.entity_id) {
-        showToast(t('dashboard.entity_required') || 'Pick an entity', 'warning');
-        return;
-    }
-    const activePageId = _currentPageId || _dashboardCache.current_page_id || _dashboardCache.page_id || '';
-    const pageQS = activePageId ? `?page_id=${encodeURIComponent(activePageId)}` : '';
-
-    if (editingId) {
-        try {
-            const res = await apiCall(`/api/dashboard/widgets/${encodeURIComponent(editingId)}${pageQS}`, {
-                method: 'PATCH', body,
-            });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(_dashApiError(err.detail, 'dashboard.card_update_error'));
-            }
-            await loadDashboard();
-            showToast(t('dashboard.card_updated') || 'Card actualizat', 'success');
-        } catch (e) {
-            showToast(e.message || t('dashboard.card_update_error'), 'error');
-        }
-        return;
-    }
-
-    try {
-        const res = await apiCall(`/api/dashboard/widgets${pageQS}`, { method: 'POST', body });
-        if (res.ok) {
-            await loadDashboard();
-            showToast(t('dashboard.card_added') || 'Card adăugat', 'success');
-            return;
-        }
-        if (res.status !== 404) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(_dashApiError(err.detail, 'dashboard.save_widget_failed'));
-        }
-    } catch (e) {
-        if (String(e?.message || '').includes(t('dashboard.save_widget_failed'))) {
-            showToast(e.message, 'error');
-            return;
-        }
-    }
-
-    // Fallback to local-storage section when the API isn't available.
-    try {
-        const section = await _readDashboardSectionFallback();
-        section.widgets.push({
-            id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
-            ...body,
-        });
-        await _writeDashboardSectionFallback(section);
-        await loadDashboard();
-        showToast(t('dashboard.card_added') || 'Card added', 'success');
-    } catch (e) {
-        showToast(e.message || (t('dashboard.save_error') || 'Save error'), 'error');
-    }
-}
-
-async function _deleteDashboardWidgetSilent(widgetId) {
-    try {
-        const res = await apiCall(`/api/dashboard/widgets/${encodeURIComponent(widgetId)}`, { method: 'DELETE' });
-        if (res.ok) {
-            await loadDashboard();
-            showToast(t('dashboard.widget_deleted') || 'Widget deleted', 'success');
-            return;
-        }
-        if (res.status !== 404) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(_dashApiError(err.detail, 'dashboard.delete_widget_failed'));
-        }
-    } catch (e) {
-        if (String(e?.message || '').includes(t('dashboard.delete_widget_failed'))) {
-            showToast(e.message, 'error');
-            return;
-        }
-    }
-    try {
-        const section = await _readDashboardSectionFallback();
-        section.widgets = (section.widgets || []).filter(it => it.id !== widgetId);
-        await _writeDashboardSectionFallback(section);
-        await loadDashboard();
-        showToast(t('dashboard.widget_deleted') || 'Widget deleted', 'success');
-    } catch (e) {
-        showToast(e.message || (t('dashboard.widget_delete_error') || 'Could not delete widget'), 'error');
-    }
-}
-
-export async function addDashboardSwitch() {
-    if (!requireDashboardEditAccess()) return;
-    const entityInput = document.getElementById('dashboard-entity-select');
-    const title = document.getElementById('dashboard-widget-title');
-    const subtitle = document.getElementById('dashboard-widget-subtitle');
-    const type = document.getElementById('dashboard-widget-type');
-    const size = document.getElementById('dashboard-widget-size');
-    const widgetType = type?.value || 'button';
-    const widgetRenderer = _dashboardEditorRenderer(widgetType);
-
-    let selected = resolveEntityMatch(entityInput, widgetType);
-    let climateEntityIds = [];
-    let climateEntityRecords = [];
-    if (widgetType === 'climate') {
-        climateEntityRecords = climateEntityRecordsForSave();
-        climateEntityIds = climateEntityRecords.map(item => item.entity_id);
-        if (!selected && climateEntityIds.length) {
-            const firstId = climateEntityIds[0];
-            selected = _dashboardAvailableEntity(firstId) || { entity_id: firstId, name: firstId, source: 'integration' };
-        }
-    }
-
-    if (widgetType !== 'label' && !selected) {
-        showToast(t('dashboard.pick_entity'), 'warning');
-        return;
-    }
-
-    if (widgetType === 'climate' && !climateEntityIds.length) {
-        showToast(t('dashboard.pick_climate_multi'), 'warning');
-        return;
-    }
-
-    const switchStyle = document.getElementById('dashboard-widget-switch-style');
-    const showBackground = document.getElementById('dashboard-widget-label-bg');
-    const iconInput = document.getElementById('dashboard-widget-icon');
-    const colSpanEl = document.getElementById('dashboard-widget-col-span');
-    const rowSpanEl = document.getElementById('dashboard-widget-row-span');
-    const cameraMode = document.getElementById('dashboard-widget-camera-mode');
-    const manualEntityId = `label.${_slug(title?.value || subtitle?.value || 'section')}`;
-    const resolvedEntityId = widgetType === 'label' ? manualEntityId : selected.entity_id;
-    const body = {
-        type: widgetType,
-        entity_id: resolvedEntityId,
-        entity_name: widgetType === 'label'
-            ? (subtitle?.value || '').trim()
-            : (widgetType === 'climate'
-                ? (selected?.name || resolvedEntityId).trim()
-                : (subtitle?.value || selected?.name || resolvedEntityId).trim()),
-        title: widgetType === 'climate' ? '' : (title?.value || '').trim(),
-        icon: (iconInput?.value || '').trim(),
-        source: widgetType === 'label' ? 'manual' : (selected?.source || 'zigbee2mqtt'),
-        size: size?.value || 'md',
-        favorite: false,
-        show_background: widgetType === 'label' ? !!showBackground?.checked : false,
-        switch_style: widgetType === 'button' ? !!switchStyle?.checked : false,
-    };
-    if (widgetType === 'climate') {
-        body.entity_id = climateEntityIds[0];
-        body.config = { ...(body.config || {}), entities: climateEntityRecords, entity_ids: climateEntityIds };
-    }
-    if (widgetRenderer === 'camera') {
-        const selectedMode = String(cameraMode?.value || 'snapshots').trim() === 'live' ? 'live' : 'snapshots';
-        body.config = { ...(body.config || {}), camera_mode: selectedMode };
-    }
-
-    const colSpanVal = parseInt(colSpanEl?.value || '0', 10);
-    const rowSpanVal = parseInt(rowSpanEl?.value || '0', 10);
-    if (Number.isFinite(colSpanVal) && colSpanVal >= 1) body.col_span = Math.min(colSpanVal, SECTION_COLS);
-    if (Number.isFinite(rowSpanVal) && rowSpanVal >= 1) body.row_span = Math.min(rowSpanVal, 12);
-
-    // Optional visibility rules from the „Vizibilitate” tab.
-    const visibility = _readDashboardVisibilityConfig();
-    if (visibility) body.visibility = visibility;
-
-    // Scope add/edit to the active dashboard page so the widget lands on the
-    // page the user is currently viewing instead of the default home page.
-    const activePageId = _currentPageId || _dashboardCache.current_page_id || _dashboardCache.page_id || '';
-    const pageQS = activePageId ? `?page_id=${encodeURIComponent(activePageId)}` : '';
-
-    // EDIT MODE: when openDashboardWidgetEditor() set _dashboardCurrentEditorId,
-    // PATCH the existing widget instead of POSTing a new one.
-    if (_dashboardCurrentEditorId) {
-        const editId = _dashboardCurrentEditorId;
-        try {
-            const res = await apiCall(`/api/dashboard/widgets/${encodeURIComponent(editId)}${pageQS}`, {
-                method: 'PATCH',
-                body,
-            });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(_dashApiError(err.detail, 'dashboard.card_update_error'));
-            }
-            closeDashboardWidgetEditor();
-            await loadDashboard();
-            showToast(t('dashboard.card_updated'), 'success');
-        } catch (e) {
-            showToast(e.message || t('dashboard.card_update_error'), 'error');
-        }
-        return;
-    }
-
-    try {
-        const res = await apiCall(`/api/dashboard/widgets${pageQS}`, { method: 'POST', body });
-        if (res.ok) {
-            closeDashboardAddModal();
-            await loadDashboard();
-            showToast(body.type === 'label' ? t('dashboard.label_added') : (body.type === 'info' ? t('dashboard.widget_added') : (body.type === 'button' ? t('dashboard.button_added') : t('dashboard.switch_added'))), 'success');
-            return;
-        }
-
-        if (res.status !== 404) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(_dashApiError(err.detail, 'dashboard.save_widget_failed'));
-        }
-    } catch (e) {
-        if (String(e?.message || '').includes(t('dashboard.save_widget_failed'))) {
-            showToast(e.message, 'error');
-            return;
-        }
-    }
-
-    try {
-        const section = await _readDashboardSectionFallback();
-        section.widgets.push({
-            id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
-            ...body,
-        });
-        await _writeDashboardSectionFallback(section);
-        closeDashboardAddModal();
-        await loadDashboard();
-        showToast(t('dashboard.card_added') || 'Card added', 'success');
-    } catch (e) {
-        showToast(e.message || (t('dashboard.save_error') || 'Save error'), 'error');
-    }
 }
 
 export async function removeDashboardWidget(widgetId) {
@@ -3129,15 +1356,16 @@ export async function removeDashboardWidget(widgetId) {
     }
 
     try {
-        const section = await _readDashboardSectionFallback();
+        const section = await readDashboardSectionFallback();
         section.widgets = (section.widgets || []).filter(item => item.id !== widgetId);
-        await _writeDashboardSectionFallback(section);
+        await writeDashboardSectionFallback(section);
         await loadDashboard();
         showToast(t('dashboard.widget_deleted') || 'Widget deleted', 'success');
     } catch (e) {
         showToast(e.message || (t('dashboard.widget_delete_error') || 'Could not delete widget'), 'error');
     }
 }
+
 
 // Locate a widget across the dashboard cache (top-level + panels).
 // Returns { container, index, panel?, panelIndex? } or null.
@@ -3249,11 +1477,11 @@ async function _persistDashboardOrder() {
     }
 
     // Legacy single-list fallback (no panels).
-    const section = await _readDashboardSectionFallback();
+    const section = await readDashboardSectionFallback();
     const storedWidgets = Array.isArray(section.widgets) ? section.widgets : [];
     const orderedIds = (_dashboardCache.widgets || []).map(item => item.id);
     section.widgets = orderedIds.map(id => storedWidgets.find(item => item.id === id)).filter(Boolean);
-    await _writeDashboardSectionFallback(section);
+    await writeDashboardSectionFallback(section);
 }
 
 
@@ -3439,716 +1667,6 @@ function _patchDashboardEntityState(entityId, state, attributesPatch = null) {
     });
 }
 
-export function openDashboardPageModal(opts = {}) {
-    if (!requireDashboardEditAccess()) return;
-    closeDashboardMenu();
-    syncModalViewportMetrics();
-    const modal = document.getElementById('dashboard-page-modal');
-    if (!modal) return;
-    const createMode = !!(opts && opts.create);
-    _pageEditorMode = createMode ? 'create' : 'edit';
-
-    const titleInput = document.getElementById('dashboard-page-title-input');
-    const iconInput = document.getElementById('dashboard-page-icon-input');
-    const columnsInput = document.getElementById('dashboard-page-columns');
-    const layoutInput = document.getElementById('dashboard-page-layout-mode');
-    const hideInput = document.getElementById('dashboard-page-hide-unavailable');
-    const titleEl = document.getElementById('dashboard-page-modal-title');
-    const saveBtn = document.getElementById('dashboard-page-save-btn');
-    const defaultInput = document.getElementById('dashboard-page-default-input');
-
-    if (createMode) {
-        if (titleEl) titleEl.textContent = t('dashboard.new_page') || 'New page';
-        if (saveBtn) saveBtn.textContent = t('dashboard.create') || 'Create';
-        if (titleInput) titleInput.value = '';
-        if (iconInput) iconInput.value = 'fa-table-cells-large';
-        if (columnsInput) columnsInput.value = '0';
-        if (layoutInput) layoutInput.value = DEFAULT_PREFS.layout_mode;
-        if (hideInput) hideInput.checked = false;
-    } else {        if (titleEl) titleEl.textContent = t('dashboard.edit_page') || 'Edit page';
-        if (saveBtn) saveBtn.textContent = t('common.save') || 'Save';
-        if (titleInput) titleInput.value = _dashboardCache.title || DEFAULT_META.title;
-        if (iconInput) iconInput.value = _dashboardCache.icon || 'fa-table-cells-large';
-        if (columnsInput) columnsInput.value = String(_dashboardCache.columns || 0);
-        if (layoutInput) layoutInput.value = _dashboardCache.preferences?.layout_mode || DEFAULT_PREFS.layout_mode;
-        if (hideInput) hideInput.checked = !(_dashboardCache.preferences?.show_unavailable ?? DEFAULT_PREFS.show_unavailable);
-    }
-
-    // Show delete button only in edit mode and when there are >= 2 pages.
-    const delBtn = document.getElementById('dashboard-page-delete-btn');
-    if (delBtn) {
-        const pages = Array.isArray(_dashboardCache.pages) ? _dashboardCache.pages : [];
-        const canDelete = !createMode && pages.length >= 2 && !!_currentPageId;
-        delBtn.classList.toggle('hidden', !canDelete);
-    }
-
-    // Per-user default dashboard toggle (HA default_panel). Only meaningful for
-    // an existing page; hidden while creating a brand new one.
-    if (defaultInput) {
-        const row = defaultInput.closest('label');
-        if (row) row.classList.toggle('hidden', createMode);
-        const activeId = _currentPageId || _dashboardCache.current_page_id || _dashboardCache.page_id;
-        defaultInput.checked = !createMode && !!_dashboardCache.default_page_id
-            && String(_dashboardCache.default_page_id) === String(activeId);
-    }
-
-    _enhanceDashboardCustomSelects(modal);
-
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    if (titleInput) try { titleInput.focus(); } catch (_) {}
-}
-
-export function closeDashboardPageModal() {
-    const modal = document.getElementById('dashboard-page-modal');
-    if (!modal) return;
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-}
-
-export async function saveDashboardHeader() {
-    if (!requireDashboardEditAccess()) return;
-    const titleInput = document.getElementById('dashboard-page-title-input') || document.getElementById('dashboard-title-input');
-    const iconInput = document.getElementById('dashboard-page-icon-input');
-    const columnsInput = document.getElementById('dashboard-page-columns');
-    const layoutInput = document.getElementById('dashboard-page-layout-mode');
-    const hideInput = document.getElementById('dashboard-page-hide-unavailable');
-
-    const newTitle = (titleInput?.value || DEFAULT_META.title).trim() || DEFAULT_META.title;
-    const newIcon = (iconInput?.value || _dashboardCache.icon || 'fa-table-cells-large').trim();
-    const newColumns = Number(columnsInput?.value || 0) || 0;
-
-    _dashboardCache.title = newTitle;
-    _dashboardCache.icon = newIcon;
-    _dashboardCache.columns = newColumns;
-    _dashboardCache.preferences = {
-        ...DEFAULT_PREFS,
-        ...(_dashboardCache.preferences || {}),
-        layout_mode: layoutInput?.value || _dashboardCache.preferences?.layout_mode || DEFAULT_PREFS.layout_mode,
-        show_unavailable: !(hideInput?.checked),
-    };
-
-    const pageId = _currentPageId || _dashboardCache.current_page_id || _dashboardCache.page_id;
-
-    // Create mode: POST a brand new page, then select it.
-    if (_pageEditorMode === 'create') {
-        const typedTitle = (titleInput?.value || '').trim();
-        if (!typedTitle) {
-            showToast(t('dashboard.title_required') || 'Pagina trebuie să aibă un titlu.', 'warning');
-            try { titleInput?.focus(); } catch (_) {}
-            return;
-        }
-        try {
-            const res = await apiCall('/api/dashboard/pages', {
-                method: 'POST',
-                body: {
-                    title: typedTitle,
-                    icon: newIcon,
-                    columns: newColumns,
-                },
-            });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(_dashApiError(err.detail, 'dashboard.page_create_error'));
-            }
-            const data = await res.json().catch(() => ({}));
-            const newId = data?.page?.id || data?.current_page_id;
-            _pageEditorMode = 'edit';
-            closeDashboardPageModal();
-            if (newId) {
-                // loadDashboard() used to run while _currentPageId still pointed at
-                // the previous page (often "Acasă"). Its in-flight fetch could
-                // finish after selectDashboardPage() and overwrite the new title.
-                try { _loadDashboardAbortController?.abort?.(); } catch (_) {}
-                _loadDashboardInFlight = null;
-                _mergeCreatedPageIntoCache(data?.page, newId);
-                _syncPreferenceControls();
-                renderDashboardPagesList();
-                await selectDashboardPage(newId);
-            } else {
-                await loadDashboard();
-            }
-            showToast(t('dashboard.page_created'), 'success');
-        } catch (e) {
-            showToast(e.message || t('dashboard.page_create_error'), 'error');
-        }
-        return;
-    }
-
-    try {
-        // 1) Salvează metadatele paginii (titlu/subtitlu/icon/coloane) pe pagina curentă.
-        let renamedToId = null;
-        if (pageId) {
-            const pageRes = await apiCall(`/api/dashboard/pages/${encodeURIComponent(pageId)}`, {
-                method: 'PATCH',
-                body: {
-                    title: newTitle,
-                    icon: newIcon,
-                    columns: newColumns,
-                },
-            });
-            if (!pageRes.ok && pageRes.status !== 404) {
-                const err = await pageRes.json().catch(() => ({}));
-                throw new Error(_dashApiError(err.detail, 'dashboard.save_page_failed'));
-            }
-            // The server may have renamed the page id to match the new title
-            // slug (e.g. "Acasă" → "acasa"). Pick up the new id so URLs/refs
-            // follow along without breaking navigation.
-            const pageData = pageRes.ok ? await pageRes.json().catch(() => ({})) : {};
-            const newId = pageData?.page?.id;
-            if (newId && newId !== pageId) {
-                renamedToId = newId;
-            }
-        }
-
-        // 2) Salvează preferences (layout / show_unavailable).
-        await apiCall('/api/dashboard/preferences', {
-            method: 'PATCH',
-            body: {
-                ...DEFAULT_PREFS,
-                ...(_dashboardCache.preferences || {}),
-                title: newTitle,
-                icon: newIcon,
-            },
-        }).catch(() => null);
-
-        // 3) Per-user default dashboard page (HA default_panel).
-        const defaultInput = document.getElementById('dashboard-page-default-input');
-        if (defaultInput) {
-            const wantDefault = !!defaultInput.checked;
-            const effectiveId = renamedToId || pageId;
-            const isDefault = String(_dashboardCache.default_page_id || '') === String(effectiveId);
-            if (wantDefault !== isDefault) {
-                await apiCall('/api/dashboard/preferences/default-page', {
-                    method: 'PATCH',
-                    body: { page_id: wantDefault ? effectiveId : null },
-                }).catch(() => null);
-            }
-        }
-
-        closeDashboardPageModal();
-        if (renamedToId) {
-            _currentPageId = renamedToId;
-            await loadDashboard();
-            await selectDashboardPage(renamedToId);
-        } else {
-            await loadDashboard();
-        }
-        showToast(t('dashboard.page_settings_saved') || 'Page settings saved', 'success');
-    } catch (e) {
-        showToast(e.message || (t('dashboard.page_save_error') || 'Could not save page'), 'error');
-    }
-}
-
-export async function deleteDashboardPage() {
-    if (!requireDashboardEditAccess()) return;
-    const pageId = _currentPageId || _dashboardCache.current_page_id || _dashboardCache.page_id;
-    if (!pageId) return;
-    const pages = Array.isArray(_dashboardCache.pages) ? _dashboardCache.pages : [];
-    if (pages.length <= 1) {
-        showToast(t('dashboard.min_one_page') || 'At least one dashboard page must remain.', 'warning');
-        return;
-    }
-    if (!(await showConfirm(t('dashboard.delete_page_confirm') || 'Delete the current page? Its cards and panels will be removed.'))) return;
-    try {
-        const res = await apiCall(`/api/dashboard/pages/${encodeURIComponent(pageId)}`, { method: 'DELETE' });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.detail || (t('dashboard.page_delete_error') || 'Could not delete page'));
-        }
-        const data = await res.json().catch(() => ({}));
-        const nextId = data.current_page_id || (pages.find(p => p.id !== pageId)?.id) || null;
-        closeDashboardPageModal();
-        if (nextId) {
-            await selectDashboardPage(nextId);
-        } else {
-            await loadDashboard();
-        }
-        showToast(t('dashboard.page_deleted') || 'Page deleted', 'success');
-    } catch (e) {
-        showToast(e.message || (t('dashboard.page_delete_error') || 'Could not delete page'), 'error');
-    }
-}
-
-function _buildWidgetYaml(widget = {}) {
-    const yamlString = (value) => `"${String(value ?? '').replace(/"/g, '\\"')}"`;
-    return [
-        `type: ${widget.type || 'button'}`,
-        `title: ${yamlString(widget.title || '')}`,
-        `entity_id: ${yamlString(widget.entity_id || '')}`,
-        `entity_name: ${yamlString(widget.entity_name || '')}`,
-        `size: ${widget.size || 'md'}`,
-        `source: ${yamlString(widget.source || 'zigbee2mqtt')}`,
-        `icon: ${yamlString(widget.icon || '')}`,
-        `favorite: ${widget.favorite ? 'true' : 'false'}`,
-        `show_background: ${widget.show_background ? 'true' : 'false'}`,
-        `switch_style: ${widget.switch_style ? 'true' : 'false'}`,
-    ].join('\n');
-}
-
-function _parseWidgetYaml(raw, fallback = {}) {
-    const patch = { ...fallback };
-    String(raw || '').split(/\r?\n/).forEach(line => {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) return;
-        const match = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*(.*)$/);
-        if (!match) return;
-        const [, key, valueRaw] = match;
-        let value = valueRaw.trim();
-        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-            value = value.slice(1, -1);
-        }
-        if (key === 'favorite' || key === 'show_background' || key === 'switch_style') {
-            patch[key] = value.toLowerCase() === 'true';
-        } else {
-            patch[key] = value;
-        }
-    });
-    return patch;
-}
-
-function _normalizeLocalWidgetPatch(widget, patch) {
-    const updated = { ...(widget || {}), ...(patch || {}) };
-    updated.type = ['switch', 'info', 'button', 'label', 'climate', 'camera', 'picture', 'weather', 'weather_rich', 'gauge', 'fusion_solar'].includes(updated.type) ? updated.type : 'button';
-    updated.size = ['sm', 'md', 'wide'].includes(updated.size) ? updated.size : 'md';
-    const noDefaultTitleTypes = new Set(['weather', 'weather_rich', 'fusion_solar']);
-    updated.title = Object.prototype.hasOwnProperty.call(updated, 'title')
-        ? String(updated.title ?? '').trim()
-        : (noDefaultTitleTypes.has(updated.type)
-            ? ''
-            : String(updated.entity_name || updated.entity_id || 'Card').trim());
-    updated.entity_name = updated.type === 'label'
-        ? String(updated.entity_name || '').trim()
-        : String(updated.entity_name || updated.title || updated.entity_id || '').trim();
-    updated.entity_id = String(updated.entity_id || `label.${_slug(updated.title || updated.entity_name || 'section')}`).trim();
-    updated.source = String(updated.source || 'zigbee2mqtt').trim();
-    updated.icon = String(updated.icon || '').trim();
-    updated.favorite = Boolean(updated.favorite);
-    updated.show_background = Boolean(updated.show_background);
-    updated.switch_style = Boolean(updated.switch_style || updated.type === 'switch');
-    return updated;
-}
-
-// R5.2: the legacy add modal was hijacked for both add and edit. The
-// schema-driven editor now owns both flows; this function simply maps the
-// widget into the editor card shape and dispatches the result.
-export async function openDashboardWidgetEditor(widgetId) {
-    if (!requireDashboardEditAccess()) return;
-    const widget = _findWidget(widgetId);
-    if (!widget) {
-        showToast(t('dashboard.card_not_found') || 'Card not found', 'error');
-        return;
-    }
-    await _ensureHyveviewEntitySeed();
-    const card = _widgetToEditorCard(widget);
-    const result = await hvOpenEditor({ mode: 'edit', card });
-    if (!result) return;
-    if (result.__deleted) {
-        await _deleteDashboardWidgetSilent(widgetId);
-        return;
-    }
-    await _saveDashboardWidgetFromEditor(result, { editingId: widgetId, original: widget });
-}
-
-export function closeDashboardWidgetEditor() {
-    // Legacy closer — schema editor closes itself.
-}
-
-// ── Add-modal: live preview + visibility editor ──────────────────────
-export function _renderDashboardAddPreview() {
-    const target = document.getElementById('dashboard-add-preview-card');
-    if (!target) return;
-    const type = (document.getElementById('dashboard-widget-type')?.value || 'button').trim();
-    const title = (document.getElementById('dashboard-widget-title')?.value || '').trim();
-    const subtitle = (document.getElementById('dashboard-widget-subtitle')?.value || '').trim();
-    const size = document.getElementById('dashboard-widget-size')?.value || 'md';
-    const colSpanPv = parseInt(document.getElementById('dashboard-widget-col-span')?.value || '0', 10);
-    const rowSpanPv = parseInt(document.getElementById('dashboard-widget-row-span')?.value || '0', 10);
-    const showBackground = !!document.getElementById('dashboard-widget-label-bg')?.checked;
-    const switchStyle = !!document.getElementById('dashboard-widget-switch-style')?.checked;
-    const cameraMode = String(document.getElementById('dashboard-widget-camera-mode')?.value || 'snapshots') === 'live' ? 'live' : 'snapshots';
-    const icon = (document.getElementById('dashboard-widget-icon')?.value || '').trim();
-    const entityInput = document.getElementById('dashboard-entity-select');
-    const climateEntityRecords = type === 'climate' ? climateEntityRecordsForSave() : [];
-    const climateEntityIds = climateEntityRecords.map(item => item.entity_id);
-    const eid = type === 'climate' ? (climateEntityIds[0] || entityInput?.dataset?.currentValue || '') : (entityInput?.dataset?.currentValue || '');
-
-    let entityState = '—';
-    let entityAttrs = {};
-    let entityUnit = '';
-    let domain = '';
-    if (eid && Array.isArray(_dashboardCache.available_entities)) {
-        const ent = _dashboardCache.available_entities.find(x => x.entity_id === eid);
-        if (ent) {
-            entityState = ent.state != null ? String(ent.state) : '—';
-            entityAttrs = ent.attributes || {};
-            entityUnit = ent.unit || '';
-            domain = String(eid).split('.')[0] || '';
-        }
-    }
-
-    const widget = {
-        id: '__preview__',
-        type: type === 'label' ? 'label' : type,
-        renderer: '',
-        title: title || (type === 'label' ? (t('dashboard.preview_title_default') || 'Title') : (eid || (t('dashboard.preview_default') || 'Preview'))),
-        entity_name: subtitle,
-        entity_id: type === 'label' ? `label.preview` : (eid || 'preview.placeholder'),
-        size,
-        icon,
-        domain,
-        unit: entityUnit,
-        current_state: entityState,
-        attributes: entityAttrs,
-        available: true,
-        controllable: true,
-        show_background: showBackground,
-        switch_style: switchStyle,
-    };
-    if (type === 'climate' && climateEntityIds.length) {
-        widget.config = { entities: climateEntityRecords, entity_ids: climateEntityIds };
-        widget.entities = climateEntityRecords.map(record => {
-            const entityId = record.entity_id;
-            const ent = _dashboardAvailableEntity(entityId) || {};
-            return {
-                entity_id: entityId,
-                title: record.title,
-                subtitle: record.subtitle,
-                entity_name: ent.name || ent.entity_name || entityId,
-                current_state: ent.state ?? ent.current_state ?? 'unknown',
-                attributes: ent.attributes || {},
-                unit: ent.unit || '',
-                available: ent.available !== false,
-                controllable: ent.controllable !== false,
-            };
-        });
-    }
-    if (type === 'camera') {
-        widget.config = { ...(widget.config || {}), camera_mode: cameraMode };
-    }
-    if (Number.isFinite(colSpanPv) && colSpanPv >= 1) widget.col_span = Math.min(colSpanPv, SECTION_COLS);
-    if (Number.isFinite(rowSpanPv) && rowSpanPv >= 1) widget.row_span = Math.min(rowSpanPv, 12);
-
-    if (!eid && type !== 'label') {
-        target.innerHTML = `<div class="text-center text-xs text-slate-500"><i class="fas fa-eye-slash mb-2 block text-lg text-slate-600"></i>${_escape(t('dashboard.select_entity_for_preview') || 'Choose an entity for preview')}</div>`;
-        return;
-    }
-
-    try {
-        const html = _renderWidgetCardForPreview(widget);
-        // Wrap so the card can render with its grid expectations.
-        target.innerHTML = `<div class="grid grid-cols-1 gap-3 w-full">${html}</div>`;
-    } catch (e) {
-        target.innerHTML = `<div class="text-xs text-red-400">${_escape(t('dashboard.preview_unavailable', { message: e?.message || t('common.error') }))}</div>`;
-    }
-}
-
-let _dashboardAddModalWired = false;
-function _wireDashboardAddPreviewListeners() {
-    if (_dashboardAddModalWired) return;
-    const modal = document.getElementById('dashboard-add-modal');
-    if (!modal) return;
-    _dashboardAddModalWired = true;
-    const ids = [
-        'dashboard-widget-type', 'dashboard-widget-title', 'dashboard-widget-subtitle',
-        'dashboard-widget-size', 'dashboard-widget-col-span', 'dashboard-widget-row-span',
-        'dashboard-widget-icon', 'dashboard-widget-color',
-        'dashboard-widget-label-bg', 'dashboard-widget-switch-style', 'dashboard-widget-camera-mode', 'dashboard-entity-select',
-    ];
-    for (const id of ids) {
-        const el = document.getElementById(id);
-        if (!el) continue;
-        const evt = (el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'color') ? 'change' : 'input';
-        el.addEventListener(evt, () => _renderDashboardAddPreview());
-    }
-}
-
-export function setDashboardAddEditorMode(mode = 'visual') {
-    const validModes = ['visual', 'visibility', 'size'];
-    const active = validModes.includes(mode) ? mode : 'visual';
-
-    const sections = {
-        visual:     document.getElementById('dashboard-add-editor-visual'),
-        visibility: document.getElementById('dashboard-add-editor-visibility-wrap'),
-        size:       document.getElementById('dashboard-add-editor-size-wrap'),
-    };
-    const tabs = {
-        visual:     document.getElementById('dashboard-add-editor-visual-tab'),
-        visibility: document.getElementById('dashboard-add-editor-visibility-tab'),
-        size:       document.getElementById('dashboard-add-editor-size-tab'),
-    };
-
-    for (const key of validModes) {
-        if (sections[key]) sections[key].classList.toggle('hidden', key !== active);
-        if (tabs[key]) {
-            const isActive = key === active;
-            tabs[key].classList.toggle('bg-white/10', isActive);
-            tabs[key].classList.toggle('text-slate-300', isActive);
-            tabs[key].classList.toggle('text-slate-400', !isActive);
-        }
-    }
-
-    if (active === 'visibility') {
-        // Ensure at least one condition row exists when first opened.
-        const conds = document.getElementById('dashboard-visibility-conditions');
-        if (conds && !conds.children.length) addDashboardVisibilityCondition('add');
-    } else if (active === 'size') {
-        // Sync sliders ↔ hidden selects, render mini-grid preview, wire listeners once.
-        _syncDashboardSizeSlidersFromSelects();
-        _wireDashboardSizeSliders();
-        _renderDashboardSizeGridPreview();
-    }
-}
-
-/**
- * Sync the size sliders (range inputs) and value labels from the hidden
- * `<select>`s that hold the canonical col_span / row_span values.
- */
-function _syncDashboardSizeSlidersFromSelects() {
-    const colSel = document.getElementById('dashboard-widget-col-span');
-    const rowSel = document.getElementById('dashboard-widget-row-span');
-    const colSlider = document.getElementById('dashboard-size-col-slider');
-    const rowSlider = document.getElementById('dashboard-size-row-slider');
-    const colVal = document.getElementById('dashboard-size-col-value');
-    const rowVal = document.getElementById('dashboard-size-row-value');
-    const col = Math.min(Math.max(parseInt(colSel?.value || String(DASHBOARD_COL_POINTS_MAX), 10) || DASHBOARD_COL_POINTS_MAX, DASHBOARD_COL_POINTS_MIN), DASHBOARD_COL_POINTS_MAX);
-    const row = Math.min(Math.max(parseInt(rowSel?.value || '1', 10) || 1, 1), 8);
-    if (colSlider) colSlider.value = String(col);
-    if (rowSlider) rowSlider.value = String(row);
-    if (colVal) colVal.textContent = String(col);
-    if (rowVal) rowVal.textContent = String(row);
-}
-
-let _dashboardSizeSlidersWired = false;
-function _wireDashboardSizeSliders() {
-    if (_dashboardSizeSlidersWired) return;
-    const colSlider = document.getElementById('dashboard-size-col-slider');
-    const rowSlider = document.getElementById('dashboard-size-row-slider');
-    const colSel = document.getElementById('dashboard-widget-col-span');
-    const rowSel = document.getElementById('dashboard-widget-row-span');
-    const colVal = document.getElementById('dashboard-size-col-value');
-    const rowVal = document.getElementById('dashboard-size-row-value');
-    if (!colSlider || !rowSlider) return;
-    _dashboardSizeSlidersWired = true;
-
-    const onCol = () => {
-        const v = colSlider.value;
-        if (colVal) colVal.textContent = v;
-        if (colSel) { colSel.value = v; colSel.dispatchEvent(new Event('change')); }
-        _renderDashboardSizeGridPreview();
-        _renderDashboardAddPreview();
-    };
-    const onRow = () => {
-        const v = rowSlider.value;
-        if (rowVal) rowVal.textContent = v;
-        if (rowSel) { rowSel.value = v; rowSel.dispatchEvent(new Event('change')); }
-        _renderDashboardSizeGridPreview();
-        _renderDashboardAddPreview();
-    };
-    colSlider.addEventListener('input', onCol);
-    rowSlider.addEventListener('input', onRow);
-}
-
-/**
- * Render a 4×N visualization showing which cells the card will occupy.
- * Pure visual aid for the user — no semantic meaning beyond highlighting.
- */
-function _renderDashboardSizeGridPreview() {
-    const target = document.getElementById('dashboard-size-grid-preview');
-    if (!target) return;
-    const col = Math.min(Math.max(parseInt(document.getElementById('dashboard-size-col-slider')?.value || String(DASHBOARD_COL_POINTS_MAX), 10) || DASHBOARD_COL_POINTS_MAX, DASHBOARD_COL_POINTS_MIN), DASHBOARD_COL_POINTS_MAX);
-    const row = Math.min(Math.max(parseInt(document.getElementById('dashboard-size-row-slider')?.value || '1', 10) || 1, 1), 8);
-    // Show a 4 × min(row+1, 8) preview so tall cards still fit visually.
-    const visibleRows = Math.max(4, Math.min(row + 1, 8));
-    target.style.gridTemplateRows = `repeat(${visibleRows}, 22px)`;
-    const cells = [];
-    for (let r = 1; r <= visibleRows; r++) {
-        for (let c = 1; c <= DASHBOARD_COL_POINTS_MAX; c++) {
-            const active = (c <= col && r <= row) ? 'true' : 'false';
-            cells.push(`<div class="dashboard-size-grid-preview__cell" data-active="${active}"></div>`);
-        }
-    }
-    target.innerHTML = cells.join('');
-}
-
-export function toggleDashboardVisibilityEditor(scope = 'add') {
-    const enabledEl = document.getElementById('dashboard-visibility-enabled');
-    const body = document.getElementById('dashboard-visibility-body');
-    if (!enabledEl || !body) return;
-    body.classList.toggle('hidden', !enabledEl.checked);
-    if (enabledEl.checked) {
-        const conds = document.getElementById('dashboard-visibility-conditions');
-        if (conds && !conds.children.length) addDashboardVisibilityCondition(scope);
-    }
-}
-
-let _visibilityCondSeq = 0;
-export function addDashboardVisibilityCondition(_scope = 'add') {
-    const wrap = document.getElementById('dashboard-visibility-conditions');
-    if (!wrap) return;
-    const idx = ++_visibilityCondSeq;
-    const items = Array.isArray(_dashboardCache.available_entities) ? _dashboardCache.available_entities : [];
-    // Build a compact <datalist>-backed entity input so users can pick by name.
-    const listId = `vis-cond-entities-${idx}`;
-    const opts = items.slice(0, 200).map(it => `<option value="${_escape(it.entity_id)}">${_escape(it.name || it.entity_id)}</option>`).join('');
-    const row = document.createElement('div');
-    row.className = 'flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-2';
-    row.dataset.condIndex = String(idx);
-    row.innerHTML = `
-        <input type="text" list="${listId}" data-vis-field="entity" placeholder="entity_id"
-               class="flex-1 min-w-0 rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50" />
-        <datalist id="${listId}">${opts}</datalist>
-        <select data-vis-field="op" class="rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
-            <option value="eq">=</option>
-            <option value="ne">≠</option>
-            <option value="gt">&gt;</option>
-            <option value="lt">&lt;</option>
-            <option value="in">∈</option>
-        </select>
-        <input type="text" data-vis-field="value" placeholder="valoare"
-               class="w-24 rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50" />
-        <button type="button" class="text-slate-500 hover:text-red-400 text-xs px-1" aria-label="Șterge condiție">
-            <i class="fas fa-xmark"></i>
-        </button>`;
-    row.querySelector('button').addEventListener('click', () => row.remove());
-    wrap.appendChild(row);
-    _enhanceDashboardCustomSelects(row);
-}
-
-export function _readDashboardVisibilityConfig() {
-    const enabledEl = document.getElementById('dashboard-visibility-enabled');
-    if (!enabledEl?.checked) return null;
-    const logic = document.getElementById('dashboard-visibility-logic')?.value || 'and';
-    const wrap = document.getElementById('dashboard-visibility-conditions');
-    const conditions = [];
-    if (wrap) {
-        for (const row of wrap.querySelectorAll('[data-cond-index]')) {
-            const ent = row.querySelector('[data-vis-field="entity"]')?.value?.trim();
-            const op = row.querySelector('[data-vis-field="op"]')?.value || 'eq';
-            const value = row.querySelector('[data-vis-field="value"]')?.value ?? '';
-            if (ent) conditions.push({ entity_id: ent, op, value: String(value) });
-        }
-    }
-    return { enabled: true, logic, conditions };
-}
-
-/**
- * Pre-fill the visibility tab from a widget object loaded for editing.
- * Reads `widget.visibility` (the normalized form persisted by the backend)
- * and rebuilds the rows + logic select. Safely no-ops when the widget has
- * no rules.
- */
-function _populateDashboardVisibilityFromWidget(widget) {
-    const enabledEl = document.getElementById('dashboard-visibility-enabled');
-    const body = document.getElementById('dashboard-visibility-body');
-    const logicEl = document.getElementById('dashboard-visibility-logic');
-    const wrap = document.getElementById('dashboard-visibility-conditions');
-    if (!enabledEl || !wrap) return;
-
-    const cfg = widget?.visibility || null;
-    const conditions = Array.isArray(cfg?.conditions) ? cfg.conditions : [];
-    const enabled = !!(cfg?.enabled && conditions.length);
-
-    enabledEl.checked = enabled;
-    if (body) body.classList.toggle('hidden', !enabled);
-    if (logicEl) logicEl.value = (cfg?.logic === 'or') ? 'or' : 'and';
-    wrap.innerHTML = '';
-
-    if (!enabled) return;
-    for (const cond of conditions) {
-        addDashboardVisibilityCondition('add');
-        const row = wrap.lastElementChild;
-        if (!row) continue;
-        const entInput = row.querySelector('[data-vis-field="entity"]');
-        const opSel = row.querySelector('[data-vis-field="op"]');
-        const valInput = row.querySelector('[data-vis-field="value"]');
-        if (entInput) entInput.value = cond.entity_id || '';
-        if (opSel) opSel.value = cond.op || 'eq';
-        if (valInput) valInput.value = cond.value != null ? String(cond.value) : '';
-    }
-    _enhanceDashboardCustomSelects(wrap);
-}
-
-export function setDashboardWidgetEditorMode(mode = 'visual') {
-    _dashboardWidgetEditorMode = mode === 'yaml' ? 'yaml' : 'visual';
-    const visual = document.getElementById('dashboard-widget-editor-visual');
-    const yaml = document.getElementById('dashboard-widget-editor-yaml-wrap');
-    const visualTab = document.getElementById('dashboard-widget-editor-visual-tab');
-    const yamlTab = document.getElementById('dashboard-widget-editor-yaml-tab');
-
-    if (visual) visual.classList.toggle('hidden', _dashboardWidgetEditorMode !== 'visual');
-    if (yaml) yaml.classList.toggle('hidden', _dashboardWidgetEditorMode !== 'yaml');
-    if (visualTab) {
-        visualTab.classList.toggle('bg-accent', _dashboardWidgetEditorMode === 'visual');
-        visualTab.classList.toggle('text-bg-main', _dashboardWidgetEditorMode === 'visual');
-        visualTab.classList.toggle('bg-white/5', _dashboardWidgetEditorMode !== 'visual');
-        visualTab.classList.toggle('text-slate-200', _dashboardWidgetEditorMode !== 'visual');
-    }
-    if (yamlTab) {
-        yamlTab.classList.toggle('bg-accent', _dashboardWidgetEditorMode === 'yaml');
-        yamlTab.classList.toggle('text-bg-main', _dashboardWidgetEditorMode === 'yaml');
-        yamlTab.classList.toggle('bg-white/5', _dashboardWidgetEditorMode !== 'yaml');
-        yamlTab.classList.toggle('text-slate-200', _dashboardWidgetEditorMode !== 'yaml');
-    }
-    if (_dashboardWidgetEditorMode === 'yaml') refreshCodeEditor('dashboard-widget-editor-yaml');
-}
-
-export async function saveDashboardWidgetEdit() {
-    if (!requireDashboardEditAccess()) return;
-    if (!_dashboardCurrentEditorId) return;
-
-    let patch = {};
-    if (_dashboardWidgetEditorMode === 'yaml') {
-        patch = _parseWidgetYaml(getCodeEditorValue('dashboard-widget-editor-yaml') || '', {});
-    } else {
-        const type = document.getElementById('dashboard-edit-widget-type')?.value || 'button';
-        const title = document.getElementById('dashboard-edit-widget-title')?.value || '';
-        const subtitle = document.getElementById('dashboard-edit-widget-subtitle')?.value || '';
-        const size = document.getElementById('dashboard-edit-widget-size')?.value || 'md';
-        const showBackground = document.getElementById('dashboard-edit-widget-label-bg')?.checked;
-        const switchStyle = document.getElementById('dashboard-edit-widget-switch-style')?.checked;
-        const entityInput = document.getElementById('dashboard-edit-entity-select');
-        const selected = resolveEntityMatch(entityInput, type);
-
-        if (type !== 'label' && !selected) {
-            showToast(t('dashboard.pick_entity'), 'warning');
-            return;
-        }
-
-        patch = {
-            type,
-            title: title.trim(),
-            entity_name: type === 'label' ? subtitle.trim() : subtitle.trim(),
-            size,
-            entity_id: type === 'label' ? `label.${_slug(title || subtitle || 'section')}` : selected.entity_id,
-            source: type === 'label' ? 'manual' : (selected?.source || 'zigbee2mqtt'),
-            show_background: type === 'label' ? !!showBackground : false,
-            switch_style: type === 'button' ? !!switchStyle : false,
-        };
-        const visibility = _readDashboardVisibilityConfig();
-        if (visibility) patch.visibility = visibility;
-    }
-
-    try {
-        const res = await apiCall(`/api/dashboard/widgets/${encodeURIComponent(_dashboardCurrentEditorId)}`, {
-            method: 'PATCH',
-            body: patch,
-        });
-        if (!res.ok && res.status !== 404) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(_dashApiError(err.detail, 'dashboard.card_update_error'));
-        }
-
-        const section = await _readDashboardSectionFallback();
-        section.widgets = (section.widgets || []).map(item => item.id === _dashboardCurrentEditorId ? _normalizeLocalWidgetPatch(item, patch) : item);
-        await _writeDashboardSectionFallback(section);
-        closeDashboardWidgetEditor();
-        await loadDashboard();
-        showToast(t('dashboard.card_updated'), 'success');
-    } catch (e) {
-        showToast(e.message || t('dashboard.card_update_error'), 'error');
-    }
-}
 
 document.addEventListener('click', (event) => {
     closeDashboardClimateModeMenus();
@@ -4201,28 +1719,65 @@ export async function saveDashboardYaml() {
     return _ensureDashboardYamlEditor().saveDashboardYaml();
 }
 
-function _addDashboardPanelModalPage() {
-    const nextIndex = _dashboardPanelModalPages.length + 1;
-    _dashboardPanelModalPages.push({
-        id: `page_${Date.now().toString(36)}_${nextIndex}`,
-        title: `Pagina ${nextIndex}`,
-        icon: '',
-    });
-    _renderDashboardPanelPagesEditor();
-}
+initDashboardLoader({
+    getDashboardCache: () => _dashboardCache,
+    setDashboardCache: (cache) => { _dashboardCache = cache; },
+    getCurrentPageId: () => _currentPageId,
+    setCurrentPageId: (id) => { _currentPageId = id; },
+    isControllableDomain: _isControllableDomain,
+    isInfoDomain: _isInfoDomain,
+    renderCachedDashboardIfEmpty: _renderCachedDashboardIfEmpty,
+    renderDashboard: _renderDashboard,
+    applyDashboardEditAccess,
+    canEditDashboard,
+    getEditMode: () => _dashboardEditMode,
+    resetDashboardEditingState,
+    resumeDashboardCameras,
+    connectDashboardLive: _connectDashboardLive,
+    configureHyveviewMounted: _configureHyveviewMounted,
+    updateDashboardEntityOptions,
+    setEntitySelectState,
+    escapeHtml: _escape,
+    t,
+});
 
 initDashboardPagesNav({
     getCurrentPageId: () => _currentPageId,
     setCurrentPageId: (id) => { _currentPageId = id; },
     getDashboardCache: () => _dashboardCache,
     setDashboardPages: (pages) => { _dashboardCache.pages = pages; },
-    readDashboardViewCache: _readDashboardViewCache,
+    readDashboardViewCache: readDashboardViewCache,
     escape: _escape,
     iconClass: _iconClass,
     selectDashboardPage,
     switchTab,
     closeSidebar,
     isSidebarOpen,
+});
+
+initDashboardPanelModal({
+    requireDashboardEditAccess,
+    getDashboardCache: () => _dashboardCache,
+    getCurrentPageId: () => _currentPageId,
+    refreshAvailableEntities,
+    renderDashboard: _renderDashboard,
+    closeDashboardMenu,
+    t,
+    showToast,
+});
+
+initDashboardPageModal({
+    requireDashboardEditAccess,
+    getDashboardCache: () => _dashboardCache,
+    getCurrentPageId: () => _currentPageId,
+    setCurrentPageId: (id) => { _currentPageId = id; },
+    closeDashboardMenu,
+    syncPreferenceControls: _syncPreferenceControls,
+    renderDashboardPagesList,
+    selectDashboardPage,
+    loadDashboard,
+    abortPendingLoad,
+    t,
 });
 
 initDashboardEventBindings({
@@ -4245,9 +1800,9 @@ initDashboardEventBindings({
     savePreferences: () => { saveDashboardPreferences(); },
     setPanelSize: ({ el }) => {
         const size = el.getAttribute('data-dashboard-panel-size-option');
-        if (size) _setDashboardPanelSize(size);
+        if (size) setDashboardPanelSize(size);
     },
-    addPanelPage: () => _addDashboardPanelModalPage(),
+    addPanelPage: () => addDashboardPanelModalPage(),
     openPanelCreator: () => openDashboardPanelCreator(),
     openPanelEditor: ({ panelId }) => openDashboardPanelEditor(panelId),
     removePanel: ({ panelId }) => { removeDashboardPanel(panelId); },
@@ -4292,7 +1847,7 @@ registerHyveviewDashboardCards(_dashboardWidgetEntityIds);
 initDashboardPullToRefresh({
     loadDashboard,
     selectDashboardPage,
-    setRefreshIndicator: _setDashboardRefreshIndicator,
+    setRefreshIndicator: setDashboardRefreshIndicator,
     showToast,
     t,
     getCurrentPageId: () => _currentPageId || _dashboardCache.page_id || _dashboardCache.current_page_id,
@@ -4309,11 +1864,61 @@ initDashboardDragResize({
     ensureStandalonePanelLocal: _ensureDashboardStandalonePanelLocal,
     renderDashboard: _renderDashboard,
     loadDashboard,
-    readDashboardSectionFallback: _readDashboardSectionFallback,
-    writeDashboardSectionFallback: _writeDashboardSectionFallback,
+    readDashboardSectionFallback: readDashboardSectionFallback,
+    writeDashboardSectionFallback: writeDashboardSectionFallback,
     apiCall,
     t,
     showToast,
+});
+
+initDashboardWidgetAddEditor({
+    getDashboardCache: () => _dashboardCache,
+    getAvailableEntity: _dashboardAvailableEntity,
+    renderWidgetCardForPreview: _renderWidgetCardForPreview,
+    climateEntityRecordsForSave,
+    t,
+});
+
+initDashboardWidgetAddModal({
+    requireDashboardEditAccess,
+    closeDashboardMenu,
+    closeDashboardWidgetEditor,
+    getCurrentPageId: _activeDashboardPageId,
+    getCurrentEditorId: () => _dashboardCurrentEditorId,
+    clearCurrentEditorId: () => { _dashboardCurrentEditorId = null; },
+    getAvailableEntity: _dashboardAvailableEntity,
+    dashboardEditorRenderer: _dashboardEditorRenderer,
+    dashboardDefaultRowsForType: _dashboardDefaultRowsForType,
+    loadDashboardCardCatalog: _loadDashboardCardCatalog,
+    refreshAvailableEntities,
+    loadDashboard,
+    readDashboardSectionFallback,
+    writeDashboardSectionFallback,
+    clearDashboardClimateEntitySelection,
+    climateEntityRecordsForSave,
+    renderDashboardClimateEntityChips,
+    t,
+});
+
+initDashboardWidgetLegacyEdit({
+    requireDashboardEditAccess,
+    getCurrentEditorId: () => _dashboardCurrentEditorId,
+    readDashboardSectionFallback,
+    writeDashboardSectionFallback,
+    loadDashboard,
+    t,
+});
+
+initDashboardWidgetEditorBridge({
+    requireDashboardEditAccess,
+    findWidget: _findWidget,
+    getDashboardCache: () => _dashboardCache,
+    getCurrentPageId: _activeDashboardPageId,
+    refreshAvailableEntities,
+    loadDashboard,
+    readDashboardSectionFallback,
+    writeDashboardSectionFallback,
+    t,
 });
 
 initDashboardEntityPicker({
@@ -4322,14 +1927,14 @@ initDashboardEntityPicker({
     t,
     entityIcon: _entityIcon,
     addClimateEntityId: addDashboardClimateEntityId,
-    renderDashboardAddPreview: _renderDashboardAddPreview,
+    renderDashboardAddPreview,
 });
 
 initDashboardClimate({
     getCache: () => _dashboardCache,
     findWidget: _findWidget,
     renderDashboard: _renderDashboard,
-    renderDashboardAddPreview: _renderDashboardAddPreview,
+    renderDashboardAddPreview,
     getEditMode: () => _dashboardEditMode,
     widgetDragAttrs: _widgetDragAttrs,
     widgetEditControls: _widgetEditControls,
