@@ -16,8 +16,6 @@ import {
     DEFAULT_PREFS,
     DEFAULT_META,
     DASHBOARD_LOCAL_KEY,
-    DASHBOARD_LAST_PAGE_KEY,
-    DASHBOARD_STANDALONE_PANEL_ID,
     SECTION_COLS,
     DASHBOARD_COL_POINTS_MIN,
     DASHBOARD_COL_POINTS_MAX,
@@ -183,9 +181,20 @@ import {
     widgetRenderer,
 } from './dashboard/widget_meta.js';
 import {
-    dashboardSnapshotFingerprint,
-    getDashboardPageSnapshot,
+    abortDashboardPageNavigation,
+    initDashboardPageSelect,
+    selectDashboardPage,
+} from './dashboard/page_select.js';
+import {
+    ensureDashboardStandalonePanelLocal,
+    initDashboardStandalonePanel,
     isDashboardStandalonePanel,
+} from './dashboard/standalone_panel.js';
+import {
+    initDashboardWidgetDelete,
+    removeDashboardWidget,
+} from './dashboard/widget_delete.js';
+import {
     normalizeCache,
     readDashboardViewCache,
     saveDashboardViewCache,
@@ -213,6 +222,8 @@ export { loadDashboard, dashboardHasRenderedContent } from './dashboard/dashboar
 export { disconnectDashboardLive } from './dashboard/live_bridge.js';
 export { closeDashboardMenu, toggleDashboardMenu } from './dashboard/dashboard_menu.js';
 export { findWidget } from './dashboard/widget_store.js';
+export { selectDashboardPage } from './dashboard/page_select.js';
+export { removeDashboardWidget } from './dashboard/widget_delete.js';
 export {
     addDashboardVisibilityCondition,
     setDashboardAddEditorMode,
@@ -320,7 +331,6 @@ let _dashboardCache = {
 let _dashboardEditMode = false;
 let _dashboardCurrentEditorId = null;
 let _currentPageId = null;
-let _dashboardPageNavToken = 0;
 function _normalizeCache(payload = {}) {
     return normalizeCache(payload);
 }
@@ -362,38 +372,11 @@ function _dashboardEditorRenderer(type) {
     return dashboardEditorRenderer(type, { editingRenderer });
 }
 
-function _isDashboardStandalonePanel(panel) {
-    return isDashboardStandalonePanel(panel);
-}
-
-function _makeDashboardStandalonePanel(widgets = []) {
-    return {
-        id: DASHBOARD_STANDALONE_PANEL_ID,
-        title: '',
-        size: 'wide',
-        icon: '',
-        pages: [],
-        show_pagination: false,
-        kind: 'standalone',
-        widgets: Array.isArray(widgets) ? widgets : [],
-    };
-}
-
-function _ensureDashboardStandalonePanelLocal() {
-    const panels = Array.isArray(_dashboardCache.panels) ? _dashboardCache.panels : [];
-    let panel = panels.find(_isDashboardStandalonePanel);
-    if (panel) return panel;
-    panel = _makeDashboardStandalonePanel();
-    panels.unshift(panel);
-    _dashboardCache.panels = panels;
-    return panel;
-}
-
 export function resetDashboardEditingState() {
     // Leaving the dashboard should cancel any visual loading state. A pending
     // request may still finish, but it must not keep the top bar stuck when
     // the user comes back from another tab.
-    try { _dashboardPageNavToken += 1; } catch (_) {}
+    try { abortDashboardPageNavigation(); } catch (_) {}
     try { setDashboardRefreshIndicator(false); } catch (_) {}
     _dashboardEditMode = false;
     document.documentElement.removeAttribute('data-dashboard-editing');
@@ -484,113 +467,6 @@ export async function pickDashboardAddType(kind, id) {
     return openDashboardAddPicker();
 }
 
-export async function selectDashboardPage(pageId) {
-    if (!pageId) return;
-    const myToken = ++_dashboardPageNavToken;
-    _currentPageId = String(pageId);
-    try { localStorage.setItem(DASHBOARD_LAST_PAGE_KEY, _currentPageId); } catch (_) {}
-    setHashForPage(_currentPageId);
-    // Eagerly update the header + page title from the cached page list.
-    try {
-        const pages = Array.isArray(_dashboardCache.pages) ? _dashboardCache.pages : [];
-        const target = pages.find(p => p && String(p.id) === String(pageId));
-        const eagerTitle = (target && target.title) || '';
-        if (eagerTitle) {
-            const headerTitleEl = document.getElementById('current-view-title');
-            if (headerTitleEl) headerTitleEl.textContent = eagerTitle;
-            const pageTitleEl = document.getElementById('dashboard-page-title');
-            if (pageTitleEl) pageTitleEl.textContent = eagerTitle;
-            try { localStorage.setItem('hyve.lastDashboardTitle', eagerTitle); } catch (_) {}
-        }
-    } catch (_) {}
-
-    const grid = document.getElementById('dashboard-grid');
-    // Briefly dim the grid so the swap reads as a smooth crossfade instead of a
-    // hard content pop.
-    if (grid) {
-        grid.style.transition = 'opacity 0.14s ease';
-        grid.style.opacity = '0.4';
-    }
-
-    // Instant render: if we already have a snapshot for this page, paint it now
-    // so switching feels immediate. The network refresh below silently
-    // reconciles and only re-renders if the content actually changed.
-    let renderedFromSnapshot = false;
-    let snapFp = null;
-    try {
-        const snap = getDashboardPageSnapshot(_currentPageId);
-        if (snap) {
-            _dashboardCache = {
-                ...snap,
-                available_entities: Array.isArray(_dashboardCache.available_entities)
-                    ? _dashboardCache.available_entities
-                    : [],
-            };
-            if (_dashboardCache.page_id) _currentPageId = _dashboardCache.page_id;
-            snapFp = dashboardSnapshotFingerprint(snap);
-            renderDashboard();
-            renderedFromSnapshot = true;
-            if (grid) requestAnimationFrame(() => { grid.style.opacity = '1'; });
-        }
-    } catch (_) {}
-
-    if (!renderedFromSnapshot && grid && !grid.firstElementChild) {
-        grid.innerHTML = `<div class="col-span-full p-6 text-sm" style="color:var(--text-tertiary,#94a3b8);">${_escape(t('dashboard.loading_page'))}</div>`;
-    }
-    setDashboardRefreshIndicator(true);
-
-    const watchdog = setTimeout(() => {
-        if (myToken !== _dashboardPageNavToken) return;
-        const g = document.getElementById('dashboard-grid');
-        if (!g) return;
-        if (g.textContent.includes(t('dashboard.loading_page'))) {
-            g.innerHTML = `<div class="col-span-full p-6 text-sm rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-200">
-                <div class="font-semibold mb-1">${_escape(t('dashboard.page_load_timeout'))}</div>
-                <button type="button" data-dash-action="selectPage" data-page-id="${String(pageId).replace(/'/g, "\\'")}" class="mt-2 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-xs font-semibold">${_escape(t('common.try_again'))}</button>
-            </div>`;
-        }
-    }, 12000);
-
-    try {
-        await withDashboardTimeout(
-            refreshAvailableEntities({ includeEntities: false }),
-            8000,
-            t('dashboard.refresh_timeout')
-        );
-        if (myToken !== _dashboardPageNavToken) { if (watchdog) clearTimeout(watchdog); return; }
-        // Only repaint if we didn't already render this exact content from the
-        // snapshot — avoids a redundant flash on every switch.
-        const freshFp = dashboardSnapshotFingerprint(_dashboardCache);
-        if (!renderedFromSnapshot || freshFp !== snapFp) renderDashboard();
-        if (grid) requestAnimationFrame(() => { grid.style.opacity = '1'; });
-    } catch (e) {
-        if (myToken !== _dashboardPageNavToken) { if (watchdog) clearTimeout(watchdog); return; }
-        // Superseded refreshes are non-fatal; just stop here without UI noise.
-        if (e && e.name === 'DashboardRefreshAbortError') {
-            if (watchdog) clearTimeout(watchdog);
-            return;
-        }
-        console.error('[dashboard] selectDashboardPage refresh failed:', e);
-        const gridNow = document.getElementById('dashboard-grid');
-        const gridHasContent = !!(gridNow && gridNow.firstElementChild && !gridNow.textContent.includes(t('dashboard.loading_page')));
-        if (gridHasContent) {
-            // Keep existing widgets visible; just surface a toast.
-            showToast(t('dashboard.refresh_failed', { message: e.message || t('common.unknown_error') }), 'error');
-        } else if (gridNow) {
-            gridNow.innerHTML = `<div class="col-span-full p-6 text-sm rounded-2xl border border-red-500/20 bg-red-500/10 text-red-300">
-                <div class="font-semibold mb-1">${_escape(t('dashboard.load_failed_page'))}</div>
-                <div class="text-xs opacity-80 mb-2">${_escape(e.message || t('dashboard.unknown_error'))}</div>
-                <button type="button" data-dash-action="selectPage" data-page-id="${String(pageId).replace(/'/g, "\\'")}" class="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-xs font-semibold">${_escape(t('common.try_again'))}</button>
-            </div>`;
-        }
-    } finally {
-        if (watchdog) clearTimeout(watchdog);
-        if (myToken === _dashboardPageNavToken) setDashboardRefreshIndicator(false);
-        const gridEl = document.getElementById('dashboard-grid');
-        if (gridEl) gridEl.style.opacity = '1';
-    }
-}
-
 function _dashboardAvailableEntity(entityId) {
     return findEntityById(_dashboardCache.available_entities, entityId);
 }
@@ -598,39 +474,6 @@ function _dashboardAvailableEntity(entityId) {
 function _activeDashboardPageId() {
     return _currentPageId || _dashboardCache.current_page_id || _dashboardCache.page_id || '';
 }
-
-export async function removeDashboardWidget(widgetId) {
-    if (!requireDashboardEditAccess()) return;
-    if (!(await showConfirm(t('dashboard.delete_widget_confirm') || 'Delete this dashboard widget?'))) return;
-    try {
-        const res = await apiCall(`/api/dashboard/widgets/${encodeURIComponent(widgetId)}`, { method: 'DELETE' });
-        if (res.ok) {
-            await loadDashboard();
-            showToast(t('dashboard.widget_deleted') || 'Widget deleted', 'success');
-            return;
-        }
-        if (res.status !== 404) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.detail || (t('dashboard.widget_delete_error') || 'Could not delete widget'));
-        }
-    } catch (e) {
-        if (String(e?.message || '').includes(t('dashboard.delete_widget_failed'))) {
-            showToast(e.message, 'error');
-            return;
-        }
-    }
-
-    try {
-        const section = await readDashboardSectionFallback();
-        section.widgets = (section.widgets || []).filter(item => item.id !== widgetId);
-        await writeDashboardSectionFallback(section);
-        await loadDashboard();
-        showToast(t('dashboard.widget_deleted') || 'Widget deleted', 'success');
-    } catch (e) {
-        showToast(e.message || (t('dashboard.widget_delete_error') || 'Could not delete widget'), 'error');
-    }
-}
-
 
 let _dashboardYamlEditor = null;
 
@@ -671,6 +514,34 @@ export async function saveDashboardYaml() {
 
 initDashboardMenu({
     closeDashboardClimateModeMenus,
+});
+
+initDashboardStandalonePanel({
+    getCache: () => _dashboardCache,
+});
+
+initDashboardPageSelect({
+    getCache: () => _dashboardCache,
+    setCache: (cache) => { _dashboardCache = cache; },
+    getCurrentPageId: () => _currentPageId,
+    setCurrentPageId: (id) => { _currentPageId = id; },
+    setHashForPage,
+    renderDashboard,
+    setDashboardRefreshIndicator,
+    withDashboardTimeout,
+    refreshAvailableEntities,
+    showToast,
+    t,
+});
+
+initDashboardWidgetDelete({
+    requireDashboardEditAccess,
+    showConfirm,
+    showToast,
+    t,
+    loadDashboard,
+    readDashboardSectionFallback,
+    writeDashboardSectionFallback,
 });
 
 initDashboardWidgetStore({
@@ -745,7 +616,7 @@ initDashboardRender({
     syncPreferenceControls,
     updateStats,
     renderDashboardPagesList,
-    isStandalonePanel: _isDashboardStandalonePanel,
+    isStandalonePanel: isDashboardStandalonePanel,
     filteredWidgets,
     escapeHtml: _escape,
     t,
@@ -896,8 +767,8 @@ initDashboardDragResize({
     findWidget,
     widgetSpan: widgetSpan,
     panelColSpan: dashboardPanelColSpan,
-    isStandalonePanel: _isDashboardStandalonePanel,
-    ensureStandalonePanelLocal: _ensureDashboardStandalonePanelLocal,
+    isStandalonePanel: isDashboardStandalonePanel,
+    ensureStandalonePanelLocal: ensureDashboardStandalonePanelLocal,
     renderDashboard: renderDashboard,
     loadDashboard,
     readDashboardSectionFallback: readDashboardSectionFallback,
