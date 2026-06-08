@@ -8,7 +8,11 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import settings as settings_mod
-from brain.cortex.agent_helpers import _AGENT_MINIMAL_TOOL_NAMES, _effective_tool_intent
+from brain.cortex.agent_helpers import (
+    _AGENT_MINIMAL_TOOL_NAMES,
+    _DEVICE_QUERY_TOOL_NAMES,
+    _effective_tool_intent,
+)
 from brain.cortex.llm import _describe_image_with_vision_llm, _normalize_chat_url
 from brain.cortex.memory import _is_trivial_message
 from brain.cortex.messages import (
@@ -49,6 +53,10 @@ class AgentTurnContext:
     llm_messages: List[Dict[str, Any]]
     safe_max_tokens: int
     lazy_history_enabled: bool
+    trim_token_budget: int
+    trim_reserve_for_response: int
+    context_length: int
+    requested_max_tokens: int
     model_name: str
     llm_cfg: Dict[str, Any]
     light_context: bool
@@ -73,7 +81,7 @@ async def prepare_agent_turn(
     """Resolve profile/facts/entities, build prompt + tools, trim messages."""
     intel = (settings_mod.CFG.get("intelligence") or {})
     tool_intent = _effective_tool_intent(routed_intent, user_msg)
-    light_context = tool_intent in ("simple_chat", "memory")
+    light_context = tool_intent in ("simple_chat", "memory", "device_query")
     if tool_intent != (routed_intent or "complex"):
         log_line("agent", "⚡", "INTENT", f"tool path: {routed_intent or 'none'} → {tool_intent}")
 
@@ -154,6 +162,10 @@ async def prepare_agent_turn(
         tools = [t for t in tools if (t.get("function") or {}).get("name") in _MEMORY_TOOL_NAMES]
         tools_token_estimate = _estimate_tokens(json.dumps(tools)) if tools else 0
         log_line("agent", "✂️", "INTENT FILTER", f"memory → reduced to {len(tools)} tools")
+    elif tool_intent == "device_query" and tools:
+        tools = [t for t in tools if (t.get("function") or {}).get("name") in _DEVICE_QUERY_TOOL_NAMES]
+        tools_token_estimate = _estimate_tokens(json.dumps(tools)) if tools else 0
+        log_line("agent", "✂️", "INTENT FILTER", f"device_query → reduced to {len(tools)} tools")
 
     tool_catalog = list(tools)
     sec_cfg = settings_mod.CFG.get("security") or {}
@@ -323,6 +335,10 @@ async def prepare_agent_turn(
         llm_messages=llm_messages,
         safe_max_tokens=safe_max_tokens,
         lazy_history_enabled=lazy_history_enabled,
+        trim_token_budget=effective_max,
+        trim_reserve_for_response=reserve_for_response,
+        context_length=max_ctx,
+        requested_max_tokens=requested_max_tokens,
         model_name=model_name,
         llm_cfg=llm_cfg,
         light_context=light_context,

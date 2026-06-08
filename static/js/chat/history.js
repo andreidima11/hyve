@@ -4,7 +4,7 @@
 
 import { apiCall } from '../api.js';
 import { t } from '../lang/index.js';
-import { buildSourcesHtml } from '../utils.js';
+import { buildSourcesHtml, refreshSourceFavicons } from '../utils.js';
 import { playNotificationCue } from './notification.js';
 import {
     appendConsciousnessFeedbackBar,
@@ -226,6 +226,7 @@ export async function loadSessionHistory(sessionId) {
                     }
                     decorateCodeBlocks(bubble);
                     decorateImages(bubble);
+                    void refreshSourceFavicons(bubble);
                     // Add action bar for history-loaded messages with persisted stats
                     const historyStats = {};
                     if (persistedModelName) historyStats.model = persistedModelName;

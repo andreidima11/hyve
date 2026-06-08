@@ -44,11 +44,21 @@ export function peekCameraStreamToken() {
     return _cache.token || '';
 }
 
+function _peekMediaAuthToken() {
+    const cached = peekCameraStreamToken();
+    if (cached) return cached;
+    try {
+        return localStorage.getItem('hyve_token') || '';
+    } catch (_) {
+        return '';
+    }
+}
+
 /** Append cached short-lived media token to same-origin proxy URLs. */
 export function appendMediaQueryToken(rawUrl) {
     const url = String(rawUrl || '');
     if (!url.startsWith('/')) return url;
-    const token = peekCameraStreamToken();
+    const token = _peekMediaAuthToken();
     if (!token) return url;
     const sep = url.includes('?') ? '&' : '?';
     return `${url}${sep}token=${encodeURIComponent(token)}`;

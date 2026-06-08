@@ -4,7 +4,7 @@
 
 import { apiCall } from '../api.js';
 import { t } from '../lang/index.js';
-import { escapeHtml, showToast, buildSourcesHtml } from '../utils.js';
+import { escapeHtml, showToast, buildSourcesHtml, refreshSourceFavicons } from '../utils.js';
 import { loadSessionsList } from '../nav_bridge.js';
 import { isVoiceInputPending, setVoiceInputPending } from '../voice_state.js';
 import {
@@ -235,6 +235,7 @@ export async function runChatStreamSession(opts, response) {
         decorateCodeBlocks(bubble);
         enhanceForgePreview(bubble, bubble.querySelector('.chat-forge-preview')?.classList.contains('chat-forge-preview-streaming'));
         decorateImages(bubble);
+        void refreshSourceFavicons(bubble);
     }
 
     function renderBubble(streaming) {

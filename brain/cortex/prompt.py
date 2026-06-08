@@ -168,32 +168,22 @@ def _build_dynamic_prompt_suffix(conversation_summary: Optional[str] = None,
 
     if knowledge_cutoff_str:
         stale = knowledge_is_outdated(knowledge_cutoff_str)
-        # Build search guidance based on tendency slider
+        # Build search guidance based on tendency slider (compact for 1–3 to save prompt tokens)
         if search_tendency <= 1:
             search_guidance = (
-                f"STRICT — You are NOT a search engine. NEVER search unless the user EXPLICITLY asks you to search or look something up.\n"
-                f"Answer everything from your knowledge. If you are unsure, say so — do NOT search.\n"
-                f"The ONLY exception: user literally says 'search for', 'look up', 'caută', 'google'.\n"
+                f"Search only when the user explicitly asks (search/look up/caută/google). "
+                f"Otherwise answer from knowledge; say if unsure.\n"
             )
         elif search_tendency == 2:
             search_guidance = (
-                f"CONSERVATIVE — Prefer your own knowledge for static facts (definitions, history, science, math).\n"
-                f"Use search_web when:\n"
-                f"  - User explicitly asks you to search\n"
-                f"  - Question is about TODAY's news, live weather, current prices, or events clearly after {knowledge_cutoff_str}\n"
-                f"  - User asks who CURRENTLY holds an office (PM, president, minister) and today is after {knowledge_cutoff_str}\n"
-                f"Maximum 1 search per question.\n"
+                f"Prefer knowledge for static facts. Use search_web for today's news/weather/prices, "
+                f"or current office-holders after {knowledge_cutoff_str}. Max 1 search per question.\n"
             )
         elif search_tendency == 3:
             search_guidance = (
-                f"BALANCED — Answer static facts from knowledge (definitions, history, science, geography, math, how things work).\n"
-                f"MUST use search_web when:\n"
-                f"  - User asks for news, weather, live scores, current prices, or events after {knowledge_cutoff_str}\n"
-                f"  - User asks who is the CURRENT/NEW (noul/noua) holder of an office, title, or role\n"
-                f"  - User explicitly asks you to search or look something up\n"
-                f"  - Today is after {knowledge_cutoff_str} and the answer could have changed since then\n"
-                f"Do NOT invent current office holders, prices, or news from memory when the cutoff is in the past.\n"
-                f"One search per question is usually enough.\n"
+                f"Answer static facts from knowledge. Use search_web for news, weather, live data, "
+                f"or anything after {knowledge_cutoff_str} that may have changed. "
+                f"Do not invent current facts from memory. One search per question is usually enough.\n"
             )
         elif search_tendency == 4:
             search_guidance = (
@@ -310,6 +300,11 @@ def _build_dynamic_prompt_suffix(conversation_summary: Optional[str] = None,
 
             selected = [e for e in items if e.get("selected")]
             if selected:
+                max_in_prompt = max(5, int(intel_cfg.get("selected_entities_prompt_max", 20) or 20))
+                omitted = 0
+                if len(selected) > max_in_prompt:
+                    omitted = len(selected) - max_in_prompt
+                    selected = selected[:max_in_prompt]
                 lines = []
                 for ent in selected:
                     eid = ent.get("entity_id") or ""
@@ -318,6 +313,10 @@ def _build_dynamic_prompt_suffix(conversation_summary: Optional[str] = None,
                     unit = (ent.get("unit") or "").strip()
                     state_text = "" if state in (None, "") else f" = {state}{(' ' + unit) if unit else ''}"
                     lines.append(f"- {eid} ({name}){state_text}")
+                if omitted:
+                    lines.append(
+                        f"... ({omitted} more selected entities — use get_home_status for the full list)"
+                    )
                 selected_block = (
                     "\n[SELECTED ENTITIES]\n"
                     "These are the entities the user enabled for AI access. "

@@ -2615,6 +2615,26 @@
     flex-shrink: 0;
 }
 
+.chat-source-favicon-missing {
+    display: none;
+}
+
+.chat-source-card:has(.chat-source-favicon-missing)::before,
+.sources-modal-item-icon:has(.chat-source-favicon-missing)::before {
+    content: "\f0ac";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 0.62rem;
+    color: var(--text-tertiary);
+    line-height: 1;
+}
+
+.chat-source-card:has(.chat-source-favicon-missing)::before {
+    width: 14px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
 .chat-source-num {
     font-weight: 700;
     color: rgba(var(--accent-rgb), 0.75);

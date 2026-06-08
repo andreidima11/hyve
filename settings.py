@@ -73,7 +73,7 @@ DEFAULT_CONFIG = {
 
     # 3b. WORKING MEMORY (Nivel 1 - sumar + fereastră)
     "memory": {
-        "working_window": 12,
+        "working_window": 6,
         "summarize_every": 8,
         "fact_similarity_threshold": 0.45,  # max distance to consider two facts as similar (for dedup/update)
         "existing_memories_max_distance": 0.85,  # looser threshold for finding existing memories in pipeline (avoids duplicate ADD)
@@ -86,7 +86,7 @@ DEFAULT_CONFIG = {
     "intelligence": {
         "max_agent_turns": 15,  # safety cap: max tool-call rounds per request
         "post_response_concurrency": 1,  # câte joburi background (memory, summary) pot rula în paralel; 1 = unul la un moment dat
-        "tool_result_max_chars": 4000,  # max chars per tool result sent to LLM; truncation reduces context and speeds up
+        "tool_result_max_chars": 3000,  # max chars per tool result sent to LLM; truncation reduces context and speeds up
         "knowledge_cutoff": "2024-01",
         "datetime_round_minutes": 0,  # 0=off; 5=round time down to 5 min so same prompt prefix = better KV cache (LM Studio / llama.cpp)
         "inject_relevant_facts": True,  # when True: 1-3 relevant facts injected in system prompt (proactive memory)

@@ -64,13 +64,14 @@ def resolve_thinking_suppression(
 
 
 def is_ollama_openai_endpoint(target_url: str, provider: str = "") -> bool:
+    """True only for Ollama OpenAI-compat endpoints (not LM Studio / other local servers)."""
     url = (target_url or "").lower()
     prov = (provider or "").lower()
-    if prov in ("local", "ollama"):
+    if prov == "ollama":
         return True
     if "11434" in url or "/ollama" in url:
         return True
-    return prov in ("", "lmstudio") and ("11434" in url or "1234" in url)
+    return False
 
 
 def _strip_no_think_suffix(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -80,7 +81,10 @@ def _strip_no_think_suffix(messages: list[dict[str, Any]]) -> list[dict[str, Any
             continue
         content = msg.get("content")
         if isinstance(content, str):
-            msg["content"] = _NO_THINK_SUFFIX_RE.sub("", content).strip()
+            stripped = _NO_THINK_SUFFIX_RE.sub("", content).strip()
+            # Never blank the only user text — local jinja templates require a query.
+            if stripped:
+                msg["content"] = stripped
     return out
 
 
@@ -103,6 +107,19 @@ def _has_think_prefill(messages: list[dict[str, Any]]) -> bool:
     return "<think>" in content or "<thinking>" in content.lower()
 
 
+def _should_append_think_prefill(messages: list[dict[str, Any]]) -> bool:
+    """Ollama think prefill after tool messages breaks Qwen jinja ('No user query found')."""
+    if not messages:
+        return False
+    last = messages[-1]
+    role = last.get("role")
+    if role == "tool":
+        return False
+    if role == "assistant" and last.get("tool_calls"):
+        return False
+    return True
+
+
 def apply_thinking_suppression(
     payload: dict[str, Any],
     messages: list[dict[str, Any]],
@@ -123,7 +140,10 @@ def apply_thinking_suppression(
         # https://docs.ollama.com/api/openai-compatibility — reasoning_effort: none
         out_payload["reasoning_effort"] = "none"
         out_payload["think"] = False
-        if not _has_think_prefill(out_messages):
+        if (
+            not _has_think_prefill(out_messages)
+            and _should_append_think_prefill(out_messages)
+        ):
             out_messages.append({"role": "assistant", "content": OLLAMA_THINK_PREFILL})
         return out_payload, out_messages
 

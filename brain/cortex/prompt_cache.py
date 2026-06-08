@@ -63,10 +63,54 @@ def invalidate_prompt_cache():
     log_line("agent", "🗑️", "PROMPT CACHE", "Invalidated")
 
 
+_PROMPT_CACHE_PROMPT_KEYS = (
+    "system_persona",
+    "agent_instructions",
+    "agent_instructions_fallback",
+    "agent_instruction_overrides",
+    "agent_principles",
+    "app_capabilities",
+    "search_web_single_message_instruction",
+    "web_content_reply_instruction",
+)
+
+
+def _prompt_cache_config_snapshot() -> dict:
+    """Subset of CFG that affects the cached static system prompt + tools list."""
+    cfg = settings_mod.CFG
+    prompts = cfg.get("prompts") or {}
+    intel = cfg.get("intelligence") or {}
+    sec = cfg.get("security") or {}
+    return {
+        "prompts": {k: prompts.get(k) for k in _PROMPT_CACHE_PROMPT_KEYS},
+        "active_persona": cfg.get("active_persona"),
+        "personas": cfg.get("personas"),
+        "lazy_history": intel.get("lazy_history"),
+        "lazy_history_keep": intel.get("lazy_history_keep"),
+        "search_use_conversation_context": intel.get("search_use_conversation_context"),
+        "skills_disabled": cfg.get("skills_disabled") or [],
+        "tools": {
+            "searxng_enabled": (cfg.get("searxng") or {}).get("enabled"),
+            "searxng_url": (cfg.get("searxng") or {}).get("url", ""),
+            "file_read": (intel.get("file_read") or {}).get("enabled", True),
+            "run_script": (intel.get("run_script") or {}).get("enabled", False),
+            "shell": (intel.get("shell") or {}).get("enabled", False),
+            "propose_patch": (intel.get("propose_patch") or {}).get("enabled", True),
+            "restrict_mutating": sec.get("restrict_mutating_tools_on_untrusted_content", True),
+            "cctv": bool((cfg.get("cctv") or {}).get("enabled")),
+            "comfyui": bool((cfg.get("comfyui") or {}).get("enabled")),
+            "coder": bool(
+                (cfg.get("coder") or {}).get("target_url", "").strip()
+                or (cfg.get("llm") or {}).get("target_url", "").strip()
+            ),
+        },
+    }
+
+
 def _prompt_cache_fingerprint(user_id: str, persona_override: Optional[str]) -> str:
     h = hashlib.md5(usedforsecurity=False)
-    h.update(f"v1|{user_id}|{persona_override or ''}|".encode())
-    h.update(json.dumps(settings_mod.CFG, sort_keys=True, ensure_ascii=False).encode())
+    h.update(f"v2|{user_id}|{persona_override or ''}|".encode())
+    h.update(json.dumps(_prompt_cache_config_snapshot(), sort_keys=True, ensure_ascii=False).encode())
     try:
         h.update(f"|ha={os.path.getmtime(os.path.join(_CORTEX_ROOT, 'ha_entities.json')):.3f}".encode())
     except OSError:

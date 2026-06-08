@@ -22,6 +22,15 @@ _AGENT_MINIMAL_TOOL_NAMES = frozenset({
     "get_app_help", "get_system_status",
 })
 
+_DEVICE_QUERY_TOOL_NAMES = frozenset({
+    "get_home_status",
+    "get_device_state",
+    "get_entity_history",
+    "recall_memory",
+    "store_memory",
+    "get_conversation_history",
+})
+
 
 def _effective_tool_intent(routed_intent: Optional[str], user_msg: str) -> str:
     """Intent used for tool filtering."""

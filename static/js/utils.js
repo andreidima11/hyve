@@ -3,7 +3,30 @@
  */
 import { t } from './lang/index.js';
 import { withCacheBust } from './asset_version.js';
-import { faviconProxyUrlSync } from './camera_auth.js';
+import { faviconProxyUrlSync, getCameraStreamToken } from './camera_auth.js';
+
+const _SOURCE_FAVICON_ONERROR = 'window.__hyveSourceFaviconError?.(this)';
+
+function _bindSourceFaviconError() {
+    if (typeof window === 'undefined' || window.__hyveSourceFaviconError) return;
+    window.__hyveSourceFaviconError = async (img) => {
+        if (!img || img.dataset.faviconRetry === '1') {
+            img?.classList?.add('chat-source-favicon-missing');
+            img?.removeAttribute?.('src');
+            return;
+        }
+        img.dataset.faviconRetry = '1';
+        try {
+            await getCameraStreamToken();
+            const domain = img.dataset.domain || '';
+            if (domain) img.src = faviconProxyUrlSync(domain);
+        } catch (_) {
+            img.classList.add('chat-source-favicon-missing');
+            img.removeAttribute('src');
+        }
+    };
+}
+_bindSourceFaviconError();
 
 const _loadedScripts = new Map();
 const _loadedStyles = new Map();
@@ -153,7 +176,7 @@ function _sourceChipHtml(src) {
     const url = escapeHtml(src.url);
     const favicon = _faviconUrl(src.domain);
     return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="chat-source-card" title="${domain}">
-        <img src="${favicon}" alt="" class="chat-source-favicon" loading="lazy" onerror="this.style.display='none'">
+        <img src="${favicon}" alt="" class="chat-source-favicon" data-domain="${domain}" loading="lazy" onerror="${_SOURCE_FAVICON_ONERROR}">
         <span class="chat-source-domain">${domain}</span>
     </a>`;
 }
@@ -205,7 +228,7 @@ export function showSourcesModal(groupId) {
             const favicon = _faviconUrl(src.domain);
             return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="sources-modal-item">
                 <span class="sources-modal-item-icon">
-                    <img src="${favicon}" alt="" class="chat-source-favicon" loading="lazy" onerror="this.style.display='none'">
+                    <img src="${favicon}" alt="" class="chat-source-favicon" data-domain="${domain}" loading="lazy" onerror="${_SOURCE_FAVICON_ONERROR}">
                 </span>
                 <span class="sources-modal-item-main">
                     <span class="sources-modal-item-title">${title}</span>
@@ -217,11 +240,26 @@ export function showSourcesModal(groupId) {
         }).join('');
     }
     modal.classList.remove('hidden');
+    void refreshSourceFavicons(modal);
 }
 
 export function hideSourcesModal() {
     const modal = document.getElementById('sources-modal');
     if (modal) modal.classList.add('hidden');
+}
+
+/** Refresh proxied favicon URLs after media auth token is available. */
+export async function refreshSourceFavicons(root = document) {
+    try {
+        await getCameraStreamToken();
+    } catch (_) {}
+    const scope = root?.querySelectorAll ? root : document;
+    scope.querySelectorAll('img.chat-source-favicon:not(.chat-source-favicon-missing)').forEach((img) => {
+        const domain = img.dataset.domain || img.closest('.chat-source-card')?.getAttribute('title') || '';
+        if (!domain) return;
+        const next = faviconProxyUrlSync(domain);
+        if (img.getAttribute('src') !== next) img.src = next;
+    });
 }
 
 /**

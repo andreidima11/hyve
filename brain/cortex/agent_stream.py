@@ -24,8 +24,11 @@ from brain.cortex.config import DEFAULT_MAX_AGENT_TURNS, TIMEOUT_LLM
 from brain.cortex.llm import _llm_headers, _normalize_chat_url, _stream_llm_turn
 from llm_client import get_llm_client
 from brain.cortex.messages import (
+    _compute_safe_completion_tokens,
     _ensure_text_user_message,
+    _estimate_messages_tokens,
     _message_content_to_text,
+    _trim_messages_to_fit,
     sanitize_input,
 )
 from brain.cortex.prompt_cache import (
@@ -95,6 +98,10 @@ async def generate_response_stream(
     llm_messages = turn.llm_messages
     safe_max_tokens = turn.safe_max_tokens
     lazy_history_enabled = turn.lazy_history_enabled
+    trim_token_budget = turn.trim_token_budget
+    trim_reserve_for_response = turn.trim_reserve_for_response
+    context_length = turn.context_length
+    requested_max_tokens = turn.requested_max_tokens
     model_name = turn.model_name
     light_context = turn.light_context
     tool_intent = turn.tool_intent
@@ -169,6 +176,7 @@ async def generate_response_stream(
                 provider=provider,
                 suppress=True,
             )
+            normalized_msgs = _ensure_text_user_message(normalized_msgs)
             payload["messages"] = normalized_msgs
             log_line("agent", "⚡", "NO_THINK", f"mode={_thinking_mode} intent={tool_intent}")
         elif _thinking_mode == "think":
@@ -263,11 +271,23 @@ async def generate_response_stream(
                 if isinstance(event, dict) and event.get("t") == "_tool_loop_complete":
                     break
                 yield event
+            llm_messages = tool_state.llm_messages
             untrusted_context_active = tool_state.untrusted_context_active
             search_web_calls_this_request = tool_state.search_web_calls_this_request
             read_web_page_calls_this_request = tool_state.read_web_page_calls_this_request
             last_forge_preview = tool_state.forge_preview
             last_forge_preview_language = tool_state.forge_preview_language
+            llm_messages = _trim_messages_to_fit(
+                llm_messages,
+                trim_token_budget,
+                reserve_for_response=trim_reserve_for_response,
+                enable_summary_buffer=not lazy_history_enabled,
+                model_name=model_name,
+            )
+            prompt_tokens = _estimate_messages_tokens(llm_messages, model_name=model_name) + tools_token_estimate
+            safe_max_tokens = _compute_safe_completion_tokens(
+                context_length, prompt_tokens, requested_max_tokens,
+            )
             continue
 
         # Case B: AI returned text content — we already streamed thinking + content; just persist and finish
@@ -320,6 +340,7 @@ async def generate_response_stream(
                         llm_cfg.get("model_name", ""), tool_intent, user_msg, _thinking_mode,
                     ),
                 )
+                fb_msgs = _ensure_text_user_message(fb_msgs)
                 payload_no_tools["messages"] = fb_msgs
             llm_timeout = float(llm_cfg.get("timeout", TIMEOUT_LLM))
             fallback_content = ""

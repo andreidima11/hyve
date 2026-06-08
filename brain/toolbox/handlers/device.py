@@ -109,6 +109,23 @@ async def _exec_control_device(args: Dict) -> str:
         return f"Error controlling '{entity_id}': {type(exc).__name__}: {exc}"
 
 
+_HOME_STATUS_MAX_ENTITIES = 40
+_HOME_STATUS_MAX_CHARS = 2800
+
+
+def _format_home_status_entry(e: Dict) -> str:
+    extra = ""
+    if "brightness" in e:
+        extra += f", brightness={e['brightness']}"
+    if "temperature" in e:
+        extra += f", temp={e['temperature']}"
+    if "current_temperature" in e:
+        extra += f", current_temp={e['current_temperature']}"
+    if "unit" in e:
+        extra += f" {e['unit']}"
+    return f"  - {e['name']} ({e['entity_id']}): {e['state']}{extra}"
+
+
 async def _exec_get_home_status(args: Dict) -> str:
     from addons.entity_store import get_entity_store
 
@@ -139,22 +156,35 @@ async def _exec_get_home_status(args: Dict) -> str:
             entry["unit"] = attrs["unit_of_measurement"]
         by_area.setdefault(area, []).append(entry)
 
-    lines = []
+    flat_entries = []
     for area in sorted(by_area.keys()):
-        lines.append(f"\n## {area}")
         for e in sorted(by_area[area], key=lambda x: x["name"]):
-            extra = ""
-            if "brightness" in e:
-                extra += f", brightness={e['brightness']}"
-            if "temperature" in e:
-                extra += f", temp={e['temperature']}"
-            if "current_temperature" in e:
-                extra += f", current_temp={e['current_temperature']}"
-            if "unit" in e:
-                extra += f" {e['unit']}"
-            lines.append(f"  - {e['name']} ({e['entity_id']}): {e['state']}{extra}")
+            flat_entries.append((area, e))
 
-    return f"Smart home status ({len(all_entities)} entities):\n" + "\n".join(lines)
+    total = len(flat_entries)
+    capped = flat_entries[:_HOME_STATUS_MAX_ENTITIES]
+    lines = []
+    current_area = None
+    for area, e in capped:
+        if area != current_area:
+            lines.append(f"\n## {area}")
+            current_area = area
+        lines.append(_format_home_status_entry(e))
+
+    omitted = total - len(capped)
+    if omitted > 0:
+        lines.append(
+            f"\n... ({omitted} more entities omitted — use get_device_state(entity_id) for a specific device)"
+        )
+
+    header = f"Smart home status ({total} entities"
+    if omitted > 0:
+        header += f", showing {len(capped)}"
+    header += "):"
+    body = header + "\n" + "\n".join(lines)
+    if len(body) > _HOME_STATUS_MAX_CHARS:
+        body = body[:_HOME_STATUS_MAX_CHARS].rstrip() + "\n... (truncated — use get_device_state for details)"
+    return body
 
 
 async def _exec_get_device_state(args: Dict) -> str:
