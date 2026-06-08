@@ -1,28 +1,9 @@
-// Hyve dashboard — card registry (Pas 3 al refactor-ului).
+// Hyve dashboard — card registry.
 //
-// Scop: să avem un singur loc unde se înregistrează tipuri de carduri
-// (button, switch, climate, etc.), astfel încât rendererele să poată fi
-// mutate aici progresiv din dashboard.js, file by file, fără un big-bang.
-//
-// Folosire (când un renderer va fi migrat aici):
-//
-//   import { registerCard } from './dashboard/card_registry.js';
-//
-//   registerCard({
-//       type: 'button',
-//       // Returnează HTML pentru cardul complet (sau un DocumentFragment).
-//       render(widget, ctx) { ... },
-//       // Update-uri incrementale când vine un nou state pe WS, fără
-//       // re-render complet — ctx.cardEl este nodul .hyve-dashboard-card.
-//       update(widget, state, ctx) { ... },
-//       // Schema pentru validare (când vom face validare YAML-side):
-//       defaults: { size: 'sm', config: {} },
-//   });
-//
-// Cardurile rămase încă în dashboard.js continuă să funcționeze prin
-// fallback-ul de mai jos până sunt migrate aici. Module extrase: constants.js,
-// helpers.js, widget_actions.js; vezi și debug.js, hyveview_setup.js,
-// yaml_editor.js, pull_refresh.js, live_ws.js, entity_patch.js.
+// Widget renderers live in ./cards/renderers.js and register via
+// ./cards/register.js (called once from dashboard.js). Climate cards keep
+// their own deps module (climate.js). Use registerCard() to add new types or
+// override bundled renderers from custom code.
 
 const _registry = new Map();
 
@@ -50,7 +31,6 @@ export function listCardTypes() {
     return Array.from(_registry.keys());
 }
 
-// Optional: export the raw map (read-only) for debug tooling.
 export function _debugRegistry() {
     return Array.from(_registry.entries()).map(([k, v]) => ({
         type: k,

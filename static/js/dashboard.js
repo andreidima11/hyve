@@ -55,7 +55,9 @@ export {
 } from './dashboard/drag_resize.js';
 import { applyDashboardEditAccess, canEditDashboard, requireDashboardEditAccess } from './dashboard/edit_access.js';
 import { getCard } from './dashboard/card_registry.js';
-import { initDashboardClimate, renderClimateCard, climateConfiguredIds,
+import { registerDashboardCards, cameraWidgetEntities as _cameraEntitiesHelper } from './dashboard/cards/register.js';
+registerDashboardCards();
+import { initDashboardClimate, climateConfiguredIds,
     toggleDashboardClimateModeMenu, selectDashboardClimateSlide, shiftDashboardClimateSlide,
     startDashboardClimateSwipe, moveDashboardClimateSwipe, endDashboardClimateSwipe,
     adjustDashboardClimateTemperature, setDashboardClimateMode,
@@ -1914,32 +1916,35 @@ function _dashboardPanelColSpan(panel) {
     return 2;
 }
 
+function _buildCardRenderCtx(renderer, extra = {}) {
+    return {
+        renderer,
+        getEditMode: () => _dashboardEditMode,
+        widgetDragAttrs: _widgetDragAttrs,
+        widgetEditControls: _widgetEditControls,
+        widgetSizeClass: _widgetSizeClass,
+        widgetSpan: _widgetSpan,
+        widgetRenderer: _widgetRenderer,
+        escapeHtml: _escape,
+        stateOn: _stateOn,
+        controlVisuallyPending: _dashboardControlVisuallyPending,
+        renderCardElement: (w) => HVBridge.renderCardElement(w),
+        widgetTitle,
+        getCache: () => _dashboardCache,
+        cameraPreferWebmPlayer,
+        cameraSupportsGo2rtc,
+        ...extra,
+    };
+}
+
+function _cameraWidgetEntities(widget) {
+    return _cameraEntitiesHelper(widget, _buildCardRenderCtx(_widgetRenderer(widget)));
+}
+
 function _renderWidgetCard(widget) {
     const renderer = _widgetRenderer(widget);
-    const registered = getCard(renderer);
-    if (registered?.render) {
-        return registered.render(widget, { renderer, editMode: _dashboardEditMode });
-    }
-    switch (renderer) {
-        case 'label':       return _renderLabelCard(widget);
-        case 'light':       return _renderLightCard(widget);
-        case 'sensor':      return _renderSensorCard(widget);
-        case 'climate':     return renderClimateCard(widget);
-        case 'gauge':       return _renderGaugeCard(widget);
-        case 'lock':        return _renderLockCard(widget);
-        case 'vacuum':      return _renderVacuumCard(widget);
-        case 'weather_rich':return _renderWeatherRichCard(widget);
-        case 'fusion_solar':return _renderFusionSolarCard(widget);
-        case 'weather':     return _renderWeatherSimpleCard(widget);
-        case 'camera':      return _renderCameraCard(widget);
-        case 'picture':     return _renderPictureCard(widget);
-        case 'info':        return _renderTileCard(widget, { interactive: false });
-        case 'tile':        return _renderTileCard(widget, { interactive: true });
-        case 'scene':
-        case 'switch':
-        case 'button':
-        default:            return _renderTileCard(widget, { interactive: true });
-    }
+    const registered = getCard(renderer) || getCard('button');
+    return registered.render(widget, _buildCardRenderCtx(renderer));
 }
 
 function _renderWidgetCardForPreview(widget) {
@@ -1950,309 +1955,6 @@ function _renderWidgetCardForPreview(widget) {
     } finally {
         _dashboardEditMode = wasEditing;
     }
-}
-
-// --- Label (unchanged from Phase 1) ---
-// --- Label (Hyveview-migrated: body is `<hv-card-label>`; outer article
-// keeps drag/edit/size class so the legacy layout system stays in charge). ---
-function _renderLabelCard(widget) {
-    const dragAttrs = _widgetDragAttrs(widget);
-    const editControls = _widgetEditControls(widget);
-    const labelClasses = widget.show_background
-        ? 'hyve-dashboard-label hyve-dashboard-label--accent'
-        : 'hyve-dashboard-label hyve-dashboard-label--bare';
-    return `
-        <article ${dragAttrs}
-            class="${_widgetSizeClass(widget)} ${labelClasses} ${_dashboardEditMode ? 'cursor-grab active:cursor-grabbing' : ''}"
-            data-clickable="false"
-            data-edit="${_dashboardEditMode ? 'true' : 'false'}">
-            ${HVBridge.renderCardElement(widget)}
-            ${editControls}
-        </article>`;
-}
-
-// --- Tile (universal HA-style, also fallback for button/switch/info/scene) ---
-// Migrated to <hv-card-tile> (static/hyveview/cards/tile.js). The outer
-// article keeps drag/edit/click plumbing and the data-* attrs that CSS
-// keys off of; the inner DOM (icon, title, state line, optional toggle)
-// is owned by the custom element and patched in place by setState().
-function _renderTileCard(widget, opts = {}) {
-    const interactive = opts.interactive !== false;
-    const renderer = _widgetRenderer(widget);
-    const state = String(widget.current_state || 'unknown');
-    const on = _stateOn(state);
-    const controllable = interactive && widget.controllable !== false
-        && (renderer === 'tile' || renderer === 'button' || renderer === 'switch' || renderer === 'scene');
-    const dragAttrs = _widgetDragAttrs(widget);
-    const editControls = _widgetEditControls(widget);
-    const hasEntity = Boolean(String(widget.entity_id || '').trim());
-    const clickable = !_dashboardEditMode && controllable
-        && (widget.available !== false || hasEntity);
-    const cardActionAttrs = clickable
-        ? `role="button" tabindex="0" data-dash-action="cardActivate" data-dash-action-key="cardActivate" data-widget-id="${_escape(widget.id)}"`
-        : '';
-    return `
-        <article ${dragAttrs} ${cardActionAttrs}
-            class="hyve-dashboard-card ${_widgetSizeClass(widget)}"
-            data-on="${on ? 'true' : 'false'}"
-            data-pending="${_dashboardControlVisuallyPending(widget.id) ? 'true' : 'false'}"
-            data-entity-id="${_escape(widget.entity_id || '')}"
-            data-clickable="${clickable ? 'true' : 'false'}"
-            data-edit="${_dashboardEditMode ? 'true' : 'false'}"
-            data-unavailable="${widget.available === false ? 'true' : 'false'}">
-            ${HVBridge.renderCardElement(widget)}
-            ${editControls}
-        </article>`;
-}
-
-function _cameraCardMode(widget) {
-    const config = widget?.config && typeof widget.config === 'object' ? widget.config : {};
-    const mode = String(config.camera_mode || widget?.camera_mode || '').trim().toLowerCase();
-    return mode === 'live' ? 'live' : 'snapshots';
-}
-
-function _cameraWidgetEntities(widget) {
-    const cfg = widget?.config && typeof widget.config === 'object' ? widget.config : {};
-    const raw = Array.isArray(cfg.entities) ? cfg.entities : [];
-    const fromConfig = raw.map((e) => {
-        if (typeof e === 'string') return { entity_id: e, title: '', subtitle: '' };
-        return {
-            entity_id: String(e?.entity_id || '').trim(),
-            title: String(e?.title || '').trim(),
-            subtitle: String(e?.subtitle || '').trim(),
-        };
-    }).filter((e) => e.entity_id);
-    if (fromConfig.length) return fromConfig;
-    const eid = String(widget?.entity_id || '').trim();
-    if (!eid) return [];
-    return [{
-        entity_id: eid,
-        title: widgetTitle(widget, { entityId: eid }),
-        subtitle: '',
-    }];
-}
-
-function _renderCameraCard(widget) {
-    const dragAttrs = _widgetDragAttrs(widget);
-    const editControls = _widgetEditControls(widget);
-    const entities = _cameraWidgetEntities(widget);
-    const primary = entities[0] || {};
-    const entityId = String(primary.entity_id || widget.entity_id || '');
-    const title = widget.title || primary.title || widget.entity_name || entityId;
-    const mode = _cameraCardMode(widget);
-    const cfg = widget?.config && typeof widget.config === 'object' ? widget.config : {};
-    const interval = Math.max(2, Number(cfg.refresh_interval || cfg.interval || 10));
-    const defaultAudio = !!cfg.default_audio;
-    const defaultMic = !!cfg.default_microphone;
-    const preload = !!cfg.preload;
-    const preloadScope = cfg.preload_scope === 'all' ? 'all' : 'adjacent';
-    const safeTitle = _escape(title);
-    const entitiesPayload = entities.map((e) => {
-        const live = (_dashboardCache?.available_entities || []).find((x) => x.entity_id === e.entity_id);
-        const attrs = live?.attributes || {};
-        return {
-            entity_id: e.entity_id,
-            title: e.title || e.entity_id,
-            webm: cameraPreferWebmPlayer(attrs),
-            go2rtc: cameraSupportsGo2rtc(attrs),
-        };
-    });
-    const entitiesAttr = _escape(encodeURIComponent(JSON.stringify(entitiesPayload)));
-    const mediaMarkup = entities.length
-        ? `<hv-camera-carousel
-                class="hyve-dashboard-card__camera-player"
-                entities="${entitiesAttr}"
-                mode="${_escape(mode === 'live' ? 'live' : 'snapshot')}"
-                interval="${interval}"
-                default-audio="${defaultAudio ? 'true' : 'false'}"
-                default-mic="${defaultMic ? 'true' : 'false'}"
-                preload="${preload ? 'true' : 'false'}"
-                preload-scope="${_escape(preloadScope)}"
-                index="0"></hv-camera-carousel>`
-        : `<div class="hyve-dashboard-card__camera-placeholder"><i class="fas fa-video-slash"></i></div>`;
-    return `
-        <article ${dragAttrs}
-            class="hyve-dashboard-card hyve-dashboard-card--camera ${_widgetSizeClass(widget)}"
-            data-clickable="false"
-            data-edit="${_dashboardEditMode ? 'true' : 'false'}"
-            data-entity-id="${_escape(entityId)}"
-            data-camera-mode="${_escape(mode)}"
-            data-camera-player="${mode === 'live' ? 'live' : 'snapshot'}"
-            data-camera-refresh="${interval}">
-            <div class="hyve-dashboard-card__camera-frame">
-                ${mediaMarkup}
-            </div>
-            ${editControls}
-        </article>`;
-}
-
-function _renderPictureCard(widget) {
-    const dragAttrs = _widgetDragAttrs(widget);
-    const editControls = _widgetEditControls(widget);
-    const title = widget.title || 'Picture';
-    const safeTitle = _escape(title);
-    const wid = _escape(widget.id || '');
-    return `
-        <article ${dragAttrs}
-            class="hyve-dashboard-card hyve-dashboard-card--camera ${_widgetSizeClass(widget)}"
-            data-clickable="false"
-            data-edit="${_dashboardEditMode ? 'true' : 'false'}"
-            data-entity-id="${_escape(widget.entity_id || '')}">
-            <hv-card-picture class="hv-card-mount" data-hv-widget-id="${wid}" style="display:contents"></hv-card-picture>
-            ${editControls}
-        </article>`;
-}
-
-if (typeof window !== 'undefined' && window.__hyveCameraTimer) {
-    // Legacy global camera poll timer; clear on hot-reload if still present.
-    clearInterval(window.__hyveCameraTimer);
-    window.__hyveCameraTimer = null;
-}
-
-// --- Light (tile + brightness slider) ---
-// Migrated to <hv-card-light> (static/hyveview/cards/light.js). Outer article
-// still owns drag/edit/click; the inner brightness slider + state text live
-// inside the custom element and update in place via setState().
-function _renderLightCard(widget) {
-    const dragAttrs = _widgetDragAttrs(widget);
-    const editControls = _widgetEditControls(widget);
-    const clickable = !_dashboardEditMode && widget.controllable !== false && widget.available !== false;
-    const cardActionAttrs = clickable
-        ? `role="button" tabindex="0" data-dash-action="cardActivate" data-dash-action-key="cardActivate" data-widget-id="${_escape(widget.id)}"`
-        : '';
-    // Pass edit mode through the widget so the card can decide whether to
-    // render the brightness slider.
-    widget._edit_mode = !!_dashboardEditMode;
-    return `
-        <article ${dragAttrs} ${cardActionAttrs}
-            class="hyve-dashboard-card hyve-dashboard-card--light ${_widgetSizeClass(widget)}"
-            data-clickable="${clickable ? 'true' : 'false'}"
-            data-edit="${_dashboardEditMode ? 'true' : 'false'}">
-            ${HVBridge.renderCardElement(widget)}
-            ${editControls}
-        </article>`;
-}
-
-// --- Sensor (big value + unit + trend) ---
-// Migrated to <hv-card-sensor> (static/hyveview/cards/sensor.js). The outer
-// article stays here so legacy edit/drag/size/click plumbing is unchanged;
-// the inner DOM (icon, label, value, unit, trend, sparkline slot) is owned
-// by the custom element and is updated in-place by setState() — no full
-// grid re-render is needed when the sensor value changes.
-function _renderSensorCard(widget) {
-    const dragAttrs = _widgetDragAttrs(widget);
-    return `
-        <article ${dragAttrs}
-            class="hyve-dashboard-card hyve-dashboard-card--sensor ${_widgetSizeClass(widget)}"
-            data-clickable="false"
-            data-edit="${_dashboardEditMode ? 'true' : 'false'}"
-            data-unavailable="${widget.available === false ? 'true' : 'false'}">
-            ${HVBridge.renderCardElement(widget)}
-            ${_widgetEditControls(widget)}
-        </article>`;
-}
-
-
-// --- Gauge (SVG arc 180°) ---
-// Migrated to <hv-card-gauge>. Inner SVG + value updated in place by setState.
-function _renderGaugeCard(widget) {
-    const dragAttrs = _widgetDragAttrs(widget);
-    return `
-        <article ${dragAttrs}
-            class="hyve-dashboard-card hyve-dashboard-card--gauge ${_widgetSizeClass(widget)}"
-            data-clickable="false"
-            data-edit="${_dashboardEditMode ? 'true' : 'false'}"
-            data-unavailable="${widget.available === false ? 'true' : 'false'}">
-            ${HVBridge.renderCardElement(widget)}
-            ${_widgetEditControls(widget)}
-        </article>`;
-}
-
-// --- Lock (dual button) ---
-// Migrated to <hv-card-lock>. Buttons + state updated in place by setState.
-function _renderLockCard(widget) {
-    const dragAttrs = _widgetDragAttrs(widget);
-    widget._edit_mode = !!_dashboardEditMode;
-    return `
-        <article ${dragAttrs}
-            class="hyve-dashboard-card hyve-dashboard-card--lock ${_widgetSizeClass(widget)}"
-            data-clickable="false"
-            data-edit="${_dashboardEditMode ? 'true' : 'false'}">
-            ${HVBridge.renderCardElement(widget)}
-            ${_widgetEditControls(widget)}
-        </article>`;
-}
-
-// --- Vacuum (robot cleaner) ---
-// Body is <hv-card-vacuum>; outer article keeps drag/edit/size plumbing.
-function _renderVacuumCard(widget) {
-    const dragAttrs = _widgetDragAttrs(widget);
-    widget._edit_mode = !!_dashboardEditMode;
-    return `
-        <article ${dragAttrs}
-            class="hyve-dashboard-card hyve-dashboard-card--vacuum ${_widgetSizeClass(widget)}"
-            data-clickable="false"
-            data-edit="${_dashboardEditMode ? 'true' : 'false'}">
-            ${HVBridge.renderCardElement(widget)}
-            ${_widgetEditControls(widget)}
-        </article>`;
-}
-
-// --- Weather (simple) ---
-// Migrated to <hv-card-weather-simple>. Icon + temp updated in place.
-function _renderWeatherSimpleCard(widget) {
-    const dragAttrs = _widgetDragAttrs(widget);
-    return `
-        <article ${dragAttrs}
-            class="hyve-dashboard-card ${_widgetSizeClass(widget)}"
-            data-on="true"
-            data-clickable="false"
-            data-edit="${_dashboardEditMode ? 'true' : 'false'}"
-            data-unavailable="${widget.available === false ? 'true' : 'false'}">
-            ${HVBridge.renderCardElement(widget)}
-            ${_widgetEditControls(widget)}
-        </article>`;
-}
-
-function _weatherBackdropMarkup() {
-    return `
-            <div class="hyve-dashboard-card__weather-bg" aria-hidden="true">
-                <span class="hyve-dashboard-card__weather-rain hyve-dashboard-card__weather-rain--far"></span>
-                <span class="hyve-dashboard-card__weather-rain hyve-dashboard-card__weather-rain--near"></span>
-                <span class="hyve-dashboard-card__weather-rain hyve-dashboard-card__weather-rain--mist"></span>
-            </div>`;
-}
-
-// --- Weather (rich, with 5-day forecast) ---
-function _renderWeatherRichCard(widget) {
-    const dragAttrs = _widgetDragAttrs(widget);
-    // Stash span on the widget so the custom element can pick the right layout
-    // tier (compact / full + forecast). Layout is decided once in setConfig().
-    widget._span = _widgetSpan(widget);
-    const span = widget._span;
-    const compactClass = span.row <= 1 ? ' hyve-dashboard-card--weather-rich-compact' : '';
-    return `
-        <article ${dragAttrs}
-            class="hyve-dashboard-card hyve-dashboard-card--weather-rich${compactClass} ${_widgetSizeClass(widget)}"
-            data-clickable="false"
-            data-edit="${_dashboardEditMode ? 'true' : 'false'}">
-            ${HVBridge.renderCardElement(widget)}
-            ${_widgetEditControls(widget)}
-        </article>`;
-}
-
-function _renderFusionSolarCard(widget) {
-    const dragAttrs = _widgetDragAttrs(widget);
-    widget._span = _widgetSpan(widget);
-    const compactClass = widget._span.row <= 1 ? ' hyve-dashboard-card--fusion-solar-compact' : '';
-    return `
-        <article ${dragAttrs}
-            class="hyve-dashboard-card hyve-dashboard-card--fusion-solar${compactClass} ${_widgetSizeClass(widget)}"
-            data-clickable="false"
-            data-edit="${_dashboardEditMode ? 'true' : 'false'}">
-            ${HVBridge.renderCardElement(widget)}
-            ${_widgetEditControls(widget)}
-        </article>`;
 }
 
 // Classify a condition string into a small theme variant.
