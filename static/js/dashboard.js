@@ -11,7 +11,7 @@ import { HVBridge, HVSetHost, hvOpenEditor, registerHyveviewDashboardCards } fro
 import { createDashboardYamlEditor } from './dashboard/yaml_editor.js';
 import { initDashboardPullToRefresh } from './dashboard/pull_refresh.js';
 import { widgetTitle } from '/static/hyveview/host.js';
-import { normalizeIconClass, widgetIconSpec } from './icon_utils.js';
+import { widgetIconSpec } from './icon_utils.js';
 import {
     DEFAULT_PREFS,
     DEFAULT_META,
@@ -174,6 +174,15 @@ import {
     initDashboardWidgetStore,
 } from './dashboard/widget_store.js';
 import {
+    dashboardIntentAction,
+    entityIcon,
+    entityIconForState,
+    iconClass,
+    isControllableDomain,
+    isInfoDomain,
+    widgetRenderer,
+} from './dashboard/widget_meta.js';
+import {
     dashboardSnapshotFingerprint,
     getDashboardPageSnapshot,
     isDashboardStandalonePanel,
@@ -295,9 +304,6 @@ export {
 
 registerDashboardCards();
 
-const _effectiveWidgetCardType = (widget) =>
-    HVBridge.effectiveCardType(widget) || String(widget?.type || widget?.renderer || 'button').toLowerCase();
-
 let _dashboardCache = {
     widgets: [],
     available_entities: [],
@@ -338,55 +344,6 @@ function _schedulePagePrefetch() {
     // Prefetch disabled — see dashboard_loader.js / page snapshots.
 }
 
-function _isControllableDomain(domain) {
-    return ['light', 'switch', 'script', 'input_boolean', 'cover', 'lock', 'vacuum', 'climate', 'media_player', 'fan'].includes(String(domain || '').toLowerCase());
-}
-
-// Resolves the effective renderer (card type). Dedicated card types (fusion_solar,
-// camera, gauge, …) win over a stale generic renderer saved as "button".
-function _widgetRenderer(widget) {
-    const kind = _effectiveWidgetCardType(widget);
-    if (kind && kind !== 'button' && kind !== 'tile') return kind;
-    const eid = String(widget?.entity_id || '');
-    if (eid.startsWith('image.')) return 'picture';
-    return kind || 'button';
-}
-
-function _dashboardIntentAction(widget, desiredState) {
-    const domain = String(widget?.domain || widget?.entity_id?.split?.('.')[0] || '').toLowerCase();
-    const kind = String(widget?.renderer || widget?.type || '').toLowerCase();
-    const switchStyle = Boolean(widget?.switch_style || kind === 'switch');
-    if (
-        switchStyle
-        || ['light', 'switch', 'fan', 'input_boolean', 'cover', 'lock'].includes(domain)
-        || ['light', 'switch'].includes(kind)
-    ) {
-        return desiredState === 'on' ? 'turn_on' : 'turn_off';
-    }
-    return '';
-}
-
-function _isInfoDomain(domain) {
-    return ['sensor', 'binary_sensor', 'weather', 'person', 'sun', 'device_tracker', 'update'].includes(String(domain || '').toLowerCase());
-}
-
-function _entityIcon(domain) {
-    switch (String(domain || '').toLowerCase()) {
-        case 'light': return 'fas fa-lightbulb';
-        case 'switch': return 'fas fa-toggle-on';
-        case 'cover': return 'fas fa-blinds';
-        case 'climate': return 'fas fa-temperature-half';
-        case 'media_player': return 'fas fa-music';
-        case 'lock': return 'fas fa-lock';
-        case 'sensor': return 'fas fa-gauge-high';
-        case 'binary_sensor': return 'fas fa-circle-dot';
-        case 'vacuum': return 'fas fa-broom';
-        case 'person': return 'fas fa-user';
-        case 'camera': return 'fas fa-video';
-        default: return 'fas fa-bolt';
-    }
-}
-
 function _dashboardCardMeta(type) {
     return getDashboardCardMeta(type);
 }
@@ -401,29 +358,8 @@ function _dashboardDefaultRowsForType(type) {
 
 function _dashboardEditorRenderer(type) {
     const editingWidget = _dashboardCurrentEditorId ? findWidget(_dashboardCurrentEditorId) : null;
-    const editingRenderer = editingWidget ? _widgetRenderer(editingWidget) : '';
+    const editingRenderer = editingWidget ? widgetRenderer(editingWidget) : '';
     return dashboardEditorRenderer(type, { editingRenderer });
-}
-
-// Normalize an icon spec to a full CSS class string for use in `<i class="...">`.
-function _iconClass(spec) {
-    const normalized = normalizeIconClass(spec);
-    return normalized || 'fas fa-bolt';
-}
-
-// State-aware icon — different glyph for on/off where it makes sense.
-function _entityIconForState(domain, on) {
-    const d = String(domain || '').toLowerCase();
-    switch (d) {
-        case 'switch':       return on ? 'fas fa-toggle-on'   : 'fas fa-toggle-off';
-        case 'light':        return on ? 'fas fa-lightbulb'   : 'far fa-lightbulb';
-        case 'lock':         return on ? 'fas fa-lock'        : 'fas fa-lock-open';
-        case 'cover':        return on ? 'fas fa-blinds-open' : 'fas fa-blinds';
-        case 'media_player': return on ? 'fas fa-play'        : 'fas fa-music';
-        case 'binary_sensor':return on ? 'fas fa-circle-dot'  : 'far fa-circle';
-        case 'fan':          return on ? 'fas fa-fan'         : 'far fa-circle';
-        default:             return _entityIcon(domain);
-    }
 }
 
 function _isDashboardStandalonePanel(panel) {
@@ -495,10 +431,10 @@ export async function removeDashboardPanel(panelId) {
 
 // Publish helpers to Hyveview card classes (avoids circular imports).
 HVSetHost({
-    iconClass: _iconClass,
+    iconClass,
     widgetIcon: widgetIconSpec,
-    entityIcon: _entityIcon,
-    entityIconForState: _entityIconForState,
+    entityIcon,
+    entityIconForState,
     escape: _escape,
     enhanceSparklinesIn,
     trendCache,
@@ -764,7 +700,7 @@ initDashboardWidgetToggle({
     getEditMode: () => _dashboardEditMode,
     controlPending,
     findWidget,
-    dashboardIntentAction: _dashboardIntentAction,
+    dashboardIntentAction,
     tryFastPathForEntities,
     renderDashboard,
     getActivePageId: _activeDashboardPageId,
@@ -776,7 +712,7 @@ initDashboardLiveBridge({
     getCache: () => _dashboardCache,
     climateConfiguredIds,
     cameraWidgetEntities,
-    widgetRenderer: _widgetRenderer,
+    widgetRenderer,
     widgetById: dashboardWidgetById,
     renderDashboard,
 });
@@ -794,7 +730,7 @@ initDashboardWidgetCards({
         _dashboardEditMode = false;
         try { return fn(); } finally { _dashboardEditMode = was; }
     },
-    widgetRenderer: _widgetRenderer,
+    widgetRenderer,
     dashboardDefaultRowsForType: _dashboardDefaultRowsForType,
     escapeHtml: _escape,
     stateOn: _stateOn,
@@ -813,7 +749,7 @@ initDashboardRender({
     filteredWidgets,
     escapeHtml: _escape,
     t,
-    iconClass: _iconClass,
+    iconClass,
     enhanceSparklines,
     configureHyveviewMounted: configureHyveviewMounted,
     resumeDashboardCameras,
@@ -824,8 +760,8 @@ initDashboardLoader({
     setDashboardCache: (cache) => { _dashboardCache = cache; },
     getCurrentPageId: () => _currentPageId,
     setCurrentPageId: (id) => { _currentPageId = id; },
-    isControllableDomain: _isControllableDomain,
-    isInfoDomain: _isInfoDomain,
+    isControllableDomain,
+    isInfoDomain,
     renderCachedDashboardIfEmpty: _renderCachedDashboardIfEmpty,
     renderDashboard: renderDashboard,
     applyDashboardEditAccess,
@@ -848,7 +784,7 @@ initDashboardPagesNav({
     setDashboardPages: (pages) => { _dashboardCache.pages = pages; },
     readDashboardViewCache: readDashboardViewCache,
     escape: _escape,
-    iconClass: _iconClass,
+    iconClass,
     selectDashboardPage,
     switchTab,
     closeSidebar,
@@ -1025,7 +961,7 @@ initDashboardEntityPicker({
     getCache: () => _dashboardCache,
     escapeHtml: _escape,
     t,
-    entityIcon: _entityIcon,
+    entityIcon,
     addClimateEntityId: addDashboardClimateEntityId,
     renderDashboardAddPreview,
 });
