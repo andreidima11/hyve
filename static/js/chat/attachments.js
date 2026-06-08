@@ -49,7 +49,7 @@ function _resizeImage(dataUrl) {
     });
 }
 
-function _documentIconClass(fileName) {
+export function documentIconClass(fileName) {
     const n = (fileName || '').toLowerCase();
     if (n.endsWith('.pdf')) return 'fa-file-pdf';
     if (n.endsWith('.docx') || n.endsWith('.doc')) return 'fa-file-word';
@@ -109,6 +109,10 @@ export function clearAttachedImage() {
 
 export async function waitForImageReady() {
     if (_imageResizePromise) await _imageResizePromise;
+}
+
+export function getAttachedImageDataUrl() {
+    return attachedImageDataUrl;
 }
 
 export function getAttachedImageBase64() {

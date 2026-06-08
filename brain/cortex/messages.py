@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import copy
+import json
 import re
 from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
 import settings as settings_mod
 from brain.injection_guard import sanitize_untrusted_content
-from brain.cortex.thinking import RE_HA_CALL_LOG
+from brain.cortex.thinking import RE_HA_CALL_LOG, strip_think
 
 def clean_history(history: List[Dict]) -> List[Dict]:
     """Preserve role, content, tool_calls, tool_call_id so the model sees prior tool-use and uses tools again.

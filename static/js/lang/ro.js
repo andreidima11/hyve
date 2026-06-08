@@ -915,6 +915,7 @@ const ro = {
             { text: "Stelele-s sus. Hai să creăm." },
         ],
         error_connection: "Nu s-a putut conecta. Încearcă din nou.",
+        error_empty_response: "Răspuns gol de la server.",
         code_label: "Cod",
         image_loading: "Se încarcă imaginea...",
         image_download: "Descarcă",

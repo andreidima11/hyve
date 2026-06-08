@@ -175,8 +175,8 @@ async def generate_response_stream(
             log_line("agent", "🧠", "THINK", f"mode=think intent={tool_intent}")
         if not any(msg.get("role") == "user" and _message_content_to_text(msg.get("content")).strip() for msg in normalized_msgs):
             log_line("agent", "⚠️", "MSG_VALIDATION", f"No valid user message in {len(normalized_msgs)} messages, aborting turn")
-            yield {"t": "error", "error": "No valid user message in conversation"}
-            break
+            yield "Error: No valid user message in conversation"
+            return
         
         # Skip tools when image is present on turn 0:
         # many llama.cpp vision models (Qwen2-VL, LLaVA, etc.) cannot handle

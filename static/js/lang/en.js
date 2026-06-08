@@ -914,6 +914,7 @@ const en = {
             { text: "Stars are out. Let's create." },
         ],
         error_connection: "Could not connect. Please try again.",
+        error_empty_response: "Empty response from server.",
         code_label: "Code",
         image_loading: "Loading image...",
         image_download: "Download",

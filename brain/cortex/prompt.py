@@ -8,6 +8,7 @@ from typing import Optional
 import settings as settings_mod
 from logger import log_line
 from brain.cortex.memory import _MEMORY_RULES_PREFIX, _find_relevant_memories
+from brain.cortex.messages import _estimate_tokens
 
 def _build_static_prompt_prefix(user_id: str, persona_override: Optional[str] = None,
                                  max_prompt_tokens: int = 0) -> str:

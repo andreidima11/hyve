@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import time
+import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
@@ -18,7 +20,13 @@ from brain.cortex.messages import (
     _trim_messages_to_fit,
     sanitize_input,
 )
-from brain.cortex.thinking import RE_HA_CALL_LOG, strip_think
+from brain.cortex.thinking import (
+    RE_HA_CALL_LOG,
+    RE_THINK_BLOCK,
+    RE_TOOL_CALL_BLOCK,
+    _ThinkContentStreamParser,
+    strip_think,
+)
 
 def _normalize_chat_url(url: str) -> str:
     """Ensure URL points to chat/completions. Z.AI and others use base .../v4 or .../v1; append /chat/completions if missing."""

@@ -38,6 +38,78 @@ router = APIRouter(tags=["chat"])
 post_response_manager = PostResponseManager(log_line)
 
 
+def _stream_dict_chunk_events(chunk: dict, accum: dict) -> list[str]:
+    """Map agent dict chunks to SSE lines; mutates accum (full_response, full_thinking, …)."""
+    events: list[str] = []
+    tag = chunk.get("t")
+    if tag == "history_messages":
+        accum["history_messages"] = chunk.get("messages", [])
+        return events
+    if tag == "thinking":
+        c = chunk.get("content", "") or ""
+        accum["full_thinking"] += c
+        events.append(f"event: thinking\ndata: {_jdumps({'content': c})}\n\n")
+        return events
+    if tag == "status":
+        payload = {"type": chunk.get("type", ""), "label": chunk.get("label", "")}
+        if chunk.get("labelKey") is not None:
+            payload["labelKey"] = chunk["labelKey"]
+        if chunk.get("params"):
+            payload["params"] = chunk["params"]
+        events.append(f"event: status\ndata: {_jdumps(payload)}\n\n")
+        return events
+    if tag == "shell_done":
+        events.append(
+            f"event: shell_done\ndata: {_jdumps({'command': chunk.get('command', ''), 'exit_code': chunk.get('exit_code'), 'output_preview': chunk.get('output_preview', '')})}\n\n"
+        )
+        return events
+    if tag == "shell_request":
+        events.append(f"event: shell_request\ndata: {_jdumps({'command': chunk.get('command', '')})}\n\n")
+        return events
+    if tag == "shell_suggest":
+        events.append(
+            f"event: shell_suggest\ndata: {_jdumps({'command': chunk.get('command', ''), 'reason': chunk.get('reason', '')})}\n\n"
+        )
+        return events
+    if tag == "proposal":
+        events.append(f"event: proposal\ndata: {_jdumps(chunk.get('proposal', {}))}\n\n")
+        return events
+    if tag == "metrics":
+        payload = {
+            "completion_tokens": chunk.get("completion_tokens"),
+            "prompt_tokens": chunk.get("prompt_tokens"),
+            "total_tokens": chunk.get("total_tokens"),
+            "ttft_ms": chunk.get("ttft_ms"),
+            "llm_elapsed_ms": chunk.get("llm_elapsed_ms"),
+            "total_elapsed_ms": chunk.get("total_elapsed_ms"),
+        }
+        events.append(f"event: metrics\ndata: {_jdumps(payload)}\n\n")
+        return events
+    if tag == "clear_content":
+        accum["full_response"] = ""
+        events.append("event: clear_content\ndata: {}\n\n")
+        return events
+    if tag == "search_sources":
+        sources = chunk.get("sources", [])
+        if isinstance(sources, list):
+            accum["last_search_sources"] = sources
+        events.append(f"event: search_sources\ndata: {_jdumps({'sources': chunk.get('sources', [])})}\n\n")
+        return events
+    if tag == "forge_preview":
+        accum["last_forge_preview"] = chunk.get("content", "") or ""
+        accum["last_forge_preview_language"] = chunk.get("language", "python") or "python"
+        events.append(
+            f"event: forge_preview\ndata: {_jdumps({'content': chunk.get('content', ''), 'language': chunk.get('language', 'python'), 'done': bool(chunk.get('done'))})}\n\n"
+        )
+        return events
+    log_detail("api", "UNHANDLED_CHUNK", t=tag, keys=list(chunk.keys())[:8])
+    return events
+
+
+def _final_message_event(think_part: str, content_part: str, model: str, model_id: str) -> str:
+    return f"event: final_message\ndata: {_jdumps({'thinking': think_part, 'content': content_part, 'model': model, 'model_id': model_id})}\n\n"
+
+
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=0, max_length=50000)
     session_id: Optional[str] = Field(None, max_length=128)
@@ -241,116 +313,115 @@ async def chat_web_impl(request: Request, req: ChatRequest, background_tasks: Ba
             _stream_pace_ms = float(_pacing_cfg.get("stream_pace_ms", 0) or 0)
             _stream_pace_sec = max(0.0, _stream_pace_ms / 1000.0) if _stream_pace_ms > 0 else 0.0
 
-            if direct_reply is not None:
-                # Răspuns direct (comandă aprinde/stinge etc.) — fără agent
-                full_response = direct_reply
-                yield f"event: chunk\ndata: {json.dumps(direct_reply)}\n\n"
-                yield f"event: final_message\ndata: {_jdumps({'thinking': '', 'content': direct_reply, 'model': used_model_name, 'model_id': used_model_id})}\n\n"
-            else:
-                # If compound intent resolved HA commands, prepend that to the stream
-                if compound_ha_reply:
-                    ha_prefix = compound_ha_reply + "\n\n"
-                    full_response += ha_prefix
-                    yield f"event: chunk\ndata: {_jdumps(ha_prefix)}\n\n"
-                used_auto_profile_id = None
-                last_fallback_error = None
-                if is_auto_selection and ordered_auto_ids:
-                    for profile_id in ordered_auto_ids:
-                        profile_try = next((p for p in profiles if p.get("id") == profile_id), None)
-                        if not profile_try:
-                            continue
-                        try_override = build_llm_override(profile_try)
-                        try_persona = (profile_try.get("persona_override") or "").strip() or persona
-                        try:
-                            async for chunk in brain.generate_response_stream(
-                                effective_message, history, user_id,
-                                persona_override=try_persona,
-                                conversation_summary=conversation_summary,
-                                image_base64=req.image,
-                                llm_override=try_override,
-                                is_anonymous=(user_obj is None),
-                                routed_intent=routed_intent,
-                                user_profile_context=user_profile_context,
-                                thinking_mode=thinking_mode,
-                            ):
-                                if isinstance(chunk, dict):
-                                    if chunk.get("t") == "history_messages":
-                                        history_messages = chunk.get("messages", [])
-                                        continue
-                                    if chunk.get("t") == "thinking":
-                                        c = chunk.get("content", "") or ""
-                                        full_thinking += c
-                                        yield f"event: thinking\ndata: {_jdumps({'content': c})}\n\n"
-                                        continue
-                                    if chunk.get("t") == "status":
-                                        payload = {"type": chunk.get("type", ""), "label": chunk.get("label", "")}
-                                        if chunk.get("labelKey") is not None:
-                                            payload["labelKey"] = chunk["labelKey"]
-                                        if chunk.get("params"):
-                                            payload["params"] = chunk["params"]
-                                        yield f"event: status\ndata: {_jdumps(payload)}\n\n"
-                                        continue
-                                    if chunk.get("t") == "shell_done":
-                                        yield f"event: shell_done\ndata: {_jdumps({'command': chunk.get('command', ''), 'exit_code': chunk.get('exit_code'), 'output_preview': chunk.get('output_preview', '')})}\n\n"
-                                        continue
-                                    if chunk.get("t") == "shell_request":
-                                        yield f"event: shell_request\ndata: {_jdumps({'command': chunk.get('command', '')})}\n\n"
-                                        continue
-                                    if chunk.get("t") == "shell_suggest":
-                                        yield f"event: shell_suggest\ndata: {_jdumps({'command': chunk.get('command', ''), 'reason': chunk.get('reason', '')})}\n\n"
-                                        continue
-                                    if chunk.get("t") == "proposal":
-                                        yield f"event: proposal\ndata: {_jdumps(chunk.get('proposal', {}))}\n\n"
-                                        continue
-                                    if chunk.get("t") == "metrics":
-                                        payload = {"completion_tokens": chunk.get("completion_tokens"), "prompt_tokens": chunk.get("prompt_tokens"), "total_tokens": chunk.get("total_tokens"), "ttft_ms": chunk.get("ttft_ms"), "llm_elapsed_ms": chunk.get("llm_elapsed_ms"), "total_elapsed_ms": chunk.get("total_elapsed_ms")}
-                                        yield f"event: metrics\ndata: {_jdumps(payload)}\n\n"
-                                        continue
-                                    if chunk.get("t") == "clear_content":
-                                        full_response = ""
-                                        yield f"event: clear_content\ndata: {{}}\n\n"
-                                        continue
-                                    if chunk.get("t") == "search_sources":
-                                        sources = chunk.get('sources', [])
-                                        if isinstance(sources, list):
-                                            last_search_sources = sources
-                                        yield f"event: search_sources\ndata: {_jdumps({'sources': chunk.get('sources', [])})}\n\n"
-                                        continue
-                                    if chunk.get("t") == "forge_preview":
-                                        last_forge_preview = chunk.get('content', '') or ""
-                                        last_forge_preview_language = chunk.get('language', 'python') or 'python'
-                                        yield f"event: forge_preview\ndata: {_jdumps({'content': chunk.get('content', ''), 'language': chunk.get('language', 'python'), 'done': bool(chunk.get('done'))})}\n\n"
-                                        continue
-                                full_response += chunk
-                                if _stream_pace_sec > 0:
-                                    await asyncio.sleep(_stream_pace_sec)
-                                yield f"event: chunk\ndata: {_jdumps(chunk)}\n\n"
-                            think_part, content_part = brain.strip_think_content(full_response)
-                            if full_thinking.strip():
-                                think_part = (think_part.strip() + "\n\n" + full_thinking.strip()).strip() if think_part.strip() else full_thinking.strip()
-                            yield f"event: final_message\ndata: {_jdumps({'thinking': think_part, 'content': content_part, 'model': (profile_try.get('name') or profile_try.get('model_name') or '').strip(), 'model_id': (profile_try.get('model_name') or '').strip()})}\n\n"
-                            used_auto_profile_id = profile_id
-                            used_model_name = (profile_try.get("name") or profile_try.get("model_name") or "").strip()
-                            used_model_id = (profile_try.get("model_name") or "").strip()
-                            used_profile_color = (profile_try.get("color") or "").strip() or "#38bdf8"
-                            if used_profile_color:
-                                yield f"event: profile_color\ndata: {_jdumps({'color': used_profile_color})}\n\n"
-                            break
-                        except Exception as e:
-                            last_fallback_error = e
-                            log_detail("api", "AUTO_FALLBACK", profile_id=profile_id, error=str(e))
-                            continue
-                    if used_auto_profile_id:
-                        p_used = next((x for x in profiles if x.get("id") == used_auto_profile_id), None)
-                        if p_used:
-                            record_auto_router_usage("local" if (p_used.get("provider") or "").strip().lower() == "local" else "api")
-                    elif last_fallback_error is not None:
-                        raise last_fallback_error
-                if not (is_auto_selection and ordered_auto_ids):
-                    if used_profile_color:
-                        yield f"event: profile_color\ndata: {_jdumps({'color': used_profile_color})}\n\n"
-                    async for chunk in brain.generate_response_stream(
-                            effective_message, history, user_id,
+            _stream_body_ok = True
+            try:
+                if direct_reply is not None:
+                    # Răspuns direct (comandă aprinde/stinge etc.) — fără agent
+                    full_response = direct_reply
+                    yield f"event: chunk\ndata: {json.dumps(direct_reply)}\n\n"
+                    yield f"event: final_message\ndata: {_jdumps({'thinking': '', 'content': direct_reply, 'model': used_model_name, 'model_id': used_model_id})}\n\n"
+                else:
+                    stream_accum = {
+                        "full_response": full_response,
+                        "full_thinking": full_thinking,
+                        "history_messages": history_messages,
+                        "last_search_sources": last_search_sources,
+                        "last_forge_preview": last_forge_preview,
+                        "last_forge_preview_language": last_forge_preview_language,
+                    }
+
+                    async def _relay_cortex_stream(**stream_kwargs):
+                        nonlocal full_response, full_thinking, history_messages
+                        nonlocal last_search_sources, last_forge_preview, last_forge_preview_language
+                        async for chunk in brain.generate_response_stream(
+                            effective_message, history, user_id, **stream_kwargs
+                        ):
+                            if isinstance(chunk, dict):
+                                stream_accum["full_response"] = full_response
+                                stream_accum["full_thinking"] = full_thinking
+                                stream_accum["history_messages"] = history_messages
+                                stream_accum["last_search_sources"] = last_search_sources
+                                stream_accum["last_forge_preview"] = last_forge_preview
+                                stream_accum["last_forge_preview_language"] = last_forge_preview_language
+                                for line in _stream_dict_chunk_events(chunk, stream_accum):
+                                    yield line
+                                full_response = stream_accum["full_response"]
+                                full_thinking = stream_accum["full_thinking"]
+                                history_messages = stream_accum.get("history_messages", history_messages)
+                                last_search_sources = stream_accum["last_search_sources"]
+                                last_forge_preview = stream_accum["last_forge_preview"]
+                                last_forge_preview_language = stream_accum["last_forge_preview_language"]
+                                continue
+                            if not isinstance(chunk, str):
+                                continue
+                            full_response += chunk
+                            stream_accum["full_response"] = full_response
+                            if _stream_pace_sec > 0:
+                                await asyncio.sleep(_stream_pace_sec)
+                            yield f"event: chunk\ndata: {_jdumps(chunk)}\n\n"
+
+                    def _yield_final_from_accum(model_name: str, model_id: str):
+                        think_part, content_part = brain.strip_think_content(full_response)
+                        if full_thinking.strip():
+                            think_part = (
+                                (think_part.strip() + "\n\n" + full_thinking.strip()).strip()
+                                if think_part.strip()
+                                else full_thinking.strip()
+                            )
+                        return _final_message_event(think_part, content_part, model_name, model_id)
+
+                    # If compound intent resolved HA commands, prepend that to the stream
+                    if compound_ha_reply:
+                        ha_prefix = compound_ha_reply + "\n\n"
+                        full_response += ha_prefix
+                        stream_accum["full_response"] = full_response
+                        yield f"event: chunk\ndata: {_jdumps(ha_prefix)}\n\n"
+                    used_auto_profile_id = None
+                    last_fallback_error = None
+                    if is_auto_selection and ordered_auto_ids:
+                        for profile_id in ordered_auto_ids:
+                            profile_try = next((p for p in profiles if p.get("id") == profile_id), None)
+                            if not profile_try:
+                                continue
+                            try_override = build_llm_override(profile_try)
+                            try_persona = (profile_try.get("persona_override") or "").strip() or persona
+                            try:
+                                async for line in _relay_cortex_stream(
+                                    persona_override=try_persona,
+                                    conversation_summary=conversation_summary,
+                                    image_base64=req.image,
+                                    llm_override=try_override,
+                                    is_anonymous=(user_obj is None),
+                                    routed_intent=routed_intent,
+                                    user_profile_context=user_profile_context,
+                                    thinking_mode=thinking_mode,
+                                ):
+                                    yield line
+                                used_model_name = (profile_try.get("name") or profile_try.get("model_name") or "").strip()
+                                used_model_id = (profile_try.get("model_name") or "").strip()
+                                yield _yield_final_from_accum(used_model_name, used_model_id)
+                                used_auto_profile_id = profile_id
+                                used_profile_color = (profile_try.get("color") or "").strip() or "#38bdf8"
+                                if used_profile_color:
+                                    yield f"event: profile_color\ndata: {_jdumps({'color': used_profile_color})}\n\n"
+                                break
+                            except Exception as e:
+                                last_fallback_error = e
+                                log_detail("api", "AUTO_FALLBACK", profile_id=profile_id, error=str(e))
+                                continue
+                        if used_auto_profile_id:
+                            p_used = next((x for x in profiles if x.get("id") == used_auto_profile_id), None)
+                            if p_used:
+                                record_auto_router_usage("local" if (p_used.get("provider") or "").strip().lower() == "local" else "api")
+                        elif last_fallback_error is not None:
+                            err_line = f"Error: {type(last_fallback_error).__name__}: {last_fallback_error}"
+                            full_response = err_line
+                            yield f"event: chunk\ndata: {_jdumps(err_line)}\n\n"
+                            yield _final_message_event("", err_line, used_model_name, used_model_id)
+                    elif not (is_auto_selection and ordered_auto_ids):
+                        if used_profile_color:
+                            yield f"event: profile_color\ndata: {_jdumps({'color': used_profile_color})}\n\n"
+                        async for line in _relay_cortex_stream(
                             persona_override=persona,
                             conversation_summary=conversation_summary,
                             image_base64=req.image,
@@ -360,69 +431,18 @@ async def chat_web_impl(request: Request, req: ChatRequest, background_tasks: Ba
                             user_profile_context=user_profile_context,
                             thinking_mode=thinking_mode,
                         ):
-                            if isinstance(chunk, dict):
-                                if chunk.get("t") == "history_messages":
-                                    history_messages = chunk.get("messages", [])
-                                    continue
-                                if chunk.get("t") == "thinking":
-                                    c = chunk.get("content", "") or ""
-                                    full_thinking += c
-                                    yield f"event: thinking\ndata: {_jdumps({'content': c})}\n\n"
-                                    continue
-                                if chunk.get("t") == "status":
-                                    payload = {"type": chunk.get("type", ""), "label": chunk.get("label", "")}
-                                    if chunk.get("labelKey") is not None:
-                                        payload["labelKey"] = chunk["labelKey"]
-                                    if chunk.get("params"):
-                                        payload["params"] = chunk["params"]
-                                    yield f"event: status\ndata: {_jdumps(payload)}\n\n"
-                                    continue
-                                if chunk.get("t") == "shell_done":
-                                    yield f"event: shell_done\ndata: {_jdumps({'command': chunk.get('command', ''), 'exit_code': chunk.get('exit_code'), 'output_preview': chunk.get('output_preview', '')})}\n\n"
-                                    continue
-                                if chunk.get("t") == "shell_request":
-                                    yield f"event: shell_request\ndata: {_jdumps({'command': chunk.get('command', '')})}\n\n"
-                                    continue
-                                if chunk.get("t") == "shell_suggest":
-                                    yield f"event: shell_suggest\ndata: {_jdumps({'command': chunk.get('command', ''), 'reason': chunk.get('reason', '')})}\n\n"
-                                    continue
-                                if chunk.get("t") == "proposal":
-                                    yield f"event: proposal\ndata: {_jdumps(chunk.get('proposal', {}))}\n\n"
-                                    continue
-                                if chunk.get("t") == "metrics":
-                                    payload = {
-                                        "completion_tokens": chunk.get("completion_tokens"),
-                                        "prompt_tokens": chunk.get("prompt_tokens"),
-                                        "total_tokens": chunk.get("total_tokens"),
-                                        "ttft_ms": chunk.get("ttft_ms"),
-                                        "llm_elapsed_ms": chunk.get("llm_elapsed_ms"),
-                                        "total_elapsed_ms": chunk.get("total_elapsed_ms"),
-                                    }
-                                    yield f"event: metrics\ndata: {_jdumps(payload)}\n\n"
-                                    continue
-                                if chunk.get("t") == "clear_content":
-                                    full_response = ""
-                                    yield f"event: clear_content\ndata: {{}}\n\n"
-                                    continue
-                                if chunk.get("t") == "search_sources":
-                                    sources = chunk.get('sources', [])
-                                    if isinstance(sources, list):
-                                        last_search_sources = sources
-                                    yield f"event: search_sources\ndata: {_jdumps({'sources': chunk.get('sources', [])})}\n\n"
-                                    continue
-                                if chunk.get("t") == "forge_preview":
-                                    last_forge_preview = chunk.get('content', '') or ""
-                                    last_forge_preview_language = chunk.get('language', 'python') or 'python'
-                                    yield f"event: forge_preview\ndata: {_jdumps({'content': chunk.get('content', ''), 'language': chunk.get('language', 'python'), 'done': bool(chunk.get('done'))})}\n\n"
-                                    continue
-                            full_response += chunk
-                            if _stream_pace_sec > 0:
-                                await asyncio.sleep(_stream_pace_sec)
-                            yield f"event: chunk\ndata: {_jdumps(chunk)}\n\n"
-                    think_part, content_part = brain.strip_think_content(full_response)
-                    if full_thinking.strip():
-                        think_part = (think_part.strip() + "\n\n" + full_thinking.strip()).strip() if think_part.strip() else full_thinking.strip()
-                    yield f"event: final_message\ndata: {_jdumps({'thinking': think_part, 'content': content_part, 'model': used_model_name, 'model_id': used_model_id})}\n\n"
+                            yield line
+                        yield _yield_final_from_accum(used_model_name, used_model_id)
+            except Exception as e:
+                _stream_body_ok = False
+                log_line("error", "⚠️", "CHAT_STREAM", traceback.format_exc())
+                err_line = f"Error: {type(e).__name__}: {e}"
+                full_response = err_line
+                yield f"event: chunk\ndata: {_jdumps(err_line)}\n\n"
+                yield _final_message_event("", err_line, used_model_name, used_model_id)
+
+            if not _stream_body_ok:
+                return
 
             user_content = effective_message
             if req.image and not user_content:

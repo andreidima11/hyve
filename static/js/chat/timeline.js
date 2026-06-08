@@ -71,7 +71,7 @@ export function buildAgentTimelineHtml({
             detail: thinkingContent || '',
         });
     } else if (preparing && statusLines.length === 0 && !generating) {
-        steps.push({ icon: 'fa-circle-notch', label: 'Pregătesc răspunsul' });
+        steps.push({ icon: 'fa-comment-dots', label: 'Pregătesc răspunsul' });
     }
     for (const s of statusLines) {
         steps.push({
