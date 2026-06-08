@@ -13,7 +13,7 @@ from ui_catalog import integration_catalog
 
 from routers.integrations import helpers
 from routers.integrations.constants import SOURCE_META
-from routers.integrations.models import EntitySelectionBody
+from routers.integrations.models import EntityRegistryUpdateBody, EntitySelectionBody
 from routers.integrations.router import router
 
 
@@ -200,6 +200,45 @@ async def get_integration_entities(
     if len(payloads) == 1:
         return payloads[0]
     return {"slug": slug, "entries": payloads}
+
+
+@router.get("/entities/registry")
+async def list_entity_registry(user: models.User = Depends(get_current_user)):
+    from core import entity_registry
+
+    entries = entity_registry.all_entries()
+    return {"entries": entries, "total": len(entries)}
+
+
+@router.patch("/entities/registry/{unique_id}")
+async def patch_entity_registry(
+    unique_id: str,
+    body: EntityRegistryUpdateBody,
+    user: models.User = Depends(get_current_user),
+):
+    from core import entity_registry
+
+    uid = (unique_id or "").strip()
+    if not uid:
+        raise HTTPException(status_code=400, detail="unique_id is required")
+    if body.entity_id is None and body.name is None and body.disabled is None:
+        raise HTTPException(status_code=400, detail="no fields to update")
+
+    try:
+        entry = entity_registry.update_entry(
+            uid,
+            entity_id=body.entity_id,
+            name=body.name,
+            disabled=body.disabled,
+        )
+    except KeyError:
+        raise HTTPException(status_code=404, detail="registry entry not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    entity_registry.reload()
+    helpers.invalidate_all_entities_cache()
+    return {"status": "ok", "entry": entry}
 
 
 @router.post("/entities/selection")

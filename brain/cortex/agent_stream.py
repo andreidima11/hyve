@@ -132,7 +132,9 @@ async def generate_response_stream(
     agent_turn_messages: List[Dict] = []  # assistant + tool messages to persist so next request sees tool-use
     last_forge_preview = ""
     last_forge_preview_language = "python"
-    searxng_cfg = settings_mod.CFG.get("searxng") or {}
+    from integrations import entry_settings
+
+    searxng_cfg = entry_settings.searxng_settings()
     _cfg_max_searches = max(1, min(20, int(searxng_cfg.get("max_searches_per_request", 5) or 5)))
     # Apply search tendency: lower tendency → tighter cap
     _search_tendency = max(1, min(5, int((settings_mod.CFG.get("intelligence") or {}).get("search_tendency", 3) or 3)))

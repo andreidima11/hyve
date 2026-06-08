@@ -915,6 +915,25 @@
 
                             <section class="cfg-section space-y-4" style="border-left: 4px solid var(--accent);">
                                 <h2 class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
+                                    <i class="fab fa-whatsapp"></i>
+                                    <span data-i18n="config.waha_whitelist_title">WhatsApp whitelist</span>
+                                </h2>
+                                <p class="text-[10px] text-slate-500 leading-relaxed" data-i18n="config.allowed_numbers">Un număr pe rând (pentru WhatsApp):</p>
+                                <div id="integrations-whitelist-admin" class="config-admin-only space-y-1">
+                                    <textarea id="wl_numbers" rows="3" class="w-full min-w-0 bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-400 focus:border-accent outline-none resize-none" data-i18n-placeholder="config.numbers_placeholder" placeholder="e.g. 40712345678"></textarea>
+                                </div>
+                                <div id="integrations-whitelist-user" class="hidden pt-2 border-t border-white/5 space-y-2">
+                                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest" data-i18n="config.your_phones">Your WhatsApp numbers</p>
+                                    <div id="user-phones-list" class="space-y-1 text-[11px] text-slate-400"></div>
+                                    <div class="flex gap-2">
+                                        <input type="text" id="user-phone-add" class="flex-1 bg-slate-900 border border-white/5 rounded-xl p-2 text-[11px] mono text-slate-300 focus:border-accent outline-none" data-i18n-placeholder="config.numbers_placeholder" placeholder="e.g. 40712345678">
+                                        <button type="button" id="user-phone-add-btn" class="px-3 py-2 rounded-xl text-[11px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors" data-i18n="common.add">Add</button>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="cfg-section space-y-4" style="border-left: 4px solid var(--accent);">
+                                <h2 class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
                                     <i class="fas fa-info-circle"></i>
                                     <span data-i18n="config.security_info_title">Security Info</span>
                                 </h2>
@@ -1643,269 +1662,6 @@
                     </div>
                     <div class="app-subpage-body">
                         <div class="max-w-2xl mx-auto p-4 sm:p-6 space-y-4">
-                            <!-- SearXNG panel -->
-                            <div id="integration-panel-searxng" class="hidden space-y-3 config-admin-only">
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.searxng_url_label">SearXNG URL</label>
-                                    <input type="text" id="searxng_url" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none" placeholder="http://localhost:8888/search?q=&lt;query&gt;&amp;format=json">
-                                    <p class="text-[10px] text-slate-500" data-i18n="config.searxng_url_hint">Full SearXNG URL with &lt;query&gt; as placeholder.</p>
-                                </div>
-                            </div>
-                            <!-- WAHA panel -->
-                            <div id="integration-panel-waha" class="hidden space-y-3">
-                                <div id="integrations-waha-admin" class="config-admin-only space-y-3">
-                                    <input type="text" id="waha_url" data-i18n-placeholder="config.waha_url" placeholder="WhatsApp API address" class="w-full min-w-0 bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none">
-                                    <div class="space-y-1">
-                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.waha_webhook_label">Webhook URL (for WAHA)</label>
-                                        <div class="flex items-center gap-2">
-                                            <input type="text" id="waha_webhook" readonly class="flex-1 min-w-0 bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-emerald-400/80 select-all cursor-text">
-                                            <button type="button" data-config-action="copyWebhook" class="px-4 py-3 rounded-xl text-xs font-medium bg-slate-800 hover:bg-emerald-500/20 text-emerald-400 border border-white/10 transition-colors shrink-0" data-i18n="common.copy"><i class="fas fa-copy mr-1"></i> Copy</button>
-                                        </div>
-                                    </div>
-                                    <div id="integrations-whitelist-admin" class="pt-2 border-t border-white/5 space-y-1">
-                                        <p class="text-[10px] text-slate-500" data-i18n="config.allowed_numbers">Un număr pe rând (pentru WhatsApp):</p>
-                                        <textarea id="wl_numbers" rows="2" class="w-full min-w-0 bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-400 focus:border-accent outline-none resize-none" data-i18n-placeholder="config.numbers_placeholder" placeholder="e.g. 40712345678"></textarea>
-                                    </div>
-                                </div>
-                                <div id="integrations-whitelist-user" class="hidden pt-2 border-t border-white/5 space-y-2">
-                                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest" data-i18n="config.your_phones">Your WhatsApp numbers</p>
-                                    <div id="user-phones-list" class="space-y-1 text-[11px] text-slate-400"></div>
-                                    <div class="flex gap-2">
-                                        <input type="text" id="user-phone-add" class="flex-1 bg-slate-900 border border-white/5 rounded-xl p-2 text-[11px] mono text-slate-300 focus:border-accent outline-none" data-i18n-placeholder="config.numbers_placeholder" placeholder="e.g. 40712345678">
-                                        <button type="button" id="user-phone-add-btn" class="px-3 py-2 rounded-xl text-[11px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors" data-i18n="common.add">Add</button>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- ComfyUI panel -->
-                            <div id="integration-panel-comfyui" class="hidden space-y-4">
-                                <p class="text-[10px] text-slate-500" data-i18n="config.comfyui_hint">ComfyUI server for Stable Diffusion image generation. Enables the generate_image tool in chat. Requires a running ComfyUI instance with at least one checkpoint.</p>
-                                <div class="space-y-3">
-                                    <div class="space-y-1">
-                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.comfyui_url">ComfyUI Server URL</label>
-                                        <input type="text" id="comfyui_url" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none" placeholder="http://localhost:8188">
-                                    </div>
-                                    <div class="space-y-1">
-                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.comfyui_checkpoint">Default Checkpoint</label>
-                                        <div class="flex gap-2">
-                                            <select id="comfyui_checkpoint" class="flex-1 bg-slate-900 border border-white/5 rounded-xl p-3 text-xs text-slate-300 focus:border-accent outline-none">
-                                                <option value="">— select —</option>
-                                            </select>
-                                            <button type="button" data-config-action="refreshComfyUICheckpoints" class="px-3 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-fuchsia-500/20 text-fuchsia-300 border border-white/10 transition-colors shrink-0" title="Refresh checkpoints">
-                                                <i class="fas fa-sync-alt"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <div class="space-y-1">
-                                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.comfyui_steps">Steps</label>
-                                            <input type="number" id="comfyui_steps" min="1" max="150" value="20" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none">
-                                        </div>
-                                        <div class="space-y-1">
-                                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.comfyui_cfg">CFG Scale</label>
-                                            <input type="number" id="comfyui_cfg" min="1" max="30" step="0.5" value="7" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none">
-                                        </div>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <div class="space-y-1">
-                                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.comfyui_width">Width (px)</label>
-                                            <input type="number" id="comfyui_width" min="256" max="2048" step="64" value="1024" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none">
-                                        </div>
-                                        <div class="space-y-1">
-                                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.comfyui_height">Height (px)</label>
-                                            <input type="number" id="comfyui_height" min="256" max="2048" step="64" value="1024" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none">
-                                        </div>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <div class="space-y-1">
-                                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.comfyui_sampler">Sampler</label>
-                                            <select id="comfyui_sampler" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs text-slate-300 focus:border-accent outline-none">
-                                                <option value="euler">euler</option>
-                                                <option value="euler_ancestral">euler_ancestral</option>
-                                                <option value="dpmpp_2m">dpmpp_2m</option>
-                                                <option value="dpmpp_2m_sde">dpmpp_2m_sde</option>
-                                                <option value="dpmpp_sde">dpmpp_sde</option>
-                                                <option value="ddim">ddim</option>
-                                                <option value="uni_pc">uni_pc</option>
-                                            </select>
-                                        </div>
-                                        <div class="space-y-1">
-                                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.comfyui_scheduler">Scheduler</label>
-                                            <select id="comfyui_scheduler" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs text-slate-300 focus:border-accent outline-none">
-                                                <option value="normal">normal</option>
-                                                <option value="karras">karras</option>
-                                                <option value="exponential">exponential</option>
-                                                <option value="sgm_uniform">sgm_uniform</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="space-y-1">
-                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.comfyui_timeout">Timeout (s)</label>
-                                        <input type="number" id="comfyui_timeout" min="10" max="600" value="120" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none">
-                                    </div>
-                                    <div class="space-y-1">
-                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.comfyui_negative">Default Negative Prompt</label>
-                                        <input type="text" id="comfyui_negative" placeholder="bad quality, blurry, deformed" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs text-slate-300 focus:border-accent outline-none">
-                                    </div>
-                                    <!-- Workflow Template -->
-                                    <div class="space-y-1 border-t border-white/5 pt-3">
-                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.comfyui_workflow_template_label">Workflow Template</label>
-                                        <p class="text-[9px] text-slate-600 mb-2" data-i18n="config.comfyui_workflow_upload_hint">Export your working workflow from ComfyUI (Save → API Format JSON) and upload it here. The prompt text will be injected automatically. Works with any model (Flux, SD, SDXL, Lumina, etc).</p>
-                                        <div class="flex gap-2">
-                                            <select id="comfyui_workflow_file" class="flex-1 bg-slate-900 border border-white/5 rounded-xl p-3 text-xs text-slate-300 focus:border-accent outline-none">
-                                                <option value="" data-i18n="config.comfyui_workflow_none">— none (auto-detect) —</option>
-                                            </select>
-                                            <button type="button" data-config-action="refreshComfyUIWorkflows" class="px-3 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-fuchsia-500/20 text-fuchsia-300 border border-white/10 transition-colors shrink-0" data-i18n-title="config.comfyui_workflow_refresh_title" title="Refresh workflow list">
-                                                <i class="fas fa-sync-alt"></i>
-                                            </button>
-                                        </div>
-                                        <div class="flex gap-2 mt-2">
-                                            <label class="flex-1 px-3 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-fuchsia-500/20 text-fuchsia-300 border border-white/10 transition-colors text-center cursor-pointer">
-                                                <i class="fas fa-upload mr-1"></i> <span data-i18n="config.comfyui_upload_workflow">Upload Workflow JSON</span>
-                                                <input type="file" accept=".json" data-config-input="uploadComfyUIWorkflow" class="hidden">
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
-                                <button type="button" data-config-action="testComfyUIConnection" class="w-full px-4 py-2.5 rounded-xl text-xs font-medium bg-fuchsia-500/15 hover:bg-fuchsia-500/25 text-fuchsia-300 border border-fuchsia-500/25 transition-colors flex items-center justify-center gap-2">
-                                    <i class="fas fa-plug"></i> <span data-i18n="config.comfyui_test_connection">Test Connection</span>
-                                </button>
-                                <div id="comfyui-test-result" class="text-xs rounded-xl p-3 hidden"></div>
-                            </div>
-                            <!-- CCTV panel -->
-                            <div id="integration-panel-cctv" class="hidden space-y-3">
-                                <p class="text-[10px] text-slate-500" data-i18n="config.cctv_hint">Camere RTSP. În chat poți întreba „ce vezi pe camera X"; descrierea se folosește și în automatizări (API). Necesită ffmpeg și model vision configurat.</p>
-                                <div id="cctv-cameras-list" class="space-y-3"></div>
-                                <button type="button" id="cctv-add-camera" class="px-4 py-2 rounded-xl text-xs font-medium bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 border border-violet-500/30 transition-colors"><i class="fas fa-plus mr-1"></i> <span data-i18n="config.cctv_add_camera">Adaugă cameră</span></button>
-                            </div>
-                            <!-- Whisper panel -->
-                            <div id="integration-panel-whisper" class="hidden space-y-4">
-                                <p class="text-[10px] text-slate-500" data-i18n="config.whisper_hint">Wyoming Faster Whisper server for speech-to-text. Enables voice input in the chat.</p>
-                                <div class="space-y-3">
-                                    <div class="space-y-1">
-                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.whisper_host_label">Server Host</label>
-                                        <input type="text" id="whisper_host" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none" placeholder="localhost">
-                                    </div>
-                                    <div class="space-y-1">
-                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.whisper_port_label">Server Port</label>
-                                        <input type="number" id="whisper_port" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none" placeholder="10300" min="1" max="65535">
-                                    </div>
-                                    <div class="space-y-1">
-                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.whisper_language_label">Language</label>
-                                        <select id="whisper_language" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs text-slate-300 focus:border-accent outline-none">
-                                            <option value="ro">Română</option>
-                                            <option value="en">English</option>
-                                            <option value="de">Deutsch</option>
-                                            <option value="fr">Français</option>
-                                            <option value="es">Español</option>
-                                            <option value="it">Italiano</option>
-                                            <option value="pt">Português</option>
-                                            <option value="nl">Nederlands</option>
-                                            <option value="pl">Polski</option>
-                                            <option value="ru">Русский</option>
-                                            <option value="ja">日本語</option>
-                                            <option value="zh">中文</option>
-                                            <option value="auto">Auto-detect</option>
-                                        </select>
-                                    </div>
-                                    <div class="space-y-1">
-                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">VAD Silence Timeout (ms)</label>
-                                        <input type="number" id="whisper_vad_silence_ms" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none" placeholder="2500" min="500" max="10000" step="100">
-                                        <p class="text-[10px] text-slate-600 mt-0.5">Stop recording after this much silence (500-10000 ms)</p>
-                                    </div>
-                                    <div class="space-y-1">
-                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">VAD Sensitivity</label>
-                                        <select id="whisper_vad_sensitivity" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs text-slate-300 focus:border-accent outline-none">
-                                            <option value="low">Low (noisy environment)</option>
-                                            <option value="medium" selected>Medium (default)</option>
-                                            <option value="high">High (quiet environment)</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <button type="button" id="whisper-test-btn" data-config-action="testWhisperConnection" class="w-full px-4 py-2.5 rounded-xl text-xs font-medium bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/25 transition-colors flex items-center justify-center gap-2">
-                                    <i class="fas fa-plug"></i> <span data-i18n="config.whisper_test_connection">Test Connection</span>
-                                </button>
-                                <div id="whisper-test-result" class="text-xs rounded-xl p-3 hidden"></div>
-                            </div>
-                            <!-- Piper panel -->
-                            <div id="integration-panel-piper" class="hidden space-y-4">
-                                <p class="text-[10px] text-slate-500" data-i18n="config.piper_hint">Wyoming Piper server for text-to-speech. Enables voice responses — a speak button will appear on AI messages.</p>
-
-                                <!-- Voice select -->
-                                <div class="space-y-1">
-                                    <label for="piper_voice" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.piper_voice_label">Voice</label>
-                                    <select id="piper_voice" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs text-slate-300 focus:border-accent outline-none">
-                                        <optgroup label="Română">
-                                            <option value="ro_RO-lili-high">ro_RO — Lili (high) ★</option>
-                                            <option value="ro_RO-raluca-high">ro_RO — Raluca (high, narration)</option>
-                                            <option value="ro_RO-sanda-medium">ro_RO — Sanda (medium, best loanwords)</option>
-                                            <option value="ro_RO-lili-medium">ro_RO — Lili (medium, faster)</option>
-                                            <option value="ro_RO-mihai-medium">ro_RO — Mihai (medium, default)</option>
-                                        </optgroup>
-                                        <optgroup label="English">
-                                            <option value="en_US-lessac-medium">en_US — Lessac (medium)</option>
-                                            <option value="en_US-amy-medium">en_US — Amy (medium)</option>
-                                            <option value="en_US-ryan-medium">en_US — Ryan (medium)</option>
-                                            <option value="en_GB-alba-medium">en_GB — Alba (medium)</option>
-                                            <option value="en_GB-aru-medium">en_GB — Aru (medium)</option>
-                                        </optgroup>
-                                        <optgroup label="Deutsch">
-                                            <option value="de_DE-thorsten-medium">de_DE — Thorsten (medium)</option>
-                                            <option value="de_DE-eva_k-x_low">de_DE — Eva K (x_low)</option>
-                                        </optgroup>
-                                        <optgroup label="Français">
-                                            <option value="fr_FR-siwis-medium">fr_FR — Siwis (medium)</option>
-                                            <option value="fr_FR-upmc-medium">fr_FR — UPMC (medium)</option>
-                                        </optgroup>
-                                        <optgroup label="Español">
-                                            <option value="es_ES-sharvard-medium">es_ES — Sharvard (medium)</option>
-                                            <option value="es_MX-ald-medium">es_MX — Ald (medium)</option>
-                                        </optgroup>
-                                        <optgroup label="Italiano">
-                                            <option value="it_IT-riccardo-x_low">it_IT — Riccardo (x_low)</option>
-                                        </optgroup>
-                                        <optgroup label="Português">
-                                            <option value="pt_BR-faber-medium">pt_BR — Faber (medium)</option>
-                                        </optgroup>
-                                    </select>
-                                </div>
-
-                                <!-- Host -->
-                                <div class="space-y-1">
-                                    <label for="piper_host" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.piper_host_label">Server Host</label>
-                                    <input type="text" id="piper_host" value="localhost" placeholder="localhost"
-                                        class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none">
-                                </div>
-
-                                <!-- Port -->
-                                <div class="space-y-1">
-                                    <label for="piper_port" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.piper_port_label">Server Port</label>
-                                    <input type="number" id="piper_port" value="10200" placeholder="10200"
-                                        class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none">
-                                </div>
-
-                                <!-- Speaker ID -->
-                                <div class="space-y-1">
-                                    <label for="piper_speaker_id" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.piper_speaker_id_label">Speaker ID</label>
-                                    <input type="number" id="piper_speaker_id" value="0" placeholder="0"
-                                        class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none">
-                                </div>
-
-                                <!-- Speech Speed -->
-                                <div class="space-y-1">
-                                    <label for="piper_length_scale" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="config.piper_speed_label">Speech Speed</label>
-                                    <input type="text" id="piper_length_scale" value="1.0" placeholder="1.0"
-                                        class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none">
-                                    <p class="text-[10px] text-slate-600">&lt; 1.0 = faster, &gt; 1.0 = slower</p>
-                                </div>
-
-                                <!-- Test Connection -->
-                                <button type="button" id="piper-test-btn" data-config-action="testPiperConnection" class="w-full px-4 py-2.5 rounded-xl text-xs font-medium bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/25 transition-colors flex items-center justify-center gap-2">
-                                    <i class="fas fa-plug"></i> <span data-i18n="config.piper_test_connection">Test Connection</span>
-                                </button>
-                            </div>
-
-                            <!-- Generic fallback panel — deprecated. The entries section + Dispozitive section now
-                                 cover both configuration and sync. Hidden permanently to avoid duplication. -->
                             <div id="integration-panel-generic" class="hidden space-y-3">
                                 <p id="integration-generic-description" class="hidden"></p>
                                 <div id="integration-generic-empty-hint" class="hidden"></div>

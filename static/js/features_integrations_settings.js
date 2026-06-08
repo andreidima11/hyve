@@ -6,7 +6,7 @@ import { t, translateApiDetail, integrationApiMessage, getLanguage, tState } fro
 import { escapeHtml, escapeHtmlAttr, showToast, showConfirm, openSubPage, closeSubPage } from './utils.js';
 export { escapeHtmlAttr };
 import { switchTab } from './nav_bridge.js';
-import { renderEntityModal, getDomainIcon } from './entity_renderers.js';
+import { renderEntityModal, getDomainIcon, wireEntityRegistryEditor } from './entity_renderers.js';
 import { ACTIVE_STATES, CONTROLLABLE } from './entity_constants.js';
 import { startCameraPreviewRefresh, stopCameraPreviewRefresh } from './camera_auth.js';
 import { closeEntityDetailModal, filterHABySource } from './features_smarthome.js';
@@ -272,12 +272,9 @@ async function _persistIntegrationEnabled(slug, configKey, enabled) {
             return;
         }
     } catch (_) {}
-    await apiCall('/api/config', {
-        method: 'PATCH',
-        body: { [configKey]: { enabled: !!enabled } },
-    });
-    const row = _integrationCatalog.find((e) => String(e.slug || '') === slug);
-    if (row) row.enabled = !!enabled;
+    if (enabled) {
+        showToast(t('integrations.configure_entry_first') || 'Add a config entry first.', 'info');
+    }
 }
 
 function _applyCatalogEnabledToCheckboxes() {
@@ -306,10 +303,6 @@ export function bindIntegrationToggleButtonsOnce() {
 
         syncIntegrationToggles();
 
-        // Always persist the enabled flag for THIS integration directly via
-        // PATCH (deep-merge) — saveConfig() only knows about explicit panels
-        // (pago, whisper, …) so generic catalog integrations like mosquitto
-        // would lose the toggle on refresh otherwise.
         const slug = (btn.id || '').replace(/-btn-(enable|disable)$/, '');
         if (slug) {
             const def = _integrationDefinition(slug);
@@ -318,8 +311,6 @@ export function bindIntegrationToggleButtonsOnce() {
         }
     });
 
-    const addCamBtn = document.getElementById('cctv-add-camera');
-    if (addCamBtn) addCamBtn.addEventListener('click', addCctvCameraRow);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1241,6 +1232,18 @@ function _wireEntityListPagination(body, ents, slug, deviceId) {
     };
 }
 
+function _patchExposedEntityId(oldEntityId, newEntityId, uniqueId) {
+    const state = _exposedDevicesState;
+    if (!state?.devices) return;
+    for (const dev of state.devices) {
+        for (const ent of dev.entities || []) {
+            if (ent.entity_id === oldEntityId || (uniqueId && ent.unique_id === uniqueId)) {
+                ent.entity_id = newEntityId;
+            }
+        }
+    }
+}
+
 function _openIntegrationEntityDetailModal(entity, slug) {
     const modal = document.getElementById('entity-detail-modal');
     const iconEl = document.getElementById('entity-detail-modal-icon');
@@ -1260,6 +1263,12 @@ function _openIntegrationEntityDetailModal(entity, slug) {
     if (labelEl) labelEl.textContent = entity.name || entity.entity_id || 'Entity';
 
     body.innerHTML = renderEntityModal(entity, slug || _exposedDevicesState?.slug || entity.source || '');
+    wireEntityRegistryEditor(body, entity, {
+        onUpdated: ({ oldEntityId, newEntityId, uniqueId }) => {
+            _patchExposedEntityId(oldEntityId, newEntityId, uniqueId);
+            _openIntegrationEntityDetailModal(entity, slug || _exposedDevicesState?.slug || entity.source || '');
+        },
+    });
     if (modal.parentNode !== document.body) document.body.appendChild(modal);
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -1318,15 +1327,25 @@ export function openIntegrationDeviceModal(idx, slug) {
                 </button>
             </div>
             <div id="entity-detail-name-view" class="text-sm font-semibold text-slate-100 mt-0.5 break-words leading-snug">${name}</div>
-            <div id="entity-detail-name-edit" class="hidden mt-1 flex items-center gap-2">
-                <input type="text" id="entity-detail-name-input" value="${curA}"
-                    class="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-accent/40">
-                <button type="button" id="entity-detail-name-save" class="px-2 py-1 rounded-lg bg-accent/20 border border-accent/40 text-accent text-[11px] font-semibold hover:bg-accent/30 shrink-0">
-                    <i class="fas fa-check"></i>
-                </button>
-                <button type="button" id="entity-detail-name-cancel" class="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-[11px] hover:bg-white/10 shrink-0">
-                    <i class="fas fa-times"></i>
-                </button>
+            <div id="entity-detail-name-edit" class="hidden mt-1 flex flex-col gap-2">
+                <div class="flex items-center gap-2">
+                    <input type="text" id="entity-detail-name-input" value="${curA}"
+                        class="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-accent/40">
+                    <button type="button" id="entity-detail-name-save" class="px-2 py-1 rounded-lg bg-accent/20 border border-accent/40 text-accent text-[11px] font-semibold hover:bg-accent/30 shrink-0">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <button type="button" id="entity-detail-name-cancel" class="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-[11px] hover:bg-white/10 shrink-0">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <label class="flex items-start gap-2 text-[10px] text-slate-400 cursor-pointer select-none">
+                    <input type="checkbox" id="entity-detail-ha-rename" checked
+                        class="mt-0.5 rounded border-white/20 bg-white/5 text-accent focus:ring-accent/40">
+                    <span>
+                        <span class="text-slate-300">${escapeHtml(t('integrations.update_entity_ids'))}</span>
+                        <span class="block text-slate-500 mt-0.5">${escapeHtml(t('integrations.update_entity_ids_hint'))}</span>
+                    </span>
+                </label>
             </div>
             ${sub ? `<div class="text-[10px] text-slate-500 break-words mt-0.5">${escapeHtml(sub)}</div>` : ''}
             <div class="text-[9px] text-slate-500 mono break-all mt-1 leading-snug">${escapeHtml(dev.device_id || '')}</div>
@@ -1355,7 +1374,17 @@ export function openIntegrationDeviceModal(idx, slug) {
     const hideEdit = () => { edit?.classList.add('hidden'); view?.classList.remove('hidden'); };
     if (renameBtn) renameBtn.onclick = showEdit;
     if (cancelBtn) cancelBtn.onclick = hideEdit;
-    const submit = () => renameIntegrationDevice(slug, dev.device_id || '', dev.name || dev.device_id || '', input?.value || '');
+    const submit = () => {
+        const haRename = body.querySelector('#entity-detail-ha-rename');
+        const updateIds = haRename ? haRename.checked : true;
+        renameIntegrationDevice(
+            slug,
+            dev.device_id || '',
+            dev.name || dev.device_id || '',
+            input?.value || '',
+            updateIds,
+        );
+    };
     if (saveBtn) saveBtn.onclick = submit;
     if (input) input.onkeydown = (ev) => {
         if (ev.key === 'Enter') { ev.preventDefault(); submit(); }
@@ -1409,7 +1438,7 @@ export async function controlIntegrationEntity(slug, entityId, action, btn, data
     }
 };
 
-export async function renameIntegrationDevice(slug, deviceId, currentName, providedName) {
+export async function renameIntegrationDevice(slug, deviceId, currentName, providedName, homeassistantRename = true) {
     let next = providedName;
     if (next == null) {
         next = window.prompt(t('integrations.device_rename_prompt'), currentName || '');
@@ -1421,7 +1450,11 @@ export async function renameIntegrationDevice(slug, deviceId, currentName, provi
         const res = await apiCall(`/api/integrations/${encodeURIComponent(slug)}/device/${encodeURIComponent(deviceId)}/rename`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: trimmed, current_name: currentName || deviceId }),
+            body: JSON.stringify({
+                name: trimmed,
+                current_name: currentName || deviceId,
+                homeassistant_rename: homeassistantRename !== false,
+            }),
         });
         const out = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(out.detail || out.message || t('integrations.device_rename_failed'));
@@ -1605,119 +1638,6 @@ export async function openIntegrationConfigModal(integrationId) {
         // Load exposed entities summary
         _loadExposedEntitiesSummary();
     }
-    if (integrationId === 'waha') {
-        if (cfg) {
-            const wahaCfg = cfg.waha || {};
-            const wahaUrl = document.getElementById('waha_url');
-            const wlNumbers = document.getElementById('wl_numbers');
-            if (wahaUrl) wahaUrl.value = wahaCfg.url || '';
-            if (wlNumbers && wahaCfg.allowed_numbers) wlNumbers.value = (wahaCfg.allowed_numbers || []).join('\n');
-        }
-        const wh = document.getElementById('waha_webhook');
-        if (wh && typeof window !== 'undefined' && window.location?.origin) {
-            wh.value = window.location.origin + '/api/webhook/waha';
-        }
-    }
-    if (integrationId === 'searxng' && cfg) {
-        const sx = cfg.searxng || {};
-        const sxUrl = document.getElementById('searxng_url');
-        if (sxUrl) sxUrl.value = sx.url || '';
-    }
-    if (integrationId === 'comfyui') {
-        if (cfg) {
-            const c = cfg.comfyui || {};
-            const fields = {
-                'comfyui_url': c.url || 'http://localhost:8188',
-                'comfyui_steps': c.default_steps ?? 20,
-                'comfyui_cfg': c.default_cfg_scale ?? 7,
-                'comfyui_width': c.default_width ?? 1024,
-                'comfyui_height': c.default_height ?? 1024,
-                'comfyui_sampler': c.default_sampler || 'euler',
-                'comfyui_scheduler': c.default_scheduler || 'normal',
-                'comfyui_timeout': c.timeout ?? 120,
-                'comfyui_negative': c.default_negative_prompt || '',
-            };
-            for (const [id, val] of Object.entries(fields)) {
-                const el = document.getElementById(id);
-                if (el) el.value = val;
-            }
-            // Refresh checkpoint & workflow selects, then set stored values
-            const storedCheckpoint = c.default_checkpoint || '';
-            const storedWorkflow = c.workflow_file || '';
-            try {
-                await refreshComfyUICheckpoints();
-                const ckptEl = document.getElementById('comfyui_checkpoint');
-                if (ckptEl && storedCheckpoint) ckptEl.value = storedCheckpoint;
-            } catch (_) {}
-            try {
-                await refreshComfyUIWorkflows();
-                const wfEl = document.getElementById('comfyui_workflow_file');
-                if (wfEl && storedWorkflow) wfEl.value = storedWorkflow;
-            } catch (_) {}
-        }
-    }
-    if (integrationId === 'cctv' && cfg) {
-        const cctvCfg = cfg.cctv || {};
-        renderCctvCameras(cctvCfg.cameras || []);
-    }
-    if (integrationId === 'whisper' && cfg) {
-        const w = cfg.whisper || {};
-        const wHost = document.getElementById('whisper_host');
-        const wPort = document.getElementById('whisper_port');
-        const wLang = document.getElementById('whisper_language');
-        if (wHost) wHost.value = w.host || 'localhost';
-        if (wPort) wPort.value = w.port || 10300;
-        if (wLang) wLang.value = w.language || 'ro';
-        const wVadMs = document.getElementById('whisper_vad_silence_ms');
-        const wVadSens = document.getElementById('whisper_vad_sensitivity');
-        if (wVadMs) wVadMs.value = w.vad_silence_ms || 2500;
-        if (wVadSens) wVadSens.value = w.vad_sensitivity || 'medium';
-    }
-    if (integrationId === 'piper' && cfg) {
-        // Populate addon config fields from addon API
-        try {
-            const addonRes = await apiCall('/api/addons/piper');
-            if (addonRes.ok) {
-                const addon = await addonRes.json();
-                const ac = addon.state?.config || {};
-                const pVoice = document.getElementById('piper_voice');
-                const pHost = document.getElementById('piper_host');
-                const pPort = document.getElementById('piper_port');
-                const pSpeakerId = document.getElementById('piper_speaker_id');
-                const pLengthScale = document.getElementById('piper_length_scale');
-                if (pVoice) pVoice.value = ac.voice || 'ro_RO-mihai-medium';
-                if (pHost) pHost.value = ac.host || 'localhost';
-                if (pPort) pPort.value = ac.port || 10200;
-                if (pSpeakerId) pSpeakerId.value = ac.speaker_id ?? 0;
-                if (pLengthScale) pLengthScale.value = ac.length_scale || '1.0';
-            }
-        } catch (_) {}
-    }
-    if (integrationId === 'pago' && cfg) {
-        const p = cfg.pago || {};
-        const pEmail = document.getElementById('pago_email');
-        const pPass = document.getElementById('pago_password');
-        const pInterval = document.getElementById('pago_scan_interval');
-        if (pEmail) pEmail.value = p.email || '';
-        if (pPass && p.password) pPass.value = p.password;
-        if (pInterval) pInterval.value = p.scan_interval ?? 3600;
-    }
-    if (integrationId === 'fusion_solar' && cfg) {
-        const f = cfg.fusion_solar || {};
-        const mode = document.getElementById('fusion_solar_mode');
-        const host = document.getElementById('fusion_solar_host');
-        const kiosk = document.getElementById('fusion_solar_kiosk_url');
-        const user = document.getElementById('fusion_solar_username');
-        const pass = document.getElementById('fusion_solar_password');
-        const interval = document.getElementById('fusion_solar_scan_interval');
-        if (mode) mode.value = f.mode || 'auto';
-        if (host) host.value = f.host || 'https://eu5.fusionsolar.huawei.com';
-        if (kiosk) kiosk.value = f.kiosk_url || '';
-        if (user) user.value = f.username || '';
-        if (pass && f.password) pass.value = f.password;
-        if (interval) interval.value = f.scan_interval ?? 600;
-    }
-
     // Shared "emitted entities" section (only integrations with supports_sync).
     if (_supportsIntegrationEntitySync(catalogSlug)) {
         try { await loadIntegrationExposedEntities(catalogSlug); } catch (_) {}
@@ -1758,28 +1678,7 @@ export async function regenerateAssistKey() {
 }
 
 export function closeIntegrationConfigModal() {
-    // Save addon-level config for piper if its panel is visible
-    const piperPanel = document.getElementById('integration-panel-piper');
-    if (piperPanel && !piperPanel.classList.contains('hidden')) {
-        _savePiperAddonConfig();
-    }
     closeSubPage('integration-config-modal');
-    import('./features_config.js').then(({ saveConfig }) => saveConfig({ silent: true })).catch(() => {});
-}
-
-async function _savePiperAddonConfig() {
-    const voice = document.getElementById('piper_voice')?.value || 'ro_RO-mihai-medium';
-    const host = (document.getElementById('piper_host')?.value || 'localhost').trim();
-    const port = parseInt(document.getElementById('piper_port')?.value, 10) || 10200;
-    const speaker_id = parseInt(document.getElementById('piper_speaker_id')?.value, 10) || 0;
-    const length_scale = (document.getElementById('piper_length_scale')?.value || '1.0').trim();
-    try {
-        await apiCall('/api/addons/piper/config', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ voice, host, port, speaker_id, length_scale }),
-        });
-    } catch (_) {}
 }
 // ---------------------------------------------------------------------------
 // Integration entity sync & display

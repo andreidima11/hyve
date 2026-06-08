@@ -49,7 +49,29 @@ def find_entity_record(
         if entities is not None
         else build_entities_uncached(include_derived=include_derived, sort_mode="name")
     )
-    return resolve_entity_by_id(raw, items)
+    record = resolve_entity_by_id(raw, items)
+    if record:
+        return record
+
+    try:
+        from core import entity_registry
+
+        row = entity_registry.get_by_unique_id(raw) or entity_registry.get_by_entity_id(raw)
+        if row:
+            uid = str(row.get("unique_id") or "").strip()
+            if uid:
+                hit = resolve_entity_by_id(uid, items)
+                if hit:
+                    return hit
+            eid = str(row.get("entity_id") or "").strip()
+            if eid:
+                hit = resolve_entity_by_id(eid, items)
+                if hit:
+                    return hit
+            return dict(row)
+    except Exception:
+        pass
+    return None
 
 
 def integration_for_entity(

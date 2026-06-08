@@ -9,10 +9,7 @@ import {
     syncIntegrationToggles,
     bindIntegrationToggleButtonsOnce,
     loadIntegrationCatalog,
-    withOptionalIntegrationEnabled,
-    integrationEnabledForSave,
     getIntegrationCatalog,
-    renderCctvCameras,
     escapeHtmlAttr,
 } from './features_integrations_settings.js';
 import { closeModelSelector } from './chat/model_selector.js';
@@ -437,88 +434,13 @@ export async function loadConfig() {
     if (iRetLimit) iRetLimit.value = lib.retrieval_limit ?? 5;
     if (iMemDist) iMemDist.value = lib.memory_relevance_max_distance != null ? lib.memory_relevance_max_distance : '';
 
-    // SearXNG
-    const searxng = cfg.searxng || {};
-    const sxEn = document.getElementById('searxng_enabled');
-    const sxUrl = document.getElementById('searxng_url');
-    if (sxEn) sxEn.checked = !!searxng.enabled;
-    if (sxUrl) sxUrl.value = searxng.url || '';
-    const sxFetch = document.getElementById('searxng_fetch_pages');
-    const sxMaxPages = document.getElementById('searxng_max_pages');
-    const sxMaxResults = document.getElementById('searxng_max_results');
-    const sxSearchTimeout = document.getElementById('searxng_search_timeout');
-    const sxMaxSearchesPerRequest = document.getElementById('searxng_max_searches_per_request');
-    if (sxFetch) sxFetch.checked = searxng.fetch_pages !== false;
-    if (sxMaxPages) sxMaxPages.value = Math.min(3, Math.max(0, parseInt(searxng.max_pages_to_fetch, 10) || 2));
-    if (sxMaxResults) sxMaxResults.value = searxng.max_search_results ?? 5;
-    if (sxSearchTimeout) sxSearchTimeout.value = searxng.search_timeout ?? 10;
-    if (sxMaxSearchesPerRequest) sxMaxSearchesPerRequest.value = Math.min(20, Math.max(1, parseInt(searxng.max_searches_per_request, 10) || 5));
-
-    if (sxUrl) sxUrl.addEventListener('input', () => {}); // reserved: update freshness-related UI if needed
-
-    // CCTV
-    const cctvCfg = cfg.cctv || {};
-    const cctvEnEl = document.getElementById('cctv_enabled');
-    if (cctvEnEl) cctvEnEl.checked = !!cctvCfg.enabled;
-    renderCctvCameras(cctvCfg.cameras || []);
-
-    // Whisper
-    const whisperCfg = cfg.whisper || {};
-    const whisperEnEl = document.getElementById('whisper_enabled');
-    if (whisperEnEl) whisperEnEl.checked = !!whisperCfg.enabled;
-    const whisperHostEl = document.getElementById('whisper_host');
-    const whisperPortEl = document.getElementById('whisper_port');
-    const whisperLangEl = document.getElementById('whisper_language');
-    if (whisperHostEl) whisperHostEl.value = whisperCfg.host || 'localhost';
-    if (whisperPortEl) whisperPortEl.value = whisperCfg.port || 10300;
-    if (whisperLangEl) whisperLangEl.value = whisperCfg.language || 'ro';
-    const whisperVadMsEl = document.getElementById('whisper_vad_silence_ms');
-    const whisperVadSensEl = document.getElementById('whisper_vad_sensitivity');
-    if (whisperVadMsEl) whisperVadMsEl.value = whisperCfg.vad_silence_ms || 2500;
-    if (whisperVadSensEl) whisperVadSensEl.value = whisperCfg.vad_sensitivity || 'medium';
-
-    // Piper
-    const piperCfg = cfg.piper || {};
-    const piperEnEl = document.getElementById('piper_enabled');
-    if (piperEnEl) piperEnEl.checked = !!piperCfg.enabled;
-    const piperAlwaysSpeakEl = document.getElementById('piper_always_speak');
-    if (piperAlwaysSpeakEl) piperAlwaysSpeakEl.checked = !!piperCfg.always_speak;
-    // Sync runtime flag
     const tts = getTts();
-    if (tts) tts.alwaysSpeak = !!piperCfg.always_speak;
-
-    // ComfyUI
-    const comfyuiCfg = cfg.comfyui || {};
-    const comfyEnEl = document.getElementById('comfyui_enabled');
-    if (comfyEnEl) comfyEnEl.checked = !!comfyuiCfg.enabled;
-    const comfyFields = {
-        'comfyui_url': comfyuiCfg.url || 'http://localhost:8188',
-        'comfyui_checkpoint': comfyuiCfg.default_checkpoint || '',
-        'comfyui_steps': comfyuiCfg.default_steps ?? 20,
-        'comfyui_cfg': comfyuiCfg.default_cfg_scale ?? 7,
-        'comfyui_width': comfyuiCfg.default_width ?? 1024,
-        'comfyui_height': comfyuiCfg.default_height ?? 1024,
-        'comfyui_sampler': comfyuiCfg.default_sampler || 'euler',
-        'comfyui_scheduler': comfyuiCfg.default_scheduler || 'normal',
-        'comfyui_timeout': comfyuiCfg.timeout ?? 120,
-        'comfyui_negative': comfyuiCfg.default_negative_prompt || '',
-        'comfyui_workflow_file': comfyuiCfg.workflow_file || '',
-    };
-    for (const [id, val] of Object.entries(comfyFields)) {
-        const el = document.getElementById(id);
-        if (el) el.value = val;
+    if (tts) {
+        try {
+            const stored = localStorage.getItem('hyve_tts_always_speak');
+            if (stored !== null) tts.alwaysSpeak = stored === '1';
+        } catch (_) {}
     }
-    // Load workflow list on init
-    if (comfyuiCfg.workflow_file) {
-        refreshComfyUIWorkflows().catch(() => {});
-    }
-    // Webhook WAHA (nu se salvează, doar se afișează)
-    const wh = document.getElementById('waha_webhook');
-    if (wh && typeof window !== 'undefined') {
-        wh.value = `${window.location.origin}/api/webhook/waha`;
-    }
-
-
 
     // Integrări + restricții non-admin: whitelist per user, ascundere Models/HA/WhatsApp config/Prompts
     try {
@@ -574,11 +496,6 @@ export async function loadConfig() {
             if (!cb) continue;
             if (Object.prototype.hasOwnProperty.call(entry, 'enabled')) {
                 cb.checked = !!entry.enabled;
-            } else {
-                const section = cfg[entry.config_key || slug];
-                if (section && typeof section === 'object') {
-                    cb.checked = !!section.enabled;
-                }
             }
         }
         syncIntegrationToggles();
@@ -1381,22 +1298,6 @@ export async function saveConfig(eOrOptions) {
             tool_guardrails: document.getElementById('security_tool_guardrails')?.checked !== false,
             restrict_mutating_tools_on_untrusted_content: document.getElementById('security_restrict_untrusted_tools')?.checked !== false
         },
-        waha: withOptionalIntegrationEnabled({
-            api_url: document.getElementById('waha_url')?.value || '',
-        }, 'waha'),
-        pago: withOptionalIntegrationEnabled({
-            email: (document.getElementById('pago_email')?.value || '').trim(),
-            password: (document.getElementById('pago_password')?.value || '').trim(),
-            scan_interval: Math.max(60, parseInt(document.getElementById('pago_scan_interval')?.value, 10) || 3600)
-        }, 'pago'),
-        fusion_solar: withOptionalIntegrationEnabled({
-            mode: (document.getElementById('fusion_solar_mode')?.value || 'auto').trim(),
-            host: (document.getElementById('fusion_solar_host')?.value || '').trim(),
-            kiosk_url: (document.getElementById('fusion_solar_kiosk_url')?.value || '').trim(),
-            username: (document.getElementById('fusion_solar_username')?.value || '').trim(),
-            password: (document.getElementById('fusion_solar_password')?.value || '').trim(),
-            scan_interval: Math.max(600, parseInt(document.getElementById('fusion_solar_scan_interval')?.value, 10) || 600)
-        }, 'fusion_solar'),
         fcm: {
             enabled: transportMode === 'firebase',
             transport_mode: transportMode,
@@ -1485,58 +1386,6 @@ export async function saveConfig(eOrOptions) {
                 history_log_path: (document.getElementById('consolidation_history_log_path')?.value || 'history_log.md').trim()
             },
         },
-        searxng: withOptionalIntegrationEnabled({
-            url: (document.getElementById('searxng_url')?.value || '').trim(),
-            fetch_pages: document.getElementById('searxng_fetch_pages')?.checked !== false,
-            max_pages_to_fetch: Math.min(3, Math.max(0, parseInt(document.getElementById('searxng_max_pages')?.value, 10) || 2)),
-            max_search_results: Math.min(20, Math.max(1, parseInt(document.getElementById('searxng_max_results')?.value, 10) || 5)),
-            search_timeout: Math.min(60, Math.max(3, parseInt(document.getElementById('searxng_search_timeout')?.value, 10) || 10)),
-            max_searches_per_request: Math.min(20, Math.max(1, parseInt(document.getElementById('searxng_max_searches_per_request')?.value, 10) || 5))
-        }, 'searxng'),
-        cctv: (() => {
-            const list = document.getElementById('cctv-cameras-list');
-            const cameras = [];
-            if (list) {
-                list.querySelectorAll('.cctv-camera-row').forEach((row, i) => {
-                    const nameInp = row.querySelector('.cctv-cam-name');
-                    const rtspInp = row.querySelector('.cctv-cam-rtsp');
-                    const ctxInp = row.querySelector('.cctv-cam-context');
-                    const name = (nameInp?.value || '').trim();
-                    const rtsp = (rtspInp?.value || '').trim();
-                    const context = (ctxInp?.value || '').trim();
-                    if (!name && !rtsp) return;
-                    const id = row.dataset.cctvId || slugForId(name) || ('cam_' + i);
-                    const cam = { id, name: name || id, rtsp_url: rtsp };
-                    if (context) cam.context = context;
-                    cameras.push(cam);
-                });
-            }
-            return withOptionalIntegrationEnabled({ cameras }, 'cctv');
-        })(),
-        whisper: withOptionalIntegrationEnabled({
-            host: (document.getElementById('whisper_host')?.value || 'localhost').trim(),
-            port: Math.min(65535, Math.max(1, parseInt(document.getElementById('whisper_port')?.value, 10) || 10300)),
-            language: document.getElementById('whisper_language')?.value || 'ro',
-            vad_silence_ms: Math.min(10000, Math.max(500, parseInt(document.getElementById('whisper_vad_silence_ms')?.value, 10) || 2500)),
-            vad_sensitivity: document.getElementById('whisper_vad_sensitivity')?.value || 'medium'
-        }, 'whisper'),
-        piper: withOptionalIntegrationEnabled({
-            // UI checkbox removed; keep persisted runtime value.
-            always_speak: !!getTts()?.alwaysSpeak
-        }, 'piper'),
-        comfyui: withOptionalIntegrationEnabled({
-            url: (document.getElementById('comfyui_url')?.value || 'http://localhost:8188').trim(),
-            default_checkpoint: (document.getElementById('comfyui_checkpoint')?.value || '').trim(),
-            default_steps: Math.min(150, Math.max(1, parseInt(document.getElementById('comfyui_steps')?.value, 10) || 20)),
-            default_cfg_scale: Math.min(30, Math.max(1, parseFloat(document.getElementById('comfyui_cfg')?.value) || 7)),
-            default_width: Math.min(2048, Math.max(256, parseInt(document.getElementById('comfyui_width')?.value, 10) || 1024)),
-            default_height: Math.min(2048, Math.max(256, parseInt(document.getElementById('comfyui_height')?.value, 10) || 1024)),
-            default_sampler: document.getElementById('comfyui_sampler')?.value || 'euler',
-            default_scheduler: document.getElementById('comfyui_scheduler')?.value || 'normal',
-            default_negative_prompt: (document.getElementById('comfyui_negative')?.value || '').trim(),
-            timeout: Math.min(600, Math.max(10, parseInt(document.getElementById('comfyui_timeout')?.value, 10) || 120)),
-            workflow_file: (document.getElementById('comfyui_workflow_file')?.value || '').trim(),
-        }, 'comfyui'),
         timezone: (document.getElementById('config_timezone')?.value || '').trim(),
 
         updates: {
@@ -1548,19 +1397,6 @@ export async function saveConfig(eOrOptions) {
 
         ui: { language }
     };
-
-    const _saveConfigHandledKeys = new Set([
-        'waha', 'pago', 'fusion_solar', 'searxng', 'cctv', 'whisper', 'piper', 'comfyui',
-    ]);
-    for (const entry of getIntegrationCatalog()) {
-        const slug = String(entry.slug || '').trim();
-        if (!slug) continue;
-        const configKey = String(entry.config_key || slug).trim();
-        if (_saveConfigHandledKeys.has(configKey)) continue;
-        const enabled = integrationEnabledForSave(slug);
-        if (enabled === undefined) continue;
-        config[configKey] = { ...(config[configKey] || {}), enabled };
-    }
 
     try {
         const resp = await apiCall('/api/config', { method: 'POST', body: config });

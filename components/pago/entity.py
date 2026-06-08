@@ -42,10 +42,7 @@ class PagoEntity(BaseEntity):
                 raise ValueError("Pago entry is missing credentials")
             ttl = int(self.entry_data.get("scan_interval") or 3600)
             return pago_client.PagoClient(email, password, cache_ttl=ttl)
-        client = await pago_client.ensure_client()
-        if not client:
-            raise ValueError("Pago is not configured")
-        return client
+        raise ValueError("Pago is not configured — add a config entry")
 
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.probe_source()

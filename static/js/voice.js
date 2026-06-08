@@ -237,8 +237,12 @@ function _initAlwaysSpeakBtn() {
         btn.classList.toggle('active', ttsCtrl.alwaysSpeak);
         btn.querySelector('i').className = ttsCtrl.alwaysSpeak ? 'fas fa-volume-up' : 'fas fa-volume-off';
 
-        const piperCb = document.getElementById('piper_enabled');
-        if (ttsCtrl.alwaysSpeak && piperCb && !piperCb.checked) piperCb.checked = true;
+        if (ttsCtrl.alwaysSpeak) {
+            for (const id of ['piper_enabled', 'integrations-piper-enabled']) {
+                const piperCb = document.getElementById(id);
+                if (piperCb && !piperCb.checked) piperCb.checked = true;
+            }
+        }
 
         if (ttsCtrl.alwaysSpeak) {
             const bubbles = document.querySelectorAll('.chat-row-ai .ai-bubble');
@@ -251,9 +255,7 @@ function _initAlwaysSpeakBtn() {
         }
 
         try {
-            const patch = { piper: { always_speak: !!ttsCtrl.alwaysSpeak } };
-            if (ttsCtrl.alwaysSpeak) patch.piper.enabled = true;
-            await apiCall('/api/config', { method: 'PATCH', body: patch });
+            localStorage.setItem('hyve_tts_always_speak', ttsCtrl.alwaysSpeak ? '1' : '0');
         } catch (_) {}
     });
 }
@@ -294,8 +296,6 @@ function _initVoiceBalloon() {
                 asBtn.classList.add('active');
                 asBtn.querySelector('i').className = 'fas fa-volume-up';
             }
-            const cb = document.getElementById('piper_always_speak');
-            if (cb) cb.checked = true;
         }
     }
 

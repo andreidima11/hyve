@@ -666,15 +666,13 @@ function startBackgroundLoaders(profile) {
         loadModelProfiles().catch(e => console.warn('Model profiles load failed', e));
         try { startStartupStatusPolling(); } catch (e) { console.warn('Startup status polling failed', e); }
         // Voice button visibility (cheap config probe)
-        fetch('/api/config', {
+        fetch('/api/integrations/catalog', {
             headers: { 'Authorization': 'Bearer ' + localStorage.getItem('hyve_token') }
-        }).then(r => r.ok ? r.json() : null).then(cfg => {
-            if (!cfg) return;
+        }).then(r => r.ok ? r.json() : null).then(data => {
+            if (!data?.integrations) return;
+            const whisper = data.integrations.find(i => i.slug === 'whisper');
             const voiceBtn = document.getElementById('btn-voice');
-            const whisperEl = document.getElementById('whisper_enabled');
-            const whisperOn = !!(cfg.whisper && cfg.whisper.enabled);
-            if (whisperEl) whisperEl.checked = whisperOn;
-            if (voiceBtn) voiceBtn.classList.toggle('hidden', !whisperOn);
+            if (voiceBtn && whisper) voiceBtn.classList.toggle('hidden', !whisper.enabled);
         }).catch(e => console.warn('Whisper status check failed', e));
     });
 }
@@ -941,6 +939,7 @@ window.addEventListener('DOMContentLoaded', () => {
         appAction: (slug, action) => _lazyAction(_loadAppsModule, 'appAction')(slug, action),
         openAppLogModal: (slug, name) => _lazyAction(_loadAppsModule, 'openAppLogModal')(slug, name),
         openAddonWebUI: (slug) => _lazyAction(_loadAppsModule, 'openAddonWebUI')(slug),
+        closeAddonWebUI: () => _lazyAction(_loadAppsModule, 'closeAddonWebUI')(),
         testAddonHealth: (slug) => _lazyAction(_loadAppsModule, 'testAddonHealth')(slug),
         saveAddonConfig: (slug) => _lazyAction(_loadAppsModule, 'saveAddonConfig')(slug),
         copyPreflightFix: (text) => { if (text) navigator.clipboard.writeText(text).catch(() => {}); },
@@ -1367,4 +1366,5 @@ registerNavBridge({
     loadApps: _lazyAction(_loadAppsModule, 'loadApps'),
     loadScenes: _lazyAction(_loadScenesModule, 'loadScenes'),
     loadAreas: _lazyAction(_loadAreasModule, 'loadAreas'),
+    closeAddonWebUI: () => _lazyAction(_loadAppsModule, 'closeAddonWebUI')(),
 });

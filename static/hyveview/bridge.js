@@ -59,11 +59,21 @@ function _widgetEntityIds(widget) {
   }
   const ids = [];
   if (widget?.entity_id) ids.push(widget.entity_id);
+  if (widget?.unique_id) ids.push(widget.unique_id);
   if (Array.isArray(widget?.entities)) {
-    widget.entities.forEach((e) => { if (e?.entity_id) ids.push(e.entity_id); });
+    widget.entities.forEach((e) => {
+      if (e?.entity_id) ids.push(e.entity_id);
+      if (e?.unique_id) ids.push(e.unique_id);
+    });
   }
   const cfg = widget?.config && typeof widget.config === 'object' ? widget.config : {};
   if (Array.isArray(cfg.entity_ids)) cfg.entity_ids.forEach((id) => { if (id) ids.push(String(id)); });
+  if (Array.isArray(cfg.entities)) {
+    cfg.entities.forEach((e) => {
+      if (e?.entity_id) ids.push(e.entity_id);
+      if (e?.unique_id) ids.push(e.unique_id);
+    });
+  }
   return [...new Set(ids)];
 }
 

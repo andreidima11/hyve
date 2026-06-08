@@ -13,10 +13,11 @@ router = APIRouter(tags=["cctv"])
 @router.get("/api/cctv/cameras")
 async def cctv_list_cameras(current_user: models.User = Depends(auth.get_current_user)):
     """List configured cameras (id, name) for automations."""
-    cfg = settings.CFG.get("cctv") or {}
-    if not cfg.get("enabled"):
+    from integrations import entry_settings
+
+    cameras = entry_settings.cctv_cameras()
+    if not cameras:
         return []
-    cameras = cfg.get("cameras") or []
     return [{"id": c.get("id") or "", "name": (c.get("name") or "").strip() or c.get("id") or "?"} for c in cameras]
 
 

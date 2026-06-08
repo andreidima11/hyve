@@ -11,6 +11,12 @@ class EntitySelectionBody(BaseModel):
     unique_id: str | None = None
 
 
+class EntityRegistryUpdateBody(BaseModel):
+    entity_id: str | None = None
+    name: str | None = None
+    disabled: bool | None = None
+
+
 class DeviceControlBody(BaseModel):
     entity_id: str
     action: str
@@ -20,6 +26,7 @@ class DeviceControlBody(BaseModel):
 class DeviceRenameBody(BaseModel):
     name: str
     current_name: str | None = None
+    homeassistant_rename: bool = True
 
 
 class ConfigEntryBody(BaseModel):

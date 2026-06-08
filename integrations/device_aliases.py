@@ -208,14 +208,53 @@ def apply_to_entities(slug: str, entities: list[dict[str, Any]]) -> list[dict[st
         # in the UI keep showing ``0xa4c1...`` even after a rename.
         cur_name = str(ent.get("name") or "")
         if cur_name:
+            renamed = False
             if old_device_name and cur_name.lower().startswith(old_device_name.lower()):
                 tail = cur_name[len(old_device_name):].strip()
                 ent["name"] = f"{new_name} {tail}".strip() if tail else new_name
+                renamed = True
             elif cur_name == raw_did or cur_name.lower() == key.lower():
                 ent["name"] = new_name
+                renamed = True
             elif cur_name.lower().startswith(key.lower()):
                 tail = cur_name[len(key):].strip()
                 ent["name"] = f"{new_name} {tail}".strip() if tail else new_name
+                renamed = True
+            if not renamed and not cur_name.lower().startswith(new_name.lower()):
+                stale_names: list[str] = []
+                if isinstance(attrs, dict):
+                    for attr_key in ("zigbee_friendly", "friendly_name"):
+                        stale = str(attrs.get(attr_key) or "").strip()
+                        if stale and stale.lower() != new_name.lower():
+                            stale_names.append(stale)
+                try:
+                    from core import entity_registry
+
+                    stale_names.extend(
+                        entity_registry._collect_old_friendly_names(
+                            key,
+                            exclude=new_name,
+                        )
+                    )
+                except Exception:
+                    pass
+                old_match = None
+                try:
+                    from core import entity_registry
+
+                    old_match = entity_registry._matching_old_friendly(
+                        {
+                            "name": cur_name,
+                            "entity_id": ent.get("entity_id"),
+                            "unique_id": ent.get("unique_id"),
+                        },
+                        stale_names,
+                    )
+                except Exception:
+                    old_match = None
+                if old_match:
+                    tail = cur_name[len(old_match):].strip()
+                    ent["name"] = f"{new_name} {tail}".strip() if tail else new_name
         # Rebuild HA-style ``entity_id`` from the new display name so the
         # user-visible id (``sensor.lampa_birou_temperature``) matches the
         # rename. Keep the original id available as ``unique_id`` so routing

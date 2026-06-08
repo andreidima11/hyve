@@ -1,0 +1,8 @@
+{
+  "domain": "comfyui",
+  "name": "ComfyUI",
+  "version": "1.0.0",
+  "integration_type": "entity",
+  "documentation": "",
+  "dependencies": []
+}

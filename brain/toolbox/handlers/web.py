@@ -93,7 +93,9 @@ async def _exec_read_web_page(args: Dict) -> str:
         log_line("agent", "🛡️", "SSRF_BLOCK", f"Blocked internal URL: {url[:80]}")
         return "Error: Cannot access internal/private network addresses for security reasons."
     _def = _searxng_defaults()
-    searxng = settings_mod.CFG.get("searxng", {})
+    from integrations import entry_settings
+
+    searxng = entry_settings.searxng_settings()
     max_chars_cfg = int(searxng.get("read_page_max_chars", _def.get("read_page_max_chars", 6000)))
     max_chars = int(args.get("max_chars") or 0) or max_chars_cfg
     max_chars = max(500, min(15000, max_chars))
@@ -120,7 +122,9 @@ async def _exec_extract_web_data(args: Dict) -> str:
     if not selectors:
         return "Error: No selectors provided. Use comma-separated CSS selectors (e.g. h1, .price, #main)."
     _def = _searxng_defaults()
-    searxng = settings_mod.CFG.get("searxng", {})
+    from integrations import entry_settings
+
+    searxng = entry_settings.searxng_settings()
     timeout = float(searxng.get("search_timeout", _def.get("search_timeout", 10)))
     log_line("ha", "🔧", "EXTRACT_WEB", f"Fetching: {url[:50]}... selectors: {selectors[:60]}")
     html_raw = await _fetch_page_html(url, timeout=timeout)

@@ -341,6 +341,27 @@
             .app-subpage-footer { padding: 1rem 1.5rem; }
         }
 
+        .addon-ui-viewer {
+            z-index: 55;
+        }
+        .addon-ui-viewer.sidebar-open .addon-ui-viewer__frame {
+            pointer-events: none;
+        }
+        .addon-ui-viewer__body {
+            padding: 0 !important;
+            overflow: hidden !important;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .addon-ui-viewer__frame {
+            flex: 1;
+            width: 100%;
+            min-height: 0;
+            border: 0;
+            background: var(--bg-main, #030712);
+        }
+
         /* ─── Modal overlay (kept for small dialogs: confirm, memento, alias, etc.) ─── */
         :root {
             --app-modal-gap: max(0.5rem, env(safe-area-inset-top));
@@ -685,6 +706,13 @@
             {% include "partials/user.html" %}
 
             {% include "partials/config.html" %}
+
+            <!-- Addon Web UI — sibling of views so it overlays the full content pane -->
+            <div id="addon-ui-viewer" class="app-subpage addon-ui-viewer" aria-hidden="true">
+                <div class="app-subpage-body addon-ui-viewer__body">
+                    <iframe id="addon-ui-frame" class="addon-ui-viewer__frame" title="" loading="lazy" referrerpolicy="same-origin"></iframe>
+                </div>
+            </div>
 
         </div>
 

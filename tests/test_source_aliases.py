@@ -1,4 +1,8 @@
-from integrations.source_aliases import entity_matches_integration, entity_sources_for_integration
+from integrations.source_aliases import (
+    device_config_slugs_for_entity_source,
+    entity_matches_integration,
+    entity_sources_for_integration,
+)
 
 
 def test_mosquitto_includes_zigbee2mqtt_sources():
@@ -11,3 +15,9 @@ def test_mosquitto_includes_zigbee2mqtt_sources():
 def test_other_integrations_use_single_source():
     assert entity_sources_for_integration("frigate") == frozenset({"frigate"})
     assert entity_matches_integration("frigate", "frigate")
+
+
+def test_device_config_slugs_for_entity_source():
+    assert device_config_slugs_for_entity_source("zigbee2mqtt") == ("mosquitto", "zigbee2mqtt")
+    assert device_config_slugs_for_entity_source("mosquitto") == ("mosquitto",)
+    assert device_config_slugs_for_entity_source("frigate") == ("frigate",)

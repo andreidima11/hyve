@@ -49,14 +49,11 @@ def _lookup_entity(entity_id: str) -> dict | None:
     """
     # Fast path: state observer already has a pre-built snapshot.
     try:
+        from integrations.entity_utils import resolve_entity_by_id
         from core.state_observer import _last_snapshot
-        hit = _last_snapshot.get(entity_id)
+        hit = resolve_entity_by_id(entity_id, list(_last_snapshot.values()))
         if hit:
             return hit
-        # Check by unique_id
-        for ent in _last_snapshot.values():
-            if ent.get("unique_id") == entity_id:
-                return ent
     except Exception:
         pass
     # Slow path: rebuild full entity list.
@@ -71,8 +68,9 @@ def _lookup_entity(entity_id: str) -> dict | None:
         log_detail("automation", "ENTITY_LOOKUP_ERROR", entity_id=entity_id, error=str(exc))
         return None
     for item in items:
-        if item.get("entity_id") == entity_id or item.get("unique_id") == entity_id:
-            return item
+        hit = resolve_entity_by_id(entity_id, items)
+        if hit:
+            return hit
     return None
 
 
@@ -144,64 +142,53 @@ def _evaluate_conditions(conditions: list[dict]) -> tuple[bool, str | None]:
     return True, None
 
 
-_main_loop: asyncio.AbstractEventLoop | None = None
+def _run_async_in_thread(coro_factory, *, timeout: float = 45.0):
+    """Run an async coroutine from a sync worker thread on Hyve's main loop.
 
-
-def set_main_loop(loop: asyncio.AbstractEventLoop) -> None:
-    """Called once at startup to register the main event loop."""
-    global _main_loop
-    _main_loop = loop
-
-
-def _run_async_in_thread(coro_factory):
-    """Run an async coroutine from a sync worker thread.
-
-    HA-style: schedule on the **main** event loop via
-    ``run_coroutine_threadsafe`` so asyncio primitives (locks, queues,
-    MQTT clients) all share a single loop.
-
-    MUST NOT be called from the main event loop's thread (would deadlock).
-    Callers on the main loop should use the state observer snapshot instead.
+    Uses the same bridge as dashboard control and the legacy scheduler so
+    integration clients (OAuth sessions, MQTT, aiohttp) are not spun up on
+    orphan per-thread loops — that path could fail DNS/SSL differently.
     """
-    if _main_loop is not None and _main_loop.is_running():
-        future = asyncio.run_coroutine_threadsafe(coro_factory(), _main_loop)
-        return future.result(timeout=10.0)
+    from core.http.runtime import run_coroutine_on_main_loop
 
-    return asyncio.run(coro_factory())
+    return run_coroutine_on_main_loop(
+        coro_factory(),
+        timeout=timeout,
+        allow_fallback=True,
+    )
 
 
 def _execute_service_action(action: dict) -> str:
-    """HA-style service call: turn_on / turn_off / toggle / set on an
-    entity. Resolves the owning integration via its source slug, then calls
-    its async ``control_entity`` implementation."""
+    """HA-style service call: turn_on / turn_off / toggle / set on an entity.
+
+    Uses the same ``control_entity_sync`` bridge as dashboard widgets and
+    ``/api/integrations/{slug}/control`` so automations hit the same
+    integration instance and network stack as manual controls.
+    """
     entity_id = str(action.get("entity_id") or "").strip()
     service = str(action.get("service") or "").strip()
     data = action.get("data") or {}
-    entity = _lookup_entity(entity_id)
-    if entity is None:
-        raise AutomationValidationError(f"Entity '{entity_id}' not found")
-    source = str(entity.get("source") or "").strip().lower()
-    if not source:
-        raise AutomationValidationError(f"Entity '{entity_id}' has no source integration")
-    # Map UI source labels to integration slugs.
-    slug_map = {"zigbee2mqtt": "mosquitto"}
-    slug = slug_map.get(source, source)
-    from integrations import get_integration_manager
-    manager = get_integration_manager()
-    entry_id = str(entity.get("entry_id") or "").strip()
-    component = manager.get_by_entry(entry_id) if entry_id else None
-    component = component or manager.get(slug)
-    if not component:
-        raise AutomationValidationError(f"Integration '{slug}' not available for control")
+    if not entity_id:
+        raise AutomationValidationError("service action missing entity_id")
+    if not service:
+        raise AutomationValidationError("service action missing service")
+    from core.device_control import ControlTargetNotFound, control_entity_sync
+    from core.entity_refs import resolve_entity_reference
 
-    # Providers expect their internal stable id (``unique_id``); fall back
-    # to the user-facing entity_id when the snapshot doesn't carry one.
-    target_id = str(entity.get("unique_id") or entity_id)
+    record = resolve_entity_reference(entity_id)
+    live_id = str((record or {}).get("entity_id") or entity_id).strip()
 
-    async def _call():
-        return await component.control_entity(target_id, service, data or None)
-
-    return f"{service} {entity_id} ok (result={_run_async_in_thread(_call)})"
+    try:
+        result = control_entity_sync(
+            live_id,
+            service,
+            data or None,
+            entity=record,
+            timeout=45.0,
+        )
+    except ControlTargetNotFound as exc:
+        raise AutomationValidationError(str(exc)) from exc
+    return f"{service} {live_id} ok (result={result})"
 
 
 def _execute_scene_action(action: dict) -> str:
@@ -267,8 +254,10 @@ def _execute_action_sequence(owner_id: str, channel: str, actions: list[dict], p
                 else:
                     skill_input = action.get("input") or {}
                     allow_network = False
-                    searxng = settings.CFG.get("searxng") or {}
-                    if searxng.get("enabled") and (searxng.get("url") or "").strip():
+                    from integrations import entry_settings
+
+                    searxng = entry_settings.searxng_settings()
+                    if searxng.get("url"):
                         skill_input = dict(skill_input)
                         skill_input["_searxng_url"] = searxng["url"].strip()
                         allow_network = True

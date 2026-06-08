@@ -273,7 +273,9 @@ def dispatch_notification(notification_id: str, transport_hint: str | None = Non
 
         want_waha = str(transport_hint or "").lower() in {"waha", "whatsapp"} or bool(prefs.get("whatsapp"))
         waha_ok = False
-        if want_waha and (cfg.get("waha") or {}).get("enabled"):
+        from integrations import entry_settings
+
+        if want_waha and entry_settings.is_active("waha"):
             try:
                 target = _waha_target_for_user(user, cfg)
                 if target:
@@ -396,9 +398,15 @@ def _waha_target_for_user(user: models.User | None, cfg: dict) -> str | None:
 
 
 def _send_waha(target_chat: str, message: str, cfg: dict) -> None:
-    waha = cfg.get("waha") or {}
+    from integrations import entry_settings
+
+    waha = entry_settings.waha_settings()
     url = f"{str(waha.get('api_url') or '').rstrip('/')}/api/sendText"
-    payload = {"chatId": target_chat, "text": f"*Hyve:*\n{_sanitize_text_for_waha(message)}", "session": "default"}
+    payload = {
+        "chatId": target_chat,
+        "text": f"*Hyve:*\n{_sanitize_text_for_waha(message)}",
+        "session": waha.get("session") or "default",
+    }
     headers = {"X-Api-Key": waha.get("api_key", ""), "Content-Type": "application/json"}
     with httpx.Client(timeout=5) as client:
         response = client.post(url, json=payload, headers=headers, timeout=10)

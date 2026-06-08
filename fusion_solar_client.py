@@ -696,8 +696,10 @@ _client: Any | None = None
 
 async def ensure_client() -> Any | None:
     global _client
-    cfg = settings_mod.CFG.get("fusion_solar") or {}
-    if not cfg.get("enabled"):
+    from integrations import entry_settings
+
+    cfg = entry_settings.entry_data("fusion_solar")
+    if not entry_settings.is_active("fusion_solar"):
         return None
 
     mode = str(cfg.get("mode") or "auto").strip().lower()

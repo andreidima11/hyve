@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from core import dashboard_store
+from core.entity_refs import build_entity_map
 from integrations.extractors import (
     extract_fusion_solar_candidates as _extract_fusion_solar_candidates,
     extract_pago_candidates as _extract_pago_candidates,
@@ -20,6 +21,7 @@ from integrations.extractors import (
     normalize_entities as _normalize_entities,
 )
 from routers.dashboard.constants import (
+    STANDALONE_PANEL_ID,
     _DEFAULT_DASHBOARD_ICON,
     _DEFAULT_PAGE_ID,
     _DEFAULT_PAGE_TITLE,
@@ -79,7 +81,9 @@ from routers.dashboard.store import (
     _normalize_panel_record,
     _normalize_widget_record,
     _read_dashboard_raw,
+    reconcile_dashboard_section,
     _save_dashboard,
+    sync_widget_entity_ref,
     _section_panels_only,
     _set_user_default_page_id,
     _user_default_page_id,
@@ -636,6 +640,8 @@ async def get_dashboard_widgets(
         all_entities = await _available_entities()
         all_entities.extend(_scene_synthetic_entities(db, user))
         hydration_entities = all_entities
+        if reconcile_dashboard_section(section, all_entities):
+            _save_dashboard(section, section.get("page_id") or page_id)
     else:
         # Page switches and pull-to-refresh need the dashboard layout now; they
         # must not block behind a slow integration sync. Use the last known
@@ -823,6 +829,9 @@ async def update_dashboard_widget(widget_id: str, data: DashboardWidgetUpdateBod
     if target_panel_id == STANDALONE_PANEL_ID:
         raise HTTPException(status_code=400, detail={"key": "dashboard.api.widgets_move_need_section"})
     updated_widget = _normalize_widget_record(_apply_widget_patch(widget, patch))
+    if patch.get("entity_id") is not None:
+        entity_map = build_entity_map(await _available_entities())
+        sync_widget_entity_ref(updated_widget, entity_map)
     source_widgets = list(panel.get("widgets") or [])
     source_widgets[widget_idx] = updated_widget
     section["panels"][panel_idx]["widgets"] = source_widgets

@@ -37,12 +37,13 @@ os.makedirs(WORKFLOWS_DIR, exist_ok=True)
 
 
 def _cfg() -> Dict[str, Any]:
-    return settings_mod.CFG.get("comfyui") or {}
+    from integrations import entry_settings
+
+    return entry_settings.comfyui_settings()
 
 
 def is_enabled() -> bool:
-    cfg = _cfg()
-    return bool(cfg.get("enabled") and (cfg.get("url") or "").strip())
+    return bool(_cfg())
 
 
 def _base_url() -> str:

@@ -124,6 +124,32 @@ function widgetToEditorCard(widget) {
     };
 }
 
+function lookupDashboardEntity(entityId, cache) {
+    const id = String(entityId || '').trim();
+    if (!id) return null;
+    const list = cache?.available_entities || [];
+    return list.find((e) => e?.entity_id === id)
+        || list.find((e) => e?.unique_id === id)
+        || null;
+}
+
+function enrichEntityRecords(records, cache) {
+    return (records || []).map((row) => {
+        const ent = lookupDashboardEntity(row.entity_id, cache);
+        const out = { ...row };
+        if (ent?.entity_id) out.entity_id = ent.entity_id;
+        if (ent?.unique_id) out.unique_id = ent.unique_id;
+        return out;
+    }).filter((row) => row.entity_id);
+}
+
+function attachEntityRef(body, cache) {
+    const ent = lookupDashboardEntity(body.entity_id, cache);
+    if (ent?.unique_id) body.unique_id = ent.unique_id;
+    else delete body.unique_id;
+    if (ent?.entity_id) body.entity_id = ent.entity_id;
+}
+
 function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
     const d = deps();
     const cache = d.getDashboardCache();
@@ -184,21 +210,27 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
     };
     if (cfg.color) body.color = cfg.color;
     if (type === 'climate') {
-        const records = (Array.isArray(cfg.entities) ? cfg.entities : []).map(e =>
-            typeof e === 'string'
-                ? { entity_id: e }
-                : { entity_id: e.entity_id, title: e.title || '', subtitle: e.subtitle || '' }
-        ).filter(r => r.entity_id);
+        const records = enrichEntityRecords(
+            (Array.isArray(cfg.entities) ? cfg.entities : []).map(e =>
+                typeof e === 'string'
+                    ? { entity_id: e }
+                    : { entity_id: e.entity_id, title: e.title || '', subtitle: e.subtitle || '', unique_id: e.unique_id || '' }
+            ),
+            cache,
+        );
         body.config = { entities: records, entity_ids: records.map(r => r.entity_id) };
     }
     if (type === 'camera') {
         const cameraMode = (cfg.mode || cfg.camera_mode || 'snapshot') === 'live' ? 'live' : 'snapshots';
         const interval = Number(cfg.interval) || DEFAULT_CAMERA_INTERVAL;
-        const records = (Array.isArray(cfg.entities) ? cfg.entities : []).map((e) =>
-            typeof e === 'string'
-                ? { entity_id: e, title: '', subtitle: '' }
-                : { entity_id: e.entity_id, title: e.title || '', subtitle: e.subtitle || '' }
-        ).filter((r) => r.entity_id);
+        const records = enrichEntityRecords(
+            (Array.isArray(cfg.entities) ? cfg.entities : []).map((e) =>
+                typeof e === 'string'
+                    ? { entity_id: e, title: '', subtitle: '' }
+                    : { entity_id: e.entity_id, title: e.title || '', subtitle: e.subtitle || '', unique_id: e.unique_id || '' }
+            ),
+            cache,
+        );
         if (!records.length && entityId) {
             records.push({ entity_id: entityId, title: cfg.title || '', subtitle: '' });
         }
@@ -252,6 +284,11 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
         }
     }
     if (result.visibility) body.visibility = result.visibility;
+    if (body.entity_id !== existingWidget?.entity_id) {
+        attachEntityRef(body, cache);
+    } else if (existingWidget?.unique_id) {
+        body.unique_id = existingWidget.unique_id;
+    }
     return body;
 }
 

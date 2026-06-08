@@ -8,7 +8,7 @@ from env_bootstrap import ensure_env_loaded
 ensure_env_loaded()
 
 CONFIG_FILE = "config.json"
-RELEASE_VERSION = "0.7.18"
+RELEASE_VERSION = "0.8.0"
 APP_VERSION = RELEASE_VERSION
 _settings_log = logging.getLogger("settings")
 
@@ -138,17 +138,6 @@ DEFAULT_CONFIG = {
         },
     },
 
-    # 3e. SEARXNG (Web search integration)
-    "searxng": {
-        "enabled": False,
-        "url": "",
-        "fetch_pages": True,   # descarcă 2–3 pagini din rezultate pentru conținut (nu doar snippet)
-        "max_pages_to_fetch": 2,
-        "max_search_results": 5,  # number of search results to process
-        "search_timeout": 10,  # seconds to wait for SearXNG response
-        "max_searches_per_request": 5  # max search_web tool calls per user message (evită loop-uri)
-    },
-
     # 4. PROMPTS (all in English by default — model is told to respond in the user's language; override in config for localization)
     "prompts": {
         "system_persona": "You are a personal assistant that can control the home and remember information. Reply briefly and to the point.",
@@ -180,33 +169,6 @@ DEFAULT_CONFIG = {
         }
     },
 
-    # 6. INTEGRĂRI
-    "waha": { 
-        "enabled": False, 
-        "api_url": "http://localhost:3000", 
-        "api_key": "",
-        "session": "default" 
-    },
-
-    # PAGO PLĂTEȘTE — Romanian bill tracking / vehicle / payments via pago.cloud
-    "pago": {
-        "enabled": False,
-        "email": "",
-        "password": "",
-        "scan_interval": 3600  # seconds between API refreshes (min 60)
-    },
-
-    # HUAWEI FUSIONSOLAR — solar production via Northbound OpenAPI or Kiosk URL
-    "fusion_solar": {
-        "enabled": False,
-        "mode": "auto",  # auto | openapi | kiosk
-        "host": "https://eu5.fusionsolar.huawei.com",
-        "kiosk_url": "",
-        "username": "",
-        "password": "",
-        "scan_interval": 600  # seconds between API refreshes (respect Huawei rate limits)
-    },
-
     "fcm": {
         "enabled": False,
         "project_id": "",
@@ -216,20 +178,6 @@ DEFAULT_CONFIG = {
         "websocket_enabled": True
     },
 
-    # 3f. WHISPER (Speech-to-text via Wyoming Faster Whisper)
-    "whisper": {
-        "enabled": False,
-        "host": "localhost",
-        "port": 10300,
-        "language": "ro"
-    },
-
-    # Camere CCTV (RTSP). Descriere via model vision; folosibil în chat și în automatizări (API).
-    "cctv": {
-        "enabled": False,
-        "cameras": []  # list of {"id": str, "name": str, "rtsp_url": str}
-    },
-    
     "security": {
         "whitelist_enabled": False,
         "allowed_numbers": [],
@@ -253,22 +201,6 @@ DEFAULT_CONFIG = {
 
     # Skill-uri dezactivate (doar admin poate modifica)
     "skills_disabled": ["daily_news"],  # daily_news redundant with search_web for "care sunt știrile?"; enable if you want LLM summary + digest file
-
-    # COMFYUI — Image generation via ComfyUI API
-    "comfyui": {
-        "enabled": False,
-        "url": "http://localhost:8188",        # ComfyUI API base URL
-        "default_checkpoint": "",               # e.g. "dreamshaperXL_v21.safetensors"
-        "default_steps": 20,
-        "default_cfg_scale": 7.0,
-        "default_width": 1024,
-        "default_height": 1024,
-        "default_sampler": "euler",
-        "default_scheduler": "normal",
-        "default_negative_prompt": "bad quality, blurry, deformed",
-        "timeout": 120,                         # seconds to wait for generation
-        "workflow_file": ""                      # path to workflow template JSON (exported from ComfyUI API format)
-    },
 
     # MODEL PROFILES — saved model configurations for quick switching
     # Each profile: {id, name, provider, target_url, model_name, api_key, temperature, timeout, context_length, max_tokens, aux_llm_enabled, aux_llm: {target_url, model_name, api_key}, color}
@@ -523,18 +455,14 @@ def _apply_env_overlay(data: dict):
         data.setdefault("vision_llm", {})["api_key"] = vision_api_key
     searxng_url = os.environ.get("SEARXNG_URL", "").strip()
     if searxng_url:
-        data.setdefault("searxng", {})["url"] = searxng_url
-    # Pago credentials overlay
+        data.setdefault("searxng", {}).update({"url": searxng_url, "enabled": True})
     pago_email = os.environ.get("PAGO_EMAIL", "").strip()
-    if pago_email:
-        data.setdefault("pago", {})["email"] = pago_email
     pago_password = os.environ.get("PAGO_PASSWORD", "").strip()
-    if pago_password:
-        data.setdefault("pago", {})["password"] = pago_password
-    # WAHA API key overlay
+    if pago_email and pago_password:
+        data.setdefault("pago", {}).update({"email": pago_email, "password": pago_password, "enabled": True})
     waha_api_key = os.environ.get("WAHA_API_KEY", "").strip()
     if waha_api_key:
-        data.setdefault("waha", {})["api_key"] = waha_api_key
+        data.setdefault("waha", {}).update({"api_key": waha_api_key, "enabled": True})
     # Z.AI API key overlay
     zai_api_key = os.environ.get("ZAI_API_KEY", "").strip()
     if zai_api_key:

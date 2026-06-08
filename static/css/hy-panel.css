@@ -214,8 +214,9 @@
     overflow: hidden;
     border: 1px solid var(--overlay-7);
     border-radius: 0.75rem;
-    background: var(--overlay-3);
+    background: var(--bg-main, #09090b);
     aspect-ratio: 16 / 9;
+    position: relative;
 }
 
 .hy-detail-camera img,
@@ -224,7 +225,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    background: var(--bg-main);
+    background: var(--bg-main, #09090b);
 }
 
 @media (max-width: 720px) {

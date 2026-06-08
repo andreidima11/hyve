@@ -190,10 +190,11 @@ async def whisper_status(
     
     Optional query params override config values (useful for testing before save).
     """
-    cfg = settings_mod.CFG.get("whisper", {})
+    from integrations import entry_settings
 
+    cfg = entry_settings.whisper_settings()
     _host = host or cfg.get("host", "localhost")
-    _port = port or cfg.get("port", 10300)
+    _port = port or int(cfg.get("port") or 10300)
 
     try:
         reader, writer = await asyncio.wait_for(
@@ -220,12 +221,14 @@ async def whisper_transcribe(
     import logging
     log = logging.getLogger("whisper")
 
-    cfg = settings_mod.CFG.get("whisper", {})
-    if not cfg.get("enabled"):
-        raise HTTPException(status_code=400, detail="Whisper is not enabled")
+    from integrations import entry_settings
+
+    cfg = entry_settings.whisper_settings()
+    if not cfg:
+        raise HTTPException(status_code=400, detail={"key": "integrations.whisper_disabled"})
 
     host = cfg.get("host", "localhost")
-    port = cfg.get("port", 10300)
+    port = int(cfg.get("port") or 10300)
     language = cfg.get("language", "ro")
 
     # Read uploaded audio

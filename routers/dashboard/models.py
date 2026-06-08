@@ -9,6 +9,7 @@ from routers.dashboard.constants import _DEFAULT_DASHBOARD_ICON, _DEFAULT_PAGE_T
 class DashboardWidgetBody(BaseModel):
     type: str = "button"
     entity_id: str = Field(min_length=1)
+    unique_id: str | None = None
     entity_name: str = ""
     title: str = ""
     panel_id: str | None = None
@@ -109,6 +110,7 @@ class DashboardWidgetRelocateBody(BaseModel):
 class DashboardWidgetUpdateBody(BaseModel):
     type: str | None = None
     entity_id: str | None = None
+    unique_id: str | None = None
     entity_name: str | None = None
     title: str | None = None
     panel_id: str | None = None

@@ -21,6 +21,7 @@
 import { t } from '../../js/lang/index.js';
 import { cameraPreferWebmPlayer } from '../../js/camera_live.js';
 import { cameraMediaUrl } from '../../js/camera_auth.js';
+import { cameraLoaderMarkup, hideCameraLoader, showCameraLoaderError, showCameraLoaderLoading } from '../../js/camera_loader.js';
 import { HyveviewCardBase } from '../core/card-base.js';
 import { widgetTitle } from '../host.js';
 import { HyveviewRegistry } from '../core/registry.js';
@@ -150,23 +151,24 @@ export class HyveviewCameraCard extends HyveviewCardBase {
     img.style.height = '100%';
     img.style.objectFit = 'cover';
     img.style.display = 'block';
+    img.style.opacity = '0';
+    img.style.transition = 'opacity 280ms ease';
     img.loading = 'lazy';
     img.decoding = 'async';
     img.referrerPolicy = 'no-referrer';
     body.appendChild(img);
     this._img = img;
 
-    const loader = document.createElement('div');
-    loader.className = 'hv-cam-loading';
-    loader.innerHTML = `<div class="hv-cam-spinner" aria-hidden="true"></div><span class="hv-cam-loading__label">${t('dashboard.loading')}</span>`;
-    body.appendChild(loader);
-    this._loader = loader;
+    const loaderWrap = document.createElement('div');
+    loaderWrap.innerHTML = cameraLoaderMarkup();
+    this._loader = loaderWrap.firstElementChild;
+    body.appendChild(this._loader);
 
     img.addEventListener('load', () => {
       if (img.src && img.naturalWidth > 0 && img.style.display !== 'none') this._setLoading(false);
     });
     img.addEventListener('error', () => {
-      if (img.style.display !== 'none') this._setLoading(true, t('entity.unavailable'));
+      if (img.style.display !== 'none') this._setLoading(true, true);
     });
 
     if (this._config.mode === 'snapshot') {
@@ -331,13 +333,18 @@ export class HyveviewCameraCard extends HyveviewCardBase {
     }, interval);
   }
 
-  _setLoading(on, label) {
+  _setLoading(on, isError = false) {
     if (!this._loader) return;
-    this._loader.classList.toggle('is-visible', !!on);
-    if (label) {
-      const lbl = this._loader.querySelector('.hv-cam-loading__label');
-      if (lbl) lbl.textContent = label;
+    if (!on) {
+      hideCameraLoader(this._loader);
+      if (this._img) this._img.style.opacity = '1';
+      if (this._video) this._video.style.opacity = '1';
+      return;
     }
+    if (isError === true) showCameraLoaderError(this._loader);
+    else showCameraLoaderLoading(this._loader);
+    if (this._img) this._img.style.opacity = '0';
+    if (this._video) this._video.style.opacity = '0';
   }
 
   _stopRefresh() {

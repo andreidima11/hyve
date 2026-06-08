@@ -7,6 +7,7 @@ from collections import OrderedDict
 from typing import Any, Dict, List, Optional
 
 import settings as settings_mod
+from integrations import entry_settings
 from logger import log_line
 
 _CORTEX_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -90,15 +91,15 @@ def _prompt_cache_config_snapshot() -> dict:
         "search_use_conversation_context": intel.get("search_use_conversation_context"),
         "skills_disabled": cfg.get("skills_disabled") or [],
         "tools": {
-            "searxng_enabled": (cfg.get("searxng") or {}).get("enabled"),
-            "searxng_url": (cfg.get("searxng") or {}).get("url", ""),
+            "searxng_enabled": bool(entry_settings.searxng_settings()),
+            "searxng_url": (entry_settings.searxng_settings().get("url") or ""),
             "file_read": (intel.get("file_read") or {}).get("enabled", True),
             "run_script": (intel.get("run_script") or {}).get("enabled", False),
             "shell": (intel.get("shell") or {}).get("enabled", False),
             "propose_patch": (intel.get("propose_patch") or {}).get("enabled", True),
             "restrict_mutating": sec.get("restrict_mutating_tools_on_untrusted_content", True),
-            "cctv": bool((cfg.get("cctv") or {}).get("enabled")),
-            "comfyui": bool((cfg.get("comfyui") or {}).get("enabled")),
+            "cctv": entry_settings.is_active("cctv"),
+            "comfyui": entry_settings.is_active("comfyui"),
             "coder": bool(
                 (cfg.get("coder") or {}).get("target_url", "").strip()
                 or (cfg.get("llm") or {}).get("target_url", "").strip()

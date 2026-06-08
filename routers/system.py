@@ -118,9 +118,11 @@ async def get_health(request: Request, db: Session = Depends(database.get_db)):
         health["scheduler"] = "running" if scheduler_service.scheduler.running else "stopped"
     except Exception:
         health["scheduler"] = "error"
-    waha_cfg = cfg.get("waha") or {}
-    health["waha"]["enabled"] = bool(waha_cfg.get("enabled"))
-    if health["waha"]["enabled"] and waha_cfg.get("api_url"):
+    from integrations import entry_settings
+
+    waha_cfg = entry_settings.waha_settings()
+    health["waha"]["enabled"] = bool(waha_cfg)
+    if waha_cfg.get("api_url"):
         try:
             r = await request.app.state.http_client.get(waha_cfg["api_url"].rstrip("/") + "/", timeout=2.5)
             health["waha"]["reachable"] = r.status_code < 500

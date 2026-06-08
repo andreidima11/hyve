@@ -5,6 +5,12 @@ from typing import Any
 
 from integrations.entity_utils import finalize_entities as _finalize
 
+_RE_MONTHS_RO = (
+    "ianuarie", "februarie", "martie", "aprilie", "mai", "iunie",
+    "iulie", "august", "septembrie", "octombrie", "noiembrie", "decembrie",
+)
+
+
 def _re_slug(pod_name):
     return re.sub(r"[^a-z0-9]+", "_", str(pod_name or "").lower()).strip("_") or "pod"
 

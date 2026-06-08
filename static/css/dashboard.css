@@ -3369,32 +3369,71 @@ html[data-dashboard-resizing="true"] * {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-    color: rgba(255, 255, 255, 0.85);
-    font-size: 0.78rem;
-    letter-spacing: 0.02em;
+    gap: 14px;
+    background: var(--bg-main, #09090b);
+    color: var(--text-secondary, rgba(255, 255, 255, 0.55));
     opacity: 0;
     pointer-events: none;
-    transition: opacity 180ms ease;
-    z-index: 1;
+    transition: opacity 260ms ease;
+    z-index: 2;
 }
 .hv-cam-loading.is-visible {
     opacity: 1;
 }
-.hv-cam-spinner {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 3px solid rgba(255, 255, 255, 0.15);
-    border-top-color: rgba(255, 255, 255, 0.9);
-    animation: hv-cam-spin 0.85s linear infinite;
+.hv-cam-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 8px;
+}
+.hv-cam-loader.hidden {
+    display: none;
+}
+.hv-cam-loader__dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.28;
+    animation: hv-cam-dot 1.15s ease-in-out infinite;
+}
+.hv-cam-loader__dot:nth-child(2) {
+    animation-delay: 0.16s;
+}
+.hv-cam-loader__dot:nth-child(3) {
+    animation-delay: 0.32s;
 }
 .hv-cam-loading__label {
-    opacity: 0.75;
+    margin: 0;
+    max-width: 88%;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 450;
+    line-height: 1.35;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    color: var(--text-tertiary, rgba(255, 255, 255, 0.42));
 }
-@keyframes hv-cam-spin {
-    to { transform: rotate(360deg); }
+.hv-cam-loading.is-error .hv-cam-loading__label {
+    color: var(--text-tertiary, rgba(255, 255, 255, 0.38));
+}
+.hy-camera-preview-media {
+    opacity: 0;
+    transition: opacity 320ms ease;
+}
+.hy-camera-preview-media.is-ready {
+    opacity: 1;
+}
+@keyframes hv-cam-dot {
+    0%, 70%, 100% {
+        opacity: 0.22;
+        transform: translateY(0) scale(0.92);
+    }
+    35% {
+        opacity: 0.95;
+        transform: translateY(-1px) scale(1);
+    }
 }
 
 /* ── Fusion Solar — HA Power Flow inspired (theme-aware) ─────────────── */

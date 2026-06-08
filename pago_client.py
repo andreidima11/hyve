@@ -548,22 +548,18 @@ async def init_client(email: str, password: str, cache_ttl: int = 3600) -> PagoC
 
 
 async def ensure_client():
-    """Initialize the client from current config if not already running."""
-    global _instance
-    if _instance is not None:
-        return _instance
-    import settings as settings_mod
-    cfg = settings_mod.CFG.get("pago") or {}
-    if not cfg.get("enabled"):
-        return None
-    email = cfg.get("email", "").strip()
-    password = cfg.get("password", "").strip()
-    if not email or not password:
+    """Deprecated — use config entries via integrations.entry_settings."""
+    from integrations import entry_settings
+
+    data = entry_settings.entry_data("pago")
+    email = (data.get("email") or "").strip()
+    password = (data.get("password") or "").strip()
+    if not entry_settings.is_active("pago") or not email or not password:
         return None
     if _looks_masked_secret(password):
         log.warning("Pago skipped: masked placeholder password detected. Re-enter the real password in Settings.")
         return None
-    return await init_client(email, password, cache_ttl=cfg.get("scan_interval", 3600))
+    return await init_client(email, password, cache_ttl=int(data.get("scan_interval") or 3600))
 
 
 def shutdown_client():

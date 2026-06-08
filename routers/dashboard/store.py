@@ -7,6 +7,7 @@ from typing import Any
 
 import settings
 from core import dashboard_store
+from integrations.entity_utils import resolve_entity_by_id
 from integrations.extractors import infer_source as _infer_source
 from routers.dashboard.constants import (
     STANDALONE_PANEL_ID,
@@ -289,11 +290,23 @@ def _normalize_widget_entity_records(value: Any) -> list[dict[str, str]]:
     result: list[dict[str, str]] = []
     seen: set[str] = set()
     for item in raw_items:
-        entity_id = str(item.get("entity_id") if isinstance(item, dict) else item or "").strip()
-        if not entity_id or entity_id in seen:
+        if isinstance(item, dict):
+            entity_id = str(item.get("entity_id") or "").strip()
+            unique_id = str(item.get("unique_id") or "").strip()
+        else:
+            entity_id = str(item or "").strip()
+            unique_id = ""
+        dedupe_key = unique_id or entity_id
+        if not dedupe_key or dedupe_key in seen:
             continue
-        seen.add(entity_id)
-        record = {"entity_id": entity_id}
+        seen.add(dedupe_key)
+        record: dict[str, str] = {}
+        if entity_id:
+            record["entity_id"] = entity_id
+        if unique_id:
+            record["unique_id"] = unique_id
+        if not record.get("entity_id") and unique_id:
+            record["entity_id"] = unique_id
         if isinstance(item, dict):
             title = str(item.get("title") or "").strip()
             subtitle = str(item.get("subtitle") or item.get("entity_name") or "").strip()
@@ -320,14 +333,20 @@ def _widget_entity_records(widget: dict[str, Any] | None) -> list[dict[str, str]
 
     def add(record: dict[str, str]) -> None:
         entity_id = str(record.get("entity_id") or "").strip()
-        if not entity_id or entity_id in seen:
+        unique_id = str(record.get("unique_id") or "").strip()
+        dedupe_key = unique_id or entity_id
+        if not dedupe_key or dedupe_key in seen:
             return
-        seen.add(entity_id)
+        seen.add(dedupe_key)
         records.append({key: value for key, value in record.items() if value})
 
     primary = str(widget.get("entity_id") or "").strip()
-    if primary:
-        add(configured_by_id.get(primary) or {"entity_id": primary})
+    primary_uid = str(widget.get("unique_id") or "").strip()
+    if primary or primary_uid:
+        base = configured_by_id.get(primary) or {"entity_id": primary}
+        if primary_uid:
+            base = {**base, "unique_id": primary_uid}
+        add(base)
     for record in configured:
         add(record)
     for entity_id in _normalize_widget_entity_ids(config.get("entity_ids")):
@@ -345,7 +364,146 @@ def _widget_entity_records(widget: dict[str, Any] | None) -> list[dict[str, str]
 
 
 def _widget_entity_ids(widget: dict[str, Any] | None) -> list[str]:
-    return [record["entity_id"] for record in _widget_entity_records(widget)]
+    refs: list[str] = []
+    for record in _widget_entity_records(widget):
+        for key in ("entity_id", "unique_id"):
+            value = str(record.get(key) or "").strip()
+            if value and value not in refs:
+                refs.append(value)
+    return refs
+
+
+def _resolve_primary_entity(
+    uid: str,
+    eid: str,
+    entity_map: dict[str, dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Resolve widget refs; ``entity_id`` wins when it points at a different entity."""
+    by_uid = resolve_entity_by_id(uid, entity_map) if uid else None
+    by_eid = resolve_entity_by_id(eid, entity_map) if eid else None
+    if by_uid and by_eid:
+        uid_eid = str(by_uid.get("entity_id") or "").strip()
+        eid_eid = str(by_eid.get("entity_id") or "").strip()
+        if uid_eid and eid_eid and uid_eid != eid_eid:
+            return by_eid
+        return by_uid
+    return by_uid or by_eid
+
+
+def _apply_primary_entity_ref(
+    target: dict[str, Any],
+    primary: dict[str, Any],
+) -> bool:
+    changed = False
+    new_uid = str(primary.get("unique_id") or "").strip()
+    new_eid = str(primary.get("entity_id") or "").strip()
+    if new_uid and target.get("unique_id") != new_uid:
+        target["unique_id"] = new_uid
+        changed = True
+    if new_eid and target.get("entity_id") != new_eid:
+        target["entity_id"] = new_eid
+        changed = True
+    return changed
+
+
+def _sync_widget_record_ref(
+    record: dict[str, Any],
+    entity_map: dict[str, dict[str, Any]],
+) -> bool:
+    uid = str(record.get("unique_id") or "").strip()
+    eid = str(record.get("entity_id") or "").strip()
+    primary = _resolve_primary_entity(uid, eid, entity_map)
+    if not primary:
+        return False
+    return _apply_primary_entity_ref(record, primary)
+
+
+def reconcile_widget_entity_refs(
+    widget: dict[str, Any],
+    entity_map: dict[str, dict[str, Any]],
+) -> bool:
+    """Align stored widget refs with the live catalog."""
+    if not isinstance(widget, dict) or not entity_map:
+        return False
+    changed = False
+
+    uid = str(widget.get("unique_id") or "").strip()
+    eid = str(widget.get("entity_id") or "").strip()
+    primary = _resolve_primary_entity(uid, eid, entity_map)
+    if primary and _apply_primary_entity_ref(widget, primary):
+        changed = True
+
+    config = widget.get("config")
+    if isinstance(config, dict):
+        entities = config.get("entities")
+        if isinstance(entities, list):
+            for record in entities:
+                if isinstance(record, dict) and _sync_widget_record_ref(record, entity_map):
+                    changed = True
+            if changed:
+                config["entity_ids"] = [
+                    str(record.get("entity_id") or "").strip()
+                    for record in entities
+                    if isinstance(record, dict) and record.get("entity_id")
+                ]
+        for key in (
+            "entity_load", "entity_grid", "entity_daily", "entity_monthly", "entity_yearly",
+            "entity_grid_export", "entity_grid_import", "entity_feed_in", "entity_consumption",
+        ):
+            slot_ref = str(config.get(key) or "").strip()
+            if not slot_ref:
+                continue
+            hit = resolve_entity_by_id(slot_ref, entity_map)
+            if hit and hit.get("entity_id") and config.get(key) != hit["entity_id"]:
+                config[key] = hit["entity_id"]
+                changed = True
+        power_entities = config.get("power_entities")
+        if isinstance(power_entities, list):
+            for record in power_entities:
+                if isinstance(record, dict) and _sync_widget_record_ref(record, entity_map):
+                    changed = True
+    return changed
+
+
+def sync_widget_entity_ref(
+    widget: dict[str, Any],
+    entity_map: dict[str, dict[str, Any]],
+) -> bool:
+    """Ensure widget entity_id/unique_id refer to the same live entity."""
+    if not isinstance(widget, dict):
+        return False
+    uid = str(widget.get("unique_id") or "").strip()
+    eid = str(widget.get("entity_id") or "").strip()
+    primary = _resolve_primary_entity(uid, eid, entity_map)
+    if primary:
+        return _apply_primary_entity_ref(widget, primary)
+    if eid and uid:
+        widget.pop("unique_id", None)
+        return True
+    return False
+
+
+def reconcile_dashboard_section(
+    section: dict[str, Any],
+    entity_items: list[dict[str, Any]],
+) -> bool:
+    entity_map = {}
+    for item in entity_items:
+        eid = item.get("entity_id")
+        if eid:
+            entity_map[eid] = item
+        uid = item.get("unique_id")
+        if uid and uid not in entity_map:
+            entity_map[uid] = item
+    changed = False
+    for panel in section.get("panels") or []:
+        widgets = panel.get("widgets")
+        if not isinstance(widgets, list):
+            continue
+        for widget in widgets:
+            if isinstance(widget, dict) and reconcile_widget_entity_refs(widget, entity_map):
+                changed = True
+    return changed
 
 
 def _apply_widget_patch(widget: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
@@ -364,6 +522,12 @@ def _apply_widget_patch(widget: dict[str, Any], patch: dict[str, Any]) -> dict[s
             updated["config"] = {**existing_config, **value}
         elif key in {"type", "entity_id", "entity_name", "title", "source", "icon", "color", "size", "renderer", "page_id"}:
             updated[key] = str(value).strip()
+        elif key == "unique_id":
+            val = str(value).strip()
+            if val:
+                updated["unique_id"] = val
+            else:
+                updated.pop("unique_id", None)
         elif key == "layout_column":
             normalized_column = _normalize_widget_layout_column(value)
             if normalized_column is None:

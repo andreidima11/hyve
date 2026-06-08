@@ -212,24 +212,56 @@ class MosquittoEntity(BaseEntity):
         await _publish(self.config_section(settings.CFG), topic, mqtt_payload)
         return {"status": "ok", "topic": topic, "payload": mqtt_payload}
 
-    async def rename_zigbee_device(self, current_name: str, new_name: str) -> dict[str, Any]:
+    async def rename_zigbee_device(
+        self,
+        current_name: str,
+        new_name: str,
+        *,
+        device_id: str | None = None,
+        homeassistant_rename: bool = True,
+    ) -> dict[str, Any]:
         """Ask Zigbee2MQTT to persistently rename a device.
 
         Z2M should write the new ``friendly_name`` to its own configuration,
         but Hyve still keeps a local override because broker publish success
         does not prove Z2M persisted the rename.
+
+        When ``homeassistant_rename`` is true, Z2M removes and republishes
+        HA discovery topics so entity IDs follow the new friendly name.
         """
         try:
             import aiomqtt  # noqa: F401
         except ImportError as exc:
             raise RuntimeError("aiomqtt nu este instalat.") from exc
         import settings as _settings
-        payload = json.dumps({"from": current_name, "to": new_name}, ensure_ascii=False)
+        from integrations import device_aliases
+
+        bridge = _bridge_mod.get_bridge(self.entry_id)
+        resolved_from = current_name
+        canonical = device_aliases.canonical_device_id(device_id or current_name)
+        if bridge is not None:
+            resolved_from = bridge.resolve_z2m_rename_from(canonical or device_id or "", current_name)
+        elif canonical:
+            resolved_from = canonical
+
+        payload_obj: dict[str, Any] = {
+            "from": resolved_from,
+            "to": new_name,
+        }
+        if homeassistant_rename:
+            payload_obj["homeassistant_rename"] = True
+        payload = json.dumps(payload_obj, ensure_ascii=False)
         await _publish(
             self.config_section(_settings.CFG),
             "zigbee2mqtt/bridge/request/device/rename",
             payload,
         )
-        return {"status": "ok", "topic": "zigbee2mqtt/bridge/request/device/rename", "payload": payload}
+        return {
+            "status": "ok",
+            "topic": "zigbee2mqtt/bridge/request/device/rename",
+            "payload": payload,
+            "from": resolved_from,
+            "homeassistant_rename": bool(homeassistant_rename),
+        }
 
 

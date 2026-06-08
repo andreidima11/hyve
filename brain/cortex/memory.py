@@ -13,6 +13,7 @@ from logger import log_line, log_detail
 from storage import collection
 from brain.synapses import append_event, EVENT_ADDED, EVENT_UPDATED
 from memory_context import get_memory_context, clean_text
+from brain.cortex.llm import _get_aux_or_main_llm
 from brain.cortex.thinking import strip_think
 
 UPDATE_MEMORY_PROMPT = """You are a smart memory manager which controls the memory of a system.

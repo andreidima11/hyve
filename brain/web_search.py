@@ -471,6 +471,18 @@ def _searxng_defaults() -> dict:
     return (defaults.get("searxng") or {}) if isinstance(defaults, dict) else {}
 
 
+def _searxng_build_search_url(url_template: str, query: str) -> str:
+    """Build a SearXNG search URL from a base URL or legacy <query> template."""
+    if "%3Cquery%3E" in url_template:
+        return url_template.replace("%3Cquery%3E", urllib.parse.quote(query))
+    if "<query>" in url_template:
+        return url_template.replace("<query>", urllib.parse.quote(query))
+    base = url_template.split("?")[0].rstrip("/")
+    if not base.endswith("/search"):
+        base = f"{base}/search"
+    return f"{base}?q={urllib.parse.quote(query)}"
+
+
 def _is_snippet_quality_good(snippet: str, title: str = "") -> bool:
     if not snippet or len(snippet.strip()) < 50:
         return False
@@ -747,9 +759,11 @@ async def searxng_search(query: str, max_results: int = 0) -> Tuple[Optional[str
     cached = _search_cache_get(query)
     if cached is not None:
         return cached[0], cached[1], []
-    searxng = settings_mod.CFG.get("searxng", {})
+    from integrations import entry_settings
+
+    searxng = entry_settings.searxng_settings()
     status_messages: List[str] = []
-    if not searxng.get("enabled") or not searxng.get("url"):
+    if not searxng.get("url"):
         return None, status_messages, []
     defaults = _searxng_defaults()
     if max_results <= 0:
@@ -759,14 +773,7 @@ async def searxng_search(query: str, max_results: int = 0) -> Tuple[Optional[str
     if search_timeout != base_timeout:
         log_line("ha", "⏱️", "ADAPTIVE_TIMEOUT", f"Timeout: {search_timeout:.1f}s (complex query)")
     try:
-        url_template = searxng["url"]
-        if "%3Cquery%3E" in url_template:
-            search_url = url_template.replace("%3Cquery%3E", urllib.parse.quote(query))
-        elif "<query>" in url_template:
-            search_url = url_template.replace("<query>", urllib.parse.quote(query))
-        else:
-            base = url_template.split("?")[0]
-            search_url = f"{base}?q={urllib.parse.quote(query)}&format=json"
+        search_url = _searxng_build_search_url(searxng["url"], query)
         # Engine selection: prefer engines that consistently return
         # *relevant* general-web results on typical self-hosted SearXNG instances.
         # (Bing / Google / Brave / Wikipedia often return empty or garbage
@@ -930,22 +937,17 @@ async def searxng_search(query: str, max_results: int = 0) -> Tuple[Optional[str
 
 async def searxng_search_images(query: str, max_results: int = 6) -> Tuple[Optional[str], List[str]]:
     query = _normalize_search_query(query or "")
-    searxng = settings_mod.CFG.get("searxng", {})
+    from integrations import entry_settings
+
+    searxng = entry_settings.searxng_settings()
     status_messages: List[str] = []
-    if not searxng.get("enabled") or not searxng.get("url"):
+    if not searxng.get("url"):
         return None, status_messages
     defaults = _searxng_defaults()
     search_timeout = float(searxng.get("search_timeout", defaults.get("search_timeout", 10)))
     max_results = max(1, min(10, int(max_results)))
     try:
-        url_template = searxng["url"]
-        if "%3Cquery%3E" in url_template:
-            base_url = url_template.replace("%3Cquery%3E", urllib.parse.quote(query))
-        elif "<query>" in url_template:
-            base_url = url_template.replace("<query>", urllib.parse.quote(query))
-        else:
-            base = url_template.split("?")[0]
-            base_url = f"{base}?q={urllib.parse.quote(query)}"
+        base_url = _searxng_build_search_url(searxng["url"], query)
         search_url = f"{base_url}&format=json&categories=images" if "?" in base_url else f"{base_url}?format=json&categories=images"
         default_img_engines = searxng.get("image_engines") or "duckduckgo images,qwant images,wikicommons.images"
         if "engines=" not in search_url:

@@ -148,6 +148,7 @@ def _bus_handler_id(definition_id: str, trigger_index: int) -> str:
 def _subscribe_state_trigger(definition_id: str, trigger_index: int, trigger: dict) -> None:
     """Register an event-bus handler that fires the automation when the
     target entity transitions in a way that matches the trigger spec."""
+    from core.entity_refs import entity_ref_matches
     from core.state_observer import TOPIC_STATE_CHANGED, TOPIC_MQTT_ACTION
     target_entity = trigger.get("entity_id")
     platform = trigger.get("platform")
@@ -165,7 +166,7 @@ def _subscribe_state_trigger(definition_id: str, trigger_index: int, trigger: di
             log_detail("automation", "BUS_DISPATCH_ERROR", automation_id=definition_id, error=str(exc))
 
     def _handle(payload: dict) -> None:
-        if payload.get("entity_id") != target_entity:
+        if not entity_ref_matches(str(target_entity or ""), str(payload.get("entity_id") or "")):
             return
         if platform == "state":
             old = str(payload.get("old_state") or "").strip().lower()
@@ -222,7 +223,7 @@ def _subscribe_state_trigger(definition_id: str, trigger_index: int, trigger: di
         want_to = (trigger.get("to") or "").strip().lower()
 
         def _handle_action(payload: dict) -> None:
-            if payload.get("entity_id") != target_entity:
+            if not entity_ref_matches(str(target_entity or ""), str(payload.get("entity_id") or "")):
                 return
             action_val = str(payload.get("action") or "").strip().lower()
             if want_to and action_val != want_to:

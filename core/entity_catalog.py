@@ -134,14 +134,40 @@ def build_entities_uncached(
             log.warning("derived entity evaluation failed: %s", exc, exc_info=exc)
 
     try:
+        from core import entity_registry
+
+        entity_registry.sync_entities(merged)
+    except Exception as exc:
+        log.warning("entity registry apply failed: %s", exc, exc_info=exc)
+
+    try:
         from integrations import device_aliases
+        from integrations.source_aliases import device_config_slugs_for_entity_source
 
         by_slug: dict[str, list[dict[str, Any]]] = {}
         for ent in merged:
             by_slug.setdefault(str(ent.get("source") or ""), []).append(ent)
-        for slug, items in by_slug.items():
-            if slug:
-                device_aliases.apply_to_entities(slug, items)
+        applied: set[tuple[str, str]] = set()
+        for entity_source, items in by_slug.items():
+            if not entity_source:
+                continue
+            for config_slug in device_config_slugs_for_entity_source(entity_source):
+                key = (entity_source, config_slug)
+                if key in applied:
+                    continue
+                applied.add(key)
+                try:
+                    from core import device_registry
+
+                    device_registry.apply_to_entities(config_slug, items)
+                except Exception as exc:
+                    log.debug(
+                        "device registry apply failed for %s via %s: %s",
+                        entity_source,
+                        config_slug,
+                        exc,
+                    )
+                device_aliases.apply_to_entities(config_slug, items)
     except Exception as exc:
         log.warning("device alias apply failed: %s", exc, exc_info=exc)
 

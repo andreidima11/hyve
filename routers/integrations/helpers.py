@@ -76,8 +76,16 @@ async def ensure_fetcher(slug: str, store) -> bool:
     return False
 
 
-def group_entities_into_devices(entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def group_entities_into_devices(
+    entities: list[dict[str, Any]],
+    *,
+    integration_slug: str = "",
+) -> list[dict[str, Any]]:
     """Group a flat entity list by ``device_id`` (with sane fallbacks)."""
+    import re
+
+    ieee_re = re.compile(r"^0x[0-9a-fA-F]{16}$")
+    alias_slug = (integration_slug or "").strip()
     groups: dict[tuple[str, str], dict[str, Any]] = {}
     order: list[tuple[str, str]] = []
     for ent in entities:
@@ -92,17 +100,37 @@ def group_entities_into_devices(entities: list[dict[str, Any]]) -> list[dict[str
         entry_id = str(ent.get("entry_id") or "")
         gkey = (entry_id, did)
         if gkey not in groups:
+            alias_name = None
+            if alias_slug:
+                try:
+                    from integrations import device_aliases
+
+                    alias_name = device_aliases.get_alias(
+                        alias_slug,
+                        device_aliases.canonical_device_id(did) or did,
+                    )
+                except Exception:
+                    alias_name = None
+            raw_device_name = str(
+                ent.get("device_name") or attrs.get("device_name") or ""
+            ).strip()
+            if alias_name and (
+                not raw_device_name or bool(ieee_re.match(raw_device_name))
+            ):
+                display_name = alias_name
+            else:
+                display_name = (
+                    raw_device_name
+                    or alias_name
+                    or ent.get("name")
+                    or did
+                )
             order.append(gkey)
             groups[gkey] = {
                 "device_id": did,
                 "entry_id": entry_id,
                 "entry_title": ent.get("entry_title") or "",
-                "name": (
-                    ent.get("device_name")
-                    or attrs.get("device_name")
-                    or ent.get("name")
-                    or did
-                ),
+                "name": display_name,
                 "model": ent.get("device_model") or attrs.get("device_model") or "",
                 "manufacturer": (
                     ent.get("device_manufacturer")

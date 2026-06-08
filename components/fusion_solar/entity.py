@@ -104,10 +104,7 @@ class FusionSolarEntity(BaseEntity):
     async def _ensure_entry_client(self):
         """Return a persistent FusionSolar client for this config entry."""
         if not self.entry_data:
-            client = await fusion_solar_client.ensure_client()
-            if not client:
-                raise ValueError("FusionSolar is not configured")
-            return client
+            raise ValueError("FusionSolar is not configured — add a config entry")
 
         key = self.entry_id or self.store_key
         d = self.entry_data

@@ -10,6 +10,7 @@ import { isAdmin } from './user_context.js';
 let _currentLogSlug = null;
 let _pollTimer = null;
 let _openSlug = null;          // which addon detail is expanded
+let _addonUiSlug = null;       // embedded Web UI viewer
 
 // Tailwind can't detect dynamic class names — use static map.
 const _colorMap = {
@@ -43,10 +44,35 @@ function _uptime(sec) {
     return `${h}h ${m}m`;
 }
 
+function _canUseIngressWebUi(addon) {
+    const webUi = addon?.web_ui || {};
+    if (!Object.keys(webUi).length || webUi.ingress === false) return false;
+
+    const cfg = addon?.state?.config || {};
+    const directUrl = `${cfg[webUi.url_key || ''] || ''}`.trim();
+    if (directUrl) {
+        try {
+            const parsed = new URL(directUrl);
+            return ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname);
+        } catch (_) {
+            return false;
+        }
+    }
+
+    const rawHost = `${webUi.host ?? cfg[webUi.host_key || 'host'] ?? cfg.host ?? 'localhost'}`.trim().toLowerCase();
+    if (!rawHost || rawHost.includes('://')) return false;
+    return ['localhost', '127.0.0.1', '::1'].includes(rawHost);
+}
+
 function _buildAddonWebUrl(addon) {
     const webUi = addon?.web_ui || {};
     const cfg = addon?.state?.config || {};
     if (!Object.keys(webUi).length) return '';
+
+    if (_canUseIngressWebUi(addon)) {
+        const slug = encodeURIComponent(addon.slug || '');
+        return `/api/addons/${slug}/ui/open`;
+    }
 
     const directUrl = `${cfg[webUi.url_key || ''] || ''}`.trim();
     if (directUrl) return directUrl;
@@ -161,7 +187,7 @@ function _renderConfigSection(addon, isAdmin) {
         <div class="flex flex-wrap gap-2">
             ${isAdmin ? `<button type="button" data-config-action="saveAddonConfig" data-config-slug="${escapeHtml(addon.slug)}" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent text-bg-main hover:bg-accent-hover transition-all shadow-lg shadow-accent/20"><i class="fas fa-save mr-1.5"></i>${escapeHtml(t('apps.save_config'))}</button>` : ''}
             ${isAdmin ? `<button type="button" data-config-action="testAddonHealth" data-config-slug="${escapeHtml(addon.slug)}" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] transition-all"><i class="fas fa-heart-pulse mr-1.5"></i>${escapeHtml(t('apps.test_connection'))}</button>` : ''}
-            ${webUrl ? `<button type="button" data-config-action="openAddonWebUI" data-config-slug="${escapeHtml(addon.slug)}" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-all"><i class="fas fa-up-right-from-square mr-1.5"></i>${escapeHtml(t('apps.open_web_ui'))}</button>` : ''}
+            ${webUrl ? `<button type="button" data-config-action="openAddonWebUI" data-config-slug="${escapeHtml(addon.slug)}" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-all"><i class="fas fa-display mr-1.5"></i>${escapeHtml(t('apps.open_web_ui'))}</button>` : ''}
         </div>
     </div>`;
 }
@@ -820,14 +846,105 @@ export async function testAddonHealth(slug) {
     }
 }
 
-export function openAddonWebUI(slug) {
-    const addon = _addonsCache.find(a => a.slug === slug);
-    const url = _buildAddonWebUrl(addon);
-    if (!url) {
+function _buildAddonUiEmbedUrl(slug) {
+    const encoded = encodeURIComponent(slug || '');
+    const base = `/api/addons/${encoded}/ui/`;
+    const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('hyve_token') || '') : '';
+    if (!token) return base;
+    return `${base}?token=${encodeURIComponent(token)}`;
+}
+
+function _restoreConfigHeader() {
+    const titleEl = document.getElementById('current-view-title');
+    if (!titleEl || titleEl.dataset.addonUiActive !== '1') return;
+    delete titleEl.dataset.addonUiActive;
+    titleEl.classList.remove('flex', 'items-center', 'gap-2', 'min-w-0');
+    titleEl.classList.add('truncate');
+    titleEl.setAttribute('data-i18n', 'nav.config');
+    titleEl.textContent = t('nav.config');
+}
+
+function _setAddonUiHeader(addon) {
+    const titleEl = document.getElementById('current-view-title');
+    if (!titleEl) return;
+    titleEl.dataset.addonUiActive = '1';
+    titleEl.removeAttribute('data-i18n');
+    titleEl.classList.remove('truncate');
+    titleEl.classList.add('flex', 'items-center', 'gap-2', 'min-w-0');
+    titleEl.innerHTML = `
+        <button type="button" data-config-action="closeAddonWebUI"
+            class="min-w-[36px] min-h-[36px] w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-slate-500 hover:text-slate-300 hover:bg-white/[0.03] transition-all touch-manipulation"
+            aria-label="${escapeHtml(t('common.back'))}">
+            <i class="fas fa-arrow-left text-sm"></i>
+        </button>
+        <span class="truncate normal-case tracking-normal text-sm sm:text-base font-semibold text-slate-300">${escapeHtml(addon?.name || addon?.slug || '')}</span>
+    `;
+}
+
+export function closeAddonWebUI() {
+    _addonUiSlug = null;
+    document.body.classList.remove('addon-ui-sidebar-active');
+    const viewer = document.getElementById('addon-ui-viewer');
+    const frame = document.getElementById('addon-ui-frame');
+    const viewConfig = document.getElementById('view-config');
+    if (viewer) {
+        viewer.classList.remove('open');
+        viewer.setAttribute('aria-hidden', 'true');
+    }
+    if (frame) {
+        frame.removeAttribute('src');
+        frame.src = 'about:blank';
+        frame.title = '';
+    }
+    if (viewConfig) {
+        viewConfig.classList.remove('overflow-hidden');
+    }
+    _restoreConfigHeader();
+}
+
+function _prepareAddonUiOverlay() {
+    const viewConfig = document.getElementById('view-config');
+    if (viewConfig) {
+        viewConfig.scrollTop = 0;
+        viewConfig.classList.add('overflow-hidden');
+    }
+    document.querySelector('#app-main-wrap .flex-1')?.scrollTo?.(0, 0);
+}
+
+export async function openAddonWebUI(slug) {
+    let addon = _addonsCache.find(a => a.slug === slug);
+    if (!addon) {
+        try {
+            const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}`);
+            if (res.ok) addon = await res.json();
+        } catch (_) { /* ignore */ }
+    }
+    if (!addon || !_buildAddonWebUrl(addon)) {
         showToast(t('apps.configure_web_ui_first'), 'warning');
         return;
     }
-    window.open(url, '_blank', 'noopener,noreferrer');
+
+    if (!_canUseIngressWebUi(addon)) {
+        let url = _buildAddonWebUrl(addon);
+        window.open(url, '_blank', 'noopener,noreferrer');
+        return;
+    }
+
+    const viewer = document.getElementById('addon-ui-viewer');
+    const frame = document.getElementById('addon-ui-frame');
+    if (!viewer || !frame) {
+        window.open(_buildAddonUiEmbedUrl(slug), '_blank', 'noopener,noreferrer');
+        return;
+    }
+
+    _addonUiSlug = slug;
+    _prepareAddonUiOverlay();
+    _setAddonUiHeader(addon);
+    frame.title = addon.name || slug;
+    viewer.classList.add('open');
+    viewer.setAttribute('aria-hidden', 'false');
+    frame.src = _buildAddonUiEmbedUrl(slug);
+    _stopPoll();
 }
 
 // ── background poll ─────────────────────────────────────────────────────

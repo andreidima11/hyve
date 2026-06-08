@@ -11,7 +11,12 @@ function _inConfigScope(el) {
 }
 
 function _run(action, el, event) {
-    if (!_handlers || !_inConfigScope(el)) return;
+    if (!_handlers) return;
+    if (action === 'closeAddonWebUI') {
+        _handlers.closeAddonWebUI?.(event, el);
+        return;
+    }
+    if (!_inConfigScope(el)) return;
     if (el.dataset.configBackdropDismiss === 'true' && event.target !== el) return;
 
     switch (action) {
@@ -143,6 +148,9 @@ function _run(action, el, event) {
         return;
     case 'openAddonWebUI':
         _handlers.openAddonWebUI?.(el.dataset.configSlug || '', event, el);
+        return;
+    case 'closeAddonWebUI':
+        _handlers.closeAddonWebUI?.(event, el);
         return;
     case 'testAddonHealth':
         _handlers.testAddonHealth?.(el.dataset.configSlug || '', event, el);

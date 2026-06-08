@@ -20,9 +20,14 @@ async def exec_get_pago_data(args: Dict[str, Any]) -> str:
     if category not in CATEGORIES:
         return f"Invalid category '{category}'. Choose from: {', '.join(sorted(CATEGORIES))}"
 
-    client = await pago_client.ensure_client()
-    if not client:
+    from integrations import entry_settings
+
+    data = entry_settings.entry_data("pago")
+    email = (data.get("email") or "").strip()
+    password = (data.get("password") or "").strip()
+    if not entry_settings.is_active("pago") or not email or not password:
         return "Pago integration is not configured or disabled. Ask the user to enable it in Settings → Integrations."
+    client = pago_client.PagoClient(email, password, cache_ttl=int(data.get("scan_interval") or 3600))
 
     try:
         if category == "all":

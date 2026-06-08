@@ -190,8 +190,10 @@ def _runtime_network_enabled() -> bool:
     """True when generated skills are allowed to run with network policy at runtime."""
     try:
         import settings as _settings
-        searxng_cfg = _settings.CFG.get("searxng") or {}
-        return bool(searxng_cfg.get("enabled") and (searxng_cfg.get("url") or "").strip())
+        from integrations import entry_settings
+
+        searxng_cfg = entry_settings.searxng_settings()
+        return bool(searxng_cfg.get("url"))
     except Exception:
         return False
 
@@ -528,29 +530,23 @@ def _build_create_prompt(
     snippets = _load_snippets()
     # SearXNG: when enabled + allow_network → skills must use app-injected _search_web, not direct HTTP
     try:
-        import settings as _settings
-        searxng_cfg = _settings.CFG.get("searxng") or {}
-        searxng_enabled = bool(searxng_cfg.get("enabled"))
+        from integrations import entry_settings
+
+        searxng_cfg = entry_settings.searxng_settings()
         searxng_url = (searxng_cfg.get("url") or "").strip()
-        if not searxng_enabled or not searxng_url or not allow_network:
+        if not searxng_url or not allow_network:
             snippets.pop("searxng_http", None)
             snippets.pop("search_via_app", None)
         elif allow_network:
-            # Force Forge to use search_via_app only (no URL/auth in skill)
             snippets.pop("searxng_http", None)
+        if snippets.get("searxng_http") and searxng_url:
+            snippets["searxng_http"] = snippets["searxng_http"].replace(
+                "{{SEARXNG_APP_URL}}",
+                searxng_url,
+            )
     except Exception:
         snippets.pop("searxng_http", None)
         snippets.pop("search_via_app", None)
-    try:
-        import settings as _settings
-        searxng_cfg = _settings.CFG.get("searxng") or {}
-        if snippets.get("searxng_http") and (searxng_cfg.get("url") or "").strip():
-            snippets["searxng_http"] = snippets["searxng_http"].replace(
-                "{{SEARXNG_APP_URL}}",
-                (searxng_cfg.get("url") or "").strip(),
-            )
-    except Exception:
-        pass
     snippets_block = ""
     if snippets:
         snippets_block = "\n\nOPTIONAL SNIPPETS (use if relevant; adapt to your class):\n" + "\n---\n".join(

@@ -29,6 +29,12 @@
 
 import { cameraGo2rtcWsUrl, cameraMseCodecs } from '../../js/camera_live.js';
 import { cameraMediaUrl } from '../../js/camera_auth.js';
+import {
+  cameraLoaderMarkup,
+  hideCameraLoader,
+  showCameraLoaderError,
+  showCameraLoaderLoading,
+} from '../../js/camera_loader.js';
 
 const DEFAULT_INTERVAL = 10;
 
@@ -188,7 +194,9 @@ class HyveCameraStream extends HTMLElement {
       video.style.height = '100%';
       video.style.objectFit = 'cover';
       video.style.display = 'none';
-      video.addEventListener('loadeddata', () => { this.dataset.state = 'ready'; });
+      video.style.opacity = '0';
+      video.style.transition = 'opacity 280ms ease';
+      video.addEventListener('loadeddata', () => { this._setState('ready'); });
       video.addEventListener('error', () => this._fallbackFromMse());
       this.appendChild(video);
       this._video = video;
@@ -198,7 +206,7 @@ class HyveCameraStream extends HTMLElement {
     this._video.style.display = 'block';
     this._img.dataset.streamMode = 'live-go2rtc';
     this._img.dataset.entityId = this._entity;
-    this.dataset.state = 'loading';
+    this._setState('loading');
 
     const mediaSource = new MediaSource();
     this._mseObjectUrl = URL.createObjectURL(mediaSource);
@@ -227,7 +235,7 @@ class HyveCameraStream extends HTMLElement {
         clearTimeout(this._mseFallbackTimer);
         this._mseFallbackTimer = null;
       }
-      this.dataset.state = 'ready';
+      this._setState('ready');
     }, { once: true });
     this._mseFallbackTimer = setTimeout(() => this._fallbackFromMse(), 9000);
     this._ws = new WebSocket(cameraGo2rtcWsUrl(this._entity));
@@ -266,13 +274,42 @@ class HyveCameraStream extends HTMLElement {
     this._video.play().catch(() => {});
   }
 
+  _setState(state) {
+    this.dataset.state = state;
+    const loader = this._loader;
+    if (state === 'ready') {
+      hideCameraLoader(loader);
+      if (this._img) this._img.style.opacity = '1';
+      if (this._video) this._video.style.opacity = '1';
+      return;
+    }
+    if (state === 'loading') {
+      showCameraLoaderLoading(loader);
+      if (this._img) this._img.style.opacity = '0';
+      if (this._video) this._video.style.opacity = '0';
+      return;
+    }
+    if (state === 'error') {
+      showCameraLoaderError(loader);
+      if (this._img) this._img.style.opacity = '0';
+      if (this._video) this._video.style.opacity = '0';
+      return;
+    }
+    hideCameraLoader(loader);
+  }
+
   _build() {
     this.dataset.state = 'idle';
     this.style.display = 'block';
     this.style.width = '100%';
     this.style.height = '100%';
     this.style.position = 'relative';
-    this.style.background = '#000';
+    this.style.background = 'var(--bg-main, #09090b)';
+
+    const loaderWrap = document.createElement('div');
+    loaderWrap.innerHTML = cameraLoaderMarkup();
+    this._loader = loaderWrap.firstElementChild;
+    this.appendChild(this._loader);
 
     const img = document.createElement('img');
     img.alt = this.getAttribute('alt') || this._entity || 'camera';
@@ -283,8 +320,12 @@ class HyveCameraStream extends HTMLElement {
     img.style.height = '100%';
     img.style.objectFit = 'cover';
     img.style.display = 'block';
-    img.addEventListener('load', () => { this.dataset.state = 'ready'; });
-    img.addEventListener('error', () => { this.dataset.state = 'error'; });
+    img.style.opacity = '0';
+    img.style.transition = 'opacity 280ms ease';
+    img.addEventListener('load', () => {
+      if (img.naturalWidth > 0) this._setState('ready');
+    });
+    img.addEventListener('error', () => { this._setState('error'); });
     this.appendChild(img);
     this._img = img;
   }
@@ -308,7 +349,9 @@ class HyveCameraStream extends HTMLElement {
       video.style.height = '100%';
       video.style.objectFit = 'cover';
       video.style.display = 'none';
-      video.addEventListener('loadeddata', () => { this.dataset.state = 'ready'; });
+      video.style.opacity = '0';
+      video.style.transition = 'opacity 280ms ease';
+      video.addEventListener('loadeddata', () => { this._setState('ready'); });
       video.addEventListener('error', () => this._startMjpegLive());
       this.appendChild(video);
       this._video = video;
@@ -339,7 +382,7 @@ class HyveCameraStream extends HTMLElement {
     this._video.style.display = 'block';
     this._img.dataset.streamMode = 'live-webm';
     this._img.dataset.entityId = this._entity;
-    this.dataset.state = 'loading';
+    this._setState('loading');
     _playUrl(this._entity).then((url) => {
       if (this._video && this.isConnected) this._video.src = url;
     }).catch(() => this._fallbackFromMse());
@@ -360,7 +403,7 @@ class HyveCameraStream extends HTMLElement {
     if (this._img.dataset.streamMode === 'live' && this._img.dataset.entityId === this._entity) return;
     this._img.dataset.streamMode = 'live';
     this._img.dataset.entityId = this._entity;
-    this.dataset.state = 'loading';
+    this._setState('loading');
     const onStreamError = () => {
       this._img?.removeEventListener('error', onStreamError);
       if (!this.isConnected || this._mode !== 'live') return;
@@ -390,10 +433,10 @@ class HyveCameraStream extends HTMLElement {
     // snapshot mode (HTTP-only cameras)
     this._img.dataset.streamMode = 'snapshot';
     this._img.dataset.entityId = this._entity;
-    if (this.dataset.state !== 'ready') this.dataset.state = 'loading';
+    if (this.dataset.state !== 'ready') this._setState('loading');
     _snapshotUrl(this._entity).then((url) => {
       if (this._img && this.isConnected) this._img.src = url;
-    }).catch(() => { this.dataset.state = 'error'; });
+    }).catch(() => { this._setState('error'); });
     const ms = Math.max(2, this._interval) * 1000;
     if (this._refreshTimer) clearInterval(this._refreshTimer);
     this._refreshTimer = setInterval(() => {
@@ -421,7 +464,7 @@ class HyveCameraStream extends HTMLElement {
         this._img.style.display = 'block';
       }
     }
-    if (this.dataset.state === 'loading') this.dataset.state = 'idle';
+    if (this.dataset.state === 'loading') this._setState('idle');
   }
 }
 

@@ -58,6 +58,10 @@ export function loadAreas() {
     return _handlers.loadAreas?.();
 }
 
+export function closeAddonWebUI() {
+    return _handlers.closeAddonWebUI?.();
+}
+
 export function loadSessionsList() {
     return _handlers.loadSessionsList?.();
 }

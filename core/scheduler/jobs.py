@@ -51,8 +51,10 @@ def run_automation(job_id):
             import skills as skills_mod
             # Inject SearXNG URL so sandboxed skills can make web requests
             allow_network = False
-            searxng = settings_mod.CFG.get("searxng") or {}
-            if searxng.get("enabled") and (searxng.get("url") or "").strip():
+            from integrations import entry_settings
+
+            searxng = entry_settings.searxng_settings()
+            if searxng.get("url"):
                 skill_input["_searxng_url"] = searxng["url"].strip()
                 allow_network = True
             result = skills_mod.run_skill(skill_name, skill_input, allow_network=allow_network)

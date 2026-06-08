@@ -1,6 +1,6 @@
 import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive, refreshIntegrationsSettingsView, loadNotificationPrefs, loadAutomations, checkAddonUpdates, toggleVoiceRecording } from './features.js';
 import { loadUserProfilePage } from './user_profile.js';
-import { loadPlanner, loadApps, loadScenes, loadAreas, populateAppTab } from './nav_bridge.js';
+import { loadPlanner, loadApps, loadScenes, loadAreas, populateAppTab, closeAddonWebUI } from './nav_bridge.js';
 import { loadDashboard, dashboardHasRenderedContent, resetDashboardEditingState, disconnectDashboardLive, initDashboardSidebarNav } from './dashboard.js';
 import { applyDashboardEditAccess } from './dashboard/edit_access.js';
 import { closeAllSubPages } from './utils.js';
@@ -65,12 +65,22 @@ export function isSidebarOpen() {
     return !!(sb && !sb.classList.contains('-translate-x-full'));
 }
 
+function _syncAddonUiSidebarState(open) {
+    const viewer = document.getElementById('addon-ui-viewer');
+    if (viewer) {
+        viewer.classList.toggle('sidebar-open', open);
+    }
+    const viewerOpen = viewer?.classList.contains('open');
+    document.body.classList.toggle('addon-ui-sidebar-active', open && viewerOpen);
+}
+
 export function openSidebar() {
     const { sb, backdrop } = _sidebarElements();
     if (!sb) return;
     sb.classList.add('transitioning');
     sb.classList.remove('-translate-x-full');
     if (backdrop) backdrop.classList.add('visible');
+    _syncAddonUiSidebarState(true);
     
     // Remove transitioning class after animation completes
     setTimeout(() => {
@@ -84,6 +94,7 @@ export function closeSidebar() {
     sb.classList.add('transitioning');
     sb.classList.add('-translate-x-full');
     if (backdrop) backdrop.classList.remove('visible');
+    _syncAddonUiSidebarState(false);
     
     // Remove transitioning class after animation completes
     setTimeout(() => {
@@ -214,6 +225,7 @@ export function switchTab(tabId, options = {}) {
         _dashboardReturnRetryTimer = null;
     }
 
+    closeAddonWebUI();
     closeAllSubPages();
     if (tabId !== 'dashboard') {
         try { disconnectDashboardLive(); } catch (_) {}
@@ -461,14 +473,7 @@ export function openConfigSection(section) {
         if (titleEl) titleEl.textContent = t(_configSectionTitles[section] || section);
         if (subtitleEl) subtitleEl.textContent = _configSectionSubtitles[section] ? t(_configSectionSubtitles[section]) : '';
 
-        // Save button for legacy sections that still use explicit persistence.
-        if (actionsEl) {
-            if (['integrations'].includes(section)) {
-                actionsEl.innerHTML = `<button type="button" data-config-action="saveConfig" class="bg-accent text-bg-main px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold hover:bg-accent-hover transition-all shadow-lg shadow-accent/20 min-h-[36px] sm:min-h-[44px] touch-manipulation" data-i18n="config.save_button">Save</button>`;
-            } else {
-                actionsEl.innerHTML = '';
-            }
-        }
+        if (actionsEl) actionsEl.innerHTML = '';
 
         // Move the cfg-tab panel into standalone body
         const panelId = _sectionPanelIds[section] || `cfg-tab-${section}`;
@@ -502,6 +507,7 @@ export function openConfigSection(section) {
 }
 
 export function closeConfigSection() {
+    closeAddonWebUI();
     // Stop log SSE stream when leaving the config section
     stopLogStream();
 

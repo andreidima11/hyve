@@ -187,9 +187,11 @@ async def piper_status(
     user=Depends(get_current_user),
 ):
     """Check if the Piper server is reachable."""
-    cfg = settings_mod.CFG.get("piper", {})
+    from integrations import entry_settings
+
+    cfg = entry_settings.piper_settings()
     _host = host or cfg.get("host", "localhost")
-    _port = port or cfg.get("port", 10200)
+    _port = port or int(cfg.get("port") or 10200)
 
     try:
         reader, writer = await asyncio.wait_for(
@@ -231,15 +233,17 @@ def _wav_to_opus(wav_bytes: bytes) -> bytes:
 @router.post("/synthesize")
 async def synthesize(req: SynthesizeRequest, user=Depends(get_current_user)):
     """Synthesize text to speech, returns WAV or Opus audio."""
-    cfg = settings_mod.CFG.get("piper", {})
-    if not cfg.get("enabled"):
-        raise HTTPException(status_code=400, detail="Piper TTS is not enabled")
+    from integrations import entry_settings
+
+    cfg = entry_settings.piper_settings()
+    if not cfg:
+        raise HTTPException(status_code=400, detail={"key": "integrations.piper_disabled"})
 
     host = cfg.get("host", "localhost")
-    port = cfg.get("port", 10200)
+    port = int(cfg.get("port") or 10200)
     voice = req.voice or cfg.get("voice", "ro_RO-mihai-medium")
-    speaker_id = req.speaker_id if req.speaker_id is not None else cfg.get("speaker_id", 0)
-    length_scale = req.length_scale if req.length_scale is not None else float(cfg.get("length_scale", "1.0"))
+    speaker_id = req.speaker_id if req.speaker_id is not None else int(cfg.get("speaker_id") or 0)
+    length_scale = req.length_scale if req.length_scale is not None else float(cfg.get("length_scale") or "1.0")
     out_format = (req.format or "wav").lower()
 
     try:

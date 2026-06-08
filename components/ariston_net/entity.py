@@ -46,10 +46,7 @@ class AristonNetEntity(BaseEntity):
                 password,
                 cache_ttl=int(d.get("scan_interval") or 180),
             )
-        client = await ariston_net_client.ensure_client()
-        if not client:
-            raise ValueError("AristonNET is not configured")
-        return client
+        raise ValueError("AristonNET is not configured — add a config entry")
 
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.probe_source()
@@ -79,7 +76,4 @@ class AristonNetEntity(BaseEntity):
                 username, password, cache_ttl=int(d.get("scan_interval") or 180),
             )
             return await client.control_entity(entity_id, action, data)
-        client = await ariston_net_client.ensure_client()
-        if not client:
-            raise ValueError("AristonNET is not configured")
-        return await client.control_entity(entity_id, action, data)
+        raise ValueError("AristonNET is not configured — add a config entry")

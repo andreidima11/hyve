@@ -1162,6 +1162,17 @@ main.flex-1 {
     pointer-events: auto;
 }
 
+/* Addon Web UI overlay (z-index 55) — lift sidebar above it when menu is open on mobile */
+@media (max-width: 1023px) {
+    body.addon-ui-sidebar-active #sidebar-backdrop {
+        z-index: 58;
+    }
+
+    body.addon-ui-sidebar-active #sidebar {
+        z-index: 59;
+    }
+}
+
 /* Desktop: add subtle blur only on large screens where GPU can handle it */
 @media (min-width: 1024px) {
     #sidebar-backdrop {

@@ -59,8 +59,9 @@ async def _exec_cctv_describe(arguments: Dict[str, Any]) -> str:
     camera_id = (arguments.get("camera_id") or "").strip()
     if not camera_id:
         return "Error: camera_id is required."
-    cctv_cfg = settings_mod.CFG.get("cctv") or {}
-    cameras = cctv_cfg.get("cameras") or []
+    from integrations import entry_settings
+
+    cameras = entry_settings.cctv_cameras()
     cam = None
     cid_lower = camera_id.lower()
     for c in cameras:

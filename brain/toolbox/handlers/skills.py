@@ -64,8 +64,10 @@ async def _exec_run_skill(args: Dict, user_id: str) -> str:
         skill_input = {"query": args.get("input")}
     # Inject SearXNG URL as plain data so sandboxed skills can use urllib for web search
     allow_network = False
-    searxng = settings_mod.CFG.get("searxng") or {}
-    if searxng.get("enabled") and (searxng.get("url") or "").strip():
+    from integrations import entry_settings
+
+    searxng = entry_settings.searxng_settings()
+    if searxng.get("url"):
         skill_input["_searxng_url"] = searxng["url"].strip()
         allow_network = True
 

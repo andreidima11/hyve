@@ -31,8 +31,7 @@ function _stripForTTS(text) {
         const bubble = content.closest('.chat-bubble');
         if (!bubble) return;
         // Only if Piper is enabled
-        const piperEl = document.getElementById('piper_enabled');
-        if (!piperEl || !piperEl.checked) return;
+        if (!this._isPiperOn()) return;
 
         const sel = window.getSelection();
         const selText = sel ? sel.toString().trim() : '';
@@ -84,8 +83,11 @@ const _tts = {
     _streamRunId: 0,
 
     _isPiperOn() {
-        const pip = document.getElementById('piper_enabled');
-        return !!(pip && pip.checked);
+        for (const id of ['piper_enabled', 'integrations-piper-enabled']) {
+            const pip = document.getElementById(id);
+            if (pip && pip.type === 'checkbox') return !!pip.checked;
+        }
+        return false;
     },
     _getSynthUrl() {
         return '/api/piper/synthesize';

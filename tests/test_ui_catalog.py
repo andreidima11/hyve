@@ -59,7 +59,7 @@ def test_integration_catalog_marks_config_schema_availability():
     by_slug = {entry["slug"]: entry for entry in entries}
 
     assert "piper" in by_slug
-    assert by_slug["piper"]["has_config_schema"] is False
+    assert by_slug["piper"]["has_config_schema"] is True
 
     assert "mosquitto" in by_slug
     assert by_slug["mosquitto"]["has_config_schema"] is True

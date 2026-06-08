@@ -1,9 +1,10 @@
 import { apiCall } from './api.js';
 import { getCameraStreamToken, cameraProxyUrlSync, startCameraPreviewRefresh, stopCameraPreviewRefresh } from './camera_auth.js';
+import { cameraLoaderMarkup, bindCameraPreviewLoaders } from './camera_loader.js';
 import { t, tState, applyTranslations } from './lang/index.js';
 import { escapeHtml, escapeHtmlAttr, showToast, showConfirm, debounce } from './utils.js';
 import { cameraPreferWebmPlayer } from './camera_live.js';
-import { renderEntityModal, getDomainIcon } from './entity_renderers.js';
+import { renderEntityRegistrySection, wireEntityRegistryEditor } from './entity_renderers.js';
 import { entityMatchesIntegration } from './integration_sources.js';
 import { ACTIVE_STATES, CONTROLLABLE } from './entity_constants.js';
 
@@ -1334,9 +1335,9 @@ export async function openRowActionsModal(entityId) {
             <div class="hy-detail-titlebox">
                 <div class="hy-detail-kicker"><i class="fas ${sourceMeta.icon}"></i>${escapeHtml(sourceMeta.label || entity.source || 'Unknown')}</div>
                 <h3>${escapeHtml(entity.name || entity.entity_id)}</h3>
-                <p class="mono">${escapeHtml(entity.entity_id)}</p>
             </div>
         </div>
+        ${renderEntityRegistrySection(entity)}
         <div class="hy-detail-status-row">
             <div class="hy-detail-status ${['unavailable', 'unknown', 'offline'].includes(stateLower) ? 'is-offline' : ACTIVE_STATES.includes(stateLower) ? 'is-active' : ''}">
                 <span>${escapeHtml(t('hy.detail_state'))}</span>
@@ -1362,7 +1363,22 @@ export async function openRowActionsModal(entityId) {
     if (modal.parentNode !== document.body) document.body.appendChild(modal);
     modal.classList.remove('hidden');
     modal.classList.add('flex');
+    wireEntityRegistryEditor(body, entity, {
+        onUpdated: ({ oldEntityId, newEntityId, uniqueId }) => {
+            const idx = _integrationEntitiesCache.findIndex(
+                (e) => e.entity_id === oldEntityId || (uniqueId && e.unique_id === uniqueId),
+            );
+            if (idx >= 0) {
+                _integrationEntitiesCache[idx].entity_id = newEntityId;
+                _devicesVisibleEntityCache.delete(oldEntityId);
+                _devicesVisibleEntityCache.set(newEntityId, _integrationEntitiesCache[idx]);
+            }
+            _haRowActionsEntityId = newEntityId;
+            openRowActionsModal(newEntityId);
+        },
+    });
     startCameraPreviewRefresh();
+    bindCameraPreviewLoaders(body);
     _wireCameraPreviewMute();
 }
 
@@ -1386,8 +1402,9 @@ function _cameraPreviewMarkup(entity, attrs) {
     const playUrl = cameraPreferWebmPlayer(attrs) ? _cameraProxyUrl(entity.entity_id, 'play') : '';
     if (playUrl) {
         const muted = !hasAudio;
-        return `<div class="hy-detail-camera relative">
-            <video src="${escapeHtmlAttr(playUrl)}" ${muted ? 'muted' : ''} autoplay playsinline controls data-camera-live-webm></video>
+        return `<div class="hy-detail-camera relative" data-camera-preview-shell>
+            ${cameraLoaderMarkup()}
+            <video src="${escapeHtmlAttr(playUrl)}" ${muted ? 'muted' : ''} autoplay playsinline controls data-camera-live-webm class="hy-camera-preview-media"></video>
             <button type="button" data-camera-mute-toggle class="absolute left-2 bottom-2 z-10 px-2 py-1 rounded-lg bg-black/60 text-white text-sm border-0 cursor-pointer" title="${escapeHtmlAttr(t('entity.render.sound'))}">${muted ? '🔇' : '🔊'}</button>
         </div>`;
     }
@@ -1397,13 +1414,15 @@ function _cameraPreviewMarkup(entity, attrs) {
     const videoUrl = attrs.stream_url || attrs.preview_url || '';
     if (imageUrl) {
         const shouldRefresh = proxyMode === 'snapshot';
-        return `<div class="hy-detail-camera">
-            <img src="${escapeHtmlAttr(_cacheBustCameraUrl(imageUrl))}" data-camera-src="${escapeHtmlAttr(imageUrl)}" data-camera-refresh="${shouldRefresh ? 'true' : 'false'}" alt="${escapeHtmlAttr(entity.name || entity.entity_id || 'Camera')}" loading="eager">
+        return `<div class="hy-detail-camera" data-camera-preview-shell>
+            ${cameraLoaderMarkup()}
+            <img src="${escapeHtmlAttr(_cacheBustCameraUrl(imageUrl))}" data-camera-src="${escapeHtmlAttr(imageUrl)}" data-camera-refresh="${shouldRefresh ? 'true' : 'false'}" alt="${escapeHtmlAttr(entity.name || entity.entity_id || 'Camera')}" loading="eager" class="hy-camera-preview-media">
         </div>`;
     }
     if (videoUrl) {
-        return `<div class="hy-detail-camera">
-            <video src="${escapeHtmlAttr(videoUrl)}" autoplay muted playsinline controls></video>
+        return `<div class="hy-detail-camera" data-camera-preview-shell>
+            ${cameraLoaderMarkup()}
+            <video src="${escapeHtmlAttr(videoUrl)}" autoplay muted playsinline controls class="hy-camera-preview-media"></video>
         </div>`;
     }
     return '';
@@ -1415,8 +1434,9 @@ function _imagePreviewMarkup(entity, attrs) {
     if (!hasImage) return '';
     const proxyUrl = _imageProxyUrl(entity.entity_id);
     if (!proxyUrl) return '';
-    return `<div class="hy-detail-camera">
-        <img src="${escapeHtmlAttr(_cacheBustCameraUrl(proxyUrl))}" data-camera-src="${escapeHtmlAttr(proxyUrl)}" data-camera-refresh="true" alt="${escapeHtmlAttr(entity.name || entity.entity_id || 'Image')}" loading="eager">
+    return `<div class="hy-detail-camera" data-camera-preview-shell>
+        ${cameraLoaderMarkup()}
+        <img src="${escapeHtmlAttr(_cacheBustCameraUrl(proxyUrl))}" data-camera-src="${escapeHtmlAttr(proxyUrl)}" data-camera-refresh="true" alt="${escapeHtmlAttr(entity.name || entity.entity_id || 'Image')}" loading="eager" class="hy-camera-preview-media">
     </div>`;
 }
 

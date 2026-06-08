@@ -9,6 +9,7 @@
 // Integration entity controls are wired via integrations/event_bindings.js.
 
 import { escapeHtml } from './utils.js';
+import { apiCall } from './api.js';
 import { t, tState } from './lang/index.js';
 import { cameraLiveTransport } from './camera_live.js';
 import { getCameraStreamToken, cameraProxyUrlSync, cameraGo2rtcWsUrlSync } from './camera_auth.js';
@@ -94,9 +95,13 @@ function _cameraGo2rtcWsUrl(entityId) {
 function _cameraLoaderMarkup(message) {
     const msg = message || _er('loading_image');
     return `
-        <div class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 text-slate-300 transition-opacity duration-300" data-camera-loader>
-            <div class="w-9 h-9 rounded-full border-2 border-white/10 border-t-accent animate-spin"></div>
-            <div class="text-[11px] uppercase tracking-widest text-slate-400">${escapeHtml(msg)}</div>
+        <div class="absolute inset-0 flex flex-col items-center justify-center gap-3.5 hv-cam-loading is-visible" data-camera-loader>
+            <div class="hv-cam-loader" aria-hidden="true">
+                <span class="hv-cam-loader__dot"></span>
+                <span class="hv-cam-loader__dot"></span>
+                <span class="hv-cam-loader__dot"></span>
+            </div>
+            <div class="hv-cam-loading__label text-[11px]">${escapeHtml(msg)}</div>
         </div>`;
 }
 
@@ -178,15 +183,18 @@ if (typeof window !== 'undefined' && !customElements.get('hyve-camera-live-playe
             this.dataset.loading = 'false';
             media?.classList?.remove('opacity-0');
             media?.classList?.add('opacity-100');
-            this.querySelector('[data-camera-loader]')?.classList.add('opacity-0', 'pointer-events-none');
+            const loader = this.querySelector('[data-camera-loader]');
+            if (loader) loader.classList.remove('is-visible', 'is-error');
         }
 
         _unavailable() {
             this.dataset.loading = 'failed';
             const loader = this.querySelector('[data-camera-loader]');
             if (loader) {
-                loader.classList.remove('opacity-0', 'pointer-events-none');
-                loader.innerHTML = `<i class="fas fa-video-slash text-xl text-slate-500"></i><div class="text-[11px] uppercase tracking-widest text-slate-400">${escapeHtml(_er('camera_unavailable'))}</div>`;
+                loader.classList.add('is-visible', 'is-error');
+                loader.querySelector('.hv-cam-loader')?.classList.add('hidden');
+                const label = loader.querySelector('.hv-cam-loading__label');
+                if (label) label.textContent = _er('camera_unavailable');
             }
         }
 
@@ -359,7 +367,7 @@ if (typeof window !== 'undefined' && !window.__hyveCameraFrameReady) {
         frame.dataset.loading = 'false';
         img.classList.remove('opacity-0');
         img.classList.add('opacity-100');
-        frame.querySelector('[data-camera-loader]')?.classList.add('opacity-0', 'pointer-events-none');
+        frame.querySelector('[data-camera-loader]')?.classList.remove('is-visible', 'is-error');
     };
 }
 
@@ -375,8 +383,10 @@ if (typeof window !== 'undefined' && !window.__hyveCameraFrameFailed) {
             frame.dataset.loading = 'failed';
             const loader = frame.querySelector('[data-camera-loader]');
             if (loader) {
-                loader.classList.remove('opacity-0', 'pointer-events-none');
-                loader.innerHTML = `<i class="fas fa-video-slash text-xl text-slate-500"></i><div class="text-[11px] uppercase tracking-widest text-slate-400">${escapeHtml(_er('camera_unavailable'))}</div>`;
+                loader.classList.add('is-visible', 'is-error');
+                loader.querySelector('.hv-cam-loader')?.classList.add('hidden');
+                const label = loader.querySelector('.hv-cam-loading__label');
+                if (label) label.textContent = _er('camera_unavailable');
             }
         }
     };
@@ -445,6 +455,158 @@ function renderHero(entity) {
             <div class="hy-entity-hero-sub mono">${subline}</div>
         </div>
     </div>`;
+}
+
+export function entityUniqueId(entity) {
+    if (!entity || typeof entity !== 'object') return '';
+    const attrs = entity.attributes && typeof entity.attributes === 'object' ? entity.attributes : {};
+    return String(entity.unique_id || attrs.registry_unique_id || attrs.unique_id || '').trim();
+}
+
+function splitEntityId(entityId) {
+    const raw = String(entityId || '').trim().toLowerCase();
+    if (!raw || !raw.includes('.')) {
+        return { domain: 'sensor', objectId: raw.replace(/\./g, '_') };
+    }
+    const [domain, ...rest] = raw.split('.');
+    return { domain: domain || 'sensor', objectId: rest.join('.') };
+}
+
+function slugifyObjectId(value) {
+    return String(value || '').trim().toLowerCase()
+        .replace(/[^a-z0-9_]+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '') || 'unknown';
+}
+
+export function renderEntityRegistrySection(entity) {
+    const uid = entityUniqueId(entity);
+    const eid = String(entity?.entity_id || '').trim();
+    const { domain, objectId } = splitEntityId(eid);
+    const canEdit = !!uid;
+    return `
+    <div class="rounded-2xl bg-white/5 border border-white/10 p-3 mb-3" data-entity-registry-root>
+        <div class="flex items-center gap-2 text-[9px] uppercase tracking-widest text-slate-500">
+            <span>${escapeHtml(_er('entity_id'))}</span>
+            ${canEdit ? `<button type="button" data-entity-registry-edit class="hover:text-accent transition-colors" title="${escapeHtml(_er('entity_id'))}">
+                <i class="fas fa-pen text-[10px]"></i>
+            </button>` : ''}
+        </div>
+        <div data-entity-registry-view class="mt-1">
+            <div class="text-sm font-semibold text-slate-100 mono break-all leading-snug" data-entity-registry-display>${escapeHtml(eid)}</div>
+            ${uid ? `<div class="text-[9px] text-slate-500 mono break-all mt-1 leading-snug">${escapeHtml(_er('unique_id'))}: ${escapeHtml(uid)}</div>` : ''}
+        </div>
+        <div data-entity-registry-edit-panel class="hidden mt-2 flex flex-col gap-2">
+            <div class="flex items-center gap-1.5">
+                <span class="text-[11px] mono text-slate-400 shrink-0">${escapeHtml(domain)}.</span>
+                <input type="text" data-entity-registry-object-id value="${_attr(objectId)}"
+                    class="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-slate-100 mono focus:outline-none focus:border-accent/40">
+                <button type="button" data-entity-registry-save class="px-2 py-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent text-[11px] font-semibold hover:bg-accent/30 shrink-0">
+                    <i class="fas fa-check"></i>
+                </button>
+                <button type="button" data-entity-registry-cancel class="px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-[11px] hover:bg-white/10 shrink-0">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <p class="text-[10px] text-slate-500 leading-snug">${escapeHtml(_er('entity_id_hint'))}</p>
+        </div>
+    </div>`;
+}
+
+export async function saveEntityRegistryId(entity, objectIdInput) {
+    const uid = entityUniqueId(entity);
+    if (!uid) throw new Error('missing unique_id');
+    const { domain } = splitEntityId(entity.entity_id);
+    const objectId = slugifyObjectId(objectIdInput);
+    const nextEntityId = `${domain}.${objectId}`;
+    if (nextEntityId === entity.entity_id) return { entry: null, entity_id: nextEntityId, unchanged: true };
+
+    const res = await apiCall(
+        `/api/integrations/entities/registry/${encodeURIComponent(uid)}`,
+        { method: 'PATCH', body: { entity_id: nextEntityId } },
+    );
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw new Error(out.detail || out.message || _er('entity_id_save_failed'));
+    }
+    return {
+        entry: out.entry || null,
+        entity_id: out.entry?.entity_id || nextEntityId,
+        unchanged: false,
+    };
+}
+
+export function wireEntityRegistryEditor(container, entity, options = {}) {
+    if (!container || !entity) return;
+    const root = container.querySelector('[data-entity-registry-root]');
+    if (!root) return;
+
+    const uid = entityUniqueId(entity);
+    if (!uid) return;
+
+    const view = root.querySelector('[data-entity-registry-view]');
+    const panel = root.querySelector('[data-entity-registry-edit-panel]');
+    const display = root.querySelector('[data-entity-registry-display]');
+    const input = root.querySelector('[data-entity-registry-object-id]');
+    const editBtn = root.querySelector('[data-entity-registry-edit]');
+    const saveBtn = root.querySelector('[data-entity-registry-save]');
+    const cancelBtn = root.querySelector('[data-entity-registry-cancel]');
+
+    const showView = () => {
+        view?.classList.remove('hidden');
+        panel?.classList.add('hidden');
+    };
+    const showEdit = () => {
+        view?.classList.add('hidden');
+        panel?.classList.remove('hidden');
+        input?.focus();
+        input?.select();
+    };
+
+    if (editBtn) editBtn.onclick = showEdit;
+    if (cancelBtn) cancelBtn.onclick = showView;
+
+    const submit = async () => {
+        if (!input || saveBtn?.disabled) return;
+        const oldEntityId = entity.entity_id;
+        if (saveBtn) saveBtn.disabled = true;
+        try {
+            const result = await saveEntityRegistryId(entity, input.value || '');
+            if (result.unchanged) {
+                showView();
+                return;
+            }
+            entity.entity_id = result.entity_id;
+            if (display) display.textContent = result.entity_id;
+            const { domain, objectId } = splitEntityId(result.entity_id);
+            if (input) input.value = objectId;
+            showView();
+            options.onUpdated?.({
+                entity,
+                oldEntityId,
+                newEntityId: result.entity_id,
+                uniqueId: uid,
+                entry: result.entry,
+            });
+            if (typeof options.toast !== 'false') {
+                const { showToast } = await import('./utils.js');
+                showToast(_er('entity_id_updated'), 'success', 2200);
+            }
+        } catch (err) {
+            const { showToast } = await import('./utils.js');
+            showToast(err?.message || _er('entity_id_save_failed'), 'error', 3200);
+        } finally {
+            if (saveBtn) saveBtn.disabled = false;
+        }
+    };
+
+    if (saveBtn) saveBtn.onclick = submit;
+    if (input) {
+        input.onkeydown = (ev) => {
+            if (ev.key === 'Enter') { ev.preventDefault(); submit(); }
+            else if (ev.key === 'Escape') { ev.preventDefault(); showView(); }
+        };
+    }
 }
 
 function renderSwitch(entity, slug) {
@@ -724,6 +886,7 @@ export function renderEntityModal(entity, slug) {
     const domain = String(entity.domain || '').toLowerCase();
     const renderer = RENDERERS[domain];
     let body = renderHero(entity);
+    body += renderEntityRegistrySection(entity);
     if (renderer) {
         try { body += renderer(entity, slug) || ''; } catch (e) { console.warn('renderer failed', e); }
     }

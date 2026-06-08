@@ -32,8 +32,10 @@ router = APIRouter(tags=["webhooks"])
 @router.post("/api/webhook/waha")
 @limiter.limit("60/minute")
 async def waha_hook(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(database.get_db)):
+    from integrations import entry_settings
+
     cfg = settings.CFG
-    if not cfg.get("waha", {}).get("enabled"):
+    if not entry_settings.is_active("waha"):
         return {"status": "ignored"}
 
     # HMAC signature verification is mandatory when WAHA is enabled.

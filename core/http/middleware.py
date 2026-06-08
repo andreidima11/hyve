@@ -114,22 +114,36 @@ def register_http_middleware(app: FastAPI) -> None:
     @app.middleware("http")
     async def security_headers_and_api_version(request: Request, call_next):
         response = await call_next(request)
+        path = request.url.path or ""
+        addon_ingress = path.startswith("/api/addons/") and "/ui" in path
+
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-API-Version"] = "1"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(self), geolocation=()"
         response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
-            "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.jsdelivr.net; "
-            "img-src 'self' data: blob:; "
-            "media-src 'self' blob:; "
-            "connect-src 'self'; "
-            "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com https://cdn.jsdelivr.net; "
-            "frame-ancestors 'none'"
-        )
+
+        if addon_ingress:
+            # Allow embedding proxied addon UIs in Hyve's same-origin iframe shell.
+            response.headers["X-Frame-Options"] = "SAMEORIGIN"
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; "
+                "connect-src 'self' ws: wss:; "
+                "img-src 'self' data: blob:; "
+                "frame-ancestors 'self'"
+            )
+        else:
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+                "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.jsdelivr.net; "
+                "img-src 'self' data: blob:; "
+                "media-src 'self' blob:; "
+                "connect-src 'self'; "
+                "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com https://cdn.jsdelivr.net; "
+                "frame-ancestors 'none'"
+            )
         return response
 
     @app.exception_handler(RateLimitExceeded)

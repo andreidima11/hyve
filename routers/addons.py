@@ -14,13 +14,15 @@ Provides:
 """
 
 import json
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket
 from fastapi.responses import StreamingResponse
 
 import auth
+import database
 import models
 from addons import registry
 from addons import process_manager
+from addons import ingress as addon_ingress
 
 router = APIRouter(prefix="/api/addons", tags=["addons"])
 
@@ -28,6 +30,22 @@ router = APIRouter(prefix="/api/addons", tags=["addons"])
 def _require_admin(user: models.User = Depends(auth.get_current_user)):
     if not user.is_admin:
         raise HTTPException(403, "Admin only")
+
+
+async def _authenticate_ingress_admin(request, slug: str) -> models.User:
+    db = next(database.get_db())
+    try:
+        token = None
+        if hasattr(request, "query_params"):
+            token = request.query_params.get("token")
+        user = await addon_ingress.authenticate_ingress_request(
+            request, slug, db=db, token=token,
+        )
+        if not user.is_admin:
+            raise HTTPException(status_code=403, detail={"key": "common.admin_required"})
+        return user
+    finally:
+        db.close()
 
 
 def _sync_integration_enabled(slug: str, enabled: bool):
@@ -53,6 +71,35 @@ async def list_addons(user: models.User = Depends(auth.get_current_user)):
 async def all_process_statuses(user: models.User = Depends(auth.get_current_user)):
     """Get process status for all addons that have a start_command."""
     return await process_manager.get_all_statuses_async()
+
+
+@router.get("/{slug}/ui/open")
+async def open_addon_ui(slug: str, request: Request):
+    """Set a short-lived ingress cookie and redirect to the proxied Web UI."""
+    user = await _authenticate_ingress_admin(request, slug)
+    return addon_ingress.open_ingress_session(slug, user)
+
+
+@router.api_route("/{slug}/ui", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"])
+@router.api_route("/{slug}/ui/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"])
+async def proxy_addon_ui_http(
+    slug: str,
+    request: Request,
+    path: str = "",
+):
+    user = await _authenticate_ingress_admin(request, slug)
+    return await addon_ingress.proxy_http(request, slug, path, user)
+
+
+@router.websocket("/{slug}/ui")
+@router.websocket("/{slug}/ui/{path:path}")
+async def proxy_addon_ui_ws(slug: str, websocket: WebSocket, path: str = ""):
+    try:
+        user = await _authenticate_ingress_admin(websocket, slug)
+    except HTTPException:
+        await websocket.close(code=1008, reason="auth required")
+        return
+    await addon_ingress.proxy_websocket(websocket, slug, path, user)
 
 
 @router.get("/{slug}")

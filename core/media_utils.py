@@ -37,7 +37,9 @@ async def waha_download_media_as_base64(
     """Download WAHA media and return base64 for images only."""
     if not media_url or not (mimetype or "").startswith("image/"):
         return None
-    waha_cfg = cfg.get("waha") or {}
+    from integrations import entry_settings
+
+    waha_cfg = entry_settings.waha_settings() or {}
     api_url = waha_cfg.get("api_url") or ""
     media_url = waha_media_url_reachable(media_url, api_url)
     try:
@@ -121,7 +123,9 @@ async def waha_send_image(
     log_line: Callable[[str, str, str, str], None],
 ) -> str:
     """Send an image via WAHA. Returns ok, plus_required, or error."""
-    waha_cfg = cfg.get("waha") or {}
+    from integrations import entry_settings
+
+    waha_cfg = entry_settings.waha_settings() or {}
     api_url = (waha_cfg.get("api_url") or "").rstrip("/")
     if not api_url:
         return "error"

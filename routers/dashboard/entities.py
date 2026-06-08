@@ -92,24 +92,32 @@ def _hydrate_widgets(widgets: list[dict[str, Any]], entity_items: list[dict[str,
             entity_map[uid] = item
     result: list[dict[str, Any]] = []
     for widget in widgets:
-        entity = resolve_entity_by_id(str(widget.get("entity_id") or ""), entity_map) or {}
+        uid = str(widget.get("unique_id") or "").strip()
+        eid = str(widget.get("entity_id") or "").strip()
+        entity = resolve_entity_by_id(uid, entity_map) if uid else {}
+        if not entity and eid:
+            entity = resolve_entity_by_id(eid, entity_map) or {}
         hydrated_entities: list[dict[str, Any]] = []
         for entity_record in _widget_entity_records(widget):
-            entity_id = entity_record["entity_id"]
-            item = resolve_entity_by_id(entity_id, entity_map) or {}
+            record_uid = str(entity_record.get("unique_id") or "").strip()
+            record_eid = str(entity_record.get("entity_id") or "").strip()
+            item = resolve_entity_by_id(record_uid, entity_map) if record_uid else {}
+            if not item and record_eid:
+                item = resolve_entity_by_id(record_eid, entity_map) or {}
+            live_eid = str(item.get("entity_id") or record_eid or record_uid)
             hydrated_entities.append({
-                "entity_id": entity_id,
+                "entity_id": live_eid,
+                "unique_id": str(item.get("unique_id") or record_uid or ""),
                 "title": entity_record.get("title") or "",
                 "subtitle": entity_record.get("subtitle") or "",
-                "entity_name": item.get("name") or entity_id,
+                "entity_name": item.get("name") or live_eid,
                 "current_state": item.get("state", "unknown"),
-                "domain": item.get("domain") or entity_domain(entity_id),
+                "domain": item.get("domain") or entity_domain(live_eid),
                 "available": bool(item),
                 "unit": item.get("unit") or "",
                 "attributes": item.get("attributes") or {},
                 "controllable": bool(item.get("controllable", _widget_renderer(widget) == "button")),
-                "source": item.get("source") or _infer_source(entity_id, item.get("name") or entity_id),
-                "unique_id": item.get("unique_id") or "",
+                "source": item.get("source") or _infer_source(live_eid, item.get("name") or live_eid),
                 "entry_id": item.get("entry_id") or "",
             })
         visibility = _widget_visibility_config(widget)
@@ -120,6 +128,8 @@ def _hydrate_widgets(widgets: list[dict[str, Any]], entity_items: list[dict[str,
         resolved_source = str(entity.get("source") or "").strip()
         hydrated = {
             **widget,
+            "entity_id": str(entity.get("entity_id") or widget.get("entity_id") or ""),
+            "unique_id": str(entity.get("unique_id") or widget.get("unique_id") or ""),
             "current_state": entity.get("state", "unknown"),
             "domain": entity.get("domain") or widget.get("domain") or "switch",
             "available": bool(entity),
@@ -180,6 +190,9 @@ def _panel_entity_ids(panels: list[dict[str, Any]]) -> set[str]:
             entity_id = str(widget.get("entity_id") or "").strip()
             if entity_id:
                 ids.add(entity_id)
+            unique_id = str(widget.get("unique_id") or "").strip()
+            if unique_id:
+                ids.add(unique_id)
             ids.update(_widget_entity_ids(widget))
     return ids
 

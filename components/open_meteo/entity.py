@@ -87,12 +87,7 @@ class OpenMeteoEntity(BaseEntity):
                 precipitation_unit=str(d.get("precipitation_unit") or "mm"),
             )
             return await client.fetch_all(force=force)
-        if force:
-            return await open_meteo_client.fetch_all_locations(force=True)
-        client = await open_meteo_client.ensure_client()
-        if not client:
-            raise ValueError("Open Meteo is not configured")
-        return await client.fetch_all(force=False)
+        raise ValueError("Open Meteo is not configured — add a config entry")
 
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.probe_source()

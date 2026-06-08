@@ -93,11 +93,17 @@ def _expand_entity_id_aliases(
 
 
 def _primary_widget_entity_id(widget: dict[str, Any]) -> str:
+    primary_uid = str(widget.get("unique_id") or "").strip()
+    if primary_uid:
+        return primary_uid
     primary = str(widget.get("entity_id") or "").strip()
     if primary:
         return primary
     records = _widget_entity_records(widget)
     if records:
+        rec_uid = str(records[0].get("unique_id") or "").strip()
+        if rec_uid:
+            return rec_uid
         return str(records[0].get("entity_id") or "").strip()
     return ""
 
@@ -141,10 +147,9 @@ async def toggle_dashboard_widget(
     if not entity_id:
         raise HTTPException(status_code=400, detail={"key": "dashboard.api.widget_missing_entity"})
 
-    # Non-HA entities (Mosquitto/Z2M, etc.) — route through integration manager.
-    source = str(widget.get("source") or "").strip().lower()
-    entity_snapshot: dict[str, Any] | None = None
     entity_snapshot = resolve_entity_by_id(entity_id, entity_items)
+    control_entity_id = str((entity_snapshot or {}).get("entity_id") or entity_id).strip()
+    source = str(widget.get("source") or "").strip().lower()
     if entity_snapshot:
         source = str(entity_snapshot.get("source") or source).strip().lower()
     manager = dash.get_integration_manager()
@@ -182,9 +187,16 @@ async def toggle_dashboard_widget(
         )
         payload = body.data if body and isinstance(body.data, dict) else None
         try:
-            from core.device_control import control_entity
+            from core.device_control import SOURCE_SLUG_ALIASES, control_entity
 
-            result = await control_entity(entity_id, action, payload, entity=entity_snapshot)
+            slug_hint = SOURCE_SLUG_ALIASES.get(resolved_source, resolved_source) or None
+            result = await control_entity(
+                control_entity_id,
+                action,
+                payload,
+                entity=entity_snapshot,
+                slug_hint=slug_hint,
+            )
         except NotImplementedError as exc:
             raise HTTPException(status_code=501, detail=str(exc))
         except (ValueError, TypeError) as exc:

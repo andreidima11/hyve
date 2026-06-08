@@ -175,7 +175,11 @@ export function renderSchemaForm(container, schema, initialValues = {}) {
             const o = document.createElement('option'); o.value = row.entity_id; o.textContent = `${row.entity_id} (offline)`; sel.appendChild(o);
           }
           sel.value = row.entity_id || '';
-          sel.addEventListener('change', () => { _rows[idx].entity_id = sel.value; });
+          sel.addEventListener('change', () => {
+            _rows[idx].entity_id = sel.value;
+            const ent = matches.find((e) => e.entity_id === sel.value);
+            _rows[idx].unique_id = ent?.unique_id || '';
+          });
           const title = document.createElement('input'); title.type = 'text'; title.placeholder = 'Titlu'; title.value = row.title || '';
           title.addEventListener('input', () => { _rows[idx].title = title.value; });
           const sub = document.createElement('input'); sub.type = 'text'; sub.placeholder = 'Subtitlu'; sub.value = row.subtitle || '';
@@ -194,11 +198,16 @@ export function renderSchemaForm(container, schema, initialValues = {}) {
         add.className = 'hv-multi-entity__add';
         const addLabel = f.addLabel || 'Adaugă entitate';
         add.innerHTML = `<i class="fas fa-plus"></i> ${addLabel}`;
-        add.addEventListener('click', () => { _rows.push({ entity_id: '', title: '', subtitle: '' }); _renderRows(); });
+        add.addEventListener('click', () => { _rows.push({ entity_id: '', unique_id: '', title: '', subtitle: '' }); _renderRows(); });
         input.appendChild(add);
       };
-      initial.forEach(e => _rows.push({ entity_id: e.entity_id || '', title: e.title || '', subtitle: e.subtitle || '' }));
-      if (_rows.length === 0) _rows.push({ entity_id: '', title: '', subtitle: '' });
+      initial.forEach(e => _rows.push({
+        entity_id: e.entity_id || '',
+        unique_id: e.unique_id || '',
+        title: e.title || '',
+        subtitle: e.subtitle || '',
+      }));
+      if (_rows.length === 0) _rows.push({ entity_id: '', unique_id: '', title: '', subtitle: '' });
       _renderRows();
       input.__hvReadMulti = () => _rows.filter(r => r.entity_id).map(r => ({ ...r }));
     } else {
