@@ -158,6 +158,8 @@ class ReolinkEntity(BaseEntity):
     icon = "fa-video"
     color = "text-sky-300"
     scan_interval_seconds = 60
+    uses_refresh_layers = True
+    probe_interval_cycles = 10
     SUPPORTS_MULTIPLE = True
 
     CONFIG_SCHEMA = [
@@ -319,68 +321,125 @@ class ReolinkEntity(BaseEntity):
             _API_CACHE.pop("__test__", None)
 
     async def fetch_entities(self) -> dict[str, Any]:
+        return await self.probe_source()
+
+    async def probe_source(self) -> dict[str, Any]:
+        """Full snapshot: wake cameras, resolve RTSP streams, rebuild entity list."""
+        return await self._build_payload(enrich_streams=True, wake=True)
+
+    async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
+        """Light sync: refresh states only, reuse stream metadata from cache."""
+        cached_items = list((cached or {}).get("items") or [])
+        return await self._build_payload(
+            enrich_streams=False,
+            wake=False,
+            cached_items=cached_items,
+        )
+
+    @staticmethod
+    def _merge_cached_camera_attrs(
+        items: list[dict[str, Any]],
+        cached_items: list[dict[str, Any]],
+    ) -> None:
+        cached_by_id = {
+            str(item.get("entity_id") or ""): item
+            for item in cached_items
+            if item.get("entity_id")
+        }
+        stream_keys = (
+            "rtsp_url",
+            "stream_url",
+            "reolink_rtsp_sub",
+            "live_providers",
+            "has_audio",
+            "snapshot_refresh",
+            "two_way_audio",
+            "speaker_volume",
+            "reolink_snapshot",
+            "device_manufacturer",
+            "device_model",
+        )
+        for item in items:
+            eid = str(item.get("entity_id") or "")
+            cached = cached_by_id.get(eid)
+            if not cached or item.get("domain") != "camera":
+                continue
+            old_attrs = cached.get("attributes") or {}
+            attrs = item.setdefault("attributes", {})
+            for key in stream_keys:
+                if key in old_attrs:
+                    attrs[key] = old_attrs[key]
+            patch_camera_stream_attrs(attrs)
+
+    async def _build_payload(
+        self,
+        *,
+        enrich_streams: bool,
+        wake: bool,
+        cached_items: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         section = self._section()
+        api = await self._connect()
         try:
-            api = await self._connect()
-            try:
-                await api.get_states(wake=True)
-            except Exception as exc:
+            await api.get_states(wake=wake)
+        except Exception as exc:
+            if wake:
                 log.warning("Reolink get_states failed, using wake=False: %s", exc)
                 await api.get_states(wake=False)
-        except Exception as exc:
-            from logger import log_line
-            log_line("error", "📷", "REOLINK", f"fetch failed — {exc}")
-            return {"items": [], "error": str(exc)}
+            else:
+                raise
 
         prefix = self._entry_prefix()
         base = self._base_url()
         host_addr = str(section.get("host") or "")
         items = build_entities(api, entry_prefix=prefix, base_url=base, host_addr=host_addr)
 
-        # Enrich camera entities: RTSP for live/WebM (main = audio), snapshot via Hyve proxy
-        for item in items:
-            if item.get("domain") != "camera":
-                continue
-            ch = (item.get("attributes") or {}).get("reolink_channel")
-            stream = (item.get("attributes") or {}).get("reolink_stream") or "sub"
-            if ch is None:
-                continue
-            attrs = item.setdefault("attributes", {})
-            sub_url = None
-            main_url = None
-            try:
-                sub_url = await api.get_stream_source(ch, stream, False)
-            except Exception:
-                pass
-            try:
-                main_url = await api.get_stream_source(ch, "main", False)
-            except Exception:
-                pass
-            play_rtsp = main_url or sub_url
-            if play_rtsp:
-                attrs["rtsp_url"] = play_rtsp
-                if sub_url:
-                    attrs["stream_url"] = sub_url
-                if sub_url and main_url and sub_url != main_url:
-                    attrs["reolink_rtsp_sub"] = sub_url
-                attrs["live_providers"] = ["webm", "rtsp", "snapshot"]
-                attrs["has_audio"] = bool(main_url)
-                attrs["snapshot_refresh"] = 5
+        if enrich_streams:
+            for item in items:
+                if item.get("domain") != "camera":
+                    continue
+                ch = (item.get("attributes") or {}).get("reolink_channel")
+                stream = (item.get("attributes") or {}).get("reolink_stream") or "sub"
+                if ch is None:
+                    continue
+                attrs = item.setdefault("attributes", {})
+                sub_url = None
+                main_url = None
                 try:
-                    if api.supported(ch, "two_way_audio"):
-                        attrs["two_way_audio"] = True
-                    if api.supported(ch, "volume_speak"):
-                        vol = api.volume_speak(ch)
-                        if vol is not None:
-                            attrs["speaker_volume"] = int(vol)
+                    sub_url = await api.get_stream_source(ch, stream, False)
                 except Exception:
                     pass
-            else:
-                attrs["live_providers"] = ["snapshot"]
-            attrs["reolink_snapshot"] = True
-            patch_camera_stream_attrs(attrs)
-            attrs["device_manufacturer"] = "Reolink"
-            attrs["device_model"] = getattr(api, "model", "") or "Reolink"
+                try:
+                    main_url = await api.get_stream_source(ch, "main", False)
+                except Exception:
+                    pass
+                play_rtsp = main_url or sub_url
+                if play_rtsp:
+                    attrs["rtsp_url"] = play_rtsp
+                    if sub_url:
+                        attrs["stream_url"] = sub_url
+                    if sub_url and main_url and sub_url != main_url:
+                        attrs["reolink_rtsp_sub"] = sub_url
+                    attrs["live_providers"] = ["webm", "rtsp", "snapshot"]
+                    attrs["has_audio"] = bool(main_url)
+                    attrs["snapshot_refresh"] = 5
+                    try:
+                        if api.supported(ch, "two_way_audio"):
+                            attrs["two_way_audio"] = True
+                        if api.supported(ch, "volume_speak"):
+                            vol = api.volume_speak(ch)
+                            if vol is not None:
+                                attrs["speaker_volume"] = int(vol)
+                    except Exception:
+                        pass
+                else:
+                    attrs["live_providers"] = ["snapshot"]
+                attrs["reolink_snapshot"] = True
+                patch_camera_stream_attrs(attrs)
+                attrs["device_manufacturer"] = "Reolink"
+                attrs["device_model"] = getattr(api, "model", "") or "Reolink"
+        elif cached_items:
+            self._merge_cached_camera_attrs(items, cached_items)
 
         return {
             "items": items,

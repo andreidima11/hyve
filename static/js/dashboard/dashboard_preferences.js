@@ -52,18 +52,6 @@ export function syncPreferenceControls() {
         }
     }
 
-    const layoutBtn = document.getElementById('dashboard-layout-toggle');
-    if (layoutBtn) {
-        const compact = prefs.layout_mode === 'compact';
-        layoutBtn.dataset.mode = compact ? 'compact' : 'comfortable';
-        layoutBtn.innerHTML = compact
-            ? `<i class="fas fa-table-cells mr-1.5"></i>${d.t('dashboard.layout_compact')}`
-            : `<i class="fas fa-grip mr-1.5"></i>${d.t('dashboard.layout_comfortable')}`;
-    }
-
-    const hideCb = document.getElementById('dashboard-hide-unavailable');
-    if (hideCb) hideCb.checked = !prefs.show_unavailable;
-
     const editMode = d.getEditMode();
     const editModeLabel = document.getElementById('dashboard-edit-mode-label');
     const editModeIcon = document.getElementById('dashboard-edit-mode-icon');
@@ -125,15 +113,23 @@ export async function toggleDashboardLayout() {
     await saveDashboardPreferences(true);
 }
 
+function _hideUnavailableFromUi(cache) {
+    const pageHide = document.getElementById('dashboard-page-hide-unavailable');
+    if (pageHide) return !pageHide.checked;
+    if (cache?.preferences && typeof cache.preferences.show_unavailable === 'boolean') {
+        return cache.preferences.show_unavailable;
+    }
+    return DEFAULT_PREFS.show_unavailable;
+}
+
 export async function saveDashboardPreferences(silent = false) {
     const d = deps();
     if (!d.requireDashboardEditAccess()) return;
     const cache = d.getCache();
-    const hideCb = document.getElementById('dashboard-hide-unavailable');
     const prefs = {
         ...DEFAULT_PREFS,
         ...(cache.preferences || {}),
-        show_unavailable: !(hideCb?.checked),
+        show_unavailable: _hideUnavailableFromUi(cache),
     };
 
     try {
@@ -143,6 +139,7 @@ export async function saveDashboardPreferences(silent = false) {
                 ...prefs,
                 title: cache.title || DEFAULT_META.title,
                 subtitle: cache.subtitle || DEFAULT_META.subtitle,
+                icon: cache.icon || undefined,
             },
         });
         if (res.ok) {

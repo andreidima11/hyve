@@ -5,7 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from integrations import get_integration_manager
+from integrations import config_entries, get_integration_manager
 
 
 _CATALOG_PATH = Path(__file__).resolve().parent / "ui_catalog.json"
@@ -220,6 +220,7 @@ def _normalize_integration_entry(entry: dict[str, Any]) -> dict[str, Any]:
         "text_color": "#7dd3fc",
         "supports_sync": bool(entry.get("supports_sync", False)),
         "updates_live": bool(entry.get("updates_live", False)),
+        "uses_refresh_layers": bool(entry.get("uses_refresh_layers", False)),
         "admin_only": bool(entry.get("admin_only", False)),
         "order": int(entry.get("order") or 999),
     }
@@ -263,19 +264,26 @@ def integration_catalog() -> list[dict[str, Any]]:
         configured[integration.slug] = current
         claimed_config_keys.add(integration.config_key)
 
-    # Annotate each entry with the live `enabled` flag from settings.CFG so the
-    # UI can render the correct toggle state without a second round-trip.
+    # Annotate each entry with the live enabled flag. Config entries are the
+    # source of truth when present; legacy cfg[slug].enabled is the fallback.
     try:
         import settings as settings_mod
         cfg = settings_mod.CFG or {}
     except Exception:
         cfg = {}
     for entry in configured.values():
-        section = cfg.get(entry["config_key"])
-        entry["enabled"] = bool(section.get("enabled")) if isinstance(section, dict) else False
+        slug = str(entry.get("slug") or "").strip()
+        config_key = str(entry.get("config_key") or slug).strip()
+        entries = config_entries.list_entries(slug) if slug else []
+        if entries:
+            entry["enabled"] = any(bool(row.get("enabled", True)) for row in entries)
+        else:
+            section = cfg.get(config_key)
+            entry["enabled"] = bool(section.get("enabled")) if isinstance(section, dict) else False
         entry["has_config_schema"] = _integration_has_config_schema(entry["slug"])
         inst = manager.get(entry["slug"])
         if inst is not None:
             entry["updates_live"] = bool(getattr(inst, "updates_live", False))
+            entry["uses_refresh_layers"] = bool(getattr(inst, "uses_refresh_layers", False))
 
     return sorted(configured.values(), key=lambda item: (item["order"], item["label"].lower()))

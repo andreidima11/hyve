@@ -55,13 +55,6 @@ async def control_integration_entity(
         log.exception("Control failed for %s/%s", slug, body.entity_id)
         raise HTTPException(status_code=500, detail=str(exc))
 
-    try:
-        from brain.pattern_detector import record_manual_control
-
-        record_manual_control(raw_id, body.action.strip(), source="user")
-    except Exception:
-        pass
-
     return {"status": "ok", "result": result}
 
 

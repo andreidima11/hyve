@@ -47,8 +47,6 @@ _Z2M_DEVICE_STATE = "zigbee2mqtt/+"
 _HA_DISCOVERY_2 = "homeassistant/+/+/config"
 _HA_DISCOVERY_3 = "homeassistant/+/+/+/config"
 
-_DEFAULT_DISCOVERY_WAIT = 4.0
-
 
 class MosquittoEntity(BaseEntity):
     slug = "mosquitto"
@@ -58,6 +56,8 @@ class MosquittoEntity(BaseEntity):
     color = "text-emerald-400"
     scan_interval_seconds = 600
     updates_live = True
+    uses_refresh_layers = True
+    probe_interval_cycles = 6
     SUPPORTS_MULTIPLE = True
 
     CONFIG_SCHEMA = [
@@ -75,34 +75,33 @@ class MosquittoEntity(BaseEntity):
 
     # ── Fetch ──────────────────────────────────────────────────────────────
 
+    def _stored_payload(self) -> dict[str, Any]:
+        try:
+            from addons.entity_store import get_entity_store
+
+            stored = (get_entity_store().get_entities(self.store_key) or {}).get("entities") or {}
+            return stored if isinstance(stored, dict) else {}
+        except Exception:
+            return {}
+
     async def fetch_entities(self) -> dict[str, Any]:
-        """Snapshot retained discovery + state messages from the broker.
+        return await self.pull_live_states(self._stored_payload())
 
-        If a persistent ``MosquittoBridge`` is already running (started by the
-        app lifespan), reuse its in-memory cache instead of opening yet another
-        connection — this avoids racing with live updates.
-
-        During early startup the bridge may be connected but still warming up
-        (empty ``z2m_devices`` / ``discovery``).  We merge the live snapshot
-        with the previously stored payload so a warm-up fetch never erases
-        good data that was persisted before the restart.
-        """
-        # bridge module loaded as _bridge_mod above
+    async def probe_source(self) -> dict[str, Any]:
+        """Full broker drain — rediscover HA MQTT entities and Z2M devices."""
         import settings
 
-        bridge = _bridge_mod.get_bridge(self.entry_id)
-        if bridge is not None and bridge.is_running():
-            live = bridge.snapshot()
-            # Merge with last stored payload to avoid losing z2m_devices /
-            # discovery during the bridge warm-up window.
-            from addons.entity_store import get_entity_store
-            try:
-                stored = (get_entity_store().get_entities(self.store_key) or {}).get("entities") or {}
-            except Exception:
-                stored = {}
-            return _merge_payload(stored, live)
-
         return await _drain_broker(self.config_section(settings.CFG))
+
+    async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
+        """Light sync: merge live bridge cache with the last stored snapshot."""
+        bridge = _bridge_mod.get_bridge(self.entry_id)
+        stored = dict(cached or {})
+        if bridge is not None and bridge.is_running():
+            return _merge_payload(stored, bridge.snapshot())
+        if stored:
+            return stored
+        return await self.probe_source()
 
     def live_payload(self, stored: dict[str, Any]) -> dict[str, Any]:
         """Merge stored discovery with the live MQTT bridge cache so the

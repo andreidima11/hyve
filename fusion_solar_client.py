@@ -615,6 +615,55 @@ class FusionSolarClient:
             "summary": summary,
         }
 
+    async def fetch_realtime(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Refresh station KPIs only, reusing cached station/device metadata."""
+        base = dict(cached or {})
+        stations = list(base.get("stations") or [])
+        station_codes = [s.get("station_code") for s in stations if s.get("station_code")]
+        if not station_codes:
+            return await self.fetch_all()
+        await self.login()
+        realtime_raw = await self.get_station_real_kpi(station_codes)
+        realtime_by_code = {
+            item.get("stationCode"): item.get("dataItemMap") or {}
+            for item in realtime_raw if isinstance(item, dict)
+        }
+        yearly_current_by_code = base.get("yearly_current") or {}
+        realtime: list[dict[str, Any]] = []
+        summary = {
+            "station_count": len(stations),
+            "realtime_power_kw": 0.0,
+            "daily_energy_kwh": 0.0,
+            "month_energy_kwh": 0.0,
+            "yearly_energy_kwh": 0.0,
+            "lifetime_energy_kwh": 0.0,
+            "status": "offline",
+        }
+        for station in stations:
+            code = station.get("station_code")
+            real = realtime_by_code.get(code, {})
+            year_current = yearly_current_by_code.get(code, {}) if isinstance(yearly_current_by_code, dict) else {}
+            station_data = {
+                **station,
+                "realtime_power_kw": _opt_float(real.get("realTimePower") or real.get("active_power")),
+                "daily_energy_kwh": _opt_float(real.get("dailyEnergy") or real.get("day_power")),
+                "month_energy_kwh": _opt_float(real.get("monthEnergy") or real.get("month_power")),
+                "yearly_energy_kwh": _opt_float(real.get("yearEnergy") or year_current.get("inverter_power")),
+                "lifetime_energy_kwh": _opt_float(real.get("cumulativeEnergy") or real.get("total_power")),
+                "status": "online",
+            }
+            realtime.append(station_data)
+            _add_summary(summary, "realtime_power_kw", station_data["realtime_power_kw"])
+            _add_summary(summary, "daily_energy_kwh", station_data["daily_energy_kwh"])
+            _add_summary(summary, "month_energy_kwh", station_data["month_energy_kwh"])
+            _add_summary(summary, "yearly_energy_kwh", station_data["yearly_energy_kwh"])
+            _add_summary(summary, "lifetime_energy_kwh", station_data["lifetime_energy_kwh"])
+        if stations:
+            summary["status"] = "online"
+        base["realtime"] = realtime
+        base["summary"] = summary
+        return base
+
     async def test_connection(self) -> dict[str, Any]:
         await self.login()
         try:

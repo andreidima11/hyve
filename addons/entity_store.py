@@ -86,6 +86,7 @@ class IntegrationEntityStore:
         self._formatters: Dict[str, Callable] = {}
         self._fetch_timeouts: Dict[str, float] = {}
         self._descriptions: Dict[str, str] = {}
+        self._unreachable_sources: set[str] = set()
 
     async def initialize_schema(self):
         """Verify Alembic created integration entity tables (see migrations/003)."""
@@ -128,6 +129,19 @@ class IntegrationEntityStore:
 
     def get_fetcher(self, slug: str) -> Callable | None:
         return self._fetchers.get(slug)
+
+    def source_is_reachable(self, store_key: str) -> bool:
+        """False when the latest upstream sync for this source failed."""
+        return str(store_key or "") not in self._unreachable_sources
+
+    def _mark_source_reachable(self, store_key: str, reachable: bool) -> None:
+        key = str(store_key or "").strip()
+        if not key:
+            return
+        if reachable:
+            self._unreachable_sources.discard(key)
+        else:
+            self._unreachable_sources.add(key)
 
     # -- CRUD --------------------------------------------------------------
 
@@ -187,6 +201,8 @@ class IntegrationEntityStore:
                     VALUES (:slug, :data, :ts, :err)
                 """), {"slug": slug, "data": "{}", "ts": timestamp, "err": error})
             db.commit()
+        self._mark_source_reachable(slug, False)
+        self._signal_mirror_refresh(slug)
 
     def get_schedule(self, slug: str) -> Optional[Dict[str, Any]]:
         """Get sync schedule for an integration."""
@@ -296,21 +312,41 @@ class IntegrationEntityStore:
         started = datetime.now().timestamp()
         self.touch_last_fetch(slug)
         try:
-            entities = await asyncio.wait_for(fn(), timeout=timeout)
+            import inspect
+
+            kwargs: dict[str, Any] = {}
+            try:
+                if "force" in inspect.signature(fn).parameters:
+                    kwargs["force"] = force
+            except (TypeError, ValueError):
+                pass
+            entities = await asyncio.wait_for(fn(**kwargs), timeout=timeout)
         except asyncio.TimeoutError:
             elapsed = datetime.now().timestamp() - started
             self.set_error(slug, f"timeout after {elapsed:.1f}s")
+            self._mark_source_reachable(slug, False)
+            self._signal_mirror_refresh(slug)
             schedule = self.get_schedule(slug)
             interval = (schedule or {}).get("interval_seconds", 3600)
             self.update_schedule(slug, datetime.now().timestamp() + interval)
             log_line("error", "⏱️", "SYNC", f"{slug} — timeout after {elapsed:.1f}s (cap {timeout:.0f}s)")
             raise
         self.set_entities(slug, entities, error=None)
+        self._mark_source_reachable(slug, True)
+        self._signal_mirror_refresh(slug)
         schedule = self.get_schedule(slug)
         interval = (schedule or {}).get("interval_seconds", 3600)
         self.update_schedule(slug, datetime.now().timestamp() + interval)
         log_line("sys", "🔄", "SYNC", f"{slug} — {len(entities)} keys")
         return entities
+
+    def _signal_mirror_refresh(self, store_key: str) -> None:
+        try:
+            from core.entity_mirror import signal_source_refresh
+
+            signal_source_refresh(store_key)
+        except Exception:
+            pass
 
     async def start_sync_loop(self, slug: str, interval_seconds: int = 300):
         """Start background sync loop for an integration."""
@@ -373,6 +409,13 @@ class IntegrationEntityStore:
         self._formatters.pop(slug, None)
         self._fetch_timeouts.pop(slug, None)
         self._last_sync.pop(slug, None)
+        self._unreachable_sources.discard(slug)
+        try:
+            from integrations.source_refresh import detach_refresh_runner
+
+            detach_refresh_runner(slug)
+        except Exception:
+            pass
         if not purge:
             return
         try:

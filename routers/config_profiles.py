@@ -106,11 +106,6 @@ async def set_cfg(data: dict, _: models.User = Depends(auth.get_current_admin)):
         schedule_addon_check()
     except Exception:
         pass
-    try:
-        from brain import ambient
-        ambient.reschedule_checkins()
-    except Exception:
-        pass
     return {"status": "ok"}
 
 

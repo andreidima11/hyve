@@ -801,9 +801,12 @@ async def patch_dashboard_preferences(data: DashboardPreferencesBody, page_id: s
         "show_unavailable": bool(data.show_unavailable),
         "filter_mode": data.filter_mode,
     }
-    section["title"] = (data.title or "Dashboard").strip() or "Dashboard"
-    section["subtitle"] = (data.subtitle or "Acasă").strip() or "Acasă"
-    section["icon"] = _normalize_icon(data.icon, _DEFAULT_DASHBOARD_ICON)
+    if data.title is not None:
+        section["title"] = (data.title or "Dashboard").strip() or "Dashboard"
+    if data.subtitle is not None:
+        section["subtitle"] = (data.subtitle or "Acasă").strip() or "Acasă"
+    if data.icon is not None:
+        section["icon"] = _normalize_icon(data.icon, _DEFAULT_DASHBOARD_ICON)
     _save_dashboard(section, section.get("page_id") or page_id)
     return {"status": "ok", "preferences": section["preferences"]}
 

@@ -16,6 +16,12 @@ from smart_home_registry import entity_domain, normalize_entity_record
 
 log = logging.getLogger("integrations.mosquitto")
 
+_DEFAULT_DISCOVERY_WAIT = 4.0
+_Z2M_BRIDGE_DEVICES = "zigbee2mqtt/bridge/devices"
+_Z2M_DEVICE_STATE = "zigbee2mqtt/+"
+_HA_DISCOVERY_2 = "homeassistant/+/+/config"
+_HA_DISCOVERY_3 = "homeassistant/+/+/+/config"
+
 _bridge_mod = import_sibling(Path(__file__).resolve().parent, "bridge")
 
 def extract_mosquitto_candidates(payload: Any) -> list[dict[str, Any]]:

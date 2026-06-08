@@ -21,6 +21,8 @@ class ReteleElectriceEntity(BaseEntity):
     icon = "fa-bolt-lightning"
     color = "text-amber-400"
     scan_interval_seconds = 3600
+    uses_refresh_layers = True
+    probe_interval_cycles = 6
     SUPPORTS_MULTIPLE = True
 
     CONFIG_SCHEMA = [
@@ -61,7 +63,7 @@ class ReteleElectriceEntity(BaseEntity):
             message = str(exc or "").strip()
             return {"ok": False, "message": message or None, "message_key": "integrations.reteleelectrice_failed"}
 
-    async def fetch_entities(self) -> dict[str, Any]:
+    def _client_kwargs(self) -> dict[str, Any]:
         data = self.entry_data or {}
         email = str(data.get("email") or "").strip()
         password = str(data.get("password") or "").strip()
@@ -75,10 +77,23 @@ class ReteleElectriceEntity(BaseEntity):
                 p.strip() for p in str(raw_pods or "").replace("\n", ",").split(",")
                 if p.strip()
             ]
-        async with reteleelectrice_client.ReteleElectriceClient(
-            email, password, timeout=60.0, selected_pods=pods_list or None,
-        ) as client:
+        return {
+            "username": email,
+            "password": password,
+            "timeout": 60.0,
+            "selected_pods": pods_list or None,
+        }
+
+    async def fetch_entities(self) -> dict[str, Any]:
+        return await self.probe_source()
+
+    async def probe_source(self) -> dict[str, Any]:
+        async with reteleelectrice_client.ReteleElectriceClient(**self._client_kwargs()) as client:
             return await client.fetch_all()
+
+    async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
+        async with reteleelectrice_client.ReteleElectriceClient(**self._client_kwargs()) as client:
+            return await client.fetch_light(cached)
 
     def extract_entities(self, payload: Any) -> list[dict[str, Any]]:
         return extract_reteleelectrice_candidates(payload)

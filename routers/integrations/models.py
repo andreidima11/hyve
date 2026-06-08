@@ -8,6 +8,7 @@ from pydantic import BaseModel
 class EntitySelectionBody(BaseModel):
     entity_id: str
     selected: bool
+    unique_id: str | None = None
 
 
 class DeviceControlBody(BaseModel):

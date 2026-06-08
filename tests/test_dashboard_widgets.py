@@ -821,6 +821,36 @@ def test_normalize_icon_accepts_fa_short_form():
     assert dashboard._normalize_icon("not-an-icon", "fas fa-table-cells-large") == "fas fa-table-cells-large"
 
 
+def test_patch_preferences_without_icon_preserves_page_icon():
+    _seed_dashboard_store({
+        "current_page_id": "dashboard_home",
+        "pages": [
+            {
+                "id": "dashboard_home",
+                "title": "Acasă",
+                "subtitle": "Principal",
+                "icon": "fa-house",
+                "preferences": {"layout_mode": "comfortable", "show_unavailable": True, "filter_mode": "all"},
+                "panels": [],
+            },
+        ],
+    })
+
+    asyncio.run(
+        dashboard.patch_dashboard_preferences(
+            dashboard.DashboardPreferencesBody(layout_mode="compact", show_unavailable=False),
+            "dashboard_home",
+            None,
+        )
+    )
+
+    stored = _loaded_store()
+    home = stored["pages"][0]
+    assert home["icon"] == "fas fa-house"
+    assert home["preferences"]["layout_mode"] == "compact"
+    assert home["preferences"]["show_unavailable"] is False
+
+
 def test_apply_widget_patch_keeps_empty_weather_title():
     for card_type in ("weather", "weather_rich"):
         updated = dashboard._apply_widget_patch({

@@ -27,6 +27,8 @@ class MideaAcEntity(BaseEntity):
     icon = "fa-snowflake"
     color = "text-sky-400"
     scan_interval_seconds = 60
+    uses_refresh_layers = True
+    probe_interval_cycles = 20
     SUPPORTS_MULTIPLE = True
 
     CONFIG_SCHEMA = [
@@ -253,10 +255,19 @@ class MideaAcEntity(BaseEntity):
             return {"ok": False, "message": str(exc) or None, "message_key": "integrations.midea_failed"}
 
     async def fetch_entities(self) -> dict[str, Any]:
+        return await self.probe_source()
+
+    async def probe_source(self) -> dict[str, Any]:
         data = self.entry_data or {}
         client = self._build_client(data, cache_callback=self._make_cache_callback())
         async with client:
             return await client.fetch_all()
+
+    async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
+        data = self.entry_data or {}
+        client = self._build_client(data, cache_callback=self._make_cache_callback())
+        async with client:
+            return await client.fetch_live(cached)
 
     def extract_entities(self, payload: Any) -> list[dict[str, Any]]:
         return extract_midea_ac_candidates(payload)

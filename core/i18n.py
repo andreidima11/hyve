@@ -27,7 +27,7 @@ def _load(lang: str) -> dict[str, Any]:
 
 
 def get(key: str, lang: str | None = None) -> Any:
-    """Resolve a dot-path key, e.g. brain.ambient.reasoner_system_prompt."""
+    """Resolve a dot-path key, e.g. brain.language_name."""
     node: Any = _load(lang or ui_lang_code())
     for part in key.split("."):
         if not isinstance(node, dict) or part not in node:

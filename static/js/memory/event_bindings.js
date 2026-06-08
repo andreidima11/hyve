@@ -7,7 +7,15 @@ let _handlers = null;
 let _bound = false;
 
 function _inMemoryScope(el) {
-    return !!el?.closest('#view-memory');
+    if (!el) return false;
+    // Panels may live under #view-memory or be moved into config standalone (Automatizări / Memorii hub).
+    // Kebab menus are portaled to document.body (see toggleAutoMenu).
+    return !!(
+        el.closest('#view-memory')
+        || el.closest('#intelligence-panel-automations')
+        || el.closest('#intelligence-panel-memories')
+        || el.closest('#auto-menu-portal')
+    );
 }
 
 function _syncAutomationOpts(el) {
@@ -68,7 +76,7 @@ function _run(action, el, event) {
         _handlers.deleteMemBulk?.([el.dataset.memoryMemId || ''], event, el);
         return;
     case 'toggleAutoMenu':
-        _handlers.toggleAutoMenu?.(event, el.dataset.memoryDefId || '');
+        _handlers.toggleAutoMenu?.(event, el.dataset.memoryDefId || '', el);
         return;
     case 'showAutoDotTooltip':
         _handlers.showAutoDotTooltip?.(event, el);
@@ -100,6 +108,9 @@ function _run(action, el, event) {
         return;
     case 'loadMemoryEvents':
         _handlers.loadMemoryEvents?.(Number(el.dataset.memoryOffset ?? 0), event, el);
+        return;
+    case 'openAutomationEditor':
+        _handlers.openAutomationEditor?.(undefined, event, el);
         return;
     default: {
         const fn = _handlers[action];

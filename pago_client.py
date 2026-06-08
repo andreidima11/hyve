@@ -481,6 +481,34 @@ class PagoClient:
 
         return results
 
+    async def fetch_light(self, cached: Dict[str, Any] | None = None) -> Dict[str, Any]:
+        """Refresh bills and recent payments; reuse stable profile data from cache."""
+        base = dict(cached or {})
+        raw: Dict[str, Any] = {}
+        errors: Dict[str, str] = {}
+        tasks = {
+            "bills": self.get_bills_summary(),
+            "invoice_payments": self.get_invoice_payments(),
+        }
+        gathered = await asyncio.gather(*tasks.values(), return_exceptions=True)
+        for key, result in zip(tasks.keys(), gathered):
+            if isinstance(result, Exception):
+                errors[key] = str(result)
+                raw[key] = None
+            else:
+                raw[key] = result
+
+        results = dict(base)
+        results["facturi"] = self._normalize_bills(raw.get("bills"))
+        inv_payments = raw.get("invoice_payments")
+        if isinstance(inv_payments, list):
+            results["conturi_facturi"] = self._extract_supplier_accounts(inv_payments)
+        elif "conturi_facturi" not in results:
+            results["conturi_facturi"] = []
+        if errors:
+            results.setdefault("_partial_errors", errors)
+        return results
+
     # ------------------------------------------------------------------
     # Connection test
     # ------------------------------------------------------------------

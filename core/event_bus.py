@@ -6,6 +6,7 @@ are invoked synchronously inside the publisher's task — keep handlers fast,
 or schedule their own background work.
 
 Currently the bus is used by:
+- `core.entity_mirror` — publishes ``entity_mirror_tick`` after each rebuild
 - `core.state_observer` — publishes ``entity_state_changed`` events
 - `automation_definitions` — subscribes ``state`` / ``numeric_state`` triggers
 """

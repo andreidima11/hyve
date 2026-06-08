@@ -3,7 +3,8 @@
  */
 import { apiCall } from './api.js';
 import { t, translateApiDetail, integrationApiMessage, getLanguage, tState } from './lang/index.js';
-import { escapeHtml, showToast, showConfirm, openSubPage, closeSubPage } from './utils.js';
+import { escapeHtml, escapeHtmlAttr, showToast, showConfirm, openSubPage, closeSubPage } from './utils.js';
+export { escapeHtmlAttr };
 import { switchTab } from './nav_bridge.js';
 import { renderEntityModal, getDomainIcon } from './entity_renderers.js';
 import { ACTIVE_STATES, CONTROLLABLE } from './entity_constants.js';
@@ -255,6 +256,39 @@ export async function uploadComfyUIWorkflow(input) {
     input.value = ''; // reset file input
 };
 
+async function _persistIntegrationEnabled(slug, configKey, enabled) {
+    const enc = encodeURIComponent(slug);
+    try {
+        const res = await apiCall(`/api/integrations/${enc}/entries`);
+        const data = await res.json().catch(() => ({}));
+        const entries = Array.isArray(data.entries) ? data.entries : [];
+        if (entries.length) {
+            await Promise.all(entries.map((ent) => apiCall(
+                `/api/integrations/${enc}/entries/${encodeURIComponent(ent.entry_id)}`,
+                { method: 'PATCH', body: { enabled: !!enabled } },
+            )));
+            const row = _integrationCatalog.find((e) => String(e.slug || '') === slug);
+            if (row) row.enabled = !!enabled;
+            return;
+        }
+    } catch (_) {}
+    await apiCall('/api/config', {
+        method: 'PATCH',
+        body: { [configKey]: { enabled: !!enabled } },
+    });
+    const row = _integrationCatalog.find((e) => String(e.slug || '') === slug);
+    if (row) row.enabled = !!enabled;
+}
+
+function _applyCatalogEnabledToCheckboxes() {
+    for (const entry of _integrationCatalog) {
+        const slug = String(entry.slug || '').trim();
+        if (!slug) continue;
+        const cb = _findIntegrationCheckbox(slug);
+        if (cb) cb.checked = !!entry.enabled;
+    }
+}
+
 let _integrationToggleButtonsBound = false;
 export function bindIntegrationToggleButtonsOnce() {
     if (_integrationToggleButtonsBound) return;
@@ -280,10 +314,7 @@ export function bindIntegrationToggleButtonsOnce() {
         if (slug) {
             const def = _integrationDefinition(slug);
             const configKey = String(def?.config_key || slug).trim() || slug;
-            apiCall('/api/config', {
-                method: 'PATCH',
-                body: { [configKey]: { enabled: !!checkbox.checked } },
-            }).catch(() => {});
+            _persistIntegrationEnabled(slug, configKey, !!checkbox.checked).catch(() => {});
         }
     });
 
@@ -433,26 +464,9 @@ export async function refreshIntegrationsSettingsView(preferredTab = 'auto') {
     _activeIntegrationSubtabPreferred = preferredTab;
     await loadIntegrationCatalog(true);
     // The catalog renderer creates fresh checkbox/inputs for each integration,
-    // so we must re-apply the saved config values; otherwise toggling is lost
-    // on every refresh because the new <input> nodes start unchecked.
+    // so we must re-apply the saved enabled flags from the catalog API.
     try { await loadConfig(); } catch (_) {}
-    // Apply per-integration "enabled" flags for generic catalog integrations
-    // (mosquitto, etc.) — loadConfig() only sets a hardcoded set of fields.
-    try {
-        const r2 = await apiCall('/api/config');
-        const cfg2 = await r2.json().catch(() => ({}));
-        for (const entry of _integrationCatalog) {
-            const slug = String(entry.slug || '');
-            if (!slug) continue;
-            const inputId = String(entry.toggle_input_id || `${slug}_enabled`);
-            const cb = document.getElementById(inputId);
-            if (!cb) continue;
-            const section = cfg2[entry.config_key || slug];
-            if (section && typeof section === 'object') {
-                cb.checked = !!section.enabled;
-            }
-        }
-    } catch (_) {}
+    _applyCatalogEnabledToCheckboxes();
     syncIntegrationToggles();
     bindIntegrationToggleButtonsOnce();
 
@@ -745,6 +759,26 @@ async function loadIntegrationConfigEntries(slug) {
     _renderEntriesList();
 }
 
+function _entryRefreshBadge(refresh) {
+    if (!refresh || typeof refresh !== 'object') return '';
+    if (refresh.reachable === false) {
+        const err = String(refresh.last_error || '').trim();
+        const title = err ? t('integrations.refresh_last_error', { error: err }) : t('integrations.refresh_unreachable');
+        return `<span class="inline-flex items-center gap-1 text-[10px] text-red-400/90" title="${escapeHtml(title)}"><i class="fas fa-plug-circle-xmark text-[8px]"></i>${escapeHtml(t('integrations.refresh_unreachable'))}</span>`;
+    }
+    const mode = String(refresh.last_mode || '').trim();
+    if (mode === 'probe') {
+        return `<span class="text-[10px] text-sky-400/80">${escapeHtml(t('integrations.refresh_mode_probe'))}</span>`;
+    }
+    if (mode === 'pull') {
+        return `<span class="text-[10px] text-emerald-400/80">${escapeHtml(t('integrations.refresh_mode_pull'))}</span>`;
+    }
+    if (mode === 'fetch') {
+        return `<span class="text-[10px] text-slate-500">${escapeHtml(t('integrations.refresh_mode_fetch'))}</span>`;
+    }
+    return '';
+}
+
 function _renderEntriesList() {
     const list = document.getElementById('integration-entries-list');
     const empty = document.getElementById('integration-entries-empty');
@@ -764,11 +798,12 @@ function _renderEntriesList() {
         const syncBadge = isSyncing
             ? `<span class="inline-flex items-center gap-1 text-[10px] text-amber-400/80 animate-pulse"><i class="fas fa-spinner fa-spin text-[8px]"></i> ${escapeHtml(t('integrations.syncing_badge'))}</span>`
             : '';
+        const refreshBadge = _entryRefreshBadge(entry.refresh);
         const statusText = enabled ? '' : '· dezactivat';
         row.innerHTML = `
             <div class="min-w-0 flex-1">
                 <div class="text-[12px] font-semibold text-slate-100 truncate">${escapeHtml(entry.title || _entriesCurrent.label)}</div>
-                <div class="text-[10px] text-slate-500 mono truncate flex items-center gap-2">${escapeHtml(entry.entry_id.slice(0,8))} ${statusText} ${syncBadge}</div>
+                <div class="text-[10px] text-slate-500 mono truncate flex items-center gap-2 flex-wrap">${escapeHtml(entry.entry_id.slice(0,8))} ${statusText} ${syncBadge} ${refreshBadge}</div>
             </div>
             <div class="flex items-center gap-1 shrink-0">
                 <button type="button" data-act="edit" class="px-2 py-1 rounded text-[10px] bg-white/5 hover:bg-white/10 text-slate-300" title="${escapeHtml(t('common.edit'))}"><i class="fas fa-pen"></i></button>
@@ -1414,15 +1449,6 @@ export function slugForId(s) {
     return s.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') || '';
 }
 
-export function escapeHtmlAttr(s) {
-    if (s == null) return '';
-    return String(s)
-        .replace(/&/g, '&amp;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-}
 
 function addCctvCameraRow(camera) {
     const list = document.getElementById('cctv-cameras-list');
@@ -2168,6 +2194,7 @@ export async function syncIntegrationEntities(slug, options = {}) {
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.status === 'ok') {
             await loadIntegrationEntities(catalogSlug);
+            try { await loadIntegrationConfigEntries(catalogSlug); } catch (_) {}
             if (showUserToast && typeof showToast === 'function') {
                 const count = Number(data.entity_count);
                 const msg = Number.isFinite(count) && count >= 0
@@ -2258,8 +2285,15 @@ async function loadIntegrationEntities(slug) {
         const data = await res.json();
         section.classList.remove('hidden');
         if (errEl) {
-            if (data.last_error) { errEl.textContent = data.last_error; errEl.classList.remove('hidden'); }
-            else errEl.classList.add('hidden');
+            const refreshErr = data?.refresh?.last_error;
+            const storeErr = data.last_error;
+            const showErr = refreshErr || storeErr || (data?.refresh?.reachable === false);
+            if (showErr) {
+                errEl.textContent = refreshErr || storeErr || t('integrations.refresh_unreachable');
+                errEl.classList.remove('hidden');
+            } else {
+                errEl.classList.add('hidden');
+            }
         }
         if (timeEl && data.updated_at) {
             const d = new Date(data.updated_at);

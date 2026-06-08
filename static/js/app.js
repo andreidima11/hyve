@@ -17,7 +17,7 @@ import { initShellEventBindings } from './shell/event_bindings.js';
 import { initIntegrationEventBindings } from './integrations/event_bindings.js';
 import { toggleModelSelector, closeModelSelector } from './chat/model_selector.js';
 import { setUserProfileContext, loadUserProfilePage, switchUserProfileTab, saveUserProfileGeneral, saveUserProfileSecurity } from './user_profile.js';
-import { initNotifications, loadUserNotifications, switchUserNotificationFilter, toggleUserNotificationFilterMenu, markUserNotificationRead, archiveUserNotification, deleteUserNotification, clearAllUserNotifications, changeUserNotificationsPage, loadNotificationCounts, updateNotificationBadge, actOnAmbientSuggestion, navigateNotification } from './notifications.js';
+import { initNotifications, loadUserNotifications, switchUserNotificationFilter, toggleUserNotificationFilterMenu, markUserNotificationRead, archiveUserNotification, deleteUserNotification, clearAllUserNotifications, changeUserNotificationsPage, loadNotificationCounts, updateNotificationBadge, navigateNotification } from './notifications.js';
 import { startStartupStatusPolling, showHubStartupLoadingAfterRestart } from './startup_status.js';
 import { importWithCacheBust } from './asset_version.js';
 import { setIsAdmin, setNotificationTimer } from './user_context.js';
@@ -78,7 +78,7 @@ import {
     openBlueprintCreator, addBlueprintCreatorInput, removeBlueprintCreatorInput, changeBlueprintCreatorInputType, insertBlueprintCreatorPlaceholder, updateBlueprintCreatorYaml, saveCreatedBlueprint,
     switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, syncAutomationBuilderFromYaml, loadAutomationEditorHistory, refreshAutomationEntityOptions, updateAutomationStructuredServiceData,
     loadNotificationPrefs, saveNotificationSettings, selectNotifTransport, selectNotifChannel, testWsNotification, testFcmNotification, testNotification, refreshNotifWsNativeStatus,
-    testAmbientNow, resetAmbientReasonerPrompt, testBriefingNow, switchMemorySubtab,     checkAddonUpdates, updateAllAddons, updateSingleAddon, closeAddonConfigModal, refreshUpdatesHeaderBadge, checkAddonHealth,
+    switchMemorySubtab,     checkAddonUpdates, updateAllAddons, updateSingleAddon, closeAddonConfigModal, refreshUpdatesHeaderBadge, checkAddonHealth,
     installAddon, uninstallAddon, toggleAddon, openAddonConfigModal,
 } from './features.js';
 import {
@@ -846,7 +846,6 @@ window.addEventListener('DOMContentLoaded', () => {
         archiveNotification: (id) => archiveUserNotification(id),
         deleteNotification: (id) => deleteUserNotification(id),
         navigateNotification: (url, id) => navigateNotification(url, id),
-        actOnAmbientSuggestion: (id, idx) => actOnAmbientSuggestion(id, idx),
     });
     initConfigEventBindings({
         saveConfig: (event) => saveConfig(event),
@@ -862,9 +861,6 @@ window.addEventListener('DOMContentLoaded', () => {
         switchIntegrationSubtab: (tab) => switchIntegrationSubtab(tab),
         addExtractionExample: () => addExtractionExample(),
         runConsolidationNow: () => runConsolidationNow(),
-        resetAmbientReasonerPrompt: () => resetAmbientReasonerPrompt(),
-        testAmbientNow: () => testAmbientNow(),
-        testBriefingNow: () => testBriefingNow(),
         selectNotifChannel: (channel) => selectNotifChannel(channel),
         selectNotifTransport: (transport) => selectNotifTransport(transport),
         testNotification: () => testNotification(),
@@ -961,7 +957,7 @@ window.addEventListener('DOMContentLoaded', () => {
         memLogPrevPage: () => memLogPrevPage(),
         memLogNextPage: () => memLogNextPage(),
         clearMemoryLog: () => clearMemoryLog(),
-        openAutomationEditor: (defId) => openAutomationEditor(defId),
+        openAutomationEditor: (defId) => openAutomationEditor(typeof defId === 'string' ? defId : undefined),
         openBlueprintPicker: () => openBlueprintPicker(),
         loadAutomations: () => loadAutomations(),
         closeAutomationEditor: () => closeAutomationEditor(),
@@ -976,9 +972,9 @@ window.addEventListener('DOMContentLoaded', () => {
         runAutomationDefinition: (defId) => runAutomationDefinition(defId),
         toggleAutomationDefinition: (defId, enabled, revision) => toggleAutomationDefinition(defId, enabled, revision),
         deleteAutomation: (defId) => deleteAutomation(defId),
-        toggleAutoMenu: (event, defId) => toggleAutoMenu(event, defId),
+        toggleAutoMenu: (event, defId, el) => toggleAutoMenu(event, defId, el),
         closeAutoMenu: () => closeAutoMenu(),
-        showAutoDotTooltip: (event) => showAutoDotTooltip(event),
+        showAutoDotTooltip: (event, el) => showAutoDotTooltip(event, el),
         hideAutoDotTooltip: () => hideAutoDotTooltip(),
         toggleMemLogDetails: (id) => toggleMemLogDetails(id),
         removeExtractionExample: (idx) => removeExtractionExample(idx),

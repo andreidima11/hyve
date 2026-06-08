@@ -397,6 +397,40 @@ class ReteleElectriceClient:
 
         return snapshot
 
+    async def fetch_light(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Refresh outages and instant readings for PODs already known from cache."""
+        if not self._logged_in:
+            await self.login()
+        await self._ensure_identity()
+
+        pod_entries = list((cached or {}).get("pods") or [])
+        if not pod_entries:
+            return await self.fetch_all()
+
+        snapshot: dict[str, Any] = {
+            "account": (cached or {}).get("account") or {},
+            "contact": (cached or {}).get("contact") or {},
+            "user_name": (cached or {}).get("user_name") or "",
+            "pods": [],
+        }
+        for entry in pod_entries:
+            pod_name = entry.get("name") or (entry.get("raw") or {}).get("Name") or (entry.get("raw") or {}).get("POD__c") or ""
+            if not pod_name:
+                continue
+            pod_entry = dict(entry)
+            try:
+                pod_entry["outages"] = await self.get_power_outages(pod_name)
+            except Exception as exc:
+                log.debug("fetch_light outages(%s): %s", pod_name, exc)
+            raw = entry.get("raw") or {}
+            if raw.get("Smart_meter__c") or raw.get("IsSmartMeter__c"):
+                try:
+                    pod_entry["instant"] = await self.get_instant_values(pod_name)
+                except Exception as exc:
+                    log.debug("fetch_light instant(%s): %s", pod_name, exc)
+            snapshot["pods"].append(pod_entry)
+        return snapshot
+
     async def test_connection(self) -> dict[str, Any]:
         try:
             await self.login()

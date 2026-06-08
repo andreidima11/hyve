@@ -32,6 +32,11 @@ class BaseEntity(ABC):
     scan_interval_seconds: int = 300
     fetch_timeout_seconds: float = 60.0
     supports_sync: bool = True
+    # When True, SourceRefreshRunner alternates probe_source (full) and
+    # pull_live_states (light) instead of fetch_entities every cycle.
+    uses_refresh_layers: bool = False
+    # Full probe every N pull cycles (only when uses_refresh_layers is True).
+    probe_interval_cycles: int = 12
     # Push-based integrations (MQTT bridge, WebSocket, etc.): state updates arrive
     # in real time; scan_interval only gates optional manual/startup broker rescan.
     updates_live: bool = False
@@ -177,6 +182,14 @@ class BaseEntity(ABC):
     @abstractmethod
     async def fetch_entities(self) -> dict[str, Any]:
         """Fetch raw integration payload from the upstream system."""
+
+    async def probe_source(self) -> dict[str, Any]:
+        """Full upstream snapshot (discovery, streams, metadata)."""
+        return await self.fetch_entities()
+
+    async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
+        """Lightweight state refresh using the last stored payload as context."""
+        return await self.fetch_entities()
 
     @abstractmethod
     def extract_entities(self, payload: Any) -> list[dict[str, Any]]:

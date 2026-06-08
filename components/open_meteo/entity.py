@@ -23,6 +23,8 @@ class OpenMeteoEntity(BaseEntity):
     icon = "fa-cloud-sun"
     color = "text-sky-400"
     scan_interval_seconds = 900
+    uses_refresh_layers = True
+    probe_interval_cycles = 4
     SUPPORTS_MULTIPLE = True
 
     CONFIG_SCHEMA = [
@@ -64,7 +66,7 @@ class OpenMeteoEntity(BaseEntity):
         except Exception as exc:
             return {"ok": False, "message": str(exc) or exc.__class__.__name__}
 
-    async def fetch_entities(self) -> dict[str, Any]:
+    async def _fetch_payload(self, *, force: bool) -> dict[str, Any]:
         if self.entry_data:
             from open_meteo_client import OpenMeteoClient, _parse_coordinate
 
@@ -84,11 +86,23 @@ class OpenMeteoEntity(BaseEntity):
                 wind_speed_unit=str(d.get("wind_speed_unit") or "kmh"),
                 precipitation_unit=str(d.get("precipitation_unit") or "mm"),
             )
-            return await client.fetch_all(force=False)
+            return await client.fetch_all(force=force)
+        if force:
+            return await open_meteo_client.fetch_all_locations(force=True)
         client = await open_meteo_client.ensure_client()
         if not client:
             raise ValueError("Open Meteo is not configured")
-        return await open_meteo_client.fetch_all_locations(force=False)
+        return await client.fetch_all(force=False)
+
+    async def fetch_entities(self) -> dict[str, Any]:
+        return await self.probe_source()
+
+    async def probe_source(self) -> dict[str, Any]:
+        return await self._fetch_payload(force=True)
+
+    async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
+        del cached
+        return await self._fetch_payload(force=False)
 
     def extract_entities(self, payload: Any) -> list[dict[str, Any]]:
         return extract_weather_candidates(payload, self.slug)

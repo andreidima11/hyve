@@ -40,9 +40,9 @@ class DashboardPreferencesBody(BaseModel):
     layout_mode: Literal["comfortable", "compact"] = "comfortable"
     show_unavailable: bool = True
     filter_mode: Literal["all", "switch", "info", "zigbee2mqtt", "pago", "fusion_solar"] = "all"
-    title: str = "Dashboard"
-    subtitle: str = "Acasă"
-    icon: str = _DEFAULT_DASHBOARD_ICON
+    title: str | None = None
+    subtitle: str | None = None
+    icon: str | None = None
 
 
 class DashboardPageBody(BaseModel):

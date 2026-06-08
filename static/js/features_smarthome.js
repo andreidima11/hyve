@@ -1,7 +1,7 @@
 import { apiCall } from './api.js';
 import { getCameraStreamToken, cameraProxyUrlSync, startCameraPreviewRefresh, stopCameraPreviewRefresh } from './camera_auth.js';
 import { t, tState, applyTranslations } from './lang/index.js';
-import { escapeHtml, showToast, showConfirm, debounce } from './utils.js';
+import { escapeHtml, escapeHtmlAttr, showToast, showConfirm, debounce } from './utils.js';
 import { cameraPreferWebmPlayer } from './camera_live.js';
 import { renderEntityModal, getDomainIcon } from './entity_renderers.js';
 import { entityMatchesIntegration } from './integration_sources.js';
@@ -1159,19 +1159,27 @@ export async function toggleDevice(eid, btnEl) {
 }
 
 export async function toggleSelection(eid, sel) {
+    const item = Array.isArray(_integrationEntitiesCache)
+        ? _integrationEntitiesCache.find(x => x.entity_id === eid)
+        : null;
+    const revertCheckbox = () => {
+        const selEsc = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(eid) : eid.replace(/"/g, '\\"');
+        document.querySelectorAll(`input[data-smarthome-change="toggleSelection"][data-smarthome-entity-id="${selEsc}"]`)
+            .forEach((cb) => { cb.checked = !sel; });
+    };
     try {
+        const body = { entity_id: eid, selected: !!sel };
+        if (item?.unique_id) body.unique_id = item.unique_id;
         await apiCall('/api/integrations/entities/selection', {
             method: 'POST',
-            body: { entity_id: eid, selected: !!sel },
+            body,
         });
         // Reflect change locally so the AI counter and "AI only" filter
         // update without a full reload.
-        if (Array.isArray(_integrationEntitiesCache)) {
-            const item = _integrationEntitiesCache.find(x => x.entity_id === eid);
-            if (item) item.selected = !!sel;
-        }
+        if (item) item.selected = !!sel;
         try { updateHABulkCount(); } catch (_) {}
     } catch {
+        revertCheckbox();
         showToast(t('hy.network_error'), 'error');
     }
 }
@@ -1190,12 +1198,14 @@ export async function toggleAllAI(checked) {
     const targets = cache.filter(d => visibleSet.has(d.entity_id) && d.source !== 'derived');
     if (!targets.length) return;
     try {
-        await Promise.all(targets.map(d =>
-            apiCall('/api/integrations/entities/selection', {
+        await Promise.all(targets.map(d => {
+            const body = { entity_id: d.entity_id, selected: !!checked };
+            if (d.unique_id) body.unique_id = d.unique_id;
+            return apiCall('/api/integrations/entities/selection', {
                 method: 'POST',
-                body: { entity_id: d.entity_id, selected: !!checked },
-            }).catch(() => null)
-        ));
+                body,
+            }).catch(() => null);
+        }));
         targets.forEach(d => { d.selected = !!checked; });
         // Re-sync checkbox state in the visible rows without a full re-render.
         if (tbody) {

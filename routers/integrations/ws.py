@@ -22,6 +22,9 @@ def get_integrations_live_hub() -> LiveEntityWsHub:
             poll_interval_sec=LIVE_POLL_INTERVAL_SEC,
             fetch_items=helpers.all_entities,
             log_icon="🏠",
+            mirror_driven=True,
+            mirror_include_derived=True,
+            mirror_sort_mode="name",
         )
     return _integrations_live_hub
 

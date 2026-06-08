@@ -101,6 +101,10 @@ def build_entities_uncached(
                         integration.entry_title or integration.label or integration.slug,
                     )
                     normalize_entity_record(item, default_source=integration.slug)
+                    if not store.source_is_reachable(integration.store_key):
+                        item["available"] = False
+                        attrs = item.setdefault("attributes", {})
+                        attrs["source_reachable"] = False
                     provider_items.append(item)
             except Exception as exc:
                 log.warning(
@@ -171,6 +175,15 @@ async def get_entities(
 ) -> list[dict[str, Any]]:
     """Cached async entity list (single-flight, off event loop)."""
     include_derived = bool(include_derived)
+    try:
+        from core.entity_mirror import get_entity_mirror
+
+        mirror = get_entity_mirror()
+        if mirror.is_running():
+            return await mirror.get_items(include_derived=include_derived, sort_mode=sort_mode)
+    except Exception as exc:
+        log.debug("entity mirror read failed, using catalog cache: %s", exc)
+
     cached = _cache_hit(include_derived, sort_mode)
     if cached is not None:
         return cached
@@ -204,9 +217,25 @@ def peek_cached_entities(
     sort_mode: SortMode = "name",
 ) -> list[dict[str, Any]] | None:
     """Return a cached snapshot without triggering a rebuild."""
+    try:
+        from core.entity_mirror import get_entity_mirror
+
+        mirror = get_entity_mirror()
+        if mirror.is_running():
+            mirrored = mirror.peek_items(include_derived=include_derived, sort_mode=sort_mode)
+            if mirrored is not None:
+                return mirrored
+    except Exception:
+        pass
     return _cache_hit(include_derived, sort_mode)
 
 
 def invalidate_entity_cache() -> None:
     """Drop all cached entity snapshots."""
     _ENTITY_CACHE.clear()
+    try:
+        from core.entity_mirror import get_entity_mirror
+
+        get_entity_mirror().signal_source_refresh()
+    except Exception:
+        pass

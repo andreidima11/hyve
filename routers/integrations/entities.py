@@ -160,15 +160,46 @@ async def picker_domains(user: models.User = Depends(get_current_user)):
 
 
 @router.get("/{slug}/entities")
-async def get_integration_entities(slug: str, user: models.User = Depends(get_current_user)):
+async def get_integration_entities(
+    slug: str,
+    entry_id: str | None = Query(default=None),
+    user: models.User = Depends(get_current_user),
+):
+    from integrations import get_integration_manager
+
     store = get_entity_store()
-    entities = store.get_entities(slug)
-    if not entities:
+    manager = get_integration_manager()
+    store_keys: list[str] = []
+
+    if entry_id:
+        inst = manager.get_by_entry(entry_id)
+        if inst is not None:
+            store_keys = [inst.store_key]
+    else:
+        instances = manager.entries_for(slug)
+        if instances:
+            store_keys = [inst.store_key for inst in instances]
+        elif store.get_fetcher(slug):
+            store_keys = [slug]
+
+    payloads: list[dict[str, Any]] = []
+    for key in store_keys:
+        row = store.get_entities(key)
+        if not row:
+            continue
+        out = dict(row)
+        schedule = store.get_schedule(key)
+        if schedule:
+            out["schedule"] = schedule
+        out["refresh"] = helpers.refresh_meta_for_store_key(key)
+        out["store_key"] = key
+        payloads.append(out)
+
+    if not payloads:
         raise HTTPException(status_code=404, detail=f"No entities found for integration '{slug}'")
-    schedule = store.get_schedule(slug)
-    if schedule:
-        entities["schedule"] = schedule
-    return entities
+    if len(payloads) == 1:
+        return payloads[0]
+    return {"slug": slug, "entries": payloads}
 
 
 @router.post("/entities/selection")
@@ -180,7 +211,9 @@ async def update_entity_selection(
     if not eid:
         raise HTTPException(status_code=400, detail="entity_id is required")
 
-    get_entity_store().set_selection(eid, bool(body.selected))
+    uid = (body.unique_id or "").strip()
+    storage_id = uid or eid
+    get_entity_store().set_selection(storage_id, bool(body.selected))
     helpers.invalidate_all_entities_cache()
 
     try:

@@ -27,9 +27,22 @@ async def startup_infrastructure(app) -> None:
         log_line("error", "⚠️", "WATCHDOG", f"loop watchdog failed to start: {exc}")
 
 
+def _purge_removed_scheduler_jobs() -> None:
+    """Drop cron jobs for removed features (ambient check-ins, briefings)."""
+    try:
+        scheduler = scheduler_service.scheduler
+        for job in list(scheduler.get_jobs()):
+            jid = job.id or ""
+            if jid.startswith("ambient_checkin_") or jid.startswith("briefing_"):
+                scheduler.remove_job(jid)
+    except Exception:
+        pass
+
+
 async def startup_scheduler() -> None:
     try:
         scheduler_service.start_scheduler()
+        _purge_removed_scheduler_jobs()
         scheduler_service.schedule_consolidation_job()
         log_line("success", "⏰", "SCHEDULER", "Service started.")
     except Exception as exc:
@@ -156,35 +169,15 @@ async def startup_intelligence(mark_startup_task_done) -> None:
 
     try:
         from core import state_observer
+        from core.entity_mirror import get_entity_mirror
+        from core.entity_mirror_wiring import wire_entity_mirror_targets
 
+        wire_entity_mirror_targets()
+        get_entity_mirror().start()
         state_observer.start()
-        log_line("success", "📡", "STATE BUS", "observer started")
+        log_line("success", "📡", "ENTITY MIRROR", "shared snapshot loop started")
     except Exception as exc:
-        log_line("error", "⚠️", "STATE BUS", f"Failed to start: {exc}")
-
-    try:
-        from brain.ambient import init_ambient, is_enabled as ambient_enabled
-
-        if ambient_enabled():
-            init_ambient(asyncio.get_event_loop())
-    except Exception as exc:
-        log_line("error", "⚠️", "AMBIENT", f"Failed to start: {exc}")
-
-    try:
-        from brain.briefings import is_enabled as briefings_enabled, schedule_briefings
-
-        if briefings_enabled():
-            schedule_briefings()
-    except Exception as exc:
-        log_line("error", "⚠️", "BRIEFINGS", f"Failed to schedule: {exc}")
-
-    try:
-        from brain.pattern_detector import init_pattern_detector
-
-        init_pattern_detector()
-    except Exception as exc:
-        log_line("error", "⚠️", "PATTERNS", f"Failed to start: {exc}")
-
+        log_line("error", "⚠️", "ENTITY MIRROR", f"Failed to start: {exc}")
 
 async def startup_maintenance_tasks() -> None:
     async def _run_startup_db_maintenance():
@@ -230,15 +223,15 @@ async def shutdown_services(app) -> None:
     except Exception:
         pass
     try:
-        from brain.ambient import shutdown_ambient
-
-        shutdown_ambient()
-    except Exception:
-        pass
-    try:
         from core import state_observer
 
         state_observer.stop()
+    except Exception:
+        pass
+    try:
+        from core.entity_mirror import get_entity_mirror
+
+        await get_entity_mirror().stop()
     except Exception:
         pass
     if getattr(app.state, "http_client", None) is not None:

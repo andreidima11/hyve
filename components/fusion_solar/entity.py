@@ -27,6 +27,8 @@ class FusionSolarEntity(BaseEntity):
     color = "text-amber-400"
     scan_interval_seconds = 600
     fetch_timeout_seconds = 300.0
+    uses_refresh_layers = True
+    probe_interval_cycles = 6
     SUPPORTS_MULTIPLE = True
 
     CONFIG_SCHEMA = [
@@ -87,7 +89,16 @@ class FusionSolarEntity(BaseEntity):
             return {"ok": False, "message": message or None, "message_key": "integrations.fusion_solar_failed"}
 
     async def fetch_entities(self) -> dict[str, Any]:
+        return await self.probe_source()
+
+    async def probe_source(self) -> dict[str, Any]:
         client = await self._ensure_entry_client()
+        return await client.fetch_all()
+
+    async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
+        client = await self._ensure_entry_client()
+        if hasattr(client, "fetch_realtime"):
+            return await client.fetch_realtime(cached)
         return await client.fetch_all()
 
     async def _ensure_entry_client(self):

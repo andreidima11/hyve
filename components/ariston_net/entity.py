@@ -20,6 +20,8 @@ class AristonNetEntity(BaseEntity):
     icon = "fa-fire-flame-simple"
     color = "text-red-400"
     scan_interval_seconds = 180
+    uses_refresh_layers = True
+    probe_interval_cycles = 6
     SUPPORTS_MULTIPLE = True
 
     CONFIG_SCHEMA = [
@@ -32,22 +34,35 @@ class AristonNetEntity(BaseEntity):
         section = self.config_section(cfg)
         return bool((section.get("username") or "").strip() and (section.get("password") or "").strip())
 
-    async def fetch_entities(self) -> dict[str, Any]:
+    async def _client(self) -> ariston_net_client.AristonNetClient:
         if self.entry_data:
             d = self.entry_data
             username = (d.get("username") or "").strip()
             password = (d.get("password") or "").strip()
             if not username or not password:
                 raise ValueError("AristonNET entry is missing credentials")
-            client = ariston_net_client.AristonNetClient(
+            return ariston_net_client.AristonNetClient(
                 username,
                 password,
                 cache_ttl=int(d.get("scan_interval") or 180),
             )
-            return await client.fetch_all()
         client = await ariston_net_client.ensure_client()
         if not client:
             raise ValueError("AristonNET is not configured")
+        return client
+
+    async def fetch_entities(self) -> dict[str, Any]:
+        return await self.probe_source()
+
+    async def probe_source(self) -> dict[str, Any]:
+        client = await self._client()
+        client.clear_cache()
+        return await client.fetch_all(force=True)
+
+    async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
+        del cached
+        client = await self._client()
+        client.clear_cache()
         return await client.fetch_all()
 
     def extract_entities(self, payload: Any) -> list[dict[str, Any]]:

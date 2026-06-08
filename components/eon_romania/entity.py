@@ -21,6 +21,8 @@ class EonRomaniaEntity(BaseEntity):
     icon = "fa-bolt"
     color = "text-rose-400"
     scan_interval_seconds = 21600
+    uses_refresh_layers = True
+    probe_interval_cycles = 4
     SUPPORTS_MULTIPLE = True
 
     CONFIG_SCHEMA = [
@@ -58,20 +60,30 @@ class EonRomaniaEntity(BaseEntity):
             message = str(exc or "").strip()
             return {"ok": False, "message": message or None, "message_key": "integrations.eon_failed"}
 
-    async def fetch_entities(self) -> dict[str, Any]:
+    def _client_kwargs(self) -> dict[str, Any]:
         data = self.entry_data or {}
         email = str(data.get("email") or "").strip()
         password = str(data.get("password") or "").strip()
         if not email or not password:
             raise ValueError("E.ON Romania entry is missing credentials")
-        async with eon_romania_client.EonRomaniaClient(
-            email,
-            password,
-            selected_contracts=data.get("selected_contracts"),
-            include_history=bool(data.get("include_history")),
-            timeout=30.0,
-        ) as client:
+        return {
+            "username": email,
+            "password": password,
+            "selected_contracts": data.get("selected_contracts"),
+            "include_history": bool(data.get("include_history")),
+            "timeout": 30.0,
+        }
+
+    async def fetch_entities(self) -> dict[str, Any]:
+        return await self.probe_source()
+
+    async def probe_source(self) -> dict[str, Any]:
+        async with eon_romania_client.EonRomaniaClient(**self._client_kwargs()) as client:
             return await client.fetch_all()
+
+    async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
+        async with eon_romania_client.EonRomaniaClient(**self._client_kwargs()) as client:
+            return await client.fetch_light(cached)
 
     def extract_entities(self, payload: Any) -> list[dict[str, Any]]:
         return extract_eon_romania_candidates(payload)

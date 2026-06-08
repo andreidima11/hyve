@@ -318,6 +318,16 @@ export function escapeHtml(text) {
     return div.innerHTML;
 }
 
+export function escapeHtmlAttr(s) {
+    if (s == null) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
 export function getSessionId() {
     return localStorage.getItem('hyve_session_id');
 }

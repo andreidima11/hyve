@@ -28,15 +28,22 @@ async def get_sync_status(user: models.User = Depends(auth.get_current_user)):
     finally:
         db.close()
 
+    from integrations.source_refresh import all_refresh_status
+
+    refresh_by_key = all_refresh_status()
     schedules = []
     for slug, interval, enabled, last_fetch, next_fetch in rows:
-        schedules.append({
+        entry = {
             "integration": slug,
             "interval_seconds": interval,
             "enabled": bool(enabled),
             "last_fetch_time": last_fetch,
             "next_fetch_time": next_fetch,
-        })
+        }
+        refresh = refresh_by_key.get(slug)
+        if refresh:
+            entry["refresh"] = refresh
+        schedules.append(entry)
     return {"total_integrations": len(schedules), "schedules": schedules}
 
 
@@ -57,7 +64,14 @@ async def trigger_sync(slug: str, user: models.User = Depends(auth.get_current_a
             await store.do_sync(slug, force=True)
             stored = store.get_entities(slug) or {}
             helpers.invalidate_all_entities_cache()
-            return {"status": "ok", "slug": slug, "entity_count": len(stored.get("entities") or {})}
+            from integrations.source_refresh import all_refresh_status
+
+            return {
+                "status": "ok",
+                "slug": slug,
+                "entity_count": len(stored.get("entities") or {}),
+                "refresh": {slug: all_refresh_status().get(slug)},
+            }
         except SyncThrottledError as e:
             raise HTTPException(
                 status_code=429,
@@ -125,4 +139,17 @@ async def trigger_sync(slug: str, user: models.User = Depends(auth.get_current_a
             ),
         )
     helpers.invalidate_all_entities_cache()
-    return {"status": "ok", "slug": slug, "entity_count": total, "errors": errors}
+    from integrations.source_refresh import all_refresh_status
+
+    refresh = {
+        inst.store_key: all_refresh_status().get(inst.store_key)
+        for inst in instances
+        if inst.supports_sync
+    }
+    return {
+        "status": "ok",
+        "slug": slug,
+        "entity_count": total,
+        "errors": errors,
+        "refresh": refresh,
+    }

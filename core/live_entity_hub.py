@@ -53,7 +53,11 @@ class _LiveClient:
 
 
 class LiveEntityWsHub:
-    """Poll entity state once and fan out diffs to every connected WebSocket."""
+    """Fan out entity diffs to every connected WebSocket.
+
+    When ``mirror_driven`` is True the hub does not poll — ``EntityMirror``
+    pushes fresh snapshots via :meth:`ingest_snapshot`.
+    """
 
     def __init__(
         self,
@@ -63,24 +67,59 @@ class LiveEntityWsHub:
         fetch_items: FetchItemsFn,
         enrich_items: EnrichItemsFn | None = None,
         log_icon: str = "📊",
+        mirror_driven: bool = False,
+        mirror_include_derived: bool = True,
+        mirror_sort_mode: str = "name",
     ) -> None:
         self._name = name
         self._poll_interval = poll_interval_sec
         self._fetch_items = fetch_items
         self._enrich_items = enrich_items
         self._log_icon = log_icon
+        self._mirror_driven = mirror_driven
+        self._mirror_include_derived = bool(mirror_include_derived)
+        self._mirror_sort_mode = mirror_sort_mode if mirror_sort_mode in {"name", "dashboard"} else "name"
         self._clients: dict[int, _LiveClient] = {}
         self._poll_task: asyncio.Task | None = None
         self._stop = asyncio.Event()
 
     def attach(self, websocket: WebSocket, user: _UserLike) -> None:
         self._clients[id(websocket)] = _LiveClient(websocket=websocket, user=user)
-        self._ensure_poller()
+        if self._mirror_driven:
+            asyncio.create_task(self._ingest_initial_mirror_snapshot())
+        else:
+            self._ensure_poller()
+
+    async def _ingest_initial_mirror_snapshot(self) -> None:
+        if not self._clients:
+            return
+        try:
+            from core.entity_mirror import get_entity_mirror
+
+            items = await get_entity_mirror().get_items(
+                include_derived=self._mirror_include_derived,
+                sort_mode=self._mirror_sort_mode,
+            )
+            await self.ingest_snapshot(items)
+        except Exception as exc:
+            log_line("websocket", "⚠️", f"{self._name.upper()}_WS_BOOT", f"{exc}")
 
     async def detach(self, websocket: WebSocket) -> None:
         self._clients.pop(id(websocket), None)
-        if not self._clients:
+        if not self._mirror_driven and not self._clients:
             await self._stop_poller()
+
+    async def ingest_snapshot(self, items: list[dict[str, Any]]) -> None:
+        """Apply a mirror-built entity list to all connected clients."""
+        if not self._clients:
+            return
+        dead: list[int] = []
+        for cid, client in list(self._clients.items()):
+            enriched = await self._items_for_client(items, client)
+            if not await self._deliver(client, enriched):
+                dead.append(cid)
+        for cid in dead:
+            self._clients.pop(cid, None)
 
     def _ensure_poller(self) -> None:
         if self._poll_task and not self._poll_task.done():

@@ -532,3 +532,39 @@ class EonRomaniaClient:
             "selected_contracts": self.selected_contracts,
             "fetched_at": time.time(),
         }
+
+    async def fetch_light(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Refresh balances and meters for known contracts without re-listing all contracts."""
+        await self.ensure_authenticated()
+        contracts = list((cached or {}).get("available_contracts") or [])
+        if not contracts:
+            contracts = await self.fetch_contracts_list()
+        selected = set(self.selected_contracts)
+        if selected:
+            contracts = [c for c in contracts if str(c.get("accountContract") or "") in selected]
+        bundles: list[dict[str, Any]] = []
+        for contract in contracts:
+            account_contract = str(contract.get("accountContract") or "").strip()
+            if not account_contract:
+                continue
+            values = await asyncio.gather(
+                self.fetch_invoice_balance(account_contract),
+                self.fetch_invoices_unpaid(account_contract),
+                self.fetch_meter_index(account_contract),
+                return_exceptions=True,
+            )
+            bundles.append({
+                "account_contract": account_contract,
+                "summary": contract,
+                "invoice_balance": None if isinstance(values[0], Exception) else values[0],
+                "invoices_unpaid": None if isinstance(values[1], Exception) else values[1],
+                "meter_index": None if isinstance(values[2], Exception) else values[2],
+            })
+        base = dict(cached or {})
+        base.update({
+            "contracts": bundles,
+            "available_contracts": contracts,
+            "selected_contracts": self.selected_contracts,
+            "fetched_at": time.time(),
+        })
+        return base

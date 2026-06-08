@@ -34,6 +34,8 @@ class FrigateEntity(BaseEntity):
     icon = "fa-shield-halved"
     color = "text-indigo-300"
     scan_interval_seconds = 300
+    uses_refresh_layers = True
+    probe_interval_cycles = 6
     SUPPORTS_MULTIPLE = True
 
     CONFIG_SCHEMA = [
@@ -203,13 +205,9 @@ class FrigateEntity(BaseEntity):
             raise last_exc
         raise RuntimeError("nu s-a putut contacta Frigate")
 
-    async def fetch_entities(self) -> dict[str, Any]:
-        section = self.entry_data or {}
-        base = self._base_url()
-        user = str(section.get("username") or "").strip()
-        password = str(section.get("password") or "")
+    async def _fetch_with_logging(self, coro) -> dict[str, Any]:
         try:
-            return await self._fetch_api_payload(base, user, password, section)
+            return await coro
         except Exception as exc:
             from logger import log_line
             reason = str(exc).split("\n")[0]
@@ -217,6 +215,56 @@ class FrigateEntity(BaseEntity):
                 reason = reason[:97] + "..."
             log_line("error", "📷", "FRIGATE", f"fetch failed — {reason}")
             return {}
+
+    async def fetch_entities(self) -> dict[str, Any]:
+        return await self.probe_source()
+
+    async def probe_source(self) -> dict[str, Any]:
+        section = self.entry_data or {}
+        base = self._base_url()
+        user = str(section.get("username") or "").strip()
+        password = str(section.get("password") or "")
+        return await self._fetch_with_logging(
+            self._fetch_api_payload(base, user, password, section)
+        )
+
+    async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
+        cached = dict(cached or {})
+        if not cached.get("config"):
+            return await self.probe_source()
+        section = self.entry_data or {}
+        base = self._base_url()
+        user = str(section.get("username") or "").strip()
+        password = str(section.get("password") or "")
+
+        async def _pull() -> dict[str, Any]:
+            attempts: list[dict[str, Any]] = [section]
+            if base.startswith("https://") and _as_bool(section.get("verify_tls"), False):
+                attempts.append({**section, "verify_tls": False})
+            last_exc: Exception | None = None
+            for attempt_data in attempts:
+                try:
+                    async with httpx.AsyncClient(**self._build_client_kwargs(attempt_data)) as client:
+                        if user and password:
+                            await self._login(client, base, user, password)
+                        stats = await self._fetch_optional_json(client, base, "/api/stats", {})
+                        version = await self._fetch_optional_json(client, base, "/api/version", "")
+                        out = dict(cached)
+                        out["stats"] = stats if isinstance(stats, dict) else {}
+                        out["version"] = version
+                        return out
+                except Exception as exc:
+                    msg = str(exc).lower()
+                    if "certificate" in msg or "ssl" in msg or "self-signed" in msg or "self signed" in msg:
+                        last_exc = exc
+                        continue
+                    raise
+            if last_exc is not None:
+                raise last_exc
+            raise RuntimeError("nu s-a putut contacta Frigate")
+
+        result = await self._fetch_with_logging(_pull())
+        return result if result else cached
 
     def extract_entities(self, payload: Any) -> list[dict[str, Any]]:
         return extract_frigate_candidates(

@@ -4,7 +4,7 @@ Ollama hybrid models stopped honoring /no_think in v0.12.3+.
 Use instead (OpenAI-compat /v1/chat/completions):
   - reasoning_effort: "none"
   - think: false (newer Ollama builds)
-  - trailing assistant prefill with an empty thinking block (briefings workaround)
+  - trailing assistant prefill with an empty thinking block (legacy thinking-model workaround)
 
 User-facing modes (chat UI): auto | think | no_think
 """

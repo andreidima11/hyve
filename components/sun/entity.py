@@ -26,6 +26,8 @@ class SunEntity(BaseEntity):
     icon = "fa-sun"
     color = "text-amber-400"
     scan_interval_seconds = 60
+    uses_refresh_layers = True
+    probe_interval_cycles = 30
     SUPPORTS_MULTIPLE = False
 
     CONFIG_SCHEMA = [
@@ -67,7 +69,7 @@ class SunEntity(BaseEntity):
         except Exception:
             return 44.4268, 26.1025
 
-    async def fetch_entities(self) -> dict[str, Any]:
+    def _sun_payload(self) -> dict[str, Any]:
         lat, lon = self._coords()
         now_utc = datetime.now(timezone.utc)
         elevation, azimuth = solar_position(now_utc, lat, lon)
@@ -95,6 +97,16 @@ class SunEntity(BaseEntity):
             "next_midnight": _fmt(next_midnight),
             "rising": rising,
         }
+
+    async def fetch_entities(self) -> dict[str, Any]:
+        return await self.probe_source()
+
+    async def probe_source(self) -> dict[str, Any]:
+        return self._sun_payload()
+
+    async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
+        del cached
+        return self._sun_payload()
 
     def extract_entities(self, payload: Any) -> list[dict[str, Any]]:
         if not isinstance(payload, dict):

@@ -125,67 +125,6 @@ export async function runConsolidationNow() {
     }
 }
 
-export async function fetchDefaultAmbientReasonerPrompt() {
-    const res = await apiCall('/api/ambient/default-reasoner-prompt');
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || data.error || t('common.error'));
-    return String(data.prompt || '');
-}
-
-export async function resetAmbientReasonerPrompt() {
-    const el = document.getElementById('ambient_reasoner_prompt');
-    if (!el) return;
-    try {
-        el.value = await fetchDefaultAmbientReasonerPrompt();
-        showToast(t('config.ambient_reasoner_prompt_reset_done'), 'success');
-    } catch (e) {
-        showToast((t('config.ambient_reasoner_prompt_reset_error')) + ': ' + (e.message || String(e)), 'error');
-    }
-}
-
-export async function testAmbientNow() {
-    const resultEl = document.getElementById('ambient-test-result');
-    if (resultEl) resultEl.textContent = t('config.ambient_test_running');
-    try {
-        const res = await apiCall('/api/ambient/test', { method: 'POST' });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || data.error || t('common.error'));
-        if (!data.ok) {
-            const reason = data.error === 'disabled' ? (t('config.ambient_test_disabled'))
-                : data.error === 'no_llm' ? (t('config.ambient_test_no_llm'))
-                : (data.error || t('common.error'));
-            if (resultEl) resultEl.textContent = reason;
-            return;
-        }
-        if (data.acted) {
-            if (resultEl) resultEl.textContent = (t('config.ambient_test_acted')) + (data.title ? ` „${data.title}"` : '');
-            showToast(data.body || data.title || t('config.ambient_test_acted'), 'info', 5000);
-        } else {
-            if (resultEl) resultEl.textContent = t('config.ambient_test_idle') + t('config.ambient_test_candidates', { count: data.candidates || 0 });
-        }
-    } catch (e) {
-        if (resultEl) resultEl.textContent = (t('config.ambient_test_error')) + ': ' + (e.message || String(e));
-    }
-}
-
-export async function testBriefingNow() {
-    const resultEl = document.getElementById('briefing-test-result');
-    if (resultEl) resultEl.textContent = t('config.briefings_test_generating');
-    try {
-        const res = await apiCall('/api/briefings/test', { method: 'POST' });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || data.error || t('common.error'));
-        if (data.ok) {
-            if (resultEl) resultEl.textContent = t('config.briefings_test_generated');
-            showToast(data.body?.substring(0, 120) || t('config.briefings_test_generated_toast'), 'info', 6000);
-        } else {
-            if (resultEl) resultEl.textContent = data.error || t('config.briefings_test_failed');
-        }
-    } catch (e) {
-        if (resultEl) resultEl.textContent = `${t('common.error')}: ${e.message || String(e)}`;
-    }
-}
-
 // ── Extraction examples (few-shot) ──
 
 let _extractionExamples = [];

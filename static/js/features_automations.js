@@ -1,6 +1,6 @@
-import { apiCall } from './api.js';
+import { apiCall, suppressLogout } from './api.js';
 import { t } from './lang/index.js';
-import { escapeHtml, showToast, showConfirm, setCodeEditorValue, getCodeEditorValue, refreshCodeEditor } from './utils.js';
+import { escapeHtml, escapeHtmlAttr, showToast, showConfirm, setCodeEditorValue, getCodeEditorValue, refreshCodeEditor, openSubPage, closeSubPage } from './utils.js';
 import { getIntegrationEntities } from './features_smarthome.js';
 import { initGenericCustomSelects, upgradeNativeSelects } from './features_custom_selects.js';
 
@@ -24,6 +24,16 @@ export function switchIntelligenceTab(tabId) {
 // --- Automatizări (tab Conștiință) ---
 let _automationEditorRevision = null;
 let _automationEditorId = null;
+
+function _automationIdString(id) {
+    if (typeof id !== 'string') return null;
+    const s = id.trim();
+    return s || null;
+}
+
+function _editorAutomationId() {
+    return _automationIdString(_automationEditorId);
+}
 let _automationEditorMode = 'builder';
 let _automationBuilderTriggers = [];
 let _automationBuilderConditions = [];
@@ -1060,11 +1070,19 @@ export async function loadAutomationEditorHistory(targetId) {
     const listEl = document.getElementById('automation-editor-history-list');
     const emptyEl = document.getElementById('automation-editor-history-empty');
     if (!listEl || !emptyEl) return;
+    const id = _automationIdString(targetId) || _editorAutomationId();
+    if (!id) {
+        listEl.innerHTML = '';
+        listEl.classList.add('hidden');
+        emptyEl.classList.remove('hidden');
+        emptyEl.textContent = t('automations.history_unavailable');
+        return;
+    }
     listEl.classList.remove('hidden');
     emptyEl.classList.add('hidden');
     listEl.innerHTML = `<p class="text-[11px] text-slate-500">${t('automations.loading')}</p>`;
     try {
-        const res = await apiCall(`/api/automations/definitions/${encodeURIComponent(targetId)}/history`);
+        const res = await apiCall(`/api/automations/definitions/${encodeURIComponent(id)}/history`);
         const data = await res.json();
         _autoHistoryItems = Array.isArray(data.items) ? data.items : [];
         _autoHistoryPage = 1;
@@ -1196,8 +1214,8 @@ export function switchAutomationEditorMode(mode) {
     _automationSetEditorMode(mode);
     if (mode === 'yaml') {
         refreshCodeEditor('automation-editor-yaml');
-    } else if (mode === 'history' && _automationEditorId) {
-        loadAutomationEditorHistory(_automationEditorId);
+    } else if (mode === 'history' && _editorAutomationId()) {
+        loadAutomationEditorHistory();
     }
 }
 
@@ -1277,8 +1295,8 @@ function _stopAutoStatusPoll() {
 
 let _autoMenuPortal = null;
 
-export function toggleAutoMenu(e, defId) {
-    e.stopPropagation();
+export function toggleAutoMenu(e, defId, btnEl) {
+    e?.stopPropagation?.();
     const wasOpen = _autoMenuPortal?.dataset.defId === defId;
     closeAutoMenu();
     if (wasOpen) return;
@@ -1286,7 +1304,8 @@ export function toggleAutoMenu(e, defId) {
     const src = document.getElementById(`auto-menu-${defId}`);
     if (!src) return;
 
-    const btn = e.currentTarget;
+    const btn = btnEl || e?.target?.closest?.('[data-memory-action="toggleAutoMenu"]');
+    if (!btn?.getBoundingClientRect) return;
     const r = btn.getBoundingClientRect();
     const portal = src.cloneNode(true);
     portal.id = 'auto-menu-portal';
@@ -1310,9 +1329,10 @@ export function closeAutoMenu() {
 }
 
 let _autoDotTip = null;
-export function showAutoDotTooltip(e) {
-    e.stopPropagation();
-    const dot = e.currentTarget;
+export function showAutoDotTooltip(e, dotEl) {
+    e?.stopPropagation?.();
+    const dot = dotEl || e?.target?.closest?.('[data-memory-hover="showAutoDotTooltip"], [data-memory-action="showAutoDotTooltip"]');
+    if (!dot) return;
     const label = dot.dataset.autoDotLabel || '';
     if (!label) return;
     hideAutoDotTooltip();
@@ -1472,6 +1492,7 @@ export async function deleteAutomation(jobId) {
 }
 
 export async function openAutomationEditor(automationId) {
+    automationId = _automationIdString(automationId) || undefined;
     const validateEl = document.getElementById('automation-editor-validation');
     const infoEl = document.getElementById('automation-editor-info');
     const pathEl = document.getElementById('automation-editor-path');
@@ -1577,9 +1598,10 @@ export async function saveAutomationEditor() {
         return;
     }
     try {
-        if (_automationEditorId) {
+        const editorId = _editorAutomationId();
+        if (editorId) {
             const expectedRevision = Number(revisionEl?.value || _automationEditorRevision || 1);
-            const res = await apiCall('/api/automations/definitions/' + encodeURIComponent(_automationEditorId), {
+            const res = await apiCall('/api/automations/definitions/' + encodeURIComponent(editorId), {
                 method: 'PUT',
                 body: { source_yaml: sourceYaml, expected_revision: expectedRevision },
             });
@@ -1641,12 +1663,13 @@ export async function runAutomationDefinition(automationId) {
 export async function testAutomationEditor() {
     // Dry-run the currently-open automation. Requires the automation to
     // already be saved (we need an id on the server to walk).
-    if (!_automationEditorId) {
+    const editorId = _editorAutomationId();
+    if (!editorId) {
         showToast(t('automations.test_save_first'), 'warning');
         return;
     }
     try {
-        const res = await apiCall(`/api/automations/definitions/${encodeURIComponent(_automationEditorId)}/test`, { method: 'POST' });
+        const res = await apiCall(`/api/automations/definitions/${encodeURIComponent(editorId)}/test`, { method: 'POST' });
         if (!res.ok) throw new Error();
         const data = await res.json();
         const result = data.result || {};

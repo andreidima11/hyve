@@ -273,11 +273,8 @@ def migrate_from_cfg(cfg: dict[str, Any], known_slugs: Iterable[str]) -> int:
         if not isinstance(section, dict):
             continue
         if list_entries(slug):
-            # Entry already exists. If the legacy section is still marked
-            # enabled, disable it now so deletes don't fall back to it.
-            if section.get("enabled"):
-                section["enabled"] = False
-                dirty = True
+            # Entry already exists — legacy cfg is no longer the source of
+            # truth for enable/disable (see integration_entries.enabled).
             continue
         if not section.get("enabled"):
             continue

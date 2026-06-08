@@ -85,6 +85,7 @@ def _find_widget_any_page(widget_id: str, page_id: str | None = None):
 # Re-export route handlers referenced by tests
 from routers.dashboard.routes import (
     delete_dashboard_page,
+    patch_dashboard_preferences,
     reorder_dashboard_page,
 )
 
@@ -124,5 +125,6 @@ __all__ = [
     "_normalize_entities",
     "get_integration_manager",
     "delete_dashboard_page",
+    "patch_dashboard_preferences",
     "reorder_dashboard_page",
 ]

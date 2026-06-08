@@ -2,7 +2,7 @@
 
 Self-hosted smart home hub with an integrated AI assistant. One FastAPI process serves the web UI, device integrations, automations, dashboards, and chat — similar in spirit to Home Assistant, with a built-in LLM agent for control, memory, and skills.
 
-**Current version:** 0.7.17
+**Current version:** 0.7.18
 
 ## Features
 
@@ -10,7 +10,7 @@ Self-hosted smart home hub with an integrated AI assistant. One FastAPI process 
 - **Smart home** — unified device list from many integrations (MQTT, Roborock, Midea, Reolink, Tapo, Open-Meteo, and more)
 - **AI chat** — streaming assistant with tools (device control, web search, memory, skills, planner)
 - **Automations** — YAML automations with visual editor and blueprints
-- **Memory** — long-term facts in ChromaDB, reminders, ambient suggestions
+- **Memory** — long-term facts in ChromaDB and reminders
 - **Integrations** — Home Assistant–style config entries, encrypted secrets, periodic sync
 - **Add-ons** — optional bundled or custom services (MQTT broker, Whisper, Piper, etc.)
 - **Android app** — native shell in `android/HyveBridge/` (WebView + background services)

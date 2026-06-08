@@ -145,6 +145,8 @@ class RoborockEntity(BaseEntity):
     icon = "fa-robot"
     color = "text-emerald-400"
     scan_interval_seconds = 120
+    uses_refresh_layers = True
+    probe_interval_cycles = 6
     SUPPORTS_MULTIPLE = True
 
     CONFIG_SCHEMA = [
@@ -411,11 +413,29 @@ class RoborockEntity(BaseEntity):
         return bool(section.get("_user_data") or (section.get("email") and section.get("code")))
 
     async def fetch_entities(self) -> dict[str, Any]:
+        return await self.probe_source()
+
+    async def probe_source(self) -> dict[str, Any]:
+        return await self._sync_devices(full=True)
+
+    async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
+        return await self._sync_devices(full=False, cached=cached)
+
+    async def _sync_devices(
+        self,
+        *,
+        full: bool,
+        cached: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        cached_by_duid = {
+            str(row.get("duid") or ""): row
+            for row in ((cached or {}).get("devices") or [])
+            if isinstance(row, dict) and row.get("duid")
+        }
         try:
             manager = await self._ensure_manager()
             devices = await manager.get_devices()
         except Exception:
-            # A dropped MQTT/cloud session is recoverable on the next scan.
             await self._reset_manager()
             raise
 
@@ -423,7 +443,6 @@ class RoborockEntity(BaseEntity):
         for device in devices:
             props = getattr(device, "v1_properties", None)
             if props is None:
-                # Non-v1 device (e.g. wet/dry vac) — not modelled yet.
                 continue
 
             online = True
@@ -431,25 +450,30 @@ class RoborockEntity(BaseEntity):
             consumable: dict[str, Any] = {}
             clean_summary: dict[str, Any] = {}
             transport: dict[str, Any] = {"transport": "offline", "local_connected": False}
+            prior = cached_by_duid.get(str(device.duid)) or {}
             try:
                 if not device.is_connected:
                     await asyncio.wait_for(device.connect(), timeout=_CONNECT_TIMEOUT)
                 transport = await self._note_transport(device, context="sync")
                 await asyncio.wait_for(props.status.refresh(), timeout=_PROP_TIMEOUT)
                 status = _status_snapshot(props.status)
-                # Consumables and cleaning history are best-effort extras — a
-                # failure (or a device that doesn't report them) must not drop
-                # the whole device, so each is refreshed independently.
-                consumable = await self._refresh_snapshot(
-                    getattr(props, "consumables", None), _consumable_snapshot
-                )
-                clean_summary = await self._refresh_snapshot(
-                    getattr(props, "clean_summary", None), _clean_summary_snapshot
-                )
+                if full:
+                    consumable = await self._refresh_snapshot(
+                        getattr(props, "consumables", None), _consumable_snapshot
+                    )
+                    clean_summary = await self._refresh_snapshot(
+                        getattr(props, "clean_summary", None), _clean_summary_snapshot
+                    )
+                else:
+                    consumable = dict(prior.get("consumable") or {})
+                    clean_summary = dict(prior.get("clean_summary") or {})
             except Exception as exc:
                 online = False
                 transport = device_transport_snapshot(device)
                 log.warning("roborock status poll failed for %s: %s", device.name, exc)
+                if not full:
+                    consumable = dict(prior.get("consumable") or {})
+                    clean_summary = dict(prior.get("clean_summary") or {})
 
             results.append(
                 {

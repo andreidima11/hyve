@@ -1,4 +1,18 @@
+import pytest
+
+from integrations import config_entries
+from core import sqlite_sidecar
 from ui_catalog import dashboard_card_catalog, integration_catalog, resolve_dashboard_card
+
+
+@pytest.fixture()
+def isolated_entries_db(tmp_path, monkeypatch):
+    db_path = tmp_path / "integration_entries.sqlite"
+    monkeypatch.setattr(config_entries, "_DB_PATH", db_path)
+    sqlite_sidecar.reset_initialized()
+    config_entries._init()
+    yield db_path
+    sqlite_sidecar.reset_initialized()
 
 
 def test_dashboard_card_catalog_exposes_catalog_entries():
@@ -49,3 +63,20 @@ def test_integration_catalog_marks_config_schema_availability():
 
     assert "mosquitto" in by_slug
     assert by_slug["mosquitto"]["has_config_schema"] is True
+
+
+def test_integration_catalog_enabled_follows_config_entries(isolated_entries_db, monkeypatch):
+    config_entries.create_entry(
+        slug="open_meteo",
+        title="Meteo",
+        data={"latitude": 44.0, "longitude": 26.0},
+        schema=[],
+        enabled=True,
+    )
+    monkeypatch.setitem(
+        __import__("settings").CFG,
+        "open_meteo",
+        {"enabled": False, "latitude": 44.0, "longitude": 26.0},
+    )
+    by_slug = {entry["slug"]: entry for entry in integration_catalog()}
+    assert by_slug["open_meteo"]["enabled"] is True

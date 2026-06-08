@@ -312,20 +312,15 @@ function _renderNotificationItem(item) {
     const clickAttr = hasAction ? `data-user-action="notifNavigate" data-notif-url="${escapeHtml(actionUrl)}" data-notif-id="${id}" style="cursor:pointer"` : '';
     const chevron = hasAction ? `<i class="fas fa-chevron-right text-[10px] text-slate-500 ml-auto shrink-0"></i>` : '';
     const suggested = (item.payload && Array.isArray(item.payload.suggested_actions)) ? item.payload.suggested_actions : [];
-    const isAmbient = !!(item.payload && item.payload.ambient);
-    const sparkle = isAmbient ? `<i class="fas fa-wand-magic-sparkles text-[11px] text-amber-300 shrink-0" title="${escapeHtml(t('notifications.ambient_hint'))}"></i>` : '';
     let suggestedHtml = '';
-    if (!archived && suggested.length) {
-        const btns = suggested.map(a => {
+    const navActions = suggested.filter((a) => a.tool === 'navigate' && a.args && a.args.url);
+    if (!archived && navActions.length) {
+        const btns = navActions.map(a => {
             const label = escapeHtml(a.label || t('notifications.apply'));
-            const idx = parseInt(a.index, 10) || 0;
-            if (a.tool === 'navigate' && a.args && a.args.url) {
-                const url = escapeHtml(a.args.url);
-                return `<button type="button" data-user-action="notifNavigate" data-user-stop-propagation="true" data-notif-url="${url}" data-notif-id="${id}" class="px-3 h-8 rounded-lg text-[12px] font-semibold bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 transition-colors"><i class="fas fa-arrow-right mr-1.5 text-[10px]"></i>${label}</button>`;
-            }
-            return `<button type="button" data-user-action="notifAmbient" data-user-stop-propagation="true" data-notif-id="${id}" data-notif-index="${idx}" class="px-3 h-8 rounded-lg text-[12px] font-semibold bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 transition-colors"><i class="fas fa-bolt mr-1.5 text-[10px]"></i>${label}</button>`;
+            const url = escapeHtml(a.args.url);
+            return `<button type="button" data-user-action="notifNavigate" data-user-stop-propagation="true" data-notif-url="${url}" data-notif-id="${id}" class="px-3 h-8 rounded-lg text-[12px] font-semibold bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 transition-colors"><i class="fas fa-arrow-right mr-1.5 text-[10px]"></i>${label}</button>`;
         }).join('');
-        suggestedHtml = `<div class="flex flex-wrap items-center gap-2 pt-1">${btns}<button type="button" data-user-action="notifArchive" data-user-stop-propagation="true" data-notif-id="${id}" class="px-3 h-8 rounded-lg text-[12px] font-medium bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors">${escapeHtml(t('notifications.dismiss'))}</button></div>`;
+        suggestedHtml = `<div class="flex flex-wrap items-center gap-2 pt-1">${btns}</div>`;
     }
     return `
         <article class="rounded-xl border ${archived ? 'border-[var(--border-light)] bg-[var(--overlay-6)]' : (unread ? 'border-accent/30 bg-accent/5' : 'border-[var(--border-light)] bg-[var(--overlay-6)]')} p-4 transition-colors ${hasAction ? 'hover:bg-[var(--overlay-8)]' : ''}" ${clickAttr}>
@@ -333,7 +328,6 @@ function _renderNotificationItem(item) {
                 <span class="mt-1 h-2.5 w-2.5 rounded-full ${unread ? 'bg-accent shadow-[0_0_0_4px_rgba(168,199,250,0.08)]' : 'bg-[var(--text-tertiary)]'} shrink-0"></span>
                 <div class="min-w-0 flex-1 space-y-2">
                     <div class="flex flex-wrap items-center gap-2">
-                        ${sparkle}
                         <h3 class="text-sm font-semibold text-[var(--text-primary)] leading-snug">${title}</h3>
                         <span class="px-2 py-0.5 rounded-full border text-[10px] font-bold ${severityClasses}">${category}</span>
                         <span class="px-2 py-0.5 rounded-full border border-[var(--border-light)] text-[10px] font-bold text-[var(--text-secondary)] bg-[var(--overlay-6)]">${severity}</span>
@@ -365,39 +359,6 @@ export async function markUserNotificationRead(id) {
         await loadUserNotifications(_currentFilter);
     } catch (_) {
         showToast(t('notifications.mark_read_error'), 'error');
-    }
-}
-
-export async function actOnAmbientSuggestion(id, actionIndex) {
-    try {
-        const res = await apiCall(`/api/ambient/suggestions/${encodeURIComponent(id)}/act`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action_index: actionIndex || 0 }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            const detail = data?.error || data?.detail || '';
-            showToast(detail ? t('notifications.action_failed_detail', { detail }) : t('notifications.action_failed'), 'error');
-            return;
-        }
-        if (data && data.ok) {
-            updateNotificationBadge(data.unread_count || 0);
-            const navUrl = data.navigate_url
-                || (data.results && data.results[0]?.tool === 'navigate' ? data.results[0]?.args?.url : '');
-            if (navUrl) {
-                await navigateNotification(navUrl, id);
-            } else {
-                const msg = data.message || data.results?.[0]?.result || t('notifications.done');
-                showToast(msg, 'success', 4500);
-            }
-        } else {
-            const detail = data?.error || (data?.results && data.results[0]?.error) || '';
-            showToast(detail ? t('notifications.action_failed_detail', { detail }) : t('notifications.action_failed'), 'error');
-        }
-        await loadUserNotifications(_currentFilter);
-    } catch (_) {
-        showToast(t('notifications.action_failed'), 'error');
     }
 }
 
@@ -457,13 +418,7 @@ async function _loadWsEnabledFromConfig() {
 function _handleNotificationPayload(data) {
     if (data.event === 'notification.created') {
         updateNotificationBadge(data.unread_count || 0);
-        if (data.notification?.category === 'ambient') {
-            window.__hyveAmbientLastNotification = data.notification;
-            const ambientTitle = data.notification.title || t('notifications.ambient_default_title');
-            const ambientBody = data.notification.body || t('notifications.ambient_default_body');
-            showToast(`${ambientTitle}: ${ambientBody}`, 'info', 5200);
-            if (_isNotificationsPanelVisible()) loadUserNotifications(_currentFilter);
-        } else if (_isNotificationsPanelVisible()) {
+        if (_isNotificationsPanelVisible()) {
             loadUserNotifications(_currentFilter);
         } else if (data.notification?.body) {
             showToast(data.notification.body, 'info', 4500);

@@ -20,6 +20,8 @@ class PagoEntity(BaseEntity):
     icon = "fa-credit-card"
     color = "text-emerald-400"
     scan_interval_seconds = 3600
+    uses_refresh_layers = True
+    probe_interval_cycles = 6
     SUPPORTS_MULTIPLE = True
 
     CONFIG_SCHEMA = [
@@ -32,23 +34,29 @@ class PagoEntity(BaseEntity):
         section = self.config_section(cfg)
         return bool((section.get("email") or "").strip() and (section.get("password") or "").strip())
 
-    async def fetch_entities(self) -> dict[str, Any]:
-        # Multi-instance aware: when this instance comes from a config
-        # entry, build a transient PagoClient from the entry's data so each
-        # account is fetched independently. Falls back to the legacy global
-        # singleton (settings.CFG-driven) for un-migrated installs.
+    async def _client(self) -> pago_client.PagoClient:
         if self.entry_data:
             email = (self.entry_data.get("email") or "").strip()
             password = (self.entry_data.get("password") or "").strip()
             if not email or not password:
                 raise ValueError("Pago entry is missing credentials")
             ttl = int(self.entry_data.get("scan_interval") or 3600)
-            client = pago_client.PagoClient(email, password, cache_ttl=ttl)
-            return await client.fetch_all()
+            return pago_client.PagoClient(email, password, cache_ttl=ttl)
         client = await pago_client.ensure_client()
         if not client:
             raise ValueError("Pago is not configured")
+        return client
+
+    async def fetch_entities(self) -> dict[str, Any]:
+        return await self.probe_source()
+
+    async def probe_source(self) -> dict[str, Any]:
+        client = await self._client()
         return await client.fetch_all()
+
+    async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
+        client = await self._client()
+        return await client.fetch_light(cached)
 
     def extract_entities(self, payload: Any) -> list[dict[str, Any]]:
         return extract_pago_candidates(payload)

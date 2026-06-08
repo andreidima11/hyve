@@ -43,10 +43,6 @@ function _run(action, el, event) {
         _handlers?.navigateNotification?.(url, _notifId(el), event, el);
         return;
     }
-    case 'notifAmbient':
-        event.stopPropagation();
-        _handlers?.actOnAmbientSuggestion?.(_notifId(el), Number(el.dataset.notifIndex || 0), event, el);
-        return;
     default: {
         const fn = _handlers?.[action];
         if (typeof fn === 'function') fn(event, el);

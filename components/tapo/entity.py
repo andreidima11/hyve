@@ -120,6 +120,8 @@ class TapoEntity(BaseEntity):
     icon = "fa-plug"
     color = "text-emerald-300"
     scan_interval_seconds = 60
+    uses_refresh_layers = True
+    probe_interval_cycles = 12
     SUPPORTS_MULTIPLE = True
 
     CONFIG_SCHEMA = [
@@ -468,7 +470,7 @@ class TapoEntity(BaseEntity):
 
         return items
 
-    async def fetch_entities(self) -> dict[str, Any]:
+    async def _build_payload(self) -> dict[str, Any]:
         section = self._section()
         try:
             dev = await self._connect()
@@ -479,13 +481,23 @@ class TapoEntity(BaseEntity):
 
         prefix = self._entry_prefix()
         items = await self._entities_for_device(dev, prefix=prefix)
-
         return {
             "items": items,
             "host": _normalize_host(str(section.get("host") or "")),
             "model": dev.model,
             "alias": dev.alias,
         }
+
+    async def fetch_entities(self) -> dict[str, Any]:
+        return await self.probe_source()
+
+    async def probe_source(self) -> dict[str, Any]:
+        return await self._build_payload()
+
+    async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
+        if not (cached or {}).get("items"):
+            return await self.probe_source()
+        return await self._build_payload()
 
     def extract_entities(self, payload: Any) -> list[dict[str, Any]]:
         return extract_tapo_candidates(payload)

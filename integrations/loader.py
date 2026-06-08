@@ -10,6 +10,7 @@ import settings
 from . import config_entries
 from .base import BaseEntity
 from .component_loader import discover_integration_classes
+from .source_refresh import attach_refresh_runner
 
 log = logging.getLogger(__name__)
 
@@ -190,9 +191,14 @@ class IntegrationManager:
             return False
         key = self._store_key(integration)
         timeout = float(getattr(integration, "fetch_timeout_seconds", FETCH_TIMEOUT_SECONDS))
-        store.register_fetcher(key, integration.fetch_entities, integration.format_context,
-                               description=getattr(integration, 'description', '') or '',
-                               timeout_seconds=timeout)
+        runner = attach_refresh_runner(integration)
+        store.register_fetcher(
+            key,
+            runner.run,
+            integration.format_context,
+            description=getattr(integration, "description", "") or "",
+            timeout_seconds=timeout,
+        )
         interval = integration.sync_interval(settings.CFG)
         if store.get_schedule(key):
             store.set_interval(key, interval)
@@ -209,9 +215,14 @@ class IntegrationManager:
                 continue
             key = self._store_key(integration)
             timeout = float(getattr(integration, "fetch_timeout_seconds", FETCH_TIMEOUT_SECONDS))
-            store.register_fetcher(key, integration.fetch_entities, integration.format_context,
-                                   description=getattr(integration, 'description', '') or '',
-                                   timeout_seconds=timeout)
+            runner = attach_refresh_runner(integration)
+            store.register_fetcher(
+                key,
+                runner.run,
+                integration.format_context,
+                description=getattr(integration, "description", "") or "",
+                timeout_seconds=timeout,
+            )
             interval = integration.sync_interval(settings.CFG)
             if store.get_schedule(key):
                 store.set_interval(key, interval)

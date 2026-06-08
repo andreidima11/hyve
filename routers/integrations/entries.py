@@ -21,7 +21,10 @@ async def get_integration_schema(slug: str, user: models.User = Depends(auth.get
     from integrations import config_entries
 
     meta = helpers.provider_meta(slug)
-    entries = config_entries.list_entries_redacted(slug, meta["schema"])
+    entries = [
+        helpers.enrich_entry_refresh(entry, slug)
+        for entry in config_entries.list_entries_redacted(slug, meta["schema"])
+    ]
     return {**meta, "entries": entries}
 
 
@@ -30,7 +33,13 @@ async def list_provider_entries(slug: str, user: models.User = Depends(auth.get_
     from integrations import config_entries
 
     meta = helpers.provider_meta(slug)
-    return {"slug": slug, "entries": config_entries.list_entries_redacted(slug, meta["schema"])}
+    return {
+        "slug": slug,
+        "entries": [
+            helpers.enrich_entry_refresh(entry, slug)
+            for entry in config_entries.list_entries_redacted(slug, meta["schema"])
+        ],
+    }
 
 
 @router.post("/{slug}/entries/test")
@@ -211,4 +220,5 @@ async def delete_provider_entry(
         log.debug("unregister(%s) on delete failed: %s", store_key, exc)
 
     get_integration_manager().reload()
+    helpers.invalidate_all_entities_cache()
     return {"status": "ok"}

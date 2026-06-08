@@ -358,7 +358,7 @@ def _build_proactive_hints() -> str:
         entities = store.get_all_entities()
         on_states = {"on", "open", "unlocked", "heat", "cool", "playing"}
 
-        # Devices that have been on a while (simple heuristic from state_since if ambient is running)
+        # Devices currently on (for proactive chat hints)
         active_lights = []
         for e in entities:
             eid = e.get("entity_id") or ""

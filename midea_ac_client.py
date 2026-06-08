@@ -625,6 +625,33 @@ class MideaAcClient:
             _close_device_lan(device)
         return {"devices": out_devices}
 
+    async def fetch_live(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Refresh known AC units without repeating LAN/cloud discovery."""
+        rows = list((cached or {}).get("devices") or [])
+        if not rows:
+            return await self.fetch_all()
+        out_devices: list[dict[str, Any]] = []
+        for row in rows:
+            token = str(row.get("device_token") or row.get("id") or "")
+            if not token:
+                out_devices.append(dict(row))
+                continue
+            device = None
+            try:
+                device = await self._device_for_token(token)
+                await device.refresh()
+                out_devices.append(_serialize_device(device))
+                self._cache[int(getattr(device, "id", 0) or 0)] = device
+            except Exception as exc:
+                log.warning("Midea live refresh failed for %s: %s", token, exc)
+                out_devices.append(dict(row))
+            finally:
+                try:
+                    _close_device_lan(device)
+                except Exception:
+                    pass
+        return {"devices": out_devices}
+
     async def control_entity(
         self,
         entity_id: str,

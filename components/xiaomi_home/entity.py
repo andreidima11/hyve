@@ -45,6 +45,8 @@ class XiaomiHomeEntity(BaseEntity):
     icon = "fa-house-signal"
     color = "text-orange-400"
     scan_interval_seconds = 60
+    uses_refresh_layers = True
+    probe_interval_cycles = 12
     SUPPORTS_MULTIPLE = True  # one entry per Xiaomi account / region
 
     CONFIG_SCHEMA = [
@@ -220,11 +222,19 @@ class XiaomiHomeEntity(BaseEntity):
         return bool((section.get("_oauth") or {}).get("refresh_token"))
 
     async def fetch_entities(self) -> dict[str, Any]:
+        return await self.probe_source()
+
+    async def probe_source(self) -> dict[str, Any]:
         client = self._build_client(self.entry_data or {}, token_saver=self._make_token_saver())
         async with client:
             payload = await client.fetch_all()
         self._persist_profiles(payload.get("profiles") or {})
         return payload
+
+    async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
+        client = self._build_client(self.entry_data or {}, token_saver=self._make_token_saver())
+        async with client:
+            return await client.fetch_live(cached)
 
     def extract_entities(self, payload: Any) -> list[dict[str, Any]]:
         return extract_xiaomi_home_candidates(payload)

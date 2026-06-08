@@ -33,9 +33,12 @@ def register_instance_fetcher(store, inst) -> str:
 
     key = inst.store_key
     timeout = float(getattr(inst, "fetch_timeout_seconds", FETCH_TIMEOUT_SECONDS))
+    from integrations.source_refresh import attach_refresh_runner
+
+    runner = attach_refresh_runner(inst)
     store.register_fetcher(
         key,
-        inst.fetch_entities,
+        runner.run,
         inst.format_context,
         description=getattr(inst, "description", "") or "",
         timeout_seconds=timeout,
@@ -118,6 +121,48 @@ def group_entities_into_devices(entities: list[dict[str, Any]]) -> list[dict[str
     return devices
 
 
+def refresh_meta_for_store_key(store_key: str) -> dict[str, Any]:
+    """Runtime refresh status for one entity-store key."""
+    from addons.entity_store import get_entity_store
+    from integrations.source_refresh import get_refresh_runner
+
+    key = str(store_key or "").strip()
+    runner = get_refresh_runner(key)
+    if runner is not None:
+        return runner.status.as_dict()
+
+    store = get_entity_store()
+    stored = store.get_entities(key) or {}
+    schedule = store.get_schedule(key) or {}
+    return {
+        "store_key": key,
+        "slug": key.split(":", 1)[0] if ":" in key else key,
+        "entry_id": "",
+        "last_ok_at": stored.get("timestamp"),
+        "last_error": stored.get("last_error"),
+        "last_mode": "",
+        "last_duration_ms": 0,
+        "consecutive_failures": 1 if stored.get("last_error") else 0,
+        "cycle_count": 0,
+        "reachable": store.source_is_reachable(key),
+        "interval_seconds": schedule.get("interval_seconds"),
+        "next_fetch_time": schedule.get("next_fetch_time"),
+    }
+
+
+def enrich_entry_refresh(entry: dict[str, Any], slug: str) -> dict[str, Any]:
+    """Attach ``refresh`` metadata to a config entry dict."""
+    from integrations import get_integration_manager
+
+    out = dict(entry or {})
+    entry_id = str(out.get("entry_id") or "").strip()
+    inst = get_integration_manager().get_by_entry(entry_id) if entry_id else None
+    store_key = inst.store_key if inst is not None else slug
+    out["store_key"] = store_key
+    out["refresh"] = refresh_meta_for_store_key(store_key)
+    return out
+
+
 def redact_entry(entry: dict[str, Any], schema: list[dict[str, Any]]) -> dict[str, Any]:
     if not entry:
         return entry
@@ -143,5 +188,8 @@ def provider_meta(slug: str) -> dict[str, Any]:
         "icon": getattr(cls, "icon", "fa-puzzle-piece"),
         "color": getattr(cls, "color", "text-slate-400"),
         "supports_multiple": bool(getattr(cls, "SUPPORTS_MULTIPLE", False)),
+        "supports_sync": bool(getattr(cls, "supports_sync", True)),
+        "updates_live": bool(getattr(cls, "updates_live", False)),
+        "uses_refresh_layers": bool(getattr(cls, "uses_refresh_layers", False)),
         "schema": cls.get_config_schema(),
     }

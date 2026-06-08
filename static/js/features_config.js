@@ -362,70 +362,8 @@ export async function loadConfig() {
     const lazyHistEl = document.getElementById('intel_lazy_history');
     if (lazyHistEl) lazyHistEl.checked = intel.lazy_history !== false;  // default true
 
-    // Intelligence: Ambient Brain (proactive)
-    const amb = intel.ambient || {};
-    const ambQuiet = amb.quiet_hours || {};
-    const _setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-    const _setChk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
-    _setChk('ambient_enabled', amb.enabled);
-    _setVal('ambient_mode', amb.mode || 'suggest');
-    _setVal('ambient_checkin', amb.checkin || 'off');
-    _setVal('ambient_quiet_start', ambQuiet.start || '23:00');
-    _setVal('ambient_quiet_end', ambQuiet.end || '07:00');
-    _setVal('ambient_max_per_hour', amb.max_per_hour ?? 6);
-    _setVal('ambient_scan_interval', amb.scan_interval_min ?? 15);
-    _setChk('ambient_learn_patterns', amb.learn_patterns !== false);
-    _setChk('ambient_ignore_unavailable', !!amb.ignore_unavailable_entities);
-    const ignoreSrc = amb.ignore_sources;
-    _setVal('ambient_ignore_sources', Array.isArray(ignoreSrc) ? ignoreSrc.join(', ') : (ignoreSrc || ''));
-    let ambPrompt = String(amb.reasoner_prompt || '').trim();
-    if (!ambPrompt) {
-        try { ambPrompt = await fetchDefaultAmbientReasonerPrompt(); } catch (_) { /* textarea stays empty until retry */ }
-    }
-    _setVal('ambient_reasoner_prompt', ambPrompt);
-    // Profile picker: "active profile" + each configured model profile
-    const ambProfileSel = document.getElementById('ambient_profile');
-    if (ambProfileSel) {
-        const profiles = Array.isArray(cfg.model_profiles) ? cfg.model_profiles : [];
-        const activeLabel = t('config.ambient_profile_active');
-        ambProfileSel.innerHTML = `<option value="">${escapeHtml(activeLabel)}</option>` +
-            profiles.map(p => {
-                const aux = (p.aux_llm_enabled && (p.aux_llm?.model_name)) ? ' • aux' : '';
-                return `<option value="${escapeHtmlAttr(p.id || '')}">${escapeHtml((p.name || p.id || '—') + aux)}</option>`;
-            }).join('');
-        ambProfileSel.value = amb.profile_id || '';
-    }
-    initGenericCustomSelects();
-
-    // Helper: populate a model-profile <select> (mirrors ambient_profile)
-    const _fillProfileSelect = (selectId, selectedId) => {
-        const sel = document.getElementById(selectId);
-        if (!sel) return;
-        const profiles = Array.isArray(cfg.model_profiles) ? cfg.model_profiles : [];
-        const activeLabel = t('config.ambient_profile_active');
-        sel.innerHTML = `<option value="">${escapeHtml(activeLabel)}</option>` +
-            profiles.map(p => `<option value="${escapeHtmlAttr(p.id || '')}">${escapeHtml(p.name || p.id || '—')}</option>`).join('');
-        sel.value = selectedId || '';
-    };
-
-    // Briefings
-    const briefCfg = intel.briefings || {};
-    _setChk('briefings_enabled', briefCfg.enabled);
-    _setVal('briefings_morning_time', briefCfg.morning_time || '07:30');
-    _setVal('briefings_evening_time', briefCfg.evening_time || '21:00');
-    _setChk('briefings_include_weather', briefCfg.include_weather !== false);
-    _setChk('briefings_include_planner', briefCfg.include_planner !== false);
-    _setChk('briefings_include_home_status', briefCfg.include_home_status !== false);
-    _fillProfileSelect('briefings_profile', briefCfg.profile_id);
-
-    initGenericCustomSelects();
-
-    // Pattern Detector
-    const patternCfg = intel.pattern_detector || {};
-    _setChk('pattern_detector_enabled', patternCfg.enabled);
-    _setVal('pattern_min_occurrences', patternCfg.min_occurrences ?? 4);
-
     // Intent Router
+    const _setChk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
     const routerCfg = intel.intent_router || {};
     _setChk('intent_router_enabled', routerCfg.enabled);
 
@@ -634,9 +572,13 @@ export async function loadConfig() {
             if (!slug) continue;
             const cb = _findIntegrationCheckbox(slug);
             if (!cb) continue;
-            const section = cfg[entry.config_key || slug];
-            if (section && typeof section === 'object') {
-                cb.checked = !!section.enabled;
+            if (Object.prototype.hasOwnProperty.call(entry, 'enabled')) {
+                cb.checked = !!entry.enabled;
+            } else {
+                const section = cfg[entry.config_key || slug];
+                if (section && typeof section === 'object') {
+                    cb.checked = !!section.enabled;
+                }
             }
         }
         syncIntegrationToggles();
@@ -1497,37 +1439,6 @@ export async function saveConfig(eOrOptions) {
             search_tendency: Math.min(5, Math.max(1, parseInt(document.getElementById('intel_search_tendency')?.value, 10) || 3)),
             search_use_conversation_context: document.getElementById('search_use_conversation_context')?.checked || false,
             search_context_similarity_threshold: Math.min(0.99, Math.max(0.2, parseFloat(document.getElementById('search_context_similarity_threshold')?.value) || 0.55)),
-            ambient: {
-                enabled: document.getElementById('ambient_enabled')?.checked || false,
-                mode: document.getElementById('ambient_mode')?.value || 'suggest',
-                checkin: document.getElementById('ambient_checkin')?.value || 'off',
-                profile_id: (document.getElementById('ambient_profile')?.value || '').trim(),
-                quiet_hours: {
-                    start: (document.getElementById('ambient_quiet_start')?.value || '23:00').trim(),
-                    end: (document.getElementById('ambient_quiet_end')?.value || '07:00').trim(),
-                },
-                max_per_hour: Math.min(30, Math.max(1, parseInt(document.getElementById('ambient_max_per_hour')?.value, 10) || 6)),
-                scan_interval_min: Math.min(180, Math.max(2, parseInt(document.getElementById('ambient_scan_interval')?.value, 10) || 15)),
-                learn_patterns: document.getElementById('ambient_learn_patterns')?.checked !== false,
-                ignore_unavailable_entities: !!document.getElementById('ambient_ignore_unavailable')?.checked,
-                ignore_sources: (document.getElementById('ambient_ignore_sources')?.value || '')
-                    .split(/[,;\s]+/).map(s => s.trim()).filter(Boolean),
-                integration_alert_cooldown_hours: 24,
-                reasoner_prompt: (document.getElementById('ambient_reasoner_prompt')?.value || '').trim(),
-            },
-            briefings: {
-                enabled: document.getElementById('briefings_enabled')?.checked || false,
-                profile_id: (document.getElementById('briefings_profile')?.value || '').trim(),
-                morning_time: (document.getElementById('briefings_morning_time')?.value || '07:30').trim(),
-                evening_time: (document.getElementById('briefings_evening_time')?.value || '21:00').trim(),
-                include_weather: document.getElementById('briefings_include_weather')?.checked !== false,
-                include_planner: document.getElementById('briefings_include_planner')?.checked !== false,
-                include_home_status: document.getElementById('briefings_include_home_status')?.checked !== false,
-            },
-            pattern_detector: {
-                enabled: document.getElementById('pattern_detector_enabled')?.checked || false,
-                min_occurrences: Math.min(20, Math.max(2, parseInt(document.getElementById('pattern_min_occurrences')?.value, 10) || 4)),
-            },
             intent_router: {
                 enabled: document.getElementById('intent_router_enabled')?.checked || false,
             },

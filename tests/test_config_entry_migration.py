@@ -59,5 +59,6 @@ def test_migrate_from_cfg_idempotent_when_entry_exists(isolated_entries_db, monk
     )
     created = migrate_from_cfg(cfg, ["open_meteo"])
     assert created == 0
-    assert cfg["open_meteo"]["enabled"] is False
+    # Legacy cfg.enabled is not clobbered on repeat runs — entries.enabled is authoritative.
+    assert cfg["open_meteo"]["enabled"] is True
     assert len(config_entries.list_entries("open_meteo")) == 1

@@ -709,6 +709,41 @@ class XiaomiHomeClient:
             "profiles": profiles,
         }
 
+    async def fetch_live(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Re-read MIoT properties for profiles discovered during the last probe."""
+        base = dict(cached or {})
+        profiles = dict(base.get("profiles") or {})
+        if not profiles:
+            return await self.fetch_all()
+        await self.ensure_token()
+        read_params: list[dict[str, Any]] = []
+        queued: set[tuple[str, int, int]] = set()
+        for did, profile in profiles.items():
+            controls = profile.get("controls") or {}
+            reads = profile.get("reads") or []
+            props = profile.get("props") or []
+            for desc in [*props, controls.get("on"), controls.get("status"), *reads]:
+                if not desc:
+                    continue
+                key = (did, desc["siid"], desc["piid"])
+                if key in queued:
+                    continue
+                read_params.append({"did": did, "siid": desc["siid"], "piid": desc["piid"]})
+                queued.add(key)
+        if read_params:
+            try:
+                values = await self.get_props(read_params)
+            except XiaomiHomeError as exc:
+                log.debug("xiaomi fetch_live get_props failed: %s", exc)
+                values = []
+            for item in values:
+                did = str(item.get("did"))
+                if did in profiles and item.get("code") in (0, None):
+                    key = f"{item.get('siid')}.{item.get('piid')}"
+                    profiles[did].setdefault("values", {})[key] = item.get("value")
+        base["profiles"] = profiles
+        return base
+
     # ── control ───────────────────────────────────────────────────────
     async def control_device(
         self,

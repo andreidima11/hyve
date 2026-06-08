@@ -12,7 +12,6 @@ import { initDashboardDragResize, startDashboardDrag, startDashboardPanelDrag } 
 import { closeDashboardMenu, toggleDashboardMenu } from '../dashboard_menu.js';
 import {
     toggleDashboardEditMode,
-    toggleDashboardLayout,
     saveDashboardPreferences,
 } from '../dashboard_preferences.js';
 import { openDashboardAddPicker } from '../add_picker.js';
@@ -78,7 +77,6 @@ import {
 export function wireDashboardEvents() {
     initDashboardEventBindings({
         closeMenu: () => closeDashboardMenu(),
-        toggleLayout: () => { toggleDashboardLayout(); },
         toggleMenu: () => toggleDashboardMenu(),
         toggleEditMode: () => { toggleDashboardEditMode(); },
         openAddPicker: () => { openDashboardAddPicker(); },

@@ -34,7 +34,7 @@ async def _enrich_dashboard_items(items: list, user: models.User) -> list:
         return items
 
 
-def _get_hub() -> LiveEntityWsHub:
+def get_dashboard_live_hub() -> LiveEntityWsHub:
     global _hub
     if _hub is None:
         _hub = LiveEntityWsHub(
@@ -43,8 +43,15 @@ def _get_hub() -> LiveEntityWsHub:
             fetch_items=_available_entities,
             enrich_items=_enrich_dashboard_items,
             log_icon="📊",
+            mirror_driven=True,
+            mirror_include_derived=False,
+            mirror_sort_mode="dashboard",
         )
     return _hub
+
+
+def _get_hub() -> LiveEntityWsHub:
+    return get_dashboard_live_hub()
 
 
 # Re-export for integrations router compatibility.
