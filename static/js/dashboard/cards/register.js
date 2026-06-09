@@ -6,17 +6,9 @@ import { registerCard } from '../card_registry.js';
 import { renderClimateCard } from '../climate.js';
 import {
     renderCameraCard,
-    renderFusionSolarCard,
-    renderGaugeCard,
+    renderHyveviewShell,
     renderLabelCard,
-    renderLightCard,
-    renderLockCard,
     renderPictureCard,
-    renderSensorCard,
-    renderTileCard,
-    renderVacuumCard,
-    renderWeatherRichCard,
-    renderWeatherSimpleCard,
 } from './renderers.js';
 import {
     updateGaugeCard,
@@ -32,31 +24,47 @@ if (typeof window !== 'undefined' && window.__hyveCameraTimer) {
 
 let _registered = false;
 
+const _SHELL_TYPES = [
+    'light',
+    'sensor',
+    'gauge',
+    'lock',
+    'vacuum',
+    'weather',
+    'weather_rich',
+    'fusion_solar',
+];
+
+const _SHELL_UPDATES = {
+    sensor: updateSensorCard,
+    gauge: updateGaugeCard,
+};
+
 export function registerDashboardCards() {
     if (_registered) return;
     _registered = true;
 
     registerCard({ type: 'label', render: renderLabelCard, update: updateLabelCard });
-    registerCard({ type: 'light', render: renderLightCard });
-    registerCard({ type: 'sensor', render: renderSensorCard, update: updateSensorCard });
-    registerCard({ type: 'gauge', render: renderGaugeCard, update: updateGaugeCard });
-    registerCard({ type: 'lock', render: renderLockCard });
-    registerCard({ type: 'vacuum', render: renderVacuumCard });
-    registerCard({ type: 'weather', render: renderWeatherSimpleCard });
-    registerCard({ type: 'weather_rich', render: renderWeatherRichCard });
-    registerCard({ type: 'fusion_solar', render: renderFusionSolarCard });
+    registerCard({ type: 'climate', render: (widget) => renderClimateCard(widget) });
     registerCard({ type: 'camera', render: renderCameraCard });
     registerCard({ type: 'picture', render: renderPictureCard });
-    registerCard({ type: 'climate', render: (widget) => renderClimateCard(widget) });
 
-    const tileInteractive = (widget, ctx) => renderTileCard(widget, ctx, { interactive: true });
-    const tileStatic = (widget, ctx) => renderTileCard(widget, ctx, { interactive: false });
+    _SHELL_TYPES.forEach((type) => {
+        registerCard({
+            type,
+            render: renderHyveviewShell,
+            update: _SHELL_UPDATES[type] || undefined,
+        });
+    });
 
-    registerCard({ type: 'tile', render: tileInteractive, update: updateTileCard });
-    registerCard({ type: 'button', render: tileInteractive, update: updateTileCard });
-    registerCard({ type: 'switch', render: tileInteractive, update: updateTileCard });
-    registerCard({ type: 'scene', render: tileInteractive, update: updateTileCard });
-    registerCard({ type: 'info', render: tileStatic, update: updateTileCard });
+    const tileRender = (widget, ctx) => renderHyveviewShell(widget, ctx, { interactive: true });
+    const infoRender = (widget, ctx) => renderHyveviewShell(widget, ctx, { interactive: false });
+
+    registerCard({ type: 'tile', render: tileRender, update: updateTileCard });
+    registerCard({ type: 'button', render: tileRender, update: updateTileCard });
+    registerCard({ type: 'switch', render: tileRender, update: updateTileCard });
+    registerCard({ type: 'scene', render: tileRender, update: updateTileCard });
+    registerCard({ type: 'info', render: infoRender, update: updateTileCard });
 }
 
 export { cameraWidgetEntities } from './renderers.js';

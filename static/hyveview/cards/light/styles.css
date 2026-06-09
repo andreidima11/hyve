@@ -1,0 +1,58 @@
+/* Light card — tile + brightness slider */
+.hyve-dashboard-card--light .hyve-dashboard-card__brightness {
+    margin-top: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+.hyve-dashboard-card--light .hyve-dashboard-card__brightness i {
+    color: var(--text-tertiary, #94a3b8);
+    font-size: 11px;
+    flex-shrink: 0;
+    width: 14px;
+    text-align: center;
+}
+.hyve-dashboard-card--light .hyve-dashboard-card__brightness-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(90deg,
+        rgba(var(--accent-rgb, 56,189,248), 0.55) 0%,
+        rgba(var(--accent-rgb, 56,189,248), 0.55) var(--brightness-pct, 0%),
+        var(--surface-2, rgba(255,255,255,0.07)) var(--brightness-pct, 0%),
+        var(--surface-2, rgba(255,255,255,0.07)) 100%);
+    cursor: pointer;
+    outline: none;
+}
+.hyve-dashboard-card--light .hyve-dashboard-card__brightness-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--accent, #38bdf8);
+    box-shadow: 0 0 10px rgba(var(--accent-rgb, 56,189,248), 0.7);
+    cursor: pointer;
+    border: 2px solid var(--surface-1, #0f172a);
+}
+.hyve-dashboard-card--light .hyve-dashboard-card__brightness-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--accent, #38bdf8);
+    box-shadow: 0 0 10px rgba(var(--accent-rgb, 56,189,248), 0.7);
+    cursor: pointer;
+    border: 2px solid var(--surface-1, #0f172a);
+}
+.hyve-dashboard-card--light .hyve-dashboard-card__brightness-value {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary, #cbd5e1);
+    min-width: 32px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Sensor card — big value + unit */

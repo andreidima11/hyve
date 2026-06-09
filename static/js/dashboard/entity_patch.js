@@ -1,6 +1,6 @@
 /** Apply WS entity diffs to dashboard cache + Hyveview fast-path patching. */
 
-import { fusionSolarWidgetEntityIds } from '/static/hyveview/cards/fusion_solar.js';
+import { fusionSolarWidgetEntityIds } from '/static/hyveview/cards/fusion_solar/card.js';
 import { entityIdVariants, findEntityById, updatesGetWithAliases, updatesHasWithAliases } from '../entity_aliases.js';
 import { patchRegistryCardStates } from './card_registry.js';
 import { widgetArticleEl } from './cards/updates.js';

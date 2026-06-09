@@ -1,0 +1,11 @@
+{
+  "id": "tile",
+  "name": "Tile",
+  "description": "Generic clickable tile.",
+  "version": "1.0.0",
+  "entry": "index.js",
+  "styles": [
+    "styles.css"
+  ],
+  "hyve_card": true
+}

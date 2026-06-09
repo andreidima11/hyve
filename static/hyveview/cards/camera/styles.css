@@ -1,0 +1,468 @@
+/* ── Camera card (Frigate / RTSP snapshot) ───────────────────────────── */
+.hyve-dashboard-card--camera {
+    padding: 0;
+    overflow: hidden;
+    position: relative;
+    background: #050505;
+}
+.hyve-dashboard-card--camera {
+    cursor: default;
+}
+.hyve-dashboard-card__camera-frame {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.hyve-dashboard-card__camera-img {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    object-fit: contain;
+    display: block;
+    background: #050505;
+}
+.hyve-dashboard-card__camera-player {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    background: #050505;
+}
+.hyve-dashboard-card__camera-player video,
+.hyve-dashboard-card__camera-player img {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    object-fit: contain;
+    display: block;
+    background: #050505;
+}
+.hyve-dashboard-card__camera-img[data-failed="1"] {
+    opacity: 0.25;
+    filter: grayscale(1);
+}
+.hyve-dashboard-card__camera-frame [data-camera-loader] {
+    background: rgba(5, 5, 5, 0.82);
+    gap: 0.5rem;
+}
+.hyve-dashboard-card__camera-frame [data-camera-loader] .w-9 {
+    width: 1.75rem;
+    height: 1.75rem;
+}
+.hyve-dashboard-card__camera-frame [data-camera-loader] .tracking-widest {
+    font-size: 0.56rem;
+}
+.hyve-dashboard-card__camera-placeholder {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 2.5rem;
+    background:
+        repeating-linear-gradient(
+            45deg,
+            rgba(255, 255, 255, 0.04) 0 8px,
+            rgba(255, 255, 255, 0.02) 8px 16px
+        );
+}
+.hyve-dashboard-card__camera-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 0.85rem;
+    pointer-events: none;
+}
+.hyve-dashboard-card__camera-title {
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.hyve-dashboard-card__camera-hint {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.75rem;
+}
+
+/* Multi-camera carousel + audio menu */
+.hyve-dashboard-card--camera .hyve-dashboard-card__edit {
+    z-index: 12;
+}
+.hv-camera-carousel {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    position: relative;
+}
+.hv-camera-carousel__viewport {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    align-items: stretch;
+}
+.hv-camera-carousel__stage {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    position: relative;
+    z-index: 1;
+}
+.hv-camera-carousel__stream {
+    width: 100%;
+    height: 100%;
+}
+.hv-camera-carousel__stream--active {
+    position: relative;
+    z-index: 1;
+}
+.hv-camera-carousel__stream--buffer {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+.hv-camera-carousel__nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 6;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    border: 1px solid var(--camera-chip-border);
+    background: var(--camera-chip-bg);
+    color: var(--camera-chip-fg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.hv-camera-carousel__nav[hidden] {
+    display: none !important;
+}
+.hv-camera-carousel__nav:hover {
+    background: var(--camera-chip-bg-hover);
+    border-color: var(--camera-chip-border-hover);
+}
+.hv-camera-carousel__nav--prev { left: 0.45rem; }
+.hv-camera-carousel__nav--next { right: 0.45rem; }
+.hv-camera-carousel__menu-btn {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    z-index: 7;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.55rem;
+    border: 1px solid var(--camera-chip-border);
+    background: var(--camera-chip-bg);
+    color: var(--camera-chip-fg);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.hv-camera-carousel__menu-btn:hover {
+    background: var(--camera-chip-bg-hover);
+    border-color: var(--camera-chip-border-hover);
+}
+.hv-camera-carousel__menu {
+    position: absolute;
+    top: 2.6rem;
+    right: 0.45rem;
+    z-index: 8;
+    min-width: 12.5rem;
+    max-width: calc(100% - 1rem);
+    padding: 0.65rem 0.7rem;
+    border-radius: 0.7rem;
+    border: 1px solid var(--camera-menu-border);
+    background: var(--camera-menu-bg);
+    color: var(--camera-menu-fg);
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(8px);
+}
+.hv-camera-carousel__menu--portal {
+    position: fixed;
+    z-index: 12000;
+    max-width: min(16rem, calc(100vw - 1rem));
+    box-shadow: var(--shadow-xl);
+}
+.hv-camera-carousel__menu.hidden { display: none; }
+.hv-camera-carousel__menu-head {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--camera-menu-muted);
+    margin-bottom: 0.45rem;
+}
+.hv-camera-carousel__menu-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.35rem 0;
+    font-size: 0.78rem;
+    color: var(--camera-menu-fg);
+}
+.hv-camera-carousel__menu-row span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.hv-camera-carousel__toggle {
+    border: 1px solid var(--camera-menu-control-border);
+    background: var(--camera-menu-control-bg);
+    color: var(--camera-menu-fg);
+    border-radius: 0.45rem;
+    padding: 0.25rem 0.45rem;
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+}
+.hv-camera-carousel__toggle.is-muted { opacity: 0.65; }
+.hv-camera-carousel__range {
+    width: 6.5rem;
+    accent-color: var(--accent);
+}
+.hv-camera-carousel__ptt {
+    width: 100%;
+    margin-top: 0.45rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 0.55rem;
+    border: 1px solid var(--camera-menu-control-border);
+    background: var(--camera-menu-control-bg);
+    color: var(--camera-menu-fg);
+    font-size: 0.74rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+}
+.hv-camera-carousel__ptt[hidden] {
+    display: none !important;
+}
+.hv-camera-carousel__ptt.is-active {
+    background: color-mix(in oklab, var(--accent) 22%, var(--camera-menu-control-bg));
+    border-color: color-mix(in oklab, var(--accent) 40%, var(--camera-menu-control-border));
+    color: var(--accent);
+}
+.hv-camera-carousel__menu-hint {
+    margin-top: 0.4rem;
+    font-size: 0.64rem;
+    line-height: 1.35;
+    color: var(--camera-menu-muted);
+}
+.hv-camera-carousel__footer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 2.1rem;
+    padding: 0.55rem 0.65rem 0.45rem;
+    background: var(--camera-footer-gradient);
+    color: var(--camera-footer-fg);
+    pointer-events: none;
+}
+.hv-camera-carousel__title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--camera-footer-fg);
+    text-shadow: var(--camera-title-shadow);
+    flex: 1;
+    min-width: 0;
+    text-align: right;
+}
+.hv-camera-carousel__dots {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    pointer-events: auto;
+    flex-shrink: 0;
+}
+.hv-camera-carousel__dot {
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 999px;
+    background: var(--camera-dot-bg);
+    box-shadow: var(--camera-dot-shadow);
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+.hv-camera-carousel__dot.is-active {
+    background: var(--accent, #f97316);
+    transform: scale(1.25);
+}
+
+/* Minimalist gradient weather card */
+.hv-gradient-weather-card {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 260px;
+  min-height: 90px;
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 24px 0 rgba(0,0,0,0.10);
+  background: linear-gradient(90deg, #3a8dde 0%, #6dd5ed 100%);
+  padding: 0.5rem 1.2rem;
+  margin: 0.2rem 0;
+  color: #fff;
+  font-family: inherit;
+  position: relative;
+  overflow: hidden;
+}
+.hv-gradient-weather-main {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+.hv-gradient-weather-icon {
+  font-size: 3.2rem;
+  width: 3.2rem;
+  height: 3.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.10));
+}
+.hv-gradient-weather-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.hv-gradient-weather-temp {
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 0.1rem;
+}
+.hv-gradient-weather-cond {
+  font-size: 1.1rem;
+  font-weight: 500;
+  opacity: 0.92;
+  margin-bottom: 0.1rem;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+.hv-gradient-weather-date {
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+.hv-gradient-weather-loc {
+  font-size: 0.95rem;
+  opacity: 0.85;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ============================================================
+ * Camera card — loading overlay
+ * ============================================================ */
+.hv-cam-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    background: var(--bg-main, #09090b);
+    color: var(--text-secondary, rgba(255, 255, 255, 0.55));
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 260ms ease;
+    z-index: 2;
+}
+.hv-cam-loading.is-visible {
+    opacity: 1;
+}
+.hv-cam-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 8px;
+}
+.hv-cam-loader.hidden {
+    display: none;
+}
+.hv-cam-loader__dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.28;
+    animation: hv-cam-dot 1.15s ease-in-out infinite;
+}
+.hv-cam-loader__dot:nth-child(2) {
+    animation-delay: 0.16s;
+}
+.hv-cam-loader__dot:nth-child(3) {
+    animation-delay: 0.32s;
+}
+.hv-cam-loading__label {
+    margin: 0;
+    max-width: 88%;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 450;
+    line-height: 1.35;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    color: var(--text-tertiary, rgba(255, 255, 255, 0.42));
+}
+.hv-cam-loading.is-error .hv-cam-loading__label {
+    color: var(--text-tertiary, rgba(255, 255, 255, 0.38));
+}
+.hy-camera-preview-media {
+    opacity: 0;
+    transition: opacity 320ms ease;
+}
+.hy-camera-preview-media.is-ready {
+    opacity: 1;
+}
+@keyframes hv-cam-dot {
+    0%, 70%, 100% {
+        opacity: 0.22;
+        transform: translateY(0) scale(0.92);
+    }
+    35% {
+        opacity: 0.95;
+        transform: translateY(-1px) scale(1);
+    }
+}
+

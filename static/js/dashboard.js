@@ -3,6 +3,7 @@ import './entity_renderers.js';
 import '/static/hyveview/elements/camera_stream.js';
 import '/static/hyveview/elements/camera_carousel.js';
 
+import { loadBundledCardPackages } from '/static/hyveview/cards/loader.js';
 import { registerDashboardCards } from './dashboard/cards/register.js';
 import { wireDashboardModules } from './dashboard/dashboard_wire.js';
 
@@ -94,5 +95,6 @@ export {
     onDashboardVacuumAction,
 } from './dashboard/widget_actions.js';
 
+loadBundledCardPackages();
 registerDashboardCards();
 wireDashboardModules();

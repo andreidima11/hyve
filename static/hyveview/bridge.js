@@ -111,6 +111,7 @@ export function registerCard(type, ElementClass, opts = {}) {
     meta: { ...(ElementClass.meta || {}), ...(opts.meta || {}) },
     getStubConfig: opts.getStubConfig || ElementClass.getStubConfig || null,
     hidden: !!opts.hidden, // hide from card picker (e.g. info/scene aliases)
+    shell: opts.shell || ElementClass.shell || null,
   };
   if (!customElements.get(tagName)) {
     // Custom Elements registry forbids the same constructor under two tag
@@ -237,6 +238,7 @@ export function getCardSpec(type) {
     meta: spec?.meta || {},
     getStubConfig: spec?.getStubConfig || null,
     hidden: !!spec?.hidden,
+    shell: spec?.shell || null,
   };
 }
 

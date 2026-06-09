@@ -61,5 +61,7 @@ custom_addons/*
 !custom_addons/.gitkeep
 custom_components/*
 !custom_components/README.md
+!custom_components/cards/
+!custom_components/cards/README.md
 !custom_components/demo_sensor/
 !custom_components/demo_sensor/**

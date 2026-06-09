@@ -48,6 +48,14 @@ def create_app() -> HyveApp:
 
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
+    custom_cards = os.path.join("custom_components", "cards")
+    if os.path.isdir(custom_cards):
+        app.mount(
+            "/custom_components/cards",
+            StaticFiles(directory=custom_cards),
+            name="custom_cards",
+        )
+
     @app.get("/sw.js", include_in_schema=False)
     async def service_worker():
         return FileResponse("static/sw.js", media_type="application/javascript")

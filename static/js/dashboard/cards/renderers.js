@@ -3,6 +3,8 @@
  * Each function receives (widget, ctx) where ctx is built by dashboard.js.
  */
 
+import * as HVBridge from '/static/hyveview/bridge.js';
+
 /** @typedef {{
  *   renderer?: string,
  *   getEditMode: () => boolean,
@@ -159,113 +161,59 @@ export function renderPictureCard(widget, ctx) {
         </article>`;
 }
 
-export function renderLightCard(widget, ctx) {
+/**
+ * Generic Hyveview article shell driven by package `shell` metadata (bridge registry).
+ * Specialized kinds (label, tile, camera, picture, climate) keep dedicated renderers.
+ */
+export function renderHyveviewShell(widget, ctx, opts = {}) {
+    const type = HVBridge.effectiveCardType(widget) || ctx.widgetRenderer(widget);
+    const shell = HVBridge.getCardSpec(type)?.shell || {};
     const editMode = ctx.getEditMode();
-    const clickable = !editMode && widget.controllable !== false && widget.available !== false;
+
+    if (shell.kind === 'label') return renderLabelCard(widget, ctx);
+    if (shell.kind === 'camera') return renderCameraCard(widget, ctx);
+    if (shell.kind === 'picture') return renderPictureCard(widget, ctx);
+
+    if (shell.clickable === 'tile') {
+        const interactive = type !== 'info' && opts.interactive !== false;
+        return renderTileCard(widget, ctx, { interactive });
+    }
+
+    const modifier = String(shell.articleClass || '').trim();
+    let articleClass = 'hyve-dashboard-card';
+    if (modifier && modifier !== 'hyve-dashboard-card') {
+        articleClass += ` ${modifier}`;
+    }
+    if (shell.spanCompact) {
+        widget._span = ctx.widgetSpan(widget);
+        const maxRow = shell.spanCompact.maxRow ?? 1;
+        if (widget._span.row <= maxRow) {
+            articleClass += ` ${shell.spanCompact.class}`;
+        }
+    }
+
+    if (shell.editModeFlag) widget._edit_mode = !!editMode;
+
+    let clickable = false;
+    if (shell.clickable === 'controllable') {
+        clickable = !editMode && widget.controllable !== false && widget.available !== false;
+    } else if (shell.clickable === true) {
+        clickable = !editMode;
+    }
+
     const cardActionAttrs = clickable
         ? `role="button" tabindex="0" data-dash-action="cardActivate" data-dash-action-key="cardActivate" data-widget-id="${ctx.escapeHtml(widget.id)}"`
         : '';
-    widget._edit_mode = !!editMode;
+    const dataOnAttr = shell.dataOn ? ` data-on="${shell.dataOn}"` : '';
+    const unavailableAttr = shell.trackUnavailable
+        ? ` data-unavailable="${widget.available === false ? 'true' : 'false'}"`
+        : '';
+
     return `
         <article ${ctx.widgetDragAttrs(widget)} ${cardActionAttrs}
-            class="hyve-dashboard-card hyve-dashboard-card--light ${ctx.widgetSizeClass(widget)}"
+            class="${articleClass} ${ctx.widgetSizeClass(widget)}"${dataOnAttr}
             data-clickable="${clickable ? 'true' : 'false'}"
-            data-edit="${editMode ? 'true' : 'false'}">
-            ${ctx.renderCardElement(widget)}
-            ${ctx.widgetEditControls(widget)}
-        </article>`;
-}
-
-export function renderSensorCard(widget, ctx) {
-    const editMode = ctx.getEditMode();
-    return `
-        <article ${ctx.widgetDragAttrs(widget)}
-            class="hyve-dashboard-card hyve-dashboard-card--sensor ${ctx.widgetSizeClass(widget)}"
-            data-clickable="false"
-            data-edit="${editMode ? 'true' : 'false'}"
-            data-unavailable="${widget.available === false ? 'true' : 'false'}">
-            ${ctx.renderCardElement(widget)}
-            ${ctx.widgetEditControls(widget)}
-        </article>`;
-}
-
-export function renderGaugeCard(widget, ctx) {
-    const editMode = ctx.getEditMode();
-    return `
-        <article ${ctx.widgetDragAttrs(widget)}
-            class="hyve-dashboard-card hyve-dashboard-card--gauge ${ctx.widgetSizeClass(widget)}"
-            data-clickable="false"
-            data-edit="${editMode ? 'true' : 'false'}"
-            data-unavailable="${widget.available === false ? 'true' : 'false'}">
-            ${ctx.renderCardElement(widget)}
-            ${ctx.widgetEditControls(widget)}
-        </article>`;
-}
-
-export function renderLockCard(widget, ctx) {
-    const editMode = ctx.getEditMode();
-    widget._edit_mode = !!editMode;
-    return `
-        <article ${ctx.widgetDragAttrs(widget)}
-            class="hyve-dashboard-card hyve-dashboard-card--lock ${ctx.widgetSizeClass(widget)}"
-            data-clickable="false"
-            data-edit="${editMode ? 'true' : 'false'}">
-            ${ctx.renderCardElement(widget)}
-            ${ctx.widgetEditControls(widget)}
-        </article>`;
-}
-
-export function renderVacuumCard(widget, ctx) {
-    const editMode = ctx.getEditMode();
-    widget._edit_mode = !!editMode;
-    return `
-        <article ${ctx.widgetDragAttrs(widget)}
-            class="hyve-dashboard-card hyve-dashboard-card--vacuum ${ctx.widgetSizeClass(widget)}"
-            data-clickable="false"
-            data-edit="${editMode ? 'true' : 'false'}">
-            ${ctx.renderCardElement(widget)}
-            ${ctx.widgetEditControls(widget)}
-        </article>`;
-}
-
-export function renderWeatherSimpleCard(widget, ctx) {
-    const editMode = ctx.getEditMode();
-    return `
-        <article ${ctx.widgetDragAttrs(widget)}
-            class="hyve-dashboard-card ${ctx.widgetSizeClass(widget)}"
-            data-on="true"
-            data-clickable="false"
-            data-edit="${editMode ? 'true' : 'false'}"
-            data-unavailable="${widget.available === false ? 'true' : 'false'}">
-            ${ctx.renderCardElement(widget)}
-            ${ctx.widgetEditControls(widget)}
-        </article>`;
-}
-
-export function renderWeatherRichCard(widget, ctx) {
-    const editMode = ctx.getEditMode();
-    widget._span = ctx.widgetSpan(widget);
-    const span = widget._span;
-    const compactClass = span.row <= 1 ? ' hyve-dashboard-card--weather-rich-compact' : '';
-    return `
-        <article ${ctx.widgetDragAttrs(widget)}
-            class="hyve-dashboard-card hyve-dashboard-card--weather-rich${compactClass} ${ctx.widgetSizeClass(widget)}"
-            data-clickable="false"
-            data-edit="${editMode ? 'true' : 'false'}">
-            ${ctx.renderCardElement(widget)}
-            ${ctx.widgetEditControls(widget)}
-        </article>`;
-}
-
-export function renderFusionSolarCard(widget, ctx) {
-    const editMode = ctx.getEditMode();
-    widget._span = ctx.widgetSpan(widget);
-    const compactClass = widget._span.row <= 1 ? ' hyve-dashboard-card--fusion-solar-compact' : '';
-    return `
-        <article ${ctx.widgetDragAttrs(widget)}
-            class="hyve-dashboard-card hyve-dashboard-card--fusion-solar${compactClass} ${ctx.widgetSizeClass(widget)}"
-            data-clickable="false"
-            data-edit="${editMode ? 'true' : 'false'}">
+            data-edit="${editMode ? 'true' : 'false'}"${unavailableAttr}>
             ${ctx.renderCardElement(widget)}
             ${ctx.widgetEditControls(widget)}
         </article>`;

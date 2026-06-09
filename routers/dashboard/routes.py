@@ -99,6 +99,14 @@ async def get_dashboard_catalog(user: models.User = Depends(auth.get_current_use
     return {"cards": dashboard_card_catalog()}
 
 
+@router.get("/card-packages")
+async def get_dashboard_card_packages(user: models.User = Depends(auth.get_current_user)):
+    """Hyveview card unit packages (bundled + custom_components/cards drop-ins)."""
+    from core.cards.loader import list_card_packages
+
+    return list_card_packages()
+
+
 @router.get("/history")
 async def get_entity_history(
     entity_id: str,

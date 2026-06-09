@@ -1,0 +1,11 @@
+{
+  "id": "climate",
+  "name": "Climate",
+  "description": "HVAC climate control.",
+  "version": "1.0.0",
+  "entry": "index.js",
+  "styles": [
+    "styles.css"
+  ],
+  "hyve_card": true
+}

@@ -1,0 +1,11 @@
+{
+  "id": "fusion_solar",
+  "name": "Fusion Solar",
+  "description": "Solar power-flow dashboard.",
+  "version": "1.0.0",
+  "entry": "index.js",
+  "styles": [
+    "styles.css"
+  ],
+  "hyve_card": true
+}

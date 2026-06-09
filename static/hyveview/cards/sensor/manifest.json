@@ -1,0 +1,11 @@
+{
+  "id": "sensor",
+  "name": "Sensor",
+  "description": "Numeric sensor with optional sparkline.",
+  "version": "1.0.0",
+  "entry": "index.js",
+  "styles": [
+    "styles.css"
+  ],
+  "hyve_card": true
+}

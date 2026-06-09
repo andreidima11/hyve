@@ -1,0 +1,281 @@
+/* ── Fusion Solar — HA Power Flow inspired (theme-aware) ─────────────── */
+
+.hyve-dashboard-card--fusion-solar-compact {
+    min-height: 4.25rem;
+}
+
+.hyve-dashboard-card--fusion-solar {
+    border-radius: var(--hyve-card-radius, 1rem);
+    --fsolar-solar: var(--warning, #f59e0b);
+    --fsolar-home: var(--accent, #38bdf8);
+    --fsolar-home-solar: var(--success, #22c55e);
+    --fsolar-home-grid: #fb923c;
+    --fsolar-grid-export: var(--success, #22c55e);
+    --fsolar-grid-import: var(--danger-soft, #f87171);
+    --fsolar-track: color-mix(in srgb, var(--text-tertiary, #94a3b8) 18%, transparent);
+    --fsolar-idle: color-mix(in srgb, var(--text-tertiary, #94a3b8) 16%, transparent);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+    background:
+        radial-gradient(130% 100% at 50% 0%, color-mix(in srgb, var(--fsolar-solar) 11%, transparent), transparent 58%),
+        var(--card-bg, var(--surface-1, rgba(15, 23, 42, 0.92)));
+    border: 1px solid var(--card-border, var(--border-subtle, rgba(255, 255, 255, 0.08)));
+    color: var(--text-primary, #e5e7eb);
+    box-shadow: var(--card-shadow, none);
+}
+
+.hyve-dashboard-card--fusion-solar > hv-card-fusion-solar {
+    flex: 1 1 auto;
+    flex-shrink: 1;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+}
+
+.hv-fsolar {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.hv-fsolar--flow {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.hv-fsolar__top--flow {
+    flex: 0 0 auto;
+    padding: 0.45rem 0.55rem 0.15rem;
+}
+
+/* ── Custom SVG power-flow diagram ─────────────────────────────────── */
+
+.hvflow {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    border-radius: 0;
+    background: transparent;
+}
+
+.hvflow__svg {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    display: block;
+    overflow: visible;
+}
+
+/* Lines */
+.hvflow__line {
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    opacity: 0.22;
+    transition: opacity 0.45s ease, stroke-width 0.45s ease;
+}
+
+.hvflow__flow[data-active="true"] .hvflow__line {
+    opacity: 0.42;
+}
+
+.hvflow__pulse {
+    fill: none;
+    opacity: 0;
+    stroke-width: 0;
+    pointer-events: none;
+    filter: drop-shadow(0 0 6px color-mix(in srgb, currentColor 22%, transparent));
+    transition: opacity 0.45s ease;
+}
+
+.hvflow__flow[data-active="true"] .hvflow__pulse {
+    opacity: 0.92;
+}
+
+/* Nodes — soft radial glow fades to transparent at the edge */
+.hvflow__glow {
+    opacity: 0;
+    transition: opacity 0.55s ease;
+    pointer-events: none;
+}
+
+.hvflow__halo {
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: opacity 0.55s ease;
+    pointer-events: none;
+}
+
+.hvflow__glass-disc {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--card-bg, var(--surface-1)) 62%, transparent);
+    border: 1px solid var(--glass-border, color-mix(in srgb, var(--text-primary) 8%, transparent));
+    box-sizing: border-box;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+/* Single node bubble — stroke ring over glass disc; kW is the hero metric. */
+.hvflow__bubble {
+    fill: transparent;
+    stroke: var(--fsolar-track);
+    stroke-width: 1.75;
+    transition: stroke 0.4s ease, filter 0.4s ease;
+}
+
+.hvflow__node--solar .hvflow__bubble {
+    stroke: color-mix(in srgb, var(--fsolar-solar) 38%, var(--fsolar-track));
+}
+.hvflow__node--solar[data-active="true"] .hvflow__bubble {
+    stroke: var(--fsolar-solar);
+}
+
+.hvflow__node--home .hvflow__bubble {
+    stroke: color-mix(in srgb, var(--fsolar-home) 38%, var(--fsolar-track));
+}
+.hvflow__node--home[data-source="idle"] .hvflow__bubble,
+.hvflow__node--home:not([data-source]) .hvflow__bubble {
+    stroke: color-mix(in srgb, var(--fsolar-home) 38%, var(--fsolar-track));
+}
+.hvflow__node--home[data-source="idle"][data-active="true"] .hvflow__bubble,
+.hvflow__node--home:not([data-source])[data-active="true"] .hvflow__bubble {
+    stroke: var(--fsolar-home);
+}
+
+/* Casă — culoare după sursa energiei */
+.hvflow__node--home[data-source="solar"] .hvflow__bubble {
+    stroke: color-mix(in srgb, var(--fsolar-home-solar) 42%, var(--fsolar-track));
+}
+.hvflow__node--home[data-source="solar"][data-active="true"] .hvflow__bubble {
+    stroke: var(--fsolar-home-solar);
+}
+
+.hvflow__node--home[data-source="grid"] .hvflow__bubble {
+    stroke: color-mix(in srgb, var(--fsolar-home-grid) 46%, var(--fsolar-track));
+}
+.hvflow__node--home[data-source="grid"][data-active="true"] .hvflow__bubble {
+    stroke: var(--fsolar-home-grid);
+}
+
+.hvflow__node--home[data-source="mixed"] .hvflow__bubble {
+    stroke: var(--fsolar-home-solar);
+    stroke-dasharray: 8 6;
+    animation: hvflow-home-mixed-stroke 5s linear infinite;
+}
+.hvflow__node--home[data-source="mixed"][data-active="true"] .hvflow__bubble {
+    stroke-width: 2px;
+}
+
+@keyframes hvflow-home-mixed-stroke {
+    0% { stroke: var(--fsolar-home-solar); }
+    50% { stroke: var(--fsolar-home-grid); }
+    100% { stroke: var(--fsolar-home-solar); }
+}
+
+.hvflow__node--grid .hvflow__bubble {
+    stroke: color-mix(in srgb, var(--fsolar-grid-import) 45%, var(--fsolar-track));
+}
+.hvflow__node--grid[data-mode="export"] .hvflow__bubble {
+    stroke: color-mix(in srgb, var(--fsolar-grid-export) 45%, var(--fsolar-track));
+}
+.hvflow__node--grid[data-active="true"] .hvflow__bubble {
+    stroke: var(--fsolar-grid-import);
+}
+.hvflow__node--grid[data-mode="export"][data-active="true"] .hvflow__bubble {
+    stroke: var(--fsolar-grid-export);
+}
+
+.hvflow__node--battery .hvflow__bubble {
+    stroke: color-mix(in srgb, var(--fsolar-grid-export) 38%, var(--fsolar-track));
+}
+.hvflow__node--battery[data-active="true"] .hvflow__bubble {
+    stroke: var(--fsolar-grid-export);
+}
+
+.hvflow__node[data-active="true"] .hvflow__glow { opacity: 1; }
+.hvflow__node[data-active="true"] .hvflow__halo {
+    opacity: 0.62;
+    animation: hvflow-pulse 4.2s ease-in-out infinite;
+}
+
+@keyframes hvflow-pulse {
+    0%, 100% { opacity: 0.48; transform: scale(1); }
+    50% { opacity: 0.78; transform: scale(1.06); }
+}
+
+.hvflow__icon {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary, #cbd5e1);
+    font-size: 15px;
+    line-height: 1;
+    opacity: 0.88;
+}
+
+.hvflow__node--solar .hvflow__icon { color: var(--fsolar-solar); }
+.hvflow__node--home .hvflow__icon { color: var(--fsolar-home); }
+.hvflow__node--home[data-source="solar"] .hvflow__icon { color: var(--fsolar-home-solar); }
+.hvflow__node--home[data-source="grid"] .hvflow__icon { color: var(--fsolar-home-grid); }
+.hvflow__node--home[data-source="mixed"] .hvflow__icon {
+    background: linear-gradient(135deg, var(--fsolar-home-solar) 0%, var(--fsolar-home-grid) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+.hvflow__node--grid .hvflow__icon { color: var(--fsolar-grid-import); }
+.hvflow__node--grid[data-mode="export"] .hvflow__icon { color: var(--fsolar-grid-export); }
+
+.hvflow__value {
+    font-variant-numeric: tabular-nums;
+    fill: var(--text-primary, #f1f5f9);
+    font-family: inherit;
+}
+
+.hvflow__num {
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.hvflow__unit {
+    font-size: 9px;
+    font-weight: 600;
+    fill: var(--text-tertiary, #94a3b8);
+}
+
+.hvflow__label {
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    fill: var(--text-tertiary, #94a3b8);
+    font-family: inherit;
+}
+
+.hvflow__node[data-active="false"] { opacity: 0.62; }
+.hvflow__node { transition: opacity 0.45s ease; }
+

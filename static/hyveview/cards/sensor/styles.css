@@ -1,0 +1,78 @@
+.hyve-dashboard-card--sensor {
+    padding: 1rem;
+}
+.hyve-dashboard-card--sensor .hyve-dashboard-card__sensor-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+.hyve-dashboard-card--sensor .hyve-dashboard-card__sensor-body {
+    flex: 1;
+    min-width: 0;
+}
+.hyve-dashboard-card--sensor .hyve-dashboard-card__sensor-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary, #94a3b8);
+    margin-bottom: 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.hyve-dashboard-card--sensor .hyve-dashboard-card__sensor-value {
+    font-size: 1.625rem;
+    font-weight: 700;
+    color: var(--text-primary, #f1f5f9);
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    align-items: baseline;
+    gap: 0.375rem;
+}
+.hyve-dashboard-card--sensor .hyve-dashboard-card__sensor-unit {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-tertiary, #94a3b8);
+}
+.hyve-dashboard-card--sensor .hyve-dashboard-card__sensor-trend {
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 0.375rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    background: var(--surface-2, rgba(255,255,255,0.05));
+    color: var(--text-tertiary, #94a3b8);
+}
+.hyve-dashboard-card--sensor .hyve-dashboard-card__sensor-trend[data-dir="up"] {
+    color: rgb(74, 222, 128);
+    background: rgba(74, 222, 128, 0.12);
+}
+.hyve-dashboard-card--sensor .hyve-dashboard-card__sensor-trend[data-dir="down"] {
+    color: rgb(248, 113, 113);
+    background: rgba(248, 113, 113, 0.12);
+}
+
+/* Phase 5: sparkline chart inside sensor cards */
+.hyve-dashboard-card__sparkline {
+    margin-top: 0.625rem;
+    width: 100%;
+    height: 32px;
+    overflow: hidden;
+    border-radius: 6px;
+    opacity: 0.95;
+}
+.hyve-dashboard-card__sparkline svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+.hyve-dashboard-card__sparkline:empty {
+    display: none;
+}
+
+/* Climate card — current + setpoint + mode */

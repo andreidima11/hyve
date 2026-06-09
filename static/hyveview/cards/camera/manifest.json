@@ -1,0 +1,11 @@
+{
+  "id": "camera",
+  "name": "Camera",
+  "description": "Live or snapshot camera feed.",
+  "version": "1.0.0",
+  "entry": "index.js",
+  "styles": [
+    "styles.css"
+  ],
+  "hyve_card": true
+}

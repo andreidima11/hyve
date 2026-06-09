@@ -4,7 +4,7 @@
 
 import { apiCall } from '../api.js';
 import { showToast } from '../utils.js';
-import { fusionSolarWidgetEntityIds } from '/static/hyveview/cards/fusion_solar.js';
+import { fusionSolarWidgetEntityIds } from '/static/hyveview/cards/fusion_solar/card.js';
 import { hvOpenEditor } from './hyveview_setup.js';
 import {
     DEFAULT_CAMERA_INTERVAL,

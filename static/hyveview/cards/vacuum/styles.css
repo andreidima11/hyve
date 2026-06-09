@@ -1,0 +1,4 @@
+/* Vacuum card — shell base + action buttons (shared/shell.css). */
+.hyve-dashboard-card--vacuum {
+    border-radius: var(--hyve-card-radius, 1rem);
+}
