@@ -45,7 +45,7 @@ Source:  IntegrationManager → provider.fetch_entities → extract_entities
 Live:    WS /api/integrations/ws/live (entity state patches)
 ```
 
-### Configure integration (HA-style)
+### Configure integration (config entries)
 
 ```
 Browser: features.js → GET /api/integrations/{slug}/schema
@@ -241,7 +241,7 @@ Schema migrations: Alembic (`migrations/`, `alembic upgrade head` at startup via
 
 ## Planned structure (target)
 
-Home Assistant–inspired layout (**Phase 2 in progress**):
+Modular component layout (**Phase 2 complete**):
 
 ```
 core/                    # platform: auth, entity store, HTTP factory
@@ -252,7 +252,7 @@ frontend/src/            # Vite-built modules
 
 **Migrated to `components/`:** all bundled entity integrations. Extraction logic for Pago, E.ON, Ariston, Open-Meteo, Midea, Rețele Electrice, FusionSolar lives in each component's `extract.py`. `integrations/extractors.py` is a thin compatibility layer.
 
-**Rule:** new bundled integrations go in `components/<domain>/`. Legacy flat files in `integrations/providers/` still load when no component folder exists for that slug.
+**Rule:** new bundled integrations go in `components/<domain>/`. User overrides go in `custom_components/`.
 
 See [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) for workflows.
 

@@ -1,8 +1,8 @@
 # Hyve
 
-Self-hosted smart home hub with an integrated AI assistant. One FastAPI process serves the web UI, device integrations, automations, dashboards, and chat — similar in spirit to Home Assistant, with a built-in LLM agent for control, memory, and skills.
+Self-hosted smart home hub with an integrated AI assistant. One FastAPI process serves the web UI, device integrations, automations, dashboards, and chat — with a built-in LLM agent for control, memory, and skills.
 
-**Current version:** 0.8.0
+**Current version:** 0.8.2
 
 ## Features
 
@@ -11,7 +11,7 @@ Self-hosted smart home hub with an integrated AI assistant. One FastAPI process 
 - **AI chat** — streaming assistant with tools (device control, web search, memory, skills, planner)
 - **Automations** — YAML automations with visual editor and blueprints
 - **Memory** — long-term facts in ChromaDB and reminders
-- **Integrations** — Home Assistant–style config entries, encrypted secrets, periodic sync
+- **Integrations** — declarative config entries, encrypted secrets, periodic sync
 - **Add-ons** — optional bundled or custom services (MQTT broker, Whisper, Piper, etc.)
 - **Android app** — native shell in `android/HyveBridge/` (WebView + background services)
 - **i18n** — English and Romanian UI
@@ -59,7 +59,7 @@ Open `http://localhost:8082` (default port from config).
 
 | File | Purpose |
 |------|---------|
-| `.env` | Secrets and env overrides (`HYVE_SECRET_KEY`, HA token, WAHA, FCM path) |
+| `.env` | Secrets and env overrides (`HYVE_SECRET_KEY`, WAHA, FCM path) |
 | `config.json` | Main app config: LLM, integrations, UI language, ports (**local only, gitignored**) |
 | `assist_keys.json` | Assist API keys (**gitignored**) |
 | `secrets/` | Firebase / service account JSON (**gitignored**) |

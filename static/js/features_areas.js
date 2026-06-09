@@ -51,7 +51,7 @@ function _renderAreas() {
             ? `<span class="text-[10px] text-slate-500 truncate">${_esc(aliases.join(', '))}</span>`
             : '';
         const sourceBadge = a.synced
-            ? `<span class="inline-flex items-center gap-1 text-[9px] font-bold text-sky-300 bg-white/5 rounded-full px-2 py-0.5"><i class="fas fa-link text-[8px]"></i>HA</span>`
+            ? `<span class="inline-flex items-center gap-1 text-[9px] font-bold text-sky-300 bg-white/5 rounded-full px-2 py-0.5"><i class="fas fa-link text-[8px]"></i>Sync</span>`
             : `<span class="inline-flex items-center gap-1 text-[9px] font-bold text-purple-300 bg-white/5 rounded-full px-2 py-0.5"><i class="fas fa-star text-[8px]"></i>Hyve</span>`;
         const iconClass = _iconClass(a.icon || 'fa-house-chimney-window', 'fas fa-house-chimney-window');
         const floor = a.floor ? `<span class="text-[10px] text-slate-500">· ${_esc(a.floor)}</span>` : '';

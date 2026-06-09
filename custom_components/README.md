@@ -1,6 +1,6 @@
 # Custom integrations
 
-User drop-in entity integrations, similar to Home Assistant `custom_components/`.
+User drop-in entity integrations — add or override bundled integrations without editing Hyve core.
 
 Bundled integrations live in [`components/`](../components/). Copy or create folders here to add or override integrations without editing Hyve core.
 

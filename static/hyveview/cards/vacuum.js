@@ -8,6 +8,7 @@ const _STATE_META = {
   cleaning:  { icon: 'fa-broom',          label: 'Curăță',      on: true },
   returning: { icon: 'fa-house',          label: 'Se întoarce', on: true },
   paused:    { icon: 'fa-circle-pause',   label: 'Pauză',       on: false },
+  charging:  { icon: 'fa-plug-circle-bolt', label: 'Se încarcă', on: false },
   docked:    { icon: 'fa-plug-circle-bolt', label: 'La încărcare', on: false },
   idle:      { icon: 'fa-robot',          label: 'Inactiv',     on: false },
   error:     { icon: 'fa-triangle-exclamation', label: 'Eroare', on: false },

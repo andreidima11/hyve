@@ -558,7 +558,7 @@ function _renderForm(panel, { mode, card }) {
         <summary>Dimensiune</summary>
         <div class="hv-details-body">
           <div class="hv-size" data-role="size">
-            <p class="hv-size-hint">Trage de colț peste grilă ca să stabilești cât spațiu ocupă cardul — exact ca în Home Assistant.</p>
+            <p class="hv-size-hint">Trage de colț peste grilă ca să stabilești cât spațiu ocupă cardul.</p>
             <div class="hv-size-preview" data-role="size-preview">
               <div class="hv-size-handle" data-role="size-handle"></div>
             </div>

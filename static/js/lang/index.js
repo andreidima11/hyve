@@ -111,7 +111,7 @@ export function integrationApiMessage(payload) {
     return t('common.unknown_error');
 }
 
-/** Translate a raw Home Assistant entity state ('on', 'off', 'locked', etc.).
+/** Translate a raw entity state ('on', 'off', 'locked', etc.).
  *  Falls back to the raw value if no translation exists for that state. */
 export function tState(rawState) {
     const s = String(rawState == null ? 'unknown' : rawState);

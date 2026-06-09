@@ -17,6 +17,44 @@ _ON_DOMAINS = {"light", "switch", "fan", "humidifier", "climate", "water_heater"
 # cover-lock state). Everything else is represented purely by its properties.
 _PRIMARY_DOMAINS = _ON_DOMAINS | {"cover", "lock", "vacuum"}
 
+_STATUS_PROP_NAMES = {
+    "status",
+    "device_status",
+    "device-status",
+    "sweep_status",
+    "sweep-status",
+    "working_status",
+    "working-status",
+    "vacuum_status",
+    "vacuum-status",
+    "robot_cleaner_status",
+    "robot-cleaner-status",
+}
+
+# Roborock / MIoT vacuum status codes (numeric) when value-list labels are missing.
+_VACUUM_STATUS_CODES: dict[int, tuple[str, str]] = {
+    1: ("idle", "Initiating"),
+    2: ("idle", "Idle"),
+    3: ("idle", "Idle"),
+    4: ("cleaning", "Remote control"),
+    5: ("cleaning", "Cleaning"),
+    6: ("returning", "Returning home"),
+    7: ("cleaning", "Manual mode"),
+    8: ("docked", "Charging"),
+    9: ("error", "Charging error"),
+    10: ("paused", "Paused"),
+    11: ("cleaning", "Spot cleaning"),
+    12: ("error", "Error"),
+    13: ("idle", "Shutting down"),
+    14: ("docked", "Updating"),
+    15: ("returning", "Docking"),
+    16: ("returning", "Going to target"),
+    17: ("cleaning", "Zone cleaning"),
+    18: ("cleaning", "Room cleaning"),
+    22: ("docked", "Emptying bin"),
+    100: ("docked", "Fully charged"),
+}
+
 
 def _pretty(prop: str) -> str:
     return str(prop or "").replace("-", " ").replace("_", " ").strip()
@@ -143,7 +181,7 @@ def _profile_to_entities(did: str, profile: dict[str, Any]) -> list[dict[str, An
             primary_keys.add((on_desc["siid"], on_desc["piid"]))
             state = "on" if bool(_val(on_desc)) else "off"
         elif domain == "vacuum":
-            status_desc = controls.get("status")
+            status_desc = _vacuum_status_descriptor(profile)
             status_raw = _val(status_desc)
             battery_level = _battery_level_from_profile(profile, values)
             if battery_level is not None:
@@ -222,17 +260,63 @@ def _profile_to_entities(did: str, profile: dict[str, Any]) -> list[dict[str, An
     return out
 
 
+def _vacuum_status_descriptor(profile: dict[str, Any]) -> dict[str, Any] | None:
+    """Find the MIoT status property for a vacuum profile."""
+    controls = profile.get("controls") or {}
+    desc = controls.get("status")
+    if desc:
+        return desc
+    for bucket in (profile.get("props") or [], profile.get("reads") or []):
+        for prop in bucket:
+            pname = str(prop.get("prop") or "").lower().replace("_", "-")
+            if pname in _STATUS_PROP_NAMES:
+                return prop
+    return None
+
+
+def _value_list_label(value_list: dict[Any, Any] | None, raw: Any) -> str | None:
+    if not value_list or raw is None:
+        return None
+    label = value_list.get(raw)
+    if label is None:
+        try:
+            label = value_list.get(int(raw))
+        except (TypeError, ValueError):
+            pass
+    if label is None:
+        label = value_list.get(str(raw))
+    if label is None:
+        return None
+    return str(label)
+
+
+def _vacuum_state_from_code(raw: Any) -> tuple[str, str] | None:
+    try:
+        code = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return _VACUUM_STATUS_CODES.get(code)
+
+
 def _vacuum_state(status_desc: dict[str, Any] | None, raw: Any) -> str:
     """Map a vacuum's raw status value to a generic Hyve state string."""
-    if status_desc is None or raw is None:
+    if raw is None:
         return "unknown"
-    label = (status_desc.get("value_list") or {}).get(raw)
-    text = str(label if label is not None else raw).lower()
+    label = _value_list_label((status_desc or {}).get("value_list") or {}, raw)
+    if label is not None:
+        text = label.lower()
+    else:
+        coded = _vacuum_state_from_code(raw)
+        if coded is not None:
+            return coded[0]
+        if status_desc is None:
+            return "unknown"
+        text = str(raw).lower()
     if any(k in text for k in ("sweep", "clean", "mop", "work", "busy")):
         return "cleaning"
-    if any(k in text for k in ("return", "go charg", "go-charg", "back")):
+    if any(k in text for k in ("return", "go charg", "go-charg", "back", "dock")):
         return "returning"
-    if any(k in text for k in ("full", "complete")):
+    if any(k in text for k in ("full", "complete", "charged")):
         return "docked"
     if any(k in text for k in ("charg", "dock")):
         return "docked"
@@ -240,14 +324,21 @@ def _vacuum_state(status_desc: dict[str, Any] | None, raw: Any) -> str:
         return "paused"
     if any(k in text for k in ("error", "fault", "fail")):
         return "error"
+    if text in {"idle", "sleep", "sleeping", "standby", "ready"}:
+        return "idle"
     return "idle"
 
 
 def _status_label(status_desc: dict[str, Any] | None, raw: Any) -> str | None:
-    if status_desc is None or raw is None:
+    if raw is None:
         return None
-    label = (status_desc.get("value_list") or {}).get(raw)
-    return str(label) if label is not None else None
+    label = _value_list_label((status_desc or {}).get("value_list") or {}, raw)
+    if label is not None:
+        return label
+    coded = _vacuum_state_from_code(raw)
+    if coded is not None:
+        return coded[1]
+    return None
 
 
 def _battery_level_from_profile(
@@ -280,7 +371,7 @@ def _charging_from_profile(
     profile: dict[str, Any], values: dict[str, Any]
 ) -> tuple[int | None, str | None]:
     """Read ``battery.charging-state`` (or similar) from MIoT property values."""
-    for prop in profile.get("props") or []:
+    for prop in _iter_profile_properties(profile):
         pname = str(prop.get("prop") or "").lower().replace("-", "_")
         if "charg" not in pname:
             continue
@@ -292,16 +383,27 @@ def _charging_from_profile(
         raw = values.get(f"{siid}.{piid}")
         if raw is None:
             continue
-        value_list = prop.get("value_list") or {}
-        label = value_list.get(raw)
+        label = _value_list_label(prop.get("value_list") or {}, raw)
         if label is None and prop.get("platform") == "binary_sensor":
             label = "Charging" if bool(raw) else None
         try:
             code = int(raw)
         except (TypeError, ValueError):
             code = 1 if bool(raw) else 0
-        return code, str(label) if label is not None else None
+        return code, label
     return None, None
+
+
+def _iter_profile_properties(profile: dict[str, Any]) -> list[dict[str, Any]]:
+    controls = profile.get("controls") or {}
+    buckets: list[dict[str, Any]] = []
+    buckets.extend(profile.get("props") or [])
+    buckets.extend(profile.get("reads") or [])
+    for key in ("status", "on"):
+        desc = controls.get(key)
+        if isinstance(desc, dict):
+            buckets.append(desc)
+    return buckets
 
 
 def _vacuum_state_and_label(
@@ -319,6 +421,10 @@ def _vacuum_state_and_label(
     """
     base = _vacuum_state(status_desc, raw)
     label = _status_label(status_desc, raw)
+    try:
+        status_code = int(raw) if raw is not None else None
+    except (TypeError, ValueError):
+        status_code = None
 
     if base in ("cleaning", "returning", "paused", "error"):
         status_key = base
@@ -336,6 +442,10 @@ def _vacuum_state_and_label(
     if pct is None:
         pct = _battery_level_from_profile(profile, values)
 
+    if status_code in {8, 100} or (label and "charg" in label.lower() and base == "docked"):
+        if status_code == 100 or pct == 100:
+            return "docked", "fully_charged", label or "Fully charged"
+        return "docked", "charging", label or charge_label or "Charging"
     if charge_code == 1:
         if pct == 100:
             return "docked", "fully_charged", "Fully charged"

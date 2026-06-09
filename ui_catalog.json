@@ -214,7 +214,7 @@
     {
       "slug": "tapo",
       "label": "Tapo",
-      "description": "Camere, prize și becuri TP-Link Tapo (python-kasa, ca în HA)",
+      "description": "Camere, prize și becuri TP-Link Tapo (python-kasa)",
       "icon": "fa-plug",
       "image": "/static/icons/integrations/tapo.png",
       "accent": "#10b981",
@@ -360,8 +360,8 @@
     },
     {
       "id": "tile",
-      "label": "Tile (HA)",
-      "description": "Card universal stil Home Assistant — icon mare colorat când e ON",
+      "label": "Tile",
+      "description": "Card universal — icon mare colorat când e ON",
       "renderer": "tile",
       "requires_entity": true,
       "entity_filter": "all",
@@ -466,7 +466,7 @@
     {
       "id": "fusion_solar",
       "label": "Fusion Solar",
-      "description": "Flux putere solar / casă / rețea — ca HA Power Flow Card",
+      "description": "Flux putere solar / casă / rețea",
       "renderer": "fusion_solar",
       "requires_entity": true,
       "entity_filter": "all",

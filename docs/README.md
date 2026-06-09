@@ -10,7 +10,7 @@ Developer and operator documentation for Hyve.
 | [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) | Entity integrations (providers, config entries, sync) |
 | [CARDS_AND_INTEGRATIONS.md](CARDS_AND_INTEGRATIONS.md) | Dashboard cards, `ui_catalog.json`, settings integrations |
 | [ENTITY_CONTRACT.md](ENTITY_CONTRACT.md) | Entity payload shape for UI and AI |
-| [dashboard_ha_alignment.md](dashboard_ha_alignment.md) | Dashboard ↔ Home Assistant concepts |
+| [dashboard_layout_design.md](dashboard_layout_design.md) | Dashboard layout, mobile reorder, per-user pages |
 
 ## Architecture decision records
 

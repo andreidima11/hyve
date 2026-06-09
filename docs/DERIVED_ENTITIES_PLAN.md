@@ -1,7 +1,7 @@
 # Derived entities ("template sensors")
 
 Entități virtuale calculate din stările altor entități (din orice integrare:
-Home Assistant, Zigbee2MQTT, Pago, FusionSolar). Apar ca orice alt senzor în
+Mosquitto/Zigbee2MQTT, Pago, FusionSolar, etc.). Apar ca orice alt senzor în
 UI-ul Smart Home și pot fi incluse în contextul AI.
 
 ## Arhitectură
@@ -97,13 +97,13 @@ să devină `"on"`/`"off"`. Pentru `value_type=number`, se formatează cu până
 
 1. **`routers/integrations._all_entities()`** – adăugat flag `include_derived`
    (default True). Când e True, construiește un `state_map` din rezultatul
-   intermediar (HA + Z2M + Pago + FusionSolar) și apelează
+   intermediar (Mosquitto/Z2M + Pago + FusionSolar + …) și apelează
    `derived_entities.evaluate_all(state_map)` înainte de sort. Astfel derived
    entities apar natural în `/api/integrations/all-entities` folosite de Smart
    Home și dashboard.
 
-2. **`home_assistant.get_ai_context()`** – după ce adaugă entitățile HA
-   selectate în prompt, iterează și prin `derived_entities.load_config()`.
+2. **Context AI** – după ce adaugă entitățile selectate în prompt, iterează
+   și prin `derived_entities.load_config()`.
    Entitățile cu `selected=true` sunt evaluate și apar în contextul AI ca orice
    alt senzor.
 

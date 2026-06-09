@@ -1,12 +1,10 @@
 # Cum se scrie o integrare Hyve
 
-Hyve folosește un model **declarativ, inspirat din Home Assistant**: un fișier
-provider într-un singur loc + o schemă declarativă = UI auto-generat,
-multi-cont, secrete criptate, sync periodic și control. **Nu trebuie modificat
-niciun alt fișier sursă.**
+Hyve folosește un model **declarativ pe foldere**: un folder per integrare +
+`manifest.json` + schemă declarativă = UI auto-generat, multi-cont, secrete
+criptate, sync periodic și control. **Nu trebuie modificat niciun alt fișier sursă.**
 
-> Drop a folder in [components/](../components/) (bundled) or [custom_components/](../custom_components/) (user) → restart → integrarea apare în UI.  
-> `integrations/providers/` conține doar shims de compatibilitate — codul real e în `components/`.
+> Drop a folder in [components/](../components/) (bundled) or [custom_components/](../custom_components/) (user) → restart → integrarea apare în UI.
 
 ---
 
@@ -42,14 +40,12 @@ components/my_service/          # sau custom_components/my_service/
 
 **Contract entități:** vezi [ENTITY_CONTRACT.md](ENTITY_CONTRACT.md) pentru `state`, `attributes.status_key` și `attributes.status`.
 
-**Compat:** poți păstra un shim sub `integrations/providers/my_service.py` care re-exportă clasa din componentă.
-
 ---
 
 ## 1. Anatomia unui provider
 
 Un provider este o subclasă de [`BaseEntity`](../integrations/base.py)
-plasată într-un fișier `.py` în [`integrations/providers/`](../integrations/providers/).
+în `components/<slug>/entity.py` (sau `custom_components/<slug>/entity.py`).
 
 ### Structura minimă
 
@@ -180,12 +176,12 @@ async def fetch_entities(self) -> dict[str, Any]:
 
 ### 4.2 `extract_entities(self, payload) -> list[dict]` — **obligatoriu**
 
-Transformă payload-ul în lista plată de entități. **Schema HA-style** (după
+Transformă payload-ul în lista plată de entități. **Schema Hyve** (după
 normalizare automată în `BaseEntity.list_entities`):
 
 ```python
 {
-    "entity_id": "sensor.my_service_a1b2c3d4_temp1",  # <domain>.<object_id> (HA convention)
+    "entity_id": "sensor.my_service_a1b2c3d4_temp1",  # <domain>.<object_id>
     "unique_id": "my_service:a1b2c3d4:temp1",         # ID intern stabil pentru routing
     "name":      "Temperatura living",
     "state":     22.5,
@@ -205,7 +201,7 @@ normalizare automată în `BaseEntity.list_entities`):
 > intern al integrării (ex. `"my_service:a1b2c3d4:temp1"`) — `BaseEntity.list_entities`
 > aplică `smart_home_registry.normalize_entity_record()` care:
 > - mută id-ul vechi în `unique_id` (păstrat pentru routing intern),
-> - rescrie `entity_id` ca `<domain>.<object_id>` (slug HA-style),
+> - rescrie `entity_id` ca `<domain>.<object_id>` (slug din nume),
 > - validează `domain` ∈ `KNOWN_DOMAINS` (default `sensor`).
 >
 > Funcția e **idempotentă**: dacă întorci deja id în format `domain.x`, nu se
@@ -229,7 +225,7 @@ normalizare automată în `BaseEntity.list_entities`):
 | `scene` | scenă declanșabilă |
 | `weather` | prognoză + condiții curente |
 | `sun` | poziție soare (next_rising, elevation, ...) |
-| `cover` / `lock` / `vacuum` / `fan` / `media_player` / `button` | controale standard HA |
+| `cover` / `lock` / `vacuum` / `fan` / `media_player` / `button` | controale standard smart home |
 
 ### 4.3 `async control_entity(entity_id, action, data=None)` — opțional
 
@@ -238,8 +234,8 @@ Pentru integrări cu device-uri controlabile (switch, light, climate):
 ```python
 async def control_entity(self, entity_id, action, data=None):
     # ``entity_id`` aici este ``unique_id`` (id-ul intern stabil), NU id-ul
-    # HA-style afișat în UI. Routing-ul (router/dashboard/automatizări) face
-    # automat traducerea HA→unique_id înainte de a chema această metodă.
+    # ``entity_id`` afișat în UI. Routing-ul (router/dashboard/automatizări) face
+    # automat traducerea către ``unique_id`` înainte de a chema această metodă.
     if action == "turn_on":
         await self._client.set(entity_id, True)
     elif action == "turn_off":
@@ -318,13 +314,13 @@ controlul. Nu trebuie să faci nimic pentru migrare.
 
 ## 8. Exemple în repo
 
-| Fișier | Caracteristici demonstrate |
+| Folder | Caracteristici demonstrate |
 |--------|----------------------------|
-| [`open_meteo.py`](../integrations/providers/open_meteo.py) | Schema simplă, fără secrete, multi-locație |
-| [`pago.py`](../integrations/providers/pago.py) | Email + parolă (secret), multi-cont |
-| [`fusion_solar.py`](../integrations/providers/fusion_solar.py) | `select` cu mai multe moduri (auto/openapi/kiosk) |
-| [`mosquitto.py`](../integrations/providers/mosquitto.py) | Host + port + auth opțional, control switch |
-| [`ariston_net.py`](../integrations/providers/ariston_net.py) | Login persistent + climate control |
+| [`components/open_meteo/`](../components/open_meteo/) | Schema simplă, fără secrete, multi-locație |
+| [`components/pago/`](../components/pago/) | Email + parolă (secret), multi-cont |
+| [`components/fusion_solar/`](../components/fusion_solar/) | `select` cu mai multe moduri (auto/openapi/kiosk) |
+| [`components/mosquitto/`](../components/mosquitto/) | Host + port + auth opțional, control switch |
+| [`components/ariston_net/`](../components/ariston_net/) | Login persistent + climate control |
 
 ---
 
@@ -349,5 +345,5 @@ controlul. Nu trebuie să faci nimic pentru migrare.
 - ❌ Nu citi parole din `config.json` — folosește `entry_data` (criptat).
 - ❌ Nu instanția providerul manual — `IntegrationManager` se ocupă.
 
-> Dacă te trezești editând altceva decât fișierul tău din `providers/`,
+> Dacă te trezești editând `features.js` sau routere per-vendor,
 > probabil faci ceva greșit. Schema declarativă trebuie să acopere cazul.

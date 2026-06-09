@@ -1,8 +1,8 @@
 # Custom Add-ons
 
 Drop a folder in here to register a community / third-party add-on without
-modifying Hyve's source code. This is the Hyve equivalent of Home Assistant's
-`custom_components/` directory.
+modifying Hyve's source code. Same idea as `custom_components/`, but for add-on
+services (MQTT broker, STT, etc.) rather than entity integrations.
 
 ## Layout
 

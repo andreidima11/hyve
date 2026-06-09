@@ -19,7 +19,7 @@ Supported `action` items:
 - `delay: <seconds>` (or `delay: { minutes: 1, seconds: 30 }`, or `"HH:MM:SS"`) — pauses the action sequence.
 - `wait_template: "{{ ... }}"` with optional `timeout: <seconds>` (default 60) and `continue_on_timeout: true|false` (default true) — blocks until the Jinja template renders truthy.
 - `repeat: { count: <N>, actions: [ ... ] }` — runs the inner action list N times. Inner actions can be any other supported kind, including nested `repeat`.
-- `choose: [ { condition: ..., sequence: [...] }, ... ]` with optional `default: [...]` — HA-style if/elif/else. The first branch whose conditions all pass executes its `sequence`; if none match, `default` runs. Each branch's `condition` may be a single condition object, a list of `kind:` conditions, or a Jinja template string (`'{{ ... }}'`).
+- `choose: [ { condition: ..., sequence: [...] }, ... ]` with optional `default: [...]` — if/elif/else branching. The first branch whose conditions all pass executes its `sequence`; if none match, `default` runs. Each branch's `condition` may be a single condition object, a list of `kind:` conditions, or a Jinja template string (`'{{ ... }}'`).
 
 Supported `trigger` items:
 

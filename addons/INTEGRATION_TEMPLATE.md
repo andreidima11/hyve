@@ -131,7 +131,7 @@ Entities are automatically injected into LLM context:
 Examples of what can be exposed:
 
 - **Zigbee2MQTT**: Device states, battery levels, signal strength
-- **Home Assistant**: Light states, temperature sensors, switches
+- **Smart home entities**: Light states, temperature sensors, switches
 - **Spotify**: Current playing track, playlists, user profile
 - **Weather API**: Current conditions, forecast data
 - **Calendar**: Upcoming events, meeting details
