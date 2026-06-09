@@ -1,4 +1,3 @@
-// @ts-nocheck — Phase 6 TS shell; tighten types incrementally.
 /**
  * Dashboard widget toggle — card click/keyboard and optimistic entity state.
  */
@@ -8,7 +7,6 @@ import { dashDebug } from './debug.js';
 import { DASHBOARD_OPTIMISTIC_GUARD_MS, DASHBOARD_PENDING_VISUAL_MS, } from './constants.js';
 import { dashApiError, stateOn } from './helpers.js';
 import { deleteOptimisticGuard, deletePendingControl, getPendingControl, setOptimisticGuard, setPendingControl, } from './control_state.js';
-/** @type {object | null} */
 let _deps = null;
 function deps() {
     if (!_deps)
@@ -35,7 +33,7 @@ function nestedInteractiveTarget(event) {
 function togglePreviewCard(event) {
     if (nestedInteractiveTarget(event))
         return;
-    const card = event?.currentTarget || event?.target?.closest?.('.hyve-dashboard-card');
+    const card = (event?.currentTarget || event?.target?.closest?.('.hyve-dashboard-card'));
     if (!card)
         return;
     const nextOn = card.getAttribute('data-on') !== 'true';
@@ -86,7 +84,7 @@ export function snapshotDashboardEntityState(entityId) {
         if (!item || item.entity_id !== target || seen.has(item))
             return;
         seen.add(item);
-        snapshot.push({ item, state: item.current_state, attributes: item.attributes, available: item.available });
+        snapshot.push({ item, state: item.current_state, attributes: item.attributes, available: item.available !== false });
     };
     const rememberWidget = (widget) => {
         remember(widget);
@@ -95,14 +93,22 @@ export function snapshotDashboardEntityState(entityId) {
     };
     (cache.widgets || []).forEach(rememberWidget);
     (cache.panels || []).forEach(panel => (panel?.widgets || []).forEach(rememberWidget));
-    (cache.pages || []).forEach(page => {
-        (page?.widgets || []).forEach(rememberWidget);
-        (page?.panels || []).forEach(panel => (panel?.widgets || []).forEach(rememberWidget));
+    (cache.pages || []).forEach((page) => {
+        const pageWidgets = page?.widgets;
+        const pagePanels = page?.panels;
+        (pageWidgets || []).forEach(rememberWidget);
+        (pagePanels || []).forEach(panel => (panel?.widgets || []).forEach(rememberWidget));
     });
     (cache.available_entities || []).forEach(item => {
         if (item?.entity_id === target && !seen.has(item)) {
             seen.add(item);
-            snapshot.push({ item, state: item.state, attributes: item.attributes, available: item.available, availableEntity: true });
+            snapshot.push({
+                item: item,
+                state: item.state,
+                attributes: item.attributes,
+                available: true,
+                availableEntity: true,
+            });
         }
     });
     return snapshot;
@@ -147,9 +153,11 @@ export function patchDashboardEntityState(entityId, state, attributesPatch = nul
     };
     (cache.widgets || []).forEach(patchWidget);
     (cache.panels || []).forEach(panel => (panel?.widgets || []).forEach(patchWidget));
-    (cache.pages || []).forEach(page => {
-        (page?.widgets || []).forEach(patchWidget);
-        (page?.panels || []).forEach(panel => (panel?.widgets || []).forEach(patchWidget));
+    (cache.pages || []).forEach((page) => {
+        const pageWidgets = page?.widgets;
+        const pagePanels = page?.panels;
+        (pageWidgets || []).forEach(patchWidget);
+        (pagePanels || []).forEach(panel => (panel?.widgets || []).forEach(patchWidget));
     });
     (cache.available_entities || []).forEach(item => {
         if (item?.entity_id !== target)
@@ -175,7 +183,7 @@ export async function toggleDashboardWidget(widgetId, btn) {
         return;
     }
     dashDebug('toggle.start', { widgetId, entity: widget.entity_id, current: widget.current_state });
-    const snapshot = snapshotDashboardEntityState(widget.entity_id);
+    const snapshot = snapshotDashboardEntityState(widget.entity_id || '');
     const current = String(widget.current_state || '').toLowerCase();
     const nextState = stateOn(current) ? 'off' : 'on';
     const action = d.dashboardIntentAction(widget, nextState);
@@ -186,13 +194,13 @@ export async function toggleDashboardWidget(widgetId, btn) {
         action,
         startedAt: Date.now(),
     });
-    patchDashboardEntityState(widget.entity_id, nextState);
-    if (!d.tryFastPathForEntities([widget.entity_id]))
+    patchDashboardEntityState(widget.entity_id || '', nextState);
+    if (!d.tryFastPathForEntities([widget.entity_id || '']))
         d.renderDashboard();
     setTimeout(() => {
         const pending = getPendingControl(String(widgetId));
         if (pending && pending.nextState === nextState) {
-            if (!d.tryFastPathForEntities([widget.entity_id]))
+            if (!d.tryFastPathForEntities([widget.entity_id || '']))
                 d.renderDashboard();
         }
     }, DASHBOARD_PENDING_VISUAL_MS + 40);
@@ -218,17 +226,17 @@ export async function toggleDashboardWidget(widgetId, btn) {
             state: nextState,
             until: Date.now() + DASHBOARD_OPTIMISTIC_GUARD_MS,
         });
-        if (!d.tryFastPathForEntities([widget.entity_id]))
+        if (!d.tryFastPathForEntities([widget.entity_id || '']))
             d.renderDashboard();
     }
     catch (e) {
-        dashDebug('toggle.err', { widgetId, msg: String(e?.message || e) });
+        dashDebug('toggle.err', { widgetId, msg: String(e instanceof Error ? e.message : e) });
         deletePendingControl(String(widgetId));
         deleteOptimisticGuard(String(widget.entity_id || ''));
         restoreDashboardEntitySnapshot(snapshot);
-        if (!d.tryFastPathForEntities([widget.entity_id]))
+        if (!d.tryFastPathForEntities([widget.entity_id || '']))
             d.renderDashboard();
-        showToast(e.message || d.t('dashboard.toggle_failed'), 'error');
+        showToast(e instanceof Error ? e.message : d.t('dashboard.toggle_failed'), 'error');
     }
     finally {
         if (btn)

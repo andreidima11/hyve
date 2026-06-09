@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Syntax highlighting for chat code blocks (highlight.js).
  */

@@ -1,4 +1,3 @@
-// @ts-nocheck — Phase 6 TS shell; tighten types incrementally.
 /**
  * Dashboard widget toggle — card click/keyboard and optimistic entity state.
  */
@@ -18,33 +17,41 @@ import {
     setOptimisticGuard,
     setPendingControl,
 } from './control_state.js';
+import type { DashboardWidget, DashboardWidgetToggleDeps, DashboardPanel } from '../types/dashboard.js';
 
-/** @type {object | null} */
-let _deps = null;
+let _deps: DashboardWidgetToggleDeps | null = null;
 
-function deps() {
+function deps(): DashboardWidgetToggleDeps {
     if (!_deps) throw new Error('Dashboard widget toggle not initialized');
     return _deps;
 }
 
-export function initDashboardWidgetToggle(depsIn) {
+export function initDashboardWidgetToggle(depsIn: DashboardWidgetToggleDeps) {
     _deps = depsIn;
 }
 
-function nestedInteractiveTarget(event) {
-    const target = event?.target;
+interface EntitySnapshotEntry {
+    item: DashboardWidget;
+    state?: string | number | null;
+    attributes?: Record<string, unknown>;
+    available?: boolean;
+    availableEntity?: boolean;
+}
+
+function nestedInteractiveTarget(event: Event): Element | null {
+    const target = event?.target as Element | null;
     if (!target?.closest) return null;
     const interactive = target.closest('button, a, input, select, textarea, label, [role="button"]');
     if (!interactive) return null;
     if (interactive.getAttribute?.('data-dash-action') === 'cardActivate') return null;
-    const current = event?.currentTarget;
+    const current = event?.currentTarget as Element | null;
     if (current && interactive === current) return null;
     return interactive;
 }
 
-function togglePreviewCard(event) {
+function togglePreviewCard(event: Event) {
     if (nestedInteractiveTarget(event)) return;
-    const card = event?.currentTarget || event?.target?.closest?.('.hyve-dashboard-card');
+    const card = (event?.currentTarget || (event?.target as Element | null)?.closest?.('.hyve-dashboard-card')) as HTMLElement | null;
     if (!card) return;
     const nextOn = card.getAttribute('data-on') !== 'true';
     card.setAttribute('data-on', nextOn ? 'true' : 'false');
@@ -54,9 +61,9 @@ function togglePreviewCard(event) {
     window.setTimeout(() => card.removeAttribute('data-preview-pressed'), 180);
 }
 
-export function handleDashboardCardClick(event, widgetId) {
+export function handleDashboardCardClick(event: Event, widgetId: string) {
     const d = deps();
-    dashDebug('card.click', { widgetId, target: event?.target?.tagName, type: event?.type });
+    dashDebug('card.click', { widgetId, target: (event?.target as Element | null)?.tagName, type: event?.type });
     if (widgetId === '__preview__') {
         togglePreviewCard(event);
         return;
@@ -68,48 +75,56 @@ export function handleDashboardCardClick(event, widgetId) {
     toggleDashboardWidget(widgetId);
 }
 
-export function handleDashboardCardKeydown(event, widgetId) {
+export function handleDashboardCardKeydown(event: KeyboardEvent, widgetId: string) {
     if (event?.key !== 'Enter' && event?.key !== ' ') return;
     event.preventDefault();
     handleDashboardCardClick(event, widgetId);
 }
 
-export function snapshotDashboardEntityState(entityId) {
+export function snapshotDashboardEntityState(entityId: string): EntitySnapshotEntry[] {
     const d = deps();
     const cache = d.getCache();
     const target = String(entityId || '');
-    const snapshot = [];
+    const snapshot: EntitySnapshotEntry[] = [];
     if (!target) return snapshot;
-    const seen = new Set();
-    const remember = (item) => {
+    const seen = new Set<DashboardWidget>();
+    const remember = (item: DashboardWidget | null | undefined) => {
         if (!item || item.entity_id !== target || seen.has(item)) return;
         seen.add(item);
-        snapshot.push({ item, state: item.current_state, attributes: item.attributes, available: item.available });
+        snapshot.push({ item, state: item.current_state, attributes: item.attributes, available: item.available !== false });
     };
-    const rememberWidget = (widget) => {
+    const rememberWidget = (widget: DashboardWidget | null | undefined) => {
         remember(widget);
         if (Array.isArray(widget?.entities)) widget.entities.forEach(remember);
     };
     (cache.widgets || []).forEach(rememberWidget);
     (cache.panels || []).forEach(panel => (panel?.widgets || []).forEach(rememberWidget));
-    (cache.pages || []).forEach(page => {
-        (page?.widgets || []).forEach(rememberWidget);
-        (page?.panels || []).forEach(panel => (panel?.widgets || []).forEach(rememberWidget));
+    (cache.pages || []).forEach((page) => {
+        const pageWidgets = page?.widgets as DashboardWidget[] | undefined;
+        const pagePanels = page?.panels as DashboardPanel[] | undefined;
+        (pageWidgets || []).forEach(rememberWidget);
+        (pagePanels || []).forEach(panel => (panel?.widgets || []).forEach(rememberWidget));
     });
     (cache.available_entities || []).forEach(item => {
-        if (item?.entity_id === target && !seen.has(item)) {
-            seen.add(item);
-            snapshot.push({ item, state: item.state, attributes: item.attributes, available: item.available, availableEntity: true });
+        if (item?.entity_id === target && !seen.has(item as unknown as DashboardWidget)) {
+            seen.add(item as unknown as DashboardWidget);
+            snapshot.push({
+                item: item as unknown as DashboardWidget,
+                state: item.state,
+                attributes: item.attributes,
+                available: true,
+                availableEntity: true,
+            });
         }
     });
     return snapshot;
 }
 
-export function restoreDashboardEntitySnapshot(snapshot) {
+export function restoreDashboardEntitySnapshot(snapshot: EntitySnapshotEntry[] | null | undefined) {
     (snapshot || []).forEach(entry => {
         if (!entry?.item) return;
         if (entry.availableEntity) {
-            entry.item.state = entry.state;
+            (entry.item as DashboardWidget & { state?: string | number | null }).state = entry.state;
         } else {
             entry.item.current_state = entry.state;
         }
@@ -118,12 +133,16 @@ export function restoreDashboardEntitySnapshot(snapshot) {
     });
 }
 
-export function patchDashboardEntityState(entityId, state, attributesPatch = null) {
+export function patchDashboardEntityState(
+    entityId: string,
+    state: string | number | null,
+    attributesPatch: Record<string, unknown> | null = null,
+) {
     const d = deps();
     const cache = d.getCache();
     const target = String(entityId || '');
     if (!target) return;
-    const patchWidget = (widget) => {
+    const patchWidget = (widget: DashboardWidget | null | undefined) => {
         if (!widget) return;
         if (widget.entity_id === target) {
             widget.current_state = state;
@@ -139,9 +158,11 @@ export function patchDashboardEntityState(entityId, state, attributesPatch = nul
     };
     (cache.widgets || []).forEach(patchWidget);
     (cache.panels || []).forEach(panel => (panel?.widgets || []).forEach(patchWidget));
-    (cache.pages || []).forEach(page => {
-        (page?.widgets || []).forEach(patchWidget);
-        (page?.panels || []).forEach(panel => (panel?.widgets || []).forEach(patchWidget));
+    (cache.pages || []).forEach((page) => {
+        const pageWidgets = page?.widgets as DashboardWidget[] | undefined;
+        const pagePanels = page?.panels as DashboardPanel[] | undefined;
+        (pageWidgets || []).forEach(patchWidget);
+        (pagePanels || []).forEach(panel => (panel?.widgets || []).forEach(patchWidget));
     });
     (cache.available_entities || []).forEach(item => {
         if (item?.entity_id !== target) return;
@@ -150,7 +171,7 @@ export function patchDashboardEntityState(entityId, state, attributesPatch = nul
     });
 }
 
-export async function toggleDashboardWidget(widgetId, btn) {
+export async function toggleDashboardWidget(widgetId: string, btn?: HTMLButtonElement | null) {
     const d = deps();
     const cache = d.getCache();
     const widget = d.findWidget(widgetId);
@@ -164,7 +185,7 @@ export async function toggleDashboardWidget(widgetId, btn) {
     if (d.controlPending(widgetId)) { dashDebug('toggle.skip', { widgetId, reason: 'pending' }); return; }
     dashDebug('toggle.start', { widgetId, entity: widget.entity_id, current: widget.current_state });
 
-    const snapshot = snapshotDashboardEntityState(widget.entity_id);
+    const snapshot = snapshotDashboardEntityState(widget.entity_id || '');
     const current = String(widget.current_state || '').toLowerCase();
     const nextState = stateOn(current) ? 'off' : 'on';
     const action = d.dashboardIntentAction(widget, nextState);
@@ -175,12 +196,12 @@ export async function toggleDashboardWidget(widgetId, btn) {
         action,
         startedAt: Date.now(),
     });
-    patchDashboardEntityState(widget.entity_id, nextState);
-    if (!d.tryFastPathForEntities([widget.entity_id])) d.renderDashboard();
+    patchDashboardEntityState(widget.entity_id || '', nextState);
+    if (!d.tryFastPathForEntities([widget.entity_id || ''])) d.renderDashboard();
     setTimeout(() => {
         const pending = getPendingControl(String(widgetId));
         if (pending && pending.nextState === nextState) {
-            if (!d.tryFastPathForEntities([widget.entity_id])) d.renderDashboard();
+            if (!d.tryFastPathForEntities([widget.entity_id || ''])) d.renderDashboard();
         }
     }, DASHBOARD_PENDING_VISUAL_MS + 40);
 
@@ -197,7 +218,7 @@ export async function toggleDashboardWidget(widgetId, btn) {
         });
         dashDebug('toggle.res', { status: res.status });
         if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
+            const err = await res.json().catch(() => ({})) as { detail?: unknown };
             throw new Error(dashApiError(err.detail, 'dashboard.toggle_failed'));
         }
         deletePendingControl(String(widgetId));
@@ -205,14 +226,14 @@ export async function toggleDashboardWidget(widgetId, btn) {
             state: nextState,
             until: Date.now() + DASHBOARD_OPTIMISTIC_GUARD_MS,
         });
-        if (!d.tryFastPathForEntities([widget.entity_id])) d.renderDashboard();
+        if (!d.tryFastPathForEntities([widget.entity_id || ''])) d.renderDashboard();
     } catch (e) {
-        dashDebug('toggle.err', { widgetId, msg: String(e?.message || e) });
+        dashDebug('toggle.err', { widgetId, msg: String(e instanceof Error ? e.message : e) });
         deletePendingControl(String(widgetId));
         deleteOptimisticGuard(String(widget.entity_id || ''));
         restoreDashboardEntitySnapshot(snapshot);
-        if (!d.tryFastPathForEntities([widget.entity_id])) d.renderDashboard();
-        showToast(e.message || d.t('dashboard.toggle_failed'), 'error');
+        if (!d.tryFastPathForEntities([widget.entity_id || ''])) d.renderDashboard();
+        showToast(e instanceof Error ? e.message : d.t('dashboard.toggle_failed'), 'error');
     } finally {
         if (btn) btn.disabled = false;
     }

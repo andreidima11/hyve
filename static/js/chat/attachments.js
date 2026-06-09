@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Chat message attachments — image resize/compress and document preview.
  */
@@ -25,6 +24,10 @@ function _resizeImage(dataUrl) {
             canvas.width = w;
             canvas.height = h;
             const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                resolve(dataUrl);
+                return;
+            }
             ctx.drawImage(img, 0, 0, w, h);
             let quality = IMG_QUALITY;
             let result = canvas.toDataURL('image/jpeg', quality);
@@ -66,11 +69,11 @@ function _updateDocumentPreview() {
     }
     el.classList.remove('hidden');
     const name = attachedDocumentFileName || 'document';
-    const iconClass = _documentIconClass(name);
+    const iconClass = documentIconClass(name);
     el.innerHTML = `<span class="chat-document-name"><i class="fas ${iconClass}"></i> ${escapeHtml(name)}</span><button type="button" class="chat-document-remove" aria-label="${escapeHtml(t('chat.remove_document') || 'Remove document')}"><i class="fas fa-times"></i></button>`;
     const btn = el.querySelector('.chat-document-remove');
     if (btn)
-        btn.onclick = () => clearAttachedDocument();
+        btn.addEventListener('click', () => clearAttachedDocument());
 }
 function _updateImagePreview() {
     const el = document.getElementById('chat-image-preview');
@@ -88,7 +91,7 @@ function _updateImagePreview() {
         img.src = attachedImageDataUrl;
     const btn = el.querySelector('.chat-image-remove');
     if (btn)
-        btn.onclick = () => clearAttachedImage();
+        btn.addEventListener('click', () => clearAttachedImage());
 }
 export async function addAttachedImage(dataUrl) {
     attachedImageDataUrl = dataUrl;

@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten DOM element typing in a follow-up pass.
 /**
  * Dashboard page create/edit modal (title, icon, columns, default page).
  */
@@ -145,7 +144,7 @@ export async function saveDashboardHeader() {
     if (!d.requireDashboardEditAccess())
         return;
     const cache = d.getDashboardCache();
-    const titleInput = document.getElementById('dashboard-page-title-input') || document.getElementById('dashboard-title-input');
+    const titleInput = (document.getElementById('dashboard-page-title-input') || document.getElementById('dashboard-title-input'));
     const iconInput = document.getElementById('dashboard-page-icon-input');
     const columnsInput = document.getElementById('dashboard-page-columns');
     const layoutInput = document.getElementById('dashboard-page-layout-mode');

@@ -1,8 +1,16 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Piper/TTS playback manager and bubble context menu.
  */
+import { apiCall } from '../api.js';
 import { isVoiceLoopActive, isVoiceInputPending } from '../voice_state.js';
+function _isPiperEnabled() {
+    for (const id of ['piper_enabled', 'integrations-piper-enabled']) {
+        const pip = document.getElementById(id);
+        if (pip && pip.type === 'checkbox')
+            return pip.checked;
+    }
+    return false;
+}
 function _stripForTTS(text) {
     if (!text)
         return '';
@@ -24,7 +32,8 @@ function _stripForTTS(text) {
             old.remove();
     }
     document.addEventListener('contextmenu', (e) => {
-        const content = e.target.closest('.chat-bubble-content');
+        const target = e.target;
+        const content = target?.closest('.chat-bubble-content');
         if (!content) {
             _removeMenu();
             return;
@@ -32,17 +41,15 @@ function _stripForTTS(text) {
         const bubble = content.closest('.chat-bubble');
         if (!bubble)
             return;
-        // Only if Piper is enabled
-        if (!this._isPiperOn())
+        if (!_isPiperEnabled())
             return;
         const sel = window.getSelection();
         const selText = sel ? sel.toString().trim() : '';
         if (!selText)
-            return; // Only show if text is selected
+            return;
         e.preventDefault();
         _removeMenu();
-        // Calculate offset of selection within the bubble content text
-        const fullText = content.innerText || content.textContent || '';
+        const fullText = content.textContent || '';
         const selStart = fullText.indexOf(selText);
         const offset = selStart >= 0 ? selStart : 0;
         const menu = document.createElement('div');
@@ -50,16 +57,15 @@ function _stripForTTS(text) {
         menu.className = 'tts-context-menu';
         menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:9999;`;
         menu.innerHTML = `<button type="button" class="tts-context-menu-item"><i class="fas fa-play"></i> Citește de aici</button>`;
-        menu.querySelector('button').addEventListener('click', () => {
+        const bubbleEl = bubble;
+        menu.querySelector('button')?.addEventListener('click', () => {
             _removeMenu();
-            const tts = getTts();
-            if (tts)
-                tts.speak(bubble, { fromOffset: offset });
+            getTts().speak(bubbleEl, { fromOffset: offset });
         });
         document.body.appendChild(menu);
     });
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('#' + menuId))
+        if (!e.target?.closest('#' + menuId))
             _removeMenu();
     });
     document.addEventListener('scroll', _removeMenu, true);
@@ -69,25 +75,17 @@ function _stripForTTS(text) {
    visual indicator, streaming sentence queue, and voice-loop support.
    ══════════════════════════════════════════════════════════════════════ */
 const _tts = {
-    /** @type {Audio|null} */
     audio: null,
-    /** @type {HTMLElement|null} bubble currently being spoken */
     bubble: null,
-    /** @type {AbortController|null} */
     abort: null,
-    /** per-bubble WAV cache for instant replay */
     cache: new WeakMap(),
-    /** when true, every AI response is spoken automatically */
     alwaysSpeak: false,
-    /** generation token to invalidate stale stream playback loops */
     _streamRunId: 0,
+    _streamQueue: [],
+    _streamBubble: null,
+    _streamPlaying: false,
     _isPiperOn() {
-        for (const id of ['piper_enabled', 'integrations-piper-enabled']) {
-            const pip = document.getElementById(id);
-            if (pip && pip.type === 'checkbox')
-                return !!pip.checked;
-        }
-        return false;
+        return _isPiperEnabled();
     },
     _getSynthUrl() {
         return '/api/piper/synthesize';
@@ -109,7 +107,9 @@ const _tts = {
         const btn = bubble.querySelector('.chat-speak-btn');
         if (btn) {
             btn.dataset.playing = '0';
-            btn.querySelector('i').className = 'fas fa-volume-up';
+            const icon = btn.querySelector('i');
+            if (icon)
+                icon.className = 'fas fa-volume-up';
             btn.classList.remove('active');
             btn._audio = null;
         }
@@ -143,14 +143,13 @@ const _tts = {
         }
         if (!bubble)
             return null;
-        // Toggle off if same bubble already playing
         if (this.bubble === bubble && this.audio && !this.audio.paused) {
             this.stop();
             return null;
         }
         this.stop();
         const content = bubble.querySelector('.chat-bubble-content');
-        let rawText = content ? (content.innerText || content.textContent || '') : '';
+        let rawText = content ? (content.textContent || '') : '';
         if (fromOffset > 0)
             rawText = rawText.slice(fromOffset);
         const text = _stripForTTS(rawText);
@@ -160,12 +159,12 @@ const _tts = {
         }
         this.bubble = bubble;
         const btn = bubble.querySelector('.chat-speak-btn');
-        // Cache hit (only for full text)
         const cached = fromOffset === 0 && this.cache.has(bubble) ? this.cache.get(bubble) : null;
         if (cached)
             return this._playBlob(cached, btn);
-        if (btn)
-            btn.querySelector('i').className = 'fas fa-spinner fa-spin';
+        const spinIcon = btn?.querySelector('i');
+        if (spinIcon)
+            spinIcon.className = 'fas fa-spinner fa-spin';
         this.abort = new AbortController();
         try {
             const res = await apiCall(this._getSynthUrl(), {
@@ -184,7 +183,7 @@ const _tts = {
             return this._playBlob(blob, btn);
         }
         catch (e) {
-            if (e.name === 'AbortError')
+            if (e instanceof DOMException && e.name === 'AbortError')
                 return null;
             console.error('[TTS] speak error:', e);
             this._resetBubbleBtn(bubble);
@@ -193,7 +192,6 @@ const _tts = {
             return null;
         }
     },
-    /* ── play WAV blob ──────────────────────────────────────────── */
     _playBlob(blob, btn) {
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
@@ -202,7 +200,9 @@ const _tts = {
         if (btn) {
             btn._audio = audio;
             btn.dataset.playing = '1';
-            btn.querySelector('i').className = 'fas fa-stop';
+            const icon = btn.querySelector('i');
+            if (icon)
+                icon.className = 'fas fa-stop';
             btn.classList.add('active');
         }
         this._setIndicator(true);
@@ -210,7 +210,9 @@ const _tts = {
         audio.onended = () => {
             if (btn) {
                 btn.dataset.playing = '0';
-                btn.querySelector('i').className = 'fas fa-volume-up';
+                const icon = btn.querySelector('i');
+                if (icon)
+                    icon.className = 'fas fa-volume-up';
                 btn.classList.remove('active');
                 btn._audio = null;
             }
@@ -230,11 +232,7 @@ const _tts = {
         return audio;
     },
     /* ── streaming TTS: speak sentences as they arrive ──────────── */
-    _streamQueue: [],
-    _streamBubble: null,
-    _streamPlaying: false,
     streamReset(bubble) {
-        // Ensure any previous stream/audio is stopped before starting a new response.
         this.stop();
         this._streamQueue = [];
         this._streamBubble = bubble;
@@ -248,9 +246,9 @@ const _tts = {
             return;
         this._streamQueue.push(sentence);
         if (!this._streamPlaying)
-            this._streamPlayNext(this._streamRunId);
+            void this._streamPlayNext(this._streamRunId);
     },
-    async _streamPlayNext(runId = this._streamRunId) {
+    async _streamPlayNext(runId) {
         if (runId !== this._streamRunId)
             return;
         if (this._streamQueue.length === 0) {
@@ -261,10 +259,10 @@ const _tts = {
             return;
         }
         this._streamPlaying = true;
-        const text = this._streamQueue.shift();
+        const text = this._streamQueue.shift() || '';
         const cleanText = _stripForTTS(text);
         if (!cleanText) {
-            this._streamPlayNext(runId);
+            await this._streamPlayNext(runId);
             return;
         }
         if (this.audio && this.bubble !== this._streamBubble)
@@ -276,7 +274,9 @@ const _tts = {
         const btn = this._streamBubble?.querySelector('.chat-speak-btn');
         if (btn) {
             btn.dataset.playing = '1';
-            btn.querySelector('i').className = 'fas fa-volume-up';
+            const icon = btn.querySelector('i');
+            if (icon)
+                icon.className = 'fas fa-volume-up';
             btn.classList.add('active');
         }
         try {
@@ -294,23 +294,21 @@ const _tts = {
             await new Promise((resolve) => {
                 audio.onended = () => { URL.revokeObjectURL(url); setTimeout(resolve, 80); };
                 audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
-                audio.play().catch(resolve);
+                audio.play().catch(() => resolve());
             });
         }
         catch (e) {
-            console.warn('[TTS-STREAM]', e.message);
+            console.warn('[TTS-STREAM]', e instanceof Error ? e.message : e);
         }
-        this._streamPlayNext(runId);
+        await this._streamPlayNext(runId);
     },
     streamWasActive() {
         return this._streamPlaying || this._streamQueue.length > 0;
     },
 };
-/** @returns {typeof _tts} Piper/TTS controller singleton. */
 export function getTts() {
     return _tts;
 }
-/** Speak a bubble's text — convenience wrapper */
 export async function speakBubble(bubble, opts) {
     return _tts.speak(bubble, opts);
 }

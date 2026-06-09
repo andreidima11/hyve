@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Syntax highlighting for chat code blocks (highlight.js).
  */
@@ -6,7 +5,7 @@
 import { t } from '../lang/index.js';
 import { loadScriptOnce, loadStyleOnce } from '../utils.js';
 
-export function normalizeCodeLanguage(lang) {
+export function normalizeCodeLanguage(lang: string) {
     const value = (lang || '').toLowerCase().trim();
     if (!value || value === (t('chat.code_label') || 'code').toLowerCase()) return '';
     const aliases = {
@@ -40,11 +39,11 @@ export function normalizeCodeLanguage(lang) {
         env: 'ini',
         properties: 'ini'
     };
-    return aliases[value] || value;
+    return (aliases as Record<string, string>)[value] || value;
 }
 
 const HIGHLIGHT_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1';
-const HIGHLIGHT_LANGUAGE_FILES = {
+const HIGHLIGHT_LANGUAGE_FILES: Record<string, string> = {
     bash: 'bash',
     c: 'c',
     cpp: 'cpp',
@@ -75,10 +74,10 @@ const HIGHLIGHT_LANGUAGE_FILES = {
     yaml: 'yaml',
 };
 
-let _highlightCorePromise = null;
-const _highlightLanguagePromises = new Map();
+let _highlightCorePromise: Promise<typeof hljs> | null = null;
+const _highlightLanguagePromises = new Map<string, Promise<unknown>>();
 
-function _ensureHighlightCore() {
+function _ensureHighlightCore(): Promise<typeof hljs> {
     if (typeof hljs !== 'undefined') return Promise.resolve(hljs);
     if (!_highlightCorePromise) {
         _highlightCorePromise = Promise.all([
@@ -91,7 +90,7 @@ function _ensureHighlightCore() {
     return _highlightCorePromise;
 }
 
-function _ensureHighlightLanguage(lang) {
+function _ensureHighlightLanguage(lang: string) {
     const normalized = normalizeCodeLanguage(lang);
     const file = HIGHLIGHT_LANGUAGE_FILES[normalized];
     if (!file) return _ensureHighlightCore();
@@ -104,11 +103,11 @@ function _ensureHighlightLanguage(lang) {
     });
 }
 
-function _ensureHighlightAssets(lang) {
+function _ensureHighlightAssets(lang: string) {
     return _ensureHighlightLanguage(lang).then(() => _ensureHighlightCore());
 }
 
-export function applyHighlightingWithLineNumbers(codeEl, rawSource, lang = '') {
+export function applyHighlightingWithLineNumbers(codeEl: HTMLElement, rawSource: string, lang = '') {
     if (!codeEl) return;
     const normalizedLang = normalizeCodeLanguage(lang);
     codeEl.textContent = rawSource || '';
@@ -163,9 +162,12 @@ export function applyHighlightingWithLineNumbers(codeEl, rawSource, lang = '') {
     applyLines();
 }
 
-export function enhanceCodeBlock(pre, lang, rawSource) {
+export function enhanceCodeBlock(pre: Element | null, lang: string, rawSource?: string) {
     if (!pre) return;
     const codeEl = pre.querySelector('code') || pre;
-    applyHighlightingWithLineNumbers(codeEl, rawSource || pre.dataset.rawSource || codeEl.textContent || '', lang);
+    applyHighlightingWithLineNumbers(
+        codeEl as HTMLElement,
+        rawSource || (pre as HTMLElement).dataset.rawSource || codeEl.textContent || '',
+        lang,
+    );
 }
-

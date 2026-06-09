@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten DOM element typing in a follow-up pass.
 /**
  * Dashboard page create/edit modal (title, icon, columns, default page).
  */
@@ -57,14 +56,14 @@ export function openDashboardPageModal(opts: { create?: boolean } = {}): void {
     const cache = d.getDashboardCache();
     const currentPageId = d.getCurrentPageId();
 
-    const titleInput = document.getElementById('dashboard-page-title-input');
-    const iconInput = document.getElementById('dashboard-page-icon-input');
-    const columnsInput = document.getElementById('dashboard-page-columns');
-    const layoutInput = document.getElementById('dashboard-page-layout-mode');
-    const hideInput = document.getElementById('dashboard-page-hide-unavailable');
+    const titleInput = document.getElementById('dashboard-page-title-input') as HTMLInputElement | null;
+    const iconInput = document.getElementById('dashboard-page-icon-input') as HTMLInputElement | null;
+    const columnsInput = document.getElementById('dashboard-page-columns') as HTMLSelectElement | HTMLInputElement | null;
+    const layoutInput = document.getElementById('dashboard-page-layout-mode') as HTMLSelectElement | null;
+    const hideInput = document.getElementById('dashboard-page-hide-unavailable') as HTMLInputElement | null;
     const titleEl = document.getElementById('dashboard-page-modal-title');
     const saveBtn = document.getElementById('dashboard-page-save-btn');
-    const defaultInput = document.getElementById('dashboard-page-default-input');
+    const defaultInput = document.getElementById('dashboard-page-default-input') as HTMLInputElement | null;
 
     if (createMode) {
         if (titleEl) titleEl.textContent = d.t('dashboard.new_page') || 'New page';
@@ -123,11 +122,11 @@ export async function saveDashboardHeader(): Promise<void> {
     const d = deps();
     if (!d.requireDashboardEditAccess()) return;
     const cache = d.getDashboardCache();
-    const titleInput = document.getElementById('dashboard-page-title-input') || document.getElementById('dashboard-title-input');
-    const iconInput = document.getElementById('dashboard-page-icon-input');
-    const columnsInput = document.getElementById('dashboard-page-columns');
-    const layoutInput = document.getElementById('dashboard-page-layout-mode');
-    const hideInput = document.getElementById('dashboard-page-hide-unavailable');
+    const titleInput = (document.getElementById('dashboard-page-title-input') || document.getElementById('dashboard-title-input')) as HTMLInputElement | null;
+    const iconInput = document.getElementById('dashboard-page-icon-input') as HTMLInputElement | null;
+    const columnsInput = document.getElementById('dashboard-page-columns') as HTMLSelectElement | HTMLInputElement | null;
+    const layoutInput = document.getElementById('dashboard-page-layout-mode') as HTMLSelectElement | null;
+    const hideInput = document.getElementById('dashboard-page-hide-unavailable') as HTMLInputElement | null;
 
     const newTitle = (titleInput?.value || DEFAULT_META.title).trim() || DEFAULT_META.title;
     const newIcon = (iconInput?.value || cache.icon || 'fa-table-cells-large').trim();
@@ -218,7 +217,7 @@ export async function saveDashboardHeader(): Promise<void> {
             },
         }).catch(() => null);
 
-        const defaultInput = document.getElementById('dashboard-page-default-input');
+        const defaultInput = document.getElementById('dashboard-page-default-input') as HTMLInputElement | null;
         if (defaultInput) {
             const wantDefault = !!defaultInput.checked;
             const effectiveId = renamedToId || pageId;

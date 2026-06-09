@@ -48,6 +48,7 @@ export function wireDashboardRender() {
         dashboardIntentAction,
         tryFastPathForEntities,
         renderDashboard,
+        getCurrentPageId,
         getActivePageId: activeDashboardPageId,
         t,
     });

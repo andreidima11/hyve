@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 import { showToast } from './utils.js';
 import { t, translateApiDetail } from './lang/index.js';
 import { apiCall, setAuthToken, setRefreshToken } from './api.js';
@@ -42,6 +41,10 @@ function _splitName(fullName) {
         return { firstName: parts[0], lastName: '' };
     return { firstName: parts.slice(0, -1).join(' '), lastName: parts[parts.length - 1] };
 }
+function _inputValue(id) {
+    const el = document.getElementById(id);
+    return el?.value ?? '';
+}
 function _setValue(id, value) {
     const el = document.getElementById(id);
     if (!el)
@@ -66,14 +69,13 @@ function _applyUserIdentityLabels() {
 function _populateFromProfileAndDraft() {
     const draft = _readDraft();
     const generalDraft = draft.general || {};
-    const securityDraft = draft.security || {};
     const fromProfile = _splitName(_currentProfile?.full_name || _currentProfile?.fullName || '');
     _setValue('user-profile-first-name', generalDraft.firstName ?? fromProfile.firstName ?? '');
     _setValue('user-profile-last-name', generalDraft.lastName ?? fromProfile.lastName ?? '');
     _setValue('user-profile-location', generalDraft.location ?? _currentProfile?.location ?? '');
     _setValue('user-profile-about', generalDraft.about ?? _currentProfile?.about_me ?? '');
-    _setValue('user-security-username', securityDraft.username ?? _currentProfile?.username ?? '');
-    _setValue('user-security-email', securityDraft.email ?? _currentProfile?.email ?? '');
+    _setValue('user-security-username', draft.security?.username ?? _currentProfile?.username ?? '');
+    _setValue('user-security-email', draft.security?.email ?? _currentProfile?.email ?? '');
     _setValue('user-security-current-password', '');
     _setValue('user-security-password', '');
     _setValue('user-security-password-confirm', '');
@@ -124,10 +126,10 @@ export function loadUserProfilePage() {
 }
 export async function saveUserProfileGeneral() {
     const payload = {
-        firstName: document.getElementById('user-profile-first-name')?.value?.trim() || '',
-        lastName: document.getElementById('user-profile-last-name')?.value?.trim() || '',
-        location: document.getElementById('user-profile-location')?.value?.trim() || '',
-        about: document.getElementById('user-profile-about')?.value?.trim() || '',
+        firstName: _inputValue('user-profile-first-name').trim(),
+        lastName: _inputValue('user-profile-last-name').trim(),
+        location: _inputValue('user-profile-location').trim(),
+        about: _inputValue('user-profile-about').trim(),
     };
     try {
         const res = await apiCall('/api/users/me', {
@@ -150,15 +152,15 @@ export async function saveUserProfileGeneral() {
         const draft = _readDraft();
         draft.general = payload;
         _writeDraft(draft);
-        showToast(err.message || 'Datele generale nu au putut fi salvate.', 'error');
+        showToast(err instanceof Error ? err.message : 'Datele generale nu au putut fi salvate.', 'error');
     }
 }
 export async function saveUserProfileSecurity() {
-    const currentPassword = document.getElementById('user-security-current-password')?.value || '';
-    const username = document.getElementById('user-security-username')?.value?.trim() || '';
-    const email = document.getElementById('user-security-email')?.value?.trim() || '';
-    const password = document.getElementById('user-security-password')?.value || '';
-    const passwordConfirm = document.getElementById('user-security-password-confirm')?.value || '';
+    const currentPassword = _inputValue('user-security-current-password');
+    const username = _inputValue('user-security-username').trim();
+    const email = _inputValue('user-security-email').trim();
+    const password = _inputValue('user-security-password');
+    const passwordConfirm = _inputValue('user-security-password-confirm');
     if (!currentPassword) {
         showToast(t('user.current_password_required'), 'error');
         return;
@@ -202,6 +204,6 @@ export async function saveUserProfileSecurity() {
         showToast(t('user.security_saved'), 'success');
     }
     catch (err) {
-        showToast(err.message || 'Setările de securitate nu au putut fi salvate.', 'error');
+        showToast(err instanceof Error ? err.message : 'Setările de securitate nu au putut fi salvate.', 'error');
     }
 }

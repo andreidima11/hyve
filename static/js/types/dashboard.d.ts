@@ -380,6 +380,19 @@ export interface DashboardPageModalDeps {
     t: (key: string, params?: Record<string, unknown>) => string;
 }
 
+export interface DashboardWidgetToggleDeps {
+    getCache: () => DashboardCache;
+    getEditMode: () => boolean;
+    controlPending: (widgetId: string) => boolean;
+    findWidget: (widgetId: string) => DashboardWidget | null | undefined;
+    getCurrentPageId: () => string | null;
+    getActivePageId: () => string;
+    dashboardIntentAction: (widget: DashboardWidget, nextState: string) => string;
+    tryFastPathForEntities: (entityIds: string[]) => boolean;
+    renderDashboard: () => void;
+    t: (key: string, params?: Record<string, unknown>) => string;
+}
+
 export interface DashboardWidgetLegacyEditDeps {
     requireDashboardEditAccess: () => boolean;
     getCurrentEditorId: () => string | null;

@@ -1,25 +1,49 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 import { showToast } from './utils.js';
 import { t, translateApiDetail } from './lang/index.js';
 import { apiCall, setAuthToken, setRefreshToken } from './api.js';
 import { loadUserNotifications } from './notifications.js';
 
-let _currentProfile = null;
+interface UserProfile {
+    id?: number | string;
+    username?: string;
+    full_name?: string;
+    fullName?: string;
+    location?: string;
+    about_me?: string;
+    email?: string;
+    access_token?: string;
+    refresh_token?: string;
+}
+
+interface ProfileDraft {
+    general?: {
+        firstName?: string;
+        lastName?: string;
+        location?: string;
+        about?: string;
+    };
+    security?: {
+        username?: string;
+        email?: string;
+    };
+}
+
+let _currentProfile: UserProfile | null = null;
 
 function _storageKey() {
     const id = _currentProfile?.id ?? _currentProfile?.username ?? 'guest';
     return `hyve_user_profile_draft:${id}`;
 }
 
-function _readDraft() {
+function _readDraft(): ProfileDraft {
     try {
-        return JSON.parse(localStorage.getItem(_storageKey()) || '{}');
+        return JSON.parse(localStorage.getItem(_storageKey()) || '{}') as ProfileDraft;
     } catch (_) {
         return {};
     }
 }
 
-function _writeDraft(data) {
+function _writeDraft(data: ProfileDraft) {
     try {
         localStorage.setItem(_storageKey(), JSON.stringify(data || {}));
     } catch (_) {
@@ -27,7 +51,7 @@ function _writeDraft(data) {
     }
 }
 
-function _titleCaseName(value) {
+function _titleCaseName(value: string) {
     const raw = String(value || '').trim();
     if (!raw) return t('common.unknown');
     return raw
@@ -36,7 +60,7 @@ function _titleCaseName(value) {
         .join('');
 }
 
-function _splitName(fullName) {
+function _splitName(fullName: string) {
     const raw = String(fullName || '').trim();
     if (!raw) return { firstName: '', lastName: '' };
     const parts = raw.split(/\s+/);
@@ -44,13 +68,18 @@ function _splitName(fullName) {
     return { firstName: parts.slice(0, -1).join(' '), lastName: parts[parts.length - 1] };
 }
 
-function _setValue(id, value) {
-    const el = document.getElementById(id);
+function _inputValue(id: string): string {
+    const el = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
+    return el?.value ?? '';
+}
+
+function _setValue(id: string, value: string) {
+    const el = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
     if (!el) return;
     el.value = value ?? '';
 }
 
-function _setText(id, value) {
+function _setText(id: string, value: string) {
     const el = document.getElementById(id);
     if (!el) return;
     el.textContent = value ?? '';
@@ -70,7 +99,6 @@ function _applyUserIdentityLabels() {
 function _populateFromProfileAndDraft() {
     const draft = _readDraft();
     const generalDraft = draft.general || {};
-    const securityDraft = draft.security || {};
     const fromProfile = _splitName(_currentProfile?.full_name || _currentProfile?.fullName || '');
 
     _setValue('user-profile-first-name', generalDraft.firstName ?? fromProfile.firstName ?? '');
@@ -78,23 +106,23 @@ function _populateFromProfileAndDraft() {
     _setValue('user-profile-location', generalDraft.location ?? _currentProfile?.location ?? '');
     _setValue('user-profile-about', generalDraft.about ?? _currentProfile?.about_me ?? '');
 
-    _setValue('user-security-username', securityDraft.username ?? _currentProfile?.username ?? '');
-    _setValue('user-security-email', securityDraft.email ?? _currentProfile?.email ?? '');
+    _setValue('user-security-username', draft.security?.username ?? _currentProfile?.username ?? '');
+    _setValue('user-security-email', draft.security?.email ?? _currentProfile?.email ?? '');
     _setValue('user-security-current-password', '');
     _setValue('user-security-password', '');
     _setValue('user-security-password-confirm', '');
 }
 
-async function _readApiError(res) {
+async function _readApiError(res: Response) {
     try {
-        const data = await res.json();
+        const data = await res.json() as { detail?: unknown; message?: string };
         return translateApiDetail(data?.detail) || data?.message || t('common.unknown_error');
     } catch (_) {
         return t('common.unknown_error');
     }
 }
 
-function _applyUpdatedProfile(profile) {
+function _applyUpdatedProfile(profile: UserProfile | null | undefined) {
     _currentProfile = { ...(_currentProfile || {}), ...(profile || {}) };
     _applyUserIdentityLabels();
     _populateFromProfileAndDraft();
@@ -121,7 +149,7 @@ export function switchUserProfileTab(tab = 'notifications') {
     }
 }
 
-export function setUserProfileContext(profile) {
+export function setUserProfileContext(profile: UserProfile | null) {
     _currentProfile = profile || null;
     _applyUserIdentityLabels();
     _populateFromProfileAndDraft();
@@ -135,10 +163,10 @@ export function loadUserProfilePage() {
 
 export async function saveUserProfileGeneral() {
     const payload = {
-        firstName: document.getElementById('user-profile-first-name')?.value?.trim() || '',
-        lastName: document.getElementById('user-profile-last-name')?.value?.trim() || '',
-        location: document.getElementById('user-profile-location')?.value?.trim() || '',
-        about: document.getElementById('user-profile-about')?.value?.trim() || '',
+        firstName: _inputValue('user-profile-first-name').trim(),
+        lastName: _inputValue('user-profile-last-name').trim(),
+        location: _inputValue('user-profile-location').trim(),
+        about: _inputValue('user-profile-about').trim(),
     };
     try {
         const res = await apiCall('/api/users/me', {
@@ -151,7 +179,7 @@ export async function saveUserProfileGeneral() {
             },
         });
         if (!res.ok) throw new Error(await _readApiError(res));
-        const profile = await res.json();
+        const profile = await res.json() as UserProfile;
         _writeDraft({});
         _applyUpdatedProfile(profile);
         showToast(t('user.general_saved'), 'success');
@@ -159,16 +187,16 @@ export async function saveUserProfileGeneral() {
         const draft = _readDraft();
         draft.general = payload;
         _writeDraft(draft);
-        showToast(err.message || 'Datele generale nu au putut fi salvate.', 'error');
+        showToast(err instanceof Error ? err.message : 'Datele generale nu au putut fi salvate.', 'error');
     }
 }
 
 export async function saveUserProfileSecurity() {
-    const currentPassword = document.getElementById('user-security-current-password')?.value || '';
-    const username = document.getElementById('user-security-username')?.value?.trim() || '';
-    const email = document.getElementById('user-security-email')?.value?.trim() || '';
-    const password = document.getElementById('user-security-password')?.value || '';
-    const passwordConfirm = document.getElementById('user-security-password-confirm')?.value || '';
+    const currentPassword = _inputValue('user-security-current-password');
+    const username = _inputValue('user-security-username').trim();
+    const email = _inputValue('user-security-email').trim();
+    const password = _inputValue('user-security-password');
+    const passwordConfirm = _inputValue('user-security-password-confirm');
 
     if (!currentPassword) {
         showToast(t('user.current_password_required'), 'error');
@@ -191,13 +219,13 @@ export async function saveUserProfileSecurity() {
             },
         });
         if (!res.ok) throw new Error(await _readApiError(res));
-        const profile = await res.json();
+        const profile = await res.json() as UserProfile;
         if (profile.access_token) setAuthToken(profile.access_token);
         if (profile.refresh_token) setRefreshToken(profile.refresh_token);
         try {
             const remembered = localStorage.getItem('hyve_remember');
             if (remembered) {
-                const data = JSON.parse(remembered);
+                const data = JSON.parse(remembered) as { u?: string; t?: string; rt?: string };
                 data.u = profile.username || username;
                 if (profile.access_token) data.t = profile.access_token;
                 if (profile.refresh_token) data.rt = profile.refresh_token;
@@ -208,6 +236,6 @@ export async function saveUserProfileSecurity() {
         _applyUpdatedProfile(profile);
         showToast(t('user.security_saved'), 'success');
     } catch (err) {
-        showToast(err.message || 'Setările de securitate nu au putut fi salvate.', 'error');
+        showToast(err instanceof Error ? err.message : 'Setările de securitate nu au putut fi salvate.', 'error');
     }
 }

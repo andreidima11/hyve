@@ -12,6 +12,13 @@ declare global {
         parse: (text: string) => string;
     } | undefined;
 
+    const hljs: {
+        highlightElement: (el: Element) => void;
+        highlightAuto: (text: string) => { value: string; language?: string };
+        getLanguage: (lang: string) => unknown;
+        lineNumbersBlock: (el: Element, opts?: { singleLine?: boolean }) => void | Promise<void>;
+    };
+
     interface Window {
         __cacheBust?: string;
         __appVersion?: string;

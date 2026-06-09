@@ -104,7 +104,7 @@ export function wireDashboardEvents(): void {
         editWidget: ({ widgetId }) => { openDashboardWidgetEditor(widgetId); },
         removeWidget: ({ widgetId }) => { removeDashboardWidget(widgetId); },
         cardActivate: ({ event, widgetId }) => {
-            if (event.type === 'keydown') handleDashboardCardKeydown(event, widgetId);
+            if (event.type === 'keydown') handleDashboardCardKeydown(event as KeyboardEvent, widgetId);
             else handleDashboardCardClick(event, widgetId);
         },
         selectPage: ({ pageId }) => { selectDashboardPage(pageId); },

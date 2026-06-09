@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Chat message attachments — image resize/compress and document preview.
  */
@@ -10,12 +9,12 @@ const IMG_MAX_DIM = 1536;
 const IMG_MAX_BYTES = 1_500_000;
 const IMG_QUALITY = 0.82;
 
-let attachedImageDataUrl = null;
-let attachedDocumentText = null;
-let attachedDocumentFileName = null;
-let _imageResizePromise = null;
+let attachedImageDataUrl: string | null = null;
+let attachedDocumentText: string | null = null;
+let attachedDocumentFileName: string | null = null;
+let _imageResizePromise: Promise<string> | null = null;
 
-function _resizeImage(dataUrl) {
+function _resizeImage(dataUrl: string): Promise<string> {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
@@ -29,6 +28,10 @@ function _resizeImage(dataUrl) {
             canvas.width = w;
             canvas.height = h;
             const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                resolve(dataUrl);
+                return;
+            }
             ctx.drawImage(img, 0, 0, w, h);
             let quality = IMG_QUALITY;
             let result = canvas.toDataURL('image/jpeg', quality);
@@ -50,7 +53,7 @@ function _resizeImage(dataUrl) {
     });
 }
 
-export function documentIconClass(fileName) {
+export function documentIconClass(fileName: string) {
     const n = (fileName || '').toLowerCase();
     if (n.endsWith('.pdf')) return 'fa-file-pdf';
     if (n.endsWith('.docx') || n.endsWith('.doc')) return 'fa-file-word';
@@ -68,10 +71,10 @@ function _updateDocumentPreview() {
     }
     el.classList.remove('hidden');
     const name = attachedDocumentFileName || 'document';
-    const iconClass = _documentIconClass(name);
+    const iconClass = documentIconClass(name);
     el.innerHTML = `<span class="chat-document-name"><i class="fas ${iconClass}"></i> ${escapeHtml(name)}</span><button type="button" class="chat-document-remove" aria-label="${escapeHtml(t('chat.remove_document') || 'Remove document')}"><i class="fas fa-times"></i></button>`;
     const btn = el.querySelector('.chat-document-remove');
-    if (btn) btn.onclick = () => clearAttachedDocument();
+    if (btn) btn.addEventListener('click', () => clearAttachedDocument());
 }
 
 function _updateImagePreview() {
@@ -87,10 +90,10 @@ function _updateImagePreview() {
     const img = el.querySelector('img');
     if (img) img.src = attachedImageDataUrl;
     const btn = el.querySelector('.chat-image-remove');
-    if (btn) btn.onclick = () => clearAttachedImage();
+    if (btn) btn.addEventListener('click', () => clearAttachedImage());
 }
 
-export async function addAttachedImage(dataUrl) {
+export async function addAttachedImage(dataUrl: string) {
     attachedImageDataUrl = dataUrl;
     _updateImagePreview();
     const resizeP = _resizeImage(dataUrl);
@@ -123,7 +126,7 @@ export function getAttachedImageBase64() {
     return attachedImageDataUrl;
 }
 
-export function addAttachedDocument(text, fileName) {
+export function addAttachedDocument(text: string, fileName?: string | null) {
     attachedDocumentText = text;
     attachedDocumentFileName = fileName || null;
     _updateDocumentPreview();
