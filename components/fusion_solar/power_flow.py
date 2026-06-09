@@ -1,24 +1,23 @@
-"""Computed live power-flow sensors for FusionSolar (HA template equivalent).
-
-Uses grid meter signed ``active_power`` + inverter production, same logic as:
-  livrat_in_retea, tras_din_retea, consum_curent, consum_panouri
-"""
+"""Computed live power-flow sensors for FusionSolar (HA template equivalent)."""
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
-from integrations.fusion_solar_entities import (
-    DEV_GRID_METER,
-    DEV_POWER_SENSOR,
-    DEV_RESIDENTIAL_INVERTER,
-    DEV_STRING_INVERTER,
-    _append_sensor,
-    _api_has_value,
-    _fusion_attrs,
-    _safe_float,
-    _slugify,
-)
+from integrations.component_import import import_sibling
+
+_extract = import_sibling(Path(__file__).resolve().parent, "extract")
+
+DEV_GRID_METER = _extract.DEV_GRID_METER
+DEV_POWER_SENSOR = _extract.DEV_POWER_SENSOR
+DEV_RESIDENTIAL_INVERTER = _extract.DEV_RESIDENTIAL_INVERTER
+DEV_STRING_INVERTER = _extract.DEV_STRING_INVERTER
+_append_sensor = _extract._append_sensor
+_api_has_value = _extract._api_has_value
+_fusion_attrs = _extract._fusion_attrs
+_safe_float = _extract._safe_float
+_slugify = _extract._slugify
 
 _INVERTER_TYPES = {DEV_STRING_INVERTER, DEV_RESIDENTIAL_INVERTER}
 _METER_TYPES = {DEV_GRID_METER, DEV_POWER_SENSOR}
@@ -83,7 +82,6 @@ def compute_power_flow(
             "flow_from_solar": (from_solar_w / 1000.0) if from_solar_w is not None else None,
         }
 
-    # Fallback: station realtime KPI when no meter device.
     st = station if isinstance(station, dict) else {}
     production = _safe_float(st.get("realtime_power_kw"))
     load = _safe_float(st.get("load_power_kw"))
@@ -210,7 +208,6 @@ def append_power_flow_entities(
                 aliases=[label, suffix.replace("_", " "), "power flow"],
             )
 
-    # Single-station installs sometimes omit station_code on devices.
     if not seen_codes and realtime:
         st = realtime[0]
         code = str(st.get("station_code") or "")

@@ -106,7 +106,9 @@ from __future__ import annotations
 
 from typing import Any
 
-import xiaomi_home_client as xh
+from integrations.component_import import import_sibling
+
+xh = import_sibling(Path(__file__).resolve().parent, "client")
 from integrations.entity_utils import slugify
 
 '''

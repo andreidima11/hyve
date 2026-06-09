@@ -8,9 +8,33 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from integrations.component_paths import BUNDLED_COMPONENTS_DIR, component_search_paths
+from integrations.manifest import load_manifest
+
 log = logging.getLogger("integrations.component_import")
 
 _CACHE: dict[tuple[str, str], Any] = {}
+
+
+def resolve_component_dir(domain: str) -> Path:
+    """Return the component folder for *domain* (custom overrides bundled)."""
+    key = str(domain or "").strip()
+    found: Path | None = None
+    for _origin, root in component_search_paths():
+        candidate = root / key
+        if candidate.is_dir() and load_manifest(candidate) is not None:
+            found = candidate
+    if found is not None:
+        return found
+    fallback = BUNDLED_COMPONENTS_DIR / key
+    if fallback.is_dir():
+        return fallback
+    raise ImportError(f"Component directory not found for {key!r}")
+
+
+def load_component_module(domain: str, stem: str) -> Any:
+    """Load ``components/<domain>/<stem>.py`` (or custom_components override)."""
+    return import_sibling(resolve_component_dir(domain), stem)
 
 
 def import_sibling(component_dir: Path, stem: str) -> Any:

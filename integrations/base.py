@@ -183,13 +183,33 @@ class BaseEntity(ABC):
     async def fetch_entities(self) -> dict[str, Any]:
         """Fetch raw integration payload from the upstream system."""
 
-    async def probe_source(self) -> dict[str, Any]:
+    async def probe_source(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
         """Full upstream snapshot (discovery, streams, metadata)."""
         return await self.fetch_entities()
 
     async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
         """Lightweight state refresh using the last stored payload as context."""
         return await self.fetch_entities()
+
+    def choose_refresh_mode(self, *, force: bool, cached: dict[str, Any], cycle_count: int) -> str:
+        """How SourceRefreshRunner should sync this integration on a given cycle.
+
+        Subclasses with ``uses_refresh_layers`` may override for custom probe/pull
+        scheduling. Core HTTP routes never branch on integration slug — they call
+        this hook instead.
+        """
+        from integrations.source_refresh import MODE_FETCH, MODE_PROBE, MODE_PULL
+
+        if not self.uses_refresh_layers:
+            return MODE_FETCH
+        if not cached:
+            return MODE_PROBE
+        if force:
+            return MODE_PULL
+        interval = max(1, int(self.probe_interval_cycles))
+        if cycle_count > 0 and cycle_count % interval == 0:
+            return MODE_PROBE
+        return MODE_PULL
 
     @abstractmethod
     def extract_entities(self, payload: Any) -> list[dict[str, Any]]:

@@ -10,7 +10,7 @@ Runs in the background as a single ``asyncio.Task``. Maintains:
 Subscribers (e.g. the SSE endpoint) call :meth:`subscribe` to receive
 ``{"type": "state", "topic": ..., "payload": ...}`` events as they arrive. The
 bridge re-publishes those events through the shared event bus so the existing
-extractor logic in :mod:`integrations.providers.mosquitto` can derive entity
+extractor logic in :mod:`components.mosquitto.extract` can derive entity
 diffs without re-parsing discovery itself.
 """
 
@@ -75,6 +75,14 @@ def _persist_z2m_friendly_names(devices: list[Any]) -> None:
             continue
         if _IEEE_RE.match(friendly):
             continue
+        try:
+            from core import device_registry
+
+            row = device_registry.get_device(ieee)
+            if row and str(row.get("name") or "").strip() and not _IEEE_RE.match(str(row.get("name") or "")):
+                continue
+        except Exception:
+            pass
         existing = device_aliases.get_alias("mosquitto", ieee)
         if existing:
             continue
@@ -364,10 +372,16 @@ class MosquittoBridge:
             if ieee in self._z2m_reconciled:
                 continue
 
-            desired = device_aliases.get_alias("mosquitto", ieee)
             row = device_registry.get_device(ieee)
-            if not desired and row and row.get("name_by_user"):
+            desired = ""
+            if row and row.get("name_by_user"):
                 desired = str(row.get("name") or "").strip()
+            elif row:
+                reg_name = str(row.get("name") or "").strip()
+                if reg_name and not _IEEE_RE.match(reg_name):
+                    desired = reg_name
+            if not desired:
+                desired = device_aliases.get_alias("mosquitto", ieee) or ""
             if not desired or _IEEE_RE.match(desired) or desired == friendly:
                 continue
             pending.append((ieee, friendly, desired))

@@ -17,9 +17,11 @@ from pathlib import Path
 from integrations.component_import import import_sibling
 from integrations.base import BaseEntity
 
-_extract_mod = import_sibling(Path(__file__).resolve().parent, "extract")
-_cache_mod = import_sibling(Path(__file__).resolve().parent, "cache")
-_transport_mod = import_sibling(Path(__file__).resolve().parent, "transport")
+_component_dir = Path(__file__).resolve().parent
+_extract_mod = import_sibling(_component_dir, "extract")
+_cache_mod = import_sibling(_component_dir, "cache")
+_transport_mod = import_sibling(_component_dir, "transport")
+_context_mod = import_sibling(_component_dir, "context")
 extract_roborock_candidates = _extract_mod.extract_roborock_candidates
 _friendly_auth_error = _extract_mod._friendly_auth_error
 EntryRoborockCache = _cache_mod.EntryRoborockCache
@@ -415,7 +417,7 @@ class RoborockEntity(BaseEntity):
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.probe_source()
 
-    async def probe_source(self) -> dict[str, Any]:
+    async def probe_source(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
         return await self._sync_devices(full=True)
 
     async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
@@ -563,25 +565,6 @@ class RoborockEntity(BaseEntity):
         return {"status": "ok", "action": act}
 
     def format_context(self, entities: dict[str, Any]) -> str:
-        devices = (entities or {}).get("devices") if isinstance(entities, dict) else None
-        if not isinstance(devices, list) or not devices:
-            items = self.extract_entities(entities)
-            vacuums = [i for i in items if i.get("domain") == "vacuum"]
-            if not vacuums:
-                return ""
-            cleaning = sum(1 for i in vacuums if str(i.get("state")) == "cleaning")
-            return f"Roborock: {len(vacuums)} aspirator(e), {cleaning} în curățare"
-
-        local = sum(1 for d in devices if d.get("transport") == "local")
-        cloud = sum(1 for d in devices if d.get("transport") == "cloud")
-        offline = sum(1 for d in devices if d.get("transport") == "offline" or not d.get("online"))
-        parts = [f"{len(devices)} dispozitiv(e)"]
-        if local:
-            parts.append(f"{local} local")
-        if cloud:
-            parts.append(f"{cloud} cloud")
-        if offline:
-            parts.append(f"{offline} offline")
-        return "Roborock: " + ", ".join(parts)
+        return _context_mod.format_roborock_context(entities if isinstance(entities, dict) else {})
 
 

@@ -1,4 +1,7 @@
-from eon_romania_client import generate_verify_hmac
+from tests.component_helpers import component_module
+
+_eon = component_module("eon_romania", "client")
+generate_verify_hmac = _eon.generate_verify_hmac
 from integrations.extractors import extract_eon_romania_candidates, infer_source
 
 

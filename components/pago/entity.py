@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
-import pago_client
 from integrations.base import BaseEntity
-from pathlib import Path
-
 from integrations.component_import import import_sibling
 
-_extract_mod = import_sibling(Path(__file__).resolve().parent, "extract")
+_component_dir = Path(__file__).resolve().parent
+_extract_mod = import_sibling(_component_dir, "extract")
+_client_mod = import_sibling(_component_dir, "client")
+_context_mod = import_sibling(_component_dir, "context")
 extract_pago_candidates = _extract_mod.extract_pago_candidates
-
+PagoClient = _client_mod.PagoClient
 
 
 class PagoEntity(BaseEntity):
@@ -34,20 +35,20 @@ class PagoEntity(BaseEntity):
         section = self.config_section(cfg)
         return bool((section.get("email") or "").strip() and (section.get("password") or "").strip())
 
-    async def _client(self) -> pago_client.PagoClient:
+    async def _client(self) -> PagoClient:
         if self.entry_data:
             email = (self.entry_data.get("email") or "").strip()
             password = (self.entry_data.get("password") or "").strip()
             if not email or not password:
                 raise ValueError("Pago entry is missing credentials")
             ttl = int(self.entry_data.get("scan_interval") or 3600)
-            return pago_client.PagoClient(email, password, cache_ttl=ttl)
+            return PagoClient(email, password, cache_ttl=ttl)
         raise ValueError("Pago is not configured — add a config entry")
 
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.probe_source()
 
-    async def probe_source(self) -> dict[str, Any]:
+    async def probe_source(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
         client = await self._client()
         return await client.fetch_all()
 
@@ -59,5 +60,4 @@ class PagoEntity(BaseEntity):
         return extract_pago_candidates(payload)
 
     def format_context(self, entities: dict[str, Any]) -> str:
-        from integrations.context_formatters import format_pago_context
-        return format_pago_context(entities if isinstance(entities, dict) else {})
+        return _context_mod.format_pago_context(entities if isinstance(entities, dict) else {})

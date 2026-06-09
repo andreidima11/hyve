@@ -32,7 +32,7 @@ class _LayeredEntity(BaseEntity):
         self.calls.append("fetch")
         return {"mode": "fetch", "value": 1}
 
-    async def probe_source(self):
+    async def probe_source(self, cached=None):
         self.calls.append("probe")
         return {"mode": "probe", "value": 2}
 
@@ -99,19 +99,34 @@ def test_runner_probes_on_force_and_empty_cache(monkeypatch):
     detach_refresh_runner(inst.store_key)
 
 
+def test_runner_uses_pull_on_force_when_cache_exists(monkeypatch):
+    _fake_store(monkeypatch, cached={"mode": "probe", "value": 2})
+    inst = _LayeredEntity()
+    runner = attach_refresh_runner(inst)
+
+    payload = asyncio.run(runner.run(force=True))
+
+    assert payload["mode"] == "pull"
+    assert inst.calls == ["pull"]
+    assert runner.status.last_mode == MODE_PULL
+    detach_refresh_runner(inst.store_key)
+
+
 def test_runner_alternates_pull_and_probe(monkeypatch):
     _fake_store(monkeypatch, cached={"mode": "probe", "value": 2})
     inst = _LayeredEntity()
     runner = attach_refresh_runner(inst)
 
-    asyncio.run(runner.run(force=True))
-    assert inst.calls[-1] == "probe"
+    inst.calls.clear()
+    payload = asyncio.run(runner.run(force=True))
+    assert payload["mode"] == "pull"
+    assert inst.calls == ["pull"]
+    assert runner.status.last_mode == MODE_PULL
 
     inst.calls.clear()
     payload = asyncio.run(runner.run(force=False))
     assert payload["mode"] == "pull"
     assert inst.calls == ["pull"]
-    assert runner.status.last_mode == MODE_PULL
 
     inst.calls.clear()
     asyncio.run(runner.run(force=False))
@@ -123,22 +138,41 @@ def test_runner_alternates_pull_and_probe(monkeypatch):
     detach_refresh_runner(inst.store_key)
 
 
-def test_runner_pull_fallback_to_probe(monkeypatch):
+def test_runner_pull_failure_keeps_cached(monkeypatch):
     class _FailingPull(_LayeredEntity):
         async def pull_live_states(self, cached):
             self.calls.append("pull")
             raise RuntimeError("pull failed")
 
-    _fake_store(monkeypatch, cached={"mode": "probe"})
+    cached = {"mode": "probe", "value": 99}
+    _fake_store(monkeypatch, cached=cached)
     inst = _FailingPull()
     runner = attach_refresh_runner(inst)
 
     payload = asyncio.run(runner.run(force=False))
 
-    assert payload["mode"] == "probe"
-    assert inst.calls == ["pull", "probe"]
-    assert runner.status.last_mode == MODE_PROBE
-    assert runner.status.reachable is True
+    assert payload == cached
+    assert inst.calls == ["pull"]
+    assert runner.status.last_mode == MODE_PULL
+    detach_refresh_runner(inst.store_key)
+
+
+def test_runner_pull_failure_does_not_probe_when_cache_exists(monkeypatch):
+    class _FailingPull(_LayeredEntity):
+        async def pull_live_states(self, cached):
+            self.calls.append("pull")
+            raise RuntimeError("pull failed")
+
+    cached = {"mode": "probe", "value": 42}
+    _fake_store(monkeypatch, cached=cached)
+    inst = _FailingPull()
+    runner = attach_refresh_runner(inst)
+
+    payload = asyncio.run(runner.run(force=False))
+
+    assert payload == cached
+    assert inst.calls == ["pull"]
+    assert "probe" not in inst.calls
     detach_refresh_runner(inst.store_key)
 
 

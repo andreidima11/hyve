@@ -4,13 +4,17 @@ import asyncio
 
 import pytest
 
-import midea_ac_client
+from tests.component_helpers import component_module
 from integrations.extractors import extract_midea_ac_candidates, infer_source
 from integrations.component_loader import get_component_entity_class
 
 MideaAcEntity = get_component_entity_class("midea_ac")
 assert MideaAcEntity is not None
-from midea_ac_client import MideaAcClient, MideaAcError, normalize_cloud_region, parse_devices_field
+midea_ac_client = component_module("midea_ac", "client")
+MideaAcClient = midea_ac_client.MideaAcClient
+MideaAcError = midea_ac_client.MideaAcError
+normalize_cloud_region = midea_ac_client.normalize_cloud_region
+parse_devices_field = midea_ac_client.parse_devices_field
 
 
 class _FakeDiscover:

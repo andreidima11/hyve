@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any
 
-import eon_romania_client
 from integrations.base import BaseEntity
-from pathlib import Path
-
 from integrations.component_import import import_sibling
 
-_extract_mod = import_sibling(Path(__file__).resolve().parent, "extract")
+_component_dir = Path(__file__).resolve().parent
+_extract_mod = import_sibling(_component_dir, "extract")
+_client_mod = import_sibling(_component_dir, "client")
+_context_mod = import_sibling(_component_dir, "context")
 extract_eon_romania_candidates = _extract_mod.extract_eon_romania_candidates
+EonRomaniaClient = _client_mod.EonRomaniaClient
+EonRomaniaMfaRequired = _client_mod.EonRomaniaMfaRequired
 
 
 
@@ -50,9 +53,9 @@ class EonRomaniaEntity(BaseEntity):
         if not email or not password:
             return {"ok": False, "message_key": "integrations.eon_credentials"}
         try:
-            async with eon_romania_client.EonRomaniaClient(email, password, timeout=20.0) as client:
+            async with EonRomaniaClient(email, password, timeout=20.0) as client:
                 return await asyncio.wait_for(client.test_connection(), timeout=35.0)
-        except eon_romania_client.EonRomaniaMfaRequired as exc:
+        except EonRomaniaMfaRequired as exc:
             return {"ok": False, "message": str(exc)}
         except asyncio.TimeoutError:
             return {"ok": False, "message_key": "integrations.eon_timeout"}
@@ -77,24 +80,16 @@ class EonRomaniaEntity(BaseEntity):
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.probe_source()
 
-    async def probe_source(self) -> dict[str, Any]:
-        async with eon_romania_client.EonRomaniaClient(**self._client_kwargs()) as client:
+    async def probe_source(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
+        async with EonRomaniaClient(**self._client_kwargs()) as client:
             return await client.fetch_all()
 
     async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
-        async with eon_romania_client.EonRomaniaClient(**self._client_kwargs()) as client:
+        async with EonRomaniaClient(**self._client_kwargs()) as client:
             return await client.fetch_light(cached)
 
     def extract_entities(self, payload: Any) -> list[dict[str, Any]]:
         return extract_eon_romania_candidates(payload)
 
     def format_context(self, entities: dict[str, Any]) -> str:
-        items = self.extract_entities(entities)
-        bills = [item for item in items if "factura_restanta" in item.get("entity_id", "") and str(item.get("state")) == "Da"]
-        balances = [item for item in items if "sold_factura" in item.get("entity_id", "") and str(item.get("state")) == "Da"]
-        parts = [f"E.ON România: {len(items)} entități"]
-        if balances:
-            parts.append(f"{len(balances)} contracte cu sold")
-        if bills:
-            parts.append(f"{len(bills)} contracte cu facturi restante")
-        return "; ".join(parts)
+        return _context_mod.format_eon_romania_context(entities if isinstance(entities, dict) else {})

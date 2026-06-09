@@ -19,7 +19,9 @@ from integrations.component_import import import_sibling
 
 log = logging.getLogger("integrations.scenes")
 
-_extract_mod = import_sibling(Path(__file__).resolve().parent, "extract")
+_component_dir = Path(__file__).resolve().parent
+_extract_mod = import_sibling(_component_dir, "extract")
+_context_mod = import_sibling(_component_dir, "context")
 load_hyve_scene_entities = _extract_mod.load_hyve_scene_entities
 
 
@@ -42,5 +44,4 @@ class HyveScenesEntity(BaseEntity):
         return load_hyve_scene_entities(self.slug)
 
     def format_context(self, entities: dict[str, Any]) -> str:
-        del entities
-        return ""
+        return _context_mod.format_hyve_scenes_context(entities if isinstance(entities, dict) else {})

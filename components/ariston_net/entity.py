@@ -1,16 +1,16 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
-import ariston_net_client
 from integrations.base import BaseEntity
-from pathlib import Path
-
 from integrations.component_import import import_sibling
 
-_extract_mod = import_sibling(Path(__file__).resolve().parent, "extract")
+_component_dir = Path(__file__).resolve().parent
+_extract_mod = import_sibling(_component_dir, "extract")
+_client_mod = import_sibling(_component_dir, "client")
 extract_ariston_net_candidates = _extract_mod.extract_ariston_net_candidates
-
+AristonNetClient = _client_mod.AristonNetClient
 
 
 class AristonNetEntity(BaseEntity):
@@ -34,14 +34,14 @@ class AristonNetEntity(BaseEntity):
         section = self.config_section(cfg)
         return bool((section.get("username") or "").strip() and (section.get("password") or "").strip())
 
-    async def _client(self) -> ariston_net_client.AristonNetClient:
+    async def _client(self) -> AristonNetClient:
         if self.entry_data:
             d = self.entry_data
             username = (d.get("username") or "").strip()
             password = (d.get("password") or "").strip()
             if not username or not password:
                 raise ValueError("AristonNET entry is missing credentials")
-            return ariston_net_client.AristonNetClient(
+            return AristonNetClient(
                 username,
                 password,
                 cache_ttl=int(d.get("scan_interval") or 180),
@@ -51,7 +51,7 @@ class AristonNetEntity(BaseEntity):
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.probe_source()
 
-    async def probe_source(self) -> dict[str, Any]:
+    async def probe_source(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
         client = await self._client()
         client.clear_cache()
         return await client.fetch_all(force=True)
@@ -72,7 +72,7 @@ class AristonNetEntity(BaseEntity):
             password = (d.get("password") or "").strip()
             if not username or not password:
                 raise ValueError("AristonNET entry is missing credentials")
-            client = ariston_net_client.AristonNetClient(
+            client = AristonNetClient(
                 username, password, cache_ttl=int(d.get("scan_interval") or 180),
             )
             return await client.control_entity(entity_id, action, data)

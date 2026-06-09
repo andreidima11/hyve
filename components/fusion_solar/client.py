@@ -14,13 +14,35 @@ from urllib.parse import unquote, urlparse
 
 import httpx
 
-import settings as settings_mod
+from integrations.errors import IntegrationRateLimitError
 
 log = logging.getLogger("fusion_solar")
 
 
 class FusionSolarError(Exception):
     """Raised when FusionSolar API calls fail."""
+
+
+class FusionSolarRateLimitError(IntegrationRateLimitError, FusionSolarError):
+    """Huawei OpenAPI cooldown (component-local alias)."""
+
+    def __init__(self, *, retry_after: int, interval: int = 0):
+        super().__init__(
+            retry_after=retry_after,
+            interval=interval,
+            message_key="integrations.fusion_solar_rate_limit_wait",
+        )
+
+
+_DEVICE_TYPES: dict[int, str] = {
+    1: "String Inverter",
+    10: "EMI",
+    17: "Grid Meter",
+    38: "Residential Inverter",
+    39: "Battery",
+    41: "C&I and Utility ESS",
+    47: "Power Sensor",
+}
 
 
 def _safe_float(value: Any) -> float | None:
@@ -202,6 +224,7 @@ class FusionSolarClient:
         self._blocked_until = 0.0
         self._user_sync_interval = 0
         self._global_min_interval = 1.25
+        self._pull_device_type_index = 0
         # Never block HTTP handlers / connection tests for minutes waiting on
         # Huawei cooldown — fail fast so the UI gets a clear message instead
         # of a generic timeout after 25s.
@@ -237,14 +260,9 @@ class FusionSolarClient:
         if wait_for <= self._max_inline_wait:
             return
         secs = max(1, int(wait_for + 0.5))
-        if self._user_sync_interval > 0:
-            raise FusionSolarError(
-                f"Limită Huawei temporară (~{secs}s până la următorul apel API). "
-                f"Intervalul tău de sync e {self._user_sync_interval}s — "
-                "lasă sync-ul automat să ruleze, fără apăsări repetate pe Sincronizează."
-            )
-        raise FusionSolarError(
-            f"FusionSolar rate limit activ. Reîncearcă peste ~{secs}s."
+        raise FusionSolarRateLimitError(
+            retry_after=secs,
+            interval=self._user_sync_interval,
         )
 
     async def _respect_rate_limit(self, path: str, cache_key: str, payload: dict[str, Any] | None = None):
@@ -442,23 +460,103 @@ class FusionSolarClient:
             log.debug("FusionSolar yearly KPI fetch failed: %s", exc)
             yearly_raw = []
 
-        # Fetch device list (inverters, batteries, meters, etc.)
         devices_raw: list[dict[str, Any]] = []
         try:
             devices_raw = await self.get_dev_list(station_codes)
         except Exception as exc:
             log.debug("FusionSolar device list fetch failed: %s", exc)
 
-        # Fetch device real-time KPI per device type
-        _DEVICE_TYPES = {
-            1: "String Inverter",
-            10: "EMI",
-            17: "Grid Meter",
-            38: "Residential Inverter",
-            39: "Battery",
-            41: "C&I and Utility ESS",
-            47: "Power Sensor",
-        }
+        dev_real_kpi = await self._fetch_all_device_kpis(devices_raw)
+        return self._build_payload(
+            stations,
+            realtime_raw,
+            yearly_raw,
+            devices_raw,
+            dev_real_kpi,
+        )
+
+    async def fetch_probe(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Periodic metadata refresh — no per-device KPI burst (HA-style)."""
+        base = dict(cached or {})
+        stations = list(base.get("stations") or [])
+        try:
+            fresh_stations = await self.get_station_list()
+            if fresh_stations:
+                stations = fresh_stations
+        except FusionSolarRateLimitError:
+            log.debug("FusionSolar probe: station list rate-limited, reusing cache")
+        except Exception as exc:
+            log.debug("FusionSolar probe: station list failed: %s", exc)
+
+        station_codes = [s.get("station_code") for s in stations if s.get("station_code")]
+        if not station_codes:
+            return await self.fetch_all()
+
+        realtime_raw: list[dict[str, Any]] = []
+        try:
+            realtime_raw = await self.get_station_real_kpi(station_codes)
+        except FusionSolarRateLimitError:
+            log.debug("FusionSolar probe: station KPI rate-limited, reusing cache")
+            return base if base.get("realtime") else await self.fetch_all()
+
+        yearly_raw = list(base.get("yearly") or [])
+        try:
+            yearly_raw = await self.get_kpi_station_year(station_codes)
+        except Exception as exc:
+            log.debug("FusionSolar probe: yearly KPI skipped: %s", exc)
+
+        devices_cached = list(base.get("devices") or [])
+        cached_kpi = self._dev_kpi_from_cached_devices(devices_cached)
+        devices_raw: list[dict[str, Any]] = []
+        try:
+            fresh_devices = await self.get_dev_list(station_codes)
+            if fresh_devices:
+                devices_raw = fresh_devices
+        except Exception as exc:
+            log.debug("FusionSolar probe: device list skipped: %s", exc)
+
+        if not devices_raw:
+            devices_raw = self._devices_raw_from_cached(devices_cached)
+
+        dev_real_kpi = dict(cached_kpi)
+        return self._build_payload(
+            stations,
+            realtime_raw,
+            yearly_raw,
+            devices_raw,
+            dev_real_kpi,
+        )
+
+    def _devices_raw_from_cached(self, devices: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        raw: list[dict[str, Any]] = []
+        for dev in devices:
+            if not isinstance(dev, dict):
+                continue
+            raw.append({
+                "id": dev.get("device_id") or dev.get("id"),
+                "devName": dev.get("device_name") or dev.get("devName"),
+                "stationCode": dev.get("station_code") or dev.get("stationCode"),
+                "esnCode": dev.get("esn_code") or dev.get("esnCode"),
+                "devTypeId": dev.get("device_type_id") or dev.get("devTypeId"),
+                "softwareVersion": dev.get("software_version") or dev.get("softwareVersion"),
+                "latitude": dev.get("latitude"),
+                "longitude": dev.get("longitude"),
+                "invType": dev.get("inverter_type") or dev.get("invType"),
+            })
+        return raw
+
+    def _dev_kpi_from_cached_devices(self, devices: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+        out: dict[str, dict[str, Any]] = {}
+        for dev in devices:
+            if not isinstance(dev, dict):
+                continue
+            dev_id = str(dev.get("device_id") or dev.get("id") or "")
+            kpi = dev.get("realtime_kpi")
+            if dev_id and isinstance(kpi, dict):
+                out[dev_id] = kpi
+        return out
+
+    async def _fetch_all_device_kpis(self, devices_raw: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
         devices_grouped: dict[int, list[str]] = {}
         for dev in devices_raw:
             if not isinstance(dev, dict):
@@ -479,8 +577,53 @@ class FusionSolarClient:
                             dev_real_kpi[dev_id] = kpi_item.get("dataItemMap") or {}
             except Exception as exc:
                 log.debug("FusionSolar device KPI fetch failed for type %s: %s", type_id, exc)
+        return dev_real_kpi
 
-        # Process devices into a clean structure
+    async def _fetch_one_device_type_kpi(
+        self,
+        devices_raw: list[dict[str, Any]],
+    ) -> dict[str, dict[str, Any]]:
+        """Round-robin one device type per pull (mirrors HA DeviceRealKpiCoordinator)."""
+        devices_grouped: dict[int, list[str]] = {}
+        for dev in devices_raw:
+            if not isinstance(dev, dict):
+                continue
+            tid = dev.get("devTypeId") or dev.get("device_type_id")
+            did = str(dev.get("id") or dev.get("device_id") or "")
+            if tid in _DEVICE_TYPES and did:
+                devices_grouped.setdefault(int(tid), []).append(did)
+
+        if not devices_grouped:
+            return {}
+
+        type_ids = sorted(devices_grouped.keys())
+        index = self._pull_device_type_index % len(type_ids)
+        self._pull_device_type_index += 1
+        type_id = type_ids[index]
+        dev_ids = devices_grouped[type_id]
+
+        dev_real_kpi: dict[str, dict[str, Any]] = {}
+        try:
+            kpi_list = await self.get_dev_real_kpi(dev_ids, type_id)
+            for kpi_item in (kpi_list or []):
+                if isinstance(kpi_item, dict):
+                    dev_id = str(kpi_item.get("devId") or "")
+                    if dev_id:
+                        dev_real_kpi[dev_id] = kpi_item.get("dataItemMap") or {}
+        except FusionSolarRateLimitError:
+            log.debug("FusionSolar pull: device type %s rate-limited, skipping", type_id)
+        except Exception as exc:
+            log.debug("FusionSolar pull: device type %s failed: %s", type_id, exc)
+        return dev_real_kpi
+
+    def _build_payload(
+        self,
+        stations: list[dict[str, Any]],
+        realtime_raw: list[dict[str, Any]],
+        yearly_raw: list[dict[str, Any]],
+        devices_raw: list[dict[str, Any]],
+        dev_real_kpi: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
         devices: list[dict[str, Any]] = []
         for dev in devices_raw:
             if not isinstance(dev, dict):
@@ -616,58 +759,57 @@ class FusionSolarClient:
         }
 
     async def fetch_realtime(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Refresh station KPIs only, reusing cached station/device metadata."""
+        """Light pull: station KPI every cycle + one device type (HA round-robin)."""
         base = dict(cached or {})
         stations = list(base.get("stations") or [])
         station_codes = [s.get("station_code") for s in stations if s.get("station_code")]
         if not station_codes:
             return await self.fetch_all()
+
         await self.login()
-        realtime_raw = await self.get_station_real_kpi(station_codes)
-        realtime_by_code = {
-            item.get("stationCode"): item.get("dataItemMap") or {}
-            for item in realtime_raw if isinstance(item, dict)
-        }
-        yearly_current_by_code = base.get("yearly_current") or {}
-        realtime: list[dict[str, Any]] = []
-        summary = {
-            "station_count": len(stations),
-            "realtime_power_kw": 0.0,
-            "daily_energy_kwh": 0.0,
-            "month_energy_kwh": 0.0,
-            "yearly_energy_kwh": 0.0,
-            "lifetime_energy_kwh": 0.0,
-            "status": "offline",
-        }
-        for station in stations:
-            code = station.get("station_code")
-            real = realtime_by_code.get(code, {})
-            year_current = yearly_current_by_code.get(code, {}) if isinstance(yearly_current_by_code, dict) else {}
-            station_data = {
-                **station,
-                "realtime_power_kw": _opt_float(real.get("realTimePower") or real.get("active_power")),
-                "daily_energy_kwh": _opt_float(real.get("dailyEnergy") or real.get("day_power")),
-                "month_energy_kwh": _opt_float(real.get("monthEnergy") or real.get("month_power")),
-                "yearly_energy_kwh": _opt_float(real.get("yearEnergy") or year_current.get("inverter_power")),
-                "lifetime_energy_kwh": _opt_float(real.get("cumulativeEnergy") or real.get("total_power")),
-                "status": "online",
-            }
-            realtime.append(station_data)
-            _add_summary(summary, "realtime_power_kw", station_data["realtime_power_kw"])
-            _add_summary(summary, "daily_energy_kwh", station_data["daily_energy_kwh"])
-            _add_summary(summary, "month_energy_kwh", station_data["month_energy_kwh"])
-            _add_summary(summary, "yearly_energy_kwh", station_data["yearly_energy_kwh"])
-            _add_summary(summary, "lifetime_energy_kwh", station_data["lifetime_energy_kwh"])
-        if stations:
-            summary["status"] = "online"
-        base["realtime"] = realtime
-        base["summary"] = summary
-        return base
+        try:
+            realtime_raw = await self.get_station_real_kpi(station_codes)
+        except FusionSolarRateLimitError:
+            log.debug("FusionSolar pull: station KPI rate-limited")
+            if base.get("realtime"):
+                return base
+            raise
+
+        devices_raw = self._devices_raw_from_cached(list(base.get("devices") or []))
+        fresh_dev_kpi = await self._fetch_one_device_type_kpi(devices_raw)
+        existing_kpi = self._dev_kpi_from_cached_devices(list(base.get("devices") or []))
+        merged_kpi = {**existing_kpi, **fresh_dev_kpi}
+
+        devices: list[dict[str, Any]] = []
+        for dev in list(base.get("devices") or []):
+            if not isinstance(dev, dict):
+                continue
+            entry = dict(dev)
+            dev_id = str(entry.get("device_id") or entry.get("id") or "")
+            if dev_id and dev_id in merged_kpi:
+                entry["realtime_kpi"] = merged_kpi[dev_id]
+            devices.append(entry)
+
+        yearly_raw = list(base.get("yearly") or [])
+        return self._build_payload(
+            stations,
+            realtime_raw,
+            yearly_raw,
+            devices_raw,
+            merged_kpi,
+        )
 
     async def test_connection(self) -> dict[str, Any]:
         await self.login()
         try:
             stations = await self.get_station_list()
+        except FusionSolarRateLimitError as exc:
+            return {
+                "ok": True,
+                "message_key": "integrations.fusion_solar_rate_limit_stations_ok",
+                "message_params": {"detail": str(exc)},
+                "station_count": 0,
+            }
         except FusionSolarError as exc:
             msg = str(exc)
             if "rate limit" in msg.lower():
@@ -689,42 +831,3 @@ class FusionSolarClient:
         self._token = None
         self._cache.clear()
         self._blocked_until = 0.0
-
-
-_client: Any | None = None
-
-
-async def ensure_client() -> Any | None:
-    global _client
-    from integrations import entry_settings
-
-    cfg = entry_settings.entry_data("fusion_solar")
-    if not entry_settings.is_active("fusion_solar"):
-        return None
-
-    mode = str(cfg.get("mode") or "auto").strip().lower()
-    host = _normalize_host(cfg.get("host") or "https://eu5.fusionsolar.huawei.com")
-    kiosk_url = str(cfg.get("kiosk_url") or "").strip()
-    if not kiosk_url and "kk=" in host:
-        kiosk_url = host
-    username = (cfg.get("username") or "").strip()
-    password = (cfg.get("password") or "").strip()
-
-    wants_kiosk = mode == "kiosk" or (kiosk_url and (mode == "auto") and (not username or not password))
-    if wants_kiosk:
-        if not kiosk_url:
-            return None
-        if _client is None or not isinstance(_client, FusionSolarKioskClient) or _client._kiosk_url != kiosk_url:
-            _client = FusionSolarKioskClient(kiosk_url)
-        return _client
-
-    if not username or not password:
-        if kiosk_url:
-            if _client is None or not isinstance(_client, FusionSolarKioskClient) or _client._kiosk_url != kiosk_url:
-                _client = FusionSolarKioskClient(kiosk_url)
-            return _client
-        return None
-
-    if _client is None or not isinstance(_client, FusionSolarClient) or _client._host != host.rstrip("/") or _client._username != username:
-        _client = FusionSolarClient(host, username, password)
-    return _client

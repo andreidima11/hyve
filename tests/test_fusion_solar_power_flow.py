@@ -1,5 +1,11 @@
-from integrations.fusion_solar_power_flow import compute_power_flow
-from integrations.fusion_solar_entities import extract_fusion_solar_candidates, DEV_GRID_METER, DEV_STRING_INVERTER
+from tests.component_helpers import component_module
+
+_power_flow = component_module("fusion_solar", "power_flow")
+_extract = component_module("fusion_solar", "extract")
+compute_power_flow = _power_flow.compute_power_flow
+extract_fusion_solar_candidates = _extract.extract_fusion_solar_candidates
+DEV_GRID_METER = _extract.DEV_GRID_METER
+DEV_STRING_INVERTER = _extract.DEV_STRING_INVERTER
 
 
 def test_compute_power_flow_ha_template_logic():

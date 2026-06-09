@@ -1,6 +1,11 @@
 """Tests for integration context formatters and loader bootstrap."""
 
-from integrations.context_formatters import format_fusion_solar_context, format_pago_context
+from tests.component_helpers import component_module
+
+_pago = component_module("pago", "context")
+format_pago_context = _pago.format_pago_context
+_context = component_module("fusion_solar", "context")
+format_fusion_solar_context = _context.format_fusion_solar_context
 
 
 def test_format_pago_context_empty():

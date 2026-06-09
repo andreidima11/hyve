@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from integrations.base import BaseEntity
+from integrations.component_import import import_sibling
+
+_client_mod = import_sibling(Path(__file__).resolve().parent, "client")
 
 
 class ComfyuiEntity(BaseEntity):
@@ -51,10 +55,8 @@ class ComfyuiEntity(BaseEntity):
 
     @classmethod
     async def async_test_connection(cls, data: dict[str, Any]) -> dict[str, Any]:
-        import comfyui
-
         url = str((data or {}).get("url") or "").strip()
-        result = await comfyui.test_connection(override_url=url or None)
+        result = await _client_mod.test_connection(override_url=url or None)
         if result.get("ok"):
             return {"ok": True, "message": result.get("message") or "Conectat la ComfyUI."}
         return {"ok": False, "message": result.get("error") or result.get("message") or "Conexiune ComfyUI eșuată"}

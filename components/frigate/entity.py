@@ -18,7 +18,9 @@ import httpx
 from integrations.base import BaseEntity
 from integrations.component_import import import_sibling
 
-_extract_mod = import_sibling(Path(__file__).resolve().parent, "extract")
+_component_dir = Path(__file__).resolve().parent
+_extract_mod = import_sibling(_component_dir, "extract")
+_context_mod = import_sibling(_component_dir, "context")
 extract_frigate_candidates = _extract_mod.extract_frigate_candidates
 _as_bool = _extract_mod._as_bool
 
@@ -219,7 +221,7 @@ class FrigateEntity(BaseEntity):
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.probe_source()
 
-    async def probe_source(self) -> dict[str, Any]:
+    async def probe_source(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
         section = self.entry_data or {}
         base = self._base_url()
         user = str(section.get("username") or "").strip()
@@ -274,7 +276,8 @@ class FrigateEntity(BaseEntity):
         )
 
     def format_context(self, entities: dict[str, Any]) -> str:
-        items = self.extract_entities(entities)
-        if not items:
-            return ""
-        return f"Frigate: {len(items)} camere disponibile."
+        return _context_mod.format_frigate_context(
+            entities if isinstance(entities, dict) else {},
+            entry_data=self.entry_data or {},
+            base_url=self._base_url(),
+        )

@@ -27,8 +27,10 @@ from typing import Any
 from pathlib import Path
 from integrations.component_import import import_sibling
 
-_bridge_mod = import_sibling(Path(__file__).resolve().parent, "bridge")
-_extract_mod = import_sibling(Path(__file__).resolve().parent, "extract")
+_component_dir = Path(__file__).resolve().parent
+_bridge_mod = import_sibling(_component_dir, "bridge")
+_extract_mod = import_sibling(_component_dir, "extract")
+_context_mod = import_sibling(_component_dir, "context")
 extract_mosquitto_candidates = _extract_mod.extract_mosquitto_candidates
 _merge_payload = _extract_mod._merge_payload
 _drain_broker = _extract_mod._drain_broker
@@ -87,7 +89,7 @@ class MosquittoEntity(BaseEntity):
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.pull_live_states(self._stored_payload())
 
-    async def probe_source(self) -> dict[str, Any]:
+    async def probe_source(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
         """Full broker drain — rediscover HA MQTT entities and Z2M devices."""
         import settings
 
@@ -140,23 +142,7 @@ class MosquittoEntity(BaseEntity):
     # ── Context ────────────────────────────────────────────────────────────
 
     def format_context(self, entities: dict[str, Any]) -> str:
-        if not isinstance(entities, dict):
-            return ""
-        devices = entities.get("z2m_devices") or []
-        names = [d.get("friendly_name") for d in devices
-                 if isinstance(d, dict) and d.get("type") != "Coordinator"]
-        names = [n for n in names if n]
-        disc_count = len(entities.get("discovery") or {})
-        if not names and not disc_count:
-            return ""
-        bits = []
-        if names:
-            preview = ", ".join(names[:8])
-            more = f" (+{len(names) - 8})" if len(names) > 8 else ""
-            bits.append(f"{len(names)} dispozitive Zigbee ({preview}{more})")
-        if disc_count:
-            bits.append(f"{disc_count} entități MQTT-Discovery")
-        return "Mosquitto MQTT: " + "; ".join(bits) + "."
+        return _context_mod.format_mosquitto_context(entities if isinstance(entities, dict) else {})
 
     # ── Control ────────────────────────────────────────────────────────────
 

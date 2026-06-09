@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any
 
-import fusion_solar_client
 from integrations.base import BaseEntity
-from pathlib import Path
-
 from integrations.component_import import import_sibling
 
-_extract_mod = import_sibling(Path(__file__).resolve().parent, "extract")
+_component_dir = Path(__file__).resolve().parent
+_extract_mod = import_sibling(_component_dir, "extract")
+_client_mod = import_sibling(_component_dir, "client")
+_context_mod = import_sibling(_component_dir, "context")
 extract_fusion_solar_candidates = _extract_mod.extract_fusion_solar_candidates
+FusionSolarClient = _client_mod.FusionSolarClient
+FusionSolarKioskClient = _client_mod.FusionSolarKioskClient
+FusionSolarRateLimitError = _client_mod.FusionSolarRateLimitError
 
 
 # Reuse one API client per config entry so token + in-memory rate-limit
@@ -25,10 +29,10 @@ class FusionSolarEntity(BaseEntity):
     description = "Panouri fotovoltaice Huawei FusionSolar — producție energie solară, consum, export rețea și stare invertor."
     icon = "fa-solar-panel"
     color = "text-amber-400"
-    scan_interval_seconds = 600
-    fetch_timeout_seconds = 300.0
+    scan_interval_seconds = 90
+    fetch_timeout_seconds = 120.0
     uses_refresh_layers = True
-    probe_interval_cycles = 6
+    probe_interval_cycles = 40
     SUPPORTS_MULTIPLE = True
 
     CONFIG_SCHEMA = [
@@ -41,7 +45,8 @@ class FusionSolarEntity(BaseEntity):
         {"key": "username", "label": "Utilizator", "type": "text"},
         {"key": "password", "label": "Parolă", "type": "password", "secret": True},
         {"key": "kiosk_url", "label": "Kiosk URL", "type": "url", "placeholder": "https://…?kk=…"},
-        {"key": "scan_interval", "label": "Interval sync (sec)", "type": "number", "default": 600, "min": 300},
+        {"key": "scan_interval", "label": "Interval sync (sec)", "type": "number", "default": 90, "min": 60,
+         "help": "Light pull ~90s (HA-style). Full device discovery probe runs every ~40 cycles."},
     ]
 
     def is_configured(self, cfg: dict[str, Any]) -> bool:
@@ -66,16 +71,22 @@ class FusionSolarEntity(BaseEntity):
             if wants_kiosk:
                 if not kiosk_url:
                     return {"ok": False, "message_key": "integrations.fusion_solar_kiosk_url"}
-                client = fusion_solar_client.FusionSolarKioskClient(kiosk_url, timeout=8.0)
+                client = FusionSolarKioskClient(kiosk_url, timeout=8.0)
                 return await asyncio.wait_for(client.test_connection(), timeout=15.0)
 
             if not username or not password:
                 return {"ok": False, "message_key": "integrations.fusion_solar_credentials"}
 
-            client = fusion_solar_client.FusionSolarClient(host, username, password, timeout=15.0)
+            client = FusionSolarClient(host, username, password, timeout=15.0)
             return await asyncio.wait_for(client.test_connection(), timeout=45.0)
         except asyncio.TimeoutError:
             return {"ok": False, "message_key": "integrations.fusion_solar_timeout"}
+        except FusionSolarRateLimitError as exc:
+            return {
+                "ok": True,
+                "message_key": "integrations.fusion_solar_rate_limit_ok",
+                "message_params": {"detail": str(exc)},
+            }
         except Exception as exc:
             message = str(exc or "").strip()
             if "rate limit" in message.lower():
@@ -91,8 +102,10 @@ class FusionSolarEntity(BaseEntity):
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.probe_source()
 
-    async def probe_source(self) -> dict[str, Any]:
+    async def probe_source(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
         client = await self._ensure_entry_client()
+        if cached and hasattr(client, "fetch_probe"):
+            return await client.fetch_probe(cached)
         return await client.fetch_all()
 
     async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
@@ -130,30 +143,30 @@ class FusionSolarEntity(BaseEntity):
                 raise ValueError("FusionSolar kiosk_url is required")
             if (
                 existing is not None
-                and isinstance(existing, fusion_solar_client.FusionSolarKioskClient)
+                and isinstance(existing, FusionSolarKioskClient)
                 and existing._kiosk_url == kiosk_url
             ):
                 return _finalize(existing)
-            client = fusion_solar_client.FusionSolarKioskClient(kiosk_url)
+            client = FusionSolarKioskClient(kiosk_url)
         elif username and password:
             host_norm = host.rstrip("/")
             if (
                 existing is not None
-                and isinstance(existing, fusion_solar_client.FusionSolarClient)
+                and isinstance(existing, FusionSolarClient)
                 and existing._host == host_norm
                 and existing._username == username
                 and existing._password == password
             ):
                 return _finalize(existing)
-            client = fusion_solar_client.FusionSolarClient(host, username, password)
+            client = FusionSolarClient(host, username, password)
         elif kiosk_url:
             if (
                 existing is not None
-                and isinstance(existing, fusion_solar_client.FusionSolarKioskClient)
+                and isinstance(existing, FusionSolarKioskClient)
                 and existing._kiosk_url == kiosk_url
             ):
                 return _finalize(existing)
-            client = fusion_solar_client.FusionSolarKioskClient(kiosk_url)
+            client = FusionSolarKioskClient(kiosk_url)
         else:
             raise ValueError("FusionSolar entry is missing credentials")
 
@@ -164,5 +177,4 @@ class FusionSolarEntity(BaseEntity):
         return extract_fusion_solar_candidates(payload)
 
     def format_context(self, entities: dict[str, Any]) -> str:
-        from integrations.context_formatters import format_fusion_solar_context
-        return format_fusion_solar_context(entities if isinstance(entities, dict) else {})
+        return _context_mod.format_fusion_solar_context(entities if isinstance(entities, dict) else {})

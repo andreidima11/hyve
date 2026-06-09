@@ -42,8 +42,8 @@ def main() -> None:
         dest.write_text(HEADER + body, encoding="utf-8")
         print(f"wrote {dest} ({export_name})")
 
-    fusion_src = ROOT / "integrations" / "fusion_solar_entities.py"
-    fusion_dest = ROOT / "components" / "fusion_solar" / "extract.py"
+    fusion_src = ROOT / "components" / "fusion_solar" / "extract.py"
+    fusion_dest = fusion_src
     text = fusion_src.read_text(encoding="utf-8")
     text = text.replace(
         "from smart_home_registry import normalize_entity_record\n\n\n"

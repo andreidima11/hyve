@@ -7,9 +7,12 @@ import json
 import logging
 from typing import Any, Dict
 
-import pago_client
+from integrations.component_import import load_component_module
 
 log = logging.getLogger("pago")
+
+_pago_client = load_component_module("pago", "client")
+PagoClient = _pago_client.PagoClient
 
 CATEGORIES = {"all", "facturi", "vehicule", "carduri", "plati", "profil", "abonament", "conturi_facturi"}
 
@@ -27,7 +30,7 @@ async def exec_get_pago_data(args: Dict[str, Any]) -> str:
     password = (data.get("password") or "").strip()
     if not entry_settings.is_active("pago") or not email or not password:
         return "Pago integration is not configured or disabled. Ask the user to enable it in Settings → Integrations."
-    client = pago_client.PagoClient(email, password, cache_ttl=int(data.get("scan_interval") or 3600))
+    client = PagoClient(email, password, cache_ttl=int(data.get("scan_interval") or 3600))
 
     try:
         if category == "all":

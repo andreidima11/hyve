@@ -14,6 +14,7 @@ log = logging.getLogger("integrations.sun")
 
 _COMPONENT_DIR = Path(__file__).resolve().parent
 _calc = import_sibling(_COMPONENT_DIR, "calculator")
+_context_mod = import_sibling(_COMPONENT_DIR, "context")
 find_next_event = _calc.find_next_event
 find_next_extremum = _calc.find_next_extremum
 solar_position = _calc.solar_position
@@ -101,7 +102,7 @@ class SunEntity(BaseEntity):
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.probe_source()
 
-    async def probe_source(self) -> dict[str, Any]:
+    async def probe_source(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._sun_payload()
 
     async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
@@ -177,15 +178,7 @@ class SunEntity(BaseEntity):
         return entities
 
     def format_context(self, entities: dict[str, Any]) -> str:
-        if not isinstance(entities, dict):
-            return ""
-        elev = entities.get("elevation")
-        if elev is None:
-            return ""
-        return (
-            f"Sun elevation {elev}°, next sunrise {entities.get('next_rising')}, "
-            f"next sunset {entities.get('next_setting')}."
-        )
+        return _context_mod.format_sun_context(entities if isinstance(entities, dict) else {})
 
 
 def ensure_default_entry() -> None:

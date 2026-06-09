@@ -1,4 +1,4 @@
-"""Entity extraction — shared normalizers plus legacy re-exports from components/."""
+"""Entity extraction — shared normalizers plus lazy loaders for components/*/extract.py."""
 
 from __future__ import annotations
 
@@ -32,6 +32,11 @@ _COMPONENT_EXTRACTORS = {
     "xiaomi_home": "extract_xiaomi_home_candidates",
 }
 
+_EXPORTABLE_FUNCS: dict[str, tuple[str, str]] = {
+    attr: (slug, attr) for slug, attr in _COMPONENT_EXTRACTORS.items()
+}
+_EXPORTABLE_FUNCS["extract_z2m_widget_candidates"] = ("mosquitto", "extract_z2m_widget_candidates")
+
 
 def _load_extract_module(slug: str) -> Any:
     key = str(slug or "").strip()
@@ -42,9 +47,20 @@ def _load_extract_module(slug: str) -> Any:
     return mod
 
 
-def _export(slug: str):
-    mod = _load_extract_module(slug)
-    return getattr(mod, _COMPONENT_EXTRACTORS[slug])
+def get_extractor(slug: str):
+    """Return the primary ``extract_*_candidates`` callable for a component slug."""
+    attr = _COMPONENT_EXTRACTORS.get(str(slug or "").strip())
+    if not attr:
+        raise KeyError(slug)
+    return getattr(_load_extract_module(slug), attr)
+
+
+def __getattr__(name: str) -> Any:
+    spec = _EXPORTABLE_FUNCS.get(name)
+    if spec is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    slug, attr = spec
+    return getattr(_load_extract_module(slug), attr)
 
 
 def infer_source(entity_id: str, name: str = "") -> str:
@@ -106,55 +122,3 @@ def normalize_entities(states: list[dict[str, Any]], managed_items: list[dict[st
 
     items.sort(key=lambda item: (item.get("source") != "zigbee2mqtt", item.get("domain") or "", item.get("name") or ""))
     return _finalize(items, default_source="zigbee2mqtt")
-
-
-def extract_z2m_candidates(payload: Any) -> list[dict[str, Any]]:
-    return _export("mosquitto")(payload)
-
-
-def extract_z2m_widget_candidates(payload: Any) -> list[dict[str, Any]]:
-    return getattr(_load_extract_module("mosquitto"), "extract_z2m_widget_candidates")(payload)
-
-
-def extract_pago_candidates(payload: Any) -> list[dict[str, Any]]:
-    return _export("pago")(payload)
-
-
-def extract_eon_romania_candidates(payload: Any) -> list[dict[str, Any]]:
-    return _export("eon_romania")(payload)
-
-
-def extract_ariston_net_candidates(payload: Any) -> list[dict[str, Any]]:
-    return _export("ariston_net")(payload)
-
-
-def extract_weather_candidates(payload: Any, source: str = "open_meteo") -> list[dict[str, Any]]:
-    return _export("open_meteo")(payload, source)
-
-
-def extract_midea_ac_candidates(payload: Any) -> list[dict[str, Any]]:
-    return _export("midea_ac")(payload)
-
-
-def extract_reteleelectrice_candidates(payload: Any) -> list[dict[str, Any]]:
-    return _export("reteleelectrice")(payload)
-
-
-def extract_fusion_solar_candidates(payload: Any) -> list[dict[str, Any]]:
-    return _export("fusion_solar")(payload)
-
-
-def extract_reolink_candidates(payload: Any) -> list[dict[str, Any]]:
-    return _export("reolink")(payload)
-
-
-def extract_roborock_candidates(payload: Any) -> list[dict[str, Any]]:
-    return _export("roborock")(payload)
-
-
-def extract_tapo_candidates(payload: Any) -> list[dict[str, Any]]:
-    return _export("tapo")(payload)
-
-
-def extract_xiaomi_home_candidates(payload: Any) -> list[dict[str, Any]]:
-    return _export("xiaomi_home")(payload)

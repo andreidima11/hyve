@@ -1,6 +1,11 @@
 """Integration client helpers (legacy router status tests removed — see components/)."""
 
-from fusion_solar_client import _candidate_hosts, _extract_kiosk_id, _normalize_host
+from tests.component_helpers import component_module
+
+_client = component_module("fusion_solar", "client")
+_candidate_hosts = _client._candidate_hosts
+_extract_kiosk_id = _client._extract_kiosk_id
+_normalize_host = _client._normalize_host
 
 
 def test_extract_kiosk_id_from_fragment_url():

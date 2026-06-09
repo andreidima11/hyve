@@ -17,16 +17,18 @@ entry; tokens are refreshed transparently on every sync.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
-import xiaomi_home_client as xh
 from integrations.base import BaseEntity
-
-from pathlib import Path
 from integrations.component_import import import_sibling
 
-_extract_mod = import_sibling(Path(__file__).resolve().parent, "extract")
+_component_dir = Path(__file__).resolve().parent
+_extract_mod = import_sibling(_component_dir, "extract")
+_client_mod = import_sibling(_component_dir, "client")
+_context_mod = import_sibling(_component_dir, "context")
 extract_xiaomi_home_candidates = _extract_mod.extract_xiaomi_home_candidates
+xh = _client_mod
 
 log = logging.getLogger("xiaomi_home")
 
@@ -224,7 +226,7 @@ class XiaomiHomeEntity(BaseEntity):
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.probe_source()
 
-    async def probe_source(self) -> dict[str, Any]:
+    async def probe_source(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
         client = self._build_client(self.entry_data or {}, token_saver=self._make_token_saver())
         async with client:
             payload = await client.fetch_all()
@@ -293,8 +295,4 @@ class XiaomiHomeEntity(BaseEntity):
             return await client.control_device(profile, action, data or {})
 
     def format_context(self, entities: dict[str, Any]) -> str:
-        items = self.extract_entities(entities)
-        if not items:
-            return ""
-        on = sum(1 for i in items if str(i.get("state")) == "on")
-        return f"Xiaomi Home: {len(items)} entități, {on} pornite"
+        return _context_mod.format_xiaomi_home_context(entities if isinstance(entities, dict) else {})

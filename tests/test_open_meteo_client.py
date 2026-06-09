@@ -1,7 +1,11 @@
 import httpx
 import pytest
 
-from open_meteo_client import OpenMeteoClient, _location_query_variants
+from tests.component_helpers import component_module
+
+_client = component_module("open_meteo", "client")
+OpenMeteoClient = _client.OpenMeteoClient
+_location_query_variants = _client._location_query_variants
 
 
 def test_location_query_variants_fold_diacritics():

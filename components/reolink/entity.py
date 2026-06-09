@@ -21,12 +21,12 @@ from integrations.component_import import import_sibling
 from integrations.base import BaseEntity
 from integrations.entity_utils import slugify
 
-_extract_mod = import_sibling(Path(__file__).resolve().parent, "extract")
+_component_dir = Path(__file__).resolve().parent
+_extract_mod = import_sibling(_component_dir, "extract")
+_context_mod = import_sibling(_component_dir, "context")
 extract_reolink_candidates = _extract_mod.extract_reolink_candidates
 patch_camera_stream_attrs = _extract_mod.patch_camera_stream_attrs
-from pathlib import Path
-from integrations.component_import import import_sibling
-_registry = import_sibling(Path(__file__).resolve().parent, "registry")
+_registry = import_sibling(_component_dir, "registry")
 ReolinkSpec = _registry.ReolinkSpec
 all_specs = _registry.all_specs
 build_entities = _registry.build_entities
@@ -323,7 +323,7 @@ class ReolinkEntity(BaseEntity):
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.probe_source()
 
-    async def probe_source(self) -> dict[str, Any]:
+    async def probe_source(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
         """Full snapshot: wake cameras, resolve RTSP streams, rebuild entity list."""
         return await self._build_payload(enrich_streams=True, wake=True)
 
@@ -459,12 +459,7 @@ class ReolinkEntity(BaseEntity):
         return items
 
     def format_context(self, entities: dict[str, Any]) -> str:
-        items = self.extract_entities(entities)
-        if not items:
-            return ""
-        cams = sum(1 for i in items if i.get("domain") == "camera")
-        motion = sum(1 for i in items if i.get("domain") == "binary_sensor" and str(i.get("state")) == "on")
-        return f"Reolink: {len(items)} entități, {cams} camere, {motion} senzori activi."
+        return _context_mod.format_reolink_context(entities if isinstance(entities, dict) else {})
 
     async def _resolve_spec(self, attrs: dict[str, Any]) -> tuple[Any, dict[str, Any]]:
         api = await self._connect()

@@ -1,4 +1,10 @@
-from integrations.fusion_solar_entities import device_kpi_schema, extract_fusion_solar_candidates, DEV_STRING_INVERTER, DEV_GRID_METER
+from tests.component_helpers import component_module
+
+_extract = component_module("fusion_solar", "extract")
+device_kpi_schema = _extract.device_kpi_schema
+extract_fusion_solar_candidates = _extract.extract_fusion_solar_candidates
+DEV_STRING_INVERTER = _extract.DEV_STRING_INVERTER
+DEV_GRID_METER = _extract.DEV_GRID_METER
 
 
 def _sample_payload():

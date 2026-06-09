@@ -2196,6 +2196,7 @@ const ro = {
         fusion_solar_timeout: "FusionSolar nu a răspuns la timp. Host-ul poate fi greșit, sau contul e în cooldown Huawei — așteaptă 5–10 minute și încearcă din nou.",
         fusion_solar_rate_limit_ok: "Autentificare posibilă, dar Huawei limitează apelurile: {detail} Așteaptă câteva minute înainte de sync manual.",
         fusion_solar_rate_limit_stations_ok: "Autentificare reușită. Huawei limitează temporar citirea stațiilor — {detail} Sync-ul programat va continua automat.",
+        fusion_solar_rate_limit_wait: "Cooldown Huawei API. Mai așteaptă {seconds}s înainte de sync manual (interval {interval}s). Sync-ul automat continuă în fundal.",
         fusion_solar_invalid_login: "Datele nu sunt acceptate ca OpenAPI. Folosește un cont Northbound/OpenAPI Huawei, nu loginul obișnuit din portal.",
         fusion_solar_failed: "Conexiune FusionSolar eșuată",
         fusion_solar_connected: "Conectat la FusionSolar ({count} stații)",

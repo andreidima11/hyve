@@ -97,19 +97,16 @@ class SourceRefreshRunner:
 
     def _choose_mode(self, *, force: bool, cached: dict[str, Any]) -> str:
         inst = self.integration
-        if not getattr(inst, "uses_refresh_layers", False):
-            return MODE_FETCH
-        if force or not cached:
-            return MODE_PROBE
-        interval = max(1, int(getattr(inst, "probe_interval_cycles", 12)))
-        if self.status.cycle_count > 0 and self.status.cycle_count % interval == 0:
-            return MODE_PROBE
-        return MODE_PULL
+        return inst.choose_refresh_mode(
+            force=force,
+            cached=cached,
+            cycle_count=self.status.cycle_count,
+        )
 
     async def _execute_mode(self, mode: str, cached: dict[str, Any]) -> dict[str, Any]:
         inst = self.integration
         if mode == MODE_PROBE:
-            return await inst.probe_source()
+            return await inst.probe_source(cached)
         if mode == MODE_PULL:
             return await inst.pull_live_states(cached)
         return await inst.fetch_entities()
@@ -145,6 +142,17 @@ class SourceRefreshRunner:
             self._record_success(mode, started)
             return payload
         except Exception as exc:
+            if mode == MODE_PULL and cached:
+                log.warning(
+                    "%s pull failed (%s); keeping last cached payload",
+                    self.store_key,
+                    exc,
+                )
+                self.status.last_error = str(exc) or exc.__class__.__name__
+                self.status.last_mode = mode
+                self.status.last_duration_ms = int((_time.monotonic() - started) * 1000)
+                self.status.cycle_count += 1
+                return cached
             if mode == MODE_PULL:
                 log.debug("%s pull failed (%s), retrying with probe", self.store_key, exc)
                 try:

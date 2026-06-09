@@ -2195,6 +2195,7 @@ const en = {
         fusion_solar_timeout: "FusionSolar did not respond in time. The host may be wrong, or the account is in Huawei cooldown — wait 5–10 minutes and try again.",
         fusion_solar_rate_limit_ok: "Authentication likely OK, but Huawei is rate-limiting requests: {detail} Wait a few minutes before manual sync.",
         fusion_solar_rate_limit_stations_ok: "Login succeeded. Huawei is temporarily limiting station reads — {detail} Scheduled sync will continue automatically.",
+        fusion_solar_rate_limit_wait: "Huawei API cooldown. Wait {seconds}s before manual sync (interval {interval}s). Background sync continues automatically.",
         fusion_solar_invalid_login: "Credentials not accepted as OpenAPI. Use a Huawei Northbound/OpenAPI account, not the regular portal login.",
         fusion_solar_failed: "FusionSolar connection failed",
         fusion_solar_connected: "Connected to FusionSolar ({count} stations)",

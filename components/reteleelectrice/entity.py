@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any
 
-import reteleelectrice_client
 from integrations.base import BaseEntity
-from pathlib import Path
-
 from integrations.component_import import import_sibling
 
-_extract_mod = import_sibling(Path(__file__).resolve().parent, "extract")
+_component_dir = Path(__file__).resolve().parent
+_extract_mod = import_sibling(_component_dir, "extract")
+_client_mod = import_sibling(_component_dir, "client")
+_context_mod = import_sibling(_component_dir, "context")
 extract_reteleelectrice_candidates = _extract_mod.extract_reteleelectrice_candidates
+ReteleElectriceClient = _client_mod.ReteleElectriceClient
 
 
 
@@ -53,7 +55,7 @@ class ReteleElectriceEntity(BaseEntity):
         if not email or not password:
             return {"ok": False, "message_key": "integrations.reteleelectrice_credentials"}
         try:
-            async with reteleelectrice_client.ReteleElectriceClient(
+            async with ReteleElectriceClient(
                 email, password, timeout=30.0
             ) as client:
                 return await asyncio.wait_for(client.test_connection(), timeout=60.0)
@@ -87,25 +89,16 @@ class ReteleElectriceEntity(BaseEntity):
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.probe_source()
 
-    async def probe_source(self) -> dict[str, Any]:
-        async with reteleelectrice_client.ReteleElectriceClient(**self._client_kwargs()) as client:
+    async def probe_source(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
+        async with ReteleElectriceClient(**self._client_kwargs()) as client:
             return await client.fetch_all()
 
     async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
-        async with reteleelectrice_client.ReteleElectriceClient(**self._client_kwargs()) as client:
+        async with ReteleElectriceClient(**self._client_kwargs()) as client:
             return await client.fetch_light(cached)
 
     def extract_entities(self, payload: Any) -> list[dict[str, Any]]:
         return extract_reteleelectrice_candidates(payload)
 
     def format_context(self, entities: dict[str, Any]) -> str:
-        items = self.extract_entities(entities)
-        outages = [
-            i for i in items
-            if "intreruperi" in i.get("entity_id", "")
-            and str(i.get("state", "")).lower() == "on"
-        ]
-        parts = [f"Rețele Electrice: {len(items)} entități"]
-        if outages:
-            parts.append(f"{len(outages)} POD cu întrerupere activă")
-        return "; ".join(parts)
+        return _context_mod.format_reteleelectrice_context(entities if isinstance(entities, dict) else {})

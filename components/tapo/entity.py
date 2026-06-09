@@ -17,7 +17,9 @@ from pathlib import Path
 from integrations.component_import import import_sibling
 from integrations.base import BaseEntity
 
-_extract_mod = import_sibling(Path(__file__).resolve().parent, "extract")
+_component_dir = Path(__file__).resolve().parent
+_extract_mod = import_sibling(_component_dir, "extract")
+_context_mod = import_sibling(_component_dir, "context")
 extract_tapo_candidates = _extract_mod.extract_tapo_candidates
 
 from integrations.entity_utils import slugify
@@ -491,7 +493,7 @@ class TapoEntity(BaseEntity):
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.probe_source()
 
-    async def probe_source(self) -> dict[str, Any]:
+    async def probe_source(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
         return await self._build_payload()
 
     async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
@@ -503,12 +505,7 @@ class TapoEntity(BaseEntity):
         return extract_tapo_candidates(payload)
 
     def format_context(self, entities: dict[str, Any]) -> str:
-        items = self.extract_entities(entities)
-        if not items:
-            return ""
-        on = sum(1 for i in items if str(i.get("state")).lower() == "on")
-        cams = sum(1 for i in items if i.get("domain") == "camera")
-        return f"Tapo: {len(items)} entități, {cams} camere, {on} active."
+        return _context_mod.format_tapo_context(entities if isinstance(entities, dict) else {})
 
     async def control_entity(
         self,

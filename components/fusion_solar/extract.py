@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable
 
 from integrations.entity_utils import finalize_entities as _finalize, slugify as _slugify
@@ -661,9 +662,10 @@ def extract_fusion_solar_candidates(payload: Any) -> list[dict[str, Any]]:
         _append_device_static_entities(items, dev, dev_attrs)
         _append_device_kpi_entities(items, dev, dev_attrs)
 
-    from integrations.fusion_solar_power_flow import append_power_flow_entities
+    from integrations.component_import import import_sibling
 
-    append_power_flow_entities(
+    _power_flow = import_sibling(Path(__file__).resolve().parent, "power_flow")
+    _power_flow.append_power_flow_entities(
         items,
         realtime=realtime,
         devices=devices,

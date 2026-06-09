@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any
 
-import open_meteo_client
 from integrations.base import BaseEntity
-from pathlib import Path
-
 from integrations.component_import import import_sibling
 
-_extract_mod = import_sibling(Path(__file__).resolve().parent, "extract")
+_component_dir = Path(__file__).resolve().parent
+_extract_mod = import_sibling(_component_dir, "extract")
+_client_mod = import_sibling(_component_dir, "client")
+_context_mod = import_sibling(_component_dir, "context")
 extract_weather_candidates = _extract_mod.extract_weather_candidates
-
+OpenMeteoClient = _client_mod.OpenMeteoClient
+_parse_coordinate = _client_mod._parse_coordinate
 
 _TEST_TIMEOUT_SECONDS = 55.0
 
@@ -45,8 +47,6 @@ class OpenMeteoEntity(BaseEntity):
     @classmethod
     async def async_test_connection(cls, data: dict[str, Any]) -> dict[str, Any]:
         try:
-            from open_meteo_client import OpenMeteoClient, _parse_coordinate
-
             d = dict(data or {})
             location = str(d.get("location") or "").strip()
             lat = _parse_coordinate(d.get("latitude"))
@@ -68,8 +68,6 @@ class OpenMeteoEntity(BaseEntity):
 
     async def _fetch_payload(self, *, force: bool) -> dict[str, Any]:
         if self.entry_data:
-            from open_meteo_client import OpenMeteoClient, _parse_coordinate
-
             d = self.entry_data
             location = str(d.get("location") or "").strip()
             lat = _parse_coordinate(d.get("latitude"))
@@ -92,7 +90,7 @@ class OpenMeteoEntity(BaseEntity):
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.probe_source()
 
-    async def probe_source(self) -> dict[str, Any]:
+    async def probe_source(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
         return await self._fetch_payload(force=True)
 
     async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
@@ -103,4 +101,4 @@ class OpenMeteoEntity(BaseEntity):
         return extract_weather_candidates(payload, self.slug)
 
     def format_context(self, entities: dict[str, Any]) -> str:
-        return open_meteo_client.format_open_meteo_context(entities)
+        return _context_mod.format_open_meteo_context(entities)

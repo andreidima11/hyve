@@ -1,7 +1,32 @@
 import asyncio
 import time
 
-from fusion_solar_client import FusionSolarClient
+from pathlib import Path
+
+from tests.component_helpers import component_module
+
+_client = component_module("fusion_solar", "client")
+FusionSolarClient = _client.FusionSolarClient
+FusionSolarRateLimitError = _client.FusionSolarRateLimitError
+
+
+def test_rate_limit_error_i18n_detail():
+    err = FusionSolarRateLimitError(retry_after=120, interval=600)
+    detail = err.as_detail()
+    assert detail["key"] == "integrations.fusion_solar_rate_limit_wait"
+    assert detail["params"]["seconds"] == 120
+    assert detail["params"]["interval"] == 600
+
+
+def test_rate_limit_wait_or_raise_uses_structured_error():
+    client = FusionSolarClient("https://eu5.fusionsolar.huawei.com", "user", "pass")
+    client.set_user_sync_interval(600)
+    try:
+        client._rate_limit_wait_or_raise(65.0, "/thirdData/getStationList")
+        assert False, "expected FusionSolarRateLimitError"
+    except FusionSolarRateLimitError as exc:
+        assert exc.retry_after >= 65
+        assert exc.interval == 600
 
 
 def test_rate_limit_bucket_splits_dev_real_kpi_by_type():
@@ -39,3 +64,34 @@ def test_dev_real_kpi_types_do_not_wait_full_station_interval(monkeypatch):
     dev_calls = [c for c in calls if c["path"] == "/thirdData/getDevRealKpi"]
     assert len(dev_calls) == 2
     assert elapsed < 10.0
+
+
+def test_fetch_realtime_round_robin_one_device_type(monkeypatch):
+    client = FusionSolarClient("https://eu5.fusionsolar.huawei.com", "user", "pass")
+    client._token = "token"
+    dev_type_calls: list[int] = []
+
+    async def fake_get_station_real_kpi(codes):
+        return [{"stationCode": "NE123", "dataItemMap": {"realTimePower": 1.5}}]
+
+    async def fake_get_dev_real_kpi(dev_ids, type_id):
+        dev_type_calls.append(type_id)
+        return [{"devId": dev_ids.split(",")[0], "dataItemMap": {"active_power": 2.0}}]
+
+    monkeypatch.setattr(client, "login", lambda: asyncio.sleep(0))
+    monkeypatch.setattr(client, "get_station_real_kpi", fake_get_station_real_kpi)
+    monkeypatch.setattr(client, "get_dev_real_kpi", fake_get_dev_real_kpi)
+
+    cached = {
+        "stations": [{"station_code": "NE123", "station_name": "Home"}],
+        "devices": [
+            {"device_id": "1", "device_type_id": 1, "realtime_kpi": {"active_power": 1.0}},
+            {"device_id": "2", "device_type_id": 17, "realtime_kpi": {"active_power": 0.5}},
+        ],
+    }
+
+    asyncio.run(client.fetch_realtime(cached))
+    assert dev_type_calls == [1]
+
+    asyncio.run(client.fetch_realtime(cached))
+    assert dev_type_calls == [1, 17]

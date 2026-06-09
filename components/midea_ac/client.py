@@ -10,7 +10,7 @@ paths:
   doesn't reach the AC (e.g. across VLANs).
 
 The client returns plain dictionaries that the extractor turns into Hyve
-entities, mirroring how :mod:`ariston_net_client` works.
+entities, mirroring how :mod:`components.ariston_net.client` works.
 """
 
 from __future__ import annotations

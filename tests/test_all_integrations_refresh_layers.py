@@ -46,6 +46,10 @@ def test_sync_integrations_define_probe_and_pull(slug: str, cls: type[BaseEntity
         method = getattr(cls, method_name, None)
         assert method is not None, f"{slug} missing {method_name}"
         assert inspect.iscoroutinefunction(method), f"{slug}.{method_name} must be async"
+    probe_params = inspect.signature(cls.probe_source).parameters
+    assert "cached" in probe_params, f"{slug}.probe_source must accept cached="
+    pull_params = inspect.signature(cls.pull_live_states).parameters
+    assert "cached" in pull_params, f"{slug}.pull_live_states must accept cached"
 
 
 def test_hyve_scenes_skips_background_sync() -> None:

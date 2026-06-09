@@ -193,7 +193,7 @@ export async function loadConfig() {
         'embed_model_name': cfg.librarian?.model_name,
         'waha_url': cfg.waha?.api_url, 'waha_enabled': cfg.waha?.enabled,
         'pago_enabled': cfg.pago?.enabled, 'pago_email': cfg.pago?.email, 'pago_password': cfg.pago?.password, 'pago_scan_interval': cfg.pago?.scan_interval ?? 3600,
-        'fusion_solar_enabled': cfg.fusion_solar?.enabled, 'fusion_solar_mode': cfg.fusion_solar?.mode ?? 'auto', 'fusion_solar_host': cfg.fusion_solar?.host, 'fusion_solar_kiosk_url': cfg.fusion_solar?.kiosk_url ?? '', 'fusion_solar_username': cfg.fusion_solar?.username, 'fusion_solar_password': cfg.fusion_solar?.password, 'fusion_solar_scan_interval': cfg.fusion_solar?.scan_interval ?? 600,
+        'fusion_solar_enabled': cfg.fusion_solar?.enabled, 'fusion_solar_mode': cfg.fusion_solar?.mode ?? 'auto', 'fusion_solar_host': cfg.fusion_solar?.host, 'fusion_solar_kiosk_url': cfg.fusion_solar?.kiosk_url ?? '', 'fusion_solar_username': cfg.fusion_solar?.username, 'fusion_solar_password': cfg.fusion_solar?.password, 'fusion_solar_scan_interval': cfg.fusion_solar?.scan_interval ?? 90,
         'fcm_enabled': cfg.fcm?.enabled,
         'fcm_project_id': cfg.fcm?.project_id,
         'fcm_service_account_path': cfg.fcm?.service_account_path,

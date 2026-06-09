@@ -6,15 +6,20 @@ import logging
 from typing import Any
 
 import database
-import midea_ac_client
+from pathlib import Path
 from sqlalchemy import text
 from integrations.base import BaseEntity
-from pathlib import Path
-
 from integrations.component_import import import_sibling
 
-_extract_mod = import_sibling(Path(__file__).resolve().parent, "extract")
+_component_dir = Path(__file__).resolve().parent
+_extract_mod = import_sibling(_component_dir, "extract")
+_client_mod = import_sibling(_component_dir, "client")
+_context_mod = import_sibling(_component_dir, "context")
 extract_midea_ac_candidates = _extract_mod.extract_midea_ac_candidates
+MideaAcClient = _client_mod.MideaAcClient
+MideaAcError = _client_mod.MideaAcError
+MideaAcDependencyError = _client_mod.MideaAcDependencyError
+parse_devices_field = _client_mod.parse_devices_field
 
 
 log = logging.getLogger("midea_ac")
@@ -170,13 +175,13 @@ class MideaAcEntity(BaseEntity):
         *,
         cache_callback=None,
         include_remembered: bool = False,
-    ) -> midea_ac_client.MideaAcClient:
-        manual_devices = midea_ac_client.parse_devices_field(data.get("devices"))
+    ) -> MideaAcClient:
+        manual_devices = parse_devices_field(data.get("devices"))
         cached_devices = cls._parse_cached(data.get("_cached_devices"))
         if include_remembered and not manual_devices:
             cached_ids = {int(item.get("id") or 0) for item in cached_devices if item.get("id")}
             manual_devices = [item for item in cls._remembered_lan_devices() if int(item.get("id") or 0) not in cached_ids]
-        return midea_ac_client.MideaAcClient(
+        return MideaAcClient(
             account=str(data.get("account") or "").strip(),
             password=str(data.get("password") or "").strip(),
             region=str(data.get("region") or "US").strip(),
@@ -232,8 +237,8 @@ class MideaAcEntity(BaseEntity):
     def is_configured(self, cfg: dict[str, Any]) -> bool:
         section = self.config_section(cfg)
         try:
-            manual = midea_ac_client.parse_devices_field(section.get("devices"))
-        except midea_ac_client.MideaAcError:
+            manual = parse_devices_field(section.get("devices"))
+        except MideaAcError:
             manual = []
         cached = self._parse_cached(section.get("_cached_devices"))
         has_account = bool((section.get("account") or "").strip() and (section.get("password") or "").strip())
@@ -243,13 +248,13 @@ class MideaAcEntity(BaseEntity):
     async def async_test_connection(cls, data: dict[str, Any]) -> dict[str, Any]:
         try:
             client = cls._build_client(dict(data or {}), include_remembered=True)
-        except midea_ac_client.MideaAcError as exc:
+        except MideaAcError as exc:
             return {"ok": False, "message": str(exc)}
         try:
             return await asyncio.wait_for(client.test_connection(), timeout=30.0)
         except asyncio.TimeoutError:
             return {"ok": False, "message_key": "integrations.midea_timeout"}
-        except midea_ac_client.MideaAcDependencyError as exc:
+        except MideaAcDependencyError as exc:
             return {"ok": False, "message": str(exc)}
         except Exception as exc:
             return {"ok": False, "message": str(exc) or None, "message_key": "integrations.midea_failed"}
@@ -257,7 +262,7 @@ class MideaAcEntity(BaseEntity):
     async def fetch_entities(self) -> dict[str, Any]:
         return await self.probe_source()
 
-    async def probe_source(self) -> dict[str, Any]:
+    async def probe_source(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
         data = self.entry_data or {}
         client = self._build_client(data, cache_callback=self._make_cache_callback())
         async with client:
@@ -283,8 +288,4 @@ class MideaAcEntity(BaseEntity):
             return await client.control_entity(entity_id, action, data)
 
     def format_context(self, entities: dict[str, Any]) -> str:
-        items = self.extract_entities(entities)
-        if not items:
-            return ""
-        powered = [item for item in items if item.get("entity_id", "").endswith(":power") and str(item.get("state")) == "on"]
-        return f"Midea AC: {len(items)} entități, {len(powered)} pornite"
+        return _context_mod.format_midea_ac_context(entities if isinstance(entities, dict) else {})

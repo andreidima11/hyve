@@ -88,6 +88,9 @@ def _load_unlocked() -> dict[str, dict[str, str]]:
             key = canonical_device_id(did)
             if not key:
                 continue
+            if str(slug) == "mosquitto" and not _HEX_IEEE_RE.match(key):
+                needs_rewrite = True
+                continue
             if key != str(did):
                 needs_rewrite = True
             # If two legacy keys collapse to the same canonical key, prefer
@@ -170,11 +173,34 @@ def set_alias(slug: str, device_id: str, new_name: str) -> None:
         _cache = data
 
 
+def _registry_blocks_yaml_alias(device_id: str) -> bool:
+    """Return True when SQLite device_registry already owns this device's name."""
+    key = canonical_device_id(device_id)
+    if not key:
+        return False
+    try:
+        from core import device_registry
+
+        row = device_registry.get_device(key)
+    except Exception:
+        return False
+    if not row:
+        return False
+    name = str(row.get("name") or "").strip()
+    if not name or _HEX_IEEE_RE.match(name):
+        return False
+    return True
+
+
 def apply_to_entities(slug: str, entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Overlay device-level aliases onto a list of entity dicts.
 
     The alias replaces ``device_name`` (used for grouping) when present.
     Entity ``name`` is untouched — per-entity aliases are still authoritative.
+
+    When ``device_registry`` already has a display name for the device,
+    YAML aliases are skipped so a stale auto-persisted alias cannot undo a
+    user rename (registry is applied first in the entity catalog pipeline).
 
     Some providers (mosquitto, pago) keep ``device_id`` only inside
     ``attributes``; others put it at the top level. We check both and
@@ -189,6 +215,8 @@ def apply_to_entities(slug: str, entities: list[dict[str, Any]]) -> list[dict[st
         raw_did = ent.get("device_id") or attrs.get("device_id") or ""
         key = canonical_device_id(raw_did)
         if not key or key not in aliases:
+            continue
+        if _registry_blocks_yaml_alias(key):
             continue
         new_name = aliases[key]
         old_device_name = str(ent.get("device_name") or (attrs.get("device_name") if isinstance(attrs, dict) else "") or "")

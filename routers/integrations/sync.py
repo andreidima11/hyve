@@ -6,11 +6,23 @@ import auth
 import models
 from addons.entity_store import SyncThrottledError, get_entity_store
 from fastapi import Depends, HTTPException
+from integrations.errors import integration_retry_after, integration_sync_detail
 
 from routers.integrations import helpers
 from routers.integrations.router import router
 
 log = logging.getLogger("integrations")
+
+
+def _raise_sync_http_error(exc: Exception) -> None:
+    detail = integration_sync_detail(exc)
+    if detail is not None or "rate limit" in str(exc).lower():
+        raise HTTPException(
+            status_code=429,
+            detail=detail if detail is not None else str(exc),
+            headers={"Retry-After": str(integration_retry_after(exc))},
+        )
+    raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.get("/status/sync")
@@ -80,13 +92,10 @@ async def trigger_sync(slug: str, user: models.User = Depends(auth.get_current_a
             )
         except Exception as e:
             log.error("Manual sync failed for %s: %s", slug, e)
-            detail = str(e)
-            if "rate limit" in detail.lower():
-                raise HTTPException(status_code=429, detail=detail)
-            raise HTTPException(status_code=500, detail=detail)
+            _raise_sync_http_error(e)
 
     total = 0
-    errors: list[str] = []
+    errors: list[str | dict] = []
     for inst in instances:
         if not inst.supports_sync:
             continue
@@ -105,14 +114,15 @@ async def trigger_sync(slug: str, user: models.User = Depends(auth.get_current_a
             errors.append(exc.as_detail())
             log.warning("Manual sync throttled for %s: %s", key, exc)
         except Exception as exc:
-            errors.append(f"{key}: {exc}")
+            detail = integration_sync_detail(exc)
+            if detail is not None:
+                errors.append(detail)
+            else:
+                errors.append(f"{key}: {exc}")
             log.error("Manual sync failed for %s: %s", key, exc)
 
     if errors and total == 0:
-        if all(
-            isinstance(e, dict) and e.get("key") == SyncThrottledError.I18N_KEY
-            for e in errors
-        ):
+        if all(isinstance(e, dict) and e.get("key") for e in errors):
             retry = 600
             for inst in instances:
                 try:
