@@ -1,16 +1,13 @@
 /** Shared dashboard constants (extracted from dashboard.js). */
-
 export const DEFAULT_PREFS = {
     layout_mode: 'comfortable',
     show_unavailable: true,
     filter_mode: 'all',
 };
-
 export const DEFAULT_META = {
     title: 'Dashboard',
     subtitle: 'Acasă',
 };
-
 export const DASHBOARD_LOCAL_KEY = 'hyve_dashboard_local';
 export const DASHBOARD_PAGES_NAV_KEY = 'hyve.dashboardPagesNav';
 export const DASHBOARD_LAST_PAGE_KEY = 'hyve.lastDashboardPageId';
@@ -22,7 +19,6 @@ export const DASHBOARD_COL_POINTS_MIN = 1;
 export const DASHBOARD_COL_POINTS_MAX = 4;
 export const DEFAULT_CAMERA_INTERVAL = 10;
 export const DASHBOARD_GRID_COLS = 12;
-
 export const DASHBOARD_CUSTOM_SELECT_IDS = new Set([
     'dashboard-widget-type',
     'dashboard-widget-size',

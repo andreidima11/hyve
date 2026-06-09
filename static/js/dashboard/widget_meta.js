@@ -1,47 +1,41 @@
 /**
  * Widget card type resolution, domain helpers, and entity icon specs.
  */
-
 import * as HVBridge from '/static/hyveview/bridge.js';
 import { normalizeIconClass } from '../icon_utils.js';
-
 export function effectiveWidgetCardType(widget) {
     return HVBridge.effectiveCardType(widget) || String(widget?.type || widget?.renderer || 'button').toLowerCase();
 }
-
 export function isControllableDomain(domain) {
     return ['light', 'switch', 'script', 'input_boolean', 'cover', 'lock', 'vacuum', 'climate', 'media_player', 'fan']
         .includes(String(domain || '').toLowerCase());
 }
-
 /** Resolves the effective renderer (card type) for a widget config object. */
 export function widgetRenderer(widget) {
     const kind = effectiveWidgetCardType(widget);
-    if (kind && kind !== 'button' && kind !== 'tile') return kind;
+    if (kind && kind !== 'button' && kind !== 'tile')
+        return kind;
     const eid = String(widget?.entity_id || '');
-    if (eid.startsWith('image.')) return 'picture';
+    if (eid.startsWith('image.'))
+        return 'picture';
     return kind || 'button';
 }
-
 export function dashboardIntentAction(widget, desiredState) {
-    const domain = String(widget?.domain || widget?.entity_id?.split?.('.')[0] || '').toLowerCase();
+    const entityId = String(widget?.entity_id || '');
+    const domain = String(widget?.domain || entityId.split('.')[0] || '').toLowerCase();
     const kind = String(widget?.renderer || widget?.type || '').toLowerCase();
     const switchStyle = Boolean(widget?.switch_style || kind === 'switch');
-    if (
-        switchStyle
+    if (switchStyle
         || ['light', 'switch', 'fan', 'input_boolean', 'cover', 'lock'].includes(domain)
-        || ['light', 'switch'].includes(kind)
-    ) {
+        || ['light', 'switch'].includes(kind)) {
         return desiredState === 'on' ? 'turn_on' : 'turn_off';
     }
     return '';
 }
-
 export function isInfoDomain(domain) {
     return ['sensor', 'binary_sensor', 'weather', 'person', 'sun', 'device_tracker', 'update']
         .includes(String(domain || '').toLowerCase());
 }
-
 export function entityIcon(domain) {
     switch (String(domain || '').toLowerCase()) {
         case 'light': return 'fas fa-lightbulb';
@@ -58,12 +52,10 @@ export function entityIcon(domain) {
         default: return 'fas fa-bolt';
     }
 }
-
 export function iconClass(spec) {
     const normalized = normalizeIconClass(spec);
     return normalized || 'fas fa-bolt';
 }
-
 export function entityIconForState(domain, on) {
     const d = String(domain || '').toLowerCase();
     switch (d) {

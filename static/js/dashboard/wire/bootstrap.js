@@ -1,7 +1,6 @@
 /**
  * Bootstrap wiring — Hyveview host, context, editing, menus, page select, stores.
  */
-
 import { apiCall } from '../../api.js';
 import { showConfirm, showToast } from '../../utils.js';
 import { t, tVacuumStatus } from '../../lang/index.js';
@@ -15,14 +14,7 @@ import { closeDashboardPageModal } from '../page_modal.js';
 import { closeDashboardAddModal } from '../widget_add_modal.js';
 import { closeDashboardWidgetEditor } from '../widget_legacy_edit.js';
 import { ensureHyveviewEntitySeed, saveDashboardWidgetFromEditor } from '../widget_editor_bridge.js';
-import {
-    loadDashboard,
-    readDashboardSectionFallback,
-    refreshAvailableEntities,
-    setDashboardRefreshIndicator,
-    withDashboardTimeout,
-    writeDashboardSectionFallback,
-} from '../dashboard_loader.js';
+import { loadDashboard, readDashboardSectionFallback, refreshAvailableEntities, setDashboardRefreshIndicator, withDashboardTimeout, writeDashboardSectionFallback, } from '../dashboard_loader.js';
 import { controlVisuallyPending } from '../control_state.js';
 import { closeDashboardMenu, initDashboardMenu } from '../dashboard_menu.js';
 import { initDashboardWidgetStore } from '../widget_store.js';
@@ -35,20 +27,11 @@ import { initDashboardYamlBridge } from '../yaml_bridge.js';
 import { initDashboardPanelDelete } from '../panel_delete.js';
 import { initDashboardEditingState } from '../editing_state.js';
 import { activeDashboardPageId, initDashboardContext } from '../dashboard_context.js';
-import {
-    getDashboardCache,
-    setDashboardCache,
-    setDashboardEditMode,
-    getDashboardCurrentEditorId,
-    setDashboardCurrentEditorId,
-    getCurrentPageId,
-    setCurrentPageId,
-} from '../dashboard_state.js';
+import { getDashboardCache, setDashboardCache, setDashboardEditMode, getDashboardCurrentEditorId, setDashboardCurrentEditorId, getCurrentPageId, setCurrentPageId, } from '../dashboard_state.js';
 import { publishDashboardHyveviewHost } from '../hyveview_host.js';
 import { setHashForPage } from '../pages_nav.js';
 import { renderDashboard } from '../dashboard_render.js';
 import { closeDashboardClimateModeMenus } from '../climate.js';
-
 export function wireDashboardBootstrap() {
     publishDashboardHyveviewHost(HVSetHost, {
         iconClass,
@@ -66,14 +49,12 @@ export function wireDashboardBootstrap() {
         tVacuumStatus,
         t,
     });
-
     initDashboardContext({
         getCache: getDashboardCache,
         getCurrentPageId,
         getCurrentEditorId: getDashboardCurrentEditorId,
         apiCall,
     });
-
     initDashboardEditingState({
         abortDashboardPageNavigation,
         setDashboardRefreshIndicator,
@@ -85,15 +66,13 @@ export function wireDashboardBootstrap() {
         closeDashboardWidgetEditor,
         renderDashboard,
     });
-
     initDashboardAddPicker({
         requireDashboardEditAccess,
         closeDashboardMenu,
         ensureHyveviewEntitySeed,
         hvOpenEditor,
-        saveDashboardWidgetFromEditor,
+        saveDashboardWidgetFromEditor: (result, opts) => saveDashboardWidgetFromEditor(result, opts),
     });
-
     initDashboardYamlBridge({
         requireDashboardEditAccess,
         apiCall,
@@ -104,25 +83,21 @@ export function wireDashboardBootstrap() {
         getActivePageName: () => {
             const pid = activeDashboardPageId();
             const pages = Array.isArray(getDashboardCache().pages) ? getDashboardCache().pages : [];
-            const found = pages.find(p => p && String(p.id) === String(pid));
-            return (found && found.title) || getDashboardCache().title || pid || '';
+            const found = pages.find((p) => p && String(p.id) === String(pid));
+            return String((found && found.title) || getDashboardCache().title || pid || '');
         },
     });
-
     initDashboardPanelDelete({
         requireDashboardEditAccess,
-        showConfirm,
+        showConfirm: (message) => showConfirm(message),
         getCurrentPageId,
         refreshAvailableEntities,
         renderDashboard,
         showToast,
         t,
     });
-
     initDashboardMenu({ closeDashboardClimateModeMenus });
-
     initDashboardStandalonePanel({ getCache: getDashboardCache });
-
     initDashboardPageSelect({
         getCache: getDashboardCache,
         setCache: setDashboardCache,
@@ -136,17 +111,15 @@ export function wireDashboardBootstrap() {
         showToast,
         t,
     });
-
     initDashboardWidgetDelete({
         requireDashboardEditAccess,
-        showConfirm,
+        showConfirm: (message) => showConfirm(message),
         showToast,
         t,
         loadDashboard,
         readDashboardSectionFallback,
         writeDashboardSectionFallback,
     });
-
     initDashboardWidgetStore({
         getCache: getDashboardCache,
         getCurrentPageId,

@@ -1,10 +1,8 @@
 /**
  * Chat image cards and fullscreen lightbox.
  */
-
 import { t } from '../lang/index.js';
 import { escapeHtml } from '../utils.js';
-
 async function downloadImageBlob(src, alt) {
     try {
         const resp = await fetch(src);
@@ -19,42 +17,34 @@ async function downloadImageBlob(src, alt) {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-    } catch (_e) {
-        // Fallback: open in new tab if fetch fails (e.g. CORS)
+    }
+    catch (_) {
         window.open(src, '_blank');
     }
 }
-
 /** Wrap <img> tags in chat bubbles with a styled card + action buttons */
 export function decorateImages(container) {
-    if (!container) return;
-    const content = container.classList?.contains('chat-bubble-content')
+    if (!container)
+        return;
+    const content = container instanceof HTMLElement && container.classList.contains('chat-bubble-content')
         ? container
-        : container.querySelector?.('.chat-bubble-content');
+        : (container instanceof Element ? container.querySelector('.chat-bubble-content') : null);
     const root = content || container;
-    const imgs = root.querySelectorAll ? root.querySelectorAll('img') : [];
+    const imgs = root instanceof Element ? root.querySelectorAll('img') : [];
     imgs.forEach((img) => {
-        // Skip if already wrapped or if it's a user-uploaded image
-        if (img.closest('.chat-image-card') || img.classList.contains('chat-user-uploaded-image')) return;
-        // Skip tiny inline images (emoji etc)
-        if (img.naturalWidth > 0 && img.naturalWidth < 40) return;
-
+        if (img.closest('.chat-image-card') || img.classList.contains('chat-user-uploaded-image'))
+            return;
+        if (img.naturalWidth > 0 && img.naturalWidth < 40)
+            return;
         const src = img.src || '';
         const alt = img.alt || '';
-
         const card = document.createElement('div');
         card.className = 'chat-image-card';
-
-        // Image wrapper (clickable to expand)
         const imgWrap = document.createElement('div');
         imgWrap.className = 'chat-image-card-img';
         imgWrap.addEventListener('click', () => openImageLightbox(src, alt));
-
-        // Action overlay (visible on hover)
         const actions = document.createElement('div');
         actions.className = 'chat-image-card-actions';
-
-        // Download button
         const dlBtn = document.createElement('button');
         dlBtn.type = 'button';
         dlBtn.className = 'chat-image-action-btn';
@@ -64,8 +54,6 @@ export function decorateImages(container) {
             e.stopPropagation();
             downloadImageBlob(src, alt);
         });
-
-        // Share / Copy link button
         const shareBtn = document.createElement('button');
         shareBtn.type = 'button';
         shareBtn.className = 'chat-image-action-btn';
@@ -75,16 +63,15 @@ export function decorateImages(container) {
             e.stopPropagation();
             const fullUrl = new URL(src, window.location.origin).href;
             if (navigator.share) {
-                navigator.share({ title: alt || 'Image', url: fullUrl }).catch(() => {});
-            } else {
+                navigator.share({ title: alt || 'Image', url: fullUrl }).catch(() => { });
+            }
+            else {
                 navigator.clipboard.writeText(fullUrl).then(() => {
                     shareBtn.innerHTML = '<i class="fas fa-check"></i>';
                     setTimeout(() => { shareBtn.innerHTML = '<i class="fas fa-share-alt"></i>'; }, 1500);
-                }).catch(() => {});
+                }).catch(() => { });
             }
         });
-
-        // Expand button
         const expandBtn = document.createElement('button');
         expandBtn.type = 'button';
         expandBtn.className = 'chat-image-action-btn';
@@ -94,18 +81,13 @@ export function decorateImages(container) {
             e.stopPropagation();
             openImageLightbox(src, alt);
         });
-
         actions.appendChild(dlBtn);
         actions.appendChild(shareBtn);
         actions.appendChild(expandBtn);
-
-        // Move the img into our card
-        img.parentNode.insertBefore(card, img);
+        img.parentNode?.insertBefore(card, img);
         imgWrap.appendChild(img);
         imgWrap.appendChild(actions);
         card.appendChild(imgWrap);
-
-        // Alt text caption (if any)
         if (alt && alt !== 'Generated Image' && alt !== 'image') {
             const caption = document.createElement('div');
             caption.className = 'chat-image-card-caption';
@@ -114,16 +96,12 @@ export function decorateImages(container) {
         }
     });
 }
-
 /** Full-screen lightbox for image preview */
 export function openImageLightbox(src, alt) {
-    // Remove existing lightbox if any
     document.getElementById('chat-image-lightbox')?.remove();
-
     const overlay = document.createElement('div');
     overlay.id = 'chat-image-lightbox';
     overlay.className = 'chat-image-lightbox';
-
     overlay.innerHTML = `
         <div class="chat-lightbox-backdrop"></div>
         <div class="chat-lightbox-content">
@@ -140,37 +118,33 @@ export function openImageLightbox(src, alt) {
                 </button>
             </div>
         </div>`;
-
-    // Close on Escape key
-    const onKey = (e) => { if (e.key === 'Escape') closeLightbox(); };
+    const onKey = (e) => { if (e.key === 'Escape')
+        closeLightbox(); };
     const closeLightbox = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
-
-    // Close on backdrop click or close button
-    overlay.querySelector('.chat-lightbox-backdrop').addEventListener('click', closeLightbox);
-    overlay.querySelector('.chat-lightbox-close').addEventListener('click', closeLightbox);
-
-    // Download
-    overlay.querySelector('.chat-lightbox-dl').addEventListener('click', () => {
+    overlay.querySelector('.chat-lightbox-backdrop')?.addEventListener('click', closeLightbox);
+    overlay.querySelector('.chat-lightbox-close')?.addEventListener('click', closeLightbox);
+    overlay.querySelector('.chat-lightbox-dl')?.addEventListener('click', () => {
         downloadImageBlob(src, alt);
     });
-
-    // Share
-    overlay.querySelector('.chat-lightbox-share').addEventListener('click', () => {
+    overlay.querySelector('.chat-lightbox-share')?.addEventListener('click', () => {
         const fullUrl = new URL(src, window.location.origin).href;
         if (navigator.share) {
-            navigator.share({ title: alt || 'Image', url: fullUrl }).catch(() => {});
-        } else {
+            navigator.share({ title: alt || 'Image', url: fullUrl }).catch(() => { });
+        }
+        else {
             navigator.clipboard.writeText(fullUrl).then(() => {
                 const btn = overlay.querySelector('.chat-lightbox-share');
-                if (btn) btn.innerHTML = '<i class="fas fa-check"></i>';
-                setTimeout(() => { const b = overlay.querySelector('.chat-lightbox-share'); if (b) b.innerHTML = '<i class="fas fa-share-alt"></i>'; }, 1500);
-            }).catch(() => {});
+                if (btn)
+                    btn.innerHTML = '<i class="fas fa-check"></i>';
+                setTimeout(() => {
+                    const b = overlay.querySelector('.chat-lightbox-share');
+                    if (b)
+                        b.innerHTML = '<i class="fas fa-share-alt"></i>';
+                }, 1500);
+            }).catch(() => { });
         }
     });
-
     document.addEventListener('keydown', onKey);
-
     document.body.appendChild(overlay);
-    // Animate in
-    requestAnimationFrame(() => overlay.classList.add('chat-lightbox-visible'));
+    requestAnimationFrame(() => overlay.classList.add('chat-image-lightbox-visible'));
 }

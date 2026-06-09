@@ -1,7 +1,6 @@
 /**
  * Widget editor, entity picker, climate, and card action wiring.
  */
-
 import { apiCall } from '../../api.js';
 import { showToast } from '../../utils.js';
 import { t } from '../../lang/index.js';
@@ -17,53 +16,18 @@ import { initDashboardWidgetEditorBridge } from '../widget_editor_bridge.js';
 import { initDashboardEntityPicker, resolveEntityMatch } from '../entity_picker.js';
 import { initDashboardWidgetActions } from '../widget_actions.js';
 import { initDashboardClimate } from '../climate.js';
-import {
-    widgetDragAttrs,
-    widgetEditControls,
-    widgetSizeClass,
-    renderWidgetCardForPreview,
-} from '../widget_cards.js';
+import { widgetDragAttrs, widgetEditControls, widgetSizeClass, renderWidgetCardForPreview, } from '../widget_cards.js';
 import { entityIcon } from '../widget_meta.js';
 import { findWidget } from '../widget_store.js';
-import {
-    loadDashboard,
-    readDashboardSectionFallback,
-    refreshAvailableEntities,
-    writeDashboardSectionFallback,
-} from '../dashboard_loader.js';
-import {
-    activeDashboardPageId,
-    dashboardAvailableEntity,
-    dashboardEditorRendererForType,
-    fetchDashboardCardCatalog,
-} from '../dashboard_context.js';
+import { loadDashboard, readDashboardSectionFallback, refreshAvailableEntities, writeDashboardSectionFallback, } from '../dashboard_loader.js';
+import { activeDashboardPageId, dashboardAvailableEntity, dashboardEditorRendererForType, fetchDashboardCardCatalog, } from '../dashboard_context.js';
 import { dashboardDefaultRowsForType } from '../card_catalog.js';
-import {
-    controlPending,
-    setPendingControl,
-    deletePendingControl,
-} from '../control_state.js';
-import {
-    snapshotDashboardEntityState,
-    restoreDashboardEntitySnapshot,
-    patchDashboardEntityState,
-} from '../widget_toggle.js';
+import { controlPending, setPendingControl, deletePendingControl, } from '../control_state.js';
+import { snapshotDashboardEntityState, restoreDashboardEntitySnapshot, patchDashboardEntityState, } from '../widget_toggle.js';
 import { tryFastPathForEntities } from '../live_bridge.js';
 import { renderDashboard } from '../dashboard_render.js';
-import {
-    clearDashboardClimateEntitySelection,
-    addDashboardClimateEntityId,
-    climateEntityRecordsForSave,
-    renderDashboardClimateEntityChips,
-} from '../climate.js';
-import {
-    getDashboardCache,
-    getDashboardEditMode,
-    getDashboardCurrentEditorId,
-    setDashboardCurrentEditorId,
-    currentPageIdWithCacheFallback,
-} from '../dashboard_state.js';
-
+import { clearDashboardClimateEntitySelection, addDashboardClimateEntityId, climateEntityRecordsForSave, renderDashboardClimateEntityChips, } from '../climate.js';
+import { getDashboardCache, getDashboardEditMode, getDashboardCurrentEditorId, setDashboardCurrentEditorId, currentPageIdWithCacheFallback, } from '../dashboard_state.js';
 export function wireDashboardWidgets() {
     initDashboardWidgetAddEditor({
         getDashboardCache: getDashboardCache,
@@ -72,7 +36,6 @@ export function wireDashboardWidgets() {
         climateEntityRecordsForSave,
         t,
     });
-
     initDashboardWidgetAddModal({
         requireDashboardEditAccess,
         closeDashboardMenu,
@@ -93,7 +56,6 @@ export function wireDashboardWidgets() {
         renderDashboardClimateEntityChips,
         t,
     });
-
     initDashboardWidgetLegacyEdit({
         requireDashboardEditAccess,
         getCurrentEditorId: getDashboardCurrentEditorId,
@@ -102,7 +64,6 @@ export function wireDashboardWidgets() {
         loadDashboard,
         t,
     });
-
     initDashboardWidgetEditorBridge({
         requireDashboardEditAccess,
         findWidget,
@@ -114,7 +75,6 @@ export function wireDashboardWidgets() {
         writeDashboardSectionFallback,
         t,
     });
-
     initDashboardEntityPicker({
         getCache: getDashboardCache,
         escapeHtml,
@@ -123,7 +83,6 @@ export function wireDashboardWidgets() {
         addClimateEntityId: addDashboardClimateEntityId,
         renderDashboardAddPreview,
     });
-
     initDashboardClimate({
         getCache: getDashboardCache,
         findWidget,
@@ -151,7 +110,6 @@ export function wireDashboardWidgets() {
         tryFastPathForEntities,
         getCurrentPageId: currentPageIdWithCacheFallback,
     });
-
     initDashboardWidgetActions({
         apiCall,
         t,

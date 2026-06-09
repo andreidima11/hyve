@@ -1,40 +1,40 @@
 /**
  * Chat message list auto-scroll tracking.
  */
-
 const CHAT_AUTO_SCROLL_THRESHOLD = 10;
 let chatAutoScrollPinnedToBottom = true;
 let chatScrollTrackingInitialized = false;
 let chatProgrammaticScroll = false;
-
 function getChatWrapper() {
     return document.querySelector('.chat-messages-wrapper');
 }
-
 function isNearBottom(el, threshold = CHAT_AUTO_SCROLL_THRESHOLD) {
-    if (!el) return true;
-    return (el.scrollHeight - el.scrollTop - el.clientHeight) <= threshold;
+    const scrollEl = el;
+    return (scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight) <= threshold;
 }
-
 function initChatScrollTracking() {
     const wrapper = getChatWrapper();
-    if (!wrapper || chatScrollTrackingInitialized) return;
+    if (!wrapper || chatScrollTrackingInitialized)
+        return;
     chatScrollTrackingInitialized = true;
     chatAutoScrollPinnedToBottom = isNearBottom(wrapper);
     wrapper.addEventListener('scroll', () => {
-        if (chatProgrammaticScroll) return;
+        if (chatProgrammaticScroll)
+            return;
         chatAutoScrollPinnedToBottom = isNearBottom(wrapper);
     }, { passive: true });
 }
-
-export function scrollChatToBottom({ behavior = 'auto', force = false } = {}) {
+export function scrollChatToBottom(options = {}) {
+    const { behavior = 'auto', force = false } = options;
     const wrapper = getChatWrapper();
-    if (!wrapper) return;
+    if (!wrapper)
+        return;
     initChatScrollTracking();
-    if (!force && !chatAutoScrollPinnedToBottom) return;
-
+    if (!force && !chatAutoScrollPinnedToBottom)
+        return;
     chatProgrammaticScroll = true;
-    if (force) chatAutoScrollPinnedToBottom = true;
+    if (force)
+        chatAutoScrollPinnedToBottom = true;
     requestAnimationFrame(() => {
         wrapper.scrollTo({ top: wrapper.scrollHeight, behavior });
         setTimeout(() => { chatProgrammaticScroll = false; }, 400);

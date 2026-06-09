@@ -15,9 +15,15 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@hyve/*": ["static/js/*"]
+      "@hyve/*": ["static/js/*"],
+      "/static/hyveview/bridge.js": ["static/hyveview/bridge.js"],
+      "/static/hyveview/host.js": ["static/hyveview/host.js"],
+      "/static/hyveview/cards/loader.js": ["static/hyveview/cards/loader.js"],
+      "/static/hyveview/editor/modal.js": ["static/hyveview/editor/modal.js"],
+      "/static/hyveview/elements/camera_stream.js": ["static/hyveview/elements/camera_stream.js"],
+      "/static/hyveview/elements/camera_carousel.js": ["static/hyveview/elements/camera_carousel.js"]
     }
   },
-  "include": ["static/js/**/*.ts", "static/js/**/*.js"],
+  "include": ["static/js/**/*.ts", "static/js/**/*.js", "static/js/types/**/*.d.ts"],
   "exclude": ["node_modules"]
 }

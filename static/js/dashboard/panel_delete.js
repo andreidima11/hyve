@@ -1,30 +1,26 @@
 /**
  * Dashboard section (panel) deletion.
  */
-
 import { apiCall } from '../api.js';
 import { dashApiError } from './helpers.js';
-
-/** @type {object | null} */
 let _deps = null;
-
 function deps() {
-    if (!_deps) throw new Error('Dashboard panel delete not initialized');
+    if (!_deps)
+        throw new Error('Dashboard panel delete not initialized');
     return _deps;
 }
-
 export function initDashboardPanelDelete(depsIn) {
     _deps = depsIn;
 }
-
 export async function removeDashboardPanel(panelId) {
     const d = deps();
-    if (!d.requireDashboardEditAccess()) return;
-    if (!panelId) return;
-    const ok = await d.showConfirm(
-        d.t('dashboard.confirm_delete_section') || 'Delete this section and all cards inside it?'
-    );
-    if (!ok) return;
+    if (!d.requireDashboardEditAccess())
+        return;
+    if (!panelId)
+        return;
+    const ok = await d.showConfirm(d.t('dashboard.confirm_delete_section') || 'Delete this section and all cards inside it?');
+    if (!ok)
+        return;
     try {
         const pageId = d.getCurrentPageId();
         const params = pageId ? `?page_id=${encodeURIComponent(pageId)}` : '';
@@ -36,7 +32,9 @@ export async function removeDashboardPanel(panelId) {
         await d.refreshAvailableEntities();
         d.renderDashboard();
         d.showToast(d.t('dashboard.section_deleted'), 'success');
-    } catch (e) {
-        d.showToast(e.message || d.t('dashboard.section_delete_error'), 'error');
+    }
+    catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        d.showToast(message || d.t('dashboard.section_delete_error'), 'error');
     }
 }

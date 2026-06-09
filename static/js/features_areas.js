@@ -1,3 +1,4 @@
+// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Areas (rooms/zones/floors) UI.
  *
@@ -7,42 +8,47 @@
 import { apiCall } from './api.js';
 import { showToast, showConfirm } from './utils.js';
 import { t } from './lang/index.js';
-
 let _areasCache = [];
-let _allEntitiesCache = [];        // [{entity_id, name, source, domain, area, ...}]
+let _allEntitiesCache = []; // [{entity_id, name, source, domain, area, ...}]
 let _entitiesCacheTime = 0;
 let _editorState = { mode: 'create', areaId: null, synced: false, entities: [] };
 let _pickerSelected = new Set();
 let _pickerFilter = '';
-
 function _esc(value) {
     return String(value ?? '').replace(/[&<>"']/g, ch => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
     }[ch]));
 }
-
 function _iconClass(spec, fallback = 'fas fa-location-dot') {
     const raw = String(spec || '').trim();
-    if (!raw) return fallback;
-    if (raw.startsWith('mdi:')) return `mdi mdi-${raw.slice(4)}`;
-    if (/^mdi(\s|-)/.test(raw)) return raw.startsWith('mdi-') ? `mdi ${raw}` : raw;
-    if (/\bfa[srlbd]?\b/.test(raw) || raw.startsWith('fa-')) return raw.startsWith('fa-') ? `fas ${raw}` : raw;
+    if (!raw)
+        return fallback;
+    if (raw.startsWith('mdi:'))
+        return `mdi mdi-${raw.slice(4)}`;
+    if (/^mdi(\s|-)/.test(raw))
+        return raw.startsWith('mdi-') ? `mdi ${raw}` : raw;
+    if (/\bfa[srlbd]?\b/.test(raw) || raw.startsWith('fa-'))
+        return raw.startsWith('fa-') ? `fas ${raw}` : raw;
     return raw;
 }
-
 function _renderAreas() {
     const list = document.getElementById('areas-list');
     const empty = document.getElementById('areas-empty');
     const toolbar = document.getElementById('areas-toolbar');
-    if (!list) return;
+    if (!list)
+        return;
     if (!_areasCache.length) {
         list.innerHTML = '';
-        if (toolbar) toolbar.classList.add('hidden');
-        if (empty) empty.classList.remove('hidden');
+        if (toolbar)
+            toolbar.classList.add('hidden');
+        if (empty)
+            empty.classList.remove('hidden');
         return;
     }
-    if (empty) empty.classList.add('hidden');
-    if (toolbar) toolbar.classList.remove('hidden');
+    if (empty)
+        empty.classList.add('hidden');
+    if (toolbar)
+        toolbar.classList.remove('hidden');
     list.innerHTML = _areasCache.map((a) => {
         const id = _esc(a.id);
         const name = _esc(a.name || a.id);
@@ -78,7 +84,6 @@ function _renderAreas() {
             </div>`;
     }).join('');
 }
-
 export async function loadAreas() {
     const list = document.getElementById('areas-list');
     if (list && !_areasCache.length) {
@@ -86,19 +91,24 @@ export async function loadAreas() {
     }
     try {
         const res = await apiCall('/api/areas');
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok)
+            throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         _areasCache = Array.isArray(data?.areas) ? data.areas : [];
         _renderAreas();
-    } catch (err) {
+    }
+    catch (err) {
         console.error('loadAreas failed', err);
-        if (list) list.innerHTML = `<div class="text-center text-xs text-red-400 py-8">${_esc(t('areas.load_list_error'))}</div>`;
+        if (list)
+            list.innerHTML = `<div class="text-center text-xs text-red-400 py-8">${_esc(t('areas.load_list_error'))}</div>`;
     }
 }
-
 export async function syncAreasFromHA(btn) {
     const button = (btn instanceof HTMLElement) ? btn : null;
-    if (button) { button.disabled = true; button.classList.add('opacity-60'); }
+    if (button) {
+        button.disabled = true;
+        button.classList.add('opacity-60');
+    }
     try {
         const res = await apiCall('/api/areas/sync', { method: 'POST' });
         if (!res.ok) {
@@ -112,14 +122,18 @@ export async function syncAreasFromHA(btn) {
         showToast(t('areas.sync_success_detail', { synced, removed: removedSuffix }), 'success');
         _areasCache = Array.isArray(data?.areas) ? data.areas : [];
         _renderAreas();
-    } catch (err) {
+    }
+    catch (err) {
         console.error('syncAreasFromHA failed', err);
         showToast(`${t('areas.sync_error')}: ${err.message}`, 'error');
-    } finally {
-        if (button) { button.disabled = false; button.classList.remove('opacity-60'); }
+    }
+    finally {
+        if (button) {
+            button.disabled = false;
+            button.classList.remove('opacity-60');
+        }
     }
 }
-
 function _ensureModalAtTopLevel() {
     const modal = document.getElementById('area-editor-modal');
     if (modal && modal.parentElement && modal.parentElement !== document.body) {
@@ -127,7 +141,6 @@ function _ensureModalAtTopLevel() {
     }
     return modal;
 }
-
 function _openEditor(area) {
     console.log('[areas] _openEditor called', { area });
     const modal = _ensureModalAtTopLevel();
@@ -139,72 +152,72 @@ function _openEditor(area) {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     console.log('[areas] modal classes now:', modal.className);
-
     const $ = (id) => document.getElementById(id);
     const isEdit = !!area;
     const synced = !!(area && area.synced);
     _editorState = { mode: isEdit ? 'edit' : 'create', areaId: isEdit ? area.id : null, synced };
-
     try {
         const titleEl = $('area-editor-title');
-        if (titleEl) titleEl.innerHTML = `<i class="fas fa-house-chimney-window"></i><span>${_esc(isEdit ? t('areas.editor_title_edit') : t('areas.editor_title_new'))}</span>`;
-
+        if (titleEl)
+            titleEl.innerHTML = `<i class="fas fa-house-chimney-window"></i><span>${_esc(isEdit ? t('areas.editor_title_edit') : t('areas.editor_title_new'))}</span>`;
         const note = $('area-editor-synced-note');
-        if (note) note.classList.toggle('hidden', !synced);
-
+        if (note)
+            note.classList.toggle('hidden', !synced);
         const deleteBtn = $('area-editor-delete');
-        if (deleteBtn) deleteBtn.classList.toggle('hidden', !isEdit || synced);
-
+        if (deleteBtn)
+            deleteBtn.classList.toggle('hidden', !isEdit || synced);
         const nameEl = $('area-editor-name');
         const floorEl = $('area-editor-floor');
         const iconEl = $('area-editor-icon');
         const aliasesEl = $('area-editor-aliases');
-        if (nameEl) nameEl.value = area?.name || '';
-        if (floorEl) floorEl.value = area?.floor || '';
-        if (iconEl) iconEl.value = area?.icon || '';
-        if (aliasesEl) aliasesEl.value = (Array.isArray(area?.aliases) ? area.aliases : []).join(', ');
-
+        if (nameEl)
+            nameEl.value = area?.name || '';
+        if (floorEl)
+            floorEl.value = area?.floor || '';
+        if (iconEl)
+            iconEl.value = area?.icon || '';
+        if (aliasesEl)
+            aliasesEl.value = (Array.isArray(area?.aliases) ? area.aliases : []).join(', ');
         // Selected entities (separate from name/aliases form)
         _editorState.entities = Array.isArray(area?.extra_entities) ? [...area.extra_entities] : [];
         _renderEditorEntities();
         // Pre-warm entities cache so the picker opens fast
-        _ensureEntitiesLoaded().catch(() => {});
-
+        _ensureEntitiesLoaded().catch(() => { });
         setTimeout(() => nameEl?.focus(), 50);
-    } catch (err) {
+    }
+    catch (err) {
         console.error('[areas] _openEditor populate failed', err);
     }
 }
-
 export function closeAreaEditor() {
     const modal = document.getElementById('area-editor-modal');
-    if (!modal) return;
+    if (!modal)
+        return;
     modal.classList.add('hidden');
     modal.classList.remove('flex');
 }
-
 export function openCreateAreaModal() {
     console.log('[areas] openCreateAreaModal click');
     _openEditor(null);
 }
-
 export function editArea(areaId) {
     const area = _areasCache.find(a => a.id === areaId);
-    if (!area) return;
+    if (!area)
+        return;
     _openEditor(area);
 }
-
 export async function saveAreaFromEditor() {
     const $ = (id) => document.getElementById(id);
     const name = ($('area-editor-name')?.value || '').trim();
-    if (!name) { showToast(t('areas.name_required'), 'error'); return; }
+    if (!name) {
+        showToast(t('areas.name_required'), 'error');
+        return;
+    }
     const floor = ($('area-editor-floor')?.value || '').trim();
     const icon = ($('area-editor-icon')?.value || '').trim();
     const aliasesRaw = ($('area-editor-aliases')?.value || '').trim();
     const aliases = aliasesRaw ? aliasesRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
-
     const payload = { name, floor: floor || null, icon: icon || null, aliases, extra_entities: Array.isArray(_editorState.entities) ? _editorState.entities : [] };
-
     try {
         let res;
         if (_editorState.mode === 'edit' && _editorState.areaId) {
@@ -212,7 +225,8 @@ export async function saveAreaFromEditor() {
                 method: 'PATCH',
                 body: payload,
             });
-        } else {
+        }
+        else {
             res = await apiCall('/api/areas', {
                 method: 'POST',
                 body: payload,
@@ -225,16 +239,18 @@ export async function saveAreaFromEditor() {
         showToast(t('areas.saved'), 'success');
         closeAreaEditor();
         await loadAreas();
-    } catch (err) {
+    }
+    catch (err) {
         console.error('saveAreaFromEditor failed', err);
         showToast(`${t('common.error')}: ${err.message}`, 'error');
     }
 }
-
 export async function deleteArea(areaId) {
     const area = _areasCache.find(a => a.id === areaId);
-    if (!area) return;
-    if (!(await showConfirm(t('areas.delete_confirm', { name: area.name })))) return;
+    if (!area)
+        return;
+    if (!(await showConfirm(t('areas.delete_confirm', { name: area.name }))))
+        return;
     try {
         const res = await apiCall(`/api/areas/${encodeURIComponent(areaId)}`, { method: 'DELETE' });
         if (!res.ok && res.status !== 204) {
@@ -243,17 +259,20 @@ export async function deleteArea(areaId) {
         }
         showToast(t('areas.deleted'), 'success');
         await loadAreas();
-    } catch (err) {
+    }
+    catch (err) {
         console.error('deleteArea failed', err);
         showToast(`${t('common.error')}: ${err.message}`, 'error');
     }
 }
-
 export async function deleteAreaFromEditor() {
-    if (_editorState.mode !== 'edit' || !_editorState.areaId) return;
+    if (_editorState.mode !== 'edit' || !_editorState.areaId)
+        return;
     const area = _areasCache.find(a => a.id === _editorState.areaId);
-    if (!area) return;
-    if (!(await showConfirm(t('areas.delete_confirm', { name: area.name })))) return;
+    if (!area)
+        return;
+    if (!(await showConfirm(t('areas.delete_confirm', { name: area.name }))))
+        return;
     try {
         const res = await apiCall(`/api/areas/${encodeURIComponent(_editorState.areaId)}`, { method: 'DELETE' });
         if (!res.ok && res.status !== 204) {
@@ -263,34 +282,34 @@ export async function deleteAreaFromEditor() {
         showToast(t('areas.deleted'), 'success');
         closeAreaEditor();
         await loadAreas();
-    } catch (err) {
+    }
+    catch (err) {
         console.error('deleteAreaFromEditor failed', err);
         showToast(`${t('common.error')}: ${err.message}`, 'error');
     }
 }
-
 // ─────────────────────────────────────────────────────────────────────────
 // Entity assignment (selected list inside editor + picker modal)
 // ─────────────────────────────────────────────────────────────────────────
-
 async function _ensureEntitiesLoaded(force = false) {
-    const fresh = (Date.now() - _entitiesCacheTime) < 30_000;
-    if (!force && fresh && _allEntitiesCache.length) return _allEntitiesCache;
+    const fresh = (Date.now() - _entitiesCacheTime) < 30000;
+    if (!force && fresh && _allEntitiesCache.length)
+        return _allEntitiesCache;
     const res = await apiCall('/api/integrations/all-entities');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok)
+        throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     _allEntitiesCache = Array.isArray(data?.entities) ? data.entities : [];
     _entitiesCacheTime = Date.now();
     return _allEntitiesCache;
 }
-
 function _entityLookup(eid) {
     return _allEntitiesCache.find(e => e.entity_id === eid);
 }
-
 function _renderEditorEntities() {
     const wrap = document.getElementById('area-editor-entities');
-    if (!wrap) return;
+    if (!wrap)
+        return;
     const ids = Array.isArray(_editorState.entities) ? _editorState.entities : [];
     if (!ids.length) {
         wrap.innerHTML = `<p class="text-[11px] text-slate-500 italic">${_esc(t('areas.entities_empty'))}</p>`;
@@ -309,60 +328,60 @@ function _renderEditorEntities() {
         </span>`;
     }).join('');
 }
-
 export function removeAreaEditorEntity(eid) {
     _editorState.entities = (_editorState.entities || []).filter(x => x !== eid);
     _renderEditorEntities();
 }
-
 export async function openAreaEntityPicker() {
     const modal = document.getElementById('area-entity-picker-modal');
-    if (!modal) return;
-    if (modal.parentElement !== document.body) document.body.appendChild(modal);
+    if (!modal)
+        return;
+    if (modal.parentElement !== document.body)
+        document.body.appendChild(modal);
     modal.classList.remove('hidden');
     modal.classList.add('flex');
-
     _pickerSelected = new Set(_editorState.entities || []);
     _pickerFilter = '';
     const search = document.getElementById('area-entity-picker-search');
-    if (search) search.value = '';
-
+    if (search)
+        search.value = '';
     const list = document.getElementById('area-entity-picker-list');
-    if (list) list.innerHTML = `<div class="text-center text-xs text-slate-500 py-8"><i class="fas fa-spinner fa-spin mr-1.5"></i>${_esc(t('areas.loading_entities'))}</div>`;
-
+    if (list)
+        list.innerHTML = `<div class="text-center text-xs text-slate-500 py-8"><i class="fas fa-spinner fa-spin mr-1.5"></i>${_esc(t('areas.loading_entities'))}</div>`;
     try {
         await _ensureEntitiesLoaded();
         _renderPickerList();
         setTimeout(() => search?.focus(), 50);
-    } catch (err) {
+    }
+    catch (err) {
         console.error('openAreaEntityPicker failed', err);
-        if (list) list.innerHTML = `<div class="text-center text-xs text-rose-400 py-8">${_esc(t('areas.load_entities_error'))}</div>`;
+        if (list)
+            list.innerHTML = `<div class="text-center text-xs text-rose-400 py-8">${_esc(t('areas.load_entities_error'))}</div>`;
     }
 }
-
 export function closeAreaEntityPicker() {
     const modal = document.getElementById('area-entity-picker-modal');
-    if (!modal) return;
+    if (!modal)
+        return;
     modal.classList.add('hidden');
     modal.classList.remove('flex');
 }
-
 export function filterAreaEntityPicker(value) {
     _pickerFilter = String(value || '').trim().toLowerCase();
     _renderPickerList();
 }
-
 function _renderPickerList() {
     const list = document.getElementById('area-entity-picker-list');
     const counter = document.getElementById('area-entity-picker-count');
-    if (!list) return;
+    if (!list)
+        return;
     const q = _pickerFilter;
     const filtered = !q ? _allEntitiesCache : _allEntitiesCache.filter(e => {
         const hay = `${e.entity_id} ${e.name || ''} ${e.friendly_name || ''} ${e.source || ''} ${e.area || ''}`.toLowerCase();
         return hay.includes(q);
     });
-    if (counter) counter.textContent = t('areas.picker_selected', { selected: _pickerSelected.size, filtered: filtered.length, total: _allEntitiesCache.length });
-
+    if (counter)
+        counter.textContent = t('areas.picker_selected', { selected: _pickerSelected.size, filtered: filtered.length, total: _allEntitiesCache.length });
     if (!filtered.length) {
         list.innerHTML = `<p class="text-center text-xs text-slate-500 py-8">${_esc(t('areas.picker_empty'))}</p>`;
         return;
@@ -389,14 +408,15 @@ function _renderPickerList() {
         </label>`;
     }).join('') + (filtered.length > 500 ? `<p class="text-center text-[10px] text-slate-500 py-2">${_esc(t('areas.picker_truncated', { count: filtered.length - 500 }))}</p>` : '');
 }
-
 export function toggleAreaPickerEntity(eid, checked) {
-    if (checked) _pickerSelected.add(eid);
-    else _pickerSelected.delete(eid);
+    if (checked)
+        _pickerSelected.add(eid);
+    else
+        _pickerSelected.delete(eid);
     const counter = document.getElementById('area-entity-picker-count');
-    if (counter) counter.textContent = t('areas.picker_selected_total', { selected: _pickerSelected.size, total: _allEntitiesCache.length });
+    if (counter)
+        counter.textContent = t('areas.picker_selected_total', { selected: _pickerSelected.size, total: _allEntitiesCache.length });
 }
-
 export function confirmAreaEntityPicker() {
     _editorState.entities = Array.from(_pickerSelected);
     _renderEditorEntities();

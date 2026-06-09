@@ -1,29 +1,8 @@
 /**
  * Dashboard widget card HTML renderers (Hyveview outer article shell).
- * Each function receives (widget, ctx) where ctx is built by dashboard.js.
+ * Each function receives (widget, ctx) where ctx is built by widget_cards.js.
  */
-
 import * as HVBridge from '/static/hyveview/bridge.js';
-
-/** @typedef {{
- *   renderer?: string,
- *   getEditMode: () => boolean,
- *   widgetDragAttrs: (widget: object) => string,
- *   widgetEditControls: (widget: object) => string,
- *   widgetSizeClass: (widget: object) => string,
- *   widgetSpan: (widget: object) => { col: number, row: number },
- *   widgetRenderer: (widget: object) => string,
- *   escapeHtml: (value: unknown) => string,
- *   stateOn: (state: string) => boolean,
- *   controlVisuallyPending: (widgetId: string) => boolean,
- *   renderCardElement: (widget: object) => string,
- *   widgetTitle: (widget: object, opts?: object) => string,
- *   getCache: () => object,
- *   cameraPreferWebmPlayer: (attrs: object) => boolean,
- *   cameraSupportsGo2rtc: (attrs: object) => boolean,
- *   interactive?: boolean,
- * }} CardRenderCtx */
-
 export function renderLabelCard(widget, ctx) {
     const editMode = ctx.getEditMode();
     const labelClasses = widget.show_background
@@ -38,7 +17,6 @@ export function renderLabelCard(widget, ctx) {
             ${ctx.widgetEditControls(widget)}
         </article>`;
 }
-
 export function renderTileCard(widget, ctx, opts = {}) {
     const interactive = opts.interactive !== undefined ? opts.interactive : ctx.interactive !== false;
     const editMode = ctx.getEditMode();
@@ -65,42 +43,49 @@ export function renderTileCard(widget, ctx, opts = {}) {
             ${ctx.widgetEditControls(widget)}
         </article>`;
 }
-
 export function cameraCardMode(widget) {
-    const config = widget?.config && typeof widget.config === 'object' ? widget.config : {};
+    const config = widget?.config && typeof widget.config === 'object'
+        ? widget.config
+        : {};
     const mode = String(config.camera_mode || widget?.camera_mode || '').trim().toLowerCase();
     return mode === 'live' ? 'live' : 'snapshots';
 }
-
 export function cameraWidgetEntities(widget, ctx) {
-    const cfg = widget?.config && typeof widget.config === 'object' ? widget.config : {};
+    const cfg = widget?.config && typeof widget.config === 'object'
+        ? widget.config
+        : {};
     const raw = Array.isArray(cfg.entities) ? cfg.entities : [];
     const fromConfig = raw.map((e) => {
-        if (typeof e === 'string') return { entity_id: e, title: '', subtitle: '' };
+        if (typeof e === 'string')
+            return { entity_id: e, title: '', subtitle: '' };
+        const row = e;
         return {
-            entity_id: String(e?.entity_id || '').trim(),
-            title: String(e?.title || '').trim(),
-            subtitle: String(e?.subtitle || '').trim(),
+            entity_id: String(row?.entity_id || '').trim(),
+            title: String(row?.title || '').trim(),
+            subtitle: String(row?.subtitle || '').trim(),
         };
     }).filter((e) => e.entity_id);
-    if (fromConfig.length) return fromConfig;
+    if (fromConfig.length)
+        return fromConfig;
     const eid = String(widget?.entity_id || '').trim();
-    if (!eid) return [];
+    if (!eid)
+        return [];
     return [{
-        entity_id: eid,
-        title: ctx.widgetTitle(widget, { entityId: eid }),
-        subtitle: '',
-    }];
+            entity_id: eid,
+            title: ctx.widgetTitle(widget, { entityId: eid }),
+            subtitle: '',
+        }];
 }
-
 export function renderCameraCard(widget, ctx) {
     const editMode = ctx.getEditMode();
     const entities = cameraWidgetEntities(widget, ctx);
-    const primary = entities[0] || {};
+    const primary = entities[0] || { entity_id: '', title: '', subtitle: '' };
     const entityId = String(primary.entity_id || widget.entity_id || '');
     const title = widget.title || primary.title || widget.entity_name || entityId;
     const mode = cameraCardMode(widget);
-    const cfg = widget?.config && typeof widget.config === 'object' ? widget.config : {};
+    const cfg = widget?.config && typeof widget.config === 'object'
+        ? widget.config
+        : {};
     const interval = Math.max(2, Number(cfg.refresh_interval || cfg.interval || 10));
     const defaultAudio = !!cfg.default_audio;
     const defaultMic = !!cfg.default_microphone;
@@ -145,7 +130,6 @@ export function renderCameraCard(widget, ctx) {
             ${ctx.widgetEditControls(widget)}
         </article>`;
 }
-
 export function renderPictureCard(widget, ctx) {
     const editMode = ctx.getEditMode();
     const esc = ctx.escapeHtml;
@@ -160,7 +144,6 @@ export function renderPictureCard(widget, ctx) {
             ${ctx.widgetEditControls(widget)}
         </article>`;
 }
-
 /**
  * Generic Hyveview article shell driven by package `shell` metadata (bridge registry).
  * Specialized kinds (label, tile, camera, picture, climate) keep dedicated renderers.
@@ -169,38 +152,38 @@ export function renderHyveviewShell(widget, ctx, opts = {}) {
     const type = HVBridge.effectiveCardType(widget) || ctx.widgetRenderer(widget);
     const shell = HVBridge.getCardSpec(type)?.shell || {};
     const editMode = ctx.getEditMode();
-
-    if (shell.kind === 'label') return renderLabelCard(widget, ctx);
-    if (shell.kind === 'camera') return renderCameraCard(widget, ctx);
-    if (shell.kind === 'picture') return renderPictureCard(widget, ctx);
-
+    if (shell.kind === 'label')
+        return renderLabelCard(widget, ctx);
+    if (shell.kind === 'camera')
+        return renderCameraCard(widget, ctx);
+    if (shell.kind === 'picture')
+        return renderPictureCard(widget, ctx);
     if (shell.clickable === 'tile') {
         const interactive = type !== 'info' && opts.interactive !== false;
         return renderTileCard(widget, ctx, { interactive });
     }
-
     const modifier = String(shell.articleClass || '').trim();
     let articleClass = 'hyve-dashboard-card';
     if (modifier && modifier !== 'hyve-dashboard-card') {
         articleClass += ` ${modifier}`;
     }
     if (shell.spanCompact) {
+        const spanCompact = shell.spanCompact;
         widget._span = ctx.widgetSpan(widget);
-        const maxRow = shell.spanCompact.maxRow ?? 1;
+        const maxRow = spanCompact.maxRow ?? 1;
         if (widget._span.row <= maxRow) {
-            articleClass += ` ${shell.spanCompact.class}`;
+            articleClass += ` ${spanCompact.class}`;
         }
     }
-
-    if (shell.editModeFlag) widget._edit_mode = !!editMode;
-
+    if (shell.editModeFlag)
+        widget._edit_mode = !!editMode;
     let clickable = false;
     if (shell.clickable === 'controllable') {
         clickable = !editMode && widget.controllable !== false && widget.available !== false;
-    } else if (shell.clickable === true) {
+    }
+    else if (shell.clickable === true) {
         clickable = !editMode;
     }
-
     const cardActionAttrs = clickable
         ? `role="button" tabindex="0" data-dash-action="cardActivate" data-dash-action-key="cardActivate" data-widget-id="${ctx.escapeHtml(widget.id)}"`
         : '';
@@ -208,7 +191,6 @@ export function renderHyveviewShell(widget, ctx, opts = {}) {
     const unavailableAttr = shell.trackUnavailable
         ? ` data-unavailable="${widget.available === false ? 'true' : 'false'}"`
         : '';
-
     return `
         <article ${ctx.widgetDragAttrs(widget)} ${cardActionAttrs}
             class="${articleClass} ${ctx.widgetSizeClass(widget)}"${dataOnAttr}

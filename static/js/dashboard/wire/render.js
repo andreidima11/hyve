@@ -1,44 +1,22 @@
 /**
  * Render stack wiring — preferences, toggle, live, visibility, cards, render, loader.
  */
-
 import { t } from '../../lang/index.js';
 import { escapeHtml, stateOn } from '../helpers.js';
 import { applyDashboardEditAccess, canEditDashboard, requireDashboardEditAccess } from '../edit_access.js';
 import { enhanceSparklines } from '../sparklines.js';
-import {
-    dashboardIntentAction,
-    iconClass,
-    isControllableDomain,
-    isInfoDomain,
-    widgetRenderer,
-} from '../widget_meta.js';
+import { dashboardIntentAction, iconClass, isControllableDomain, isInfoDomain, widgetRenderer, } from '../widget_meta.js';
 import { dashboardDefaultRowsForType } from '../card_catalog.js';
 import { HVBridge } from '../hyveview_setup.js';
-import {
-    filteredWidgets,
-    initDashboardPreferences,
-    syncPreferenceControls,
-    updateStats,
-} from '../dashboard_preferences.js';
+import { filteredWidgets, initDashboardPreferences, syncPreferenceControls, updateStats, } from '../dashboard_preferences.js';
 import { initDashboardWidgetToggle } from '../widget_toggle.js';
 import { controlPending, controlVisuallyPending } from '../control_state.js';
 import { findWidget, dashboardWidgetById } from '../widget_store.js';
-import {
-    configureHyveviewMounted,
-    connectDashboardLive,
-    initDashboardLiveBridge,
-    resumeDashboardCameras,
-    tryFastPathForEntities,
-} from '../live_bridge.js';
+import { configureHyveviewMounted, connectDashboardLive, initDashboardLiveBridge, resumeDashboardCameras, tryFastPathForEntities, } from '../live_bridge.js';
 import { initDashboardVisibility } from '../dashboard_visibility.js';
 import { cameraWidgetEntities, initDashboardWidgetCards } from '../widget_cards.js';
 import { initDashboardRender, renderDashboard } from '../dashboard_render.js';
-import {
-    initDashboardLoader,
-    readDashboardSectionFallback,
-    writeDashboardSectionFallback,
-} from '../dashboard_loader.js';
+import { initDashboardLoader, readDashboardSectionFallback, writeDashboardSectionFallback, } from '../dashboard_loader.js';
 import { updateDashboardEntityOptions } from '../widget_add_modal.js';
 import { setEntitySelectState } from '../entity_picker.js';
 import { isDashboardStandalonePanel } from '../standalone_panel.js';
@@ -47,17 +25,7 @@ import { resolveCurrentDashboardPageId, renderDashboardPagesList } from '../page
 import { activeDashboardPageId } from '../dashboard_context.js';
 import { resetDashboardEditingState } from '../editing_state.js';
 import { climateConfiguredIds } from '../climate.js';
-import {
-    getDashboardCache,
-    setDashboardCache,
-    getDashboardEditMode,
-    setDashboardEditMode,
-    getCurrentPageId,
-    setCurrentPageId,
-    withoutDashboardEditMode,
-    renderCachedDashboardIfEmpty,
-} from '../dashboard_state.js';
-
+import { getDashboardCache, setDashboardCache, getDashboardEditMode, setDashboardEditMode, getCurrentPageId, setCurrentPageId, withoutDashboardEditMode, renderCachedDashboardIfEmpty, } from '../dashboard_state.js';
 export function wireDashboardRender() {
     initDashboardPreferences({
         getCache: getDashboardCache,
@@ -72,7 +40,6 @@ export function wireDashboardRender() {
         writeDashboardSectionFallback,
         t,
     });
-
     initDashboardWidgetToggle({
         getCache: getDashboardCache,
         getEditMode: getDashboardEditMode,
@@ -84,7 +51,6 @@ export function wireDashboardRender() {
         getActivePageId: activeDashboardPageId,
         t,
     });
-
     initDashboardLiveBridge({
         HVBridge,
         getCache: getDashboardCache,
@@ -94,12 +60,10 @@ export function wireDashboardRender() {
         widgetById: dashboardWidgetById,
         renderDashboard,
     });
-
     initDashboardVisibility({
         getEditMode: getDashboardEditMode,
         renderDashboard,
     });
-
     initDashboardWidgetCards({
         getCache: getDashboardCache,
         getEditMode: getDashboardEditMode,
@@ -108,11 +72,10 @@ export function wireDashboardRender() {
         dashboardDefaultRowsForType,
         escapeHtml,
         stateOn,
-        controlVisuallyPending,
+        controlVisuallyPending: (widgetId) => controlVisuallyPending(widgetId ?? ''),
         HVBridge,
         t,
     });
-
     initDashboardRender({
         getCache: getDashboardCache,
         getEditMode: getDashboardEditMode,
@@ -128,7 +91,6 @@ export function wireDashboardRender() {
         configureHyveviewMounted,
         resumeDashboardCameras,
     });
-
     initDashboardLoader({
         getDashboardCache,
         setDashboardCache,

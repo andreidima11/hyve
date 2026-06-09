@@ -1,0 +1,88 @@
+/**
+ * Helpers for choosing live camera transport (WebM+audio vs MJPEG vs go2rtc).
+ * Tapo sets live_providers including "webm"; Frigate uses mjpeg/go2rtc only.
+ */
+
+import type { CameraEntityAttrs, CameraLiveTransport } from './types/camera.js';
+
+function asCameraAttrs(attrs: unknown): CameraEntityAttrs | null {
+    if (!attrs || typeof attrs !== 'object') return null;
+    return attrs as CameraEntityAttrs;
+}
+
+export function cameraHasRtspLive(attrs: unknown): boolean {
+    const a = asCameraAttrs(attrs);
+    if (!a) return false;
+    for (const key of ['rtsp_url', 'stream_url'] as const) {
+        const url = String(a[key] || '').trim().toLowerCase();
+        if (url.startsWith('rtsp://')) return true;
+    }
+    return false;
+}
+
+export function cameraSupportsWebmLive(attrs: unknown): boolean {
+    const a = asCameraAttrs(attrs);
+    if (!a) return false;
+    const providers = a.live_providers;
+    return Array.isArray(providers) && providers.includes('webm');
+}
+
+/**
+ * Tapo/Reolink-style live player (WebM + audio).
+ * Frigate exposes RTSP for restream but live_providers are mjpeg/go2rtc only —
+ * do not treat bare rtsp_url as WebM-capable when providers are declared.
+ */
+export function cameraPreferWebmPlayer(attrs: unknown): boolean {
+    const a = asCameraAttrs(attrs);
+    if (!a) return false;
+    const providers = a.live_providers;
+    if (Array.isArray(providers)) {
+        return providers.includes('webm');
+    }
+    return cameraHasRtspLive(attrs);
+}
+
+/** HTTP MJPEG or snapshot proxy (Frigate, birdseye, etc.). */
+export function cameraPreferHttpLive(attrs: unknown): boolean {
+    const a = asCameraAttrs(attrs);
+    if (!a) return false;
+    const providers = a.live_providers;
+    if (Array.isArray(providers)) {
+        return providers.includes('mjpeg') || providers.includes('go2rtc') || providers.includes('snapshot');
+    }
+    const mjpeg = String(a.mjpeg_url || '').trim();
+    return mjpeg.startsWith('http://') || mjpeg.startsWith('https://');
+}
+
+/** Pick the live transport for hyve-camera-live-player. */
+export function cameraLiveTransport(attrs: unknown): CameraLiveTransport {
+    if (cameraSupportsGo2rtc(attrs)) return 'go2rtc';
+    if (cameraPreferWebmPlayer(attrs)) return 'webm';
+    return 'mjpeg';
+}
+
+export function cameraSupportsGo2rtc(attrs: unknown): boolean {
+    const a = asCameraAttrs(attrs);
+    if (!a) return false;
+    return !!(a.go2rtc_available && a.go2rtc_stream);
+}
+
+export function cameraMseCodecs(): string {
+    return [
+        'avc1.640029',
+        'avc1.64002A',
+        'avc1.640033',
+        'mp4a.40.2',
+        'mp4a.40.5',
+        'opus',
+    ].join(',');
+}
+
+export function cameraGo2rtcWsUrl(entityId: string): string {
+    const params = new URLSearchParams();
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('hyve_token') : '';
+    if (token) params.set('token', token);
+    const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = typeof window !== 'undefined' ? window.location.host : '';
+    return `${protocol}//${host}/api/cameras/${encodeURIComponent(entityId)}/go2rtc/ws?${params.toString()}`;
+}

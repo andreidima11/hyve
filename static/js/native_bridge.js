@@ -4,33 +4,29 @@
  */
 import { showToast } from './utils.js';
 import { switchTab, switchUserProfileTab } from './nav_bridge.js';
-
-/** @type {((filter?: string) => void) | null} */
 let _loadUserNotifications = null;
-/** @type {((sessionId: string) => Promise<void>) | null} */
 let _openSession = null;
-
-export function installHyveNativeBridge({ loadUserNotifications, openSession } = {}) {
+export function installHyveNativeBridge(deps = {}) {
+    const { loadUserNotifications, openSession } = deps;
     if (typeof loadUserNotifications === 'function') {
         _loadUserNotifications = loadUserNotifications;
     }
     if (typeof openSession === 'function') {
         _openSession = openSession;
     }
-
-    window.__hyveShowNotification = function(title, message, sessionId) {
+    window.__hyveShowNotification = (title, message, sessionId) => {
         switchTab('user');
         switchUserProfileTab('notifications');
         _loadUserNotifications?.('all');
         if (sessionId && _openSession) {
-            _openSession(sessionId).catch(() => {});
+            _openSession(sessionId).catch(() => { });
         }
-        if (message) showToast(message, 'info', 3500);
+        if (message)
+            showToast(message, 'info', 3500);
     };
-
     if (window.__pendingHyveNotification) {
         const pending = window.__pendingHyveNotification;
         delete window.__pendingHyveNotification;
-        window.__hyveShowNotification(pending.title, pending.message, pending.sessionId);
+        window.__hyveShowNotification?.(pending.title, pending.message, pending.sessionId);
     }
 }

@@ -1,33 +1,18 @@
+// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Live chat stream session — SSE reader, bubble renderer, and finalization.
  */
-
 import { apiCall } from '../api.js';
 import { t } from '../lang/index.js';
 import { escapeHtml, showToast, buildSourcesHtml, refreshSourceFavicons } from '../utils.js';
 import { loadSessionsList } from '../nav_bridge.js';
 import { isVoiceInputPending, setVoiceInputPending } from '../voice_state.js';
-import {
-    appendConsciousnessFeedbackBar,
-    buildForgePreviewHtml,
-    decorateCodeBlocks,
-    decorateImages,
-    enhanceForgePreview,
-} from './render.js';
+import { appendConsciousnessFeedbackBar, buildForgePreviewHtml, decorateCodeBlocks, decorateImages, enhanceForgePreview, } from './render.js';
 import { scrollChatToBottom } from './scroll.js';
 import { currentSessionId, setSessionDisplay } from './session_state.js';
-import {
-    buildAgentTimelineHtml,
-    buildPendingStateHtml,
-    buildTimelineStructureKey,
-} from './timeline.js';
-import {
-    contentAfterThink,
-    splitThinkingFromReply,
-    stripThinkFromContent,
-} from './stream_thinking.js';
+import { buildAgentTimelineHtml, buildPendingStateHtml, buildTimelineStructureKey, } from './timeline.js';
+import { contentAfterThink, splitThinkingFromReply, stripThinkFromContent, } from './stream_thinking.js';
 import { getTts, speakBubble } from './tts.js';
-
 /**
  * Consume an SSE chat response body and render the live AI bubble.
  * @param {object} opts
@@ -39,14 +24,7 @@ import { getTts, speakBubble } from './tts.js';
  * @param {Response} response
  */
 export async function runChatStreamSession(opts, response) {
-    const {
-        aiBubbleId,
-        newSessionId,
-        hasImage,
-        applyBubbleGlow,
-        onResendMessage,
-    } = opts;
-
+    const { aiBubbleId, newSessionId, hasImage, applyBubbleGlow, onResendMessage, } = opts;
     let fullText = "";
     let sseBuffer = "";
     const statusLines = [];
@@ -76,15 +54,14 @@ export async function runChatStreamSession(opts, response) {
     let chunkThrottleTimer = 0;
     let lastChunkRenderTime = 0;
     const CHUNK_RENDER_THROTTLE_MS = 72;
-
     const proposalCards = [];
     const forgePreview = { content: '', language: 'python', done: false };
-
     // Streaming TTS: accumulate text and push complete sentences
     let _ttsAccum = '';
     getTts().streamReset(bubble);
     function scheduleRender() {
-        if (scheduledRenderRAF) return;
+        if (scheduledRenderRAF)
+            return;
         scheduledRenderRAF = requestAnimationFrame(() => {
             scheduledRenderRAF = 0;
             renderBubble(isStreaming);
@@ -95,18 +72,19 @@ export async function runChatStreamSession(opts, response) {
         if (now - lastChunkRenderTime >= CHUNK_RENDER_THROTTLE_MS) {
             lastChunkRenderTime = now;
             scheduleRender();
-        } else if (!chunkThrottleTimer) {
+        }
+        else if (!chunkThrottleTimer) {
             const delay = CHUNK_RENDER_THROTTLE_MS - (now - lastChunkRenderTime);
             chunkThrottleTimer = setTimeout(() => {
                 chunkThrottleTimer = 0;
                 lastChunkRenderTime = Date.now();
-                if (scheduledRenderRAF) cancelAnimationFrame(scheduledRenderRAF);
+                if (scheduledRenderRAF)
+                    cancelAnimationFrame(scheduledRenderRAF);
                 scheduledRenderRAF = 0;
                 renderBubble(isStreaming);
             }, Math.max(16, delay));
         }
     }
-
     function attachBubbleListeners(bubble) {
         const thinkingBlock = bubble.querySelector(".chat-thinking-block");
         const thinkingToggle = bubble.querySelector(".chat-thinking-toggle");
@@ -116,7 +94,8 @@ export async function runChatStreamSession(opts, response) {
                 thinkingToggle.setAttribute("aria-expanded", open);
                 if (open) {
                     const contentBox = thinkingBlock.querySelector(".chat-thinking-content");
-                    if (contentBox) contentBox.scrollTop = contentBox.scrollHeight;
+                    if (contentBox)
+                        contentBox.scrollTop = contentBox.scrollHeight;
                 }
             });
         }
@@ -138,15 +117,20 @@ export async function runChatStreamSession(opts, response) {
                         btn.disabled = true;
                         onResendMessage("da");
                     }
-                } catch (e) { console.warn("Shell allow failed", e); }
+                }
+                catch (e) {
+                    console.warn("Shell allow failed", e);
+                }
             });
         });
         bubble.querySelectorAll(".chat-shell-run-btn").forEach(btn => {
             const card = btn.closest(".chat-shell-suggest");
-            if (!card) return;
+            if (!card)
+                return;
             btn.addEventListener("click", async () => {
                 const command = card.getAttribute("data-command") || "";
-                if (!command) return;
+                if (!command)
+                    return;
                 btn.disabled = true;
                 try {
                     const res = await fetch("/api/shell/run", {
@@ -163,11 +147,13 @@ export async function runChatStreamSession(opts, response) {
                             shellCards[idx] = { command, exit_code: parseInt(exitCode, 10) || 0, output_preview: (outputMatch && outputMatch[1]) ? outputMatch[1].trim() : data.result };
                             renderBubble(isStreaming);
                         }
-                    } else {
+                    }
+                    else {
                         shellCards.push({ command, exit_code: 1, output_preview: data.error || "Error" });
                         renderBubble(isStreaming);
                     }
-                } catch (e) {
+                }
+                catch (e) {
                     shellCards.push({ command, exit_code: 1, output_preview: (e && e.message) || "Error" });
                     renderBubble(isStreaming);
                 }
@@ -175,11 +161,13 @@ export async function runChatStreamSession(opts, response) {
         });
         bubble.querySelectorAll(".chat-shell-cancel-btn").forEach(btn => {
             const card = btn.closest(".chat-shell-suggest");
-            if (!card) return;
+            if (!card)
+                return;
             btn.addEventListener("click", () => {
                 const command = card.getAttribute("data-command") || "";
                 const idx = shellCards.findIndex(c => c.suggest && c.command === command);
-                if (idx !== -1) shellCards.splice(idx, 1);
+                if (idx !== -1)
+                    shellCards.splice(idx, 1);
                 renderBubble(isStreaming);
             });
         });
@@ -194,13 +182,14 @@ export async function runChatStreamSession(opts, response) {
                         btn.textContent = t('common.copy');
                         btn.classList.remove('copied');
                     }, 2000);
-                }).catch(() => {});
+                }).catch(() => { });
             });
         });
         bubble.querySelectorAll('.chat-forge-preview-select').forEach(btn => {
             btn.addEventListener('click', () => {
                 const pre = btn.closest('.chat-forge-preview')?.querySelector('pre');
-                if (!pre) return;
+                if (!pre)
+                    return;
                 const range = document.createRange();
                 range.selectNodeContents(pre);
                 const sel = window.getSelection();
@@ -210,25 +199,38 @@ export async function runChatStreamSession(opts, response) {
         });
         bubble.querySelectorAll(".chat-proposal-apply-btn").forEach(btn => {
             const card = btn.closest(".chat-proposal-card");
-            if (!card) return;
+            if (!card)
+                return;
             btn.addEventListener("click", async () => {
                 const raw = card.getAttribute("data-proposal");
-                if (!raw) return;
+                if (!raw)
+                    return;
                 try {
                     const proposal = JSON.parse(raw.replace(/&quot;/g, '"'));
                     const res = await fetch("/api/proposal/apply", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("hyve_token") || ""}` }, body: JSON.stringify(proposal) });
                     const data = await res.json().catch(() => ({}));
-                    if (res.ok) { btn.textContent = t("chat.proposal_applied") || "Aplicat"; btn.disabled = true; card.querySelector(".chat-proposal-refuse-btn")?.remove(); }
-                    else { showToast(data.detail || data.error || "Error", 'error'); }
-                } catch (e) { showToast(e && e.message || "Error", 'error'); }
+                    if (res.ok) {
+                        btn.textContent = t("chat.proposal_applied") || "Aplicat";
+                        btn.disabled = true;
+                        card.querySelector(".chat-proposal-refuse-btn")?.remove();
+                    }
+                    else {
+                        showToast(data.detail || data.error || "Error", 'error');
+                    }
+                }
+                catch (e) {
+                    showToast(e && e.message || "Error", 'error');
+                }
             });
         });
         bubble.querySelectorAll(".chat-proposal-refuse-btn").forEach(btn => {
             const card = btn.closest(".chat-proposal-card");
-            if (!card) return;
+            if (!card)
+                return;
             btn.addEventListener("click", () => {
                 const idx = parseInt(card.getAttribute("data-proposal-index"), 10);
-                if (!Number.isNaN(idx) && idx >= 0 && idx < proposalCards.length) proposalCards.splice(idx, 1);
+                if (!Number.isNaN(idx) && idx >= 0 && idx < proposalCards.length)
+                    proposalCards.splice(idx, 1);
                 renderBubble(isStreaming);
             });
         });
@@ -237,7 +239,6 @@ export async function runChatStreamSession(opts, response) {
         decorateImages(bubble);
         void refreshSourceFavicons(bubble);
     }
-
     function renderBubble(streaming) {
         const showFinalStructure = !streaming;
         const hasThinking = thinkingContent.length > 0;
@@ -247,7 +248,8 @@ export async function runChatStreamSession(opts, response) {
             // If thinking is streamed separately, fullText may not contain think tags.
             // In that case, keep streaming normal content instead of hiding it.
             displayContent = afterThink ? stripThinkFromContent(afterThink) : stripThinkFromContent(fullText);
-        } else {
+        }
+        else {
             displayContent = stripThinkFromContent(fullText);
         }
         const thinkingDurationSec = (thinkingStartTime && (firstChunkTime || !streaming))
@@ -267,7 +269,6 @@ export async function runChatStreamSession(opts, response) {
                 displayContent = stripThinkFromContent(thinkFallback);
             }
         }
-
         const thinkingWasOpen = !!bubble.querySelector(".chat-thinking-block.chat-thinking-open");
         const stepsCount = statusLines.length;
         // Thinking is now integrated into the unified timeline (no separate dropdown).
@@ -293,11 +294,9 @@ export async function runChatStreamSession(opts, response) {
             streaming,
             hasThinkingContent: !!timelineThinkingContent.trim(),
         });
-
         const forgePreviewHtml = forgePreview.content
             ? buildForgePreviewHtml(forgePreview.content, forgePreview.language || 'python', streaming && !forgePreview.done)
             : '';
-
         const streamCursor = streaming ? '<span class="chat-stream-cursor" aria-hidden="true"></span>' : '';
         const pendingLabel = pendingPhaseLabel || (pendingPhase === 'vision'
             ? 'Analizez imaginea'
@@ -315,10 +314,7 @@ export async function runChatStreamSession(opts, response) {
                 if (streaming) {
                     // Replace complete ![alt](url) with a loading placeholder card
                     const imgLoadingLabel = t("chat.image_loading") || "Se încarcă imaginea...";
-                    renderContent = renderContent.replace(
-                        /!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g,
-                        (_m, _alt, _url) => `\n\n<div class="chat-image-placeholder"><i class="fas fa-image"></i> ${imgLoadingLabel}</div>\n\n`
-                    );
+                    renderContent = renderContent.replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g, (_m, _alt, _url) => `\n\n<div class="chat-image-placeholder"><i class="fas fa-image"></i> ${imgLoadingLabel}</div>\n\n`);
                     // Hide incomplete image markdown that's still being streamed (e.g. "![alt text" or "![alt](partial...")
                     renderContent = renderContent.replace(/!\[[^\]]*(?:\](?:\([^)]*)?)?$/g, '');
                 }
@@ -334,7 +330,8 @@ export async function runChatStreamSession(opts, response) {
                     let markedPart = '';
                     try {
                         markedPart = DOMPurify.sanitize(marked.parse(before));
-                    } catch (_e) {
+                    }
+                    catch (_e) {
                         markedPart = escapeHtml(before);
                     }
                     const streamBlock = `<div class="chat-code-block chat-code-streaming"><div class="chat-code-header"><span class="chat-code-lang">${escapeHtml(lang)}</span></div><pre><code>${escapeHtml(streamCode)}</code></pre></div>`;
@@ -343,7 +340,8 @@ export async function runChatStreamSession(opts, response) {
                 let parsedHtml = '';
                 try {
                     parsedHtml = DOMPurify.sanitize(marked.parse(renderContent));
-                } catch (_e) {
+                }
+                catch (_e) {
                     parsedHtml = escapeHtml(renderContent).replace(/\n/g, '<br>');
                 }
                 return `<div class="chat-bubble-content prose prose-invert prose-sm">${parsedHtml}${streamCursor}</div>`;
@@ -396,13 +394,10 @@ export async function runChatStreamSession(opts, response) {
         // Search sources cards (citation cards)
         const sourcesHtml = streaming ? '' : buildSourcesHtml(searchSources);
         const cardsHtml = (shellCardsHtml ? `<div class="chat-shell-cards">${shellCardsHtml}</div>` : "") + (proposalCardsHtml ? `<div class="chat-proposal-cards">${proposalCardsHtml}</div>` : "") + sourcesHtml;
-
         bubble.classList.remove("chat-bubble-typing");
-
         const existingThinkingBlock = bubble.querySelector(".chat-thinking-block");
         const bubbleAlreadyBuilt = !!bubble.querySelector(".chat-bubble-part.chat-bubble-main");
         const doPartialUpdate = streaming && (existingThinkingBlock || bubbleAlreadyBuilt);
-
         if (doPartialUpdate) {
             const agentPart = bubble.querySelector('.chat-bubble-part.chat-bubble-agent');
             const stepsPart = bubble.querySelector(".chat-bubble-part.chat-bubble-steps");
@@ -410,57 +405,68 @@ export async function runChatStreamSession(opts, response) {
             const previewPart = bubble.querySelector(".chat-bubble-part.chat-bubble-preview");
             const mainPart = bubble.querySelector(".chat-bubble-part.chat-bubble-main");
             const cardsPart = bubble.querySelector(".chat-bubble-part.chat-bubble-cards");
-            if (agentPart) agentPart.innerHTML = agentActivityHtml;
+            if (agentPart)
+                agentPart.innerHTML = agentActivityHtml;
             // Rewrite timeline only when step structure changes; reasoning text
             // is patched incrementally so spinners don't restart every token.
             if (stepsPart) {
                 if (stepsPart.dataset.timelineStructure !== timelineStructureKey) {
                     stepsPart.innerHTML = stepsHtml;
                     stepsPart.dataset.timelineStructure = timelineStructureKey;
-                } else if (timelineThinkingContent) {
+                }
+                else if (timelineThinkingContent) {
                     const streamEl = stepsPart.querySelector('.chat-agent-timeline__detail-stream');
                     if (streamEl) {
                         streamEl.innerHTML = escapeHtml(timelineThinkingContent).replace(/\n/g, '<br>');
                         const detailBox = streamEl.closest('.chat-agent-timeline__detail');
-                        if (detailBox) detailBox.scrollTop = detailBox.scrollHeight;
+                        if (detailBox)
+                            detailBox.scrollTop = detailBox.scrollHeight;
                     }
                 }
             }
-            if (thinkingPart) thinkingPart.innerHTML = thinkingHtml;
-            if (previewPart) previewPart.innerHTML = forgePreviewHtml;
-            if (mainPart) mainPart.innerHTML = contentHtml;
-            if (cardsPart) cardsPart.innerHTML = cardsHtml;
+            if (thinkingPart)
+                thinkingPart.innerHTML = thinkingHtml;
+            if (previewPart)
+                previewPart.innerHTML = forgePreviewHtml;
+            if (mainPart)
+                mainPart.innerHTML = contentHtml;
+            if (cardsPart)
+                cardsPart.innerHTML = cardsHtml;
             attachBubbleListeners(bubble);
             if (thinkingWasOpen) {
                 const thinkingContentBox = bubble.querySelector(".chat-thinking-block.chat-thinking-open .chat-thinking-content");
-                if (thinkingContentBox) thinkingContentBox.scrollTop = thinkingContentBox.scrollHeight;
-            }
-        } else {
-            bubble.innerHTML =
-                '<div class="chat-bubble-part chat-bubble-agent">' + agentActivityHtml + '</div>' +
-                '<div class="chat-bubble-part chat-bubble-steps">' + stepsHtml + '</div>' +
-                '<div class="chat-bubble-part chat-bubble-thinking">' + thinkingHtml + '</div>' +
-                '<div class="chat-bubble-part chat-bubble-preview">' + forgePreviewHtml + '</div>' +
-                '<div class="chat-bubble-part chat-bubble-main">' + contentHtml + '</div>' +
-                '<div class="chat-bubble-part chat-bubble-cards">' + cardsHtml + '</div>';
-            const stepsPartInit = bubble.querySelector(".chat-bubble-part.chat-bubble-steps");
-            if (stepsPartInit) stepsPartInit.dataset.timelineStructure = timelineStructureKey;
-            attachBubbleListeners(bubble);
-            if (thinkingWasOpen) {
-                const thinkingContentBox = bubble.querySelector(".chat-thinking-block.chat-thinking-open .chat-thinking-content");
-                if (thinkingContentBox) thinkingContentBox.scrollTop = thinkingContentBox.scrollHeight;
+                if (thinkingContentBox)
+                    thinkingContentBox.scrollTop = thinkingContentBox.scrollHeight;
             }
         }
-
+        else {
+            bubble.innerHTML =
+                '<div class="chat-bubble-part chat-bubble-agent">' + agentActivityHtml + '</div>' +
+                    '<div class="chat-bubble-part chat-bubble-steps">' + stepsHtml + '</div>' +
+                    '<div class="chat-bubble-part chat-bubble-thinking">' + thinkingHtml + '</div>' +
+                    '<div class="chat-bubble-part chat-bubble-preview">' + forgePreviewHtml + '</div>' +
+                    '<div class="chat-bubble-part chat-bubble-main">' + contentHtml + '</div>' +
+                    '<div class="chat-bubble-part chat-bubble-cards">' + cardsHtml + '</div>';
+            const stepsPartInit = bubble.querySelector(".chat-bubble-part.chat-bubble-steps");
+            if (stepsPartInit)
+                stepsPartInit.dataset.timelineStructure = timelineStructureKey;
+            attachBubbleListeners(bubble);
+            if (thinkingWasOpen) {
+                const thinkingContentBox = bubble.querySelector(".chat-thinking-block.chat-thinking-open .chat-thinking-content");
+                if (thinkingContentBox)
+                    thinkingContentBox.scrollTop = thinkingContentBox.scrollHeight;
+            }
+        }
         scrollChatToBottom({ behavior: 'auto' });
     }
-
     function processOneSSEEvent(eventType, data) {
-        if (!data && eventType !== 'clear_content') return;
+        if (!data && eventType !== 'clear_content')
+            return;
         if (eventType === "thinking") {
             try {
                 const p = JSON.parse(data);
-                if (!thinkingStartTime) thinkingStartTime = Date.now();
+                if (!thinkingStartTime)
+                    thinkingStartTime = Date.now();
                 pendingPhase = 'thinking';
                 pendingPhaseLabel = 'Se gândește';
                 thinkingContent += p.content || "";
@@ -469,12 +475,16 @@ export async function runChatStreamSession(opts, response) {
                 if (streamEl) {
                     streamEl.innerHTML = escapeHtml(thinkingContent).replace(/\n/g, "<br>");
                     const detailBox = streamEl.closest(".chat-agent-timeline__detail, .chat-thinking-content");
-                    if (detailBox) detailBox.scrollTop = detailBox.scrollHeight;
-                } else {
+                    if (detailBox)
+                        detailBox.scrollTop = detailBox.scrollHeight;
+                }
+                else {
                     scheduleRender();
                 }
-            } catch (e) { /* ignore */ }
-        } else if (eventType === "status") {
+            }
+            catch (e) { /* ignore */ }
+        }
+        else if (eventType === "status") {
             try {
                 const p = JSON.parse(data);
                 const label = p.labelKey ? t(p.labelKey, p.params || {}) : (p.label || "");
@@ -483,36 +493,38 @@ export async function runChatStreamSession(opts, response) {
                     pendingPhase = (p.type === 'search_web_images' || p.type === 'cctv_describe') ? 'vision' : 'thinking';
                     pendingPhaseLabel = label;
                 }
-            } catch (e) { /* ignore */ }
+            }
+            catch (e) { /* ignore */ }
             scheduleRender();
-        } else if (eventType === "forge_preview") {
+        }
+        else if (eventType === "forge_preview") {
             try {
                 const p = JSON.parse(data);
                 forgePreview.content = p.content || '';
                 forgePreview.language = p.language || 'python';
                 forgePreview.done = !!p.done;
-            } catch (e) { /* ignore */ }
+            }
+            catch (e) { /* ignore */ }
             scheduleRenderThrottled();
-        } else if (eventType === "clear_content") {
+        }
+        else if (eventType === "clear_content") {
             fullText = "";
             scheduleRender();
-        } else if (eventType === "chunk") {
+        }
+        else if (eventType === "chunk") {
             try {
                 const chunkText = JSON.parse(data);
-                if (typeof chunkText !== 'string') return;
+                if (typeof chunkText !== 'string')
+                    return;
                 fullText += chunkText;
-                if (!firstChunkTime) firstChunkTime = Date.now();
+                if (!firstChunkTime)
+                    firstChunkTime = Date.now();
                 pendingPhase = 'generating';
                 pendingPhaseLabel = 'Generez răspunsul';
                 // Streaming TTS: accumulate text, push large chunks
                 _ttsAccum += chunkText;
                 // Find the last sentence-ending punctuation in the buffer
-                const lastPunct = Math.max(
-                    _ttsAccum.lastIndexOf('.'),
-                    _ttsAccum.lastIndexOf('!'),
-                    _ttsAccum.lastIndexOf('?'),
-                    _ttsAccum.lastIndexOf('\n')
-                );
+                const lastPunct = Math.max(_ttsAccum.lastIndexOf('.'), _ttsAccum.lastIndexOf('!'), _ttsAccum.lastIndexOf('?'), _ttsAccum.lastIndexOf('\n'));
                 // Only push when we have a complete sentence AND enough text
                 if (lastPunct >= 0) {
                     const ready = _ttsAccum.slice(0, lastPunct + 1).trim();
@@ -522,43 +534,56 @@ export async function runChatStreamSession(opts, response) {
                         getTts().streamPush(ready);
                     }
                 }
-            } catch (e) { /* ignore */ }
+            }
+            catch (e) { /* ignore */ }
             scheduleRenderThrottled();
-        } else if (eventType === "shell_request") {
+        }
+        else if (eventType === "shell_request") {
             try {
                 const p = JSON.parse(data);
                 shellCards.push({ requested_but_denied: true, command: p.command || '' });
-            } catch (e) { /* ignore */ }
+            }
+            catch (e) { /* ignore */ }
             scheduleRender();
-        } else if (eventType === "shell_done") {
+        }
+        else if (eventType === "shell_done") {
             try {
                 const p = JSON.parse(data);
                 shellCards.push({ command: p.command || '', exit_code: p.exit_code, output_preview: p.output_preview || '' });
-            } catch (e) { /* ignore */ }
+            }
+            catch (e) { /* ignore */ }
             scheduleRender();
-        } else if (eventType === "shell_suggest") {
+        }
+        else if (eventType === "shell_suggest") {
             try {
                 const p = JSON.parse(data);
                 shellCards.push({ suggest: true, command: p.command || '', reason: p.reason || '' });
-            } catch (e) { /* ignore */ }
+            }
+            catch (e) { /* ignore */ }
             scheduleRender();
-        } else if (eventType === "proposal") {
+        }
+        else if (eventType === "proposal") {
             try {
                 const p = JSON.parse(data);
                 proposalCards.push(p);
-            } catch (e) { /* ignore */ }
+            }
+            catch (e) { /* ignore */ }
             scheduleRender();
-        } else if (eventType === "search_sources") {
+        }
+        else if (eventType === "search_sources") {
             try {
                 const p = JSON.parse(data);
                 if (Array.isArray(p.sources)) {
-                    for (const src of p.sources) searchSources.push(src);
+                    for (const src of p.sources)
+                        searchSources.push(src);
                 }
-            } catch (e) { /* ignore */ }
+            }
+            catch (e) { /* ignore */ }
             // Avoid re-rendering the whole bubble mid-stream just because
             // sources arrived; this caused visible "blinking" near the end
             // of streaming due to repeated autoscroll/layout changes.
-        } else if (eventType === "metrics") {
+        }
+        else if (eventType === "metrics") {
             try {
                 const p = JSON.parse(data);
                 streamMetrics = {
@@ -566,28 +591,37 @@ export async function runChatStreamSession(opts, response) {
                     prompt_tokens: Number.isFinite(Number(p.prompt_tokens)) ? Number(p.prompt_tokens) : null,
                     total_tokens: Number.isFinite(Number(p.total_tokens)) ? Number(p.total_tokens) : null,
                 };
-            } catch (e) { /* ignore */ }
-        } else if (eventType === "profile_color") {
+            }
+            catch (e) { /* ignore */ }
+        }
+        else if (eventType === "profile_color") {
             try {
                 const p = JSON.parse(data);
-                if (typeof applyBubbleGlow === 'function' && p.color) applyBubbleGlow(p.color);
-            } catch (e) { /* ignore */ }
-        } else if (eventType === "final_message") {
+                if (typeof applyBubbleGlow === 'function' && p.color)
+                    applyBubbleGlow(p.color);
+            }
+            catch (e) { /* ignore */ }
+        }
+        else if (eventType === "final_message") {
             try {
                 const p = JSON.parse(data);
                 const finalThinking = (p.thinking || "").trim();
-                if (finalThinking) thinkingContent = finalThinking;
+                if (finalThinking)
+                    thinkingContent = finalThinking;
                 if (p.content != null && String(p.content).length > 0) {
                     finalMessageContent = p.content;
                 }
-                if (p.model) finalModelName = p.model;
-                if (p.model_id) finalModelId = p.model_id;
-                if (!thinkingStartTime && thinkingContent) thinkingStartTime = Date.now() - 1000;
+                if (p.model)
+                    finalModelName = p.model;
+                if (p.model_id)
+                    finalModelId = p.model_id;
+                if (!thinkingStartTime && thinkingContent)
+                    thinkingStartTime = Date.now() - 1000;
                 // Final render is handled once at stream end in doFinalRender().
-            } catch (e) { /* ignore */ }
+            }
+            catch (e) { /* ignore */ }
         }
     }
-
     const sseEventQueue = [];
     function drainSSEQueue() {
         while (sseEventQueue.length > 0) {
@@ -596,7 +630,8 @@ export async function runChatStreamSession(opts, response) {
         }
     }
     function parseSSEEvents(chunk) {
-        if (!chunk) return;
+        if (!chunk)
+            return;
         sseBuffer += String(chunk).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
         const events = sseBuffer.split("\n\n");
         sseBuffer = events.pop() || "";
@@ -604,60 +639,71 @@ export async function runChatStreamSession(opts, response) {
             let eventType = "";
             const dataParts = [];
             for (const line of block.split("\n")) {
-                if (line.startsWith("event:")) eventType = line.slice(6).trim();
-                else if (line.startsWith("data:")) dataParts.push(line.slice(5).replace(/^\s/, ""));
+                if (line.startsWith("event:"))
+                    eventType = line.slice(6).trim();
+                else if (line.startsWith("data:"))
+                    dataParts.push(line.slice(5).replace(/^\s/, ""));
             }
             const data = dataParts.join("\n");
             sseEventQueue.push({ eventType, data });
         }
-        if (sseEventQueue.length > 0) drainSSEQueue();
+        if (sseEventQueue.length > 0)
+            drainSSEQueue();
     }
-
     renderBubble(true);
-
     while (true) {
         const { done, value } = await reader.read();
         if (value) {
             parseSSEEvents(decoder.decode(value, { stream: true }));
         }
-        if (done) break;
+        if (done)
+            break;
     }
     parseSSEEvents(decoder.decode());
-    if (sseBuffer.trim()) parseSSEEvents("\n\n");
+    if (sseBuffer.trim())
+        parseSSEEvents("\n\n");
     drainSSEQueue();
     // Flush remaining accumulated TTS text
-    if (_ttsAccum.trim()) { getTts().streamPush(_ttsAccum.trim()); _ttsAccum = ''; }
+    if (_ttsAccum.trim()) {
+        getTts().streamPush(_ttsAccum.trim());
+        _ttsAccum = '';
+    }
     async function doFinalRender() {
         // Drain any remaining SSE events synchronously so nothing is lost
         drainSSEQueue();
-
         // Prefer final_message only when it carries visible text; an empty string
         // must not wipe chunks accumulated during the stream.
         if (typeof finalMessageContent === 'string' && finalMessageContent.length > 0) {
             fullText = finalMessageContent;
-        } else if (!fullText && thinkingContent) {
+        }
+        else if (!fullText && thinkingContent) {
             fullText = thinkingContent;
         }
         pendingPhase = 'done';
         pendingPhaseLabel = '';
         isStreaming = false;
-        if (chunkThrottleTimer) { clearTimeout(chunkThrottleTimer); chunkThrottleTimer = 0; }
-        if (scheduledRenderRAF) { cancelAnimationFrame(scheduledRenderRAF); scheduledRenderRAF = 0; }
+        if (chunkThrottleTimer) {
+            clearTimeout(chunkThrottleTimer);
+            chunkThrottleTimer = 0;
+        }
+        if (scheduledRenderRAF) {
+            cancelAnimationFrame(scheduledRenderRAF);
+            scheduledRenderRAF = 0;
+        }
         renderBubble(false);
         decorateCodeBlocks(bubble);
         decorateImages(bubble);
-
         const visibleText = (fullText || '').trim();
         const errPart = bubble.querySelector('.chat-bubble-main .chat-bubble-content')
             || bubble.querySelector('.chat-bubble-content');
         if (errPart) {
             if (/^Error:/i.test(visibleText)) {
                 errPart.innerHTML = `<span class="chat-error"><i class="fas fa-exclamation-triangle"></i> ${escapeHtml(visibleText)}</span>`;
-            } else if (!visibleText && !thinkingContent.trim() && !statusLines.length) {
+            }
+            else if (!visibleText && !thinkingContent.trim() && !statusLines.length) {
                 errPart.innerHTML = `<span class="chat-error"><i class="fas fa-exclamation-triangle"></i> ${escapeHtml(t('chat.error_empty_response') || 'Răspuns gol de la server.')}</span>`;
             }
         }
-
         const responseEndTime = Date.now();
         const totalElapsed = responseEndTime - responseStartTime;
         const thinkingElapsed = thinkingStartTime
@@ -679,15 +725,13 @@ export async function runChatStreamSession(opts, response) {
             tools: statusLines.slice()
         };
         appendConsciousnessFeedbackBar(bubble, aiBubbleId, responseStats);
-
         // Auto-speak response if triggered by voice input or always-speak
         const shouldAutoSpeak = isVoiceInputPending() || getTts().alwaysSpeak;
-        if (isVoiceInputPending()) setVoiceInputPending(false);
-
+        if (isVoiceInputPending())
+            setVoiceInputPending(false);
         if (shouldAutoSpeak && !getTts().streamWasActive()) {
             speakBubble(bubble);
         }
-
         const activeSessionId = newSessionId || currentSessionId;
         if (activeSessionId) {
             try {
@@ -696,16 +740,17 @@ export async function runChatStreamSession(opts, response) {
                 if (res.ok) {
                     const data = await res.json();
                     setSessionDisplay(data.title || t('sessions.new_chat'));
-
                     document.querySelectorAll('.session-item').forEach(btn => {
                         if (btn.getAttribute('data-id') === activeSessionId) {
                             btn.classList.add('bg-white/10', 'text-accent');
-                        } else {
+                        }
+                        else {
                             btn.classList.remove('bg-white/10', 'text-accent');
                         }
                     });
                 }
-            } catch (e) {
+            }
+            catch (e) {
                 console.warn("Nu am putut actualiza sesiunea", e);
             }
         }
@@ -718,7 +763,8 @@ export async function runChatStreamSession(opts, response) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ stats: responseStats }),
                 });
-            } catch (e) {
+            }
+            catch (e) {
                 console.warn("Nu am putut salva stats", e);
             }
         }

@@ -1,10 +1,11 @@
+// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Generic custom dropdown + native <select> auto-upgrade (settings UI).
  */
 import { escapeHtml } from './utils.js';
-
 function escapeHtmlAttr(s) {
-    if (s == null) return '';
+    if (s == null)
+        return '';
     return String(s)
         .replace(/&/g, '&amp;')
         .replace(/"/g, '&quot;')
@@ -12,18 +13,18 @@ function escapeHtmlAttr(s) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
 }
-
 // --- Generic custom dropdown ---------------------------------------------
 // Any `.dashboard-custom-select.js-generic-select[data-target]` paired with a
 // hidden native <select id="<target>"> is upgraded to the app's custom dropdown.
 // Reads options + value from the native select, writes back + dispatches change.
-
 function _rebuildGenericSelect(dd) {
     const target = document.getElementById(dd.dataset.target);
-    if (!target) return;
+    if (!target)
+        return;
     const menu = dd.querySelector('.dashboard-custom-select__menu') || dd.__portaledMenu;
     const valueEl = dd.querySelector('.dashboard-custom-select__value');
-    if (!menu || !valueEl) return;
+    if (!menu || !valueEl)
+        return;
     const current = target.value;
     const opts = Array.from(target.options || []);
     menu.innerHTML = opts.map(o => {
@@ -33,12 +34,10 @@ function _rebuildGenericSelect(dd) {
     const selOpt = opts.find(o => o.value === current) || opts[0];
     valueEl.textContent = selOpt ? (selOpt.textContent || '').trim() : '—';
 }
-
 export function initGenericCustomSelects(root) {
     const scope = root || document;
     scope.querySelectorAll('.dashboard-custom-select.js-generic-select[data-target]').forEach(dd => _rebuildGenericSelect(dd));
 }
-
 // The open menu must escape any ancestor `overflow` clipping and `transform`
 // stacking context (e.g. scroll panes / animated views), otherwise it gets cut
 // off or rendered BEHIND sibling panels (like the live-logs view). We "portal"
@@ -46,9 +45,11 @@ export function initGenericCustomSelects(root) {
 const GENERIC_MENU_Z = 9999;
 function _positionGenericMenu(dd) {
     const menu = dd.__portaledMenu;
-    if (!menu) return;
+    if (!menu)
+        return;
     const btn = dd.querySelector('.dashboard-custom-select__button');
-    if (!btn) return;
+    if (!btn)
+        return;
     const r = btn.getBoundingClientRect();
     menu.style.position = 'fixed';
     menu.style.left = Math.round(r.left) + 'px';
@@ -104,11 +105,10 @@ function _closeGenericSelect(dd) {
     }
 }
 function _closeAllGenericSelects(except) {
-    document.querySelectorAll('.dashboard-custom-select.js-generic-select[data-open="true"]').forEach(o => { if (o !== except) _closeGenericSelect(o); });
+    document.querySelectorAll('.dashboard-custom-select.js-generic-select[data-open="true"]').forEach(o => { if (o !== except)
+        _closeGenericSelect(o); });
 }
-
 let _genericSelectBound = false;
-
 if (typeof document !== 'undefined' && !_genericSelectBound) {
     _genericSelectBound = true;
     // NOTE: capture phase. Many converted selects live inside rows/cards that
@@ -124,35 +124,43 @@ if (typeof document !== 'undefined' && !_genericSelectBound) {
             e.stopPropagation();
             const willOpen = dd.dataset.open !== 'true';
             _closeAllGenericSelects(dd);
-            if (willOpen) _openGenericSelect(dd); else _closeGenericSelect(dd);
+            if (willOpen)
+                _openGenericSelect(dd);
+            else
+                _closeGenericSelect(dd);
             return;
         }
         const opt = e.target.closest('.dashboard-custom-select.js-generic-select .dashboard-custom-select__option, .dashboard-custom-select__menu .dashboard-custom-select__option');
         if (opt) {
             const menuEl = opt.closest('.dashboard-custom-select__menu');
             const dd = (menuEl && menuEl.__ownerDd) || opt.closest('.dashboard-custom-select.js-generic-select');
-            if (!dd) return;
+            if (!dd)
+                return;
             e.preventDefault();
             e.stopPropagation();
             const target = document.getElementById(dd.dataset.target);
             const value = opt.dataset.value;
             if (target && target.value !== value) {
                 target.value = value;
-                try { target.dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
+                try {
+                    target.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                catch (_) { }
             }
             const menuRoot = dd.__portaledMenu || dd;
             menuRoot.querySelectorAll('.dashboard-custom-select__option').forEach(o => { o.dataset.selected = o.dataset.value === value ? 'true' : 'false'; });
             const valueEl = dd.querySelector('.dashboard-custom-select__value');
-            if (valueEl) valueEl.textContent = (opt.textContent || '').trim();
+            if (valueEl)
+                valueEl.textContent = (opt.textContent || '').trim();
             _closeGenericSelect(dd);
             return;
         }
         document.querySelectorAll('.dashboard-custom-select.js-generic-select[data-open="true"]').forEach(o => {
             const m = o.__portaledMenu;
-            if (!o.contains(e.target) && !(m && m.contains(e.target))) _closeGenericSelect(o);
+            if (!o.contains(e.target) && !(m && m.contains(e.target)))
+                _closeGenericSelect(o);
         });
     }, true);
-
     // Keep the portaled menu glued to its button while the page scrolls/resizes.
     const _repositionOpenGenericMenus = () => {
         document.querySelectorAll('.dashboard-custom-select.js-generic-select[data-open="true"]').forEach(_positionGenericMenu);
@@ -160,23 +168,29 @@ if (typeof document !== 'undefined' && !_genericSelectBound) {
     window.addEventListener('resize', _repositionOpenGenericMenus);
     document.addEventListener('scroll', _repositionOpenGenericMenus, true);
 }
-
 // --- Global auto-upgrade of native <select> ------------------------------
 // Any native <select> rendered anywhere is automatically converted into the
 // app's custom dropdown, so new UI gets consistent styling for free. To keep a
 // raw OS <select>, add `data-no-custom-select` (or class `native-select`).
 let _genericSelectSeq = 0;
 function _isUpgradableSelect(sel) {
-    if (!sel || sel.tagName !== 'SELECT') return false;
-    if (sel.multiple || sel.size > 1) return false;
-    if (sel.classList.contains('dashboard-custom-select-native')) return false; // already paired
-    if (sel.classList.contains('native-select')) return false;
-    if (sel.hasAttribute('data-no-custom-select')) return false;
+    if (!sel || sel.tagName !== 'SELECT')
+        return false;
+    if (sel.multiple || sel.size > 1)
+        return false;
+    if (sel.classList.contains('dashboard-custom-select-native'))
+        return false; // already paired
+    if (sel.classList.contains('native-select'))
+        return false;
+    if (sel.hasAttribute('data-no-custom-select'))
+        return false;
     return true;
 }
 function upgradeNativeSelect(sel) {
-    if (!_isUpgradableSelect(sel)) return;
-    if (!sel.id) sel.id = `cselect-${++_genericSelectSeq}`;
+    if (!_isUpgradableSelect(sel))
+        return;
+    if (!sel.id)
+        sel.id = `cselect-${++_genericSelectSeq}`;
     // Already upgraded? (overlay immediately after, pointing at this select)
     const nextEl = sel.nextElementSibling;
     if (nextEl && nextEl.classList.contains('js-generic-select') && nextEl.getAttribute('data-target') === sel.id) {
@@ -195,25 +209,28 @@ function upgradeNativeSelect(sel) {
     if (!sel._optObserver && typeof MutationObserver !== 'undefined') {
         sel._optObserver = new MutationObserver(() => {
             const ov = sel.nextElementSibling;
-            if (ov && ov.classList.contains('js-generic-select')) _rebuildGenericSelect(ov);
+            if (ov && ov.classList.contains('js-generic-select'))
+                _rebuildGenericSelect(ov);
         });
         sel._optObserver.observe(sel, { childList: true });
     }
 }
 export function upgradeNativeSelects(root) {
     const scope = root || document;
-    if (scope.tagName === 'SELECT') { upgradeNativeSelect(scope); return; }
+    if (scope.tagName === 'SELECT') {
+        upgradeNativeSelect(scope);
+        return;
+    }
     scope.querySelectorAll && scope.querySelectorAll('select').forEach(upgradeNativeSelect);
 }
-
 let _nativeSelectAutoUpgrade = false;
-
 if (typeof document !== 'undefined' && !_nativeSelectAutoUpgrade) {
     _nativeSelectAutoUpgrade = true;
     const runAll = () => upgradeNativeSelects(document);
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', runAll, { once: true });
-    } else {
+    }
+    else {
         runAll();
     }
     // Keep paired dropdown labels in sync when a native select changes value
@@ -222,7 +239,8 @@ if (typeof document !== 'undefined' && !_nativeSelectAutoUpgrade) {
         const sel = e.target;
         if (sel && sel.tagName === 'SELECT' && sel.classList.contains('dashboard-custom-select-native')) {
             const overlay = sel.nextElementSibling;
-            if (overlay && overlay.classList.contains('js-generic-select')) _rebuildGenericSelect(overlay);
+            if (overlay && overlay.classList.contains('js-generic-select'))
+                _rebuildGenericSelect(overlay);
         }
     }, true);
     // Upgrade selects added to the DOM later (batched via rAF).
@@ -231,10 +249,15 @@ if (typeof document !== 'undefined' && !_nativeSelectAutoUpgrade) {
         let found = false;
         for (const m of mutations) {
             for (const node of m.addedNodes) {
-                if (node.nodeType !== 1) continue;
-                if (node.tagName === 'SELECT' || (node.querySelector && node.querySelector('select'))) { found = true; break; }
+                if (node.nodeType !== 1)
+                    continue;
+                if (node.tagName === 'SELECT' || (node.querySelector && node.querySelector('select'))) {
+                    found = true;
+                    break;
+                }
             }
-            if (found) break;
+            if (found)
+                break;
         }
         if (found && !_pending) {
             _pending = true;
@@ -242,6 +265,8 @@ if (typeof document !== 'undefined' && !_nativeSelectAutoUpgrade) {
         }
     });
     const startObserver = () => observer.observe(document.body, { childList: true, subtree: true });
-    if (document.body) startObserver();
-    else document.addEventListener('DOMContentLoaded', startObserver, { once: true });
+    if (document.body)
+        startObserver();
+    else
+        document.addEventListener('DOMContentLoaded', startObserver, { once: true });
 }

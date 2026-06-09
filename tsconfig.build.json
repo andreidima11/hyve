@@ -3,9 +3,22 @@
   "compilerOptions": {
     "noEmit": false,
     "allowJs": false,
+    "strict": true,
     "outDir": "./static/js",
-    "rootDir": "./static/js"
+    "rootDir": "./static/js",
+    "paths": {
+      "@hyve/*": ["static/js/*"],
+      "/static/hyveview/bridge.js": ["static/hyveview/bridge.d.ts"],
+      "/static/hyveview/host.js": ["static/hyveview/host.d.ts"],
+      "/static/hyveview/cards/loader.js": ["static/hyveview/cards/loader.d.ts"],
+      "/static/hyveview/editor/modal.js": ["static/hyveview/editor/modal.d.ts"],
+      "/static/hyveview/elements/camera_stream.js": ["static/hyveview/elements/camera_stream.d.ts"],
+      "/static/hyveview/elements/camera_carousel.js": ["static/hyveview/elements/camera_carousel.d.ts"]
+    }
   },
-  "include": ["static/js/**/*.ts"],
-  "exclude": ["static/js/types/**/*.ts"]
+  "include": [
+    "static/js/**/*.ts",
+    "static/js/types/**/*.d.ts",
+    "static/js/lang/index.d.ts"
+  ]
 }

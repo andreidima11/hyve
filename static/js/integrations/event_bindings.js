@@ -2,98 +2,104 @@
  * Integration entity control delegation — replaces inline onclick/onchange
  * in entity_renderers.js (and related integration UI).
  */
-
-/** @type {Record<string, (...args: unknown[]) => unknown> | null} */
 let _handlers = null;
 let _bound = false;
-
 function _parsePayload(el) {
     const raw = el.dataset.intPayload;
-    if (!raw) return null;
+    if (!raw)
+        return null;
     try {
         return JSON.parse(raw);
-    } catch (_) {
+    }
+    catch {
         return null;
     }
 }
-
 function _controlPayload(el) {
     const kind = el.dataset.intInput || '';
-    if (kind === 'brightness') return { brightness: parseInt(el.value, 10) };
-    if (kind === 'valueFloat') return { value: parseFloat(el.value) };
-    if (kind === 'valueString') return { value: el.value };
+    if (kind === 'brightness' && 'value' in el) {
+        return { brightness: parseInt(String(el.value), 10) };
+    }
+    if (kind === 'valueFloat' && 'value' in el) {
+        return { value: parseFloat(String(el.value)) };
+    }
+    if (kind === 'valueString' && 'value' in el) {
+        return { value: el.value };
+    }
     return _parsePayload(el);
 }
-
 function _controlFromEl(el, event) {
-    if (el.dataset.entityStop === '1') event.stopPropagation();
+    if (el.dataset.entityStop === '1')
+        event.stopPropagation();
     const slug = el.dataset.intSlug || '';
     const entityId = el.dataset.intEntityId || '';
     const cmd = el.dataset.intCmd || '';
-    if (!slug || !entityId || !cmd) return;
-    _handlers?.controlIntegrationEntity?.(slug, entityId, cmd, el, _controlPayload(el));
+    if (!slug || !entityId || !cmd)
+        return;
+    void _handlers?.controlIntegrationEntity?.(slug, entityId, cmd, el, _controlPayload(el));
 }
-
 function _onClick(event) {
-    const ctrl = event.target.closest('[data-entity-action="control"]');
-    if (ctrl && ctrl.tagName !== 'INPUT' && ctrl.tagName !== 'SELECT') {
+    const target = event.target;
+    if (!(target instanceof Element))
+        return;
+    const ctrl = target.closest('[data-entity-action="control"]');
+    if (ctrl instanceof HTMLElement && ctrl.tagName !== 'INPUT' && ctrl.tagName !== 'SELECT') {
         _controlFromEl(ctrl, event);
         return;
     }
-
-    const openCard = event.target.closest('[data-entity-action="openCard"]');
-    if (openCard) {
+    const openCard = target.closest('[data-entity-action="openCard"]');
+    if (openCard instanceof HTMLElement) {
         const encoded = openCard.dataset.intEncoded || '';
-        if (encoded) _handlers?.openIntegrationEntityCard?.(encoded);
+        if (encoded)
+            _handlers?.openIntegrationEntityCard?.(encoded);
         return;
     }
-
-    const openDevice = event.target.closest('[data-entity-action="openDeviceCard"]');
-    if (openDevice) {
+    const openDevice = target.closest('[data-entity-action="openDeviceCard"]');
+    if (openDevice instanceof HTMLElement) {
         const encoded = openDevice.dataset.intEncoded || '';
-        if (encoded) _handlers?.openIntegrationEntityCard?.(encoded);
+        if (encoded)
+            _handlers?.openIntegrationEntityCard?.(encoded);
         return;
     }
-
-    const openDeviceModal = event.target.closest('[data-entity-action="openDeviceModal"]');
-    if (openDeviceModal) {
+    const openDeviceModal = target.closest('[data-entity-action="openDeviceModal"]');
+    if (openDeviceModal instanceof HTMLElement) {
         const idx = Number(openDeviceModal.dataset.intIndex);
         const slug = openDeviceModal.dataset.intSlug || '';
-        if (Number.isFinite(idx)) _handlers?.openIntegrationDeviceModal?.(idx, slug);
+        if (Number.isFinite(idx))
+            _handlers?.openIntegrationDeviceModal?.(idx, slug);
         return;
     }
-
-    const rename = event.target.closest('[data-entity-action="renameDevice"]');
-    if (rename) {
+    const rename = target.closest('[data-entity-action="renameDevice"]');
+    if (rename instanceof HTMLElement) {
         event.stopPropagation();
-        _handlers?.renameIntegrationDevice?.(
-            rename.dataset.intSlug || '',
-            rename.dataset.intDeviceId || '',
-            rename.dataset.intDeviceName || '',
-        );
+        void _handlers?.renameIntegrationDevice?.(rename.dataset.intSlug || '', rename.dataset.intDeviceId || '', rename.dataset.intDeviceName || '');
     }
 }
-
 function _onChange(event) {
-    const el = event.target.closest('[data-entity-action="control"]');
-    if (!el) return;
+    const target = event.target;
+    if (!(target instanceof Element))
+        return;
+    const el = target.closest('[data-entity-action="control"]');
+    if (!(el instanceof HTMLElement))
+        return;
     _controlFromEl(el, event);
 }
-
 function _onInput(event) {
-    const el = event.target.closest('[data-int-input-preview]');
-    if (!el) return;
+    const target = event.target;
+    if (!(target instanceof Element))
+        return;
+    const el = target.closest('[data-int-input-preview]');
+    if (!(el instanceof HTMLElement))
+        return;
     event.stopPropagation();
     const entityId = el.dataset.intEntityId || '';
     const unit = el.dataset.intUnit || '';
-    if (typeof window.__previewIntegrationNumberValue === 'function') {
-        window.__previewIntegrationNumberValue(entityId, el.value, unit);
-    }
+    window.__previewIntegrationNumberValue?.(entityId, 'value' in el ? String(el.value) : '', unit);
 }
-
 export function initIntegrationEventBindings(handlers = {}) {
     _handlers = handlers;
-    if (_bound) return;
+    if (_bound)
+        return;
     _bound = true;
     document.addEventListener('click', _onClick, false);
     document.addEventListener('change', _onChange, false);

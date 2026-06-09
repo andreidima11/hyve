@@ -115,6 +115,7 @@ python main.py
 | Add LLM (Ollama, OpenAI, …) | Settings → AI in the web UI, or edit `config.json` |
 | Add integrations | Settings → Integrations |
 | Run tests | `PYTHONPATH=. pytest tests/` |
+| Frontend typecheck | `npm run js:check` |
 | Dev mode | `HYVE_DEV=1 python main.py` |
 
 ### Troubleshooting
@@ -148,6 +149,19 @@ PYTHONPATH=. pytest tests/
 # Dev server with env flag (disables some production caches)
 HYVE_DEV=1 python main.py
 ```
+
+### Frontend TypeScript
+
+Sources live in `static/js/**/*.ts`; the browser loads emitted `.js` beside them (same import paths). i18n dictionaries stay plain JS in `static/js/lang/`.
+
+```bash
+npm install
+npm run js:check    # strict typecheck (no emit)
+npm run js:build    # compile .ts → .js after edits
+npm run js:watch    # rebuild on save
+```
+
+CI runs `npm run js:check`, `npm run js:build`, and pytest on every push/PR.
 
 ### Project layout (short)
 

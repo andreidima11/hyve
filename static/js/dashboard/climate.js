@@ -1,7 +1,7 @@
+// @ts-nocheck — Phase 6 TS shell; tighten types incrementally.
 /**
  * Dashboard climate cards: multi-zone carousel, controls, and add-modal entity chips.
  */
-
 /** @typedef {{
  *   getCache: () => object,
  *   findWidget: (id: string) => object | null,
@@ -29,43 +29,39 @@
  *   tryFastPathForEntities: (entityIds: string[]) => boolean,
  *   getCurrentPageId: () => string,
  * }} DashboardClimateDeps */
-
 /** @type {DashboardClimateDeps | null} */
 let _deps = null;
 const _slideIndex = new Map();
 let _swipeState = null;
 let _entitySelection = [];
-
 export function initDashboardClimate(deps) {
     _deps = deps;
     _ensureClimateSwipeDocListeners();
 }
-
 let _climateSwipeDocBound = false;
-
 function _onClimateSwipeDocMove(event) {
-    if (!_swipeState) return;
+    if (!_swipeState)
+        return;
     moveDashboardClimateSwipe(event, _swipeState.widgetId);
 }
-
 function _onClimateSwipeDocEnd(event) {
-    if (!_swipeState) return;
+    if (!_swipeState)
+        return;
     endDashboardClimateSwipe(event, _swipeState.widgetId);
 }
-
 function _ensureClimateSwipeDocListeners() {
-    if (_climateSwipeDocBound) return;
+    if (_climateSwipeDocBound)
+        return;
     _climateSwipeDocBound = true;
     document.addEventListener('pointermove', _onClimateSwipeDocMove, { passive: false });
     document.addEventListener('pointerup', _onClimateSwipeDocEnd);
     document.addEventListener('pointercancel', _onClimateSwipeDocEnd);
 }
-
 function deps() {
-    if (!_deps) throw new Error('Dashboard climate not initialized');
+    if (!_deps)
+        throw new Error('Dashboard climate not initialized');
     return _deps;
 }
-
 function getCache() { return deps().getCache(); }
 function findWidget(id) { return deps().findWidget(id); }
 function renderDashboard() { return deps().renderDashboard(); }
@@ -91,15 +87,12 @@ function getCurrentPageId() { return deps().getCurrentPageId(); }
 function t(...args) { return deps().t(...args); }
 function showToast(...args) { return deps().showToast(...args); }
 function apiCall(...args) { return deps().apiCall(...args); }
-
 export function climateConfiguredIds(widget) {
     return _climateConfiguredRecords(widget).map(item => item.entity_id);
 }
-
 export function clearDashboardClimateEntitySelection() {
     setDashboardClimateEntitySelection([]);
 }
-
 // --- Climate (current temp + setpoint + mode) ---
 function _climateConfiguredRecords(widget) {
     const ids = [];
@@ -113,14 +106,17 @@ function _climateConfiguredRecords(widget) {
             }
             : { entity_id: value };
         const entityId = String(record.entity_id || '').trim();
-        if (!entityId) return;
+        if (!entityId)
+            return;
         if (ids.includes(entityId)) {
             const existing = records.find(item => item.entity_id === entityId);
             if (existing) {
                 const title = String(record.title || '').trim();
                 const subtitle = String(record.subtitle || '').trim();
-                if (title) existing.title = title;
-                if (subtitle) existing.subtitle = subtitle;
+                if (title)
+                    existing.title = title;
+                if (subtitle)
+                    existing.subtitle = subtitle;
             }
             return;
         }
@@ -133,22 +129,24 @@ function _climateConfiguredRecords(widget) {
     };
     add(widget?.entity_id);
     const config = widget?.config && typeof widget.config === 'object' ? widget.config : {};
-    if (Array.isArray(config.entities)) config.entities.forEach(add);
-    if (Array.isArray(config.entity_ids)) config.entity_ids.forEach(add);
+    if (Array.isArray(config.entities))
+        config.entities.forEach(add);
+    if (Array.isArray(config.entity_ids))
+        config.entity_ids.forEach(add);
     return records;
 }
-
 function _climateAvailableEntity(entityId) {
     const target = String(entityId || '');
-    if (!target) return null;
+    if (!target)
+        return null;
     return (getCache().available_entities || []).find(item => item?.entity_id === target) || null;
 }
-
 function _climateEntities(widget) {
     const records = _climateConfiguredRecords(widget);
     const hydrated = Array.isArray(widget?.entities) ? widget.entities : [];
     const byId = new Map();
-    hydrated.forEach(item => { if (item?.entity_id) byId.set(item.entity_id, item); });
+    hydrated.forEach(item => { if (item?.entity_id)
+        byId.set(item.entity_id, item); });
     const result = [];
     const sourceRecords = records.length ? records : [widget?.entity_id].filter(Boolean).map(entity_id => ({ entity_id, title: '', subtitle: '' }));
     sourceRecords.forEach(record => {
@@ -170,21 +168,19 @@ function _climateEntities(widget) {
     });
     return result.length ? result : [widget];
 }
-
 function _climateActiveIndex(widget, total) {
     const count = Math.max(1, Number(total) || 1);
     const key = String(widget?.id || '');
     const current = Number(_slideIndex.get(key) || 0);
     const normalized = ((current % count) + count) % count;
-    if (normalized !== current) _slideIndex.set(key, normalized);
+    if (normalized !== current)
+        _slideIndex.set(key, normalized);
     return normalized;
 }
-
 function _climateActiveEntity(widget) {
     const entities = _climateEntities(widget);
     return entities[_climateActiveIndex(widget, entities.length)] || entities[0] || widget;
 }
-
 function _climateSlideMarkup(widget, entity, index, isActive, hasSlides, editControls) {
     const attrs = entity.attributes || {};
     const caps = attrs.capabilities || {};
@@ -205,9 +201,11 @@ function _climateSlideMarkup(widget, entity, index, isActive, hasSlides, editCon
         const modes = (attrs.hvac_modes || caps.hvac_modes || []).concat([mode]);
         for (const m of modes) {
             const key = String(m).toLowerCase();
-            if (!modeMap[key]) modeMap[key] = _climateModeLabel(key);
+            if (!modeMap[key])
+                modeMap[key] = _climateModeLabel(key);
         }
-    } catch (_e) { /* ignore */ }
+    }
+    catch (_e) { /* ignore */ }
     const modeMapAttr = esc(JSON.stringify(modeMap));
     const controls = controllable ? `
             <div class="hyve-dashboard-card__climate-controls">
@@ -239,7 +237,6 @@ function _climateSlideMarkup(widget, entity, index, isActive, hasSlides, editCon
                 ${controls}
             </div>`;
 }
-
 export function renderClimateCard(widget) {
     const dragAttrs = widgetDragAttrs(widget);
     const editControls = widgetEditControls(widget);
@@ -252,16 +249,13 @@ export function renderClimateCard(widget) {
     const activeAttrs = active.attributes || {};
     const activeMode = String(activeAttrs.hvac_mode || active.current_state || 'off').toLowerCase();
     const on = stateOn(activeMode) || activeMode === 'auto';
-
     const slidesHtml = entities
         .map((entity, index) => _climateSlideMarkup(widget, entity, index, index === activeIndex, hasSlides, index === activeIndex ? editControls : ''))
         .join('');
-
     const pipsHtml = hasSlides ? `
             <div class="hyve-dashboard-card__climate-pips" role="tablist" aria-label="${esc(t('dashboard.climate.zones'))}">
                 ${entities.map((entity, index) => `<button type="button" role="tab" class="hyve-dashboard-card__climate-pip" data-climate-pip="${index}" data-active="${index === activeIndex ? 'true' : 'false'}" aria-selected="${index === activeIndex ? 'true' : 'false'}" aria-label="${esc(entity.slide_title || entity.entity_name || t('dashboard.climate.zone', { n: index + 1 }))}" data-dash-action="climateSelectSlide" data-dash-stop-propagation="true" data-widget-id="${widgetId}" data-slide-index="${index}"><span></span></button>`).join('')}
             </div>` : '';
-
     widget._climateInner = `
             <div class="hyve-dashboard-card__climate-viewport">
                 <div class="hyve-dashboard-card__climate-track" data-animating="false" data-dragging="false" style="--hyve-climate-index:${activeIndex};">
@@ -282,29 +276,31 @@ export function renderClimateCard(widget) {
             ${renderCardElement(widget)}
         </article>`;
 }
-
 export function closeDashboardClimateModeMenus(except = null) {
     document.querySelectorAll('.hyve-dashboard-card__climate-mode-menu[data-open="true"]').forEach(menu => {
-        if (except && menu === except) return;
+        if (except && menu === except)
+            return;
         menu.dataset.open = 'false';
         menu.querySelector('.hyve-dashboard-card__climate-mode-button')?.setAttribute('aria-expanded', 'false');
         _setDashboardClimateMenuLayer(menu, false);
     });
 }
-
 function _setDashboardClimateMenuLayer(menu, open) {
     const card = menu?.closest?.('.hyve-dashboard-card--climate');
     const panel = menu?.closest?.('.dashboard-panel');
     if (card) {
-        if (open) card.setAttribute('data-climate-menu-open', 'true');
-        else card.removeAttribute('data-climate-menu-open');
+        if (open)
+            card.setAttribute('data-climate-menu-open', 'true');
+        else
+            card.removeAttribute('data-climate-menu-open');
     }
     if (panel) {
-        if (open) panel.setAttribute('data-climate-menu-open', 'true');
-        else panel.removeAttribute('data-climate-menu-open');
+        if (open)
+            panel.setAttribute('data-climate-menu-open', 'true');
+        else
+            panel.removeAttribute('data-climate-menu-open');
     }
 }
-
 export function toggleDashboardClimateModeMenu(widgetId, event = null, entityId = '') {
     event?.preventDefault?.();
     event?.stopPropagation?.();
@@ -312,42 +308,51 @@ export function toggleDashboardClimateModeMenu(widgetId, event = null, entityId 
     const targetEntity = String(entityId || '');
     const menu = Array.from(document.querySelectorAll('.hyve-dashboard-card__climate-mode-menu'))
         .find(item => item.dataset.widgetId === id && (!targetEntity || item.dataset.entityId === targetEntity));
-    if (!menu) return;
+    if (!menu)
+        return;
     const nextOpen = menu.dataset.open !== 'true';
     closeDashboardClimateModeMenus(nextOpen ? menu : null);
     menu.dataset.open = nextOpen ? 'true' : 'false';
     menu.querySelector('.hyve-dashboard-card__climate-mode-button')?.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
     _setDashboardClimateMenuLayer(menu, nextOpen);
 }
-
 function _climateCarouselParts(widgetId) {
     const article = document.querySelector(`.hyve-dashboard-card--climate[data-widget-id="${CSS.escape(String(widgetId))}"]`);
-    if (!article) return { article: null, track: null, element: null };
+    if (!article)
+        return { article: null, track: null, element: null };
     const track = article.querySelector('.hyve-dashboard-card__climate-track');
     const element = article.querySelector('.hv-card-mount') || article.querySelector('[data-hv-widget-id]');
     return { article, track, element };
 }
-
 function _commitClimateSlide(widgetId, index, { animate = true } = {}) {
     const id = String(widgetId);
     const widget = findWidget(widgetId);
-    if (!widget) return;
+    if (!widget)
+        return;
     const entities = _climateEntities(widget);
     const total = entities.length;
-    if (total <= 1) return;
+    if (total <= 1)
+        return;
     const next = Math.max(0, Math.min(total - 1, Number(index) || 0));
     _slideIndex.set(id, next);
     const { track, element } = _climateCarouselParts(widgetId);
-    if (!track) { renderDashboard(); return; }
+    if (!track) {
+        renderDashboard();
+        return;
+    }
     track.style.removeProperty('--hyve-climate-drag');
-    if (track._hyveClimateAnimTimer) { window.clearTimeout(track._hyveClimateAnimTimer); track._hyveClimateAnimTimer = null; }
+    if (track._hyveClimateAnimTimer) {
+        window.clearTimeout(track._hyveClimateAnimTimer);
+        track._hyveClimateAnimTimer = null;
+    }
     if (animate) {
         track.dataset.animating = 'true';
         track._hyveClimateAnimTimer = window.setTimeout(() => {
             track.dataset.animating = 'false';
             track._hyveClimateAnimTimer = null;
         }, 320);
-    } else {
+    }
+    else {
         track.dataset.animating = 'false';
     }
     track.dataset.dragging = 'false';
@@ -359,42 +364,52 @@ function _commitClimateSlide(widgetId, index, { animate = true } = {}) {
         element.setActiveSlide(next, entity);
     }
 }
-
 export function selectDashboardClimateSlide(widgetId, index, event = null) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
     const widget = findWidget(widgetId);
-    if (!widget) return;
+    if (!widget)
+        return;
     const total = _climateEntities(widget).length;
-    if (total <= 1) return;
+    if (total <= 1)
+        return;
     const current = _climateActiveIndex(widget, total);
     const next = Math.max(0, Math.min(total - 1, Number(index) || 0));
-    if (next === current) return;
+    if (next === current)
+        return;
     closeDashboardClimateModeMenus();
     _commitClimateSlide(widgetId, next, { animate: true });
 }
-
 export function shiftDashboardClimateSlide(widgetId, direction = 1, event = null) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
     const widget = findWidget(widgetId);
-    if (!widget) return;
+    if (!widget)
+        return;
     const total = _climateEntities(widget).length;
-    if (total <= 1) return;
+    if (total <= 1)
+        return;
     const current = _climateActiveIndex(widget, total);
     selectDashboardClimateSlide(widgetId, current + (Number(direction) < 0 ? -1 : 1), event);
 }
-
 export function startDashboardClimateSwipe(event, widgetId) {
-    if (getEditMode()) return;
-    if (event?.target?.closest?.('button, a, input, select, textarea, label, .dashboard-widget-edit-controls')) return;
+    if (getEditMode())
+        return;
+    if (event?.target?.closest?.('button, a, input, select, textarea, label, .dashboard-widget-edit-controls'))
+        return;
     const widget = findWidget(widgetId);
-    if (!widget) return;
+    if (!widget)
+        return;
     const total = _climateEntities(widget).length;
-    if (total <= 1) return;
+    if (total <= 1)
+        return;
     const { article, track } = _climateCarouselParts(widgetId);
-    if (!article || !track) return;
-    try { article.setPointerCapture?.(event.pointerId); } catch (_) {}
+    if (!article || !track)
+        return;
+    try {
+        article.setPointerCapture?.(event.pointerId);
+    }
+    catch (_) { }
     const width = track.getBoundingClientRect().width || article.getBoundingClientRect().width || 1;
     _swipeState = {
         widgetId: String(widgetId),
@@ -408,69 +423,81 @@ export function startDashboardClimateSwipe(event, widgetId) {
         moved: false,
     };
 }
-
 export function moveDashboardClimateSwipe(event, widgetId) {
     const st = _swipeState;
-    if (!st || st.widgetId !== String(widgetId) || st.pointerId !== event.pointerId) return;
+    if (!st || st.widgetId !== String(widgetId) || st.pointerId !== event.pointerId)
+        return;
     const dx = event.clientX - st.x;
     const dy = event.clientY - st.y;
     if (!st.moved) {
-        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-        if (Math.abs(dy) > Math.abs(dx)) { _swipeState = null; return; }
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6)
+            return;
+        if (Math.abs(dy) > Math.abs(dx)) {
+            _swipeState = null;
+            return;
+        }
         st.moved = true;
         st.track.dataset.dragging = 'true';
         st.track.dataset.animating = 'false';
-        if (st.track._hyveClimateAnimTimer) { window.clearTimeout(st.track._hyveClimateAnimTimer); st.track._hyveClimateAnimTimer = null; }
+        if (st.track._hyveClimateAnimTimer) {
+            window.clearTimeout(st.track._hyveClimateAnimTimer);
+            st.track._hyveClimateAnimTimer = null;
+        }
     }
     event.preventDefault?.();
     let drag = dx;
     const atStart = st.index === 0 && dx > 0;
     const atEnd = st.index === st.total - 1 && dx < 0;
-    if (atStart || atEnd) drag = dx * 0.32;
+    if (atStart || atEnd)
+        drag = dx * 0.32;
     drag = Math.max(-st.width, Math.min(st.width, drag));
     st.track.style.setProperty('--hyve-climate-drag', `${drag.toFixed(1)}px`);
 }
-
 export function endDashboardClimateSwipe(event, widgetId) {
     const st = _swipeState;
-    if (!st || st.widgetId !== String(widgetId)) return;
+    if (!st || st.widgetId !== String(widgetId))
+        return;
     _swipeState = null;
-    if (!st.moved) return;
+    if (!st.moved)
+        return;
     const dx = event.clientX - st.x;
     const threshold = Math.max(44, st.width * 0.22);
     let target = st.index;
-    if (dx <= -threshold) target = st.index + 1;
-    else if (dx >= threshold) target = st.index - 1;
+    if (dx <= -threshold)
+        target = st.index + 1;
+    else if (dx >= threshold)
+        target = st.index - 1;
     target = Math.max(0, Math.min(st.total - 1, target));
     closeDashboardClimateModeMenus();
     _commitClimateSlide(widgetId, target, { animate: true });
 }
-
 function _climateModeLabel(value) {
     const key = String(value || '').toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
     const translated = t('entity.climate.' + key);
-    if (translated !== 'entity.climate.' + key) return translated;
+    if (translated !== 'entity.climate.' + key)
+        return translated;
     return String(value || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
-
 function _climateOptions(rawOptions, currentMode = '') {
     const source = Array.isArray(rawOptions) ? rawOptions : [];
     const options = [];
     const seen = new Set();
     const add = (value, label = '') => {
         const normalized = String(value || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
-        if (!normalized || seen.has(normalized)) return;
+        if (!normalized || seen.has(normalized))
+            return;
         seen.add(normalized);
         options.push({ value: normalized, label: label || _climateModeLabel(normalized) });
     };
     source.forEach(item => {
-        if (item && typeof item === 'object') add(item.value, item.label);
-        else add(item);
+        if (item && typeof item === 'object')
+            add(item.value, item.label);
+        else
+            add(item);
     });
     add(currentMode || 'off');
     return options;
 }
-
 function _normalizeClimateEntitySelection(items) {
     const result = [];
     const seen = new Set();
@@ -483,7 +510,8 @@ function _normalizeClimateEntitySelection(items) {
             }
             : { entity_id: value };
         const entityId = String(record.entity_id || '').trim();
-        if (!entityId || seen.has(entityId)) return;
+        if (!entityId || seen.has(entityId))
+            return;
         seen.add(entityId);
         result.push({
             entity_id: entityId,
@@ -493,12 +521,10 @@ function _normalizeClimateEntitySelection(items) {
     });
     return result.slice(0, 12);
 }
-
 export function setDashboardClimateEntitySelection(items) {
     _entitySelection = _normalizeClimateEntitySelection(items);
     renderDashboardClimateEntityChips();
 }
-
 export function addDashboardClimateEntityId(entityId) {
     const found = _climateAvailableEntity(entityId);
     const next = _normalizeClimateEntitySelection([
@@ -507,7 +533,6 @@ export function addDashboardClimateEntityId(entityId) {
     ]);
     setDashboardClimateEntitySelection(next);
 }
-
 export function climateEntityRecordsForSave() {
     const entityInput = document.getElementById('dashboard-entity-select');
     const selected = resolveEntityMatch(entityInput, 'climate');
@@ -517,24 +542,23 @@ export function climateEntityRecordsForSave() {
     }
     return _normalizeClimateEntitySelection(records);
 }
-
 function _climateEntityIdsForSave() {
     return climateEntityRecordsForSave().map(item => item.entity_id);
 }
-
 function _climateEntityLabel(record) {
     const entityId = String(record?.entity_id || record || '');
     const item = _climateAvailableEntity(entityId);
     return item?.name || item?.entity_name || entityId;
 }
-
 export function renderDashboardClimateEntityChips() {
     const group = document.getElementById('dashboard-climate-entities-group');
     const list = document.getElementById('dashboard-climate-entities-list');
-    if (!group || !list) return;
+    if (!group || !list)
+        return;
     const type = document.getElementById('dashboard-widget-type')?.value || 'button';
     group.classList.toggle('hidden', type !== 'climate');
-    if (type !== 'climate') return;
+    if (type !== 'climate')
+        return;
     if (!_entitySelection.length) {
         list.innerHTML = `<span class="dashboard-climate-entities__empty">${esc(t('dashboard.climate.no_entities'))}</span>`;
         return;
@@ -555,16 +579,12 @@ export function renderDashboardClimateEntityChips() {
         </div>`;
     }).join('');
 }
-
 export function updateDashboardClimateEntityMeta(entityId, field, value) {
     const key = field === 'subtitle' ? 'subtitle' : 'title';
     const target = String(entityId || '');
-    _entitySelection = _entitySelection.map(item => (
-        item.entity_id === target ? { ...item, [key]: String(value || '') } : item
-    ));
+    _entitySelection = _entitySelection.map(item => (item.entity_id === target ? { ...item, [key]: String(value || '') } : item));
     renderDashboardAddPreview();
 }
-
 export function addSelectedDashboardClimateEntity() {
     const entityInput = document.getElementById('dashboard-entity-select');
     const selected = resolveEntityMatch(entityInput, 'climate');
@@ -575,25 +595,22 @@ export function addSelectedDashboardClimateEntity() {
     addDashboardClimateEntityId(selected.entity_id);
     renderDashboardAddPreview();
 }
-
 export function removeDashboardClimateEntity(entityId) {
     setDashboardClimateEntitySelection(_entitySelection.filter(item => item.entity_id !== String(entityId || '')));
     renderDashboardAddPreview();
 }
-
 function _climateNumber(value, fallback = null) {
     const parsed = parseFloat(value);
     return Number.isFinite(parsed) ? parsed : fallback;
 }
-
 function _roundClimateValue(value, step) {
     const decimals = String(step).includes('.') ? String(step).split('.')[1].length : 0;
     return Number(value.toFixed(Math.min(Math.max(decimals, 0), 2)));
 }
-
 export async function adjustDashboardClimateTemperature(widgetId, direction, entityId = '') {
     const widget = findWidget(widgetId);
-    if (!widget) return;
+    if (!widget)
+        return;
     const entity = entityId ? _climateEntities(widget).find(item => item.entity_id === entityId) : _climateActiveEntity(widget);
     const attrs = entity?.attributes || {};
     const caps = attrs.capabilities || {};
@@ -605,17 +622,17 @@ export async function adjustDashboardClimateTemperature(widgetId, direction, ent
     const next = _roundClimateValue(Math.min(Math.max(base + delta, min), max), step);
     await _controlClimate(widgetId, 'set_temperature', { temperature: next, value: next }, { temperature: next, target_temperature: next }, entity?.current_state ?? widget.current_state, entity?.entity_id || entityId);
 }
-
 export async function setDashboardClimateMode(widgetId, mode, entityId = '') {
     const value = String(mode || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
-    if (!value) return;
+    if (!value)
+        return;
     closeDashboardClimateModeMenus();
     await _controlClimate(widgetId, 'set_hvac_mode', { hvac_mode: value, value }, { hvac_mode: value }, value, entityId);
 }
-
 async function _controlClimate(widgetId, action, data, attrsPatch = {}, nextState = null, entityId = '') {
     const widget = findWidget(widgetId);
-    if (!widget || controlPending(widgetId)) return;
+    if (!widget || controlPending(widgetId))
+        return;
     const activeEntity = entityId ? _climateEntities(widget).find(item => item.entity_id === entityId) : _climateActiveEntity(widget);
     const targetEntityId = String(activeEntity?.entity_id || entityId || widget.entity_id || '');
     const snapshot = snapshotEntityState(targetEntityId);
@@ -628,7 +645,8 @@ async function _controlClimate(widgetId, action, data, attrsPatch = {}, nextStat
         startedAt: Date.now(),
     });
     patchEntityState(targetEntityId, state, attrsPatch);
-    if (!tryFastPathForEntities([targetEntityId])) renderDashboard();
+    if (!tryFastPathForEntities([targetEntityId]))
+        renderDashboard();
     try {
         const activePageId = getCurrentPageId();
         const pageQS = activePageId ? `?page_id=${encodeURIComponent(activePageId)}` : '';
@@ -643,12 +661,15 @@ async function _controlClimate(widgetId, action, data, attrsPatch = {}, nextStat
         }
         window.setTimeout(() => {
             deletePendingControl(String(widgetId));
-            if (!tryFastPathForEntities([targetEntityId])) renderDashboard();
+            if (!tryFastPathForEntities([targetEntityId]))
+                renderDashboard();
         }, 900);
-    } catch (e) {
+    }
+    catch (e) {
         deletePendingControl(String(widgetId));
         restoreEntitySnapshot(snapshot);
-        if (!tryFastPathForEntities([targetEntityId])) renderDashboard();
+        if (!tryFastPathForEntities([targetEntityId]))
+            renderDashboard();
         showToast(e.message || t('dashboard.action_failed'), 'error');
     }
 }

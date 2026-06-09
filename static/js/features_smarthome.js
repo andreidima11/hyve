@@ -1,15 +1,14 @@
+// @ts-nocheck — Phase 3 TS shell; tighten types incrementally.
 import { apiCall } from './api.js';
 import { getCameraStreamToken, cameraProxyUrlSync, startCameraPreviewRefresh, stopCameraPreviewRefresh } from './camera_auth.js';
 import { cameraLoaderMarkup, bindCameraPreviewLoaders } from './camera_loader.js';
 import { t, tState, applyTranslations } from './lang/index.js';
-import { escapeHtml, escapeHtmlAttr, showToast, showConfirm, debounce } from './utils.js';
+import { escapeHtml, escapeHtmlAttr, showToast, debounce } from './utils.js';
 import { cameraPreferWebmPlayer } from './camera_live.js';
 import { renderEntityRegistrySection, wireEntityRegistryEditor } from './entity_renderers.js';
 import { entityMatchesIntegration } from './integration_sources.js';
 import { ACTIVE_STATES, CONTROLLABLE } from './entity_constants.js';
-
 export { ACTIVE_STATES, CONTROLLABLE };
-
 // --- SMART HOME (IoT) ---
 let _haCurrentFilter = 'all';
 let _haCurrentSource = 'all';
@@ -23,7 +22,6 @@ let _deviceOptimisticGuards = new Map();
 const DEVICES_ENTITY_CACHE_KEY = 'hyve.devices.entities.cache.v1';
 const DEVICES_ENTITY_CACHE_TTL_MS = 10 * 60 * 1000;
 const DEVICE_OPTIMISTIC_GUARD_MS = 3500;
-
 const DEVICE_PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
 const _devicesState = {
     query: '',
@@ -36,10 +34,10 @@ const _devicesState = {
     sortDir: 'asc',
 };
 let _devicesShellMounted = false;
-
 function _mountDevicesPageShell() {
     const host = document.querySelector('#view-smarthome .hy-page-inner');
-    if (!host || document.getElementById('hy-devices-root')) return;
+    if (!host || document.getElementById('hy-devices-root'))
+        return;
     _devicesShellMounted = true;
     host.innerHTML = `
         <div id="hy-devices-root" class="hy-devices-root">
@@ -121,34 +119,35 @@ function _mountDevicesPageShell() {
         searchInput.addEventListener('input', debounce(filterDevices, 160));
     }
 }
-
 function _setDevicesLoading(message = t('integrations.loading_devices')) {
     const tbody = document.getElementById('hy-list-tbody');
     const pagination = document.getElementById('hy-devices-pagination');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="hy-list-placeholder"><i class="fas fa-circle-notch fa-spin mr-2"></i>${escapeHtml(message)}</td></tr>`;
-    if (pagination) pagination.innerHTML = '';
+    if (tbody)
+        tbody.innerHTML = `<tr><td colspan="6" class="hy-list-placeholder"><i class="fas fa-circle-notch fa-spin mr-2"></i>${escapeHtml(message)}</td></tr>`;
+    if (pagination)
+        pagination.innerHTML = '';
 }
-
 function _setDevicesError(message) {
     const tbody = document.getElementById('hy-list-tbody');
     const pagination = document.getElementById('hy-devices-pagination');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="hy-list-placeholder hy-list-error">
+    if (tbody)
+        tbody.innerHTML = `<tr><td colspan="6" class="hy-list-placeholder hy-list-error">
         <i class="fas fa-triangle-exclamation mr-2"></i>${escapeHtml(message || t('integrations.devices_load_error'))}
         <button type="button" class="ml-3 text-accent hover:underline text-xs font-semibold" data-smarthome-action="syncSmartHome"><i class="fas fa-arrows-rotate mr-1"></i>${escapeHtml(t('integrations.retry'))}</button>
     </td></tr>`;
-    if (pagination) pagination.innerHTML = '';
+    if (pagination)
+        pagination.innerHTML = '';
 }
-
 async function _apiCallWithTimeout(url, options = {}, timeoutMs = 10000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
         return await apiCall(url, { ...options, signal: controller.signal });
-    } finally {
+    }
+    finally {
         clearTimeout(timer);
     }
 }
-
 const DOMAIN_ICONS = {
     light: 'fa-lightbulb', switch: 'fa-toggle-on', script: 'fa-play',
     input_boolean: 'fa-toggle-on', cover: 'fa-door-open', lock: 'fa-lock',
@@ -180,49 +179,49 @@ const DOMAIN_ORDER = [
     'media_player', 'camera', 'image', 'vacuum', 'weather', 'person', 'number', 'select',
     'button', 'script', 'input_boolean',
 ];
-
 // Normalize an icon spec into a usable CSS class. Mirrors dashboard.js _iconClass
 // so smarthome rows accept the same syntaxes (mdi:*, fa-*, fas fa-*, mdi-*).
 function _iconClass(spec) {
     const raw = String(spec || '').trim();
-    if (!raw) return '';
-    if (raw.startsWith('mdi:'))   return `mdi mdi-${raw.slice(4)}`;
-    if (/^mdi(\s|-)/.test(raw))   return raw.startsWith('mdi-') ? `mdi ${raw}` : raw;
-    if (/\bfa[srlbd]?\b/.test(raw)) return raw;
-    if (raw.startsWith('fa-'))      return `fas ${raw}`;
+    if (!raw)
+        return '';
+    if (raw.startsWith('mdi:'))
+        return `mdi mdi-${raw.slice(4)}`;
+    if (/^mdi(\s|-)/.test(raw))
+        return raw.startsWith('mdi-') ? `mdi ${raw}` : raw;
+    if (/\bfa[srlbd]?\b/.test(raw))
+        return raw;
+    if (raw.startsWith('fa-'))
+        return `fas ${raw}`;
     return raw;
 }
-
 function _norm(value) {
     return String(value ?? '').trim().toLowerCase();
 }
-
 function _entityId(entity) {
     return String(entity?.entity_id || '');
 }
-
 function _entityDomain(entity) {
     const eid = _entityId(entity);
     return _norm(entity?.domain || eid.split('.')[0] || 'unknown');
 }
-
 function _entityAliases(entity) {
     return Array.isArray(entity?.aliases) ? entity.aliases : [];
 }
-
 function _syncDevicesStateFromInputs({ resetPage = false } = {}) {
     _devicesState.query = _norm(document.getElementById('hy-search')?.value || '');
     _devicesState.source = _norm(_haCurrentSource || 'all') || 'all';
     _devicesState.area = _norm(_haCurrentArea || 'all') || 'all';
     _devicesState.domain = _norm(_haCurrentFilter || 'all') || 'all';
-    if (resetPage) _devicesState.page = 1;
+    if (resetPage)
+        _devicesState.page = 1;
 }
-
 function _deriveSourcesFromEntities(entities) {
     const sources = new Map();
     for (const entity of Array.isArray(entities) ? entities : []) {
         const slug = String(entity?.source || '').trim();
-        if (!slug || sources.has(slug)) continue;
+        if (!slug || sources.has(slug))
+            continue;
         const meta = SOURCE_ICONS[slug] || null;
         sources.set(slug, {
             slug,
@@ -231,28 +230,27 @@ function _deriveSourcesFromEntities(entities) {
     }
     return [...sources.values()];
 }
-
 function _deriveAreasFromEntities(entities) {
     const areas = new Map();
     for (const entity of Array.isArray(entities) ? entities : []) {
         const name = String(entity?.area || '').trim();
-        if (!name) continue;
+        if (!name)
+            continue;
         areas.set(name, (areas.get(name) || 0) + 1);
     }
     return [...areas.entries()]
         .sort(([left], [right]) => left.localeCompare(right, undefined, { sensitivity: 'base' }))
         .map(([name, count]) => ({ name, count }));
 }
-
 function _rebuildSmarthomeFilters(sources = null, areas = null) {
     _buildSourceFilters(Array.isArray(sources) ? sources : _deriveSourcesFromEntities(_integrationEntitiesCache));
     _buildAreaFilters(Array.isArray(areas) ? areas : _deriveAreasFromEntities(_integrationEntitiesCache));
     _buildDomainFilters();
     _syncSmarthomeFilterPickers();
 }
-
 function _saveSmarthomeEntitySnapshot(entities, meta = {}) {
-    if (!Array.isArray(entities) || !entities.length || typeof localStorage === 'undefined') return;
+    if (!Array.isArray(entities) || !entities.length || typeof localStorage === 'undefined')
+        return;
     try {
         localStorage.setItem(DEVICES_ENTITY_CACHE_KEY, JSON.stringify({
             ts: Date.now(),
@@ -260,36 +258,41 @@ function _saveSmarthomeEntitySnapshot(entities, meta = {}) {
             sources: Array.isArray(meta.sources) ? meta.sources : _deriveSourcesFromEntities(entities),
             areas: Array.isArray(meta.areas) ? meta.areas : _deriveAreasFromEntities(entities),
         }));
-    } catch (_) {}
+    }
+    catch (_) { }
 }
-
 function _restoreSmarthomeEntitySnapshot() {
-    if (_integrationEntitiesCache.length || typeof localStorage === 'undefined') return false;
+    if (_integrationEntitiesCache.length || typeof localStorage === 'undefined')
+        return false;
     try {
         const raw = localStorage.getItem(DEVICES_ENTITY_CACHE_KEY);
-        if (!raw) return false;
+        if (!raw)
+            return false;
         const data = JSON.parse(raw);
-        if (!data || !Array.isArray(data.entities) || !data.entities.length) return false;
-        if (Date.now() - Number(data.ts || 0) > DEVICES_ENTITY_CACHE_TTL_MS) return false;
+        if (!data || !Array.isArray(data.entities) || !data.entities.length)
+            return false;
+        if (Date.now() - Number(data.ts || 0) > DEVICES_ENTITY_CACHE_TTL_MS)
+            return false;
         _integrationEntitiesCache = data.entities;
         _rebuildSmarthomeFilters(data.sources, data.areas);
         _updateStats();
         return true;
-    } catch (_) {
+    }
+    catch (_) {
         return false;
     }
 }
-
 function _scheduleSmarthomeLoadRetry(delayMs = 1500) {
-    if (_smarthomeLoadRetryTimer) return;
+    if (_smarthomeLoadRetryTimer)
+        return;
     _smarthomeLoadRetryTimer = setTimeout(() => {
         _smarthomeLoadRetryTimer = null;
         const view = document.getElementById('view-smarthome');
-        if (!view || view.classList.contains('hidden') || _integrationEntitiesCache.length) return;
-        loadSmarthome({ force: true }).catch(() => {});
+        if (!view || view.classList.contains('hidden') || _integrationEntitiesCache.length)
+            return;
+        loadSmarthome({ force: true }).catch(() => { });
     }, delayMs);
 }
-
 function _deviceSearchText(entity) {
     const attrs = entity?.attributes || {};
     return [
@@ -307,98 +310,106 @@ function _deviceSearchText(entity) {
         ..._entityAliases(entity),
     ].filter(v => v != null && v !== '').join(' ').toLowerCase();
 }
-
 export async function loadSmarthome(options = {}) {
-    getCameraStreamToken().catch(() => {});
+    getCameraStreamToken().catch(() => { });
     const force = !!options?.force;
-    if (_smarthomeLoadPromise && !force) return _smarthomeLoadPromise;
-
+    if (_smarthomeLoadPromise && !force)
+        return _smarthomeLoadPromise;
     _mountDevicesPageShell();
     const grid = document.getElementById('hy-cards-grid');
-    if (!grid) return;
+    if (!grid)
+        return;
     _wireSmarthomeFilterPickerEvents();
-
     const restoredSnapshot = _restoreSmarthomeEntitySnapshot();
-    if (restoredSnapshot) renderDeviceCards();
-    else if (!_integrationEntitiesCache.length) _setDevicesLoading();
-
-    _smarthomeLoadPromise = (async () => { try {
-        const resIntegrations = await _apiCallWithTimeout('/api/integrations/all-entities', {}, 20000).catch((err) => {
-            console.warn('[hyve] devices load failed', err);
-            return null;
-        });
-
-        // Don't wipe the cache before we have new data — if the API fails or
-        // is slow, the user can still search through whatever was loaded
-        // previously instead of seeing "no devices found".
-        let nextEntities = null;
-        let intData = null;
-        if (resIntegrations && resIntegrations.ok) {
-            try { intData = await resIntegrations.json(); } catch (_) { intData = null; }
-            if (intData && Array.isArray(intData.entities)) {
-                nextEntities = intData.entities;
+    if (restoredSnapshot)
+        renderDeviceCards();
+    else if (!_integrationEntitiesCache.length)
+        _setDevicesLoading();
+    _smarthomeLoadPromise = (async () => {
+        try {
+            const resIntegrations = await _apiCallWithTimeout('/api/integrations/all-entities', {}, 20000).catch((err) => {
+                console.warn('[hyve] devices load failed', err);
+                return null;
+            });
+            // Don't wipe the cache before we have new data — if the API fails or
+            // is slow, the user can still search through whatever was loaded
+            // previously instead of seeing "no devices found".
+            let nextEntities = null;
+            let intData = null;
+            if (resIntegrations && resIntegrations.ok) {
+                try {
+                    intData = await resIntegrations.json();
+                }
+                catch (_) {
+                    intData = null;
+                }
+                if (intData && Array.isArray(intData.entities)) {
+                    nextEntities = intData.entities;
+                }
             }
-        }
-        if (nextEntities) {
-            if (nextEntities.length) {
-                _integrationEntitiesCache = nextEntities;
-                _saveSmarthomeEntitySnapshot(nextEntities, intData || {});
-                _rebuildSmarthomeFilters((intData && intData.sources) || null, (intData && intData.areas) || null);
-            } else if (_integrationEntitiesCache.length) {
-                console.warn('[hyve] devices load returned an empty entity list; keeping last good cache');
+            if (nextEntities) {
+                if (nextEntities.length) {
+                    _integrationEntitiesCache = nextEntities;
+                    _saveSmarthomeEntitySnapshot(nextEntities, intData || {});
+                    _rebuildSmarthomeFilters((intData && intData.sources) || null, (intData && intData.areas) || null);
+                }
+                else if (_integrationEntitiesCache.length) {
+                    console.warn('[hyve] devices load returned an empty entity list; keeping last good cache');
+                }
             }
-        }
-
-        if (!_integrationEntitiesCache.length) {
-            const shouldRetry = !nextEntities || !!_devicesState.query;
-            if (shouldRetry) {
-                _setDevicesLoading(_devicesState.query ? t('hy.searching') : t('hy.waiting_data'));
-                _scheduleSmarthomeLoadRetry();
+            if (!_integrationEntitiesCache.length) {
+                const shouldRetry = !nextEntities || !!_devicesState.query;
+                if (shouldRetry) {
+                    _setDevicesLoading(_devicesState.query ? t('hy.searching') : t('hy.waiting_data'));
+                    _scheduleSmarthomeLoadRetry();
+                    return;
+                }
+                _setDevicesError('Nu exista entitati de afisat. Activeaza o integrare in Configurari > Integrari.');
+                _updateStats();
                 return;
             }
-            _setDevicesError('Nu exista entitati de afisat. Activeaza o integrare in Configurari > Integrari.');
-            _updateStats();
-            return;
-        }
-
-        if (_smarthomeLoadRetryTimer) {
-            clearTimeout(_smarthomeLoadRetryTimer);
-            _smarthomeLoadRetryTimer = null;
-        }
-        _updateStats();
-        renderDeviceCards();
-        // Live updates so state changes show without manual refresh.
-        _connectSmarthomeLive();
-    } catch (e) {
-        if (_integrationEntitiesCache.length) {
+            if (_smarthomeLoadRetryTimer) {
+                clearTimeout(_smarthomeLoadRetryTimer);
+                _smarthomeLoadRetryTimer = null;
+            }
             _updateStats();
             renderDeviceCards();
-            return;
+            // Live updates so state changes show without manual refresh.
+            _connectSmarthomeLive();
         }
-        _setDevicesLoading(_devicesState.query ? t('hy.searching') : t('hy.waiting_data'));
-        _scheduleSmarthomeLoadRetry();
-    } finally {
-        _smarthomeLoadPromise = null;
-    } })();
+        catch (e) {
+            if (_integrationEntitiesCache.length) {
+                _updateStats();
+                renderDeviceCards();
+                return;
+            }
+            _setDevicesLoading(_devicesState.query ? t('hy.searching') : t('hy.waiting_data'));
+            _scheduleSmarthomeLoadRetry();
+        }
+        finally {
+            _smarthomeLoadPromise = null;
+        }
+    })();
     return _smarthomeLoadPromise;
 }
-
 // ── Live entity-state updates (smarthome WS) ───────────────────────────
 let _smarthomeLiveWS = null;
 let _smarthomeLiveReconnectTimer = null;
 let _smarthomeLivePingTimer = null;
 let _smarthomeLiveBackoff = 1000;
 let _smarthomeCacheRefreshTimer = null;
-
 async function _fetchSmarthomeWsToken() {
     try {
         const res = await apiCall('/api/token/sse', { method: 'POST' });
-        if (!res || !res.ok) return null;
+        if (!res || !res.ok)
+            return null;
         const data = await res.json().catch(() => ({}));
         return data?.sse_token || null;
-    } catch (_) { return null; }
+    }
+    catch (_) {
+        return null;
+    }
 }
-
 export function disconnectSmarthomeLive() {
     if (_smarthomeLiveReconnectTimer) {
         clearTimeout(_smarthomeLiveReconnectTimer);
@@ -409,63 +420,93 @@ export function disconnectSmarthomeLive() {
         _smarthomeLivePingTimer = null;
     }
     if (_smarthomeLiveWS) {
-        try { _smarthomeLiveWS.onclose = null; } catch (_) {}
-        try { _smarthomeLiveWS.close(); } catch (_) {}
+        try {
+            _smarthomeLiveWS.onclose = null;
+        }
+        catch (_) { }
+        try {
+            _smarthomeLiveWS.close();
+        }
+        catch (_) { }
         _smarthomeLiveWS = null;
     }
 }
-
 async function _connectSmarthomeLive() {
     const view = document.getElementById('view-smarthome');
     if (!view || view.classList.contains('hidden')) {
         disconnectSmarthomeLive();
         return;
     }
-    if (_smarthomeLiveWS && (_smarthomeLiveWS.readyState === WebSocket.OPEN || _smarthomeLiveWS.readyState === WebSocket.CONNECTING)) return;
-
+    if (_smarthomeLiveWS && (_smarthomeLiveWS.readyState === WebSocket.OPEN || _smarthomeLiveWS.readyState === WebSocket.CONNECTING))
+        return;
     const token = await _fetchSmarthomeWsToken();
-    if (!token) { _scheduleSmarthomeLiveReconnect(); return; }
-
+    if (!token) {
+        _scheduleSmarthomeLiveReconnect();
+        return;
+    }
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const url = `${proto}://${window.location.host}/api/integrations/ws/live?token=${encodeURIComponent(token)}`;
     let ws;
-    try { ws = new WebSocket(url); }
-    catch (_) { _scheduleSmarthomeLiveReconnect(); return; }
+    try {
+        ws = new WebSocket(url);
+    }
+    catch (_) {
+        _scheduleSmarthomeLiveReconnect();
+        return;
+    }
     _smarthomeLiveWS = ws;
-
     ws.onopen = () => {
         _smarthomeLiveBackoff = 1000;
-        if (_smarthomeLivePingTimer) clearInterval(_smarthomeLivePingTimer);
+        if (_smarthomeLivePingTimer)
+            clearInterval(_smarthomeLivePingTimer);
         _smarthomeLivePingTimer = setInterval(() => {
             const v = document.getElementById('view-smarthome');
-            if (!v || v.classList.contains('hidden')) { disconnectSmarthomeLive(); return; }
-            try { ws.send('ping'); } catch (_) {}
+            if (!v || v.classList.contains('hidden')) {
+                disconnectSmarthomeLive();
+                return;
+            }
+            try {
+                ws.send('ping');
+            }
+            catch (_) { }
         }, 25000);
     };
-
     ws.onmessage = (ev) => {
         let payload = null;
-        try { payload = JSON.parse(ev.data); } catch (_) { return; }
-        if (!payload || !payload.type) return;
+        try {
+            payload = JSON.parse(ev.data);
+        }
+        catch (_) {
+            return;
+        }
+        if (!payload || !payload.type)
+            return;
         if (payload.type === 'snapshot' || payload.type === 'diff') {
             _applySmarthomeLiveItems(Array.isArray(payload.items) ? payload.items : [], payload.type === 'snapshot');
-        } else if (payload.type === 'removed') {
+        }
+        else if (payload.type === 'removed') {
             _removeSmarthomeLiveItems(Array.isArray(payload.entity_ids) ? payload.entity_ids : []);
         }
     };
-
     ws.onclose = () => {
-        if (_smarthomeLivePingTimer) { clearInterval(_smarthomeLivePingTimer); _smarthomeLivePingTimer = null; }
+        if (_smarthomeLivePingTimer) {
+            clearInterval(_smarthomeLivePingTimer);
+            _smarthomeLivePingTimer = null;
+        }
         _smarthomeLiveWS = null;
         _scheduleSmarthomeLiveReconnect();
     };
-    ws.onerror = () => { try { ws.close(); } catch (_) {} };
+    ws.onerror = () => { try {
+        ws.close();
+    }
+    catch (_) { } };
 }
-
 function _scheduleSmarthomeLiveReconnect() {
     const view = document.getElementById('view-smarthome');
-    if (!view || view.classList.contains('hidden')) return;
-    if (_smarthomeLiveReconnectTimer) return;
+    if (!view || view.classList.contains('hidden'))
+        return;
+    if (_smarthomeLiveReconnectTimer)
+        return;
     const delay = Math.min(_smarthomeLiveBackoff, 15000);
     _smarthomeLiveBackoff = Math.min(_smarthomeLiveBackoff * 2, 15000);
     _smarthomeLiveReconnectTimer = setTimeout(() => {
@@ -473,17 +514,18 @@ function _scheduleSmarthomeLiveReconnect() {
         _connectSmarthomeLive();
     }, delay);
 }
-
 function _applySmarthomeLiveItems(items, isSnapshot) {
-    if (!Array.isArray(_integrationEntitiesCache)) _integrationEntitiesCache = [];
+    if (!Array.isArray(_integrationEntitiesCache))
+        _integrationEntitiesCache = [];
     const idx = new Map();
     _integrationEntitiesCache.forEach((it, i) => idx.set(it.entity_id, i));
-
     let needsRerender = false;
     const patched = [];
     for (const item of items) {
-        if (!item || !item.entity_id) continue;
-        if (_shouldHoldOptimisticState(item.entity_id, item.state)) continue;
+        if (!item || !item.entity_id)
+            continue;
+        if (_shouldHoldOptimisticState(item.entity_id, item.state))
+            continue;
         const pos = idx.get(item.entity_id);
         if (pos == null) {
             // Brand-new entity (e.g. derived just added). Need full re-render
@@ -499,29 +541,33 @@ function _applySmarthomeLiveItems(items, isSnapshot) {
             });
             idx.set(item.entity_id, _integrationEntitiesCache.length - 1);
             needsRerender = true;
-        } else {
+        }
+        else {
             const cur = _integrationEntitiesCache[pos];
             const stateChanged = cur.state !== item.state || cur.unit !== (item.unit || cur.unit);
             cur.state = item.state;
             cur.attributes = { ...(cur.attributes || {}), ...(item.attributes || {}) };
-            if (item.unit) cur.unit = item.unit;
-            if (stateChanged) patched.push(cur);
+            if (item.unit)
+                cur.unit = item.unit;
+            if (stateChanged)
+                patched.push(cur);
         }
     }
-
     // Patch visible rows in place — snapshot (WS reconnect) and diff alike.
-    for (const d of patched) _patchRowInPlace(d);
+    for (const d of patched)
+        _patchRowInPlace(d);
     if (needsRerender) {
         _updateStats();
         renderDeviceCards();
-    } else if (patched.length || isSnapshot) {
+    }
+    else if (patched.length || isSnapshot) {
         _updateStats();
     }
 }
-
 function _shouldHoldOptimisticState(entityId, incomingState) {
     const guard = _deviceOptimisticGuards.get(entityId);
-    if (!guard) return false;
+    if (!guard)
+        return false;
     if (Date.now() > guard.until) {
         _deviceOptimisticGuards.delete(entityId);
         return false;
@@ -532,9 +578,9 @@ function _shouldHoldOptimisticState(entityId, incomingState) {
     }
     return true;
 }
-
 function _removeSmarthomeLiveItems(entityIds) {
-    if (!entityIds || !entityIds.length) return;
+    if (!entityIds || !entityIds.length)
+        return;
     const currentCount = Array.isArray(_integrationEntitiesCache) ? _integrationEntitiesCache.length : 0;
     if (currentCount && entityIds.length >= Math.max(10, Math.floor(currentCount * 0.8))) {
         console.warn('[hyve] ignoring suspicious mass entity removal', entityIds.length, 'of', currentCount);
@@ -549,18 +595,21 @@ function _removeSmarthomeLiveItems(entityIds) {
     const set = new Set(entityIds);
     let removed = 0;
     _integrationEntitiesCache = _integrationEntitiesCache.filter(d => {
-        if (set.has(d.entity_id)) { removed++; return false; }
+        if (set.has(d.entity_id)) {
+            removed++;
+            return false;
+        }
         return true;
     });
     if (removed) {
         for (const eid of entityIds) {
             const row = document.querySelector(`#hy-list-tbody tr[data-entity="${CSS.escape(eid)}"]`);
-            if (row) row.remove();
+            if (row)
+                row.remove();
         }
         _updateStats();
     }
 }
-
 // Patch a single visible row's state cell in place. Falls back silently if
 // the row isn't currently rendered (e.g. filtered out).
 function _patchRowInPlace(d) {
@@ -570,7 +619,6 @@ function _patchRowInPlace(d) {
     const isOff = ['off', 'closed', 'locked', 'idle', 'docked', 'paused'].includes(stateLower);
     const isUnavail = ['unavailable', 'unknown', 'offline'].includes(stateLower);
     const stateDisplay = isUnavail ? 'Offline' : `${d.state}${d.unit ? ' ' + d.unit : ''}`;
-
     // Main list row
     const row = document.querySelector(`#hy-list-tbody tr[data-entity="${CSS.escape(eid)}"]`);
     if (row) {
@@ -585,7 +633,6 @@ function _patchRowInPlace(d) {
         void row.offsetWidth;
         row.classList.add('hy-row-flash');
     }
-
     // Entity rows inside the device detail modal (live state + toggle buttons)
     const modalStates = document.querySelectorAll(`[data-entity-state="${CSS.escape(eid)}"]`);
     for (const el of modalStates) {
@@ -594,13 +641,13 @@ function _patchRowInPlace(d) {
         el.classList.remove('text-accent', 'text-slate-400', 'text-slate-200');
         el.classList.add(tone);
     }
-
     // Update toggle buttons inside the modal for this entity
     const dom = String(eid).split('.')[0] || '';
     if (['switch', 'light', 'input_boolean'].includes(dom)) {
         const btns = document.querySelectorAll(`button[data-smarthome-entity-id="${CSS.escape(eid)}"][data-smarthome-device-action]`);
         for (const btn of btns) {
-            if (!btn.closest('#entity-detail-modal-body') && !btn.closest('[data-entity-list]')) continue;
+            if (!btn.closest('#entity-detail-modal-body') && !btn.closest('[data-entity-list]'))
+                continue;
             const newAction = isOn ? 'turn_off' : 'turn_on';
             btn.setAttribute('aria-checked', String(isOn));
             btn.dataset.smarthomeDeviceAction = newAction;
@@ -609,7 +656,6 @@ function _patchRowInPlace(d) {
         }
     }
 }
-
 function _optimisticStateForAction(action, currentState) {
     const state = _norm(currentState);
     const onActions = {
@@ -618,37 +664,38 @@ function _optimisticStateForAction(action, currentState) {
     const offActions = {
         turn_off: 'off', close_cover: 'closed', lock: 'locked', stop: 'off', media_pause: 'paused',
     };
-    if (action === 'toggle') return ACTIVE_STATES.includes(state) || state === 'on' ? 'off' : 'on';
-    if (Object.prototype.hasOwnProperty.call(onActions, action)) return onActions[action];
-    if (Object.prototype.hasOwnProperty.call(offActions, action)) return offActions[action];
+    if (action === 'toggle')
+        return ACTIVE_STATES.includes(state) || state === 'on' ? 'off' : 'on';
+    if (Object.prototype.hasOwnProperty.call(onActions, action))
+        return onActions[action];
+    if (Object.prototype.hasOwnProperty.call(offActions, action))
+        return offActions[action];
     return currentState;
 }
-
 function _markDeviceControlPending(entityId, pending) {
-    if (!entityId || typeof document === 'undefined') return;
+    if (!entityId || typeof document === 'undefined')
+        return;
     const row = document.querySelector(`#hy-list-tbody tr[data-entity="${CSS.escape(entityId)}"]`);
     if (row) {
         row.classList.toggle('hy-row-control-pending', !!pending);
         row.querySelector('.hy-row-state-wrap')?.classList.toggle('is-pending', !!pending);
     }
 }
-
 function _updateStats() {
     const allDevices = _getAllDevices();
     const total = allDevices.length;
     const active = allDevices.filter(d => ACTIVE_STATES.includes(String(d.state).toLowerCase())).length;
     const aiSel = allDevices.filter(d => d.selected).length;
-    const el = (id, val) => { const e = document.getElementById(id); if (e) e.innerText = val; };
+    const el = (id, val) => { const e = document.getElementById(id); if (e)
+        e.innerText = val; };
     el('hy-count', total);
     el('hy-active-count', active);
     el('hy-ai-count', `${aiSel}/${total}`);
     el('hy-source-all-count', total);
 }
-
 function _getAllDevices() {
     return [..._integrationEntitiesCache];
 }
-
 function _getFilteredDevices() {
     _syncDevicesStateFromInputs();
     const allDevices = _getAllDevices();
@@ -657,34 +704,43 @@ function _getFilteredDevices() {
     const domainFilter = _devicesState.domain;
     const query = _devicesState.query;
     const filtered = allDevices.filter(entity => {
-        if (!entity || typeof entity !== 'object') return false;
+        if (!entity || typeof entity !== 'object')
+            return false;
         // Source filter
         if (sourceFilter !== 'all') {
-            if (!entityMatchesIntegration(entity.source, sourceFilter)) return false;
+            if (!entityMatchesIntegration(entity.source, sourceFilter))
+                return false;
         }
         // Area filter
         if (areaFilter !== 'all') {
             if (areaFilter === '__none__') {
-                if (String(entity.area || '').trim()) return false;
-            } else if (_norm(entity.area) !== areaFilter) {
+                if (String(entity.area || '').trim())
+                    return false;
+            }
+            else if (_norm(entity.area) !== areaFilter) {
                 return false;
             }
         }
         if (domainFilter === 'active') {
-            if (!ACTIVE_STATES.includes(_norm(entity.state))) return false;
-        } else if (domainFilter === 'ai') {
-            if (!entity.selected) return false;
-        } else if (domainFilter !== 'all') {
+            if (!ACTIVE_STATES.includes(_norm(entity.state)))
+                return false;
+        }
+        else if (domainFilter === 'ai') {
+            if (!entity.selected)
+                return false;
+        }
+        else if (domainFilter !== 'all') {
             const domain = _entityDomain(entity);
             if (domainFilter === 'sensor' && domain === 'binary_sensor') { /* include */ }
-            else if (domain !== domainFilter) return false;
+            else if (domain !== domainFilter)
+                return false;
         }
         if (query) {
-            if (!_deviceSearchText(entity).includes(query)) return false;
+            if (!_deviceSearchText(entity).includes(query))
+                return false;
         }
         return true;
     });
-
     const direction = _devicesState.sortDir === 'desc' ? -1 : 1;
     return filtered.sort((leftEntity, rightEntity) => {
         const sortKey = _devicesState.sortBy;
@@ -693,48 +749,50 @@ function _getFilteredDevices() {
         if (sortKey === 'state') {
             leftValue = _norm(leftEntity.state);
             rightValue = _norm(rightEntity.state);
-        } else if (sortKey === 'domain') {
+        }
+        else if (sortKey === 'domain') {
             leftValue = _entityDomain(leftEntity);
             rightValue = _entityDomain(rightEntity);
-        } else if (sortKey === 'source') {
+        }
+        else if (sortKey === 'source') {
             leftValue = _norm(leftEntity.source);
             rightValue = _norm(rightEntity.source);
-        } else {
+        }
+        else {
             leftValue = _norm(leftEntity.name || leftEntity.entity_id);
             rightValue = _norm(rightEntity.name || rightEntity.entity_id);
         }
         return leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' }) * direction;
     });
 }
-
 let _haBulkMode = false;
-
 export function toggleHABulkMode() {
     const wrap = document.querySelector('.hy-list-wrap');
     const btn = document.getElementById('hy-bulk-mode-btn');
-    if (!wrap || !btn) return;
+    if (!wrap || !btn)
+        return;
     _haBulkMode = !_haBulkMode;
     wrap.classList.toggle('hy-bulk-mode', _haBulkMode);
     if (!_haBulkMode) {
         document.querySelectorAll('.hy-bulk-check').forEach(cb => { cb.checked = false; });
         const allCheck = document.getElementById('hy-select-all');
-        if (allCheck) allCheck.checked = false;
+        if (allCheck)
+            allCheck.checked = false;
         updateHABulkCount();
     }
     btn.classList.toggle('active', _haBulkMode);
     btn.querySelector('span').textContent = _haBulkMode ? (t('hy.cancel')) : (t('hy.select'));
 }
-
 const SOURCE_ICONS = {
-    pago:           { icon: 'fa-credit-card',  color: 'text-emerald-400', label: 'Pago' },
-    fusion_solar:   { icon: 'fa-solar-panel',  color: 'text-amber-400', label: 'Solar' },
-    zigbee2mqtt:    { icon: 'fa-tower-broadcast', color: 'text-purple-400', label: 'Z2M' },
-    derived:        { icon: 'fa-calculator',   color: 'text-pink-400',  label: 'Derived' },
+    pago: { icon: 'fa-credit-card', color: 'text-emerald-400', label: 'Pago' },
+    fusion_solar: { icon: 'fa-solar-panel', color: 'text-amber-400', label: 'Solar' },
+    zigbee2mqtt: { icon: 'fa-tower-broadcast', color: 'text-purple-400', label: 'Z2M' },
+    derived: { icon: 'fa-calculator', color: 'text-pink-400', label: 'Derived' },
 };
-
 function renderDeviceCards() {
     const tbody = document.getElementById('hy-list-tbody');
-    if (!tbody) return;
+    if (!tbody)
+        return;
     const devices = _getFilteredDevices();
     const pagination = document.getElementById('hy-devices-pagination');
     if (!devices.length) {
@@ -756,10 +814,12 @@ function renderDeviceCards() {
                 <i class="fas fa-filter-circle-xmark text-slate-600 mr-2"></i>${msg}
                 <button type="button" class="ml-3 text-accent hover:underline text-xs font-semibold" data-smarthome-action="resetSmarthomeFilters"><i class="fas fa-rotate-left mr-1"></i>${reset}</button>
             </td></tr>`;
-        } else {
+        }
+        else {
             tbody.innerHTML = `<tr><td colspan="6" class="hy-list-placeholder"><i class="fas fa-plug text-slate-600 mr-2"></i>${t('hy.no_devices_found')}</td></tr>`;
         }
-        if (pagination) pagination.innerHTML = '';
+        if (pagination)
+            pagination.innerHTML = '';
         updateHABulkCount();
         return;
     }
@@ -768,7 +828,6 @@ function renderDeviceCards() {
     const startIndex = (_devicesState.page - 1) * _devicesState.pageSize;
     const pageDevices = devices.slice(startIndex, startIndex + _devicesState.pageSize);
     _devicesVisibleEntityCache = new Map(pageDevices.map(entity => [_entityId(entity), entity]));
-
     tbody.innerHTML = pageDevices.map(entity => {
         const source = entity.source || '';
         const isDerived = source === 'derived';
@@ -793,7 +852,6 @@ function renderDeviceCards() {
         const srcMeta = SOURCE_ICONS[entity.source] || null;
         const sourceLabel = srcMeta?.label || entity.entry_title || entity.source || 'Unknown';
         const sourceBadge = `<span class="hy-source-badge ${srcMeta?.color || 'text-slate-400'}"><i class="fas ${srcMeta?.icon || 'fa-puzzle-piece'}"></i>${escapeHtml(sourceLabel)}</span>`;
-
         const rowAction = isDerived
             ? `data-smarthome-action="openDerivedModal" data-smarthome-entity-id="${escapedIdAttr}"`
             : `data-smarthome-action="haRowClick"`;
@@ -806,8 +864,8 @@ function renderDeviceCards() {
             </td>
             <td class="hy-col-alias">
                 ${isDerived
-                    ? (aliasCount ? `<span class="hy-row-alias-btn text-slate-400">${escapeHtml(aliasBtnText)}</span>` : '')
-                        : `<button type="button" class="hy-row-alias-btn" data-smarthome-action="openAliasModal" data-smarthome-entity-id="${escapedIdAttr}" data-smarthome-stop-propagation="true" title="${t('hy.alias_modal_title')}">${escapeHtml(aliasBtnText)}</button>`}
+            ? (aliasCount ? `<span class="hy-row-alias-btn text-slate-400">${escapeHtml(aliasBtnText)}</span>` : '')
+            : `<button type="button" class="hy-row-alias-btn" data-smarthome-action="openAliasModal" data-smarthome-entity-id="${escapedIdAttr}" data-smarthome-stop-propagation="true" title="${t('hy.alias_modal_title')}">${escapeHtml(aliasBtnText)}</button>`}
             </td>
             <td class="hy-col-state">
                 <span class="hy-row-state-wrap">
@@ -815,14 +873,14 @@ function renderDeviceCards() {
                 </span>
             </td>
             <td class="hy-col-ai">${isDerived
-                ? `<label class="hy-row-ai cursor-pointer select-none" title="${escapeHtmlAttr(t('hy.include_ai_context_title'))}" data-smarthome-stop-propagation="true"><input type="checkbox" data-smarthome-change="toggleDerivedSelection" data-smarthome-entity-id="${escapedIdAttr}" ${entity.selected ? 'checked' : ''} class="accent-accent cursor-pointer" aria-label="${escapeHtmlAttr(t('hy.ai_selected'))}"></label>`
-                : `<label class="hy-row-ai cursor-pointer select-none" title="${escapeHtmlAttr(t('hy.include_ai_context_title'))}" data-smarthome-stop-propagation="true"><input type="checkbox" data-smarthome-change="toggleSelection" data-smarthome-entity-id="${escapedIdAttr}" ${entity.selected ? 'checked' : ''} class="accent-accent cursor-pointer" aria-label="${escapeHtmlAttr(t('hy.ai_selected'))}"></label>`}</td>
+            ? `<label class="hy-row-ai cursor-pointer select-none" title="${escapeHtmlAttr(t('hy.include_ai_context_title'))}" data-smarthome-stop-propagation="true"><input type="checkbox" data-smarthome-change="toggleDerivedSelection" data-smarthome-entity-id="${escapedIdAttr}" ${entity.selected ? 'checked' : ''} class="accent-accent cursor-pointer" aria-label="${escapeHtmlAttr(t('hy.ai_selected'))}"></label>`
+            : `<label class="hy-row-ai cursor-pointer select-none" title="${escapeHtmlAttr(t('hy.include_ai_context_title'))}" data-smarthome-stop-propagation="true"><input type="checkbox" data-smarthome-change="toggleSelection" data-smarthome-entity-id="${escapedIdAttr}" ${entity.selected ? 'checked' : ''} class="accent-accent cursor-pointer" aria-label="${escapeHtmlAttr(t('hy.ai_selected'))}"></label>`}</td>
         </tr>`;
     }).join('');
-    if (pagination) pagination.innerHTML = _renderDevicesPagination(devices.length, startIndex + 1, Math.min(startIndex + pageDevices.length, devices.length), totalPages);
+    if (pagination)
+        pagination.innerHTML = _renderDevicesPagination(devices.length, startIndex + 1, Math.min(startIndex + pageDevices.length, devices.length), totalPages);
     updateHABulkCount();
 }
-
 function _renderDevicesPagination(total, from, to, totalPages) {
     const sizes = DEVICE_PAGE_SIZE_OPTIONS.map(size => `<option value="${size}" ${size === _devicesState.pageSize ? 'selected' : ''}>${size}</option>`).join('');
     return `<div class="hy-devices-pager-info">
@@ -837,63 +895,55 @@ function _renderDevicesPagination(total, from, to, totalPages) {
             <button type="button" class="hy-pager-btn" data-smarthome-action="setDevicesPage" data-smarthome-page="${_devicesState.page + 1}" ${_devicesState.page >= totalPages ? 'disabled' : ''} aria-label="${escapeHtmlAttr(t('common.next_page'))}"><i class="fas fa-chevron-right"></i></button>
         </div>`;
 }
-
 export function setDevicesPage(page) {
     const total = _getFilteredDevices().length;
     const totalPages = Math.max(1, Math.ceil(total / _devicesState.pageSize));
     _devicesState.page = Math.min(Math.max(1, Number(page) || 1), totalPages);
     renderDeviceCards();
 }
-
 export function setDevicesPageSize(value) {
     const next = Number(value);
     _devicesState.pageSize = DEVICE_PAGE_SIZE_OPTIONS.includes(next) ? next : 50;
     _devicesState.page = 1;
     renderDeviceCards();
 }
-
 export function sortDevicesBy(sortBy) {
     const nextSort = String(sortBy || 'name');
     if (_devicesState.sortBy === nextSort) {
         _devicesState.sortDir = _devicesState.sortDir === 'asc' ? 'desc' : 'asc';
-    } else {
+    }
+    else {
         _devicesState.sortBy = nextSort;
         _devicesState.sortDir = 'asc';
     }
     _devicesState.page = 1;
     renderDeviceCards();
 }
-
 export function filterHAByDomain(domain) {
     _haCurrentFilter = domain;
     _syncDevicesStateFromInputs({ resetPage: true });
     _syncSmarthomeFilterPickers();
     renderDeviceCards();
 }
-
 export function filterHABySource(source) {
     _haCurrentSource = source;
     _syncDevicesStateFromInputs({ resetPage: true });
     _syncSmarthomeFilterPickers();
     renderDeviceCards();
 }
-
 export function filterHAByArea(area) {
     _haCurrentArea = area;
     _syncDevicesStateFromInputs({ resetPage: true });
     _syncSmarthomeFilterPickers();
     renderDeviceCards();
 }
-
 function _filterChoice(value, label, count = null) {
     return { value: String(value), label: String(label), count: Number.isFinite(count) ? count : null };
 }
-
 function _filterChoiceText(choice) {
     const suffix = Number.isFinite(choice?.count) ? ` (${choice.count})` : '';
     return `${choice?.label || ''}${suffix}`;
 }
-
 function _filterPickerMarkup(id, label, icon, currentValue, choices, kind) {
     const list = Array.isArray(choices) ? choices : [];
     const selected = list.find(choice => choice.value === String(currentValue)) || list[0] || _filterChoice('all', t('hy.filter_all'));
@@ -915,35 +965,34 @@ function _filterPickerMarkup(id, label, icon, currentValue, choices, kind) {
         </div>
     </div>`;
 }
-
 function _domainLabel(domain) {
     const key = String(domain || '').trim().toLowerCase();
     const mapped = DOMAIN_LABEL_KEYS[key];
     if (mapped) {
         const label = t(mapped);
-        if (label !== mapped) return label;
+        if (label !== mapped)
+            return label;
     }
     const nested = t(`hy.domains.${key}`);
-    if (nested !== `hy.domains.${key}`) return nested;
+    if (nested !== `hy.domains.${key}`)
+        return nested;
     return key.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase()) || t('common.unknown');
 }
-
 function _domainCount(domain) {
     return _integrationEntitiesCache.filter(entity => {
         const dom = entity.domain || String(entity.entity_id || '').split('.')[0];
         return domain === 'sensor' ? (dom === 'sensor' || dom === 'binary_sensor') : dom === domain;
     }).length;
 }
-
 function _syncSmarthomeFilterPickers() {
     _syncSmarthomeFilterPicker('hy-source-picker', _haCurrentSource);
     _syncSmarthomeFilterPicker('hy-area-picker', _haCurrentArea);
     _syncSmarthomeFilterPicker('hy-domain-picker', _haCurrentFilter);
 }
-
 function _syncSmarthomeFilterPicker(id, value) {
     const picker = document.getElementById(id);
-    if (!picker) return;
+    if (!picker)
+        return;
     const current = String(value || 'all');
     picker.dataset.value = current;
     const currentLabel = picker.querySelector('.hy-picker-current');
@@ -952,19 +1001,20 @@ function _syncSmarthomeFilterPicker(id, value) {
         const selected = option.dataset.value === current;
         option.dataset.selected = selected ? 'true' : 'false';
         option.setAttribute('aria-selected', selected ? 'true' : 'false');
-        if (selected) selectedLabel = option.dataset.label || option.textContent.trim();
+        if (selected)
+            selectedLabel = option.dataset.label || option.textContent.trim();
     });
-    if (currentLabel && selectedLabel) currentLabel.textContent = selectedLabel;
+    if (currentLabel && selectedLabel)
+        currentLabel.textContent = selectedLabel;
 }
-
 function _closeSmarthomeFilterPickers(except = null) {
     document.querySelectorAll('.hy-picker[data-open="true"]').forEach(picker => {
-        if (except && picker === except) return;
+        if (except && picker === except)
+            return;
         picker.dataset.open = 'false';
         picker.querySelector('[data-hy-picker-toggle]')?.setAttribute('aria-expanded', 'false');
     });
 }
-
 export function toggleSmarthomePicker(event) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
@@ -973,13 +1023,13 @@ export function toggleSmarthomePicker(event) {
         ? current
         : event?.target?.closest?.('[data-hy-picker-toggle]');
     const picker = toggle?.closest?.('.hy-picker');
-    if (!picker) return;
+    if (!picker)
+        return;
     const open = picker.dataset.open === 'true';
     _closeSmarthomeFilterPickers(picker);
     picker.dataset.open = open ? 'false' : 'true';
     toggle.setAttribute('aria-expanded', open ? 'false' : 'true');
 }
-
 export function selectSmarthomePickerOption(event) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
@@ -987,18 +1037,22 @@ export function selectSmarthomePickerOption(event) {
     const option = current?.matches?.('.hy-picker-option[data-filter-kind]')
         ? current
         : event?.target?.closest?.('.hy-picker-option[data-filter-kind]');
-    if (!option) return;
+    if (!option)
+        return;
     const kind = option.dataset.filterKind;
     const value = option.dataset.value || 'all';
     _closeSmarthomeFilterPickers();
-    if (kind === 'source') filterHABySource(value);
-    else if (kind === 'area') filterHAByArea(value);
-    else if (kind === 'domain') filterHAByDomain(value);
+    if (kind === 'source')
+        filterHABySource(value);
+    else if (kind === 'area')
+        filterHAByArea(value);
+    else if (kind === 'domain')
+        filterHAByDomain(value);
 }
-
 let _smarthomeFilterPickerEventsWired = false;
 function _wireSmarthomeFilterPickerEvents() {
-    if (_smarthomeFilterPickerEventsWired || typeof document === 'undefined') return;
+    if (_smarthomeFilterPickerEventsWired || typeof document === 'undefined')
+        return;
     _smarthomeFilterPickerEventsWired = true;
     document.addEventListener('click', event => {
         const toggle = event.target.closest('[data-hy-picker-toggle]');
@@ -1011,30 +1065,32 @@ function _wireSmarthomeFilterPickerEvents() {
             selectSmarthomePickerOption(event);
             return;
         }
-        if (!event.target.closest('.hy-picker')) _closeSmarthomeFilterPickers();
+        if (!event.target.closest('.hy-picker'))
+            _closeSmarthomeFilterPickers();
     });
     document.addEventListener('keydown', event => {
-        if (event.key === 'Escape') _closeSmarthomeFilterPickers();
+        if (event.key === 'Escape')
+            _closeSmarthomeFilterPickers();
     });
 }
-
 function _buildSourceFilters(sources) {
     const nav = document.getElementById('hy-source-filters');
-    if (!nav) return;
+    if (!nav)
+        return;
     const allCount = _getAllDevices().length;
     const choices = [_filterChoice('all', t('hy.filter_all_sources'), allCount)];
-
     for (const src of sources) {
         const count = _integrationEntitiesCache.filter(e => e.source === src.slug).length;
-        if (count === 0) continue;
+        if (count === 0)
+            continue;
         choices.push(_filterChoice(src.slug, src.label, count));
     }
     nav.innerHTML = _filterPickerMarkup('hy-source-picker', t('hy.filter_integration'), 'fa-layer-group', _haCurrentSource, choices, 'source');
 }
-
 function _buildAreaFilters(areas) {
     const nav = document.getElementById('hy-area-filters');
-    if (!nav) return;
+    if (!nav)
+        return;
     nav.classList.remove('hidden');
     const allLabel = t('hy.area_all');
     const noneLabel = t('hy.area_none');
@@ -1042,7 +1098,8 @@ function _buildAreaFilters(areas) {
     const choices = [_filterChoice('all', allLabel, _getAllDevices().length)];
     for (const a of areas) {
         const name = a.name || '';
-        if (!name) continue;
+        if (!name)
+            continue;
         choices.push(_filterChoice(name, name, a.count));
     }
     if (noneCount > 0) {
@@ -1050,20 +1107,21 @@ function _buildAreaFilters(areas) {
     }
     nav.innerHTML = _filterPickerMarkup('hy-area-picker', t('hy.filter_area'), 'fa-map-location-dot', _haCurrentArea, choices, 'area');
 }
-
 function _buildDomainFilters() {
     const nav = document.getElementById('hy-domain-filters');
-    if (!nav) return;
+    if (!nav)
+        return;
     const total = _getAllDevices().length;
     const active = _getAllDevices().filter(d => ACTIVE_STATES.includes(String(d.state).toLowerCase())).length;
     const aiSelected = _getAllDevices().filter(d => d.selected).length;
     const domains = [...new Set(_integrationEntitiesCache.map(entity => entity.domain || String(entity.entity_id || '').split('.')[0]).filter(Boolean))]
         .sort((a, b) => {
-            const ia = DOMAIN_ORDER.indexOf(a);
-            const ib = DOMAIN_ORDER.indexOf(b);
-            if (ia !== -1 || ib !== -1) return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-            return _domainLabel(a).localeCompare(_domainLabel(b));
-        });
+        const ia = DOMAIN_ORDER.indexOf(a);
+        const ib = DOMAIN_ORDER.indexOf(b);
+        if (ia !== -1 || ib !== -1)
+            return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+        return _domainLabel(a).localeCompare(_domainLabel(b));
+    });
     const choices = [
         _filterChoice('all', t('hy.filter_all_entities'), total),
         _filterChoice('active', t('hy.filter_active_now'), active),
@@ -1071,67 +1129,67 @@ function _buildDomainFilters() {
     ];
     domains.forEach(domain => {
         const count = _domainCount(domain);
-        if (count > 0) choices.push(_filterChoice(domain, _domainLabel(domain), count));
+        if (count > 0)
+            choices.push(_filterChoice(domain, _domainLabel(domain), count));
     });
     nav.innerHTML = _filterPickerMarkup('hy-domain-picker', t('hy.filter_entity_type'), 'fa-shapes', _haCurrentFilter, choices, 'domain');
 }
-
 export function filterDevices() {
     _syncDevicesStateFromInputs({ resetPage: true });
     if (!_integrationEntitiesCache.length) {
         if (_restoreSmarthomeEntitySnapshot()) {
             renderDeviceCards();
-            loadSmarthome().catch(() => {});
+            loadSmarthome().catch(() => { });
             return;
         }
         _setDevicesLoading(_devicesState.query ? t('hy.searching') : t('hy.waiting_data'));
-        loadSmarthome().then(() => renderDeviceCards()).catch(() => {});
+        loadSmarthome().then(() => renderDeviceCards()).catch(() => { });
         return;
     }
     renderDeviceCards();
 }
-
 export function toggleSmarthomeFilters(forceOpen = null) {
     const toolbar = document.querySelector('.hy-sticky-toolbar');
     const toggle = document.getElementById('hy-mobile-filter-toggle');
-    if (!toolbar) return;
+    if (!toolbar)
+        return;
     const nextOpen = forceOpen === null ? toolbar.dataset.filtersOpen !== 'true' : !!forceOpen;
     toolbar.dataset.filtersOpen = nextOpen ? 'true' : 'false';
     if (toggle) {
         toggle.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
         toggle.dataset.active = nextOpen ? 'true' : 'false';
     }
-    if (!nextOpen) _closeSmarthomeFilterPickers();
+    if (!nextOpen)
+        _closeSmarthomeFilterPickers();
 }
-
 // Reset all smarthome filters (search, source, domain) to "all".
 export function resetSmarthomeFilters() {
     _haCurrentFilter = 'all';
     _haCurrentSource = 'all';
     _haCurrentArea = 'all';
     const search = document.getElementById('hy-search');
-    if (search) search.value = '';
+    if (search)
+        search.value = '';
     _syncDevicesStateFromInputs({ resetPage: true });
     _syncSmarthomeFilterPickers();
     renderDeviceCards();
 }
-
 // Copy the currently-open row-actions entity_id to the clipboard.
 export async function copyEntityIdFromRowActions() {
-    if (!_haRowActionsEntityId) return;
+    if (!_haRowActionsEntityId)
+        return;
     try {
         await navigator.clipboard.writeText(_haRowActionsEntityId);
         showToast(t('hy.copied'), 'success');
-    } catch (e) {
+    }
+    catch (e) {
         showToast(t('hy.clipboard_error'), 'error');
     }
 }
-
 export function toggleAllHA(checked) {
     document.querySelectorAll('.hy-bulk-check').forEach(cb => cb.checked = checked);
     updateHABulkCount();
 }
-
 export function updateHABulkCount() {
     const count = document.querySelectorAll('.hy-bulk-check:checked').length;
     const panel = document.getElementById('hy-bulk-panel');
@@ -1140,25 +1198,23 @@ export function updateHABulkCount() {
     if (panel) {
         if (bulkModeOn && count > 0) {
             panel.classList.remove('hidden');
-            if (info) info.innerText = t('hy.bulk_selected', { count });
-        } else {
+            if (info)
+                info.innerText = t('hy.bulk_selected', { count });
+        }
+        else {
             panel.classList.add('hidden');
         }
     }
 }
-
 export async function deleteHABulk() {
     // No-op: bulk delete was Home Assistant only.
 }
-
 export async function deleteHASingle(eid) {
     // No-op: single-entity delete was Home Assistant only.
 }
-
 export async function toggleDevice(eid, btnEl) {
     // No-op: device toggling was Home Assistant only.
 }
-
 export async function toggleSelection(eid, sel) {
     const item = Array.isArray(_integrationEntitiesCache)
         ? _integrationEntitiesCache.find(x => x.entity_id === eid)
@@ -1170,21 +1226,26 @@ export async function toggleSelection(eid, sel) {
     };
     try {
         const body = { entity_id: eid, selected: !!sel };
-        if (item?.unique_id) body.unique_id = item.unique_id;
+        if (item?.unique_id)
+            body.unique_id = item.unique_id;
         await apiCall('/api/integrations/entities/selection', {
             method: 'POST',
             body,
         });
         // Reflect change locally so the AI counter and "AI only" filter
         // update without a full reload.
-        if (item) item.selected = !!sel;
-        try { updateHABulkCount(); } catch (_) {}
-    } catch {
+        if (item)
+            item.selected = !!sel;
+        try {
+            updateHABulkCount();
+        }
+        catch (_) { }
+    }
+    catch {
         revertCheckbox();
         showToast(t('hy.network_error'), 'error');
     }
 }
-
 export async function toggleAllAI(checked) {
     const cache = Array.isArray(_integrationEntitiesCache) ? _integrationEntitiesCache : [];
     const tbody = document.querySelector('#hy-list-tbody');
@@ -1197,11 +1258,13 @@ export async function toggleAllAI(checked) {
         : cache.map(d => d.entity_id);
     const visibleSet = new Set(visibleEids);
     const targets = cache.filter(d => visibleSet.has(d.entity_id) && d.source !== 'derived');
-    if (!targets.length) return;
+    if (!targets.length)
+        return;
     try {
         await Promise.all(targets.map(d => {
             const body = { entity_id: d.entity_id, selected: !!checked };
-            if (d.unique_id) body.unique_id = d.unique_id;
+            if (d.unique_id)
+                body.unique_id = d.unique_id;
             return apiCall('/api/integrations/entities/selection', {
                 method: 'POST',
                 body,
@@ -1214,25 +1277,30 @@ export async function toggleAllAI(checked) {
                 cb.checked = !!checked;
             });
         }
-        try { updateHABulkCount(); } catch (_) {}
-    } catch {
+        try {
+            updateHABulkCount();
+        }
+        catch (_) { }
+    }
+    catch {
         showToast(t('hy.network_error'), 'error');
     }
 }
-
 let _haAliasModalEntityId = null;
 let _haAliasModalOriginalParent = null;
-
 export function openAliasModal(eid) {
     const modal = document.getElementById('hy-alias-modal');
     const container = document.getElementById('hy-alias-inputs');
     const titleEl = document.getElementById('hy-alias-modal-title');
     const entityEl = document.getElementById('hy-alias-modal-entity');
-    if (!modal || !container) return;
+    if (!modal || !container)
+        return;
     const d = _integrationEntitiesCache?.find(x => x.entity_id === eid);
     _haAliasModalEntityId = eid;
-    if (titleEl) titleEl.textContent = t('hy.alias_modal_title');
-    if (entityEl) entityEl.textContent = eid;
+    if (titleEl)
+        titleEl.textContent = t('hy.alias_modal_title');
+    if (entityEl)
+        entityEl.textContent = eid;
     container.innerHTML = '';
     const list = d?.aliases?.length ? [...d.aliases] : [''];
     list.forEach(alias => _appendAliasInput(container, alias));
@@ -1243,7 +1311,6 @@ export function openAliasModal(eid) {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 }
-
 function _appendAliasInput(container, value = '') {
     const wrap = document.createElement('div');
     wrap.className = 'flex gap-2 items-center';
@@ -1263,13 +1330,12 @@ function _appendAliasInput(container, value = '') {
     wrap.appendChild(rm);
     container.appendChild(wrap);
 }
-
 export function addAliasInput() {
     const container = document.getElementById('hy-alias-inputs');
-    if (!container) return;
+    if (!container)
+        return;
     _appendAliasInput(container, '');
 }
-
 export function closeAliasModal() {
     const modal = document.getElementById('hy-alias-modal');
     if (modal) {
@@ -1282,27 +1348,31 @@ export function closeAliasModal() {
     }
     _haAliasModalEntityId = null;
 }
-
 let _haRowActionsEntityId = null;
 let _haRowActionsModalOriginalParent = null;
-
 export function handleHaRowClick(event) {
     const row = event.currentTarget;
-    if (!row || row.getAttribute('data-entity') == null) return;
-    if (event.target.closest('button, input, a, label')) return;
+    if (!row || row.getAttribute('data-entity') == null)
+        return;
+    if (event.target.closest('button, input, a, label'))
+        return;
     const eid = row.getAttribute('data-entity');
-    if (eid) openRowActionsModal(eid);
+    if (eid)
+        openRowActionsModal(eid);
 }
-
 export async function openRowActionsModal(entityId) {
     const modal = document.getElementById('entity-detail-modal');
     const iconEl = document.getElementById('entity-detail-modal-icon');
     const labelEl = document.getElementById('entity-detail-modal-label');
     const body = document.getElementById('entity-detail-modal-body');
     let entity = _integrationEntitiesCache?.find(candidate => candidate.entity_id === entityId) || _devicesVisibleEntityCache.get(entityId);
-    if (!modal || !body) return;
+    if (!modal || !body)
+        return;
     if (!entity) {
-        try { await loadSmarthome(); } catch (_) {}
+        try {
+            await loadSmarthome();
+        }
+        catch (_) { }
         entity = _integrationEntitiesCache?.find(candidate => candidate.entity_id === entityId) || _devicesVisibleEntityCache.get(entityId);
     }
     if (!entity) {
@@ -1311,7 +1381,6 @@ export async function openRowActionsModal(entityId) {
     }
     _haRowActionsEntityId = entityId;
     stopCameraPreviewRefresh();
-
     const domain = _entityDomain(entity);
     const stateLower = _norm(entity.state);
     const rawState = entity.state ?? 'unknown';
@@ -1325,10 +1394,10 @@ export async function openRowActionsModal(entityId) {
             <span>${escapeHtml(key)}</span>
             <strong>${escapeHtml(typeof value === 'object' ? JSON.stringify(value) : String(value))}</strong>
         </div>`).join('');
-
-    if (iconEl) iconEl.className = iconClass;
-    if (labelEl) labelEl.textContent = entity.name || entity.entity_id || t('integrations.device');
-
+    if (iconEl)
+        iconEl.className = iconClass;
+    if (labelEl)
+        labelEl.textContent = entity.name || entity.entity_id || t('integrations.device');
     body.innerHTML = `
         <div class="hy-detail-hero">
             <div class="hy-detail-icon ${DOMAIN_COLORS[domain] || 'bg-slate-500/15 text-slate-400'}"><i class="${iconClass}"></i></div>
@@ -1359,15 +1428,13 @@ export async function openRowActionsModal(entityId) {
             <div class="hy-detail-section-title">${escapeHtml(t('hy.detail_attributes'))}</div>
             <div class="hy-detail-attrs">${attrsRows || `<div class="hy-detail-empty">${escapeHtml(t('hy.detail_no_attributes'))}</div>`}</div>
         </div>`;
-
-    if (modal.parentNode !== document.body) document.body.appendChild(modal);
+    if (modal.parentNode !== document.body)
+        document.body.appendChild(modal);
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     wireEntityRegistryEditor(body, entity, {
         onUpdated: ({ oldEntityId, newEntityId, uniqueId }) => {
-            const idx = _integrationEntitiesCache.findIndex(
-                (e) => e.entity_id === oldEntityId || (uniqueId && e.unique_id === uniqueId),
-            );
+            const idx = _integrationEntitiesCache.findIndex((e) => e.entity_id === oldEntityId || (uniqueId && e.unique_id === uniqueId));
             if (idx >= 0) {
                 _integrationEntitiesCache[idx].entity_id = newEntityId;
                 _devicesVisibleEntityCache.delete(oldEntityId);
@@ -1381,23 +1448,24 @@ export async function openRowActionsModal(entityId) {
     bindCameraPreviewLoaders(body);
     _wireCameraPreviewMute();
 }
-
 function _wireCameraPreviewMute() {
     const wrap = document.querySelector('#entity-detail-modal .hy-detail-camera');
     const video = wrap?.querySelector('video[data-camera-live-webm]');
     const btn = wrap?.querySelector('[data-camera-mute-toggle]');
-    if (!video || !btn) return;
+    if (!video || !btn)
+        return;
     btn.addEventListener('click', (ev) => {
         ev.stopPropagation();
         video.muted = !video.muted;
         btn.textContent = video.muted ? '🔇' : '🔊';
     });
 }
-
 function _cameraPreviewMarkup(entity, attrs) {
     const domain = _entityDomain(entity);
-    if (domain === 'image') return _imagePreviewMarkup(entity, attrs);
-    if (domain !== 'camera') return '';
+    if (domain === 'image')
+        return _imagePreviewMarkup(entity, attrs);
+    if (domain !== 'camera')
+        return '';
     const hasAudio = !!(attrs.has_audio);
     const playUrl = cameraPreferWebmPlayer(attrs) ? _cameraProxyUrl(entity.entity_id, 'play') : '';
     if (playUrl) {
@@ -1427,39 +1495,40 @@ function _cameraPreviewMarkup(entity, attrs) {
     }
     return '';
 }
-
 function _imagePreviewMarkup(entity, attrs) {
     const hasImage = attrs.image_url || attrs.snapshot_url || attrs.entity_picture || attrs.url
         || /^https?:\/\//.test(String(entity.state || ''));
-    if (!hasImage) return '';
+    if (!hasImage)
+        return '';
     const proxyUrl = _imageProxyUrl(entity.entity_id);
-    if (!proxyUrl) return '';
+    if (!proxyUrl)
+        return '';
     return `<div class="hy-detail-camera" data-camera-preview-shell>
         ${cameraLoaderMarkup()}
         <img src="${escapeHtmlAttr(_cacheBustCameraUrl(proxyUrl))}" data-camera-src="${escapeHtmlAttr(proxyUrl)}" data-camera-refresh="true" alt="${escapeHtmlAttr(entity.name || entity.entity_id || 'Image')}" loading="eager" class="hy-camera-preview-media">
     </div>`;
 }
-
 function _imageProxyUrl(entityId) {
-    if (!entityId) return '';
+    if (!entityId)
+        return '';
     return cameraProxyUrlSync(entityId, 'image');
 }
-
 function _cameraProxyUrl(entityId, mode = 'snapshot') {
-    if (!entityId) return '';
+    if (!entityId)
+        return '';
     const paths = { stream: 'stream', play: 'play', snapshot: 'snapshot' };
     const path = paths[mode] || 'snapshot';
     return cameraProxyUrlSync(entityId, path);
 }
-
 function _cacheBustCameraUrl(url) {
     const raw = String(url || '');
-    if (!raw) return '';
+    if (!raw)
+        return '';
     return `${raw}${raw.includes('?') ? '&' : '?'}_hyve=${Date.now()}`;
 }
-
 function _deviceControlButtons(entity) {
-    if (!entity || entity.source === 'derived') return '';
+    if (!entity || entity.source === 'derived')
+        return '';
     const entityId = escapeHtmlAttr(entity.entity_id || '');
     const source = escapeHtmlAttr(entity.source || '');
     const domain = _entityDomain(entity);
@@ -1472,7 +1541,6 @@ function _deviceControlButtons(entity) {
         const busyLabel = pending ? t('integrations.applying') : label;
         return `<button type="button" class="hy-detail-btn ${tone}${pending ? ' is-pending' : ''}" ${pending ? 'aria-busy="true" data-pending="true"' : ''} data-smarthome-action="controlDevice" data-smarthome-source="${source}" data-smarthome-entity-id="${entityId}" data-smarthome-device-action="${action}"><i class="fas ${busyIcon}"></i><span>${busyLabel}</span></button>`;
     };
-
     if (['light', 'switch', 'input_boolean', 'fan'].includes(domain)) {
         return button(isActive ? 'turn_off' : 'turn_on', 'fa-power-off', isActive ? _er('turn_off') : _er('turn_on'), isActive ? 'is-danger' : 'is-primary');
     }
@@ -1501,11 +1569,12 @@ function _deviceControlButtons(entity) {
     }
     return `<div class="hy-detail-empty">${escapeHtml(_er('read_only'))}</div>`;
 }
-
 export async function controlDeviceEntity(source, entityId, action, buttonEl = null) {
     const entity = _integrationEntitiesCache?.find(candidate => candidate.entity_id === entityId);
-    if (!entity || !source || source === 'derived') return;
-    if (_deviceControlPending.has(entityId)) return;
+    if (!entity || !source || source === 'derived')
+        return;
+    if (_deviceControlPending.has(entityId))
+        return;
     const previousState = entity.state;
     const optimisticState = _optimisticStateForAction(action, previousState);
     _deviceControlPending.set(entityId, { action, previousState, optimisticState, startedAt: Date.now() });
@@ -1514,101 +1583,108 @@ export async function controlDeviceEntity(source, entityId, action, buttonEl = n
         buttonEl.setAttribute('aria-busy', 'true');
         const icon = buttonEl.querySelector('i');
         const label = buttonEl.querySelector('span');
-        if (icon) icon.className = 'fas fa-circle-notch fa-spin';
-        if (label) label.textContent = t('integrations.applying');
+        if (icon)
+            icon.className = 'fas fa-circle-notch fa-spin';
+        if (label)
+            label.textContent = t('integrations.applying');
     }
     entity.state = optimisticState;
     renderDeviceCards();
     _markDeviceControlPending(entityId, true);
-    if (_haRowActionsEntityId === entityId) await openRowActionsModal(entityId);
+    if (_haRowActionsEntityId === entityId)
+        await openRowActionsModal(entityId);
     try {
         const response = await apiCall(`/api/integrations/${encodeURIComponent(source)}/control`, {
             method: 'POST',
             body: { entity_id: entityId, action, data: {} },
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.detail || payload.message || t('integrations.action_failed'));
+        if (!response.ok)
+            throw new Error(payload.detail || payload.message || t('integrations.action_failed'));
         _deviceOptimisticGuards.set(entityId, { state: optimisticState, until: Date.now() + DEVICE_OPTIMISTIC_GUARD_MS });
         showToast(t('hy.command_sent'), 'success');
-    } catch (error) {
+    }
+    catch (error) {
         _deviceOptimisticGuards.delete(entityId);
         entity.state = previousState;
         renderDeviceCards();
         showToast(error.message || t('hy.control_error'), 'error');
-    } finally {
+    }
+    finally {
         _deviceControlPending.delete(entityId);
         _markDeviceControlPending(entityId, false);
-        if (_haRowActionsEntityId === entityId) openRowActionsModal(entityId);
+        if (_haRowActionsEntityId === entityId)
+            openRowActionsModal(entityId);
     }
 }
-
 export function openAliasModalFromDetail(entityId) {
     closeEntityDetailModal();
     openAliasModal(entityId);
 }
-
 export function closeEntityDetailModal() {
     const modal = document.getElementById('entity-detail-modal');
     stopCameraPreviewRefresh();
     if (modal) {
         modal.querySelectorAll('hyve-camera-live-player').forEach(el => {
-            try { el.pauseStream?.(); } catch (_) {}
+            try {
+                el.pauseStream?.();
+            }
+            catch (_) { }
         });
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
     _haRowActionsEntityId = null;
 }
-
 export function closeRowActionsModal() {
     closeEntityDetailModal();
 }
-
 export async function saveAliasesFromModal() {
-    if (!_haAliasModalEntityId) return;
+    if (!_haAliasModalEntityId)
+        return;
     const container = document.getElementById('hy-alias-inputs');
-    if (!container) return;
+    if (!container)
+        return;
     const inputs = container.querySelectorAll('input[data-ha-alias="1"]');
     const aliases = Array.from(inputs).map(inp => inp.value.trim()).filter(s => s);
     const d = _integrationEntitiesCache?.find(x => x.entity_id === _haAliasModalEntityId);
     await apiCall('/api/integrations/entity/rename', { method: 'POST', body: { entity_id: _haAliasModalEntityId, aliases } });
-    if (d) d.aliases = aliases;
+    if (d)
+        d.aliases = aliases;
     closeAliasModal();
     renderDeviceCards();
 }
-
 export async function saveAliases(eid, val) {
     const aliases = val.split(',').map(s => s.trim()).filter(s => s);
     await apiCall('/api/integrations/entity/rename', { method: 'POST', body: { entity_id: eid, aliases } });
     const d = _integrationEntitiesCache.find(x => x.entity_id === eid);
-    if (d) d.aliases = aliases;
+    if (d)
+        d.aliases = aliases;
 }
-
 // --- Add Devices Modal ---
 let _availableDevices = [];
-
 export async function openAddDevicesModal() {
     // No-op: legacy Home Assistant "add devices" picker.
 }
-
 export function closeAddDevicesModal() {
     const modal = document.getElementById('add-devices-modal');
-    if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
     _availableDevices = [];
 }
-
 function _renderAvailableDevices() {
     const list = document.getElementById('add-devices-list');
-    if (!list) return;
+    if (!list)
+        return;
     const search = (document.getElementById('add-devices-search')?.value || '').toLowerCase();
     const filtered = search ? _availableDevices.filter(d => `${d.name} ${d.entity_id}`.toLowerCase().includes(search)) : _availableDevices;
-
     if (!filtered.length) {
         list.innerHTML = `<div class="text-center text-slate-500 text-sm py-8">${search ? t('hy.no_devices_found') : t('hy.all_synced')}</div>`;
         _updateAddCount();
         return;
     }
-
     let currentDomain = '';
     let html = '';
     filtered.forEach(d => {
@@ -1633,41 +1709,35 @@ function _renderAvailableDevices() {
     list.innerHTML = html;
     _updateAddCount();
 }
-
 export function toggleAvailableDevice(el, eid) {
     const cb = el.querySelector('.add-device-check');
-    if (cb && document.activeElement !== cb) cb.checked = !cb.checked;
+    if (cb && document.activeElement !== cb)
+        cb.checked = !cb.checked;
     el.classList.toggle('selected', cb?.checked);
     _updateAddCount();
 }
-
 export function toggleAllAvailableDevices() {
     const checks = document.querySelectorAll('.add-device-check');
     const allChecked = Array.from(checks).every(c => c.checked);
     checks.forEach(c => { c.checked = !allChecked; c.closest('.add-device-item')?.classList.toggle('selected', !allChecked); });
     _updateAddCount();
 }
-
 function _updateAddCount() {
     const count = document.querySelectorAll('.add-device-check:checked').length;
     const el = document.getElementById('add-devices-count');
-    if (el) el.innerText = t('hy.bulk_selected', { count });
+    if (el)
+        el.innerText = t('hy.bulk_selected', { count });
 }
-
 export function filterAvailableDevices() {
     _renderAvailableDevices();
 }
-
 export async function confirmAddDevices() {
     // No-op: legacy Home Assistant "add devices" picker.
     closeAddDevicesModal();
 }
-
-
 export async function syncHA() {
     loadSmarthome({ force: true });
 }
-
 /** Read-only view of cached integration entities (automation picker fallback). */
 export function getIntegrationEntities() {
     return Array.isArray(_integrationEntitiesCache) ? _integrationEntitiesCache : [];

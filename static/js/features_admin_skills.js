@@ -2,11 +2,11 @@ import { apiCall } from './api.js';
 import { t } from './lang/index.js';
 import { isAdmin } from './user_context.js';
 import { escapeHtml, showToast, showConfirm, setupCodeEditor, setCodeEditorValue, getCodeEditorValue, refreshCodeEditor, openSubPage, closeSubPage } from './utils.js';
-
 // --- ADMIN (gestionare utilizatori) ---
 export async function loadAdminUsers() {
     const listEl = document.getElementById('admin-users-list');
-    if (!listEl) return;
+    if (!listEl)
+        return;
     try {
         const res = await apiCall('/api/users');
         if (!res.ok) {
@@ -19,9 +19,10 @@ export async function loadAdminUsers() {
             return;
         }
         listEl.innerHTML = users.map(u => {
-            const displayName = escapeHtml(u.full_name || u.username);
-            const userName = escapeHtml(u.username);
-            const phonesStr = (u.phones || []).length ? escapeHtml(u.phones.join(', ')) : '—';
+            const displayName = escapeHtml(u.full_name || u.username || '');
+            const userName = escapeHtml(u.username || '');
+            const phones = u.phones || [];
+            const phonesStr = phones.length ? escapeHtml(phones.join(', ')) : '—';
             return `
             <div class="flex items-center justify-between gap-4 p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:border-white/10 transition-colors">
                 <div class="min-w-0">
@@ -29,14 +30,14 @@ export async function loadAdminUsers() {
                     <div class="text-[11px] text-slate-500 mono">${userName}${u.is_admin ? ' • Admin' : ''}</div>
                     <div class="text-[11px] text-slate-400 mt-1" data-i18n="admin.phones">${t('admin.phones')}: ${phonesStr}</div>
                 </div>
-                <button type="button" data-config-action="deleteUser" data-config-user-id="${parseInt(u.id) || 0}" class="flex-shrink-0 px-3 py-1.5 rounded-lg text-[11px] text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors" data-i18n="admin.delete_user">${t('admin.delete_user')}</button>
+                <button type="button" data-config-action="deleteUser" data-config-user-id="${parseInt(String(u.id), 10) || 0}" class="flex-shrink-0 px-3 py-1.5 rounded-lg text-[11px] text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors" data-i18n="admin.delete_user">${t('admin.delete_user')}</button>
             </div>`;
         }).join('');
-    } catch (e) {
+    }
+    catch (_) {
         listEl.innerHTML = `<p class="text-red-400 text-sm">${t('admin.error_list')}</p>`;
     }
 }
-
 export async function createUser(username, password, fullName) {
     const res = await apiCall('/api/users/register', {
         method: 'POST',
@@ -48,27 +49,31 @@ export async function createUser(username, password, fullName) {
     }
     return res.json();
 }
-
 export async function deleteUser(userId) {
-    if (!(await showConfirm(t('admin.delete_user_confirm')))) return;
+    if (!(await showConfirm(t('admin.delete_user_confirm'))))
+        return;
     try {
         const res = await apiCall(`/api/users/${userId}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error();
+        if (!res.ok)
+            throw new Error();
         await loadAdminUsers();
-    } catch (e) {
+    }
+    catch (_) {
         showToast(t('admin.error_delete'), 'error');
     }
 }
-
 // --- SKILLS ---
 let skillEditName = null;
-
 export async function loadSkills() {
     const listEl = document.getElementById('skills-list');
-    if (!listEl) return;
+    if (!listEl)
+        return;
     try {
         const res = await apiCall('/api/skills');
-        if (!res.ok) { listEl.innerHTML = `<div class="p-4 text-slate-500 text-sm">${t('skills.load_error')}</div>`; return; }
+        if (!res.ok) {
+            listEl.innerHTML = `<div class="p-4 text-slate-500 text-sm">${t('skills.load_error')}</div>`;
+            return;
+        }
         const data = await res.json();
         if (!data.length) {
             listEl.innerHTML = `<div class="cfg-section p-8 text-center text-slate-500 text-sm" data-i18n="skills.empty">No skills yet. Create one from chat with "Fă un skill care..." or add a .py file in skills/generated/.</div>`;
@@ -102,29 +107,26 @@ export async function loadSkills() {
             </div>
         `;
         }).join('');
-    } catch (e) {
+    }
+    catch (_) {
         listEl.innerHTML = `<div class="cfg-section p-8 text-center text-red-400 text-sm">${t('skills.load_error')}</div>`;
     }
 }
-
-function escapeJs(str) {
-    if (!str) return '';
-    return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
-}
-
 export async function openSkillEdit(name) {
     skillEditName = name;
     const titleEl = document.getElementById('skill-edit-title');
     const sourceEl = document.getElementById('skill-edit-source');
     const modalEl = document.getElementById('skill-edit-modal');
-    if (!titleEl || !sourceEl || !modalEl) return;
+    if (!titleEl || !sourceEl || !modalEl)
+        return;
     titleEl.textContent = (t('skills.edit_skill')) + ': ' + name;
     try {
         const res = await apiCall('/api/skills/' + encodeURIComponent(name));
         const data = await res.json();
         setupCodeEditor({ textareaId: 'skill-edit-source', mode: 'python' });
         setCodeEditorValue('skill-edit-source', data.source || '');
-    } catch (e) {
+    }
+    catch (_) {
         setupCodeEditor({ textareaId: 'skill-edit-source', mode: 'python' });
         setCodeEditorValue('skill-edit-source', '# Error loading skill');
     }
@@ -132,16 +134,16 @@ export async function openSkillEdit(name) {
     refreshCodeEditor('skill-edit-source');
     setTimeout(() => refreshCodeEditor('skill-edit-source'), 350);
 }
-
 export function closeSkillEditModal() {
     skillEditName = null;
     closeSubPage('skill-edit-modal');
 }
-
 export async function saveSkillEdit() {
-    if (!skillEditName) return;
+    if (!skillEditName)
+        return;
     const sourceEl = document.getElementById('skill-edit-source');
-    if (!sourceEl) return;
+    if (!sourceEl)
+        return;
     try {
         const res = await apiCall('/api/skills/' + encodeURIComponent(skillEditName), {
             method: 'PATCH',
@@ -154,13 +156,14 @@ export async function saveSkillEdit() {
         closeSkillEditModal();
         await loadSkills();
         showToast(t('config.save_success'), 'success');
-    } catch (e) {
-        showToast(e.message || t('skills.save_error'), 'error');
+    }
+    catch (e) {
+        showToast(e instanceof Error ? e.message : t('skills.save_error'), 'error');
     }
 }
-
 export async function deleteSkill(name) {
-    if (!(await showConfirm((t('skills.delete_confirm')).replace('%s', name)))) return;
+    if (!(await showConfirm((t('skills.delete_confirm')).replace('%s', name))))
+        return;
     try {
         const res = await apiCall('/api/skills/' + encodeURIComponent(name), { method: 'DELETE' });
         if (!res.ok) {
@@ -168,19 +171,20 @@ export async function deleteSkill(name) {
             throw new Error(err.detail || t('skills.delete_error'));
         }
         await loadSkills();
-    } catch (e) {
-        showToast(e.message || t('skills.delete_error'), 'error');
+    }
+    catch (e) {
+        showToast(e instanceof Error ? e.message : t('skills.delete_error'), 'error');
     }
 }
-
 const DESC_TRUNCATE_LEN = 80;
-
 export function toggleSkillDesc(skillName) {
     const card = Array.from(document.querySelectorAll('[data-skill-name]')).find(el => el.getAttribute('data-skill-name') === skillName);
-    if (!card) return;
+    if (!card)
+        return;
     const textEl = card.querySelector('.skill-desc-text');
     const btn = card.querySelector('.skill-desc-toggle');
-    if (!textEl || !btn) return;
+    if (!textEl || !btn)
+        return;
     const full = textEl.getAttribute('data-full') || '';
     const isExpanded = textEl.getAttribute('data-expanded') === '1';
     if (isExpanded) {
@@ -188,20 +192,22 @@ export function toggleSkillDesc(skillName) {
         textEl.removeAttribute('data-expanded');
         btn.innerHTML = '<i class="fas fa-chevron-down"></i>';
         btn.title = t('skills.show_description');
-    } else {
+    }
+    else {
         textEl.textContent = full;
         textEl.setAttribute('data-expanded', '1');
         btn.innerHTML = '<i class="fas fa-chevron-up"></i>';
         btn.title = t('skills.hide_description');
     }
 }
-
 export async function toggleSkillDisabled(skillName) {
     try {
         const res = await apiCall('/api/skills/' + encodeURIComponent(skillName) + '/toggle', { method: 'POST' });
-        if (!res.ok) throw new Error('Toggle failed');
+        if (!res.ok)
+            throw new Error('Toggle failed');
         await loadSkills();
-    } catch (e) {
-        showToast(e.message || (t('skills.toggle_error')), 'error');
+    }
+    catch (e) {
+        showToast(e instanceof Error ? e.message : t('skills.toggle_error'), 'error');
     }
 }

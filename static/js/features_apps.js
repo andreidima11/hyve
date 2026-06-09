@@ -1,3 +1,4 @@
+// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * features_apps.js — Apps page: addon process management + lifecycle.
  */
@@ -6,88 +7,86 @@ import { showToast, escapeHtml, showConfirm } from './utils.js';
 import { t } from './lang/index.js';
 import { switchTab, openConfigSection } from './nav_bridge.js';
 import { isAdmin } from './user_context.js';
-
 let _currentLogSlug = null;
 let _pollTimer = null;
-let _openSlug = null;          // which addon detail is expanded
-let _addonUiSlug = null;       // embedded Web UI viewer
-
+let _openSlug = null; // which addon detail is expanded
+let _addonUiSlug = null; // embedded Web UI viewer
 // Tailwind can't detect dynamic class names — use static map.
 const _colorMap = {
-    cyan:    { bg: 'bg-cyan-500/10',    text: 'text-cyan-400'    },
-    blue:    { bg: 'bg-blue-500/10',    text: 'text-blue-400'    },
-    purple:  { bg: 'bg-purple-500/10',  text: 'text-purple-400'  },
+    cyan: { bg: 'bg-cyan-500/10', text: 'text-cyan-400' },
+    blue: { bg: 'bg-blue-500/10', text: 'text-blue-400' },
+    purple: { bg: 'bg-purple-500/10', text: 'text-purple-400' },
     fuchsia: { bg: 'bg-fuchsia-500/10', text: 'text-fuchsia-400' },
-    amber:   { bg: 'bg-amber-500/10',   text: 'text-amber-400'   },
-    red:     { bg: 'bg-red-500/10',     text: 'text-red-400'     },
-    green:   { bg: 'bg-green-500/10',   text: 'text-green-400'   },
+    amber: { bg: 'bg-amber-500/10', text: 'text-amber-400' },
+    red: { bg: 'bg-red-500/10', text: 'text-red-400' },
+    green: { bg: 'bg-green-500/10', text: 'text-green-400' },
     emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-400' },
-    slate:   { bg: 'bg-slate-500/10',   text: 'text-slate-400'   },
-    indigo:  { bg: 'bg-indigo-500/10',  text: 'text-indigo-400'  },
-    rose:    { bg: 'bg-rose-500/10',    text: 'text-rose-400'    },
+    slate: { bg: 'bg-slate-500/10', text: 'text-slate-400' },
+    indigo: { bg: 'bg-indigo-500/10', text: 'text-indigo-400' },
+    rose: { bg: 'bg-rose-500/10', text: 'text-rose-400' },
 };
-
 // ── helpers ─────────────────────────────────────────────────────────────
-
 function _statusBadge(s) {
-    if (s === 'running') return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400"><i class="fas fa-circle text-[6px] animate-pulse"></i>${escapeHtml(t('apps.process_status_running'))}</span>`;
-    if (s === 'exited')  return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/15 text-red-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('apps.process_status_exited'))}</span>`;
+    if (s === 'running')
+        return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400"><i class="fas fa-circle text-[6px] animate-pulse"></i>${escapeHtml(t('apps.process_status_running'))}</span>`;
+    if (s === 'exited')
+        return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/15 text-red-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('apps.process_status_exited'))}</span>`;
     return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('apps.process_status_stopped'))}</span>`;
 }
-
 function _uptime(sec) {
-    if (!sec) return '';
-    if (sec < 60) return `${sec}s`;
-    if (sec < 3600) return `${Math.floor(sec / 60)}m ${sec % 60}s`;
+    if (!sec)
+        return '';
+    if (sec < 60)
+        return `${sec}s`;
+    if (sec < 3600)
+        return `${Math.floor(sec / 60)}m ${sec % 60}s`;
     const h = Math.floor(sec / 3600);
     const m = Math.floor((sec % 3600) / 60);
     return `${h}h ${m}m`;
 }
-
 function _canUseIngressWebUi(addon) {
     const webUi = addon?.web_ui || {};
-    if (!Object.keys(webUi).length || webUi.ingress === false) return false;
-
+    if (!Object.keys(webUi).length || webUi.ingress === false)
+        return false;
     const cfg = addon?.state?.config || {};
     const directUrl = `${cfg[webUi.url_key || ''] || ''}`.trim();
     if (directUrl) {
         try {
             const parsed = new URL(directUrl);
             return ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname);
-        } catch (_) {
+        }
+        catch (_) {
             return false;
         }
     }
-
     const rawHost = `${webUi.host ?? cfg[webUi.host_key || 'host'] ?? cfg.host ?? 'localhost'}`.trim().toLowerCase();
-    if (!rawHost || rawHost.includes('://')) return false;
+    if (!rawHost || rawHost.includes('://'))
+        return false;
     return ['localhost', '127.0.0.1', '::1'].includes(rawHost);
 }
-
 function _buildAddonWebUrl(addon) {
     const webUi = addon?.web_ui || {};
     const cfg = addon?.state?.config || {};
-    if (!Object.keys(webUi).length) return '';
-
+    if (!Object.keys(webUi).length)
+        return '';
     if (_canUseIngressWebUi(addon)) {
         const slug = encodeURIComponent(addon.slug || '');
         return `/api/addons/${slug}/ui/open`;
     }
-
     const directUrl = `${cfg[webUi.url_key || ''] || ''}`.trim();
-    if (directUrl) return directUrl;
-
+    if (directUrl)
+        return directUrl;
     const rawHost = `${webUi.host ?? cfg[webUi.host_key || 'host'] ?? cfg.host ?? 'localhost'}`.trim();
-    if (!rawHost) return '';
-    if (rawHost.includes('://')) return rawHost;
-
+    if (!rawHost)
+        return '';
+    if (rawHost.includes('://'))
+        return rawHost;
     const protocol = `${cfg[webUi.protocol_key || 'protocol'] || webUi.protocol || 'http'}`.replace(/:$/, '');
     const portValue = cfg[webUi.port_key || 'port'] ?? webUi.port ?? '';
     const port = `${portValue}`.trim() ? `:${portValue}` : '';
     const path = webUi.path || '/';
     return `${protocol}://${rawHost}${port}${path}`;
 }
-
 function _renderConfigField(field, value, isAdmin) {
     const key = field.key || '';
     const label = field.label || key;
@@ -97,7 +96,6 @@ function _renderConfigField(field, value, isAdmin) {
     const safeValue = value ?? field.default ?? '';
     const disabled = isAdmin ? '' : 'disabled';
     const wideClass = type === 'textarea' ? 'sm:col-span-2' : '';
-
     if (type === 'checkbox' || type === 'boolean') {
         return `
         <label class="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 flex items-start gap-3 cursor-pointer">
@@ -109,7 +107,6 @@ function _renderConfigField(field, value, isAdmin) {
             </span>
         </label>`;
     }
-
     if (type === 'select' && Array.isArray(field.options)) {
         const options = field.options.map(opt => {
             const option = typeof opt === 'object' ? opt : { value: opt, label: opt };
@@ -127,7 +124,6 @@ function _renderConfigField(field, value, isAdmin) {
             ${desc ? `<p class="text-[11px] text-slate-500">${escapeHtml(desc)}</p>` : ''}
         </label>`;
     }
-
     if (type === 'textarea') {
         return `
         <label class="block space-y-1.5 ${wideClass}">
@@ -137,7 +133,6 @@ function _renderConfigField(field, value, isAdmin) {
             ${desc ? `<p class="text-[11px] text-slate-500">${escapeHtml(desc)}</p>` : ''}
         </label>`;
     }
-
     const inputType = ['number', 'password', 'url'].includes(type) ? type : 'text';
     if (field.detect === 'serial') {
         return `
@@ -164,17 +159,15 @@ function _renderConfigField(field, value, isAdmin) {
         ${desc ? `<p class="text-[11px] text-slate-500">${escapeHtml(desc)}</p>` : ''}
     </label>`;
 }
-
 function _renderConfigSection(addon, isAdmin) {
     const schema = addon.config_schema || [];
-    if (!schema.length) return '';
-
+    if (!schema.length)
+        return '';
     const cfg = addon.state?.config || {};
     const webUrl = _buildAddonWebUrl(addon);
     const intro = addon.state?.installed
         ? t('apps.config_intro_installed')
         : t('apps.config_intro_not_installed');
-
     return `
     <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 space-y-4">
         <div class="space-y-1">
@@ -191,24 +184,23 @@ function _renderConfigSection(addon, isAdmin) {
         </div>
     </div>`;
 }
-
-
 // ── render: summary card (list view) ────────────────────────────────────
-
 function _addonStatusBadge(addon, processStatus) {
     const installed = addon.state?.installed;
     const enabled = addon.state?.enabled;
-    if (!installed) return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400">${escapeHtml(t('toast.addon_status_available'))}</span>`;
-    if (addon.start_command && processStatus) return _statusBadge(processStatus.status || 'stopped');
-    if (enabled) return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('toast.addon_status_active'))}</span>`;
+    if (!installed)
+        return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400">${escapeHtml(t('toast.addon_status_available'))}</span>`;
+    if (addon.start_command && processStatus)
+        return _statusBadge(processStatus.status || 'stopped');
+    if (enabled)
+        return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('toast.addon_status_active'))}</span>`;
     return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('toast.addon_status_installed'))}</span>`;
 }
-
 function _updateIndicator(addon) {
-    if (!addon || !addon.update_available) return '';
+    if (!addon || !addon.update_available)
+        return '';
     return `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500/15 text-amber-300 flex-shrink-0" title="${escapeHtml(t('updates.update_available'))}"><i class="fas fa-arrow-up text-[9px]"></i></span>`;
 }
-
 function _renderSummaryCard(addon, status) {
     const slug = addon.slug;
     const icon = addon.icon || 'fas fa-puzzle-piece';
@@ -217,7 +209,6 @@ function _renderSummaryCard(addon, status) {
     const iconHtml = addon.image
         ? `<img src="${escapeHtml(addon.image)}" alt="" class="w-10 h-10 rounded-xl object-contain flex-shrink-0" loading="lazy">`
         : `<div class="w-10 h-10 rounded-xl ${cm.bg} flex items-center justify-center flex-shrink-0"><i class="${escapeHtml(icon)} ${cm.text}"></i></div>`;
-
     return `
     <button type="button" data-config-action="openAppDetail" data-config-slug="${escapeHtml(slug)}"
         class="app-summary w-full text-left rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 transition-all hover:border-white/[0.12] hover:bg-white/[0.04] active:scale-[0.995]"
@@ -238,9 +229,7 @@ function _renderSummaryCard(addon, status) {
         </div>
     </button>`;
 }
-
 // ── render: detail view ─────────────────────────────────────────────────
-
 function _renderDetail(addon, status) {
     const slug = addon.slug;
     const icon = addon.icon || 'fas fa-puzzle-piece';
@@ -257,7 +246,6 @@ function _renderDetail(addon, status) {
     // Show the real installed version (resolved from the package) when installed;
     // fall back to the manifest version for not-installed add-ons.
     const displayVersion = (installed && addon.state?.version) ? addon.state.version : (addon.version || '?');
-
     // Lifecycle controls (install / enable-disable / uninstall) — admin only
     let lifecycleHtml = '';
     if (isAdminUser) {
@@ -276,7 +264,8 @@ function _renderDetail(addon, status) {
                     </button>
                 </div>
             </div>`;
-        } else {
+        }
+        else {
             const watchdogOn = !!addon.state?.watchdog;
             lifecycleHtml = `
             <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 space-y-3">
@@ -294,16 +283,14 @@ function _renderDetail(addon, status) {
                 ` : ''}
                 <div class="flex flex-wrap gap-2">
                     ${enabled
-                        ? `<button type="button" data-config-action="toggleApp" data-config-slug="${escapeHtml(slug)}" data-config-enabled="false" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all"><i class="fas fa-power-off mr-1.5"></i>${escapeHtml(t('common.disable'))}</button>`
-                        : `<button type="button" data-config-action="toggleApp" data-config-slug="${escapeHtml(slug)}" data-config-enabled="true" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all"><i class="fas fa-check mr-1.5"></i>${escapeHtml(t('common.enable'))}</button>`
-                    }
+                ? `<button type="button" data-config-action="toggleApp" data-config-slug="${escapeHtml(slug)}" data-config-enabled="false" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all"><i class="fas fa-power-off mr-1.5"></i>${escapeHtml(t('common.disable'))}</button>`
+                : `<button type="button" data-config-action="toggleApp" data-config-slug="${escapeHtml(slug)}" data-config-enabled="true" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all"><i class="fas fa-check mr-1.5"></i>${escapeHtml(t('common.enable'))}</button>`}
                     ${addon.update_available ? `<button type="button" data-config-action="goToAddonUpdates" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 transition-all"><i class="fas fa-arrow-up mr-1.5"></i>${escapeHtml(t('updates.update_available'))}</button>` : ''}
                     <button type="button" data-config-action="uninstallApp" data-config-slug="${escapeHtml(slug)}" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all"><i class="fas fa-trash-alt mr-1.5"></i>${escapeHtml(t('apps.uninstall'))}</button>
                 </div>
             </div>`;
         }
     }
-
     return `
     <div id="app-detail" class="space-y-5" data-slug="${escapeHtml(slug)}">
         <!-- Header -->
@@ -312,8 +299,8 @@ function _renderDetail(addon, status) {
                 <i class="fas fa-arrow-left"></i>
             </button>
             ${addon.image
-                ? `<img src="${escapeHtml(addon.image)}" alt="" class="w-10 h-10 rounded-xl object-contain flex-shrink-0" loading="lazy">`
-                : `<div class="w-10 h-10 rounded-xl ${cm.bg} flex items-center justify-center flex-shrink-0"><i class="${escapeHtml(icon)} ${cm.text}"></i></div>`}
+        ? `<img src="${escapeHtml(addon.image)}" alt="" class="w-10 h-10 rounded-xl object-contain flex-shrink-0" loading="lazy">`
+        : `<div class="w-10 h-10 rounded-xl ${cm.bg} flex items-center justify-center flex-shrink-0"><i class="${escapeHtml(icon)} ${cm.text}"></i></div>`}
             <div class="min-w-0 flex-1">
                 <h2 class="text-white font-semibold text-lg">${escapeHtml(addon.name)}</h2>
                 <p class="text-slate-500 text-xs">${escapeHtml(addon.long_description || addon.description || '')}</p>
@@ -361,9 +348,8 @@ function _renderDetail(addon, status) {
             <div class="flex items-center gap-2 text-xs text-slate-500">
                 <i class="fas fa-tag mr-1 opacity-60"></i>v${escapeHtml(displayVersion)}
                 ${enabled
-                    ? '<span class="ml-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400"><i class="fas fa-circle text-[6px]"></i>Activ</span>'
-                    : '<span class="ml-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400"><i class="fas fa-circle text-[6px]"></i>Instalat</span>'
-                }
+        ? '<span class="ml-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400"><i class="fas fa-circle text-[6px]"></i>Activ</span>'
+        : '<span class="ml-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400"><i class="fas fa-circle text-[6px]"></i>Instalat</span>'}
             </div>
         </div>
         `}
@@ -374,15 +360,12 @@ function _renderDetail(addon, status) {
         ${lifecycleHtml}
     </div>`;
 }
-
 // ── load ────────────────────────────────────────────────────────────────
-
 let _addonsCache = [];
-
 export async function loadApps() {
     const container = document.getElementById('apps-list');
-    if (!container) return;
-
+    if (!container)
+        return;
     try {
         const [addonsRes, statusRes] = await Promise.all([
             apiCall('/api/addons'),
@@ -390,14 +373,11 @@ export async function loadApps() {
         ]);
         const addons = await addonsRes.json();
         const statuses = await statusRes.json();
-
         _addonsCache = addons;
-
         if (!addons.length) {
             container.innerHTML = `<div class="p-8 text-center text-slate-500 text-sm">${escapeHtml(t('toast.addon_list_empty'))}</div>`;
             return;
         }
-
         // If a detail was open, re-open it; otherwise show list
         if (_openSlug) {
             const addon = addons.find(a => a.slug === _openSlug);
@@ -407,22 +387,19 @@ export async function loadApps() {
                 return;
             }
         }
-
         container.innerHTML = addons.map(a => _renderSummaryCard(a, statuses[a.slug])).join('');
         _startPoll();
-    } catch (e) {
+    }
+    catch (e) {
         container.innerHTML = `<div class="p-8 text-center text-red-400 text-sm">${escapeHtml(t('common.error'))}: ${escapeHtml(String(e))}</div>`;
     }
 }
-
-
 // ── detail open/close ───────────────────────────────────────────────────
-
 export async function openAppDetail(slug) {
     _openSlug = slug;
     const container = document.getElementById('apps-list');
-    if (!container) return;
-
+    if (!container)
+        return;
     try {
         const [addonRes, statusRes] = await Promise.all([
             apiCall(`/api/addons/${encodeURIComponent(slug)}`),
@@ -431,26 +408,27 @@ export async function openAppDetail(slug) {
         const addon = await addonRes.json();
         const status = await statusRes.json();
         const idx = _addonsCache.findIndex(a => a.slug === addon.slug);
-        if (idx >= 0) _addonsCache[idx] = addon;
-        else _addonsCache.push(addon);
-
+        if (idx >= 0)
+            _addonsCache[idx] = addon;
+        else
+            _addonsCache.push(addon);
         container.innerHTML = _renderDetail(addon, status);
-    } catch (e) {
+    }
+    catch (e) {
         showToast(t('apps.error_detail', { message: e.message }), 'error');
     }
 }
-
 export function closeAppDetail() {
     _openSlug = null;
     loadApps();
 }
-
 // ── actions ─────────────────────────────────────────────────────────────
-
 export async function appAction(slug, action) {
     const btn = event?.target?.closest?.('button');
-    if (btn) { btn.disabled = true; btn.classList.add('opacity-50'); }
-
+    if (btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-50');
+    }
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/${action}`, { method: 'POST' });
         if (!res.ok) {
@@ -460,97 +438,116 @@ export async function appAction(slug, action) {
         showToast(t('apps.process_action_ok', { slug, action }), 'success');
         // Re-fetch status to update buttons
         await _refreshDetailStatus(slug);
-    } catch (e) {
+    }
+    catch (e) {
         showToast(t('apps.process_action_error', { slug, message: e.message }), 'error');
-    } finally {
-        if (btn) { btn.disabled = false; btn.classList.remove('opacity-50'); }
+    }
+    finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.classList.remove('opacity-50');
+        }
     }
 }
-
 async function _refreshDetailStatus(slug) {
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/status`);
         const s = await res.json();
         _updateDetailUI(s);
-    } catch (_) {}
+    }
+    catch (_) { }
 }
-
 function _updateDetailUI(s) {
     const st = s?.status || 'stopped';
     const isRunning = st === 'running';
-
     const badge = document.getElementById('app-detail-badge');
-    if (badge) badge.innerHTML = _statusBadge(st);
-
+    if (badge)
+        badge.innerHTML = _statusBadge(st);
     const pidEl = document.getElementById('app-detail-pid');
-    if (pidEl) pidEl.textContent = s?.pid || '—';
-
+    if (pidEl)
+        pidEl.textContent = s?.pid || '—';
     const upWrap = document.getElementById('app-detail-uptime-wrap');
     const upEl = document.getElementById('app-detail-uptime');
-    if (upWrap) upWrap.classList.toggle('hidden', !s?.uptime);
-    if (upEl) upEl.textContent = _uptime(s?.uptime);
-
+    if (upWrap)
+        upWrap.classList.toggle('hidden', !s?.uptime);
+    if (upEl)
+        upEl.textContent = _uptime(s?.uptime);
     const startBtn = document.getElementById('app-detail-start');
     const stopBtn = document.getElementById('app-detail-stop');
     const restartBtn = document.getElementById('app-detail-restart');
-    if (startBtn) { startBtn.disabled = isRunning; startBtn.classList.toggle('opacity-40', isRunning); }
-    if (stopBtn) { stopBtn.disabled = !isRunning; stopBtn.classList.toggle('opacity-40', !isRunning); }
-    if (restartBtn) { restartBtn.disabled = !isRunning; restartBtn.classList.toggle('opacity-40', !isRunning); }
+    if (startBtn) {
+        startBtn.disabled = isRunning;
+        startBtn.classList.toggle('opacity-40', isRunning);
+    }
+    if (stopBtn) {
+        stopBtn.disabled = !isRunning;
+        stopBtn.classList.toggle('opacity-40', !isRunning);
+    }
+    if (restartBtn) {
+        restartBtn.disabled = !isRunning;
+        restartBtn.classList.toggle('opacity-40', !isRunning);
+    }
 }
-
 // ── logs ────────────────────────────────────────────────────────────────
-
 let _logPollTimer = null;
-
 export function openAppLogModal(slug, name) {
     _currentLogSlug = slug;
     const modal = document.getElementById('app-log-modal');
     const title = document.getElementById('app-log-title');
-    if (title) title.innerHTML = `<i class="fas fa-terminal"></i><span>${escapeHtml(t('apps.log_title', { name }))}</span>`;
-    if (modal) { modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
+    if (title)
+        title.innerHTML = `<i class="fas fa-terminal"></i><span>${escapeHtml(t('apps.log_title', { name }))}</span>`;
+    if (modal) {
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+    }
     refreshAppLogs();
     _stopLogPoll();
     _logPollTimer = setInterval(refreshAppLogs, 3000);
 }
-
 export function closeAppLogModal() {
     _currentLogSlug = null;
     _stopLogPoll();
     const modal = document.getElementById('app-log-modal');
-    if (modal) { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
+    if (modal) {
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+    }
 }
-
 function _stopLogPoll() {
-    if (_logPollTimer) { clearInterval(_logPollTimer); _logPollTimer = null; }
+    if (_logPollTimer) {
+        clearInterval(_logPollTimer);
+        _logPollTimer = null;
+    }
 }
-
 export async function refreshAppLogs() {
-    if (!_currentLogSlug) return;
+    if (!_currentLogSlug)
+        return;
     const pre = document.getElementById('app-log-content');
-    if (!pre) return;
-
+    if (!pre)
+        return;
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(_currentLogSlug)}/logs?tail=300`);
         const data = await res.json();
         const lines = data.lines || [];
         pre.textContent = lines.length ? lines.join('\n') : t('apps.logs_empty');
         pre.scrollTop = pre.scrollHeight;
-    } catch (e) {
+    }
+    catch (e) {
         pre.textContent = t('apps.logs_error', { message: e.message });
     }
 }
-
 // ── lifecycle (install / uninstall / enable / disable) ──────────────────
-
 export async function runPreflight(slug) {
     const area = document.getElementById('preflight-area');
-    const btn  = document.getElementById('preflight-btn');
-    if (!area) return;
-
-    if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('apps.preflight_checking_btn'))}`; }
+    const btn = document.getElementById('preflight-btn');
+    if (!area)
+        return;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('apps.preflight_checking_btn'))}`;
+    }
     area.classList.remove('hidden');
     area.innerHTML = `<p class="text-xs text-slate-500"><i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('apps.preflight_checking'))}</p>`;
-
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/install/preflight`);
         if (!res.ok) {
@@ -560,12 +557,10 @@ export async function runPreflight(slug) {
         }
         const data = await res.json();
         const checks = data.checks || [];
-
         if (!checks.length) {
             area.innerHTML = `<p class="text-xs text-emerald-400"><i class="fas fa-check-circle mr-1.5"></i>${escapeHtml(t('apps.preflight_no_checks'))}</p>`;
             return;
         }
-
         const allOk = checks.every(c => c.ok);
         area.innerHTML = checks.map(c => {
             if (c.ok) {
@@ -580,58 +575,72 @@ export async function runPreflight(slug) {
                 </div>` : ''}
             </div>`;
         }).join('');
-
         if (allOk) {
             area.innerHTML += `<p class="text-xs text-emerald-400 mt-1"><i class="fas fa-check-circle mr-1.5"></i>${escapeHtml(t('apps.preflight_all_ok'))}</p>`;
         }
-    } catch (e) {
+    }
+    catch (e) {
         area.innerHTML = `<p class="text-xs text-red-400"><i class="fas fa-exclamation-triangle mr-1.5"></i>${escapeHtml(t('common.error'))}: ${escapeHtml(e.message)}</p>`;
-    } finally {
-        if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fas fa-stethoscope mr-1.5"></i>${escapeHtml(t('apps.check_requirements'))}`; }
+    }
+    finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fas fa-stethoscope mr-1.5"></i>${escapeHtml(t('apps.check_requirements'))}`;
+        }
     }
 }
-
 let _installEventSource = null;
-
 export async function installApp(slug) {
     // Open install-log modal and stream progress via SSE
-    const modal   = document.getElementById('app-install-modal');
-    const title   = document.getElementById('app-install-title');
+    const modal = document.getElementById('app-install-modal');
+    const title = document.getElementById('app-install-title');
     const content = document.getElementById('app-install-content');
-    const status  = document.getElementById('app-install-status');
+    const status = document.getElementById('app-install-status');
     const closeBtn = document.getElementById('app-install-close-btn');
-
-    if (title) title.innerHTML = `<i class="fas fa-download"></i><span>${escapeHtml(t('apps.install_log_title', { slug }))}</span>`;
-    if (content) content.textContent = `${t('apps.install_preparing')}\n`;
-    if (status)  status.innerHTML = `<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('config.app_install_status'))}`;
-    if (closeBtn) closeBtn.classList.add('hidden');
-    if (modal)  { modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
-
+    if (title)
+        title.innerHTML = `<i class="fas fa-download"></i><span>${escapeHtml(t('apps.install_log_title', { slug }))}</span>`;
+    if (content)
+        content.textContent = `${t('apps.install_preparing')}\n`;
+    if (status)
+        status.innerHTML = `<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('config.app_install_status'))}`;
+    if (closeBtn)
+        closeBtn.classList.add('hidden');
+    if (modal) {
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+    }
     // Get short-lived exchange token for SSE (avoids passing long-lived JWT in URL)
     let token;
     try {
         const { getSSEToken } = await import('./api.js');
         token = await getSSEToken();
-    } catch (_) {
+    }
+    catch (_) {
         token = '';
     }
-
     // Close previous stream if any
-    if (_installEventSource) { _installEventSource.close(); _installEventSource = null; }
-
+    if (_installEventSource) {
+        _installEventSource.close();
+        _installEventSource = null;
+    }
     const url = `/api/addons/${encodeURIComponent(slug)}/install/stream?token=${encodeURIComponent(token)}`;
     const es = new EventSource(url);
     _installEventSource = es;
-
     es.onmessage = (ev) => {
         let line;
-        try { line = JSON.parse(ev.data); } catch { line = ev.data; }
-
+        try {
+            line = JSON.parse(ev.data);
+        }
+        catch {
+            line = ev.data;
+        }
         if (line === '__DONE__') {
             es.close();
             _installEventSource = null;
-            if (status)  status.innerHTML = `<i class="fas fa-check-circle mr-1.5 text-emerald-400"></i><span class="text-emerald-400">${escapeHtml(t('apps.install_complete'))}</span>`;
-            if (closeBtn) closeBtn.classList.remove('hidden');
+            if (status)
+                status.innerHTML = `<i class="fas fa-check-circle mr-1.5 text-emerald-400"></i><span class="text-emerald-400">${escapeHtml(t('apps.install_complete'))}</span>`;
+            if (closeBtn)
+                closeBtn.classList.remove('hidden');
             showToast(t('hy.addon_installed'), 'success');
             _openSlug = slug;
             setTimeout(() => {
@@ -640,60 +649,70 @@ export async function installApp(slug) {
             }, 900);
             return;
         }
-
         if (typeof line === 'string' && line.startsWith('__FAIL__:')) {
             es.close();
             _installEventSource = null;
             const msg = line.slice('__FAIL__:'.length);
-            if (content) content.textContent += `\n❌ ${msg}\n`;
-            if (status)  status.innerHTML = `<i class="fas fa-times-circle mr-1.5 text-red-400"></i><span class="text-red-400">${escapeHtml(t('apps.install_failed'))}</span>`;
-            if (closeBtn) closeBtn.classList.remove('hidden');
+            if (content)
+                content.textContent += `\n❌ ${msg}\n`;
+            if (status)
+                status.innerHTML = `<i class="fas fa-times-circle mr-1.5 text-red-400"></i><span class="text-red-400">${escapeHtml(t('apps.install_failed'))}</span>`;
+            if (closeBtn)
+                closeBtn.classList.remove('hidden');
             showToast(t('hy.addon_install_error'), 'error');
             return;
         }
-
         if (content) {
             content.textContent += line;
             content.scrollTop = content.scrollHeight;
         }
     };
-
     es.onerror = () => {
         es.close();
         _installEventSource = null;
-        if (status)  status.innerHTML = `<i class="fas fa-times-circle mr-1.5 text-red-400"></i><span class="text-red-400">${escapeHtml(t('apps.install_connection_lost'))}</span>`;
-        if (closeBtn) closeBtn.classList.remove('hidden');
+        if (status)
+            status.innerHTML = `<i class="fas fa-times-circle mr-1.5 text-red-400"></i><span class="text-red-400">${escapeHtml(t('apps.install_connection_lost'))}</span>`;
+        if (closeBtn)
+            closeBtn.classList.remove('hidden');
     };
 }
-
 export function closeInstallLogModal() {
-    if (_installEventSource) { _installEventSource.close(); _installEventSource = null; }
+    if (_installEventSource) {
+        _installEventSource.close();
+        _installEventSource = null;
+    }
     const modal = document.getElementById('app-install-modal');
-    if (modal) { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
+    if (modal) {
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+    }
 }
-
 /** Navigate to the Updates page where add-on updates are applied (generic, no slug needed). */
 export function goToAddonUpdates() {
-    try { switchTab('config'); } catch (_) {}
+    try {
+        switchTab('config');
+    }
+    catch (_) { }
     openConfigSection('updates');
 }
-
 export async function uninstallApp(slug) {
-    if (!(await showConfirm(t('hy.addon_uninstall_confirm', { slug })))) return;
+    if (!(await showConfirm(t('hy.addon_uninstall_confirm', { slug }))))
+        return;
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/uninstall`, { method: 'POST' });
         if (res.ok) {
             showToast(t('hy.addon_uninstalled'), 'success');
             _openSlug = slug;
             await loadApps();
-        } else {
+        }
+        else {
             showToast(t('hy.addon_uninstall_error'), 'error');
         }
-    } catch (e) {
+    }
+    catch (e) {
         showToast(t('hy.network_error'), 'error');
     }
 }
-
 export async function toggleApp(slug, enabled) {
     const ep = enabled ? 'enable' : 'disable';
     try {
@@ -702,14 +721,15 @@ export async function toggleApp(slug, enabled) {
             showToast(enabled ? t('hy.addon_enabled_toast') : t('hy.addon_disabled_toast'), 'success');
             _openSlug = slug;
             await loadApps();
-        } else {
+        }
+        else {
             showToast(t('common.error'), 'error');
         }
-    } catch (e) {
+    }
+    catch (e) {
         showToast(t('hy.network_error'), 'error');
     }
 }
-
 export async function toggleAddonWatchdog(slug, enabled) {
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/watchdog`, {
@@ -722,25 +742,29 @@ export async function toggleAddonWatchdog(slug, enabled) {
             if (idx >= 0) {
                 _addonsCache[idx].state = { ...(_addonsCache[idx].state || {}), watchdog: !!enabled };
             }
-        } else {
+        }
+        else {
             const data = await res.json().catch(() => ({}));
             showToast(data.detail || t('apps.watchdog_save_error'), 'error');
             const cb = document.getElementById(`addon-watchdog-${slug}`);
-            if (cb) cb.checked = !enabled;
+            if (cb)
+                cb.checked = !enabled;
         }
-    } catch (e) {
+    }
+    catch (e) {
         showToast(t('hy.network_error'), 'error');
         const cb = document.getElementById(`addon-watchdog-${slug}`);
-        if (cb) cb.checked = !enabled;
+        if (cb)
+            cb.checked = !enabled;
     }
 }
-
 export async function detectAddonSerialPorts(fieldKey) {
     const safeKey = String(fieldKey || '');
     const root = document.getElementById('app-detail') || document;
     const input = root.querySelector(`[data-addon-config="${CSS.escape(safeKey)}"]`);
     const results = root.querySelector(`[data-addon-detect-results="${CSS.escape(safeKey)}"]`);
-    if (!input || !results) return;
+    if (!input || !results)
+        return;
     results.classList.remove('hidden');
     results.innerHTML = `<div class="text-[11px] text-slate-500"><i class="fas fa-spinner fa-spin mr-1"></i>${escapeHtml(t('apps.usb_scanning'))}</div>`;
     try {
@@ -773,20 +797,21 @@ export async function detectAddonSerialPorts(fieldKey) {
                 showToast(t('apps.port_selected_hint'), 'success');
             });
         });
-    } catch (e) {
+    }
+    catch (e) {
         results.innerHTML = `<div class="text-[11px] text-rose-300">${escapeHtml(t('toast.network_error'))}</div>`;
     }
 }
-
 export async function saveAddonConfig(slug) {
     const detail = document.getElementById('app-detail');
-    if (!detail) return;
-
+    if (!detail)
+        return;
     const fields = detail.querySelectorAll('[data-addon-config]');
     const body = {};
     fields.forEach(field => {
         const key = field.dataset.addonConfig;
-        if (!key) return;
+        if (!key)
+            return;
         if (field.type === 'checkbox') {
             body[key] = !!field.checked;
             return;
@@ -798,7 +823,6 @@ export async function saveAddonConfig(slug) {
         }
         body[key] = `${field.value || ''}`.trim();
     });
-
     // Persist watchdog state alongside config so a save can't desync it.
     const watchdogCb = document.getElementById(`addon-watchdog-${slug}`);
     if (watchdogCb) {
@@ -807,9 +831,9 @@ export async function saveAddonConfig(slug) {
                 method: 'POST',
                 body: { enabled: !!watchdogCb.checked },
             });
-        } catch (_) { /* non-fatal — config save still proceeds */ }
+        }
+        catch (_) { /* non-fatal — config save still proceeds */ }
     }
-
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/config`, {
             method: 'PATCH',
@@ -823,11 +847,11 @@ export async function saveAddonConfig(slug) {
         showToast(t('toast.addon_config_saved'), 'success');
         _openSlug = slug;
         await openAppDetail(slug);
-    } catch (e) {
+    }
+    catch (e) {
         showToast(e.message || t('toast.addon_config_save_error'), 'error');
     }
 }
-
 export async function testAddonHealth(slug) {
     try {
         if (isAdmin()) {
@@ -837,36 +861,38 @@ export async function testAddonHealth(slug) {
         const data = await res.json();
         if (data?.ok) {
             showToast(t('integrations.connection_ok'), 'success');
-        } else {
+        }
+        else {
             showToast(data?.detail || t('toast.addon_health_no_response'), 'warning');
         }
         await _refreshDetailStatus(slug);
-    } catch (e) {
+    }
+    catch (e) {
         showToast(e.message || t('apps.health_check_failed'), 'error');
     }
 }
-
 function _buildAddonUiEmbedUrl(slug) {
     const encoded = encodeURIComponent(slug || '');
     const base = `/api/addons/${encoded}/ui/`;
     const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('hyve_token') || '') : '';
-    if (!token) return base;
+    if (!token)
+        return base;
     return `${base}?token=${encodeURIComponent(token)}`;
 }
-
 function _restoreConfigHeader() {
     const titleEl = document.getElementById('current-view-title');
-    if (!titleEl || titleEl.dataset.addonUiActive !== '1') return;
+    if (!titleEl || titleEl.dataset.addonUiActive !== '1')
+        return;
     delete titleEl.dataset.addonUiActive;
     titleEl.classList.remove('flex', 'items-center', 'gap-2', 'min-w-0');
     titleEl.classList.add('truncate');
     titleEl.setAttribute('data-i18n', 'nav.config');
     titleEl.textContent = t('nav.config');
 }
-
 function _setAddonUiHeader(addon) {
     const titleEl = document.getElementById('current-view-title');
-    if (!titleEl) return;
+    if (!titleEl)
+        return;
     titleEl.dataset.addonUiActive = '1';
     titleEl.removeAttribute('data-i18n');
     titleEl.classList.remove('truncate');
@@ -880,7 +906,6 @@ function _setAddonUiHeader(addon) {
         <span class="truncate normal-case tracking-normal text-sm sm:text-base font-semibold text-slate-300">${escapeHtml(addon?.name || addon?.slug || '')}</span>
     `;
 }
-
 export function closeAddonWebUI() {
     _addonUiSlug = null;
     document.body.classList.remove('addon-ui-sidebar-active');
@@ -901,7 +926,6 @@ export function closeAddonWebUI() {
     }
     _restoreConfigHeader();
 }
-
 function _prepareAddonUiOverlay() {
     const viewConfig = document.getElementById('view-config');
     if (viewConfig) {
@@ -910,33 +934,31 @@ function _prepareAddonUiOverlay() {
     }
     document.querySelector('#app-main-wrap .flex-1')?.scrollTo?.(0, 0);
 }
-
 export async function openAddonWebUI(slug) {
     let addon = _addonsCache.find(a => a.slug === slug);
     if (!addon) {
         try {
             const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}`);
-            if (res.ok) addon = await res.json();
-        } catch (_) { /* ignore */ }
+            if (res.ok)
+                addon = await res.json();
+        }
+        catch (_) { /* ignore */ }
     }
     if (!addon || !_buildAddonWebUrl(addon)) {
         showToast(t('apps.configure_web_ui_first'), 'warning');
         return;
     }
-
     if (!_canUseIngressWebUi(addon)) {
         let url = _buildAddonWebUrl(addon);
         window.open(url, '_blank', 'noopener,noreferrer');
         return;
     }
-
     const viewer = document.getElementById('addon-ui-viewer');
     const frame = document.getElementById('addon-ui-frame');
     if (!viewer || !frame) {
         window.open(_buildAddonUiEmbedUrl(slug), '_blank', 'noopener,noreferrer');
         return;
     }
-
     _addonUiSlug = slug;
     _prepareAddonUiOverlay();
     _setAddonUiHeader(addon);
@@ -946,15 +968,15 @@ export async function openAddonWebUI(slug) {
     frame.src = _buildAddonUiEmbedUrl(slug);
     _stopPoll();
 }
-
 // ── background poll ─────────────────────────────────────────────────────
-
 function _startPoll() {
     _stopPoll();
     _pollTimer = setInterval(async () => {
         const panel = document.getElementById('cfg-tab-addons');
-        if (!panel || panel.classList.contains('hidden')) { _stopPoll(); return; }
-
+        if (!panel || panel.classList.contains('hidden')) {
+            _stopPoll();
+            return;
+        }
         try {
             // If detail view is open, update that
             const detail = document.getElementById('app-detail');
@@ -963,24 +985,27 @@ function _startPoll() {
                 await _refreshDetailStatus(slug);
                 return;
             }
-
             // Otherwise update summary list badges
             const res = await apiCall('/api/addons/process/status');
             const statuses = await res.json();
             document.querySelectorAll('.app-summary').forEach(card => {
                 const slug = card.dataset.slug;
                 const s = statuses[slug];
-                if (!s) return;
+                if (!s)
+                    return;
                 const badgeWrap = card.querySelector('.app-summary-badge');
                 if (badgeWrap) {
                     const cached = _addonsCache.find(a => a.slug === slug);
                     badgeWrap.innerHTML = _updateIndicator(cached) + _statusBadge(s.status) + '<i class="fas fa-chevron-right text-slate-600 text-xs ml-3"></i>';
                 }
             });
-        } catch (_) {}
+        }
+        catch (_) { }
     }, 5000);
 }
-
 function _stopPoll() {
-    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    if (_pollTimer) {
+        clearInterval(_pollTimer);
+        _pollTimer = null;
+    }
 }

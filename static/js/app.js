@@ -1,3 +1,4 @@
+// @ts-nocheck — tighten types in a follow-up pass.
 import { authToken, clearAuthToken } from './api.js';
 import { showToast, debounce, showConfirm, showSourcesModal } from './utils.js';
 import { handleLogin, loadUserProfile, restoreRememberedCredentials, tryAutoLogin } from './auth.js';
@@ -18,90 +19,28 @@ import { initShellEventBindings } from './shell/event_bindings.js';
 import { initIntegrationEventBindings } from './integrations/event_bindings.js';
 import { toggleModelSelector, closeModelSelector } from './chat/model_selector.js';
 import { setUserProfileContext, loadUserProfilePage, switchUserProfileTab, saveUserProfileGeneral, saveUserProfileSecurity } from './user_profile.js';
-import { initNotifications, loadUserNotifications, switchUserNotificationFilter, toggleUserNotificationFilterMenu, markUserNotificationRead, archiveUserNotification, deleteUserNotification, clearAllUserNotifications, changeUserNotificationsPage, loadNotificationCounts, updateNotificationBadge, navigateNotification } from './notifications.js';
-import { startStartupStatusPolling, showHubStartupLoadingAfterRestart } from './startup_status.js';
+import { initNotifications, switchUserNotificationFilter, toggleUserNotificationFilterMenu, markUserNotificationRead, archiveUserNotification, deleteUserNotification, clearAllUserNotifications, changeUserNotificationsPage, navigateNotification } from './notifications.js';
+import { startStartupStatusPolling } from './startup_status.js';
 import { importWithCacheBust } from './asset_version.js';
 import { setIsAdmin, setNotificationTimer } from './user_context.js';
-import {
-    showProfileEditor,
-    closeProfileEditor,
-    saveProfile,
-    moveProfileOrder,
-    openProfileCardMenu,
-    closeProfileCardMenu,
-    onProfileProviderChange,
-    onProfileSubProviderChange,
-    syncVisionCapabilityCheckbox,
-    testWhisperConnection,
-    testPiperConnection,
-    activateProfile,
-} from './features_config.js';
-import {
-    switchIntegrationSubtab,
-    testComfyUIConnection,
-    refreshComfyUICheckpoints,
-    refreshComfyUIWorkflows,
-    uploadComfyUIWorkflow,
-    syncConfiguredIntegration,
-    syncIntegrationEntities,
-    navigateToSmartHomeSource,
-    controlIntegrationEntity,
-    openIntegrationEntityCard,
-    openIntegrationDeviceModal,
-    renameIntegrationDevice,
-} from './features_integrations_settings.js';
-
+import { showProfileEditor, closeProfileEditor, saveProfile, moveProfileOrder, openProfileCardMenu, closeProfileCardMenu, onProfileProviderChange, onProfileSubProviderChange, syncVisionCapabilityCheckbox, testWhisperConnection, testPiperConnection, activateProfile, } from './features_config.js';
+import { switchIntegrationSubtab, testComfyUIConnection, refreshComfyUICheckpoints, refreshComfyUIWorkflows, uploadComfyUIWorkflow, syncConfiguredIntegration, syncIntegrationEntities, navigateToSmartHomeSource, controlIntegrationEntity, openIntegrationEntityCard, openIntegrationDeviceModal, renameIntegrationDevice, } from './features_integrations_settings.js';
 // Expose sendMessage globally so other modules (e.g. voice input in features.js) can call it
 window.sendMessage = sendMessage;
-import { 
-    saveConfig, restartServer, syncHA, toggleDevice, loadSmarthome,
-    toggleSelection, toggleAllAI, loadMemory, filterDevices, changeMemPage, 
-    deleteMemBulk, filterMemory, toggleAllHA, updateHABulkCount, 
-    deleteHABulk, deleteHASingle, saveAliases, toggleAllMem, updateMemBulkCount,
-    filterHAByDomain, filterHABySource, filterHAByArea, toggleHABulkMode,
-    openAliasModal, addAliasInput, closeAliasModal, saveAliasesFromModal, openRowActionsModal, closeRowActionsModal, handleHaRowClick,
-    openAddDevicesModal, closeAddDevicesModal, confirmAddDevices, toggleAvailableDevice, toggleAllAvailableDevices, filterAvailableDevices,
-    resetSmarthomeFilters, copyEntityIdFromRowActions, toggleSmarthomeFilters, toggleSmarthomePicker, selectSmarthomePickerOption,
-    setDevicesPage, setDevicesPageSize, sortDevicesBy, controlDeviceEntity, openAliasModalFromDetail, closeEntityDetailModal,
-    loadSessionsList, openSession, newChatSession, deleteSession, confirmDeleteSession, cancelDeleteSession, clearSessionContext,
-    copyWebhook, openIntegrationConfigModal, closeIntegrationConfigModal, refreshIntegrationsSettingsView, copyAssistOllamaUserUrl, copyAssistKey, regenerateAssistKey, loadAdminUsers, createUser, deleteUser, unlinkUserPhone,
-    loadModelProfiles,
-    loadSkills, openSkillEdit, closeSkillEditModal, saveSkillEdit, deleteSkill,
-    toggleSkillDesc, toggleSkillDisabled,
-    loadMemoryEvents, memLogPrevPage, memLogNextPage, toggleMemLogDetails, clearMemoryLog, runConsolidationNow,
-    switchIntelligenceTab,
-    addExtractionExample, removeExtractionExample,
-    loadReminders, loadAutomations, deleteReminder, deleteAutomation, openMementoEdit, closeMementoEdit, saveMementoEdit, updateMementoBulkCount, toggleAllMemento, deleteMementoBulk,
-    openAutomationEditor, closeAutomationEditor, saveAutomationEditor, validateAutomationEditor, toggleAutomationDefinition, runAutomationDefinition, testAutomationEditor, exportAutomationYaml, importAutomationYaml,
-    toggleAutoMenu, closeAutoMenu, showAutoDotTooltip, hideAutoDotTooltip,
-    autoSyncAutomationId, markAutomationIdManual,
-    openBlueprintPicker, closeBlueprintPicker, loadBlueprints, importBlueprintYaml, backToBlueprintList, instantiateCurrentBlueprint, deleteCurrentBlueprint,
-    openBlueprintCreator, addBlueprintCreatorInput, removeBlueprintCreatorInput, changeBlueprintCreatorInputType, insertBlueprintCreatorPlaceholder, updateBlueprintCreatorYaml, saveCreatedBlueprint,
-    switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, syncAutomationBuilderFromYaml, loadAutomationEditorHistory, refreshAutomationEntityOptions, updateAutomationStructuredServiceData,
-    loadNotificationPrefs, saveNotificationSettings, selectNotifTransport, selectNotifChannel, testWsNotification, testFcmNotification, testNotification, refreshNotifWsNativeStatus,
-    switchMemorySubtab,     checkAddonUpdates, updateAllAddons, updateSingleAddon, closeAddonConfigModal, refreshUpdatesHeaderBadge, checkAddonHealth,
-    installAddon, uninstallAddon, toggleAddon, openAddonConfigModal,
-} from './features.js';
-import {
-    loadDashboard,
-    initDashboardSidebarNav,
-} from './dashboard.js';
-
+import { saveConfig, restartServer, syncHA, toggleSelection, toggleAllAI, loadMemory, changeMemPage, deleteMemBulk, filterMemory, toggleAllMem, updateMemBulkCount, openAliasModal, addAliasInput, closeAliasModal, saveAliasesFromModal, closeRowActionsModal, handleHaRowClick, closeAddDevicesModal, confirmAddDevices, toggleAvailableDevice, toggleAllAvailableDevices, filterAvailableDevices, resetSmarthomeFilters, copyEntityIdFromRowActions, toggleSmarthomeFilters, toggleSmarthomePicker, selectSmarthomePickerOption, setDevicesPage, setDevicesPageSize, sortDevicesBy, controlDeviceEntity, openAliasModalFromDetail, closeEntityDetailModal, loadSessionsList, openSession, newChatSession, deleteSession, confirmDeleteSession, cancelDeleteSession, clearSessionContext, copyWebhook, openIntegrationConfigModal, closeIntegrationConfigModal, loadAdminUsers, createUser, deleteUser, unlinkUserPhone, loadModelProfiles, openSkillEdit, closeSkillEditModal, saveSkillEdit, deleteSkill, toggleSkillDesc, toggleSkillDisabled, loadMemoryEvents, memLogPrevPage, memLogNextPage, toggleMemLogDetails, clearMemoryLog, runConsolidationNow, switchIntelligenceTab, addExtractionExample, removeExtractionExample, loadAutomations, deleteAutomation, openAutomationEditor, closeAutomationEditor, saveAutomationEditor, validateAutomationEditor, toggleAutomationDefinition, runAutomationDefinition, testAutomationEditor, exportAutomationYaml, importAutomationYaml, toggleAutoMenu, closeAutoMenu, showAutoDotTooltip, hideAutoDotTooltip, autoSyncAutomationId, markAutomationIdManual, openBlueprintPicker, closeBlueprintPicker, loadBlueprints, importBlueprintYaml, backToBlueprintList, instantiateCurrentBlueprint, deleteCurrentBlueprint, openBlueprintCreator, addBlueprintCreatorInput, removeBlueprintCreatorInput, changeBlueprintCreatorInputType, insertBlueprintCreatorPlaceholder, updateBlueprintCreatorYaml, saveCreatedBlueprint, switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, loadAutomationEditorHistory, updateAutomationStructuredServiceData, selectNotifTransport, selectNotifChannel, testNotification, refreshNotifWsNativeStatus, switchMemorySubtab, checkAddonUpdates, updateAllAddons, updateSingleAddon, closeAddonConfigModal, checkAddonHealth, installAddon, uninstallAddon, toggleAddon, openAddonConfigModal, } from './features.js';
+import { loadDashboard, initDashboardSidebarNav, } from './dashboard.js';
 const _lazyModulePromises = new Map();
-
 function _lazyModule(key, importer) {
     if (!_lazyModulePromises.has(key)) {
         _lazyModulePromises.set(key, importer());
     }
     return _lazyModulePromises.get(key);
 }
-
 const _loadDerivedModule = () => _lazyModule('derived', () => importWithCacheBust('./features_derived.js'));
 const _loadPlannerModule = () => _lazyModule('planner', () => importWithCacheBust('./planner.js'));
 const _loadAppsModule = () => _lazyModule('apps', () => importWithCacheBust('./features_apps.js'));
 const _loadScenesModule = () => _lazyModule('scenes', () => importWithCacheBust('./features_scenes.js'));
 const _loadAreasModule = () => _lazyModule('areas', () => importWithCacheBust('./features_areas.js'));
-
 function _lazyAction(moduleLoader, exportName) {
     return async (...args) => {
         try {
@@ -111,16 +50,15 @@ function _lazyAction(moduleLoader, exportName) {
                 throw new Error(`Missing lazy export: ${exportName}`);
             }
             return await action(...args);
-        } catch (err) {
+        }
+        catch (err) {
             console.warn(`${exportName} lazy load failed`, err);
             showToast(t('app.function_load_error'), 'error');
             return undefined;
         }
     };
 }
-
 import { registerNavBridge } from './nav_bridge.js';
-
 // Logout disponibil imediat (înainte de orice async), ca butonul să funcționeze mereu
 async function doLogout() {
     // Show confirmation dialog
@@ -128,88 +66,82 @@ async function doLogout() {
     if (!(await showConfirm(confirmMessage))) {
         return;
     }
-
     const token = localStorage.getItem('hyve_token');
-
     const finalizeLogout = () => {
-    try {
-        if (window.__clearNativeAuthToken) {
-            window.__clearNativeAuthToken();
+        try {
+            if (window.__clearNativeAuthToken) {
+                window.__clearNativeAuthToken();
+            }
         }
-    } catch (e) {}
-    try { clearAuthToken(); } catch (e) {}
-    try {
-        localStorage.removeItem('hyve_token');
-        localStorage.removeItem('hyve_session_id');
-        localStorage.removeItem('hyve_remember');
-        sessionStorage.clear();
-    } catch (e) {}
-
-    const overlay = document.getElementById('login-overlay');
-    if (overlay) overlay.classList.remove('hidden');
-
-    // Force a fresh page load (bypass Cloudflare / browser cache)
-    const logoutUrl = '/?_logout=' + Date.now();
-    window.location.replace(logoutUrl);
-    setTimeout(() => {
-        if (!window.location.search.includes('_logout=')) {
-            window.location.href = logoutUrl;
+        catch (e) { }
+        try {
+            clearAuthToken();
         }
-    }, 250);
+        catch (e) { }
+        try {
+            localStorage.removeItem('hyve_token');
+            localStorage.removeItem('hyve_session_id');
+            localStorage.removeItem('hyve_remember');
+            sessionStorage.clear();
+        }
+        catch (e) { }
+        const overlay = document.getElementById('login-overlay');
+        if (overlay)
+            overlay.classList.remove('hidden');
+        // Force a fresh page load (bypass Cloudflare / browser cache)
+        const logoutUrl = '/?_logout=' + Date.now();
+        window.location.replace(logoutUrl);
+        setTimeout(() => {
+            if (!window.location.search.includes('_logout=')) {
+                window.location.href = logoutUrl;
+            }
+        }, 250);
     };
-
     if (!token) {
         finalizeLogout();
         return;
     }
-
     const logoutRequest = fetch('/api/logout', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         keepalive: true,
-    }).catch(() => {});
-
+    }).catch(() => { });
     Promise.race([
         logoutRequest,
         new Promise(resolve => setTimeout(resolve, 300)),
     ]).finally(finalizeLogout);
 }
 window.doLogout = doLogout;
-
 // ── Native App Bridge ────────────────────────────────────────────────
 function initNativeAppBridge() {
     // Wait a tick so the Android injectNativeBridge() JS has time to run
     setTimeout(() => {
-        if (!window.__HYVE_NATIVE_APP) return;
-
+        if (!window.__HYVE_NATIVE_APP)
+            return;
         // Mark document for native-app-specific CSS (if not already set by early UA detection)
         document.documentElement.classList.add('is-native-app');
-
         // Reveal all config-native-app-only elements
         document.querySelectorAll('.config-native-app-only').forEach(el => {
             el.classList.remove('hidden');
             el.classList.remove('config-native-app-only');
         });
-
         // Show camera button (only in native app)
         document.querySelectorAll('.chat-attach-camera-native-only').forEach(el => {
             el.classList.remove('hidden');
         });
-
         // Reveal login page server-settings link
         const loginLink = document.getElementById('native-app-settings-login');
-        if (loginLink) loginLink.classList.remove('hidden');
-
+        if (loginLink)
+            loginLink.classList.remove('hidden');
         // Re-apply the saved theme now that the native bridge is ready.
         // This makes startup follow the exact same path as manual theme selection.
         setTheme(localStorage.getItem('hyve_theme') || 'canvas');
     }, 300);
 }
-
 function populateAppTab() {
     const cfg = window.__HYVE_NATIVE_CONFIG;
-    if (!cfg) return;
-
+    if (!cfg)
+        return;
     const el = (id) => document.getElementById(id);
     const urlExt = el('app-url-external');
     const urlLocal = el('app-url-local');
@@ -219,40 +151,39 @@ function populateAppTab() {
     const bioToggle = el('app-biometric-toggle');
     const bioRow = el('app-biometric-row');
     const bioHint = el('app-biometric-hint');
-
     _appAutosaveHydrating = true;
-    if (urlExt) urlExt.value = cfg.externalUrl || '';
-    if (urlLocal) urlLocal.value = cfg.localUrl || '';
-    if (wifi) wifi.value = cfg.homeWifi || '';
+    if (urlExt)
+        urlExt.value = cfg.externalUrl || '';
+    if (urlLocal)
+        urlLocal.value = cfg.localUrl || '';
+    if (wifi)
+        wifi.value = cfg.homeWifi || '';
     _appAutosaveHydrating = false;
-    if (modeLabel) modeLabel.textContent = cfg.serverMode || '—';
-    if (ssidLabel) ssidLabel.textContent = cfg.currentSsid ? `WiFi: ${cfg.currentSsid}` : '';
-
+    if (modeLabel)
+        modeLabel.textContent = cfg.serverMode || '—';
+    if (ssidLabel)
+        ssidLabel.textContent = cfg.currentSsid ? `WiFi: ${cfg.currentSsid}` : '';
     // Update biometric toggle visual
-    if (bioToggle) updateBiometricToggle(!!cfg.biometricEnabled);
-
+    if (bioToggle)
+        updateBiometricToggle(!!cfg.biometricEnabled);
     // Disable biometric row if hardware not available
     if (bioRow && !cfg.biometricAvailable) {
         bioRow.style.opacity = '0.4';
         bioRow.style.pointerEvents = 'none';
-        if (bioHint) bioHint.textContent = t('config.app_biometric_unavailable');
+        if (bioHint)
+            bioHint.textContent = t('config.app_biometric_unavailable');
     }
-
     // Check and show permission states
     checkPermissions();
-
     bindAppConfigAutosave();
-
     // Refresh live WS service status when App tab opens
     refreshWsServiceStatus();
 }
-
 let _wsStatusPollTimer = null;
 let _appAutosaveTimer = null;
 let _appAutosaveBound = false;
 let _appAutosaveHydrating = false;
 let _lastSavedAppConfigJson = '';
-
 function _readAppConfigForm() {
     const bioBtn = document.getElementById('app-biometric-toggle');
     return {
@@ -262,47 +193,43 @@ function _readAppConfigForm() {
         biometricEnabled: bioBtn?.__biometricOn ?? false,
     };
 }
-
 function bindAppConfigAutosave() {
-    if (_appAutosaveBound) return;
+    if (_appAutosaveBound)
+        return;
     _appAutosaveBound = true;
     ['app-url-external', 'app-url-local', 'app-wifi-ssid'].forEach((id) => {
         const input = document.getElementById(id);
-        if (!input) return;
+        if (!input)
+            return;
         input.addEventListener('input', () => scheduleAppConfigAutosave());
         input.addEventListener('change', () => saveAppConfig({ silent: true }));
         input.addEventListener('blur', () => saveAppConfig({ silent: true }));
     });
 }
-
 function scheduleAppConfigAutosave() {
-    if (_appAutosaveHydrating) return;
+    if (_appAutosaveHydrating)
+        return;
     window.clearTimeout(_appAutosaveTimer);
     _appAutosaveTimer = window.setTimeout(() => saveAppConfig({ silent: true }), 550);
 }
-
 function _setWsStatusBadge(state) {
     const badge = document.getElementById('app-ws-service-status');
-    if (!badge) return;
-
-    badge.classList.remove(
-        'border-emerald-500/30', 'text-emerald-400', 'bg-emerald-500/10',
-        'border-red-500/30', 'text-red-400', 'bg-red-500/10',
-        'border-slate-500/30', 'text-slate-400', 'bg-slate-500/10'
-    );
-
+    if (!badge)
+        return;
+    badge.classList.remove('border-emerald-500/30', 'text-emerald-400', 'bg-emerald-500/10', 'border-red-500/30', 'text-red-400', 'bg-red-500/10', 'border-slate-500/30', 'text-slate-400', 'bg-slate-500/10');
     if (state === true) {
         badge.textContent = t('config.fcm_ws_service_running') || 'Running';
         badge.classList.add('border-emerald-500/30', 'text-emerald-400', 'bg-emerald-500/10');
-    } else if (state === false) {
+    }
+    else if (state === false) {
         badge.textContent = t('config.fcm_ws_service_stopped') || 'Stopped';
         badge.classList.add('border-red-500/30', 'text-red-400', 'bg-red-500/10');
-    } else {
+    }
+    else {
         badge.textContent = t('config.fcm_ws_service_unknown') || 'Unknown';
         badge.classList.add('border-slate-500/30', 'text-slate-400', 'bg-slate-500/10');
     }
 }
-
 function refreshWsServiceStatus() {
     if (!window.__HYVE_NATIVE_APP) {
         _setWsStatusBadge(null);
@@ -315,10 +242,10 @@ function refreshWsServiceStatus() {
     try {
         const running = window.__getNativeWsServiceStatus();
         _setWsStatusBadge(typeof running === 'boolean' ? running : null);
-    } catch (e) {
+    }
+    catch (e) {
         _setWsStatusBadge(null);
     }
-
     // Start lightweight polling while App tab is visible
     const appTab = document.getElementById('cfg-tab-app');
     if (appTab && !appTab.classList.contains('hidden') && !_wsStatusPollTimer) {
@@ -332,46 +259,47 @@ function refreshWsServiceStatus() {
             try {
                 const isRunning = window.__getNativeWsServiceStatus();
                 _setWsStatusBadge(typeof isRunning === 'boolean' ? isRunning : null);
-            } catch (_) {
+            }
+            catch (_) {
                 _setWsStatusBadge(null);
             }
         }, 5000);
     }
 }
-
 function updateBiometricToggle(on) {
     const btn = document.getElementById('app-biometric-toggle');
-    if (!btn) return;
+    if (!btn)
+        return;
     btn.setAttribute('aria-checked', on ? 'true' : 'false');
     btn.setAttribute('data-on', on ? 'true' : 'false');
     btn.__biometricOn = on;
 }
-
 function toggleAppBiometric() {
     const btn = document.getElementById('app-biometric-toggle');
     const newState = !(btn?.__biometricOn ?? false);
     updateBiometricToggle(newState);
     saveAppConfig({ silent: true });
 }
-
 function saveAppConfig(options = {}) {
-    if (_appAutosaveHydrating) return;
+    if (_appAutosaveHydrating)
+        return;
     if (typeof window.__saveNativeServerConfig !== 'function') {
         return;
     }
     const config = _readAppConfigForm();
     const json = JSON.stringify(config);
-    if (json === _lastSavedAppConfigJson) return;
+    if (json === _lastSavedAppConfigJson)
+        return;
     _lastSavedAppConfigJson = json;
     window.__saveNativeServerConfig(config);
     window.__HYVE_NATIVE_CONFIG = { ...(window.__HYVE_NATIVE_CONFIG || {}), ...config };
-    if (!options.silent) showToast(t('config.save_success') || 'Settings saved.', 'success');
+    if (!options.silent)
+        showToast(t('config.save_success') || 'Settings saved.', 'success');
 }
-
 function detectAppWifi() {
     const input = document.getElementById('app-wifi-ssid');
-    if (!input) return;
-
+    if (!input)
+        return;
     // Ask native to refresh the SSID and return it
     if (typeof window.__getNativeWifiSsid === 'function') {
         const ssid = window.__getNativeWifiSsid();
@@ -382,113 +310,111 @@ function detectAppWifi() {
             return;
         }
     }
-
     // Fallback: use the config snapshot
     const cfg = window.__HYVE_NATIVE_CONFIG;
     if (cfg?.currentSsid) {
         input.value = cfg.currentSsid;
         saveAppConfig({ silent: true });
         showToast(t('app.wifi_detected', { ssid: cfg.currentSsid }), 'success');
-    } else {
+    }
+    else {
         showToast(t('app.wifi_detect_failed'), 'error');
     }
 }
-
 function clearAppCache() {
     let cleared = false;
-
     // Native cache clear via JS bridge (no navigation)
     if (typeof window.__clearNativeCache === 'function') {
-        try { window.__clearNativeCache(); cleared = true; } catch (e) {}
+        try {
+            window.__clearNativeCache();
+            cleared = true;
+        }
+        catch (e) { }
     }
-
     // Clear web Cache API
     try {
         if ('caches' in window) {
             caches.keys().then(names => names.forEach(n => caches.delete(n)));
             cleared = true;
         }
-    } catch (e) {}
-
+    }
+    catch (e) { }
     // Clear localStorage session data (but keep auth token)
     try {
         const token = localStorage.getItem('hyve_token');
         const remember = localStorage.getItem('hyve_remember');
         localStorage.clear();
-        if (token) localStorage.setItem('hyve_token', token);
-        if (remember) localStorage.setItem('hyve_remember', remember);
+        if (token)
+            localStorage.setItem('hyve_token', token);
+        if (remember)
+            localStorage.setItem('hyve_remember', remember);
         cleared = true;
-    } catch (e) {}
-
+    }
+    catch (e) { }
     if (cleared) {
         showToast(t('app.cache_cleared'), 'success');
-    } else {
+    }
+    else {
         showToast(t('app.cache_clear_error'), 'error');
     }
 }
-
 window.saveAppConfig = saveAppConfig;
 window.detectAppWifi = detectAppWifi;
 window.clearAppCache = clearAppCache;
 window.toggleAppBiometric = toggleAppBiometric;
 window.refreshWsServiceStatus = refreshWsServiceStatus;
-
 // ── Permissions management ───────────────────────────────────────────
-
 function updatePermissionBadge(badgeId, btnId, state) {
     const badge = document.getElementById(badgeId);
     const btn = document.getElementById(btnId);
-    if (!badge) return;
-
-    badge.classList.remove(
-        'border-emerald-500/30', 'text-emerald-400', 'bg-emerald-500/10',
-        'border-red-500/30', 'text-red-400', 'bg-red-500/10',
-        'border-amber-500/30', 'text-amber-400', 'bg-amber-500/10',
-        'border-slate-500/30', 'text-slate-500'
-    );
-
+    if (!badge)
+        return;
+    badge.classList.remove('border-emerald-500/30', 'text-emerald-400', 'bg-emerald-500/10', 'border-red-500/30', 'text-red-400', 'bg-red-500/10', 'border-amber-500/30', 'text-amber-400', 'bg-amber-500/10', 'border-slate-500/30', 'text-slate-500');
     if (state === 'granted') {
         badge.textContent = t('config.app_perm_granted') || 'Granted';
         badge.classList.add('border-emerald-500/30', 'text-emerald-400', 'bg-emerald-500/10');
-        if (btn) btn.classList.add('hidden');
-    } else if (state === 'denied') {
+        if (btn)
+            btn.classList.add('hidden');
+    }
+    else if (state === 'denied') {
         badge.textContent = t('config.app_perm_denied') || 'Denied';
         badge.classList.add('border-red-500/30', 'text-red-400', 'bg-red-500/10');
         if (btn) {
             btn.classList.remove('hidden');
             btn.innerHTML = '<i class="fas fa-external-link-alt mr-1"></i>' + (t('config.app_perm_open_settings') || 'Settings');
         }
-    } else if (state === 'prompt') {
+    }
+    else if (state === 'prompt') {
         badge.textContent = t('config.app_perm_not_set') || 'Not set';
         badge.classList.add('border-amber-500/30', 'text-amber-400', 'bg-amber-500/10');
         if (btn) {
             btn.classList.remove('hidden');
             btn.innerHTML = '<i class="fas fa-check mr-1"></i>' + (t('config.app_perm_grant') || 'Allow');
         }
-    } else {
+    }
+    else {
         badge.textContent = '—';
         badge.classList.add('border-slate-500/30', 'text-slate-500');
-        if (btn) btn.classList.add('hidden');
+        if (btn)
+            btn.classList.add('hidden');
     }
 }
-
 /** Check if running inside the native Android app */
 function _isNativeApp() {
     return !!window.__HYVE_NATIVE_APP && typeof window.__checkNativePermission === 'function';
 }
-
 /**
  * Global callback invoked by native Android when a permission request completes.
  * The native side calls: window.__onNativePermissionResult('camera', true/false)
  */
-window.__onNativePermissionResult = function(name, granted) {
+window.__onNativePermissionResult = function (name, granted) {
     console.log('[PERMS] Native permission result:', name, granted);
     const state = granted ? 'granted' : 'denied';
     const mapping = {
         microphone: { badge: 'app-perm-mic-status', btn: 'app-perm-mic-btn', toast: granted ? 'config.app_perm_mic_granted' : 'config.app_perm_mic_denied_toast' },
-        camera:     { badge: 'app-perm-camera-status', btn: 'app-perm-camera-btn', toast: granted ? 'config.app_perm_camera_granted' : 'config.app_perm_camera_denied_toast' },
-        location:   { badge: 'app-perm-location-status', btn: 'app-perm-location-btn', toast: granted ? 'config.app_perm_location_granted' : 'config.app_perm_location_denied_toast' },
-        storage:    { badge: 'app-perm-storage-status', btn: 'app-perm-storage-btn', toast: granted ? 'config.app_perm_storage_granted' : 'config.app_perm_storage_denied_toast' },
+        camera: { badge: 'app-perm-camera-status', btn: 'app-perm-camera-btn', toast: granted ? 'config.app_perm_camera_granted' : 'config.app_perm_camera_denied_toast' },
+        location: { badge: 'app-perm-location-status', btn: 'app-perm-location-btn', toast: granted ? 'config.app_perm_location_granted' : 'config.app_perm_location_denied_toast' },
+        storage: { badge: 'app-perm-storage-status', btn: 'app-perm-storage-btn', toast: granted ? 'config.app_perm_storage_granted' : 'config.app_perm_storage_denied_toast' },
     };
     const m = mapping[name];
     if (m) {
@@ -496,31 +422,29 @@ window.__onNativePermissionResult = function(name, granted) {
         showToast(t(m.toast) || (granted ? 'Permission granted' : 'Permission denied'), granted ? 'success' : 'error');
     }
 };
-
 async function checkPermissions() {
     console.log('[PERMS] checkPermissions called, native:', _isNativeApp());
-
     if (_isNativeApp()) {
         // Use native Android bridge to check all permissions
         const perms = ['microphone', 'camera', 'location', 'storage'];
         const badgeMap = {
             microphone: { badge: 'app-perm-mic-status', btn: 'app-perm-mic-btn' },
-            camera:     { badge: 'app-perm-camera-status', btn: 'app-perm-camera-btn' },
-            location:   { badge: 'app-perm-location-status', btn: 'app-perm-location-btn' },
-            storage:    { badge: 'app-perm-storage-status', btn: 'app-perm-storage-btn' },
+            camera: { badge: 'app-perm-camera-status', btn: 'app-perm-camera-btn' },
+            location: { badge: 'app-perm-location-status', btn: 'app-perm-location-btn' },
+            storage: { badge: 'app-perm-storage-status', btn: 'app-perm-storage-btn' },
         };
         for (const p of perms) {
             try {
                 const state = window.__checkNativePermission(p);
                 console.log('[PERMS] Native check', p, '=', state);
                 updatePermissionBadge(badgeMap[p].badge, badgeMap[p].btn, state);
-            } catch (e) {
+            }
+            catch (e) {
                 console.warn('[PERMS] Native check error for', p, e);
             }
         }
         return;
     }
-
     // Fallback: browser-based permission checks (mic + location only)
     let micState = 'prompt';
     try {
@@ -529,9 +453,11 @@ async function checkPermissions() {
             micState = mic.state;
             mic.onchange = () => updatePermissionBadge('app-perm-mic-status', 'app-perm-mic-btn', mic.state);
         }
-    } catch (e) { console.warn('[PERMS] mic query error:', e); }
+    }
+    catch (e) {
+        console.warn('[PERMS] mic query error:', e);
+    }
     updatePermissionBadge('app-perm-mic-status', 'app-perm-mic-btn', micState);
-
     let locState = 'prompt';
     try {
         if (navigator.permissions && navigator.permissions.query) {
@@ -539,12 +465,17 @@ async function checkPermissions() {
             locState = loc.state;
             loc.onchange = () => updatePermissionBadge('app-perm-location-status', 'app-perm-location-btn', loc.state);
         }
-    } catch (e) { console.warn('[PERMS] location query error:', e); }
+    }
+    catch (e) {
+        console.warn('[PERMS] location query error:', e);
+    }
     updatePermissionBadge('app-perm-location-status', 'app-perm-location-btn', locState);
 }
-
 function requestMicPermission() {
-    if (_isNativeApp()) { window.__requestNativePermission('microphone'); return; }
+    if (_isNativeApp()) {
+        window.__requestNativePermission('microphone');
+        return;
+    }
     // Browser fallback
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         showToast(t('voice.mic_unavailable') || 'Microphone not available', 'error');
@@ -554,77 +485,84 @@ function requestMicPermission() {
         .then(stream => { stream.getTracks().forEach(tr => tr.stop()); updatePermissionBadge('app-perm-mic-status', 'app-perm-mic-btn', 'granted'); showToast(t('config.app_perm_mic_granted') || 'Microphone access granted', 'success'); })
         .catch(() => { updatePermissionBadge('app-perm-mic-status', 'app-perm-mic-btn', 'denied'); showToast(t('config.app_perm_mic_denied_toast') || 'Microphone access denied', 'error'); });
 }
-
 function requestCameraPermission() {
-    if (_isNativeApp()) { window.__requestNativePermission('camera'); return; }
+    if (_isNativeApp()) {
+        window.__requestNativePermission('camera');
+        return;
+    }
     showToast(t('app.perm_camera_native'), 'info');
 }
-
 function requestLocationPermission() {
-    if (_isNativeApp()) { window.__requestNativePermission('location'); return; }
+    if (_isNativeApp()) {
+        window.__requestNativePermission('location');
+        return;
+    }
     // Browser fallback
     if (!navigator.geolocation) {
         showToast(t('app.perm_location_unavailable'), 'error');
         return;
     }
-    navigator.geolocation.getCurrentPosition(
-        () => { updatePermissionBadge('app-perm-location-status', 'app-perm-location-btn', 'granted'); showToast(t('config.app_perm_location_granted') || 'Location access granted', 'success'); },
-        (err) => {
-            if (err.code === 1) { updatePermissionBadge('app-perm-location-status', 'app-perm-location-btn', 'denied'); showToast(t('config.app_perm_location_denied_toast') || 'Location access denied', 'error'); }
-            else { updatePermissionBadge('app-perm-location-status', 'app-perm-location-btn', 'granted'); showToast(t('config.app_perm_location_granted') || 'Location access granted', 'success'); }
-        },
-        { timeout: 10000 }
-    );
+    navigator.geolocation.getCurrentPosition(() => { updatePermissionBadge('app-perm-location-status', 'app-perm-location-btn', 'granted'); showToast(t('config.app_perm_location_granted') || 'Location access granted', 'success'); }, (err) => {
+        if (err.code === 1) {
+            updatePermissionBadge('app-perm-location-status', 'app-perm-location-btn', 'denied');
+            showToast(t('config.app_perm_location_denied_toast') || 'Location access denied', 'error');
+        }
+        else {
+            updatePermissionBadge('app-perm-location-status', 'app-perm-location-btn', 'granted');
+            showToast(t('config.app_perm_location_granted') || 'Location access granted', 'success');
+        }
+    }, { timeout: 10000 });
 }
-
 function requestStoragePermission() {
-    if (_isNativeApp()) { window.__requestNativePermission('storage'); return; }
+    if (_isNativeApp()) {
+        window.__requestNativePermission('storage');
+        return;
+    }
     showToast(t('app.perm_storage_native'), 'info');
 }
-
 window.requestMicPermission = requestMicPermission;
 window.requestLocationPermission = requestLocationPermission;
 window.requestCameraPermission = requestCameraPermission;
 window.requestStoragePermission = requestStoragePermission;
 window.checkPermissions = checkPermissions;
 // ─────────────────────────────────────────────────────────────────────
-
 let notificationInterval = null;
-
 // ─── Boot state machine ──────────────────────────────────────────────
 // Single, deterministic startup flow. Boot overlay is shown from the
 // server (visible by default in HTML) and we only fade it out once the
 // app is in a known terminal state: ready (dashboard) or login_required.
-
 function hideBootOverlay() {
     const overlay = document.getElementById('boot-overlay');
-    if (!overlay) return;
+    if (!overlay)
+        return;
     overlay.classList.add('is-hidden');
 }
-
 function setBootMessage(message) {
-    if (typeof message !== 'string' || !message.trim()) return;
+    if (typeof message !== 'string' || !message.trim())
+        return;
     const text = document.getElementById('boot-overlay-text');
-    if (text) text.textContent = message.trim();
+    if (text)
+        text.textContent = message.trim();
 }
-
 function showLoginScreen() {
     const overlay = document.getElementById('login-overlay');
     if (overlay) {
         overlay.classList.remove('hidden');
         overlay.classList.add('flex');
     }
-    try { restoreRememberedCredentials(); } catch (e) {}
+    try {
+        restoreRememberedCredentials();
+    }
+    catch (e) { }
     hideBootOverlay();
 }
-
 function hideLoginScreen() {
     const overlay = document.getElementById('login-overlay');
-    if (!overlay) return;
+    if (!overlay)
+        return;
     overlay.classList.add('hidden');
     overlay.classList.remove('flex');
 }
-
 async function loadAuthenticatedSession() {
     const profile = await loadUserProfile();
     if (!profile || !profile.username) {
@@ -632,58 +570,78 @@ async function loadAuthenticatedSession() {
     }
     return profile;
 }
-
 async function syncUiLanguageFromConfig() {
     try {
         const res = await fetch('/api/config', {
             headers: { Authorization: 'Bearer ' + (localStorage.getItem('hyve_token') || '') },
         });
-        if (!res.ok) return;
+        if (!res.ok)
+            return;
         const cfg = await res.json();
         const lang = cfg?.ui?.language;
-        if (lang === 'ro' || lang === 'en') setLanguage(lang);
+        if (lang === 'ro' || lang === 'en')
+            setLanguage(lang);
         await loadComponentTranslations(lang === 'ro' || lang === 'en' ? lang : undefined);
-    } catch (_) {}
+    }
+    catch (_) { }
 }
-
 function applyProfileFlags(profile) {
     setIsAdmin(!!profile.is_admin);
     setUserProfileContext(profile);
-    try { applyDashboardEditAccess(); } catch (_) {}
+    try {
+        applyDashboardEditAccess();
+    }
+    catch (_) { }
     if (profile.is_admin) {
         const navAdmin = document.getElementById('nav-admin');
-        if (navAdmin) navAdmin.classList.remove('hidden');
+        if (navAdmin)
+            navAdmin.classList.remove('hidden');
     }
 }
-
 function startBackgroundLoaders(profile) {
     // Fire-and-forget secondary loaders. They must NOT block the boot.
     Promise.resolve().then(() => {
         loadSessionsList().catch(e => console.warn('Sessions list load failed', e));
-        if (profile.is_admin) { try { startLogStream(); } catch (e) { console.warn('Log stream failed', e); } }
+        if (profile.is_admin) {
+            try {
+                startLogStream();
+            }
+            catch (e) {
+                console.warn('Log stream failed', e);
+            }
+        }
         try {
             setNotificationTimer(initNotifications(`user_${profile.id}`));
-        } catch (e) { console.warn('Notifications init failed', e); }
+        }
+        catch (e) {
+            console.warn('Notifications init failed', e);
+        }
         loadModelProfiles().catch(e => console.warn('Model profiles load failed', e));
-        try { startStartupStatusPolling(); } catch (e) { console.warn('Startup status polling failed', e); }
+        try {
+            startStartupStatusPolling();
+        }
+        catch (e) {
+            console.warn('Startup status polling failed', e);
+        }
         // Voice button visibility (cheap config probe)
         fetch('/api/integrations/catalog', {
             headers: { 'Authorization': 'Bearer ' + localStorage.getItem('hyve_token') }
         }).then(r => r.ok ? r.json() : null).then(data => {
-            if (!data?.integrations) return;
+            if (!data?.integrations)
+                return;
             const whisper = data.integrations.find(i => i.slug === 'whisper');
             const voiceBtn = document.getElementById('btn-voice');
-            if (voiceBtn && whisper) voiceBtn.classList.toggle('hidden', !whisper.enabled);
+            if (voiceBtn && whisper)
+                voiceBtn.classList.toggle('hidden', !whisper.enabled);
         }).catch(e => console.warn('Whisper status check failed', e));
     });
 }
-
 async function bootHyve() {
     // Always start with overlay visible. CSS transition handles the fade.
     const overlay = document.getElementById('boot-overlay');
-    if (overlay) overlay.classList.remove('is-hidden');
+    if (overlay)
+        overlay.classList.remove('is-hidden');
     setBootMessage('Se încarcă...');
-
     try {
         const setupStatus = await fetchSetupStatus();
         if (!setupStatus?.complete) {
@@ -692,93 +650,105 @@ async function bootHyve() {
             hideBootOverlay();
             return;
         }
-    } catch (e) {
+    }
+    catch (e) {
         console.warn('setup status check failed', e);
     }
-
     // Step 1: ensure we have a valid token (existing → autologin → fail)
     const stored = localStorage.getItem('hyve_token');
     let hasToken = stored && stored !== 'null' && stored !== 'undefined';
     let profile = null;
-
     if (hasToken) {
         try {
             profile = await loadAuthenticatedSession();
-        } catch (e) {
+        }
+        catch (e) {
             profile = null;
         }
     }
-
     if (!profile) {
         // Token missing or invalid — try silent auto-login from remembered creds
         clearAuthToken();
         let recovered = false;
-        try { recovered = await tryAutoLogin(); } catch (e) { recovered = false; }
+        try {
+            recovered = await tryAutoLogin();
+        }
+        catch (e) {
+            recovered = false;
+        }
         if (recovered) {
             try {
                 profile = await loadAuthenticatedSession();
-            } catch (e) {
+            }
+            catch (e) {
                 profile = null;
             }
         }
     }
-
     if (!profile) {
         showLoginScreen();
         return;
     }
-
     // Step 2: profile loaded. Respect deep links before the dashboard default.
     applyProfileFlags(profile);
     await syncUiLanguageFromConfig();
-    try { initDashboardSidebarNav(); } catch (_) {}
+    try {
+        initDashboardSidebarNav();
+    }
+    catch (_) { }
     hideLoginScreen();
     if (routeHashToView()) {
         hideBootOverlay();
         startBackgroundLoaders(profile);
         return;
     }
-
     // No deep link: switch to dashboard FIRST (cheap), then reveal.
-    try { switchTab('dashboard'); } catch (e) { console.warn('switchTab failed', e); }
-
+    try {
+        switchTab('dashboard');
+    }
+    catch (e) {
+        console.warn('switchTab failed', e);
+    }
     // Step 2b: wait for the dashboard's first paint (entities + render).
     // switchTab() already kicked off loadDashboard(); the in-flight dedup
     // means this just awaits the same promise instead of double-fetching.
-    try { await loadDashboard(); } catch (e) { console.warn('Dashboard initial load failed', e); }
-
+    try {
+        await loadDashboard();
+    }
+    catch (e) {
+        console.warn('Dashboard initial load failed', e);
+    }
     // Step 3: reveal app — dashboard is already populated. Heavy loaders run in background.
     hideBootOverlay();
     startBackgroundLoaders(profile);
 }
-
 window.bootHyve = bootHyve;
-
 function routeHashToView() {
     const raw = String(window.location.hash || '').replace(/^#\/?/, '').split(/[/?]/)[0].trim().toLowerCase();
-    if (!raw) return false;
+    if (!raw)
+        return false;
     const currentTab = ['dashboard', 'chat', 'config', 'memory', 'planner', 'smarthome', 'skills', 'user']
         .find(tab => {
-            const view = document.getElementById(`view-${tab}`);
-            return !!view && !view.classList.contains('hidden');
-        }) || '';
-
+        const view = document.getElementById(`view-${tab}`);
+        return !!view && !view.classList.contains('hidden');
+    }) || '';
     if (raw === 'devices' || raw === 'smarthome') {
-        if (currentTab !== 'smarthome') switchTab('smarthome', { syncHash: false });
+        if (currentTab !== 'smarthome')
+            switchTab('smarthome', { syncHash: false });
         return true;
     }
     if (raw === 'dashboard' || raw === 'home') {
-        if (currentTab !== 'dashboard') switchTab('dashboard', { syncHash: false });
+        if (currentTab !== 'dashboard')
+            switchTab('dashboard', { syncHash: false });
         return true;
     }
     if (raw === 'chat' || raw === 'planner' || raw === 'config' || raw === 'memory' || raw === 'skills' || raw === 'user') {
-        if (currentTab !== raw) switchTab(raw, { syncHash: false });
+        if (currentTab !== raw)
+            switchTab(raw, { syncHash: false });
         return true;
     }
     return false;
 }
-
-
 window.addEventListener('DOMContentLoaded', () => {
     // 0. Inițializăm limba UI
     initI18n();
@@ -790,7 +760,8 @@ window.addEventListener('DOMContentLoaded', () => {
             clean.searchParams.delete('_expired');
             window.history.replaceState(null, '', clean.pathname + clean.hash);
         }
-    } catch (_) {}
+    }
+    catch (_) { }
     initThinkingModeSelector();
     initChatEventBindings({
         toggleModelSelector: () => toggleModelSelector(),
@@ -955,7 +926,8 @@ window.addEventListener('DOMContentLoaded', () => {
         closeAddonWebUI: () => _lazyAction(_loadAppsModule, 'closeAddonWebUI')(),
         testAddonHealth: (slug) => _lazyAction(_loadAppsModule, 'testAddonHealth')(slug),
         saveAddonConfig: (slug) => _lazyAction(_loadAppsModule, 'saveAddonConfig')(slug),
-        copyPreflightFix: (text) => { if (text) navigator.clipboard.writeText(text).catch(() => {}); },
+        copyPreflightFix: (text) => { if (text)
+            navigator.clipboard.writeText(text).catch(() => { }); },
         toggleAddonWatchdog: (slug, enabled) => _lazyAction(_loadAppsModule, 'toggleAddonWatchdog')(slug, enabled),
     });
     const debouncedFilterMemory = debounce(() => filterMemory(), 200);
@@ -990,7 +962,8 @@ window.addEventListener('DOMContentLoaded', () => {
         hideAutoDotTooltip: () => hideAutoDotTooltip(),
         toggleMemLogDetails: (id) => toggleMemLogDetails(id),
         removeExtractionExample: (idx) => removeExtractionExample(idx),
-        deleteMemBulk: (ids) => { if (Array.isArray(ids) && ids.length) return deleteMemBulk(ids); return deleteMemBulk(); },
+        deleteMemBulk: (ids) => { if (Array.isArray(ids) && ids.length)
+            return deleteMemBulk(ids); return deleteMemBulk(); },
         removeBlueprintCreatorInput: (idx) => removeBlueprintCreatorInput(idx),
         changeBlueprintCreatorInputType: (idx, type) => changeBlueprintCreatorInputType(idx, type),
         insertBlueprintCreatorPlaceholder: (inputId, slugify) => insertBlueprintCreatorPlaceholder(inputId, slugify),
@@ -1072,40 +1045,43 @@ window.addEventListener('DOMContentLoaded', () => {
         openIntegrationDeviceModal: (idx, slug) => openIntegrationDeviceModal(idx, slug),
         renameIntegrationDevice: (...args) => renameIntegrationDevice(...args),
     });
-    try { initDashboardSidebarNav(); } catch (_) {}
+    try {
+        initDashboardSidebarNav();
+    }
+    catch (_) { }
     applyInitialGreeting();
-
     // 0.1 Sidebar gestures (mobile): swipe right from edge to open,
     // swipe left on sidebar to close.
     initSidebarGestures();
-
     // 1. Aplicăm tema salvată
     setTheme(getStoredThemeId());
     loadThemeSelector();
-
     // 1.1 Reveal native-app-only elements if running inside the Hyve Android app
     initNativeAppBridge();
-    
     // 2. Bind la formularele principale (FastAPI form-data format)
     const loginForm = document.getElementById('login-form');
-    if (loginForm) loginForm.onsubmit = handleLogin;
+    if (loginForm)
+        loginForm.onsubmit = handleLogin;
     initSetupWizard();
-
     // 3. Auth + app boot — single deterministic state machine.
     bootHyve().catch(err => {
         console.error('bootHyve failed', err);
-        try { clearAuthToken(); } catch (_) {}
+        try {
+            clearAuthToken();
+        }
+        catch (_) { }
         showLoginScreen();
     });
     window.addEventListener('hashchange', routeHashToView);
-
     // 4. Bind evenimente Chat
     const btnSend = document.getElementById('btn-send');
-    if (btnSend) btnSend.onclick = () => {
-        if (btnSend.classList.contains('streaming')) stopStreaming();
-        else sendMessage();
-    };
-
+    if (btnSend)
+        btnSend.onclick = () => {
+            if (btnSend.classList.contains('streaming'))
+                stopStreaming();
+            else
+                sendMessage();
+        };
     const btnAttach = document.getElementById('btn-attach');
     const balloon = document.getElementById('chat-attach-balloon');
     const imageInput = document.getElementById('chat-image-input');
@@ -1118,17 +1094,20 @@ window.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             const singleAttach = btnAttach.getAttribute('data-single-attach');
             if (singleAttach === 'document') {
-                if (documentInput) documentInput.click();
+                if (documentInput)
+                    documentInput.click();
                 return;
             }
             if (singleAttach === 'image') {
-                if (imageInput) imageInput.click();
+                if (imageInput)
+                    imageInput.click();
                 return;
             }
             const isOpen = !balloon.classList.contains('hidden');
             balloon.classList.toggle('hidden', isOpen);
             btnAttach.setAttribute('aria-expanded', !isOpen);
-            if (!isOpen) closeModelSelector();
+            if (!isOpen)
+                closeModelSelector();
         };
         document.addEventListener('click', () => {
             balloon.classList.add('hidden');
@@ -1138,7 +1117,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     if (balloon) {
         // Camera button starts hidden (HTML has .hidden class), shown only in native app
-
         balloon.querySelectorAll('.chat-attach-balloon-item[data-attach="image"]').forEach(btn => {
             btn.onclick = (e) => {
                 e.preventDefault();
@@ -1147,11 +1125,13 @@ window.addEventListener('DOMContentLoaded', () => {
                 if (imageInput) {
                     console.log('[ATTACH] Triggering imageInput.click()');
                     imageInput.click();
-                } else {
+                }
+                else {
                     console.warn('[ATTACH] imageInput not found');
                 }
                 balloon.classList.add('hidden');
-                if (btnAttach) btnAttach.setAttribute('aria-expanded', 'false');
+                if (btnAttach)
+                    btnAttach.setAttribute('aria-expanded', 'false');
             };
         });
         balloon.querySelectorAll('.chat-attach-balloon-item[data-attach="camera"]').forEach(btn => {
@@ -1162,11 +1142,13 @@ window.addEventListener('DOMContentLoaded', () => {
                 if (cameraInput) {
                     console.log('[ATTACH] Triggering cameraInput.click()');
                     cameraInput.click();
-                } else {
+                }
+                else {
                     console.warn('[ATTACH] cameraInput not found');
                 }
                 balloon.classList.add('hidden');
-                if (btnAttach) btnAttach.setAttribute('aria-expanded', 'false');
+                if (btnAttach)
+                    btnAttach.setAttribute('aria-expanded', 'false');
             };
         });
         balloon.querySelectorAll('.chat-attach-balloon-item[data-attach="document"]').forEach(btn => {
@@ -1177,11 +1159,13 @@ window.addEventListener('DOMContentLoaded', () => {
                 if (documentInput) {
                     console.log('[ATTACH] Triggering documentInput.click()');
                     documentInput.click();
-                } else {
+                }
+                else {
                     console.warn('[ATTACH] documentInput not found');
                 }
                 balloon.classList.add('hidden');
-                if (btnAttach) btnAttach.setAttribute('aria-expanded', 'false');
+                if (btnAttach)
+                    btnAttach.setAttribute('aria-expanded', 'false');
             };
         });
     }
@@ -1190,7 +1174,8 @@ window.addEventListener('DOMContentLoaded', () => {
             console.log('[ATTACH] imageInput.onchange fired');
             const file = imageInput.files?.[0];
             console.log('[ATTACH] File:', file?.name, file?.type);
-            if (!file || !file.type.startsWith('image/')) return;
+            if (!file || !file.type.startsWith('image/'))
+                return;
             const reader = new FileReader();
             reader.onload = () => { addAttachedImage(reader.result); };
             reader.readAsDataURL(file);
@@ -1202,7 +1187,8 @@ window.addEventListener('DOMContentLoaded', () => {
             console.log('[ATTACH] cameraInput.onchange fired');
             const file = cameraInput.files?.[0];
             console.log('[ATTACH] File:', file?.name, file?.type);
-            if (!file || !file.type.startsWith('image/')) return;
+            if (!file || !file.type.startsWith('image/'))
+                return;
             const reader = new FileReader();
             reader.onload = () => { addAttachedImage(reader.result); };
             reader.readAsDataURL(file);
@@ -1212,13 +1198,15 @@ window.addEventListener('DOMContentLoaded', () => {
     if (documentInput) {
         documentInput.onchange = async () => {
             const file = documentInput.files?.[0];
-            if (!file) return;
+            if (!file)
+                return;
             const name = (file.name || '').toLowerCase();
             try {
                 if (name.endsWith('.txt')) {
                     const text = await file.text();
                     addAttachedDocument(text, file.name);
-                } else {
+                }
+                else {
                     const formData = new FormData();
                     formData.append('file', file);
                     const token = localStorage.getItem('hyve_token') || authToken;
@@ -1234,18 +1222,19 @@ window.addEventListener('DOMContentLoaded', () => {
                     const data = await res.json();
                     addAttachedDocument(data.text || '', file.name);
                 }
-            } catch (err) {
+            }
+            catch (err) {
                 showToast(err.message || t('chat.error_document') || 'Document error', 'error');
             }
             documentInput.value = '';
         };
     }
-
     const input = document.getElementById('user-input');
     if (input) {
         input.onkeydown = (e) => {
             // Let slash autocomplete handle arrow/tab/enter/esc first
-            if (handleSlashKeydown(e)) return;
+            if (handleSlashKeydown(e))
+                return;
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
@@ -1259,12 +1248,14 @@ window.addEventListener('DOMContentLoaded', () => {
         // Paste image from clipboard (Ctrl+V / Cmd+V with image)
         input.addEventListener('paste', (e) => {
             const items = e.clipboardData?.items;
-            if (!items) return;
+            if (!items)
+                return;
             for (const item of items) {
                 if (item.type.startsWith('image/')) {
                     e.preventDefault();
                     const blob = item.getAsFile();
-                    if (!blob) continue;
+                    if (!blob)
+                        continue;
                     const reader = new FileReader();
                     reader.onload = () => { addAttachedImage(reader.result); };
                     reader.readAsDataURL(blob);
@@ -1273,13 +1264,13 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         });
         input.onfocus = () => {
-            if (!currentSessionId) newChatSession();
+            if (!currentSessionId)
+                newChatSession();
         };
         input.onblur = () => {
             // Nav visibility managed centrally by _onKeyboardChange / __onAndroidKeyboard
         };
     }
-
     // Handle virtual keyboard — works both from Android native callback and visualViewport API.
     // ── Drag & drop image onto chat area ──────────────────────────
     const chatWrapper = document.querySelector('.chat-messages-wrapper') || document.getElementById('chat-container');
@@ -1288,37 +1279,39 @@ window.addEventListener('DOMContentLoaded', () => {
         chatWrapper.addEventListener('drop', (e) => {
             e.preventDefault();
             const file = [...(e.dataTransfer.files || [])].find(f => f.type.startsWith('image/'));
-            if (!file) return;
+            if (!file)
+                return;
             const reader = new FileReader();
             reader.onload = () => { addAttachedImage(reader.result); };
             reader.readAsDataURL(file);
         });
     }
-
     const _onKeyboardChange = (kbHeight) => {
         const isOpen = kbHeight > 80;
         // Hide bottom nav when keyboard is up
         const nav = document.getElementById('mobile-nav');
-        if (nav) nav.style.display = isOpen ? 'none' : '';
-
+        if (nav)
+            nav.style.display = isOpen ? 'none' : '';
         const wrapper = document.querySelector('.chat-messages-wrapper');
         const container = document.getElementById('chat-container');
         const emptyState = document.getElementById('chat-empty-state');
-
         if (isOpen) {
             if (container && container.children.length > 0) {
                 // Chat has messages → scroll last message into view above keyboard
                 requestAnimationFrame(() => {
-                    if (wrapper) wrapper.scrollTop = wrapper.scrollHeight;
+                    if (wrapper)
+                        wrapper.scrollTop = wrapper.scrollHeight;
                 });
-            } else {
+            }
+            else {
                 // Chat is empty → keep logo centered in the reduced space
                 if (emptyState) {
                     emptyState.style.paddingBottom = '0';
                     emptyState.style.justifyContent = 'center';
                 }
             }
-        } else {
+        }
+        else {
             // Keyboard closed → restore empty state
             if (emptyState) {
                 emptyState.style.paddingBottom = '';
@@ -1326,10 +1319,8 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         }
     };
-
     // Android WebView — called by MainActivity via evaluateJavascript
     window.__onAndroidKeyboard = _onKeyboardChange;
-
     // Fallback: visualViewport API for browsers
     if (window.visualViewport) {
         let _lastVVHeight = window.visualViewport.height;
@@ -1340,7 +1331,6 @@ window.addEventListener('DOMContentLoaded', () => {
             _onKeyboardChange(delta > 80 ? delta : 0);
         });
     }
-
     // 5. Form creare user (admin)
     const adminForm = document.getElementById('admin-create-user-form');
     if (adminForm) {
@@ -1349,7 +1339,8 @@ window.addEventListener('DOMContentLoaded', () => {
             const username = document.getElementById('admin-username')?.value?.trim();
             const password = document.getElementById('admin-password')?.value || '';
             const fullName = document.getElementById('admin-full-name')?.value?.trim();
-            if (!username || !password) return;
+            if (!username || !password)
+                return;
             try {
                 await createUser(username, password, fullName);
                 document.getElementById('admin-username').value = '';
@@ -1357,13 +1348,13 @@ window.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('admin-full-name').value = '';
                 await loadAdminUsers();
                 showToast(t('admin.created'), 'success');
-            } catch (err) {
+            }
+            catch (err) {
                 showToast(err.message || t('admin.error_create'), 'error');
             }
         };
     }
 });
-
 // --- Section loaders + nav bridge (replaces lazy window.* globals) ---
 registerNavBridge({
     switchTab,

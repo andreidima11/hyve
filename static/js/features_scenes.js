@@ -1,3 +1,4 @@
+// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Scenes UI — list, editor, activation.
  *
@@ -7,42 +8,41 @@
 import { apiCall } from './api.js';
 import { showToast, showConfirm } from './utils.js';
 import { t } from './lang/index.js';
-
 const _MAX_ENTRIES = 64;
 const _SERVICE_VALUES = ['turn_on', 'turn_off', 'toggle'];
-
 let _scenesCache = [];
 let _entityCatalog = [];
 let _entityCatalogLoaded = false;
 let _editorState = {
-    mode: 'create',           // 'create' | 'edit'
+    mode: 'create', // 'create' | 'edit'
     sceneId: null,
-    entries: [],              // working copy of entries during edit
+    entries: [], // working copy of entries during edit
     entityPickerTargetIdx: -1,
 };
-
 function _escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, ch => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
     }[ch]));
 }
-
 function _iconClass(spec, fallback = 'fas fa-film') {
     const raw = String(spec || '').trim();
-    if (!raw) return fallback;
-    if (raw.startsWith('mdi:')) return `mdi mdi-${raw.slice(4)}`;
-    if (/^mdi(\s|-)/.test(raw)) return raw.startsWith('mdi-') ? `mdi ${raw}` : raw;
-    if (/\bfa[srlbd]?\b/.test(raw) || raw.startsWith('fa-')) return raw.startsWith('fa-') ? `fas ${raw}` : raw;
+    if (!raw)
+        return fallback;
+    if (raw.startsWith('mdi:'))
+        return `mdi mdi-${raw.slice(4)}`;
+    if (/^mdi(\s|-)/.test(raw))
+        return raw.startsWith('mdi-') ? `mdi ${raw}` : raw;
+    if (/\bfa[srlbd]?\b/.test(raw) || raw.startsWith('fa-'))
+        return raw.startsWith('fa-') ? `fas ${raw}` : raw;
     return raw;
 }
-
 function _entityDomain(entityId) {
     const idx = String(entityId || '').indexOf('.');
     return idx > 0 ? entityId.slice(0, idx) : '';
 }
-
 async function _ensureEntityCatalog(force = false) {
-    if (_entityCatalogLoaded && !force) return _entityCatalog;
+    if (_entityCatalogLoaded && !force)
+        return _entityCatalog;
     try {
         const res = await apiCall('/api/integrations/all-entities');
         if (res?.ok) {
@@ -50,24 +50,21 @@ async function _ensureEntityCatalog(force = false) {
             _entityCatalog = Array.isArray(data?.entities) ? data.entities : [];
             _entityCatalogLoaded = true;
         }
-    } catch (_) {
+    }
+    catch (_) {
         _entityCatalog = [];
     }
     return _entityCatalog;
 }
-
 function _serviceSelectHtml(idx, currentService) {
     const labels = {
         turn_on: t('scenes.service_turn_on'),
         turn_off: t('scenes.service_turn_off'),
         toggle: t('scenes.service_toggle'),
     };
-    const opts = _SERVICE_VALUES.map(v =>
-        `<option value="${v}" ${v === currentService ? 'selected' : ''}>${_escapeHtml(labels[v] || v)}</option>`
-    ).join('');
+    const opts = _SERVICE_VALUES.map(v => `<option value="${v}" ${v === currentService ? 'selected' : ''}>${_escapeHtml(labels[v] || v)}</option>`).join('');
     return `<select data-scene-entry-service="${idx}" class="bg-slate-900 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:border-accent outline-none">${opts}</select>`;
 }
-
 function _entryRowHtml(entry, idx) {
     const eid = _escapeHtml(entry.entity_id || '');
     const service = entry.service || 'turn_on';
@@ -97,10 +94,10 @@ function _entryRowHtml(entry, idx) {
             </details>
         </div>`;
 }
-
 function _renderEditorEntries() {
     const wrap = document.getElementById('scene-entries-list');
-    if (!wrap) return;
+    if (!wrap)
+        return;
     if (!_editorState.entries.length) {
         wrap.innerHTML = `<div class="rounded-xl border border-dashed border-white/10 p-6 text-center text-xs text-slate-500">
             ${t('scenes.entries_empty_html')}
@@ -109,7 +106,6 @@ function _renderEditorEntries() {
     }
     wrap.innerHTML = _editorState.entries.map((e, i) => _entryRowHtml(e, i)).join('');
 }
-
 function _readEditorEntriesFromDOM() {
     const rows = document.querySelectorAll('[data-scene-entry-row]');
     const out = [];
@@ -118,7 +114,8 @@ function _readEditorEntriesFromDOM() {
         const eid = (row.querySelector(`[data-scene-entry-entity="${idx}"]`)?.value || '').trim();
         const service = row.querySelector(`[data-scene-entry-service="${idx}"]`)?.value || 'turn_on';
         const dataRaw = (row.querySelector(`[data-scene-entry-data="${idx}"]`)?.value || '').trim();
-        if (!eid) return;
+        if (!eid)
+            return;
         const item = { entity_id: eid, service };
         if (dataRaw) {
             try {
@@ -126,7 +123,8 @@ function _readEditorEntriesFromDOM() {
                 if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
                     item.service_data = parsed;
                 }
-            } catch (_) {
+            }
+            catch (_) {
                 throw new Error(t('scenes.entry_invalid_json', { n: idx + 1 }));
             }
         }
@@ -134,10 +132,10 @@ function _readEditorEntriesFromDOM() {
     });
     return out;
 }
-
 function _renderScenesList() {
     const wrap = document.getElementById('scenes-list');
-    if (!wrap) return;
+    if (!wrap)
+        return;
     if (!_scenesCache.length) {
         wrap.innerHTML = `
             <div class="flex flex-col items-center justify-center text-center py-12">
@@ -186,7 +184,6 @@ function _renderScenesList() {
             </div>`;
     }).join('');
 }
-
 export async function loadScenes() {
     const wrap = document.getElementById('scenes-list');
     if (wrap && !_scenesCache.length) {
@@ -196,11 +193,13 @@ export async function loadScenes() {
     }
     try {
         const res = await apiCall('/api/scenes');
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok)
+            throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         _scenesCache = Array.isArray(data?.scenes) ? data.scenes : [];
         _renderScenesList();
-    } catch (e) {
+    }
+    catch (e) {
         if (wrap) {
             wrap.innerHTML = `<div class="col-span-full text-center text-xs text-red-400 py-10">
                 ${_escapeHtml(t('scenes.load_failed', { message: e.message }))}
@@ -208,34 +207,32 @@ export async function loadScenes() {
         }
     }
 }
-
 export async function openScenesPage() {
     const page = document.getElementById('scenes-page');
-    if (!page) return;
+    if (!page)
+        return;
     page.classList.remove('hidden');
     page.classList.add('flex');
     await loadScenes();
     // Pre-load entity catalog so the editor is snappy
-    _ensureEntityCatalog().catch(() => {});
+    _ensureEntityCatalog().catch(() => { });
 }
-
 export function closeScenesPage() {
     const page = document.getElementById('scenes-page');
-    if (!page) return;
+    if (!page)
+        return;
     page.classList.add('hidden');
     page.classList.remove('flex');
 }
-
 export async function openSceneEditor(sceneId = null) {
     const modal = document.getElementById('scene-editor-modal');
-    if (!modal) return;
+    if (!modal)
+        return;
     modal.classList.remove('hidden');
     modal.classList.add('flex');
-
     _editorState.mode = sceneId ? 'edit' : 'create';
     _editorState.sceneId = sceneId;
     _editorState.entries = [];
-
     const $ = id => document.getElementById(id);
     const titleEl = $('scene-editor-title');
     const deleteBtn = $('scene-editor-delete');
@@ -246,56 +243,68 @@ export async function openSceneEditor(sceneId = null) {
     const enabledEl = $('scene-enabled');
     const sharedRow = $('scene-shared-row');
     const sharedEl = $('scene-shared');
-
     if (titleEl) {
         const label = _escapeHtml(sceneId ? t('scenes.editor_title_edit') : t('scenes.editor_title_new'));
         titleEl.innerHTML = `<i class="fas fa-clapperboard"></i><span>${label}</span>`;
     }
-    if (deleteBtn) deleteBtn.classList.toggle('hidden', !sceneId);
-
+    if (deleteBtn)
+        deleteBtn.classList.toggle('hidden', !sceneId);
     // admin-only field; show/hide by sniffing window state
     const isAdmin = !!(window.currentUser?.is_admin);
-    if (sharedRow) sharedRow.classList.toggle('hidden', !isAdmin);
-
+    if (sharedRow)
+        sharedRow.classList.toggle('hidden', !isAdmin);
     if (sceneId) {
         try {
             const res = await apiCall(`/api/scenes/${encodeURIComponent(sceneId)}`);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            if (!res.ok)
+                throw new Error(`HTTP ${res.status}`);
             const scene = await res.json();
-            if (nameEl) nameEl.value = scene.name || '';
-            if (descEl) descEl.value = scene.description || '';
-            if (iconEl) iconEl.value = scene.icon || '';
-            if (colorEl) colorEl.value = scene.color || '';
-            if (enabledEl) enabledEl.checked = scene.enabled !== false;
-            if (sharedEl) sharedEl.checked = !!scene.is_shared;
+            if (nameEl)
+                nameEl.value = scene.name || '';
+            if (descEl)
+                descEl.value = scene.description || '';
+            if (iconEl)
+                iconEl.value = scene.icon || '';
+            if (colorEl)
+                colorEl.value = scene.color || '';
+            if (enabledEl)
+                enabledEl.checked = scene.enabled !== false;
+            if (sharedEl)
+                sharedEl.checked = !!scene.is_shared;
             _editorState.entries = Array.isArray(scene.entries) ? scene.entries.map(e => ({ ...e })) : [];
-        } catch (e) {
+        }
+        catch (e) {
             showToast(t('scenes.load_scene_failed', { message: e.message }), 'error');
             closeSceneEditor();
             return;
         }
-    } else {
-        if (nameEl) nameEl.value = '';
-        if (descEl) descEl.value = '';
-        if (iconEl) iconEl.value = 'fas fa-film';
-        if (colorEl) colorEl.value = '';
-        if (enabledEl) enabledEl.checked = true;
-        if (sharedEl) sharedEl.checked = false;
+    }
+    else {
+        if (nameEl)
+            nameEl.value = '';
+        if (descEl)
+            descEl.value = '';
+        if (iconEl)
+            iconEl.value = 'fas fa-film';
+        if (colorEl)
+            colorEl.value = '';
+        if (enabledEl)
+            enabledEl.checked = true;
+        if (sharedEl)
+            sharedEl.checked = false;
         _editorState.entries = [];
     }
-
     _renderEditorEntries();
     await _ensureEntityCatalog();
 }
-
 export function closeSceneEditor() {
     const modal = document.getElementById('scene-editor-modal');
-    if (!modal) return;
+    if (!modal)
+        return;
     modal.classList.add('hidden');
     modal.classList.remove('flex');
     closeSceneEntityPicker();
 }
-
 export function addSceneEntry() {
     if (_editorState.entries.length >= _MAX_ENTRIES) {
         showToast(t('scenes.max_entries', { max: _MAX_ENTRIES }), 'warning');
@@ -304,22 +313,23 @@ export function addSceneEntry() {
     // Persist current edits before re-rendering
     try {
         _editorState.entries = _readEditorEntriesFromDOM();
-    } catch (_) {
+    }
+    catch (_) {
         // Ignore parse errors at this point — user is just adding a row
     }
     _editorState.entries.push({ entity_id: '', service: 'turn_on' });
     _renderEditorEntries();
 }
-
 export function removeSceneEntry(idx) {
     try {
         _editorState.entries = _readEditorEntriesFromDOM();
-    } catch (_) {}
-    if (idx < 0 || idx >= _editorState.entries.length) return;
+    }
+    catch (_) { }
+    if (idx < 0 || idx >= _editorState.entries.length)
+        return;
     _editorState.entries.splice(idx, 1);
     _renderEditorEntries();
 }
-
 export async function saveScene() {
     const $ = id => document.getElementById(id);
     const name = ($('scene-name')?.value || '').trim();
@@ -330,7 +340,8 @@ export async function saveScene() {
     let entries;
     try {
         entries = _readEditorEntriesFromDOM();
-    } catch (e) {
+    }
+    catch (e) {
         showToast(e.message, 'error');
         return;
     }
@@ -338,7 +349,6 @@ export async function saveScene() {
         showToast(t('scenes.entry_required'), 'warning');
         return;
     }
-
     const payload = {
         name,
         description: ($('scene-description')?.value || '').trim() || null,
@@ -348,46 +358,46 @@ export async function saveScene() {
         is_shared: !!$('scene-shared')?.checked,
         entries,
     };
-
     try {
         let res;
         if (_editorState.mode === 'edit' && _editorState.sceneId) {
             res = await apiCall(`/api/scenes/${encodeURIComponent(_editorState.sceneId)}`, {
                 method: 'PUT', body: payload,
             });
-        } else {
+        }
+        else {
             res = await apiCall('/api/scenes', { method: 'POST', body: payload });
         }
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             throw new Error(err.detail || `HTTP ${res.status}`);
         }
-        showToast(
-            _editorState.mode === 'edit'
-                ? (t('scenes.updated'))
-                : (t('scenes.created')),
-            'success'
-        );
+        showToast(_editorState.mode === 'edit'
+            ? (t('scenes.updated'))
+            : (t('scenes.created')), 'success');
         closeSceneEditor();
         await loadScenes();
-    } catch (e) {
+    }
+    catch (e) {
         showToast(`${t('scenes.save_failed')}: ${e.message}`, 'error');
     }
 }
-
 export async function deleteSceneFromEditor() {
-    if (!_editorState.sceneId) return;
+    if (!_editorState.sceneId)
+        return;
     const ok = await showConfirm(t('scenes.delete_confirm_hard'));
-    if (!ok) return;
+    if (!ok)
+        return;
     await deleteScene(_editorState.sceneId, { skipConfirm: true });
     closeSceneEditor();
 }
-
 export async function deleteScene(sceneId, opts = {}) {
-    if (!sceneId) return;
+    if (!sceneId)
+        return;
     if (!opts.skipConfirm) {
         const ok = await showConfirm(t('scenes.delete_confirm'));
-        if (!ok) return;
+        if (!ok)
+            return;
     }
     try {
         const res = await apiCall(`/api/scenes/${encodeURIComponent(sceneId)}`, { method: 'DELETE' });
@@ -397,13 +407,14 @@ export async function deleteScene(sceneId, opts = {}) {
         }
         showToast(t('scenes.deleted'), 'success');
         await loadScenes();
-    } catch (e) {
+    }
+    catch (e) {
         showToast(`${t('scenes.delete_failed')}: ${e.message}`, 'error');
     }
 }
-
 export async function activateScene(sceneId) {
-    if (!sceneId) return;
+    if (!sceneId)
+        return;
     try {
         const res = await apiCall(`/api/scenes/${encodeURIComponent(sceneId)}/activate`, { method: 'POST' });
         const data = await res.json().catch(() => ({}));
@@ -415,30 +426,30 @@ export async function activateScene(sceneId) {
         const total = Number(data?.total || 0);
         if (failed === 0) {
             showToast(t('scenes.activated') + ' ' + t('scenes.activated_count', { succeeded, total }), 'success');
-        } else {
+        }
+        else {
             showToast(`${t('scenes.activated_with_errors')}: ${t('scenes.activated_errors_detail', { succeeded, failed })}`, 'warning');
         }
         // Refresh in background to update last_activated_at + count
-        loadScenes().catch(() => {});
-    } catch (e) {
+        loadScenes().catch(() => { });
+    }
+    catch (e) {
         showToast(`${t('scenes.activation_failed')}: ${e.message}`, 'error');
     }
 }
-
 // ─── Entity picker ─────────────────────────────────────────────────────────
-
 export async function openSceneEntityPicker(targetIdx) {
     _editorState.entityPickerTargetIdx = targetIdx;
     // Make sure DOM state is synced into editor state before opening picker
     try {
         _editorState.entries = _readEditorEntriesFromDOM();
-    } catch (_) {}
-
+    }
+    catch (_) { }
     const modal = document.getElementById('scene-entity-picker-modal');
-    if (!modal) return;
+    if (!modal)
+        return;
     modal.classList.remove('hidden');
     modal.classList.add('flex');
-
     await _ensureEntityCatalog();
     _renderEntityPickerList('');
     const search = document.getElementById('scene-entity-picker-search');
@@ -447,26 +458,27 @@ export async function openSceneEntityPicker(targetIdx) {
         setTimeout(() => search.focus(), 50);
     }
 }
-
 export function closeSceneEntityPicker() {
     const modal = document.getElementById('scene-entity-picker-modal');
-    if (!modal) return;
+    if (!modal)
+        return;
     modal.classList.add('hidden');
     modal.classList.remove('flex');
     _editorState.entityPickerTargetIdx = -1;
 }
-
 function _renderEntityPickerList(query) {
     const list = document.getElementById('scene-entity-picker-list');
-    if (!list) return;
+    if (!list)
+        return;
     const q = String(query || '').trim().toLowerCase();
     const filtered = _entityCatalog.filter(e => {
-        if (!e?.entity_id) return false;
-        if (!q) return true;
+        if (!e?.entity_id)
+            return false;
+        if (!q)
+            return true;
         const hay = `${e.entity_id} ${e.friendly_name || ''} ${e.label || ''}`.toLowerCase();
         return hay.includes(q);
     }).slice(0, 200);
-
     if (!filtered.length) {
         list.innerHTML = `<div class="text-center text-xs text-slate-500 py-6">${_escapeHtml(t('scenes.picker_no_match'))}</div>`;
         return;
@@ -488,12 +500,10 @@ function _renderEntityPickerList(query) {
             </button>`;
     }).join('');
 }
-
 export function filterSceneEntityPicker() {
     const q = document.getElementById('scene-entity-picker-search')?.value || '';
     _renderEntityPickerList(q);
 }
-
 export function pickSceneEntity(entityId) {
     const idx = _editorState.entityPickerTargetIdx;
     if (idx < 0) {
@@ -503,10 +513,12 @@ export function pickSceneEntity(entityId) {
     // Sync DOM → state, then mutate target row, then re-render
     try {
         _editorState.entries = _readEditorEntriesFromDOM();
-    } catch (_) {}
+    }
+    catch (_) { }
     if (idx >= _editorState.entries.length) {
         _editorState.entries.push({ entity_id: entityId, service: 'turn_on' });
-    } else {
+    }
+    else {
         _editorState.entries[idx] = { ..._editorState.entries[idx], entity_id: entityId };
     }
     closeSceneEntityPicker();

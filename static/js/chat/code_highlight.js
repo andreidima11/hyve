@@ -1,13 +1,13 @@
+// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Syntax highlighting for chat code blocks (highlight.js).
  */
-
 import { t } from '../lang/index.js';
 import { loadScriptOnce, loadStyleOnce } from '../utils.js';
-
 export function normalizeCodeLanguage(lang) {
     const value = (lang || '').toLowerCase().trim();
-    if (!value || value === (t('chat.code_label') || 'code').toLowerCase()) return '';
+    if (!value || value === (t('chat.code_label') || 'code').toLowerCase())
+        return '';
     const aliases = {
         py: 'python',
         js: 'javascript',
@@ -41,7 +41,6 @@ export function normalizeCodeLanguage(lang) {
     };
     return aliases[value] || value;
 }
-
 const HIGHLIGHT_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1';
 const HIGHLIGHT_LANGUAGE_FILES = {
     bash: 'bash',
@@ -73,12 +72,11 @@ const HIGHLIGHT_LANGUAGE_FILES = {
     xml: 'xml',
     yaml: 'yaml',
 };
-
 let _highlightCorePromise = null;
 const _highlightLanguagePromises = new Map();
-
 function _ensureHighlightCore() {
-    if (typeof hljs !== 'undefined') return Promise.resolve(hljs);
+    if (typeof hljs !== 'undefined')
+        return Promise.resolve(hljs);
     if (!_highlightCorePromise) {
         _highlightCorePromise = Promise.all([
             loadStyleOnce(`${HIGHLIGHT_BASE}/styles/github-dark.min.css`),
@@ -89,32 +87,31 @@ function _ensureHighlightCore() {
     }
     return _highlightCorePromise;
 }
-
 function _ensureHighlightLanguage(lang) {
     const normalized = normalizeCodeLanguage(lang);
     const file = HIGHLIGHT_LANGUAGE_FILES[normalized];
-    if (!file) return _ensureHighlightCore();
+    if (!file)
+        return _ensureHighlightCore();
     return _ensureHighlightCore().then(() => {
-        if (typeof hljs !== 'undefined' && hljs.getLanguage(file)) return;
+        if (typeof hljs !== 'undefined' && hljs.getLanguage(file))
+            return;
         if (!_highlightLanguagePromises.has(file)) {
             _highlightLanguagePromises.set(file, loadScriptOnce(`${HIGHLIGHT_BASE}/languages/${file}.min.js`));
         }
         return _highlightLanguagePromises.get(file);
     });
 }
-
 function _ensureHighlightAssets(lang) {
     return _ensureHighlightLanguage(lang).then(() => _ensureHighlightCore());
 }
-
 export function applyHighlightingWithLineNumbers(codeEl, rawSource, lang = '') {
-    if (!codeEl) return;
+    if (!codeEl)
+        return;
     const normalizedLang = normalizeCodeLanguage(lang);
     codeEl.textContent = rawSource || '';
     codeEl.dataset.rawSource = rawSource || '';
     codeEl.dataset.language = normalizedLang || '';
     codeEl.className = normalizedLang ? `language-${normalizedLang}` : '';
-
     const needsHighlightLoad = typeof hljs === 'undefined'
         || (normalizedLang && !hljs.getLanguage(normalizedLang))
         || typeof hljs.lineNumbersBlock !== 'function';
@@ -122,49 +119,51 @@ export function applyHighlightingWithLineNumbers(codeEl, rawSource, lang = '') {
         codeEl.dataset.highlightLoading = '1';
         _ensureHighlightAssets(normalizedLang)
             .then(() => {
-                codeEl.dataset.highlightLoading = '0';
-                applyHighlightingWithLineNumbers(codeEl, codeEl.dataset.rawSource || rawSource || '', normalizedLang);
-            })
+            codeEl.dataset.highlightLoading = '0';
+            applyHighlightingWithLineNumbers(codeEl, codeEl.dataset.rawSource || rawSource || '', normalizedLang);
+        })
             .catch(() => { codeEl.dataset.highlightLoading = '0'; });
     }
-
     if (typeof hljs !== 'undefined') {
         try {
             if (normalizedLang && hljs.getLanguage(normalizedLang)) {
                 hljs.highlightElement(codeEl);
-            } else {
+            }
+            else {
                 const result = hljs.highlightAuto(rawSource || '');
                 codeEl.innerHTML = result.value;
                 codeEl.className = result.language ? `language-${result.language} hljs` : 'hljs';
                 codeEl.dataset.language = result.language || normalizedLang || '';
             }
-        } catch (_e) {
+        }
+        catch (_e) {
             codeEl.textContent = rawSource || '';
         }
     }
-
     const applyLines = () => {
-        if (codeEl.dataset.lineNumbersReady === '1') return;
-        if (typeof hljs === 'undefined' || typeof hljs.lineNumbersBlock !== 'function') return;
+        if (codeEl.dataset.lineNumbersReady === '1')
+            return;
+        if (typeof hljs === 'undefined' || typeof hljs.lineNumbersBlock !== 'function')
+            return;
         try {
             const maybePromise = hljs.lineNumbersBlock(codeEl, { singleLine: true });
             if (maybePromise && typeof maybePromise.then === 'function') {
-                maybePromise.then(() => { codeEl.dataset.lineNumbersReady = '1'; }).catch(() => {});
-            } else {
+                maybePromise.then(() => { codeEl.dataset.lineNumbersReady = '1'; }).catch(() => { });
+            }
+            else {
                 codeEl.dataset.lineNumbersReady = '1';
             }
-        } catch (_e) {
+        }
+        catch (_e) {
             // noop
         }
     };
-
     codeEl.dataset.lineNumbersReady = '0';
     applyLines();
 }
-
 export function enhanceCodeBlock(pre, lang, rawSource) {
-    if (!pre) return;
+    if (!pre)
+        return;
     const codeEl = pre.querySelector('code') || pre;
     applyHighlightingWithLineNumbers(codeEl, rawSource || pre.dataset.rawSource || codeEl.textContent || '', lang);
 }
-

@@ -1,14 +1,14 @@
+// @ts-nocheck — Phase 6 TS shell; tighten types incrementally.
 /**
  * Shared utility functions used across multiple JS modules.
  */
 import { t } from './lang/index.js';
 import { withCacheBust } from './asset_version.js';
 import { faviconProxyUrlSync, getCameraStreamToken } from './camera_auth.js';
-
 const _SOURCE_FAVICON_ONERROR = 'window.__hyveSourceFaviconError?.(this)';
-
 function _bindSourceFaviconError() {
-    if (typeof window === 'undefined' || window.__hyveSourceFaviconError) return;
+    if (typeof window === 'undefined' || window.__hyveSourceFaviconError)
+        return;
     window.__hyveSourceFaviconError = async (img) => {
         if (!img || img.dataset.faviconRetry === '1') {
             img?.classList?.add('chat-source-favicon-missing');
@@ -19,22 +19,24 @@ function _bindSourceFaviconError() {
         try {
             await getCameraStreamToken();
             const domain = img.dataset.domain || '';
-            if (domain) img.src = faviconProxyUrlSync(domain);
-        } catch (_) {
+            if (domain)
+                img.src = faviconProxyUrlSync(domain);
+        }
+        catch (_) {
             img.classList.add('chat-source-favicon-missing');
             img.removeAttribute('src');
         }
     };
 }
 _bindSourceFaviconError();
-
 const _loadedScripts = new Map();
 const _loadedStyles = new Map();
-
 export function loadScriptOnce(src) {
-    if (!src || typeof document === 'undefined') return Promise.reject(new Error('Missing script src'));
+    if (!src || typeof document === 'undefined')
+        return Promise.reject(new Error('Missing script src'));
     const resolvedSrc = String(src).startsWith('/static/') ? withCacheBust(src) : src;
-    if (_loadedScripts.has(resolvedSrc)) return _loadedScripts.get(resolvedSrc);
+    if (_loadedScripts.has(resolvedSrc))
+        return _loadedScripts.get(resolvedSrc);
     const promise = new Promise((resolve, reject) => {
         const existing = document.querySelector(`script[src="${resolvedSrc}"]`);
         if (existing?.dataset.loaded === '1') {
@@ -52,16 +54,18 @@ export function loadScriptOnce(src) {
             _loadedScripts.delete(resolvedSrc);
             reject(new Error(`Could not load script: ${resolvedSrc}`));
         };
-        if (!existing) document.head.appendChild(script);
+        if (!existing)
+            document.head.appendChild(script);
     });
     _loadedScripts.set(resolvedSrc, promise);
     return promise;
 }
-
 export function loadStyleOnce(href) {
-    if (!href || typeof document === 'undefined') return Promise.reject(new Error('Missing stylesheet href'));
+    if (!href || typeof document === 'undefined')
+        return Promise.reject(new Error('Missing stylesheet href'));
     const resolvedHref = String(href).startsWith('/static/') ? withCacheBust(href) : href;
-    if (_loadedStyles.has(resolvedHref)) return _loadedStyles.get(resolvedHref);
+    if (_loadedStyles.has(resolvedHref))
+        return _loadedStyles.get(resolvedHref);
     const promise = new Promise((resolve, reject) => {
         const existing = document.querySelector(`link[rel="stylesheet"][href="${resolvedHref}"]`);
         if (existing?.dataset.loaded === '1') {
@@ -79,12 +83,12 @@ export function loadStyleOnce(href) {
             _loadedStyles.delete(resolvedHref);
             reject(new Error(`Could not load stylesheet: ${resolvedHref}`));
         };
-        if (!existing) document.head.appendChild(link);
+        if (!existing)
+            document.head.appendChild(link);
     });
     _loadedStyles.set(resolvedHref, promise);
     return promise;
 }
-
 // ─── Shared tool icon map (used by chat) ───
 export const TOOL_ICONS = {
     web_search: "fa-magnifying-glass",
@@ -121,56 +125,59 @@ export const TOOL_ICONS = {
     cctv_describe: "fa-video",
 };
 export const TOOL_ICON_FALLBACK = "fa-gear";
-
 /** Return the Font Awesome icon class for a tool name. */
 export function toolIcon(name) {
     return TOOL_ICONS[name] || TOOL_ICON_FALLBACK;
 }
-
 // ─── Shared sources renderer (used by chat) ───
-
 const _sourceGroups = new Map();
 let _sourceGroupSeq = 0;
-
 function _normalizeSource(src) {
     try {
         const rawUrl = String(src?.url || src?.link || '').trim();
-        if (!rawUrl) return null;
+        if (!rawUrl)
+            return null;
         let domainText = String(src?.domain || '').trim();
         if (!domainText && rawUrl) {
-            try { domainText = new URL(rawUrl).hostname || ''; } catch (_) { domainText = ''; }
+            try {
+                domainText = new URL(rawUrl).hostname || '';
+            }
+            catch (_) {
+                domainText = '';
+            }
         }
         domainText = domainText.toLowerCase().replace(/^www\./i, '');
-        if (!domainText) return null;
+        if (!domainText)
+            return null;
         return {
             url: rawUrl,
             domain: domainText,
             title: String(src?.title || domainText).trim(),
             snippet: String(src?.snippet || '').trim(),
         };
-    } catch {
+    }
+    catch {
         return null;
     }
 }
-
 function _dedupeSources(sources) {
     const seen = new Set();
     const out = [];
     for (const src of sources || []) {
         const normalized = _normalizeSource(src);
-        if (!normalized) continue;
+        if (!normalized)
+            continue;
         const key = `${normalized.domain}|${normalized.url}`;
-        if (seen.has(key)) continue;
+        if (seen.has(key))
+            continue;
         seen.add(key);
         out.push(normalized);
     }
     return out;
 }
-
 function _faviconUrl(domainText) {
     return faviconProxyUrlSync(domainText);
 }
-
 function _sourceChipHtml(src) {
     const domain = escapeHtml(src.domain);
     const url = escapeHtml(src.url);
@@ -180,10 +187,10 @@ function _sourceChipHtml(src) {
         <span class="chat-source-domain">${domain}</span>
     </a>`;
 }
-
 function _ensureSourcesModal() {
     let modal = document.getElementById('sources-modal');
-    if (modal) return modal;
+    if (modal)
+        return modal;
     modal = document.createElement('div');
     modal.id = 'sources-modal';
     modal.className = 'modal-overlay app-modal fixed inset-0 z-[80] hidden flex items-center justify-center p-2 sm:p-4';
@@ -204,21 +211,23 @@ function _ensureSourcesModal() {
             <div id="sources-modal-body" class="app-modal-body sources-modal-body"></div>
         </div>`;
     modal.addEventListener('click', (e) => {
-        if (e.target === modal) hideSourcesModal();
+        if (e.target === modal)
+            hideSourcesModal();
     });
     modal.querySelector('.app-modal-panel')?.addEventListener('click', (e) => e.stopPropagation());
     modal.querySelector('.app-modal-close')?.addEventListener('click', hideSourcesModal);
     document.body.appendChild(modal);
     return modal;
 }
-
 export function showSourcesModal(groupId) {
     const sources = _sourceGroups.get(String(groupId)) || [];
-    if (!sources.length) return;
+    if (!sources.length)
+        return;
     const modal = _ensureSourcesModal();
     const subtitle = modal.querySelector('#sources-modal-subtitle');
     const body = modal.querySelector('#sources-modal-body');
-    if (subtitle) subtitle.textContent = t('chat.sources_count', { count: sources.length });
+    if (subtitle)
+        subtitle.textContent = t('chat.sources_count', { count: sources.length });
     if (body) {
         body.innerHTML = sources.map(src => {
             const domain = escapeHtml(src.domain);
@@ -242,26 +251,27 @@ export function showSourcesModal(groupId) {
     modal.classList.remove('hidden');
     void refreshSourceFavicons(modal);
 }
-
 export function hideSourcesModal() {
     const modal = document.getElementById('sources-modal');
-    if (modal) modal.classList.add('hidden');
+    if (modal)
+        modal.classList.add('hidden');
 }
-
 /** Refresh proxied favicon URLs after media auth token is available. */
 export async function refreshSourceFavicons(root = document) {
     try {
         await getCameraStreamToken();
-    } catch (_) {}
+    }
+    catch (_) { }
     const scope = root?.querySelectorAll ? root : document;
     scope.querySelectorAll('img.chat-source-favicon:not(.chat-source-favicon-missing)').forEach((img) => {
         const domain = img.dataset.domain || img.closest('.chat-source-card')?.getAttribute('title') || '';
-        if (!domain) return;
+        if (!domain)
+            return;
         const next = faviconProxyUrlSync(domain);
-        if (img.getAttribute('src') !== next) img.src = next;
+        if (img.getAttribute('src') !== next)
+            img.src = next;
     });
 }
-
 /**
  * Build the HTML for search-source citation cards.
  * @param {Array} sources – array of { url, domain?, link? } objects
@@ -270,7 +280,8 @@ export async function refreshSourceFavicons(root = document) {
  */
 export function buildSourcesHtml(sources, label) {
     const normalized = _dedupeSources(sources);
-    if (!normalized.length) return '';
+    if (!normalized.length)
+        return '';
     const labelText = label || t('chat.sources_label') || 'Surse';
     const visible = normalized.slice(0, 3).map(_sourceChipHtml).join('');
     let moreButton = '';
@@ -287,18 +298,16 @@ export function buildSourcesHtml(sources, label) {
         <div class="chat-sources-list">${visible}${moreButton}</div>
     </div>`;
 }
-
 // ─── Shared Markdown renderer (non-streaming) ───
-
 /** Parse markdown & sanitize. Used for finalized content in chat. */
 export function formatMarkdown(text) {
-    if (!text) return '';
+    if (!text)
+        return '';
     if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
         return DOMPurify.sanitize(marked.parse(text));
     }
     return escapeHtml(text).replace(/\n/g, '<br>');
 }
-
 /**
  * Creates a debounced version of a function that delays execution until
  * `delay` ms have passed since the last call.
@@ -310,16 +319,16 @@ export function debounce(fn, delay = 250) {
         timer = setTimeout(() => fn.apply(this, args), delay);
     };
 }
-
 export function escapeHtml(text) {
-    if (text == null) return '';
+    if (text == null)
+        return '';
     const div = document.createElement('div');
     div.textContent = String(text);
     return div.innerHTML;
 }
-
 export function escapeHtmlAttr(s) {
-    if (s == null) return '';
+    if (s == null)
+        return '';
     return String(s)
         .replace(/&/g, '&amp;')
         .replace(/"/g, '&quot;')
@@ -327,16 +336,14 @@ export function escapeHtmlAttr(s) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
 }
-
 export function getSessionId() {
     return localStorage.getItem('hyve_session_id');
 }
-
 /* ─── Sub-page helpers ─── */
-
 export function openSubPage(id) {
     const el = document.getElementById(id);
-    if (!el) return;
+    if (!el)
+        return;
     /* Scroll any overflow-auto ancestor to top so the absolute-positioned
        overlay covers the full viewport (not offset by scroll position). */
     const p = el.parentElement;
@@ -347,10 +354,10 @@ export function openSubPage(id) {
     el.classList.add('open');
     el.setAttribute('aria-hidden', 'false');
 }
-
 export function closeSubPage(id) {
     const el = document.getElementById(id);
-    if (!el) return;
+    if (!el)
+        return;
     el.classList.remove('open');
     el.setAttribute('aria-hidden', 'true');
     const p = el.parentElement;
@@ -359,34 +366,29 @@ export function closeSubPage(id) {
         delete el._savedParentScroll;
     }
 }
-
 export function closeAllSubPages() {
     document.querySelectorAll('.app-subpage.open').forEach(el => {
         el.classList.remove('open');
         el.setAttribute('aria-hidden', 'true');
     });
 }
-
 /* ─── Modal viewport helpers ─── */
-
 export function syncModalViewportMetrics() {
-    if (typeof window === 'undefined' || typeof document === 'undefined') return;
-
+    if (typeof window === 'undefined' || typeof document === 'undefined')
+        return;
     const vv = window.visualViewport;
     const visibleHeight = Math.max(320, Math.round(vv?.height || window.innerHeight || document.documentElement.clientHeight || 0));
     const offsetTop = Math.max(0, Math.round(vv?.offsetTop || 0));
     const bottomGap = Math.max(0, Math.round((window.innerHeight || visibleHeight) - visibleHeight - offsetTop));
-
     document.documentElement.style.setProperty('--app-visible-height', `${visibleHeight}px`);
     document.documentElement.style.setProperty('--app-visible-offset-top', `${offsetTop}px`);
     document.documentElement.style.setProperty('--app-visible-bottom-gap', `${bottomGap}px`);
 }
-
 let _modalViewportSyncInitialized = false;
 export function initModalViewportSync() {
-    if (_modalViewportSyncInitialized || typeof window === 'undefined') return;
+    if (_modalViewportSyncInitialized || typeof window === 'undefined')
+        return;
     _modalViewportSyncInitialized = true;
-
     syncModalViewportMetrics();
     window.addEventListener('resize', syncModalViewportMetrics, { passive: true });
     window.addEventListener('orientationchange', syncModalViewportMetrics, { passive: true });
@@ -395,37 +397,35 @@ export function initModalViewportSync() {
         window.visualViewport.addEventListener('scroll', syncModalViewportMetrics, { passive: true });
     }
 }
-
 initModalViewportSync();
-
 /* ─── Modal portal: move all .app-modal elements to <body> so they are
    guaranteed to be viewport-fixed regardless of any ancestor that may
    create a containing block (transform, filter, will-change, contain, etc.) */
 function _portalAppModals() {
-    if (typeof document === 'undefined' || !document.body) return;
+    if (typeof document === 'undefined' || !document.body)
+        return;
     document.querySelectorAll('.app-modal').forEach((el) => {
         if (el.parentElement !== document.body) {
             document.body.appendChild(el);
         }
     });
 }
-
 if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', _portalAppModals, { once: true });
-    } else {
+    }
+    else {
         _portalAppModals();
     }
 }
-
 /* ─── Code editor helpers ─── */
-
 const _codeEditors = new Map();
 let _aceLoadPromise = null;
-
 function _ensureAceEditor() {
-    if (typeof window === 'undefined') return Promise.reject(new Error('No window'));
-    if (window.ace) return Promise.resolve(window.ace);
+    if (typeof window === 'undefined')
+        return Promise.reject(new Error('No window'));
+    if (window.ace)
+        return Promise.resolve(window.ace);
     if (!_aceLoadPromise) {
         _aceLoadPromise = loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/ace.js')
             .then(() => loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/ext-language_tools.min.js'))
@@ -433,34 +433,31 @@ function _ensureAceEditor() {
     }
     return _aceLoadPromise;
 }
-
 function _aceThemeForApp() {
     const sel = document.documentElement.getAttribute('data-theme') || 'dark';
     return sel === 'light' ? 'ace/theme/chrome' : 'ace/theme/monokai';
 }
-
 let _aceThemeObserverInit = false;
 function _initAceThemeObserver() {
-    if (_aceThemeObserverInit) return;
+    if (_aceThemeObserverInit)
+        return;
     _aceThemeObserverInit = true;
     new MutationObserver(() => {
         const theme = _aceThemeForApp();
         _codeEditors.forEach(editor => editor.setTheme(theme));
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 }
-
 export function setupCodeEditor({ textareaId, mode = 'text' }) {
     const textarea = document.getElementById(textareaId);
-    if (!textarea || typeof window === 'undefined') return null;
+    if (!textarea || typeof window === 'undefined')
+        return null;
     if (typeof window.ace === 'undefined') {
         _ensureAceEditor()
             .then(() => setupCodeEditor({ textareaId, mode }))
             .catch((err) => console.warn('Ace editor load failed', err));
         return null;
     }
-
     _initAceThemeObserver();
-
     if (_codeEditors.has(textareaId)) {
         const existing = _codeEditors.get(textareaId);
         existing.getSession().setMode(`ace/mode/${mode}`);
@@ -469,13 +466,11 @@ export function setupCodeEditor({ textareaId, mode = 'text' }) {
         existing.resize(true);
         return existing;
     }
-
     const host = document.createElement('div');
     host.id = `${textareaId}-ace`;
     host.className = 'app-code-editor';
     textarea.insertAdjacentElement('afterend', host);
     textarea.classList.add('hidden');
-
     const editor = window.ace.edit(host);
     editor.setTheme(_aceThemeForApp());
     editor.session.setMode(`ace/mode/${mode}`);
@@ -492,36 +487,34 @@ export function setupCodeEditor({ textareaId, mode = 'text' }) {
         enableSnippets: true,
         showLineNumbers: true,
     });
-
     editor.session.on('change', () => {
         textarea.value = editor.getValue();
     });
-
     editor.setValue(textarea.value || '', -1);
     _codeEditors.set(textareaId, editor);
     requestAnimationFrame(() => editor.resize(true));
     return editor;
 }
-
 export function setCodeEditorValue(textareaId, value) {
     const textarea = document.getElementById(textareaId);
-    if (textarea) textarea.value = value ?? '';
+    if (textarea)
+        textarea.value = value ?? '';
     const editor = _codeEditors.get(textareaId);
-    if (editor) editor.setValue(value ?? '', -1);
+    if (editor)
+        editor.setValue(value ?? '', -1);
 }
-
 export function getCodeEditorValue(textareaId) {
     const editor = _codeEditors.get(textareaId);
-    if (editor) return editor.getValue();
+    if (editor)
+        return editor.getValue();
     return document.getElementById(textareaId)?.value || '';
 }
-
 export function refreshCodeEditor(textareaId) {
     const editor = _codeEditors.get(textareaId);
-    if (!editor) return;
+    if (!editor)
+        return;
     requestAnimationFrame(() => editor.resize(true));
 }
-
 // --- Escape key closes topmost sub-page ---
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -534,63 +527,65 @@ document.addEventListener('keydown', (e) => {
         }
     }
 });
-
 // --- Global modal scroll lock ---
 let _modalScrollLockInitialized = false;
-
 function _modalScrollLockTargets() {
     const targets = [document.documentElement, document.body];
     document.querySelectorAll('[id^="view-"]').forEach(el => targets.push(el));
     return targets;
 }
-
 function _setModalScrollLocked(locked) {
     _modalScrollLockTargets().forEach(el => {
-        if (!el) return;
+        if (!el)
+            return;
         if (locked) {
-            if (el.dataset.modalPrevOverflow == null) el.dataset.modalPrevOverflow = el.style.overflow || '';
-            if (el.dataset.modalPrevOverscroll == null) el.dataset.modalPrevOverscroll = el.style.overscrollBehavior || '';
+            if (el.dataset.modalPrevOverflow == null)
+                el.dataset.modalPrevOverflow = el.style.overflow || '';
+            if (el.dataset.modalPrevOverscroll == null)
+                el.dataset.modalPrevOverscroll = el.style.overscrollBehavior || '';
             el.style.overflow = 'hidden';
             el.style.overscrollBehavior = 'none';
-        } else {
+        }
+        else {
             if (el.dataset.modalPrevOverflow != null) {
                 el.style.overflow = el.dataset.modalPrevOverflow;
                 delete el.dataset.modalPrevOverflow;
-            } else {
+            }
+            else {
                 el.style.removeProperty('overflow');
             }
             if (el.dataset.modalPrevOverscroll != null) {
                 el.style.overscrollBehavior = el.dataset.modalPrevOverscroll;
                 delete el.dataset.modalPrevOverscroll;
-            } else {
+            }
+            else {
                 el.style.removeProperty('overscroll-behavior');
             }
         }
     });
 }
-
 function _syncModalScrollLock() {
     const hasOpenModal = !!document.querySelector('.modal-overlay:not(.hidden)');
     _setModalScrollLocked(hasOpenModal);
 }
-
 function _initModalScrollLockObserver() {
-    if (_modalScrollLockInitialized || typeof document === 'undefined') return;
+    if (_modalScrollLockInitialized || typeof document === 'undefined')
+        return;
     _modalScrollLockInitialized = true;
-
     let scheduled = false;
     const scheduleSync = () => {
-        if (scheduled) return;
+        if (scheduled)
+            return;
         scheduled = true;
         requestAnimationFrame(() => {
             scheduled = false;
             _syncModalScrollLock();
         });
     };
-
     const observer = new MutationObserver(scheduleSync);
     const startObserver = () => {
-        if (!document.body) return;
+        if (!document.body)
+            return;
         observer.observe(document.body, {
             subtree: true,
             childList: true,
@@ -599,20 +594,19 @@ function _initModalScrollLockObserver() {
         });
         scheduleSync();
     };
-
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', startObserver, { once: true });
-    } else {
+    }
+    else {
         startObserver();
     }
 }
-
 _initModalScrollLockObserver();
-
 // --- Toast notifications (replaces alert) ---
 export function showToast(message, type = 'info', duration = 3000) {
     const area = document.getElementById('notification-area');
-    if (!area) return;
+    if (!area)
+        return;
     const colors = {
         info: 'border-accent/30 bg-accent/10 text-accent',
         success: 'border-green-500/30 bg-green-500/10 text-green-400',
@@ -631,10 +625,8 @@ export function showToast(message, type = 'info', duration = 3000) {
         setTimeout(() => toast.remove(), 300);
     }, duration);
 }
-
 // --- Custom confirm dialog (replaces window.confirm) ---
 let _confirmResolve = null;
-
 export function showConfirm(message) {
     return new Promise(resolve => {
         _confirmResolve = resolve;
@@ -663,9 +655,12 @@ export function showConfirm(message) {
         modal.classList.remove('hidden');
     });
 }
-
 function _resolveConfirm(result) {
     const modal = document.getElementById('confirm-modal');
-    if (modal) modal.classList.add('hidden');
-    if (_confirmResolve) { _confirmResolve(result); _confirmResolve = null; }
+    if (modal)
+        modal.classList.add('hidden');
+    if (_confirmResolve) {
+        _confirmResolve(result);
+        _confirmResolve = null;
+    }
 }

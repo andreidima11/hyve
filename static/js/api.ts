@@ -1,6 +1,6 @@
 /** HTTP client with JWT refresh for Hyve API routes. */
 
-export type ApiCallOptions = RequestInit & {
+export type ApiCallOptions = Omit<RequestInit, 'body'> & {
     /** Optional fetch timeout in milliseconds. */
     timeout?: number;
     body?: BodyInit | Record<string, unknown> | null;
@@ -109,30 +109,33 @@ export async function getSSEToken(): Promise<string> {
 }
 
 export async function apiCall(url: string, options: ApiCallOptions = {}): Promise<Response> {
-    const opts: ApiCallOptions = { ...options };
-    if (!opts.headers) opts.headers = {};
-    const headers = opts.headers as Record<string, string>;
+    const { timeout: requestedTimeout = 0, body: rawBody, ...rest } = options;
+    const headers: Record<string, string> = {
+        ...((rest.headers as Record<string, string> | undefined) || {}),
+    };
     if (authToken) {
         headers.Authorization = `Bearer ${authToken}`;
     }
 
-    if (opts.body && typeof opts.body === 'object' && !(opts.body instanceof FormData) && !headers['Content-Type']) {
+    let body: BodyInit | null | undefined =
+        rawBody === null ? null : (rawBody as BodyInit | undefined);
+    if (rawBody && typeof rawBody === 'object' && !(rawBody instanceof FormData) && !headers['Content-Type']) {
         headers['Content-Type'] = 'application/json';
-        opts.body = JSON.stringify(opts.body);
+        body = JSON.stringify(rawBody);
     }
 
-    const requestedTimeout = Number(opts.timeout || 0);
+    const fetchOpts: RequestInit = { ...rest, headers, body };
+
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    if (requestedTimeout && !opts.signal && typeof AbortController !== 'undefined') {
+    if (requestedTimeout && !fetchOpts.signal && typeof AbortController !== 'undefined') {
         const ctrl = new AbortController();
-        opts.signal = ctrl.signal;
+        fetchOpts.signal = ctrl.signal;
         timeoutId = setTimeout(() => ctrl.abort(), requestedTimeout);
     }
-    delete opts.timeout;
 
     let res: Response;
     try {
-        res = await fetch(url, opts);
+        res = await fetch(url, fetchOpts);
     } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
             const e = new Error(`Request timeout (${requestedTimeout}ms): ${url}`) as Error & { name: string; url: string };
@@ -149,7 +152,7 @@ export async function apiCall(url: string, options: ApiCallOptions = {}): Promis
         const refreshed = await _tryRefresh();
         if (refreshed) {
             headers.Authorization = `Bearer ${authToken}`;
-            return fetch(url, opts);
+            return fetch(url, fetchOpts);
         }
         clearAuthToken();
         try { localStorage.removeItem('hyve_remember'); } catch { /* ignore */ }

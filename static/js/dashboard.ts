@@ -1,0 +1,100 @@
+import './entity_renderers.js';
+// Hyveview bare-path imports dedupe to a single module instance (see hyveview_setup.js).
+import '/static/hyveview/elements/camera_stream.js';
+import '/static/hyveview/elements/camera_carousel.js';
+
+import { loadBundledCardPackages } from '/static/hyveview/cards/loader.js';
+import { registerDashboardCards } from './dashboard/cards/register.js';
+import { wireDashboardModules } from './dashboard/dashboard_wire.js';
+
+export {
+    startDashboardDrag,
+    startDashboardPanelDrag,
+    startDashboardResize,
+    moveDashboardWidget,
+} from './dashboard/drag_resize.js';
+export { loadDashboard, dashboardHasRenderedContent } from './dashboard/dashboard_loader.js';
+export { disconnectDashboardLive } from './dashboard/live_bridge.js';
+export { closeDashboardMenu, toggleDashboardMenu } from './dashboard/dashboard_menu.js';
+export { findWidget } from './dashboard/widget_store.js';
+export { selectDashboardPage } from './dashboard/page_select.js';
+export { removeDashboardWidget } from './dashboard/widget_delete.js';
+export { resetDashboardEditingState } from './dashboard/editing_state.js';
+export {
+    addDashboardVisibilityCondition,
+    setDashboardAddEditorMode,
+    toggleDashboardVisibilityEditor,
+} from './dashboard/widget_add_editor.js';
+export {
+    addDashboardSwitch,
+    closeDashboardAddModal,
+    openDashboardAddModal,
+    updateDashboardEditTypeUI,
+    updateDashboardEntityOptions,
+    updateDashboardTypeUI,
+} from './dashboard/widget_add_modal.js';
+export {
+    closeDashboardWidgetEditor,
+    saveDashboardWidgetEdit,
+    setDashboardWidgetEditorMode,
+} from './dashboard/widget_legacy_edit.js';
+export { openDashboardWidgetEditor } from './dashboard/widget_editor_bridge.js';
+export { selectDashboardPanelPage } from './dashboard/dashboard_render.js';
+export {
+    saveDashboardPreferences,
+    setDashboardFilter,
+    toggleDashboardEditMode,
+    toggleDashboardLayout,
+} from './dashboard/dashboard_preferences.js';
+export {
+    handleDashboardCardClick,
+    handleDashboardCardKeydown,
+    toggleDashboardWidget,
+} from './dashboard/widget_toggle.js';
+export {
+    closeDashboardEntityPicker,
+    filterDashboardEntityOptions,
+    handleDashboardEntityPickerKeydown,
+    openDashboardEntityPicker,
+    pickDashboardEntityOption,
+} from './dashboard/entity_picker.js';
+export { initDashboardSidebarNav, openDashboardPageNav } from './dashboard/pages_nav.js';
+export {
+    closeDashboardPageModal,
+    createDashboardPage,
+    deleteDashboardPage,
+    openDashboardPageModal,
+    saveDashboardHeader,
+} from './dashboard/page_modal.js';
+export {
+    addDashboardPanelVisibilityCondition,
+    closeDashboardPanelModal,
+    openDashboardPanelCreator,
+    openDashboardPanelEditor,
+    saveDashboardPanel,
+    toggleDashboardPanelBackground,
+    toggleDashboardPanelVisibility,
+} from './dashboard/panel_modal.js';
+export {
+    toggleDashboardClimateModeMenu,
+    selectDashboardClimateSlide,
+    shiftDashboardClimateSlide,
+    startDashboardClimateSwipe,
+    moveDashboardClimateSwipe,
+    endDashboardClimateSwipe,
+    adjustDashboardClimateTemperature,
+    setDashboardClimateMode,
+    updateDashboardClimateEntityMeta,
+    addSelectedDashboardClimateEntity,
+    removeDashboardClimateEntity,
+} from './dashboard/climate.js';
+export {
+    onDashboardBrightnessInput,
+    onDashboardBrightnessChange,
+    onDashboardLockAction,
+    onDashboardVacuumAction,
+} from './dashboard/widget_actions.js';
+
+loadBundledCardPackages();
+registerDashboardCards();
+wireDashboardModules();

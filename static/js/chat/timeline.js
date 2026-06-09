@@ -1,12 +1,9 @@
 /**
  * Agent activity timeline and pending-state HTML for streaming bubbles.
  */
-
 import { t } from '../lang/index.js';
 import { escapeHtml, TOOL_ICONS } from '../utils.js';
-
 const statusIcons = TOOL_ICONS;
-
 export function buildPendingStateHtml(label, icon = '') {
     const safeLabel = escapeHtml(label || 'Se gândește');
     const iconHtml = icon ? `<i class="fas ${icon} chat-pending-icon"></i>` : '';
@@ -15,34 +12,33 @@ export function buildPendingStateHtml(label, icon = '') {
         ${iconHtml}<span class="chat-pending-label">${safeLabel}</span>
     </div>`;
 }
-
 function normalizeAgentTimelineLabel(statusType, label) {
     const raw = (label || '').trim();
     const type = (statusType || '').trim();
-    if (type === 'search_web') return raw || 'Căutare pe web';
-    if (type === 'search_web_images') return raw || 'Căutare imagini';
-    if (type === 'read_web_page') return raw || 'Citește pagina';
-    if (type === 'cctv_describe') return raw || 'Analizează camera';
-    if (type === 'create_skill') return raw || 'Construiește skill-ul';
+    if (type === 'search_web')
+        return raw || 'Căutare pe web';
+    if (type === 'search_web_images')
+        return raw || 'Căutare imagini';
+    if (type === 'read_web_page')
+        return raw || 'Citește pagina';
+    if (type === 'cctv_describe')
+        return raw || 'Analizează camera';
+    if (type === 'create_skill')
+        return raw || 'Construiește skill-ul';
     if (/^found\s+\d+\s+results?$/i.test(raw)) {
         return raw.replace(/^Found\s+(\d+)\s+results?$/i, '$1 rezultate găsite');
     }
-    if (/^search error \(http\)$/i.test(raw)) return 'Eroare la căutare';
-    if (/^no results$/i.test(raw)) return 'Niciun rezultat';
-    if (/^descărcat pagină:/i.test(raw)) return raw.replace(/^Descărcat pagină:/i, 'Citește pagina:');
-    if (/^fetching page/i.test(raw)) return raw.replace(/^Fetching page/i, 'Citește pagina');
+    if (/^search error \(http\)$/i.test(raw))
+        return 'Eroare la căutare';
+    if (/^no results$/i.test(raw))
+        return 'Niciun rezultat';
+    if (/^descărcat pagină:/i.test(raw))
+        return raw.replace(/^Descărcat pagină:/i, 'Citește pagina:');
+    if (/^fetching page/i.test(raw))
+        return raw.replace(/^Fetching page/i, 'Citește pagina');
     return raw;
 }
-
-export function buildTimelineStructureKey({
-    statusLines = [],
-    thinkingStarted = false,
-    thinkingDurationSec = null,
-    generating = false,
-    preparing = false,
-    streaming = false,
-    hasThinkingContent = false,
-} = {}) {
+export function buildTimelineStructureKey({ statusLines = [], thinkingStarted = false, thinkingDurationSec = null, generating = false, preparing = false, streaming = false, hasThinkingContent = false, } = {}) {
     return JSON.stringify({
         thinkingStarted: !!thinkingStarted,
         thinkingDurationSec,
@@ -53,16 +49,7 @@ export function buildTimelineStructureKey({
         steps: statusLines.map((s) => ({ type: s.type || '', label: s.label || '' })),
     });
 }
-
-export function buildAgentTimelineHtml({
-    statusLines = [],
-    thinkingStarted = false,
-    thinkingContent = '',
-    thinkingDurationSec = null,
-    generating = false,
-    preparing = false,
-    streaming = false,
-} = {}) {
+export function buildAgentTimelineHtml({ statusLines = [], thinkingStarted = false, thinkingContent = '', thinkingDurationSec = null, generating = false, preparing = false, streaming = false, } = {}) {
     const steps = [];
     if (thinkingStarted || (thinkingContent && thinkingContent.trim())) {
         steps.push({
@@ -70,21 +57,22 @@ export function buildAgentTimelineHtml({
             label: thinkingDurationSec ? `A gândit ${thinkingDurationSec}s` : 'Se gândește',
             detail: thinkingContent || '',
         });
-    } else if (preparing && statusLines.length === 0 && !generating) {
+    }
+    else if (preparing && statusLines.length === 0 && !generating) {
         steps.push({ icon: 'fa-comment-dots', label: 'Pregătesc răspunsul' });
     }
     for (const s of statusLines) {
         steps.push({
-            icon: statusIcons[s.type] || 'fa-circle-dot',
-            label: normalizeAgentTimelineLabel(s.type, s.label || s.type || ''),
+            icon: statusIcons[s.type ?? ''] || 'fa-circle-dot',
+            label: normalizeAgentTimelineLabel(s.type ?? '', s.label || s.type || ''),
         });
     }
     if (generating) {
         steps.push({ icon: 'fa-pen-nib', label: 'Generez răspunsul' });
     }
-    if (steps.length === 0) return '';
+    if (steps.length === 0)
+        return '';
     const lastIndex = steps.length - 1;
-
     const itemsHtml = steps.map((step, i) => {
         const isCurrent = streaming && i === lastIndex;
         const stateClass = isCurrent ? ' chat-agent-timeline__item--current' : ' chat-agent-timeline__item--done';
@@ -108,13 +96,10 @@ export function buildAgentTimelineHtml({
             ${detailHtml}
         </div>`;
     }).join('');
-
     const timeline = `<div class="chat-agent-timeline" aria-live="polite">${itemsHtml}</div>`;
-
     if (streaming) {
         return `<div class="chat-agent-timeline-wrap chat-agent-timeline-open">${timeline}</div>`;
     }
-
     const stepWord = steps.length === 1 ? 'pas' : 'pași';
     const summaryLabel = thinkingDurationSec
         ? `A gândit ${thinkingDurationSec}s · ${steps.length} ${stepWord}`

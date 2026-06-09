@@ -1,58 +1,62 @@
 /**
  * Chat UI event delegation — replaces inline onclick in chat partial.
  */
-
-/** @type {Record<string, (event: Event, el: Element) => void> | null} */
 let _handlers = null;
 let _bound = false;
-
 const _SESSION_ACTIONS = new Set(['openSession', 'deleteSession', 'confirmDeleteSession', 'cancelDeleteSession']);
 const _CHAT_SELECTOR_ACTIONS = new Set(['activateProfile']);
-
 function _run(action, event, el) {
-    if (!_handlers) return;
+    if (!_handlers)
+        return;
     if (action === 'selectThinkingMode') {
-        const mode = el.dataset.chatMode || el.getAttribute('data-mode') || '';
+        const mode = (el instanceof HTMLElement ? el.dataset.chatMode : '') || el.getAttribute('data-mode') || '';
         _handlers.selectThinkingMode?.(mode);
         return;
     }
     if (_SESSION_ACTIONS.has(action)) {
-        if (!el.closest('#sessions-list')) return;
-        const id = el.dataset.chatSessionId || '';
-        if (action === 'openSession') _handlers.openSession?.(id, event, el);
-        else if (action === 'deleteSession') _handlers.deleteSession?.(id, event, el);
-        else if (action === 'confirmDeleteSession') _handlers.confirmDeleteSession?.(id, event, el);
-        else if (action === 'cancelDeleteSession') _handlers.cancelDeleteSession?.(id, event, el);
+        if (!el.closest('#sessions-list'))
+            return;
+        const id = el instanceof HTMLElement ? (el.dataset.chatSessionId || '') : '';
+        if (action === 'openSession')
+            _handlers.openSession?.(id, event, el);
+        else if (action === 'deleteSession')
+            _handlers.deleteSession?.(id, event, el);
+        else if (action === 'confirmDeleteSession')
+            _handlers.confirmDeleteSession?.(id, event, el);
+        else if (action === 'cancelDeleteSession')
+            _handlers.cancelDeleteSession?.(id, event, el);
         return;
     }
     if (_CHAT_SELECTOR_ACTIONS.has(action)) {
-        if (!el.closest('#model-selector-balloon')) return;
-        if (action === 'activateProfile') {
+        if (!el.closest('#model-selector-balloon'))
+            return;
+        if (action === 'activateProfile' && el instanceof HTMLElement) {
             _handlers.activateProfile?.(el.dataset.chatProfileId || '', event, el);
             _handlers.closeModelSelector?.(event, el);
         }
         return;
     }
-    if (action === 'showSourcesModal') {
+    if (action === 'showSourcesModal' && el instanceof HTMLElement) {
         _handlers.showSourcesModal?.(el.dataset.chatSourceGroup || '', event, el);
         return;
     }
     const fn = _handlers[action];
-    if (typeof fn === 'function') fn(event, el);
+    if (typeof fn === 'function')
+        fn(event, el);
 }
-
 function _onClick(event) {
-    const el = event.target.closest('[data-chat-action]');
-    if (!el) return;
-    _run(el.dataset.chatAction, event, el);
+    const target = event.target;
+    if (!(target instanceof Element))
+        return;
+    const el = target.closest('[data-chat-action]');
+    if (!el)
+        return;
+    _run(el instanceof HTMLElement ? (el.dataset.chatAction || '') : '', event, el);
 }
-
-/**
- * @param {Record<string, (event: Event, el: Element) => void>} handlers
- */
 export function initChatEventBindings(handlers) {
     _handlers = handlers;
-    if (_bound) return;
+    if (_bound)
+        return;
     _bound = true;
     document.addEventListener('click', _onClick);
 }

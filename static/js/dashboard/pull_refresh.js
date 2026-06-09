@@ -1,31 +1,22 @@
 /** Pull-to-refresh for the dashboard view (mobile + trackpad). */
-
 export function initDashboardPullToRefresh(deps) {
-    const {
-        loadDashboard,
-        selectDashboardPage,
-        setRefreshIndicator,
-        showToast,
-        t,
-        getCurrentPageId,
-    } = deps;
-
+    const { loadDashboard, selectDashboardPage, setRefreshIndicator, showToast, t, getCurrentPageId, } = deps;
     const view = document.getElementById('view-dashboard');
-    if (!view || view.dataset.ptrInit === '1') return;
-    view.dataset.ptrInit = '1';
-
+    if (!view || view.dataset.ptrInit === '1')
+        return;
+    const dashboardView = view;
+    dashboardView.dataset.ptrInit = '1';
     const THRESHOLD = 70;
     const MAX_PULL = 110;
     const TRIGGER_OPACITY_AT = 30;
-
     let startY = 0;
     let pulling = false;
     let triggered = false;
     let indicator = null;
     let refreshing = false;
-
     function ensureIndicator() {
-        if (indicator) return indicator;
+        if (indicator)
+            return indicator;
         if (!document.getElementById('dashboard-ptr-style')) {
             const style = document.createElement('style');
             style.id = 'dashboard-ptr-style';
@@ -112,14 +103,15 @@ export function initDashboardPullToRefresh(deps) {
             </svg>
             <i class="fas fa-arrow-down" id="dashboard-ptr-icon"></i>
         `;
-        if (getComputedStyle(view).position === 'static') view.style.position = 'relative';
-        view.appendChild(indicator);
+        if (getComputedStyle(dashboardView).position === 'static')
+            dashboardView.style.position = 'relative';
+        dashboardView.appendChild(indicator);
         return indicator;
     }
-
     function setIndicator(dist, isTriggered) {
         const el = ensureIndicator();
-        if (el.dataset.state === 'refreshing') return;
+        if (el.dataset.state === 'refreshing')
+            return;
         const capped = Math.min(dist, MAX_PULL);
         const progress = Math.min(1, dist / THRESHOLD);
         const scale = 0.85 + 0.15 * progress;
@@ -127,29 +119,31 @@ export function initDashboardPullToRefresh(deps) {
         el.style.opacity = dist > TRIGGER_OPACITY_AT ? String(0.55 + 0.45 * progress) : '0';
         el.dataset.state = isTriggered ? 'armed' : 'pulling';
         const ring = el.querySelector('#dashboard-ptr-ring .progress');
-        if (ring) ring.style.strokeDashoffset = String(119.38 * (1 - progress));
+        if (ring)
+            ring.style.strokeDashoffset = String(119.38 * (1 - progress));
         const icon = document.getElementById('dashboard-ptr-icon');
-        if (icon) icon.style.transform = isTriggered ? 'rotate(180deg)' : `rotate(${progress * 180}deg)`;
+        if (icon)
+            icon.style.transform = isTriggered ? 'rotate(180deg)' : `rotate(${progress * 180}deg)`;
     }
-
     function hideIndicator() {
-        if (!indicator) return;
+        if (!indicator)
+            return;
         indicator.style.opacity = '0';
         indicator.style.transform = 'translate(-50%, -120%) scale(0.85)';
         indicator.dataset.state = '';
         const ring = indicator.querySelector('#dashboard-ptr-ring .progress');
-        if (ring) ring.style.strokeDashoffset = '119.38';
+        if (ring)
+            ring.style.strokeDashoffset = '119.38';
     }
-
     function showSpinner() {
         const el = ensureIndicator();
         el.style.opacity = '1';
         el.style.transform = 'translate(-50%, 16px) scale(1)';
         el.dataset.state = 'refreshing';
     }
-
     function resetSpinner() {
-        if (!indicator) return;
+        if (!indicator)
+            return;
         indicator.dataset.state = '';
         const icon = document.getElementById('dashboard-ptr-icon');
         if (icon) {
@@ -158,11 +152,12 @@ export function initDashboardPullToRefresh(deps) {
             icon.style.opacity = '';
         }
         const ring = indicator.querySelector('#dashboard-ptr-ring .progress');
-        if (ring) ring.style.strokeDashoffset = '119.38';
+        if (ring)
+            ring.style.strokeDashoffset = '119.38';
     }
-
     async function doRefresh() {
-        if (refreshing) return;
+        if (refreshing)
+            return;
         refreshing = true;
         showSpinner();
         const safety = setTimeout(() => {
@@ -171,19 +166,27 @@ export function initDashboardPullToRefresh(deps) {
                 setRefreshIndicator(false);
                 hideIndicator();
                 resetSpinner();
-            } catch (_) {}
+            }
+            catch { /* ignore */ }
         }, 12000);
         try {
             const pid = getCurrentPageId();
             if (pid) {
                 await selectDashboardPage(pid);
-            } else {
+            }
+            else {
                 await loadDashboard();
             }
-        } catch (err) {
+        }
+        catch (err) {
             console.error('[dashboard] pull-to-refresh failed:', err);
-            try { showToast(t('dashboard.refresh_failed', { message: err.message || t('common.error') }), 'error'); } catch (_) {}
-        } finally {
+            try {
+                const message = err instanceof Error ? err.message : t('common.error');
+                showToast(t('dashboard.refresh_failed', { message }), 'error');
+            }
+            catch { /* ignore */ }
+        }
+        finally {
             clearTimeout(safety);
             refreshing = false;
             setTimeout(() => {
@@ -193,53 +196,67 @@ export function initDashboardPullToRefresh(deps) {
             }, 250);
         }
     }
-
-    view.addEventListener('touchstart', (ev) => {
-        if (view.scrollTop > 0) { pulling = false; return; }
-        if (!ev.touches || !ev.touches.length) return;
+    dashboardView.addEventListener('touchstart', (ev) => {
+        if (dashboardView.scrollTop > 0) {
+            pulling = false;
+            return;
+        }
+        if (!ev.touches?.length)
+            return;
         startY = ev.touches[0].clientY;
         pulling = true;
         triggered = false;
     }, { passive: true });
-
-    view.addEventListener('touchmove', (ev) => {
-        if (!pulling) return;
-        if (view.scrollTop > 0) { pulling = false; hideIndicator(); return; }
+    dashboardView.addEventListener('touchmove', (ev) => {
+        if (!pulling)
+            return;
+        if (dashboardView.scrollTop > 0) {
+            pulling = false;
+            hideIndicator();
+            return;
+        }
         const dy = ev.touches[0].clientY - startY;
-        if (dy <= 0) { hideIndicator(); return; }
-        if (ev.cancelable) ev.preventDefault();
+        if (dy <= 0) {
+            hideIndicator();
+            return;
+        }
+        if (ev.cancelable)
+            ev.preventDefault();
         const dist = Math.pow(dy, 0.85);
         triggered = dist >= THRESHOLD;
         setIndicator(dist, triggered);
     }, { passive: false });
-
-    view.addEventListener('touchend', () => {
-        if (!pulling) return;
+    dashboardView.addEventListener('touchend', () => {
+        if (!pulling)
+            return;
         pulling = false;
         if (triggered) {
             triggered = false;
-            doRefresh();
-        } else {
+            void doRefresh();
+        }
+        else {
             hideIndicator();
         }
     }, { passive: true });
-
     let wheelAccum = 0;
     let wheelTimer = null;
-    view.addEventListener('wheel', (ev) => {
-        if (view.scrollTop > 0 || ev.deltaY >= 0) {
+    dashboardView.addEventListener('wheel', (ev) => {
+        if (dashboardView.scrollTop > 0 || ev.deltaY >= 0) {
             wheelAccum = 0;
             return;
         }
-        if (ev.cancelable) ev.preventDefault();
+        if (ev.cancelable)
+            ev.preventDefault();
         wheelAccum += Math.abs(ev.deltaY);
         const progress = Math.min(1, wheelAccum / 240);
         setIndicator(progress * THRESHOLD * 1.05, progress >= 1);
-        clearTimeout(wheelTimer);
+        if (wheelTimer)
+            clearTimeout(wheelTimer);
         wheelTimer = setTimeout(() => {
             if (wheelAccum >= 240) {
-                doRefresh();
-            } else {
+                void doRefresh();
+            }
+            else {
                 hideIndicator();
             }
             wheelAccum = 0;

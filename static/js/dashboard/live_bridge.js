@@ -1,27 +1,26 @@
 /**
  * Dashboard live entity stack — lazy entity patcher + WebSocket transport.
  */
-
 import { apiCall } from '../api.js';
 import { dashDebug, DASH_DEBUG_ENABLED } from './debug.js';
 import { createDashboardEntityPatcher } from './entity_patch.js';
 import { createDashboardLiveWs } from './live_ws.js';
 import { pendingForEntity, shouldHoldOptimisticState, clearPendingControl } from './control_state.js';
-
-/** @type {object | null} */
+/** @typedef {Record<string, unknown>} DashboardLiveDeps */
+/** @type {Record<string, unknown> | null} */
 let _deps = null;
+/** @type {ReturnType<typeof createDashboardEntityPatcher> | null} */
 let _entityPatcher = null;
+/** @type {ReturnType<typeof createDashboardLiveWs> | null} */
 let _dashboardLive = null;
-
 function deps() {
-    if (!_deps) throw new Error('Dashboard live bridge not initialized');
+    if (!_deps)
+        throw new Error('Dashboard live bridge not initialized');
     return _deps;
 }
-
 export function initDashboardLiveBridge(depsIn) {
     _deps = depsIn;
 }
-
 function ensureEntityLive() {
     if (_entityPatcher && _dashboardLive) {
         return { patcher: _entityPatcher, live: _dashboardLive };
@@ -49,27 +48,21 @@ function ensureEntityLive() {
     _dashboardLive.initTabWatch();
     return { patcher: _entityPatcher, live: _dashboardLive };
 }
-
 export function dashboardWidgetEntityIds(widget) {
     return ensureEntityLive().patcher.widgetEntityIds(widget);
 }
-
 export function configureHyveviewMounted(root) {
     ensureEntityLive().patcher.configureHyveviewMounted(root);
 }
-
 export function tryFastPathForEntities(entityIds) {
     return ensureEntityLive().patcher.tryFastPathForEntities(entityIds);
 }
-
 export function connectDashboardLive() {
     ensureEntityLive().live.connectDashboardLive();
 }
-
 export function disconnectDashboardLive() {
-    if (_dashboardLive) _dashboardLive.disconnectDashboardLive();
+    _dashboardLive?.disconnectDashboardLive();
 }
-
 export function resumeDashboardCameras() {
-    if (_dashboardLive) _dashboardLive.resumeDashboardCameras();
+    _dashboardLive?.resumeDashboardCameras();
 }

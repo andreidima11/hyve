@@ -1,11 +1,8 @@
 /** Dashboard layout editing is admin-only; card toggles stay available to all users. */
-
 import { isAdmin } from '../user_context.js';
-
 export function canEditDashboard() {
     return isAdmin();
 }
-
 function _removeLegacyDashboardHeaderControls() {
     document.getElementById('dashboard-layout-toggle')?.remove();
     const legacyHide = document.getElementById('dashboard-hide-unavailable');
@@ -13,15 +10,14 @@ function _removeLegacyDashboardHeaderControls() {
         legacyHide.closest('label')?.remove();
     }
 }
-
 if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', _removeLegacyDashboardHeaderControls, { once: true });
-    } else {
+    }
+    else {
         _removeLegacyDashboardHeaderControls();
     }
 }
-
 export function applyDashboardEditAccess() {
     _removeLegacyDashboardHeaderControls();
     const canEdit = canEditDashboard();
@@ -35,8 +31,6 @@ export function applyDashboardEditAccess() {
         document.documentElement.removeAttribute('data-dashboard-editing');
     }
 }
-
 export function requireDashboardEditAccess() {
-    if (!canEditDashboard()) return false;
-    return true;
+    return canEditDashboard();
 }

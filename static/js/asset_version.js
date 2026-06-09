@@ -5,28 +5,27 @@
  * Entry scripts and dynamic imports should use `withCacheBust` / `importWithCacheBust`.
  * Static ES module imports omit `?v=` and rely on no-store (see core/http/middleware.py).
  */
-
-/** @returns {string} Server-provided cache token, or empty before bootstrap. */
+/** Server-provided cache token, or empty before bootstrap. */
 export function cacheBust() {
-    if (typeof globalThis !== 'undefined' && globalThis.__cacheBust) {
-        return String(globalThis.__cacheBust);
+    if (typeof window !== 'undefined' && window.__cacheBust) {
+        return String(window.__cacheBust);
     }
     return '';
 }
-
 /** Append or replace `v` query param using the server cache token. */
 export function withCacheBust(url) {
     const raw = String(url || '').trim();
-    if (!raw) return raw;
+    if (!raw)
+        return raw;
     const v = cacheBust();
-    if (!v) return raw;
+    if (!v)
+        return raw;
     const [base, query = ''] = raw.split('?');
     const params = new URLSearchParams(query);
     params.set('v', v);
     const qs = params.toString();
     return qs ? `${base}?${qs}` : base;
 }
-
 /** Dynamic `import()` with the current server cache token. */
 export function importWithCacheBust(specifier) {
     return import(withCacheBust(specifier));

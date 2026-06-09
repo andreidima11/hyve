@@ -1,7 +1,6 @@
 /**
  * Event bindings, pull-to-refresh, drag/resize, and Hyveview card registration.
  */
-
 import { apiCall } from '../../api.js';
 import { showToast } from '../../utils.js';
 import { t } from '../../lang/index.js';
@@ -10,70 +9,28 @@ import { initDashboardEventBindings } from '../event_bindings.js';
 import { initDashboardPullToRefresh } from '../pull_refresh.js';
 import { initDashboardDragResize, startDashboardDrag, startDashboardPanelDrag } from '../drag_resize.js';
 import { closeDashboardMenu, toggleDashboardMenu } from '../dashboard_menu.js';
-import {
-    toggleDashboardEditMode,
-    saveDashboardPreferences,
-} from '../dashboard_preferences.js';
+import { toggleDashboardEditMode, saveDashboardPreferences, } from '../dashboard_preferences.js';
 import { openDashboardAddPicker } from '../add_picker.js';
-import {
-    createDashboardPage,
-    openDashboardPageModal,
-    closeDashboardPageModal,
-    deleteDashboardPage,
-    saveDashboardHeader,
-} from '../page_modal.js';
-import {
-    openDashboardYamlEditor,
-    closeDashboardYamlEditor,
-    reloadDashboardYaml,
-    saveDashboardYaml,
-} from '../yaml_bridge.js';
-import {
-    closeDashboardPanelModal,
-    saveDashboardPanel,
-    setDashboardPanelSize,
-    addDashboardPanelModalPage,
-    openDashboardPanelCreator,
-    openDashboardPanelEditor,
-} from '../panel_modal.js';
+import { createDashboardPage, openDashboardPageModal, closeDashboardPageModal, deleteDashboardPage, saveDashboardHeader, } from '../page_modal.js';
+import { openDashboardYamlEditor, closeDashboardYamlEditor, reloadDashboardYaml, saveDashboardYaml, } from '../yaml_bridge.js';
+import { closeDashboardPanelModal, saveDashboardPanel, setDashboardPanelSize, addDashboardPanelModalPage, openDashboardPanelCreator, openDashboardPanelEditor, } from '../panel_modal.js';
 import { removeDashboardPanel } from '../panel_delete.js';
 import { selectDashboardPanelPage, renderDashboard } from '../dashboard_render.js';
 import { openDashboardWidgetEditor } from '../widget_editor_bridge.js';
 import { removeDashboardWidget } from '../widget_delete.js';
-import {
-    handleDashboardCardClick,
-    handleDashboardCardKeydown,
-} from '../widget_toggle.js';
+import { handleDashboardCardClick, handleDashboardCardKeydown, } from '../widget_toggle.js';
 import { selectDashboardPage } from '../page_select.js';
 import { openDashboardPageNav } from '../pages_nav.js';
 import { pickDashboardEntityOption } from '../entity_picker.js';
 import { addDashboardSwitch } from '../widget_add_modal.js';
-import {
-    startDashboardClimateSwipe,
-    adjustDashboardClimateTemperature,
-    toggleDashboardClimateModeMenu,
-    setDashboardClimateMode,
-    selectDashboardClimateSlide,
-    removeDashboardClimateEntity,
-    updateDashboardClimateEntityMeta,
-} from '../climate.js';
-import {
-    onDashboardLockAction,
-    onDashboardVacuumAction,
-    onDashboardBrightnessInput,
-    onDashboardBrightnessChange,
-} from '../widget_actions.js';
+import { startDashboardClimateSwipe, adjustDashboardClimateTemperature, toggleDashboardClimateModeMenu, setDashboardClimateMode, selectDashboardClimateSlide, removeDashboardClimateEntity, updateDashboardClimateEntityMeta, } from '../climate.js';
+import { onDashboardLockAction, onDashboardVacuumAction, onDashboardBrightnessInput, onDashboardBrightnessChange, } from '../widget_actions.js';
 import { dashboardWidgetEntityIds } from '../live_bridge.js';
 import { loadDashboard, setDashboardRefreshIndicator, readDashboardSectionFallback, writeDashboardSectionFallback } from '../dashboard_loader.js';
 import { findWidget } from '../widget_store.js';
 import { dashboardPanelColSpan, widgetSpan } from '../widget_cards.js';
 import { isDashboardStandalonePanel, ensureDashboardStandalonePanelLocal } from '../standalone_panel.js';
-import {
-    getDashboardCache,
-    getDashboardEditMode,
-    currentPageIdWithCacheFallback,
-} from '../dashboard_state.js';
-
+import { getDashboardCache, getDashboardEditMode, currentPageIdWithCacheFallback, } from '../dashboard_state.js';
 export function wireDashboardEvents() {
     initDashboardEventBindings({
         closeMenu: () => closeDashboardMenu(),
@@ -94,7 +51,8 @@ export function wireDashboardEvents() {
         savePreferences: () => { saveDashboardPreferences(); },
         setPanelSize: ({ el }) => {
             const size = el.getAttribute('data-dashboard-panel-size-option');
-            if (size) setDashboardPanelSize(size);
+            if (size)
+                setDashboardPanelSize(size);
         },
         addPanelPage: () => addDashboardPanelModalPage(),
         openPanelCreator: () => openDashboardPanelCreator(),
@@ -104,8 +62,10 @@ export function wireDashboardEvents() {
         editWidget: ({ widgetId }) => { openDashboardWidgetEditor(widgetId); },
         removeWidget: ({ widgetId }) => { removeDashboardWidget(widgetId); },
         cardActivate: ({ event, widgetId }) => {
-            if (event.type === 'keydown') handleDashboardCardKeydown(event, widgetId);
-            else handleDashboardCardClick(event, widgetId);
+            if (event.type === 'keydown')
+                handleDashboardCardKeydown(event, widgetId);
+            else
+                handleDashboardCardClick(event, widgetId);
         },
         selectPage: ({ pageId }) => { selectDashboardPage(pageId); },
         openPageNav: ({ pageId }) => { openDashboardPageNav(pageId); },
@@ -135,9 +95,7 @@ export function wireDashboardEvents() {
         brightnessInput: ({ event, widgetId }) => onDashboardBrightnessInput(event, widgetId),
         brightnessChange: ({ event, widgetId }) => onDashboardBrightnessChange(event, widgetId),
     });
-
     registerHyveviewDashboardCards(dashboardWidgetEntityIds);
-
     initDashboardPullToRefresh({
         loadDashboard,
         selectDashboardPage,
@@ -146,7 +104,6 @@ export function wireDashboardEvents() {
         t,
         getCurrentPageId: currentPageIdWithCacheFallback,
     });
-
     initDashboardDragResize({
         getCache: getDashboardCache,
         getCurrentPageId: currentPageIdWithCacheFallback,

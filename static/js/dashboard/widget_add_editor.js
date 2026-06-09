@@ -1,34 +1,28 @@
+// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Dashboard add-card modal — live preview, size grid, and visibility rules.
  */
-
-import {
-    DASHBOARD_COL_POINTS_MIN,
-    DASHBOARD_COL_POINTS_MAX,
-    SECTION_COLS,
-} from './constants.js';
+import { DASHBOARD_COL_POINTS_MIN, DASHBOARD_COL_POINTS_MAX, SECTION_COLS, } from './constants.js';
 import { escapeHtml } from './helpers.js';
 import { enhanceDashboardCustomSelects } from './custom_selects.js';
-
 /** @type {object | null} */
 let _deps = null;
 let _visibilityCondSeq = 0;
 let _sizeSlidersWired = false;
 let _addModalWired = false;
-
 function deps() {
-    if (!_deps) throw new Error('Dashboard widget add editor not initialized');
+    if (!_deps)
+        throw new Error('Dashboard widget add editor not initialized');
     return _deps;
 }
-
 export function initDashboardWidgetAddEditor(depsIn) {
     _deps = depsIn;
 }
-
 export function renderDashboardAddPreview() {
     const d = deps();
     const target = document.getElementById('dashboard-add-preview-card');
-    if (!target) return;
+    if (!target)
+        return;
     const cache = d.getDashboardCache();
     const type = (document.getElementById('dashboard-widget-type')?.value || 'button').trim();
     const title = (document.getElementById('dashboard-widget-title')?.value || '').trim();
@@ -46,7 +40,6 @@ export function renderDashboardAddPreview() {
     const eid = type === 'climate'
         ? (climateEntityIds[0] || entityInput?.dataset?.currentValue || '')
         : (entityInput?.dataset?.currentValue || '');
-
     let entityState = '—';
     let entityAttrs = {};
     let entityUnit = '';
@@ -60,7 +53,6 @@ export function renderDashboardAddPreview() {
             domain = String(eid).split('.')[0] || '';
         }
     }
-
     const widget = {
         id: '__preview__',
         type: type === 'label' ? 'label' : type,
@@ -102,26 +94,28 @@ export function renderDashboardAddPreview() {
     if (type === 'camera') {
         widget.config = { ...(widget.config || {}), camera_mode: cameraMode };
     }
-    if (Number.isFinite(colSpanPv) && colSpanPv >= 1) widget.col_span = Math.min(colSpanPv, SECTION_COLS);
-    if (Number.isFinite(rowSpanPv) && rowSpanPv >= 1) widget.row_span = Math.min(rowSpanPv, 12);
-
+    if (Number.isFinite(colSpanPv) && colSpanPv >= 1)
+        widget.col_span = Math.min(colSpanPv, SECTION_COLS);
+    if (Number.isFinite(rowSpanPv) && rowSpanPv >= 1)
+        widget.row_span = Math.min(rowSpanPv, 12);
     if (!eid && type !== 'label') {
         target.innerHTML = `<div class="text-center text-xs text-slate-500"><i class="fas fa-eye-slash mb-2 block text-lg text-slate-600"></i>${escapeHtml(d.t('dashboard.select_entity_for_preview') || 'Choose an entity for preview')}</div>`;
         return;
     }
-
     try {
         const html = d.renderWidgetCardForPreview(widget);
         target.innerHTML = `<div class="grid grid-cols-1 gap-3 w-full">${html}</div>`;
-    } catch (e) {
+    }
+    catch (e) {
         target.innerHTML = `<div class="text-xs text-red-400">${escapeHtml(d.t('dashboard.preview_unavailable', { message: e?.message || d.t('common.error') }))}</div>`;
     }
 }
-
 export function wireDashboardAddPreviewListeners() {
-    if (_addModalWired) return;
+    if (_addModalWired)
+        return;
     const modal = document.getElementById('dashboard-add-modal');
-    if (!modal) return;
+    if (!modal)
+        return;
     _addModalWired = true;
     const ids = [
         'dashboard-widget-type', 'dashboard-widget-title', 'dashboard-widget-subtitle',
@@ -131,16 +125,15 @@ export function wireDashboardAddPreviewListeners() {
     ];
     for (const id of ids) {
         const el = document.getElementById(id);
-        if (!el) continue;
+        if (!el)
+            continue;
         const evt = (el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'color') ? 'change' : 'input';
         el.addEventListener(evt, () => renderDashboardAddPreview());
     }
 }
-
 export function setDashboardAddEditorMode(mode = 'visual') {
     const validModes = ['visual', 'visibility', 'size'];
     const active = validModes.includes(mode) ? mode : 'visual';
-
     const sections = {
         visual: document.getElementById('dashboard-add-editor-visual'),
         visibility: document.getElementById('dashboard-add-editor-visibility-wrap'),
@@ -151,9 +144,9 @@ export function setDashboardAddEditorMode(mode = 'visual') {
         visibility: document.getElementById('dashboard-add-editor-visibility-tab'),
         size: document.getElementById('dashboard-add-editor-size-tab'),
     };
-
     for (const key of validModes) {
-        if (sections[key]) sections[key].classList.toggle('hidden', key !== active);
+        if (sections[key])
+            sections[key].classList.toggle('hidden', key !== active);
         if (tabs[key]) {
             const isActive = key === active;
             tabs[key].classList.toggle('bg-white/10', isActive);
@@ -161,17 +154,17 @@ export function setDashboardAddEditorMode(mode = 'visual') {
             tabs[key].classList.toggle('text-slate-400', !isActive);
         }
     }
-
     if (active === 'visibility') {
         const conds = document.getElementById('dashboard-visibility-conditions');
-        if (conds && !conds.children.length) addDashboardVisibilityCondition('add');
-    } else if (active === 'size') {
+        if (conds && !conds.children.length)
+            addDashboardVisibilityCondition('add');
+    }
+    else if (active === 'size') {
         syncDashboardSizeSlidersFromSelects();
         wireDashboardSizeSliders();
         renderDashboardSizeGridPreview();
     }
 }
-
 export function syncDashboardSizeSlidersFromSelects() {
     const colSel = document.getElementById('dashboard-widget-col-span');
     const rowSel = document.getElementById('dashboard-widget-row-span');
@@ -181,44 +174,56 @@ export function syncDashboardSizeSlidersFromSelects() {
     const rowVal = document.getElementById('dashboard-size-row-value');
     const col = Math.min(Math.max(parseInt(colSel?.value || String(DASHBOARD_COL_POINTS_MAX), 10) || DASHBOARD_COL_POINTS_MAX, DASHBOARD_COL_POINTS_MIN), DASHBOARD_COL_POINTS_MAX);
     const row = Math.min(Math.max(parseInt(rowSel?.value || '1', 10) || 1, 1), 8);
-    if (colSlider) colSlider.value = String(col);
-    if (rowSlider) rowSlider.value = String(row);
-    if (colVal) colVal.textContent = String(col);
-    if (rowVal) rowVal.textContent = String(row);
+    if (colSlider)
+        colSlider.value = String(col);
+    if (rowSlider)
+        rowSlider.value = String(row);
+    if (colVal)
+        colVal.textContent = String(col);
+    if (rowVal)
+        rowVal.textContent = String(row);
 }
-
 function wireDashboardSizeSliders() {
-    if (_sizeSlidersWired) return;
+    if (_sizeSlidersWired)
+        return;
     const colSlider = document.getElementById('dashboard-size-col-slider');
     const rowSlider = document.getElementById('dashboard-size-row-slider');
     const colSel = document.getElementById('dashboard-widget-col-span');
     const rowSel = document.getElementById('dashboard-widget-row-span');
     const colVal = document.getElementById('dashboard-size-col-value');
     const rowVal = document.getElementById('dashboard-size-row-value');
-    if (!colSlider || !rowSlider) return;
+    if (!colSlider || !rowSlider)
+        return;
     _sizeSlidersWired = true;
-
     const onCol = () => {
         const v = colSlider.value;
-        if (colVal) colVal.textContent = v;
-        if (colSel) { colSel.value = v; colSel.dispatchEvent(new Event('change')); }
+        if (colVal)
+            colVal.textContent = v;
+        if (colSel) {
+            colSel.value = v;
+            colSel.dispatchEvent(new Event('change'));
+        }
         renderDashboardSizeGridPreview();
         renderDashboardAddPreview();
     };
     const onRow = () => {
         const v = rowSlider.value;
-        if (rowVal) rowVal.textContent = v;
-        if (rowSel) { rowSel.value = v; rowSel.dispatchEvent(new Event('change')); }
+        if (rowVal)
+            rowVal.textContent = v;
+        if (rowSel) {
+            rowSel.value = v;
+            rowSel.dispatchEvent(new Event('change'));
+        }
         renderDashboardSizeGridPreview();
         renderDashboardAddPreview();
     };
     colSlider.addEventListener('input', onCol);
     rowSlider.addEventListener('input', onRow);
 }
-
 function renderDashboardSizeGridPreview() {
     const target = document.getElementById('dashboard-size-grid-preview');
-    if (!target) return;
+    if (!target)
+        return;
     const col = Math.min(Math.max(parseInt(document.getElementById('dashboard-size-col-slider')?.value || String(DASHBOARD_COL_POINTS_MAX), 10) || DASHBOARD_COL_POINTS_MAX, DASHBOARD_COL_POINTS_MIN), DASHBOARD_COL_POINTS_MAX);
     const row = Math.min(Math.max(parseInt(document.getElementById('dashboard-size-row-slider')?.value || '1', 10) || 1, 1), 8);
     const visibleRows = Math.max(4, Math.min(row + 1, 8));
@@ -232,22 +237,23 @@ function renderDashboardSizeGridPreview() {
     }
     target.innerHTML = cells.join('');
 }
-
 export function toggleDashboardVisibilityEditor(scope = 'add') {
     const enabledEl = document.getElementById('dashboard-visibility-enabled');
     const body = document.getElementById('dashboard-visibility-body');
-    if (!enabledEl || !body) return;
+    if (!enabledEl || !body)
+        return;
     body.classList.toggle('hidden', !enabledEl.checked);
     if (enabledEl.checked) {
         const conds = document.getElementById('dashboard-visibility-conditions');
-        if (conds && !conds.children.length) addDashboardVisibilityCondition(scope);
+        if (conds && !conds.children.length)
+            addDashboardVisibilityCondition(scope);
     }
 }
-
 export function addDashboardVisibilityCondition(_scope = 'add') {
     const d = deps();
     const wrap = document.getElementById('dashboard-visibility-conditions');
-    if (!wrap) return;
+    if (!wrap)
+        return;
     const idx = ++_visibilityCondSeq;
     const items = Array.isArray(d.getDashboardCache().available_entities) ? d.getDashboardCache().available_entities : [];
     const listId = `vis-cond-entities-${idx}`;
@@ -275,10 +281,10 @@ export function addDashboardVisibilityCondition(_scope = 'add') {
     wrap.appendChild(row);
     enhanceDashboardCustomSelects(row);
 }
-
 export function readDashboardVisibilityConfig() {
     const enabledEl = document.getElementById('dashboard-visibility-enabled');
-    if (!enabledEl?.checked) return null;
+    if (!enabledEl?.checked)
+        return null;
     const logic = document.getElementById('dashboard-visibility-logic')?.value || 'and';
     const wrap = document.getElementById('dashboard-visibility-conditions');
     const conditions = [];
@@ -287,7 +293,8 @@ export function readDashboardVisibilityConfig() {
             const ent = row.querySelector('[data-vis-field="entity"]')?.value?.trim();
             const op = row.querySelector('[data-vis-field="op"]')?.value || 'eq';
             const value = row.querySelector('[data-vis-field="value"]')?.value ?? '';
-            if (ent) conditions.push({ entity_id: ent, op, value: String(value) });
+            if (ent)
+                conditions.push({ entity_id: ent, op, value: String(value) });
         }
     }
     return { enabled: true, logic, conditions };

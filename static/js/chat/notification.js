@@ -1,5 +1,4 @@
 /** Short audio cue when a reminder/automation bubble arrives. */
-
 export function playNotificationCue() {
     if (typeof window.__hyvePlayNotificationCue === 'function') {
         window.__hyvePlayNotificationCue();
@@ -7,7 +6,8 @@ export function playNotificationCue() {
     }
     try {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass) return;
+        if (!AudioContextClass)
+            return;
         const ctx = new AudioContextClass();
         const oscillator = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -21,6 +21,10 @@ export function playNotificationCue() {
         gain.connect(ctx.destination);
         oscillator.start(now);
         oscillator.stop(now + 0.2);
-        setTimeout(() => { try { ctx.close(); } catch (_) {} }, 320);
-    } catch (_) {}
+        setTimeout(() => { try {
+            ctx.close();
+        }
+        catch (_) { } }, 320);
+    }
+    catch (_) { }
 }

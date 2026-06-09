@@ -1,36 +1,29 @@
 /**
  * Dashboard layout normalization, localStorage view cache, and per-page snapshots.
  */
-
 import { apiCall } from '../api.js';
-import {
-    DEFAULT_PREFS,
-    DEFAULT_META,
-    DASHBOARD_LOCAL_KEY,
-    DASHBOARD_STANDALONE_PANEL_ID,
-} from './constants.js';
-
+import { DEFAULT_PREFS, DEFAULT_META, DASHBOARD_LOCAL_KEY, DASHBOARD_STANDALONE_PANEL_ID, } from './constants.js';
 const DASHBOARD_PAGE_SNAPSHOTS_KEY = 'hyve.dash.pageSnapshots';
 const DASHBOARD_PAGE_SNAPSHOTS_VERSION = '2';
 const DASHBOARD_PAGE_SNAPSHOTS_VERSION_KEY = 'hyve.dash.pageSnapshots.v';
 const DASHBOARD_PAGE_SNAPSHOTS_MAX = 24;
-
 const _dashboardPageSnapshots = new Map();
 let _dashboardPageSnapshotsHydrated = false;
-
 export function isDashboardStandalonePanel(panel) {
     return String(panel?.id || '') === DASHBOARD_STANDALONE_PANEL_ID || panel?.kind === 'standalone';
 }
-
 export function normalizeDashboardSectionPanels(rawPanels = [], rawWidgets = []) {
     const panels = Array.isArray(rawPanels) ? rawPanels : [];
     const sectionPanels = [];
     const standaloneWidgets = [];
-    panels.forEach(panel => {
-        if (!panel || typeof panel !== 'object') return;
+    panels.forEach((panel) => {
+        if (!panel || typeof panel !== 'object')
+            return;
         const copy = { ...panel, widgets: Array.isArray(panel.widgets) ? panel.widgets : [] };
-        if (isDashboardStandalonePanel(copy)) standaloneWidgets.push(...copy.widgets);
-        else sectionPanels.push(copy);
+        if (isDashboardStandalonePanel(copy))
+            standaloneWidgets.push(...(copy.widgets || []));
+        else
+            sectionPanels.push(copy);
     });
     if (sectionPanels.length) {
         if (standaloneWidgets.length) {
@@ -43,24 +36,25 @@ export function normalizeDashboardSectionPanels(rawPanels = [], rawWidgets = [])
     }
     const looseWidgets = !panels.length && Array.isArray(rawWidgets) ? rawWidgets : [];
     const widgets = [...standaloneWidgets, ...looseWidgets];
-    if (!widgets.length) return [];
+    if (!widgets.length)
+        return [];
     return [{
-        id: 'panel_1',
-        title: 'Panou',
-        size: 'wide',
-        icon: '',
-        pages: [],
-        show_pagination: true,
-        widgets,
-    }];
+            id: 'panel_1',
+            title: 'Panou',
+            size: 'wide',
+            icon: '',
+            pages: [],
+            show_pagination: true,
+            widgets,
+        }];
 }
-
 export function normalizeCache(payload = {}) {
     const panels = normalizeDashboardSectionPanels(payload.panels, payload.widgets);
+    const prefs = { ...DEFAULT_PREFS, ...(payload.preferences || {}) };
     return {
-        widgets: panels.flatMap(panel => Array.isArray(panel.widgets) ? panel.widgets : []),
+        widgets: panels.flatMap((panel) => (Array.isArray(panel.widgets) ? panel.widgets : [])),
         available_entities: Array.isArray(payload.available_entities) ? payload.available_entities : [],
-        preferences: { ...DEFAULT_PREFS, ...(payload.preferences || {}) },
+        preferences: prefs,
         title: String(payload.title || DEFAULT_META.title),
         subtitle: String(payload.subtitle || DEFAULT_META.subtitle),
         pages: Array.isArray(payload.pages) ? payload.pages : [],
@@ -72,7 +66,6 @@ export function normalizeCache(payload = {}) {
         columns: Number.isFinite(payload.columns) ? Number(payload.columns) : 0,
     };
 }
-
 function dashboardViewCachePayload(payload = {}) {
     const normalized = normalizeCache(payload);
     return {
@@ -81,28 +74,30 @@ function dashboardViewCachePayload(payload = {}) {
         cached_at: Date.now(),
     };
 }
-
 export function saveDashboardViewCache(payload) {
     try {
         localStorage.setItem(DASHBOARD_LOCAL_KEY, JSON.stringify(dashboardViewCachePayload(payload)));
-    } catch (_) {}
+    }
+    catch { /* ignore */ }
 }
-
 export function readDashboardViewCache() {
     try {
         const raw = localStorage.getItem(DASHBOARD_LOCAL_KEY);
-        if (!raw) return null;
+        if (!raw)
+            return null;
         const parsed = JSON.parse(raw);
         const normalized = normalizeCache(parsed);
-        if (!normalized.panels.length && !normalized.widgets.length && !normalized.pages.length) return null;
+        if (!normalized.panels.length && !normalized.widgets.length && !normalized.pages.length)
+            return null;
         return normalized;
-    } catch (_) {
+    }
+    catch {
         return null;
     }
 }
-
 function hydrateDashboardPageSnapshots() {
-    if (_dashboardPageSnapshotsHydrated) return;
+    if (_dashboardPageSnapshotsHydrated)
+        return;
     _dashboardPageSnapshotsHydrated = true;
     try {
         const v = localStorage.getItem(DASHBOARD_PAGE_SNAPSHOTS_VERSION_KEY);
@@ -112,33 +107,38 @@ function hydrateDashboardPageSnapshots() {
             return;
         }
         const raw = localStorage.getItem(DASHBOARD_PAGE_SNAPSHOTS_KEY);
-        if (!raw) return;
+        if (!raw)
+            return;
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object') {
             for (const [pid, snap] of Object.entries(parsed)) {
-                if (pid && snap && typeof snap === 'object' && Array.isArray(snap.panels)) {
-                    _dashboardPageSnapshots.set(String(pid), snap);
+                const row = snap;
+                if (pid && snap && typeof snap === 'object' && Array.isArray(row.panels)) {
+                    _dashboardPageSnapshots.set(String(pid), row);
                 }
             }
         }
-    } catch (_) {}
+    }
+    catch { /* ignore */ }
 }
-
 function persistDashboardPageSnapshots() {
     try {
         if (_dashboardPageSnapshots.size > DASHBOARD_PAGE_SNAPSHOTS_MAX) {
             const overflow = _dashboardPageSnapshots.size - DASHBOARD_PAGE_SNAPSHOTS_MAX;
             const keys = Array.from(_dashboardPageSnapshots.keys()).slice(0, overflow);
-            for (const k of keys) _dashboardPageSnapshots.delete(k);
+            for (const k of keys)
+                _dashboardPageSnapshots.delete(k);
         }
         const obj = {};
-        for (const [pid, snap] of _dashboardPageSnapshots) obj[pid] = snap;
+        for (const [pid, snap] of _dashboardPageSnapshots)
+            obj[pid] = snap;
         localStorage.setItem(DASHBOARD_PAGE_SNAPSHOTS_KEY, JSON.stringify(obj));
-    } catch (_) {}
+    }
+    catch { /* ignore */ }
 }
-
 export function stashDashboardPageSnapshot(pageId, cache) {
-    if (!pageId || !cache) return;
+    if (!pageId || !cache)
+        return;
     hydrateDashboardPageSnapshots();
     const lite = {
         panels: cache.panels || [],
@@ -151,21 +151,22 @@ export function stashDashboardPageSnapshot(pageId, cache) {
         columns: cache.columns || 0,
         page_id: cache.page_id || pageId,
         current_page_id: cache.current_page_id || pageId,
+        available_entities: [],
         cached_at: Date.now(),
     };
     _dashboardPageSnapshots.delete(String(pageId));
     _dashboardPageSnapshots.set(String(pageId), lite);
     persistDashboardPageSnapshots();
 }
-
 export function getDashboardPageSnapshot(pageId) {
-    if (!pageId) return null;
+    if (!pageId)
+        return null;
     hydrateDashboardPageSnapshots();
     return _dashboardPageSnapshots.get(String(pageId)) || null;
 }
-
 export function dashboardSnapshotFingerprint(snap) {
-    if (!snap) return '';
+    if (!snap)
+        return '';
     try {
         return JSON.stringify({
             p: snap.panels,
@@ -175,20 +176,27 @@ export function dashboardSnapshotFingerprint(snap) {
             c: snap.columns,
             pr: snap.preferences,
         });
-    } catch (_) { return String(Date.now()); }
+    }
+    catch {
+        return String(Date.now());
+    }
 }
-
 export async function fetchDashboardPageSnapshot(pageId) {
-    if (!pageId) return null;
+    if (!pageId)
+        return null;
     try {
         const params = new URLSearchParams();
         params.set('page_id', pageId);
         params.set('include_entities', 'false');
         const res = await apiCall(`/api/dashboard/widgets?${params.toString()}`);
-        if (!res.ok) return null;
+        if (!res.ok)
+            return null;
         const payload = await res.json();
         const normalized = normalizeCache(payload);
         stashDashboardPageSnapshot(pageId, normalized);
         return normalized;
-    } catch (_) { return null; }
+    }
+    catch {
+        return null;
+    }
 }

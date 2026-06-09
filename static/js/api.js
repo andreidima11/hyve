@@ -88,28 +88,28 @@ export async function getSSEToken() {
     return '';
 }
 export async function apiCall(url, options = {}) {
-    const opts = { ...options };
-    if (!opts.headers)
-        opts.headers = {};
-    const headers = opts.headers;
+    const { timeout: requestedTimeout = 0, body: rawBody, ...rest } = options;
+    const headers = {
+        ...(rest.headers || {}),
+    };
     if (authToken) {
         headers.Authorization = `Bearer ${authToken}`;
     }
-    if (opts.body && typeof opts.body === 'object' && !(opts.body instanceof FormData) && !headers['Content-Type']) {
+    let body = rawBody === null ? null : rawBody;
+    if (rawBody && typeof rawBody === 'object' && !(rawBody instanceof FormData) && !headers['Content-Type']) {
         headers['Content-Type'] = 'application/json';
-        opts.body = JSON.stringify(opts.body);
+        body = JSON.stringify(rawBody);
     }
-    const requestedTimeout = Number(opts.timeout || 0);
+    const fetchOpts = { ...rest, headers, body };
     let timeoutId = null;
-    if (requestedTimeout && !opts.signal && typeof AbortController !== 'undefined') {
+    if (requestedTimeout && !fetchOpts.signal && typeof AbortController !== 'undefined') {
         const ctrl = new AbortController();
-        opts.signal = ctrl.signal;
+        fetchOpts.signal = ctrl.signal;
         timeoutId = setTimeout(() => ctrl.abort(), requestedTimeout);
     }
-    delete opts.timeout;
     let res;
     try {
-        res = await fetch(url, opts);
+        res = await fetch(url, fetchOpts);
     }
     catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
@@ -128,7 +128,7 @@ export async function apiCall(url, options = {}) {
         const refreshed = await _tryRefresh();
         if (refreshed) {
             headers.Authorization = `Bearer ${authToken}`;
-            return fetch(url, opts);
+            return fetch(url, fetchOpts);
         }
         clearAuthToken();
         try {

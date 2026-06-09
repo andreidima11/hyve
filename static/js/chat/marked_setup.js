@@ -1,9 +1,7 @@
 /**
  * Marked.js renderer configuration for chat markdown.
  */
-
 import { imgProxyUrlSync } from '../camera_auth.js';
-
 if (typeof marked !== 'undefined') {
     marked.use({
         breaks: true,
@@ -18,14 +16,14 @@ if (typeof marked !== 'undefined') {
                 let headerHtml = '';
                 let bodyHtml = '';
                 if (header && header.length) {
-                    headerHtml = '<thead><tr>' + header.map(cell => {
+                    headerHtml = '<thead><tr>' + header.map((cell) => {
                         const align = cell.align ? ` style="text-align:${cell.align}"` : '';
                         return `<th${align}>${cell.text || ''}</th>`;
                     }).join('') + '</tr></thead>';
                 }
                 if (rows && rows.length) {
-                    bodyHtml = '<tbody>' + rows.map(row => {
-                        return '<tr>' + row.map(cell => {
+                    bodyHtml = '<tbody>' + rows.map((row) => {
+                        return '<tr>' + row.map((cell) => {
                             const align = cell.align ? ` style="text-align:${cell.align}"` : '';
                             return `<td${align}>${cell.text || ''}</td>`;
                         }).join('') + '</tr>';
