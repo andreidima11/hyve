@@ -8,7 +8,7 @@
  */
 import { HyveviewCardBase } from '../../core/card-base.js';
 import { host, widgetTitle } from '../../host.js';
-import { t } from '../../../js/lang/index.js';
+import { t, tState } from '../../../js/lang/index.js';
 
 function _parseNumeric(rawState) {
   const m = String(rawState || '').match(/^(-?\d+(?:[.,]\d+)?)/);
@@ -16,6 +16,39 @@ function _parseNumeric(rawState) {
   const numeric = parseFloat(m[1].replace(',', '.'));
   const tail = String(rawState).slice(m[0].length).trim();
   return { numeric: Number.isFinite(numeric) ? numeric : null, valueDisplay: m[1], tail };
+}
+
+function _entityDomain(entityId) {
+  return String(entityId || '').split('.')[0].trim().toLowerCase();
+}
+
+/** Sparklines only for numeric `sensor.*` entities — not binary_sensor / text states. */
+function _supportsSparkline(widget) {
+  return _entityDomain(widget?.entity_id) === 'sensor';
+}
+
+function _dashboardRows(widget, article) {
+  const fromArticle = parseInt(article?.dataset?.dashboardRows || '', 10);
+  if (Number.isFinite(fromArticle) && fromArticle > 0) return fromArticle;
+  const fromWidget = parseInt(widget?.row_span, 10);
+  return Number.isFinite(fromWidget) && fromWidget > 0 ? fromWidget : 1;
+}
+
+/** 1-row text/binary sensors use the same DOM footprint as tile (no trend/sparkline). */
+function _isCompactLayout(widget, numeric, article) {
+  if (_entityDomain(widget?.entity_id) === 'binary_sensor') return true;
+  if (_dashboardRows(widget, article) <= 1) return true;
+  if (numeric == null) return true;
+  return false;
+}
+
+function _displayLabel(widget) {
+  const w = widget || {};
+  const eid = String(w.entity_id || '');
+  const friendly = String(w.attributes?.friendly_name || w.entity_name || '').trim();
+  const label = widgetTitle(w);
+  if ((!label || label === eid) && friendly) return friendly;
+  return label || friendly || eid;
 }
 
 export class HyveviewSensorCard extends HyveviewCardBase {
@@ -44,6 +77,7 @@ export class HyveviewSensorCard extends HyveviewCardBase {
     this._trendEl = null;
     this._sparkSlot = null;
     this._iconEl = null;
+    this._compact = true;
   }
 
   setConfig(widget) {
@@ -68,49 +102,87 @@ export class HyveviewSensorCard extends HyveviewCardBase {
     this.dataset.unavailable = w.available === false ? 'true' : 'false';
   }
 
+  _articleEl() {
+    return this.parentElement?.tagName === 'ARTICLE'
+      ? this.parentElement
+      : this.closest('article');
+  }
+
+  _syncCompactClass(compact) {
+    this._compact = !!compact;
+    const article = this._articleEl();
+    if (article) article.classList.toggle('hyve-dashboard-card--sensor-compact', this._compact);
+  }
+
   _render() {
     const w = this._config || {};
     const escape = host.escape;
+    const article = this._articleEl();
+    const { numeric } = _parseNumeric(w.current_state);
+    const compact = _isCompactLayout(w, numeric, article);
+    this._syncCompactClass(compact);
     const iconSpec = (typeof host.widgetIcon === 'function' ? host.widgetIcon(w) : w.icon)
       || host.entityIcon(w.domain);
     const iconClass = host.iconClass(iconSpec);
-    const label = widgetTitle(w);
+    const label = _displayLabel(w);
     this.dataset.unavailable = w.available === false ? 'true' : 'false';
     // Inner DOM uses display:contents on the host so legacy article CSS
     // remains the layout authority.
+    const sparkMarkup = (!compact && _supportsSparkline(w))
+      ? `<div class="hyve-dashboard-card__sparkline" data-sparkline-entity="${escape(w.entity_id || '')}" data-spark hidden></div>`
+      : '';
+    const trendMarkup = compact
+      ? ''
+      : '<span class="hyve-dashboard-card__sensor-trend" data-trend hidden></span>';
     this.innerHTML = `
-      <div class="hyve-dashboard-card__sensor-row">
+      <div class="hyve-dashboard-card__row">
         <span class="hyve-dashboard-card__icon"><i class="${escape(iconClass)}" data-icon></i></span>
-        <div class="hyve-dashboard-card__sensor-body">
-          <div class="hyve-dashboard-card__sensor-label" data-label>${escape(label)}</div>
-          <div class="hyve-dashboard-card__sensor-value">
-            <span data-value></span><span class="hyve-dashboard-card__sensor-unit" data-unit hidden></span>
-          </div>
-          <span class="hyve-dashboard-card__sensor-trend" data-trend hidden></span>
+        <div class="hyve-dashboard-card__body">
+          <div class="hyve-dashboard-card__title" data-label>${escape(label)}</div>
+          <div class="hyve-dashboard-card__state" data-value></div>
+          ${trendMarkup}
         </div>
-      </div>
-      <div class="hyve-dashboard-card__sparkline" data-sparkline-entity="${escape(w.entity_id || '')}" data-spark hidden></div>
-    `;
+      </div>${sparkMarkup}`;
     this._labelEl = this.querySelector('[data-label]');
     this._valueEl = this.querySelector('[data-value]');
-    this._unitEl = this.querySelector('[data-unit]');
+    this._unitEl = null;
     this._trendEl = this.querySelector('[data-trend]');
     this._sparkSlot = this.querySelector('[data-spark]');
     this._iconEl = this.querySelector('[data-icon]');
   }
 
   _applyValue(rawState, presetUnit, entityId) {
-    if (!this._valueEl) return;
+    const w = this._config || {};
     const { numeric, valueDisplay, tail } = _parseNumeric(rawState);
     const unit = presetUnit || tail || '';
-    this._valueEl.textContent = valueDisplay;
-    if (this._unitEl) {
-      if (unit) { this._unitEl.textContent = unit; this._unitEl.hidden = false; }
-      else { this._unitEl.hidden = true; this._unitEl.textContent = ''; }
+    const compact = _isCompactLayout(w, numeric, this._articleEl());
+    if (compact !== this._compact) {
+      w.current_state = rawState;
+      this._render();
+    }
+    if (!this._valueEl) return;
+    if (numeric != null && !compact) {
+      const unitSuffix = unit ? ` ${unit}` : '';
+      this._valueEl.textContent = `${valueDisplay}${unitSuffix}`;
+      this._valueEl.dataset.numeric = 'true';
+    } else if (numeric != null && compact) {
+      const unitSuffix = unit ? ` ${unit}` : '';
+      this._valueEl.textContent = `${valueDisplay}${unitSuffix}`;
+      this._valueEl.removeAttribute('data-numeric');
+    } else {
+      const stateStr = String(rawState == null ? 'unknown' : rawState);
+      const unitSuffix = unit && !stateStr.endsWith(unit) ? ` ${unit}` : '';
+      this._valueEl.textContent = tState(stateStr) + unitSuffix;
+      this._valueEl.removeAttribute('data-numeric');
+    }
+    const article = this._articleEl();
+    if (article && typeof host.stateOn === 'function') {
+      const on = host.stateOn(String(rawState == null ? 'unknown' : rawState));
+      article.setAttribute('data-on', on ? 'true' : 'false');
     }
     // Trend (per-entity, shared with legacy renderer via host.trendCache).
     let trendDir = 'flat';
-    if (numeric != null && entityId) {
+    if (!compact && numeric != null && entityId) {
       const cache = host.trendCache;
       const prev = cache?.get(entityId);
       if (prev && Number.isFinite(prev.value)) {
@@ -134,7 +206,9 @@ export class HyveviewSensorCard extends HyveviewCardBase {
       }
     }
     if (this._sparkSlot) {
-      this._sparkSlot.hidden = !(numeric != null);
+      const showSpark = !compact && numeric != null && _supportsSparkline(w);
+      this._sparkSlot.hidden = !showSpark;
+      if (!showSpark) this._sparkSlot.innerHTML = '';
     }
   }
 

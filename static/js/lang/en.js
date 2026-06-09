@@ -2396,7 +2396,8 @@ const en = {
         oauth_auth_failed: "Authentication failed.",
         oauth_connected: "Connected",
         device_rename_prompt: "New device name:",
-        device_rename_failed: "Rename failed."
+        device_rename_failed: "Rename failed.",
+        device_rename_synced: "Device renamed and entities refreshed."
     }
 };
 

@@ -24,6 +24,7 @@ _transport_mod = import_sibling(_component_dir, "transport")
 _context_mod = import_sibling(_component_dir, "context")
 extract_roborock_candidates = _extract_mod.extract_roborock_candidates
 _friendly_auth_error = _extract_mod._friendly_auth_error
+_friendly_roborock_error = _extract_mod._friendly_roborock_error
 EntryRoborockCache = _cache_mod.EntryRoborockCache
 network_ip_from_cache = _cache_mod.network_ip_from_cache
 device_transport_snapshot = _transport_mod.device_transport_snapshot
@@ -365,42 +366,65 @@ class RoborockEntity(BaseEntity):
         return user_data
 
     # ── device manager (created once, reused across scans) ───────────────
+    @staticmethod
+    def _should_reset_manager(exc: BaseException | None) -> bool:
+        """Only drop the live MQTT/LAN session when auth is broken — not on timeouts."""
+        if exc is None:
+            return False
+        name = exc.__class__.__name__
+        if name in {"RoborockRateLimit", "RoborockTimeout", "RoborockDeviceBusy"}:
+            return False
+        if name in {"RoborockInvalidCredentials", "RoborockAccountDoesNotExist"}:
+            return True
+        text = str(exc).lower()
+        if "invalid credentials" in text or "invalid credential" in text:
+            return True
+        return False
+
+    async def _create_device_manager(self):
+        import aiohttp
+        from roborock import UserData
+        from roborock.devices.device_manager import UserParams, create_device_manager
+
+        user_data = await self._ensure_user_data()
+        email = str(self.entry_data.get("email") or "").strip()
+        base_url = self.entry_data.get("_base_url") or _base_url_for_region(
+            self.entry_data.get("region")
+        )
+
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession()
+
+        cache = self._ensure_cache()
+        stored = self.entry_data.get("_user_data")
+        params = UserParams(
+            username=email,
+            user_data=UserData.from_dict(stored) if stored else user_data,
+            base_url=base_url,
+        )
+        return await create_device_manager(
+            params,
+            cache=cache,
+            session=self._session,
+            prefer_cache=True,
+        )
+
     async def _ensure_manager(self):
         if self._manager is not None:
             return self._manager
         async with self._manager_lock:
             if self._manager is not None:
                 return self._manager
-
-            import aiohttp
-            from roborock import UserData
-            from roborock.devices.device_manager import UserParams, create_device_manager
-
-            user_data = await self._ensure_user_data()
-            email = str(self.entry_data.get("email") or "").strip()
-            base_url = self.entry_data.get("_base_url") or _base_url_for_region(
-                self.entry_data.get("region")
-            )
-
-            if self._session is None or self._session.closed:
-                self._session = aiohttp.ClientSession()
-
-            cache = self._ensure_cache()
-            stored = self.entry_data.get("_user_data")
-            params = UserParams(
-                username=email,
-                user_data=UserData.from_dict(stored) if stored else user_data,
-                base_url=base_url,
-            )
-            self._manager = await create_device_manager(
-                params,
-                cache=cache,
-                session=self._session,
-                prefer_cache=True,
-            )
+            try:
+                self._manager = await self._create_device_manager()
+            except Exception as exc:
+                raise RuntimeError(_friendly_roborock_error(exc)) from exc
+            await self._flush_cache()
             return self._manager
 
-    async def _reset_manager(self) -> None:
+    async def _reset_manager(self, *, exc: BaseException | None = None) -> None:
+        if not self._should_reset_manager(exc):
+            return
         await self._flush_cache()
         mgr, self._manager = self._manager, None
         if mgr is not None:
@@ -408,6 +432,19 @@ class RoborockEntity(BaseEntity):
                 await mgr.close()
             except Exception:
                 pass
+
+    async def _resolve_device(self, manager: Any, duid: str) -> Any:
+        device = await manager.get_device(duid)
+        if device is not None and getattr(device, "v1_properties", None) is not None:
+            return device
+        try:
+            await manager.discover_devices(prefer_cache=True)
+        except Exception as exc:
+            log.warning("roborock rediscover failed for %s: %s", duid[:8], exc)
+        device = await manager.get_device(duid)
+        if device is None or getattr(device, "v1_properties", None) is None:
+            raise ValueError(f"Dispozitiv Roborock necunoscut: {duid}")
+        return device
 
     # ── BaseEntity contract ──────────────────────────────────────────────
     def is_configured(self, cfg: dict[str, Any]) -> bool:
@@ -437,8 +474,12 @@ class RoborockEntity(BaseEntity):
         try:
             manager = await self._ensure_manager()
             devices = await manager.get_devices()
-        except Exception:
-            await self._reset_manager()
+            if not devices:
+                devices = await manager.discover_devices(prefer_cache=True)
+        except Exception as exc:
+            await self._reset_manager(exc=exc)
+            if exc.__class__.__name__ == "RoborockRateLimit":
+                raise RuntimeError(_friendly_roborock_error(exc)) from exc
             raise
 
         results: list[dict[str, Any]] = []
@@ -523,9 +564,7 @@ class RoborockEntity(BaseEntity):
         duid = parts[1]
 
         manager = await self._ensure_manager()
-        device = await manager.get_device(duid)
-        if device is None or getattr(device, "v1_properties", None) is None:
-            raise ValueError(f"Dispozitiv Roborock necunoscut: {duid}")
+        device = await self._resolve_device(manager, duid)
 
         act = (action or "").lower()
         command_map = {
@@ -559,8 +598,10 @@ class RoborockEntity(BaseEntity):
             await self._note_transport(device, context=f"control:{act}")
             await device.v1_properties.command.send(command, params)
             await self._flush_cache()
-        except Exception:
-            await self._reset_manager()
+        except Exception as exc:
+            await self._reset_manager(exc=exc)
+            if exc.__class__.__name__ == "RoborockRateLimit":
+                raise RuntimeError(_friendly_roborock_error(exc)) from exc
             raise
         return {"status": "ok", "action": act}
 

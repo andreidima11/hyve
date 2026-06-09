@@ -1013,7 +1013,7 @@ window.addEventListener('DOMContentLoaded', () => {
         toggleAllMem: (checked) => toggleAllMem(checked),
         autoSyncAutomationId: () => autoSyncAutomationId(),
         markAutomationIdManual: () => markAutomationIdManual(),
-        syncAutomationYamlFromBuilder: () => syncAutomationYamlFromBuilder(),
+        syncAutomationYamlFromBuilder: (opts) => syncAutomationYamlFromBuilder(opts || {}),
         updateBlueprintCreatorYaml: () => updateBlueprintCreatorYaml(),
         updateMemBulkCount: () => updateMemBulkCount(),
     });

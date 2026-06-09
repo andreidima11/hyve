@@ -27,6 +27,13 @@ _cache: dict[str, dict[str, Any]] | None = None
 _IEEE_RE = re.compile(r"^0x[0-9a-fA-F]{16}$")
 
 
+def _z2m_names_equal(a: str, b: str) -> bool:
+    def norm(s: str) -> str:
+        return re.sub(r"[\s_]+", "", str(s or "").strip().lower())
+
+    return norm(a) == norm(b)
+
+
 @contextmanager
 def _db():
     gen = database.get_db()
@@ -166,14 +173,29 @@ def _upsert_unlocked(
     existing = by_id.get(key)
     now = time.time()
     created = float(existing["created_at"]) if existing else now
-    final_name_by_user = bool(name_by_user or (existing or {}).get("name_by_user"))
-
-    if final_name_by_user:
-        final_name = cleaned_name if name_by_user else str((existing or {}).get("name") or cleaned_name)
+    # ``name_by_user=True`` on this call means an explicit user rename
+    # (``set_device_name``). Upstream sync must pass ``name_by_user=False``
+    # so an existing user label is never replaced by Z2M's friendly_name.
+    if name_by_user:
+        final_name = cleaned_name
+        final_name_by_user = True
+    elif existing and existing.get("name_by_user"):
+        existing_name = str(existing.get("name") or "").strip()
+        if (
+            cleaned_name
+            and not _z2m_names_equal(existing_name, cleaned_name)
+            and _z2m_names_equal(z2m_friendly_name or cleaned_name, cleaned_name)
+        ):
+            final_name = cleaned_name
+        else:
+            final_name = existing_name or cleaned_name
+        final_name_by_user = True
     elif existing:
         final_name = cleaned_name or existing.get("name") or ""
+        final_name_by_user = bool(existing.get("name_by_user"))
     else:
         final_name = cleaned_name
+        final_name_by_user = False
 
     row = {
         "device_id": key,
@@ -284,35 +306,57 @@ def sync_z2m_devices(
             ieee_friendly = bool(_IEEE_RE.match(friendly))
 
             if existing and existing.get("name_by_user"):
-                display_name = existing["name"]
-                name_by_user = True
-                # Keep YAML in sync with the registry so a stale alias cannot
-                # resurrect an old name on the next sync/restart.
+                display_name = str(existing.get("name") or "").strip()
+                z2m_stored = str(existing.get("z2m_friendly_name") or "").strip()
                 if (
-                    device_aliases is not None
-                    and yaml_alias
-                    and yaml_alias != display_name
+                    not ieee_friendly
+                    and z2m_stored
+                    and not _IEEE_RE.match(z2m_stored)
+                    and _z2m_names_equal(z2m_stored, friendly)
+                    and not _z2m_names_equal(display_name, friendly)
                 ):
-                    try:
-                        device_aliases.set_alias(source, ieee, display_name)
-                    except Exception:
-                        pass
+                    display_name = friendly
             elif ieee_friendly:
-                # Z2M lost the friendly name — fall back to local aliases.
-                if yaml_alias:
+                # Z2M lost the friendly name — fall back to registry, then YAML.
+                reg_name = str((existing or {}).get("name") or "").strip()
+                if reg_name and not _IEEE_RE.match(reg_name):
+                    display_name = reg_name
+                elif yaml_alias:
                     display_name = yaml_alias
-                    name_by_user = True
                 elif existing:
-                    display_name = str(existing.get("name") or "").strip()
+                    display_name = reg_name
                     if not display_name or _IEEE_RE.match(display_name):
                         continue
-                    name_by_user = bool(existing.get("name_by_user"))
                 else:
                     continue
             else:
-                # Z2M still has a human-friendly name — trust it over stale YAML.
-                display_name = friendly
-                name_by_user = bool(existing and existing.get("name_by_user"))
+                # Z2M reports a human-friendly name. Keep a different registry
+                # display name — Z2M often forgets Hyve-side renames after restart.
+                reg_name = str((existing or {}).get("name") or "").strip()
+                if (
+                    existing
+                    and reg_name
+                    and not _IEEE_RE.match(reg_name)
+                    and reg_name.lower() != friendly.lower()
+                ):
+                    display_name = reg_name
+                else:
+                    display_name = friendly
+
+            if (
+                device_aliases is not None
+                and display_name
+                and yaml_alias
+                and yaml_alias != display_name
+                and existing
+                and existing.get("name_by_user")
+            ):
+                # Repair stale YAML only from an explicit user registry name —
+                # never push Z2M's friendly_name back into device_aliases.yaml.
+                try:
+                    device_aliases.set_alias(source, ieee, display_name)
+                except Exception:
+                    pass
 
             z2m_name = friendly if not ieee_friendly else str(
                 (existing or {}).get("z2m_friendly_name") or yaml_alias or friendly
@@ -328,7 +372,7 @@ def sync_z2m_devices(
                     model=model,
                     config_entry_id=config_entry_id,
                     z2m_friendly_name=z2m_name or friendly,
-                    name_by_user=name_by_user,
+                    name_by_user=False,
                 )
                 synced += 1
             except Exception as exc:
@@ -417,7 +461,22 @@ def apply_to_entities(slug: str, entities: list[dict[str, Any]]) -> list[dict[st
             if "device_id" in ent:
                 ent["device_id"] = key
             cur_name = str(ent.get("name") or "")
-            if cur_name and old_device_name and cur_name.lower().startswith(old_device_name.lower()):
+            if not cur_name or not display:
+                continue
+            renamed = False
+            if old_device_name and cur_name.lower().startswith(old_device_name.lower()):
                 tail = cur_name[len(old_device_name):].strip()
                 ent["name"] = f"{display} {tail}".strip() if tail else display
+                renamed = True
+            elif cur_name.lower().startswith(key.lower()):
+                tail = cur_name[len(key):].strip()
+                ent["name"] = f"{display} {tail}".strip() if tail else display
+                renamed = True
+            if not renamed and display.lower() not in cur_name.lower():
+                z2m_fn = str(row.get("z2m_friendly_name") or "").strip()
+                for stale in (z2m_fn, old_device_name):
+                    if stale and stale.lower() != display.lower() and cur_name.lower().startswith(stale.lower()):
+                        tail = cur_name[len(stale):].strip()
+                        ent["name"] = f"{display} {tail}".strip() if tail else display
+                        break
     return entities

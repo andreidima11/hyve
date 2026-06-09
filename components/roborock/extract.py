@@ -318,6 +318,18 @@ def _object_id(name: str, duid: str) -> str:
     return base
 
 
+def _friendly_roborock_error(exc: Exception) -> str:
+    """Translate python-roborock runtime errors for UI / automations."""
+    name = exc.__class__.__name__
+    if name == "RoborockRateLimit":
+        return (
+            "Roborock limitează cererile cloud (home data). "
+            "Pornește aspiratorul o dată manual din Hyve, apoi reîncearcă automatizarea "
+            "după câteva minute."
+        )
+    return _friendly_auth_error(exc)
+
+
 def _friendly_auth_error(exc: Exception) -> str:
     """Translate python-roborock login errors into actionable Romanian text."""
     name = exc.__class__.__name__

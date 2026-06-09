@@ -48,6 +48,54 @@ def test_sync_z2m_devices_ignores_stale_yaml_when_z2m_has_human_name():
     assert row["z2m_friendly_name"] == "releu_dormitor2"
 
 
+def test_sync_z2m_devices_does_not_rewrite_yaml_with_stale_z2m_friendly():
+    ieee = "0xa4c138fe8b1226ab"
+    device_registry.set_device_name(ieee, "releu_dormitor2", source="mosquitto")
+    device_registry.reload()
+
+    with patch.object(device_aliases, "get_alias", return_value="releu_dormitor2"):
+        with patch.object(device_aliases, "set_alias") as mock_set_alias:
+            device_registry.sync_z2m_devices([
+                {
+                    "ieee_address": ieee,
+                    "friendly_name": "Lampa Birou",
+                    "definition": {"vendor": "Tuya", "model": "TS0003_switch_module_2"},
+                }
+            ], source="mosquitto")
+
+    row = device_registry.get_device(ieee)
+    assert row is not None
+    assert row["name"] == "releu_dormitor2"
+    assert row["name_by_user"] is True
+    assert row["z2m_friendly_name"] == "Lampa Birou"
+    for call in mock_set_alias.call_args_list:
+        assert call[0][2] != "Lampa Birou"
+
+
+def test_sync_z2m_devices_repairs_stale_display_when_tracked_z2m_matches():
+    ieee = "0xa4c138fe8b1226ab"
+    device_registry.set_device_name(
+        ieee,
+        "Lampa Birou",
+        source="mosquitto",
+        z2m_friendly_name="releu dormitor 2",
+    )
+    device_registry.reload()
+
+    device_registry.sync_z2m_devices([
+        {
+            "ieee_address": ieee,
+            "friendly_name": "releu dormitor 2",
+            "definition": {"vendor": "Tuya", "model": "TS011F"},
+        }
+    ], source="mosquitto")
+
+    row = device_registry.get_device(ieee)
+    assert row is not None
+    assert row["name"] == "releu dormitor 2"
+    assert row["z2m_friendly_name"] == "releu dormitor 2"
+
+
 def test_sync_z2m_devices_respects_user_name():
     device_registry.set_device_name(
         "0xa4c138fe8b1226ab",
@@ -174,6 +222,37 @@ def test_refresh_skips_user_edited_entity_ids():
     assert row["entity_id_user_set"] is True
 
 
+def test_after_device_rename_ignores_z2m_revert_when_user_named():
+    async def run():
+        from components.mosquitto.bridge import MosquittoBridge
+
+        ieee = "0xa4c138fe8b1226ab"
+        device_registry.set_device_name(ieee, "releu_dormitor2", source="mosquitto")
+        bridge = MosquittoBridge({"host": "localhost", "port": 1883}, entry_key="mosq1")
+        bridge._z2m_devices = [
+            {"ieee_address": ieee, "friendly_name": "Lampa Birou"},
+        ]
+
+        with patch.object(device_aliases, "set_alias") as mock_set_alias:
+            with patch("routers.integrations.helpers.invalidate_all_entities_cache", lambda: None):
+                with patch("core.mirror_nudge.nudge_entity_mirror", lambda key=None: None):
+                    await bridge._after_device_rename(
+                        {
+                            "from": "releu_dormitor2",
+                            "to": "Lampa Birou",
+                            "homeassistant_rename": True,
+                        },
+                        homeassistant_rename=True,
+                    )
+
+        row = device_registry.get_device(ieee)
+        assert row is not None
+        assert row["name"] == "releu_dormitor2"
+        mock_set_alias.assert_not_called()
+
+    asyncio.run(run())
+
+
 def test_bridge_after_ha_rename_updates_registry():
     async def run():
         from components.mosquitto.bridge import MosquittoBridge
@@ -190,14 +269,15 @@ def test_bridge_after_ha_rename_updates_registry():
         entity_registry.reload()
 
         bridge = MosquittoBridge({"host": "localhost", "port": 1883}, entry_key="mosq1")
+        # Mirrors POST /device/rename: Hyve persists the new label before Z2M responds.
         device_registry.set_device_name(
             ieee,
-            "Old Lamp",
+            "New Lamp",
             source="mosquitto",
-            z2m_friendly_name="Old Lamp",
+            z2m_friendly_name="New Lamp",
         )
         bridge._z2m_devices = [
-            {"ieee_address": ieee, "friendly_name": "New Lamp"},
+            {"ieee_address": ieee, "friendly_name": "Old Lamp"},
         ]
 
         with patch("routers.integrations.helpers.invalidate_all_entities_cache", lambda: None):
@@ -207,6 +287,8 @@ def test_bridge_after_ha_rename_updates_registry():
                     "to": "New Lamp",
                     "homeassistant_rename": True,
                 })
+
+        assert bridge._z2m_devices[0]["friendly_name"] == "New Lamp"
 
         dev = device_registry.get_device(ieee)
         assert dev is not None

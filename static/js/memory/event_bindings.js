@@ -14,6 +14,7 @@ function _inMemoryScope(el) {
         el.closest('#view-memory')
         || el.closest('#intelligence-panel-automations')
         || el.closest('#intelligence-panel-memories')
+        || el.closest('#automation-editor-modal')
         || el.closest('#auto-menu-portal')
     );
 }

@@ -13,6 +13,7 @@ import { apiCall } from './api.js';
 import { t, tState } from './lang/index.js';
 import { cameraLiveTransport } from './camera_live.js';
 import { getCameraStreamToken, cameraProxyUrlSync, cameraGo2rtcWsUrlSync } from './camera_auth.js';
+import { selectOptionsFromCaps } from './entity_constants.js';
 
 function _er(key, params) {
     return t('entity.render.' + key, params);
@@ -1084,10 +1085,11 @@ function renderDeviceEntityRow(entity, slug) {
             control = `<input type="range" min="${min}" max="${max}" step="${step}" value="${val}"
                 class="cfg-range w-32 shrink-0" data-entity-control="${escapeHtml(eid)}"
                 ${_ctrlAttrs(slug, eid, 'set')} data-int-input="valueFloat" data-int-input-preview="1" data-int-unit="${_attr(unitText)}" data-entity-stop="1">`;
-        } else if (dom === 'select' && Array.isArray(caps.options) && caps.options.length && caps.options.length <= 6) {
-            control = `<select class="bg-white/5 border border-white/10 rounded-lg text-[11px] text-slate-200 px-2 py-1 shrink-0"
+        } else if (dom === 'select') {
+            const selectOpts = selectOptionsFromCaps(caps);
+            if (selectOpts.length && selectOpts.length <= 6) control = `<select class="bg-white/5 border border-white/10 rounded-lg text-[11px] text-slate-200 px-2 py-1"
                 ${_ctrlAttrs(slug, eid, 'set')} data-int-input="valueString" data-entity-stop="1">
-                ${caps.options.map(o => {
+                ${selectOpts.map(o => {
                     const v = (o && typeof o === 'object') ? String(o.value ?? o.label ?? '') : String(o);
                     const lbl = (o && typeof o === 'object') ? String(o.label ?? o.value ?? '') : String(o);
                     return `<option value="${escapeHtml(v)}" ${v.toLowerCase() === lower ? 'selected' : ''}>${escapeHtml(lbl)}</option>`;
@@ -1102,15 +1104,20 @@ function renderDeviceEntityRow(entity, slug) {
     }
 
     const encoded = encodeURIComponent(JSON.stringify(entity)).replace(/'/g, '%27');
-    return `<div class="flex items-center gap-3 px-3 py-2.5 bg-white/[0.03] border border-white/5 rounded-xl hover:bg-white/[0.06] hover:border-accent/20 transition-colors cursor-pointer"
+    const stateHtml = `<span class="text-[12px] mono ${tone} truncate max-w-[9rem] shrink-0" data-entity-state="${escapeHtml(eid)}">${escapeHtml(state)}${unit}</span>`;
+    const controlHtml = control
+        ? (dom === 'select'
+            ? `<div class="int-entity-row__select-wrap">${control}</div>`
+            : control)
+        : stateHtml;
+    return `<div class="int-entity-row px-3 py-2.5 bg-white/[0.03] border border-white/5 rounded-xl hover:bg-white/[0.06] hover:border-accent/20 transition-colors cursor-pointer"
         data-entity-action="openCard" data-int-encoded="${encoded}">
         <i class="fas ${icon} text-accent/70 text-sm w-4 text-center shrink-0"></i>
-        <div class="min-w-0 flex-1">
+        <div class="int-entity-row__label">
             <div class="text-[12px] font-semibold text-slate-100 truncate">${escapeHtml(title)}</div>
-            <div class="text-[9px] text-slate-500 mono uppercase tracking-wider">${escapeHtml(entity.domain || '')}</div>
+            <div class="text-[9px] text-slate-500 mono uppercase tracking-wider truncate">${escapeHtml(entity.domain || '')}</div>
         </div>
-        <span class="text-[12px] mono ${tone} truncate max-w-[7rem]" data-entity-state="${escapeHtml(eid)}">${escapeHtml(state)}${unit}</span>
-        ${control}
+        ${controlHtml}
     </div>`;
 }
 

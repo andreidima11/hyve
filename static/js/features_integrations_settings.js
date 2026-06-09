@@ -7,8 +7,8 @@ import { escapeHtml, escapeHtmlAttr, showToast, showConfirm, openSubPage, closeS
 export { escapeHtmlAttr };
 import { switchTab } from './nav_bridge.js';
 import { renderEntityModal, getDomainIcon, wireEntityRegistryEditor } from './entity_renderers.js';
-import { ACTIVE_STATES, CONTROLLABLE } from './entity_constants.js';
-import { startCameraPreviewRefresh, stopCameraPreviewRefresh } from './camera_auth.js';
+import { ACTIVE_STATES, CONTROLLABLE, selectOptionsFromCaps } from './entity_constants.js';
+import { appendMediaQueryToken, getCameraStreamToken, startCameraPreviewRefresh, stopCameraPreviewRefresh } from './camera_auth.js';
 import { closeEntityDetailModal, filterHABySource } from './features_smarthome.js';
 import { integrationSlugsMatch } from './integration_sources.js';
 import { toggleVoiceRecording, isVoiceLoopActive } from './voice.js';
@@ -339,6 +339,17 @@ function _integrationEntitySourceSlug(integrationId) {
     return _integrationCatalogSlug(integrationId);
 }
 
+function _integrationIdForSourceSlug(sourceSlug) {
+    const target = String(sourceSlug || '').trim();
+    if (!target) return '';
+    const hit = _integrationCatalog.find((entry) => {
+        const slug = String(entry.slug || '').trim();
+        const configKey = String(entry.config_key || slug).trim();
+        return slug === target || configKey === target;
+    });
+    return String(hit?.slug || hit?.config_key || target).trim();
+}
+
 function _integrationDefinition(integrationId) {
     const target = String(integrationId || '').trim();
     if (!target) return null;
@@ -476,6 +487,144 @@ export async function refreshIntegrationsSettingsView(preferredTab = 'auto') {
 // cards; clicking a card opens a modal with controls + rename, à la
 // Home Assistant.
 let _exposedDevicesState = { slug: null, devices: [] };
+
+// Live entity updates for the integration device browser (same hub as Smarthome).
+let _integrationExposedLiveWS = null;
+let _integrationExposedLiveReconnectTimer = null;
+let _integrationExposedLivePingTimer = null;
+let _integrationExposedLiveBackoff = 1000;
+let _integrationExposedLiveSlug = null;
+
+function _disconnectIntegrationExposedLive() {
+    if (_integrationExposedLiveReconnectTimer) {
+        clearTimeout(_integrationExposedLiveReconnectTimer);
+        _integrationExposedLiveReconnectTimer = null;
+    }
+    if (_integrationExposedLivePingTimer) {
+        clearInterval(_integrationExposedLivePingTimer);
+        _integrationExposedLivePingTimer = null;
+    }
+    if (_integrationExposedLiveWS) {
+        try { _integrationExposedLiveWS.onclose = null; } catch (_) {}
+        try { _integrationExposedLiveWS.close(); } catch (_) {}
+        _integrationExposedLiveWS = null;
+    }
+    _integrationExposedLiveSlug = null;
+}
+
+async function _fetchIntegrationExposedWsToken() {
+    try {
+        const res = await apiCall('/api/token/sse', { method: 'POST' });
+        if (!res || !res.ok) return null;
+        const data = await res.json().catch(() => ({}));
+        return data?.sse_token || null;
+    } catch (_) { return null; }
+}
+
+function _patchIntegrationExposedEntityState(item) {
+    if (!item || !item.entity_id) return;
+    const eid = item.entity_id;
+    const state = item.state == null || item.state === '' ? 'unknown' : String(item.state);
+    const unit = item.unit ? ` ${item.unit}` : '';
+    const stateLower = state.toLowerCase();
+    const isOn = ACTIVE_STATES.includes(stateLower);
+    const isOff = ['off', 'closed', 'locked', 'idle', 'docked', 'paused'].includes(stateLower);
+    const tone = isOn ? 'text-accent' : (isOff ? 'text-slate-400' : 'text-slate-200');
+
+    if (_exposedDevicesState?.devices) {
+        for (const dev of _exposedDevicesState.devices) {
+            const ent = (dev.entities || []).find(e => e.entity_id === eid);
+            if (ent) {
+                ent.state = state;
+                if (item.unit) ent.unit = item.unit;
+                break;
+            }
+        }
+    }
+
+    const modalStates = document.querySelectorAll(`[data-entity-state="${CSS.escape(eid)}"]`);
+    for (const el of modalStates) {
+        el.textContent = `${state}${unit}`;
+        el.classList.remove('text-accent', 'text-slate-400', 'text-slate-200');
+        el.classList.add(tone);
+        const row = el.closest('[data-entity-list] > div');
+        if (row) {
+            row.classList.remove('hy-row-flash');
+            void row.offsetWidth;
+            row.classList.add('hy-row-flash');
+        }
+    }
+}
+
+function _applyIntegrationExposedLiveItems(items) {
+    if (!Array.isArray(items)) return;
+    for (const item of items) {
+        if (!item || !item.entity_id) continue;
+        _patchIntegrationExposedEntityState(item);
+    }
+}
+
+function _scheduleIntegrationExposedLiveReconnect() {
+    const section = document.getElementById('integration-exposed-entities-section');
+    if (!section || section.classList.contains('hidden') || !_integrationExposedLiveSlug) return;
+    if (_integrationExposedLiveReconnectTimer) return;
+    const delay = Math.min(_integrationExposedLiveBackoff, 15000);
+    _integrationExposedLiveBackoff = Math.min(_integrationExposedLiveBackoff * 2, 15000);
+    _integrationExposedLiveReconnectTimer = setTimeout(() => {
+        _integrationExposedLiveReconnectTimer = null;
+        _connectIntegrationExposedLive(_integrationExposedLiveSlug);
+    }, delay);
+}
+
+async function _connectIntegrationExposedLive(slug) {
+    const section = document.getElementById('integration-exposed-entities-section');
+    if (!section || section.classList.contains('hidden')) {
+        _disconnectIntegrationExposedLive();
+        return;
+    }
+    _integrationExposedLiveSlug = slug;
+    if (_integrationExposedLiveWS
+        && (_integrationExposedLiveWS.readyState === WebSocket.OPEN
+            || _integrationExposedLiveWS.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
+
+    const token = await _fetchIntegrationExposedWsToken();
+    if (!token) { _scheduleIntegrationExposedLiveReconnect(); return; }
+
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const url = `${proto}://${window.location.host}/api/integrations/ws/live?token=${encodeURIComponent(token)}`;
+    let ws;
+    try { ws = new WebSocket(url); }
+    catch (_) { _scheduleIntegrationExposedLiveReconnect(); return; }
+    _integrationExposedLiveWS = ws;
+
+    ws.onopen = () => {
+        _integrationExposedLiveBackoff = 1000;
+        if (_integrationExposedLivePingTimer) clearInterval(_integrationExposedLivePingTimer);
+        _integrationExposedLivePingTimer = setInterval(() => {
+            const sec = document.getElementById('integration-exposed-entities-section');
+            if (!sec || sec.classList.contains('hidden')) { _disconnectIntegrationExposedLive(); return; }
+            try { ws.send('ping'); } catch (_) {}
+        }, 25000);
+    };
+
+    ws.onmessage = (ev) => {
+        let payload = null;
+        try { payload = JSON.parse(ev.data); } catch (_) { return; }
+        if (!payload || !payload.type) return;
+        if (payload.type === 'snapshot' || payload.type === 'diff') {
+            _applyIntegrationExposedLiveItems(Array.isArray(payload.items) ? payload.items : []);
+        }
+    };
+
+    ws.onclose = () => {
+        if (_integrationExposedLivePingTimer) { clearInterval(_integrationExposedLivePingTimer); _integrationExposedLivePingTimer = null; }
+        _integrationExposedLiveWS = null;
+        _scheduleIntegrationExposedLiveReconnect();
+    };
+    ws.onerror = () => { try { ws.close(); } catch (_) {} };
+}
 // Page index per slug for the device grid.
 const _DEVICE_PAGE_SIZE = 6;
 const _devicePageState = new Map();
@@ -526,6 +675,20 @@ function _renderDevicesSection(section, group, slug, baseOffset, opts) {
     };
 }
 
+function _z2mDeviceVisualHtml(d, { size = 'card' } = {}) {
+    const url = String(d?.image_url || '').trim();
+    const box = size === 'modal' ? 'w-10 h-10 rounded-xl' : 'w-8 h-8 rounded-lg';
+    const iconSize = size === 'modal' ? 'text-base' : 'text-sm';
+    const fallback = `<i class="fas fa-microchip text-accent/70 ${iconSize} shrink-0"></i>`;
+    if (!url) return fallback;
+    const src = escapeHtmlAttr(appendMediaQueryToken(url));
+    return `<span class="relative inline-flex ${box} shrink-0 items-center justify-center bg-accent/10 border border-accent/20 overflow-hidden">
+        <img src="${src}" alt="" class="w-full h-full object-contain p-0.5" loading="lazy"
+            onerror="this.style.display='none';var f=this.nextElementSibling;if(f)f.style.display='flex'">
+        <span class="hidden absolute inset-0 items-center justify-center">${fallback}</span>
+    </span>`;
+}
+
 function _devCardHtml(d, idx, slug, showEntryLabel) {
     const name = escapeHtml(d.name || d.device_id || t('integrations.device'));
     const ents = Array.isArray(d.entities) ? d.entities : [];
@@ -560,7 +723,7 @@ function _devCardHtml(d, idx, slug, showEntryLabel) {
             <div class="flex items-start justify-between gap-3 min-w-0">
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2 min-w-0">
-                        <i class="fas fa-microchip text-accent/70 text-sm shrink-0"></i>
+                        ${_z2mDeviceVisualHtml(d, { size: 'card' })}
                         <div class="text-[13px] font-semibold text-slate-100 fade-edge-r min-w-0 flex-1">${name}</div>
                     </div>
                     ${sub ? `<div class="text-[11px] text-slate-500 truncate mt-1">${escapeHtml(sub)}</div>` : ''}
@@ -585,6 +748,7 @@ async function loadIntegrationExposedEntities(integrationId) {
     const sourceSlug = _integrationEntitySourceSlug(integrationId);
     if (!_supportsIntegrationEntitySync(sourceSlug)) {
         section.classList.add('hidden');
+        _disconnectIntegrationExposedLive();
         return null;
     }
     section.classList.remove('hidden');
@@ -608,6 +772,7 @@ async function loadIntegrationExposedEntities(integrationId) {
     }
 
     try {
+        await getCameraStreamToken().catch(() => {});
         const res = await apiCall(`/api/integrations/${encodeURIComponent(sourceSlug)}/devices`);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(translateApiDetail(data.detail) || translateApiDetail(data.message) || t('integrations.devices_load_error'));
@@ -649,6 +814,7 @@ async function loadIntegrationExposedEntities(integrationId) {
             0,
             { showEntryLabel },
         );
+        _connectIntegrationExposedLive(sourceSlug);
         return devices.length;
     } catch (err) {
         if (caption) caption.textContent = '';
@@ -1133,10 +1299,11 @@ function _renderEntityControlRow(ent, slug) {
         control = `<input type="range" min="${min}" max="${max}" step="${step}" value="${val}"
             class="w-24 md:w-32 shrink-0 accent-accent"
             ${_intCtrlAttrs(slug, eid, 'set')} data-int-input="valueFloat" data-entity-stop="1">`;
-    } else if (dom === 'select' && Array.isArray(caps.options) && caps.options.length) {
-        control = `<select class="bg-white/5 border border-white/10 rounded-lg text-[11px] text-slate-200 px-2 py-1.5 shrink-0"
+    } else if (dom === 'select') {
+        const selectOpts = selectOptionsFromCaps(caps);
+        if (selectOpts.length) control = `<select class="w-full bg-white/5 border border-white/10 rounded-lg text-[11px] text-slate-200 px-2 py-1.5"
             ${_intCtrlAttrs(slug, eid, 'set')} data-int-input="valueString" data-entity-stop="1">
-            ${caps.options.map(o => {
+            ${selectOpts.map(o => {
                 const v = (o && typeof o === 'object') ? String(o.value ?? o.label ?? '') : String(o);
                 const lbl = (o && typeof o === 'object') ? String(o.label ?? o.value ?? '') : String(o);
                 return `<option value="${escapeHtmlAttr(v)}" ${v.toLowerCase() === lower ? 'selected' : ''}>${escapeHtml(lbl)}</option>`;
@@ -1145,17 +1312,20 @@ function _renderEntityControlRow(ent, slug) {
     }
 
     const encoded = encodeURIComponent(JSON.stringify(ent)).replace(/'/g, '%27');
-    return `<div class="flex items-center gap-3 px-3 py-3 bg-white/[0.03] border border-white/5 rounded-xl cursor-pointer hover:bg-white/[0.06] hover:border-accent/20 transition-colors"
+    const stateHtml = `<span class="text-[11px] mono ${tone} truncate max-w-[9rem] text-right justify-self-end" data-entity-state="${eidA}">${escapeHtml(state)}${unit}</span>`;
+    const controlHtml = control
+        ? (dom === 'select'
+            ? `<div class="int-entity-row__select-wrap">${control}</div>`
+            : control)
+        : stateHtml;
+    return `<div class="int-entity-row px-3 py-3 bg-white/[0.03] border border-white/5 rounded-xl cursor-pointer hover:bg-white/[0.06] hover:border-accent/20 transition-colors"
         data-entity-action="openCard" data-int-encoded="${encoded}">
         <i class="fas ${icon} text-accent/70 text-sm w-4 text-center shrink-0"></i>
-        <div class="min-w-0 flex-1">
-            <div class="text-[12px] font-semibold text-slate-100 fade-edge-r">${name}</div>
-            <div class="text-[10px] text-slate-500 mono fade-edge-r">${escapeHtml(eid)}</div>
+        <div class="int-entity-row__label">
+            <div class="text-[12px] font-semibold text-slate-100 truncate">${name}</div>
+            <div class="text-[10px] text-slate-500 mono truncate">${escapeHtml(eid)}</div>
         </div>
-        ${control
-            ? ''
-            : `<span class="text-[11px] mono ${tone} truncate max-w-[9rem] text-right shrink-0" data-entity-state="${eidA}">${escapeHtml(state)}${unit}</span>`}
-        ${control}
+        ${controlHtml}
     </div>`;
 }
 
@@ -1302,7 +1472,7 @@ export function openIntegrationDeviceModal(idx, slug) {
     const name = escapeHtml(dev.name || dev.device_id || (t('common.device')));
     const sub = [dev.model, dev.manufacturer].filter(Boolean).join(' · ');
     const ents = (dev.entities || []).slice().sort((a, b) => {
-        const order = { switch: 0, light: 1, cover: 2, lock: 3, climate: 4, number: 5, select: 6, button: 7, binary_sensor: 8, sensor: 9 };
+        const order = { switch: 0, light: 1, cover: 2, lock: 3, climate: 4, number: 5, select: 6, button: 7, event: 8, binary_sensor: 9, sensor: 10 };
         const da = String(a.entity_id || '').split('.')[0];
         const db = String(b.entity_id || '').split('.')[0];
         const oa = order[da] ?? 99, ob = order[db] ?? 99;
@@ -1316,9 +1486,7 @@ export function openIntegrationDeviceModal(idx, slug) {
 
     const hero = `
     <div class="rounded-2xl bg-white/5 border border-white/10 p-3 mb-3 flex items-start gap-3">
-        <div class="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
-            <i class="fas fa-microchip text-accent text-base"></i>
-        </div>
+        ${_z2mDeviceVisualHtml(dev, { size: 'modal' })}
         <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2 text-[9px] uppercase tracking-widest text-slate-500">
                 <span>Dispozitiv</span>
@@ -1458,9 +1626,15 @@ export async function renameIntegrationDevice(slug, deviceId, currentName, provi
         });
         const out = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(out.detail || out.message || t('integrations.device_rename_failed'));
-        // Optimistic local update — no full re-fetch needed since the alias
-        // is the source of truth and lives in our YAML.
-        if (_exposedDevicesState.slug && integrationSlugsMatch(_exposedDevicesState.slug, slug)) {
+        // Backend purges stale MQTT discovery + force-sync; reload device list so
+        // entity rows match the new friendly name (not only the card title).
+        const section = document.getElementById('integration-exposed-entities-section');
+        if (section && !section.classList.contains('hidden')) {
+            const integrationId = _integrationIdForSourceSlug(slug);
+            if (integrationId) {
+                try { await loadIntegrationExposedEntities(integrationId); } catch (_) {}
+            }
+        } else if (_exposedDevicesState.slug && integrationSlugsMatch(_exposedDevicesState.slug, slug)) {
             const idx = _exposedDevicesState.devices.findIndex(d => (d.device_id || '') === deviceId);
             if (idx >= 0) {
                 _exposedDevicesState.devices[idx].name = trimmed;
@@ -1471,6 +1645,9 @@ export async function renameIntegrationDevice(slug, deviceId, currentName, provi
                     openIntegrationDeviceModal(idx, slug);
                 }
             }
+        }
+        if (typeof showToast === 'function') {
+            showToast(t('integrations.device_rename_synced') || t('integrations.device_rename_ok'), 'success', 2200);
         }
     } catch (err) {
         if (typeof showToast === 'function') showToast(err.message || t('common.error'), 'error', 3000);

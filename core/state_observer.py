@@ -161,10 +161,29 @@ async def _mqtt_listener():
 
             topic = event.get("topic") or ""
             payload = event.get("payload")
-            if not isinstance(payload, dict) or not topic:
+            if not topic:
+                continue
+            if isinstance(payload, str):
+                text = payload.strip()
+                if not text:
+                    continue
+                if topic.endswith("/action"):
+                    payload = {"action": text}
+                else:
+                    try:
+                        import json as _json
+                        payload = _json.loads(text)
+                    except Exception:
+                        continue
+            if not isinstance(payload, dict):
                 continue
 
-            prop_map = _topic_entity_map.get(topic) or {}
+            prop_map = dict(_topic_entity_map.get(topic) or {})
+            if topic.endswith("/action") and "action" not in prop_map:
+                base_topic = topic.rsplit("/", 1)[0]
+                base_map = _topic_entity_map.get(base_topic) or {}
+                if "action" in base_map:
+                    prop_map["action"] = base_map["action"]
             if not prop_map:
                 continue
 

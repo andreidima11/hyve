@@ -799,3 +799,31 @@
 .theme-option-active .theme-option-name {
     color: var(--accent, #38bdf8);
 }
+
+/* ─── Integration device modal — entity control rows ───────────────
+   Grid keeps label column visible; native <select> min-width cannot
+   steal space from flex siblings (Tailwind arbitrary grid cols are not
+   always present in tailwind.built.css). */
+.int-entity-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 0.75rem;
+}
+
+.int-entity-row__label {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.int-entity-row__select-wrap {
+    width: 9rem;
+    max-width: 9rem;
+    justify-self: end;
+}
+
+.int-entity-row__select-wrap select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+}

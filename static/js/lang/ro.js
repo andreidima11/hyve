@@ -2397,7 +2397,8 @@ const ro = {
         oauth_auth_failed: "Autentificare eșuată.",
         oauth_connected: "Conectat",
         device_rename_prompt: "Nume nou pentru dispozitiv:",
-        device_rename_failed: "Redenumire eșuată."
+        device_rename_failed: "Redenumire eșuată.",
+        device_rename_synced: "Dispozitiv redenumit și entitățile reîmprospătate."
     }
 };
 

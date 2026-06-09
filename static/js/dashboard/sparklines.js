@@ -79,8 +79,9 @@ export function enhanceSparklinesIn(root) {
     if (!root) return;
     const slots = root.querySelectorAll('[data-sparkline-entity]');
     slots.forEach(slot => {
+        if (slot.hidden || slot.hasAttribute('hidden')) return;
         const entityId = slot.getAttribute('data-sparkline-entity');
-        if (!entityId) return;
+        if (!entityId || !entityId.startsWith('sensor.')) return;
         const cached = _sparklineCache.get(entityId);
         if (cached && (Date.now() - cached.ts) < _SPARKLINE_TTL_MS) {
             const svg = renderSparklineSVG(cached.points);

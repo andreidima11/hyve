@@ -18,6 +18,10 @@ log = logging.getLogger("integrations.mosquitto")
 
 _DEFAULT_DISCOVERY_WAIT = 4.0
 _Z2M_BRIDGE_DEVICES = "zigbee2mqtt/bridge/devices"
+_Z2M_BRIDGE_INFO = "zigbee2mqtt/bridge/info"
+_Z2M_BRIDGE_STATE = "zigbee2mqtt/bridge/state"
+_Z2M_BRIDGE_DEVICE_ID = "z2m_bridge"
+_Z2M_BRIDGE_DEVICE_NAME = "Zigbee2MQTT"
 _Z2M_DEVICE_STATE = "zigbee2mqtt/+"
 _HA_DISCOVERY_2 = "homeassistant/+/+/config"
 _HA_DISCOVERY_3 = "homeassistant/+/+/+/config"
@@ -28,20 +32,36 @@ def extract_mosquitto_candidates(payload: Any) -> list[dict[str, Any]]:
     if not isinstance(payload, dict):
         return []
 
-    items: list[dict[str, Any]] = []
-    seen: set[str] = set()
-
     discovery = payload.get("discovery") or {}
     states = payload.get("states") or {}
     z2m_devices = payload.get("z2m_devices") or []
     device_meta = _build_device_meta(z2m_devices)
 
-    # Track which Z2M properties per device are already covered by HA
-    # discovery so the expose parser doesn't create duplicates.
-    # Key: device_id, Value: set of Z2M property names.
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    bridge_entities = _entities_from_z2m_bridge(payload)
+    for ent in bridge_entities:
+        eid = ent["entity_id"]
+        uid = ent.get("unique_id", "")
+        if eid in seen or uid in seen:
+            continue
+        seen.add(eid)
+        if uid:
+            seen.add(uid)
+        items.append(ent)
+
+    # Z2M ``bridge/devices`` exposes are authoritative (HA MQTT uses live
+    # state_topic + value_template, but capability list comes from Z2M).
+    expose_covered: dict[str, set[str]] = {}
+    if z2m_devices:
+        items.extend(_entities_from_all_z2m_devices(
+            z2m_devices, states, seen, expose_covered,
+        ))
+
+    # HA discovery fills gaps only (stale rows after rename are skipped).
     discovery_covered: dict[str, set[str]] = {}
 
-    # --- Primary path: HA discovery -------------------------------------
     for topic, msg in discovery.items():
         if not isinstance(msg, dict):
             continue
@@ -59,6 +79,16 @@ def extract_mosquitto_candidates(payload: Any) -> list[dict[str, Any]]:
         # Extract which Z2M property this discovery entity covers.
         vt = str((attrs.get("capabilities") or {}).get("value_template") or "")
         prop = _extract_z2m_property_from_template(vt)
+        dom = str(entity.get("domain") or "").lower()
+        if dev_id and prop and prop in expose_covered.get(dev_id, set()):
+            continue
+        if (
+            z2m_devices
+            and _device_known_in_z2m(z2m_devices, dev_id)
+            and dom in {"sensor", "binary_sensor", "event", "button"}
+            and entity.get("state") == "unknown"
+        ):
+            continue
 
         # Z2M creates many discovery entries for the same property (e.g.
         # one sensor per action value for remotes). Skip duplicates.
@@ -72,20 +102,13 @@ def extract_mosquitto_candidates(payload: Any) -> list[dict[str, Any]]:
             # covered so the expose parser picks it up.
             if prop == "action":
                 continue
-            discovery_covered.setdefault(dev_id, set()).add(prop)
+            if entity.get("state") != "unknown" or entity.get("controllable"):
+                discovery_covered.setdefault(dev_id, set()).add(prop)
 
         seen.add(entity["entity_id"])
         if entity.get("unique_id"):
             seen.add(entity["unique_id"])
         items.append(entity)
-
-    # --- Enrich / fallback: native Z2M expose parsing ----------------------
-    # Always run to fill gaps HA discovery missed. Properties already
-    # covered by a discovery entity for the same device are skipped.
-    if z2m_devices:
-        items.extend(_entities_from_all_z2m_devices(
-            z2m_devices, states, seen, discovery_covered,
-        ))
 
     items.sort(key=lambda x: ((x.get("attributes") or {}).get("device_name") or "",
                               x.get("name") or ""))
@@ -100,6 +123,30 @@ def extract_mosquitto_candidates(payload: Any) -> list[dict[str, Any]]:
 
 
 _DOMAIN_TOPIC_RE = re.compile(r"^homeassistant/([^/]+)/(?:([^/]+)/)?([^/]+)/config$")
+_ACTION_COMPARE_RE = re.compile(r"value_json\.action\s*[=!]")
+
+
+def _should_skip_discovery_junk(
+    topic: str,
+    msg: dict[str, Any],
+    domain: str,
+    object_id: str,
+) -> bool:
+    """Drop Z2M per-action HA discovery noise (binary sensors, legacy triggers)."""
+    vt = str(msg.get("value_template") or msg.get("val_tpl") or "")
+    stvt = str(msg.get("state_value_template") or msg.get("stat_val_tpl") or "")
+    combined = f"{vt} {stvt}"
+    if _ACTION_COMPARE_RE.search(combined):
+        return True
+    oid = str(object_id or "").lower()
+    if oid.startswith("action_") and domain in {"binary_sensor", "sensor", "event"}:
+        return True
+    if "/action_" in topic.lower() and domain in {"binary_sensor", "sensor", "event"}:
+        return True
+    uid = str(msg.get("unique_id") or msg.get("uniq_id") or "").lower()
+    if "_action_" in uid and domain in {"binary_sensor", "sensor"}:
+        return True
+    return False
 
 
 def _entity_from_discovery(
@@ -114,9 +161,11 @@ def _entity_from_discovery(
     domain = m.group(1)
     # device_automation / device_trigger are HA automation triggers, not real
     # entities (Z2M creates one per action value for remotes). Skip them.
-    if domain in {"device_automation", "device_trigger"}:
+    if domain in {"device_automation", "device_trigger", "update"}:
         return None
     object_id = m.group(3)
+    if _should_skip_discovery_junk(topic, msg, domain, object_id):
+        return None
 
     unique_id = (msg.get("unique_id") or msg.get("uniq_id") or object_id or "").strip()
     if not unique_id:
@@ -143,8 +192,17 @@ def _entity_from_discovery(
 
     state_topic = msg.get("state_topic") or msg.get("stat_t") or ""
     value_template = msg.get("value_template") or msg.get("val_tpl") or ""
-    raw_state = states.get(state_topic) if state_topic else None
-    state_value = _apply_value_template(value_template, raw_state)
+    state_value_template = msg.get("state_value_template") or msg.get("stat_val_tpl") or ""
+    template = value_template or state_value_template
+    live_payload = _live_z2m_payload(
+        states, device_id, device_meta, state_topic, extra_names=[device_name, feature_name],
+    )
+    z2m_prop = _extract_z2m_property_from_template(template)
+    raw_state = live_payload if live_payload else _decode_z2m_payload(states.get(state_topic) if state_topic else None)
+    if z2m_prop and isinstance(live_payload, dict) and z2m_prop in live_payload:
+        state_value = live_payload.get(z2m_prop)
+    else:
+        state_value = _apply_value_template(template, raw_state)
 
     # If the resolved state is a dict/list (no template to extract a scalar),
     # this discovery entry points at an aggregate state topic and isn't a
@@ -180,9 +238,15 @@ def _entity_from_discovery(
         "device_class": device_class,
         "icon": msg.get("icon") or "",
     }
-    z2m_prop = _extract_z2m_property_from_template(value_template)
-    if z2m_prop and command_topic.endswith("/set"):
+    if not z2m_prop:
+        z2m_prop = _extract_z2m_property_from_template(template)
+    if z2m_prop:
         capabilities["z2m_property"] = z2m_prop
+
+    meta_row = device_meta.get(device_id) or {}
+    live_friendly = str(meta_row.get("friendly_name") or "").strip()
+    if live_friendly:
+        capabilities["state_topic"] = f"zigbee2mqtt/{live_friendly}"
 
     # Optional secondary control surfaces (lights w/ brightness etc.)
     if msg.get("brightness_command_topic"):
@@ -190,6 +254,9 @@ def _entity_from_discovery(
         capabilities["brightness_state_topic"] = msg.get("brightness_state_topic") or ""
         capabilities["brightness_value_template"] = msg.get("brightness_value_template") or ""
         capabilities["brightness_scale"] = msg.get("brightness_scale") or 255
+
+    if z2m_prop == "action" and domain in {"sensor", "event"}:
+        domain = "event"
 
     norm_state = _normalize_state(state_value, domain, capabilities)
     controllable = bool(command_topic)
@@ -207,6 +274,9 @@ def _entity_from_discovery(
         "capabilities": capabilities,
         "raw_state": raw_state,
     }
+    if z2m_prop:
+        attributes["z2m_property"] = z2m_prop
+        attributes["state_topic"] = state_topic
     # Augment with Z2M device meta if we recognise it.
     if device_id and device_id in device_meta:
         meta = device_meta[device_id]
@@ -273,12 +343,265 @@ def _extract_z2m_property_from_template(template: str) -> str:
     return m.group(1) if m else ""
 
 
+_VT_ACTION_COMPARE = re.compile(
+    r"value_json\.action\s*==\s*['\"]([^'\"]+)['\"]"
+)
+
+
+def _decode_z2m_payload(raw: Any) -> Any:
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return raw
+        try:
+            return json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            return raw
+    return raw
+
+
+def _z2m_name_hints(
+    device_id: str,
+    device_meta: dict[str, dict[str, Any]],
+    *extra: str,
+) -> set[str]:
+    hints: set[str] = set()
+    for raw in extra:
+        text = str(raw or "").strip()
+        if text:
+            hints.add(text)
+    meta = device_meta.get(device_id) or {}
+    for key in ("friendly_name", "ieee_address"):
+        text = str(meta.get(key) or "").strip()
+        if text:
+            hints.add(text)
+    ieee = str(meta.get("ieee_address") or device_id or "").strip()
+    try:
+        from integrations import device_aliases
+        from integrations.device_aliases import canonical_device_id
+
+        cid = canonical_device_id(ieee) or canonical_device_id(device_id) or device_id
+        alias = device_aliases.get_alias("mosquitto", cid)
+        if alias:
+            hints.add(alias.strip())
+    except Exception:
+        pass
+    try:
+        from core import device_registry
+
+        row = device_registry.get_device(ieee) if ieee else None
+        if row:
+            for key in ("name", "z2m_friendly_name"):
+                text = str(row.get(key) or "").strip()
+                if text:
+                    hints.add(text)
+    except Exception:
+        pass
+    return {h for h in hints if h}
+
+
+def _resolve_z2m_display_name(device: dict[str, Any]) -> str:
+    """Human device label for entities — registry/YAML beat raw Z2M IEEE names.
+
+    Home Assistant shows the device_registry name while MQTT topics still use
+    Z2M ``friendly_name``. Hyve mirrors that: UI/grouping uses the stored label
+    even when ``bridge/devices`` temporarily reports only the IEEE address.
+    """
+    ieee = str(device.get("ieee_address") or "").strip()
+    friendly = str(device.get("friendly_name") or "").strip()
+    try:
+        from integrations.device_aliases import canonical_device_id
+    except Exception:
+        canonical_device_id = lambda x: str(x or "").strip()  # type: ignore[assignment]
+
+    key = canonical_device_id(ieee) or ieee
+    candidates: list[str] = []
+
+    try:
+        from core import device_registry
+
+        row = device_registry.get_device(key) if key else None
+        if row:
+            for field in ("name", "z2m_friendly_name"):
+                text = str(row.get(field) or "").strip()
+                if text and not _IEEE_TOPIC_RE.match(text):
+                    candidates.append(text)
+    except Exception:
+        pass
+
+    try:
+        from integrations import device_aliases
+
+        alias = device_aliases.get_alias("mosquitto", key)
+        if alias and str(alias).strip():
+            candidates.append(str(alias).strip())
+    except Exception:
+        pass
+
+    if friendly and not _IEEE_TOPIC_RE.match(friendly):
+        candidates.append(friendly)
+
+    for label in candidates:
+        if label and not _IEEE_TOPIC_RE.match(label):
+            return label
+    return friendly or key
+
+
+def _device_known_in_z2m(z2m_devices: list[Any], device_id: str) -> bool:
+    did = str(device_id or "").strip()
+    if not did:
+        return False
+    for raw in z2m_devices or []:
+        if not isinstance(raw, dict):
+            continue
+        ieee = str(raw.get("ieee_address") or "").strip()
+        friendly = str(raw.get("friendly_name") or "").strip()
+        if did in {ieee, friendly}:
+            return True
+    return False
+
+
+def _is_z2m_non_state_topic(topic: str) -> bool:
+    """True for Hyve/Z2M control topics that must not overwrite device state."""
+    t = str(topic or "").strip().lower()
+    return not t or t.endswith("/get") or "/set" in t
+
+
+def _merge_z2m_property_values(into: dict[str, Any], raw: dict[str, Any]) -> None:
+    """Merge Z2M JSON without letting empty /get poll placeholders clobber real values."""
+    for key, value in raw.items():
+        if value is None:
+            continue
+        if isinstance(value, str) and not value.strip():
+            continue
+        if isinstance(value, dict) and not value:
+            continue
+        into[key] = value
+
+
+def _live_z2m_payload(
+    states: dict[str, Any],
+    device_id: str,
+    device_meta: dict[str, dict[str, Any]],
+    state_topic: str = "",
+    extra_names: list[str] | None = None,
+) -> dict[str, Any]:
+    """Resolve the live Z2M JSON for a device (HA matches by state_topic, we alias topics)."""
+    candidates: list[str] = []
+    seen_topics: set[str] = set()
+
+    def _add(topic: str) -> None:
+        t = str(topic or "").strip()
+        if not t or _is_z2m_non_state_topic(t) or t in seen_topics:
+            return
+        seen_topics.add(t)
+        candidates.append(t)
+
+    _add(state_topic)
+    hints = _z2m_name_hints(device_id, device_meta, *(extra_names or []))
+    meta = device_meta.get(device_id) or {}
+    ieee = str(meta.get("ieee_address") or device_id or "").strip().lower()
+    for name in hints:
+        _add(f"zigbee2mqtt/{name}")
+        _add(f"zigbee2mqtt/{name}/action")
+
+    for topic in states:
+        if not str(topic).startswith("zigbee2mqtt/"):
+            continue
+        if _is_z2m_non_state_topic(topic):
+            continue
+        parts = str(topic).split("/")
+        if len(parts) < 2:
+            continue
+        segment = parts[1]
+        if segment in hints or (ieee and segment.lower() == ieee):
+            _add(topic)
+
+    merged: dict[str, Any] = {}
+    for topic in candidates:
+        raw = _decode_z2m_payload(states.get(topic))
+        if isinstance(raw, dict):
+            _merge_z2m_property_values(merged, raw)
+        elif isinstance(raw, str) and raw.strip() and topic.endswith("/action"):
+            merged["action"] = raw.strip()
+    return merged
+
+
+def _device_has_expose_prop(z2m_devices: list[Any], device_id: str, prop: str) -> bool:
+    """True when Z2M bridge/devices lists ``prop`` on the matching device."""
+    target = str(prop or "").strip().lower()
+    if not target:
+        return False
+    for raw in z2m_devices or []:
+        if not isinstance(raw, dict):
+            continue
+        ieee = str(raw.get("ieee_address") or "").strip()
+        friendly = str(raw.get("friendly_name") or "").strip()
+        if device_id not in {ieee, friendly}:
+            continue
+        definition = raw.get("definition") if isinstance(raw.get("definition"), dict) else {}
+        exposes = definition.get("exposes") or []
+
+        def _walk(entry: Any) -> bool:
+            if not isinstance(entry, dict):
+                return False
+            p = str(entry.get("property") or "").strip().lower()
+            if p == target:
+                return True
+            for feat in entry.get("features") or []:
+                if _walk(feat):
+                    return True
+            return False
+
+        for entry in exposes if isinstance(exposes, list) else []:
+            if _walk(entry):
+                return True
+    return False
+
+
+def z2m_get_payload_for_device(device: dict[str, Any]) -> dict[str, str]:
+    """Build Z2M ``/get`` payload from device exposes (HA reads each property)."""
+    definition = device.get("definition") if isinstance(device.get("definition"), dict) else {}
+    exposes = (definition.get("exposes") or []) if isinstance(definition, dict) else []
+    props: list[str] = []
+
+    def _walk(entry: Any) -> None:
+        if not isinstance(entry, dict):
+            return
+        prop = str(entry.get("property") or "").strip()
+        if prop and prop != "action":
+            access = int(entry.get("access") or 0)
+            # Bit 1 = published in state; bit 3 = explicitly gettable.
+            if (access & 1) or (access & 4):
+                if prop not in props:
+                    props.append(prop)
+        features = entry.get("features")
+        if isinstance(features, list):
+            for feat in features:
+                _walk(feat)
+
+    for entry in exposes if isinstance(exposes, list) else []:
+        _walk(entry)
+    if not props:
+        return {"state": ""}
+    return {prop: "" for prop in props}
+
+
 def _apply_value_template(template: str, raw: Any) -> Any:
     """Best-effort minimal Jinja resolver for the most common Z2M templates."""
     if raw is None:
         return None
     if not template:
         return raw
+    if isinstance(raw, str):
+        raw = _decode_z2m_payload(raw)
+    if _VT_ACTION_COMPARE.search(template):
+        m = _VT_ACTION_COMPARE.search(template)
+        expected = m.group(1) if m else ""
+        if isinstance(raw, dict):
+            actual = str(raw.get("action") or "").strip()
+            return actual == expected
+        return False
     m = _VT_VALUE_JSON.search(template)
     if m and isinstance(raw, dict):
         return raw.get(m.group(1))
@@ -365,10 +688,21 @@ def _merge_payload(stored: Any, live: Any) -> dict[str, Any]:
         merged["discovery"] = live_disc
     elif "discovery" not in merged:
         merged["discovery"] = {}
-    # States are NOT retained → always trust the live bridge snapshot, even
-    # if it's empty. Drop any persisted states so we don't surface stale ones.
-    live_states = live_payload.get("states")
-    merged["states"] = live_states if isinstance(live_states, dict) else {}
+    # States are NOT retained on the broker. Prefer live bridge values per topic,
+    # but keep the last persisted snapshot for topics the bridge has not heard
+    # yet (e.g. right after restart, before /get responses for sleepy remotes).
+    stored_states = base.get("states") if isinstance(base.get("states"), dict) else {}
+    live_states = live_payload.get("states") if isinstance(live_payload.get("states"), dict) else {}
+    merged_states = {
+        k: v
+        for k, v in stored_states.items()
+        if not _is_z2m_non_state_topic(k)
+    }
+    for topic, value in live_states.items():
+        if _is_z2m_non_state_topic(topic):
+            continue
+        merged_states[topic] = value
+    merged["states"] = merged_states
     live_devices = live_payload.get("z2m_devices")
     if isinstance(live_devices, list) and live_devices:
         merged["z2m_devices"] = live_devices
@@ -376,6 +710,14 @@ def _merge_payload(stored: Any, live: Any) -> dict[str, Any]:
         merged["z2m_devices"] = []
     if live_payload.get("broker"):
         merged["broker"] = live_payload.get("broker")
+    live_bridge = live_payload.get("z2m_bridge")
+    if isinstance(live_bridge, dict) and live_bridge:
+        merged["z2m_bridge"] = {
+            "info": dict(live_bridge.get("info") or {}),
+            "state": dict(live_bridge.get("state") or {}),
+        }
+    elif "z2m_bridge" not in merged:
+        merged["z2m_bridge"] = {"info": {}, "state": {}}
     return merged
 
 
@@ -423,7 +765,16 @@ def _resolve_control_caps(record: dict[str, Any]) -> dict[str, Any]:
         caps["z2m_property"] = _extract_z2m_property_from_template(
             str(caps.get("value_template") or "")
         )
+    if not caps.get("options") and isinstance(caps.get("values"), list):
+        caps["options"] = caps["values"]
     return caps
+
+
+def _select_options(raw: Any) -> list[Any]:
+    """Normalize Z2M/HA select option lists for the UI."""
+    if not isinstance(raw, list) or not raw:
+        return []
+    return raw
 
 
 def _z2m_set_payload(prop: str, value: Any) -> str:
@@ -446,22 +797,67 @@ def _native_z2m_set_topic(command_topic: str) -> str:
     return cmd
 
 
-def _rewrite_z2m_command_topic(topic: str, record: dict[str, Any]) -> str:
-    """Replace IEEE segments in MQTT paths with the live Z2M friendly name."""
+_IEEE_TOPIC_RE = re.compile(r"^0x[0-9a-fA-F]{16}$")
+
+
+_Z2M_CMD_TOPIC_RE = re.compile(r"^zigbee2mqtt/([^/]+)(/.*)?$", re.I)
+
+
+def _z2m_topic_device_segment(ieee: str, *, entry_key: str = "") -> str:
+    """Return the MQTT path segment Z2M is actually listening on.
+
+    Uses the live ``bridge/devices`` friendly_name when available. Hyve's
+    registry ``device_name`` is intentionally ignored here — it can differ
+    from what Z2M still has configured after a partial rename, and publishing
+    to the wrong segment is a silent no-op.
+    """
+    from integrations.device_aliases import canonical_device_id
+
+    key = canonical_device_id(ieee)
+    if not key:
+        return ""
+    bridge = _bridge_mod.get_bridge(entry_key or None)
+    if bridge is not None:
+        for raw in bridge._z2m_devices or []:
+            if not isinstance(raw, dict):
+                continue
+            if canonical_device_id(raw.get("ieee_address")) != key:
+                continue
+            friendly = str(raw.get("friendly_name") or "").strip()
+            if friendly and not _IEEE_TOPIC_RE.match(friendly):
+                return friendly
+            break
+    return key
+
+
+def _rewrite_z2m_command_topic(
+    topic: str,
+    record: dict[str, Any],
+    *,
+    entry_key: str = "",
+) -> str:
+    """Align ``zigbee2mqtt/<device>/…`` with the live Z2M friendly_name (or IEEE)."""
     cmd = str(topic or "").strip()
-    if not cmd or "zigbee2mqtt/" not in cmd:
+    if not cmd.lower().startswith("zigbee2mqtt/"):
+        return cmd
+    if "/bridge/" in cmd.lower():
         return cmd
     attrs = record.get("attributes") if isinstance(record.get("attributes"), dict) else {}
-    ieee = str(attrs.get("zigbee_ieee") or attrs.get("device_id") or "").strip().lower()
-    friendly = str(attrs.get("device_name") or "").strip()
-    if not ieee or not friendly:
+    ieee = str(attrs.get("zigbee_ieee") or attrs.get("device_id") or "").strip()
+    live = _z2m_topic_device_segment(
+        ieee,
+        entry_key=entry_key or str(record.get("entry_id") or ""),
+    )
+    if not live:
         return cmd
-    if friendly.lower().startswith("0x") and all(c in "0123456789abcdef" for c in friendly.lower()[2:]):
+    match = _Z2M_CMD_TOPIC_RE.match(cmd)
+    if not match:
         return cmd
-    for needle in (ieee, ieee.upper()):
-        if needle in cmd:
-            return cmd.replace(needle, friendly, 1)
-    return cmd
+    current = match.group(1)
+    tail = match.group(2) or ""
+    if current.lower() == live.lower():
+        return cmd
+    return f"zigbee2mqtt/{live}{tail}"
 
 
 def _build_command(
@@ -474,6 +870,14 @@ def _build_command(
     cmd = caps.get("command_topic") or ""
     if not cmd:
         return "", ""
+
+    bridge_req = str(caps.get("z2m_bridge_request") or "").strip()
+    if bridge_req == "permit_join":
+        if verb in {"turn_on", "on"}:
+            secs = int(caps.get("permit_join_seconds") or 254)
+            return cmd, json.dumps({"time": secs}, ensure_ascii=False)
+        if verb in {"turn_off", "off"}:
+            return cmd, json.dumps({"time": 0}, ensure_ascii=False)
 
     payload_on = caps.get("payload_on") if caps.get("payload_on") is not None else "ON"
     payload_off = caps.get("payload_off") if caps.get("payload_off") is not None else "OFF"
@@ -612,6 +1016,8 @@ def _z2m_expose_to_domain(
 
     # Enum
     if etype == "enum":
+        if prop == "action":
+            return "event", "", "", False
         if writable:
             return "select", "", "", True
         return "sensor", "", "", False
@@ -622,25 +1028,28 @@ def _z2m_expose_to_domain(
 def _entities_from_z2m_exposes(
     device: dict[str, Any],
     states: dict[str, Any],
+    device_meta: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Walk a Z2M device's ``definition.exposes`` and produce Hyve entities."""
-    friendly = (device.get("friendly_name") or "").strip()
-    if not friendly:
-        return []
     ieee = (device.get("ieee_address") or "").strip()
+    z2m_friendly = (device.get("friendly_name") or "").strip()
+    friendly = _resolve_z2m_display_name(device)
+    if not friendly and not z2m_friendly:
+        return []
+    mqtt_friendly = z2m_friendly or friendly
     definition = device.get("definition") if isinstance(device.get("definition"), dict) else {}
     exposes = (definition.get("exposes") or []) if isinstance(definition, dict) else []
     if not isinstance(exposes, list):
         return []
 
-    state_payload = states.get(f"zigbee2mqtt/{friendly}")
-    if isinstance(state_payload, str):
-        try:
-            state_payload = json.loads(state_payload)
-        except (json.JSONDecodeError, TypeError):
-            state_payload = {}
-    if not isinstance(state_payload, dict):
-        state_payload = {}
+    meta = device_meta or _build_device_meta([device])
+    state_payload = _live_z2m_payload(
+        states,
+        ieee or friendly,
+        meta,
+        f"zigbee2mqtt/{mqtt_friendly}",
+        extra_names=[friendly, mqtt_friendly, ieee],
+    )
 
     model = (definition.get("model") if isinstance(definition, dict) else "") or ""
     vendor = (definition.get("vendor") if isinstance(definition, dict) else "") or ""
@@ -740,11 +1149,14 @@ def _entities_from_z2m_exposes(
                 )
                 ent = _make_entity(primary_prop, domain, "", "", writable, caps)
                 if ent:
+                    state_topic = f"zigbee2mqtt/{mqtt_friendly}"
                     if writable:
-                        z2m_caps = _z2m_control_caps(friendly, primary_prop, entry)
+                        z2m_caps = _z2m_control_caps(mqtt_friendly, primary_prop, entry)
                         ent["attributes"]["capabilities"].update(z2m_caps)
-                    ent["attributes"]["state_topic"] = f"zigbee2mqtt/{friendly}"
-                    ent["attributes"]["command_topic"] = f"zigbee2mqtt/{friendly}/set"
+                    ent["attributes"]["state_topic"] = state_topic
+                    ent["attributes"]["capabilities"]["state_topic"] = state_topic
+                    ent["attributes"]["capabilities"]["z2m_property"] = primary_prop
+                    ent["attributes"]["command_topic"] = f"zigbee2mqtt/{mqtt_friendly}/set"
                     ent["attributes"]["z2m_property"] = primary_prop
                     out.append(ent)
             return
@@ -759,14 +1171,20 @@ def _entities_from_z2m_exposes(
 
         ent = _make_entity(prop, domain, dc, unit, controllable)
         if ent:
-            ent["attributes"]["state_topic"] = f"zigbee2mqtt/{friendly}"
+            state_topic = f"zigbee2mqtt/{mqtt_friendly}"
+            ent["attributes"]["state_topic"] = state_topic
+            ent["attributes"]["capabilities"]["state_topic"] = state_topic
+            ent["attributes"]["capabilities"]["z2m_property"] = prop
             if controllable:
-                z2m_caps = _z2m_control_caps(friendly, prop, entry)
+                z2m_caps = _z2m_control_caps(mqtt_friendly, prop, entry)
                 ent["attributes"]["capabilities"].update(z2m_caps)
                 ent["attributes"]["command_topic"] = z2m_caps["command_topic"]
                 ent["attributes"]["z2m_property"] = prop
             if entry.get("values"):
-                ent["attributes"]["capabilities"]["values"] = entry["values"]
+                vals = _select_options(entry["values"])
+                ent["attributes"]["capabilities"]["values"] = vals
+                if domain == "select":
+                    ent["attributes"]["capabilities"]["options"] = vals
             vmin = entry.get("value_min")
             vmax = entry.get("value_max")
             if vmin is not None or vmax is not None:
@@ -779,18 +1197,217 @@ def _entities_from_z2m_exposes(
     return out
 
 
+def _count_z2m_user_devices(z2m_devices: list[Any]) -> int:
+    count = 0
+    for raw in z2m_devices or []:
+        if not isinstance(raw, dict):
+            continue
+        if raw.get("type") == "Coordinator":
+            continue
+        if raw.get("disabled"):
+            continue
+        if not str(raw.get("friendly_name") or "").strip():
+            continue
+        count += 1
+    return count
+
+
+def _z2m_bridge_context(payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], list[Any]]:
+    bridge = payload.get("z2m_bridge") if isinstance(payload.get("z2m_bridge"), dict) else {}
+    info = dict(bridge.get("info") or {})
+    state = dict(bridge.get("state") or {})
+    states = payload.get("states") if isinstance(payload.get("states"), dict) else {}
+    if not info:
+        raw_info = states.get(_Z2M_BRIDGE_INFO)
+        if isinstance(raw_info, dict):
+            info = raw_info
+    if not state:
+        raw_state = states.get(_Z2M_BRIDGE_STATE)
+        if isinstance(raw_state, dict):
+            state = raw_state
+    z2m_devices = payload.get("z2m_devices") if isinstance(payload.get("z2m_devices"), list) else []
+    return info, state, z2m_devices
+
+
+def _z2m_bridge_present(payload: dict[str, Any]) -> bool:
+    info, state, z2m_devices = _z2m_bridge_context(payload)
+    if z2m_devices:
+        return True
+    if info:
+        return True
+    if state:
+        return True
+    states = payload.get("states") if isinstance(payload.get("states"), dict) else {}
+    return _Z2M_BRIDGE_INFO in states or _Z2M_BRIDGE_STATE in states
+
+
+def _bridge_state_value(
+    info: dict[str, Any],
+    state: dict[str, Any],
+    states: dict[str, Any],
+    prop: str,
+    *,
+    default: str = "unknown",
+) -> str:
+    flat = states.get(_Z2M_BRIDGE_INFO)
+    if isinstance(flat, dict) and flat.get(prop) is not None:
+        raw = flat.get(prop)
+    elif info.get(prop) is not None:
+        raw = info.get(prop)
+    else:
+        raw = None
+    if prop == "connection":
+        flat_state = states.get(_Z2M_BRIDGE_STATE)
+        if isinstance(flat_state, dict) and flat_state.get("connection") is not None:
+            raw = flat_state.get("connection")
+        elif isinstance(state, dict) and state.get("state"):
+            raw_state = str(state.get("state") or "").strip().lower()
+            if raw_state == "online":
+                raw = "on"
+            elif raw_state == "offline":
+                raw = "off"
+    if raw is None:
+        return default
+    if isinstance(raw, bool):
+        return "on" if raw else "off"
+    text = str(raw).strip()
+    return text if text else default
+
+
+def _make_z2m_bridge_entity(
+    *,
+    entity_id: str,
+    unique_id: str,
+    name: str,
+    domain: str,
+    state: str,
+    controllable: bool = False,
+    unit: str = "",
+    capabilities: dict[str, Any] | None = None,
+    z2m_property: str = "",
+    state_topic: str = "",
+    command_topic: str = "",
+) -> dict[str, Any]:
+    caps = dict(capabilities or {})
+    if state_topic:
+        caps["state_topic"] = state_topic
+    if z2m_property:
+        caps["z2m_property"] = z2m_property
+    attrs: dict[str, Any] = {
+        "via": "zigbee2mqtt",
+        "device_id": _Z2M_BRIDGE_DEVICE_ID,
+        "device_name": _Z2M_BRIDGE_DEVICE_NAME,
+        "device_model": "Bridge",
+        "device_manufacturer": "Zigbee2MQTT",
+        "z2m_bridge": True,
+        "capabilities": caps,
+    }
+    if z2m_property:
+        attrs["z2m_property"] = z2m_property
+    if state_topic:
+        attrs["state_topic"] = state_topic
+    if command_topic:
+        attrs["command_topic"] = command_topic
+    return {
+        "entity_id": entity_id,
+        "unique_id": unique_id,
+        "name": name,
+        "state": state,
+        "domain": domain,
+        "source": "mosquitto",
+        "aliases": [],
+        "unit": unit,
+        "controllable": controllable,
+        "attributes": attrs,
+    }
+
+
+def _entities_from_z2m_bridge(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Synthetic Hyve device for the Zigbee2MQTT bridge itself."""
+    if not isinstance(payload, dict) or not _z2m_bridge_present(payload):
+        return []
+
+    info, state, z2m_devices = _z2m_bridge_context(payload)
+    states = payload.get("states") if isinstance(payload.get("states"), dict) else {}
+    device_count = _count_z2m_user_devices(z2m_devices)
+    version = _bridge_state_value(info, state, states, "version")
+    coordinator = _bridge_state_value(info, state, states, "coordinator_type")
+    if coordinator == "unknown" and isinstance(info.get("coordinator"), dict):
+        coordinator = str(info["coordinator"].get("type") or "unknown")
+    connection = _bridge_state_value(info, state, states, "connection")
+    permit_join = _bridge_state_value(info, state, states, "permit_join")
+
+    out: list[dict[str, Any]] = [
+        _make_z2m_bridge_entity(
+            entity_id="sensor.z2m_bridge_device_count",
+            unique_id="z2m_bridge:device_count",
+            name=f"{_Z2M_BRIDGE_DEVICE_NAME} Device Count",
+            domain="sensor",
+            state=str(device_count),
+            unit="devices",
+        ),
+        _make_z2m_bridge_entity(
+            entity_id="binary_sensor.z2m_bridge_online",
+            unique_id="z2m_bridge:online",
+            name=f"{_Z2M_BRIDGE_DEVICE_NAME} Online",
+            domain="binary_sensor",
+            state=connection,
+            state_topic=_Z2M_BRIDGE_STATE,
+            z2m_property="connection",
+        ),
+        _make_z2m_bridge_entity(
+            entity_id="sensor.z2m_bridge_version",
+            unique_id="z2m_bridge:version",
+            name=f"{_Z2M_BRIDGE_DEVICE_NAME} Version",
+            domain="sensor",
+            state=version,
+            state_topic=_Z2M_BRIDGE_INFO,
+            z2m_property="version",
+        ),
+        _make_z2m_bridge_entity(
+            entity_id="sensor.z2m_bridge_coordinator",
+            unique_id="z2m_bridge:coordinator",
+            name=f"{_Z2M_BRIDGE_DEVICE_NAME} Coordinator",
+            domain="sensor",
+            state=coordinator,
+            state_topic=_Z2M_BRIDGE_INFO,
+            z2m_property="coordinator_type",
+        ),
+        _make_z2m_bridge_entity(
+            entity_id="switch.z2m_bridge_permit_join",
+            unique_id="z2m_bridge:permit_join",
+            name=f"{_Z2M_BRIDGE_DEVICE_NAME} Permit Join",
+            domain="switch",
+            state=permit_join,
+            controllable=True,
+            state_topic=_Z2M_BRIDGE_INFO,
+            z2m_property="permit_join",
+            command_topic="zigbee2mqtt/bridge/request/permit_join",
+            capabilities={
+                "command_topic": "zigbee2mqtt/bridge/request/permit_join",
+                "state_topic": _Z2M_BRIDGE_INFO,
+                "z2m_property": "permit_join",
+                "z2m_bridge_request": "permit_join",
+                "permit_join_seconds": 254,
+            },
+        ),
+    ]
+    return out
+
+
 def _entities_from_all_z2m_devices(
     z2m_devices: list[Any],
     states: dict[str, Any],
     seen: set[str],
-    discovery_covered: dict[str, set[str]] | None = None,
+    expose_covered: dict[str, set[str]] | None = None,
 ) -> list[dict[str, Any]]:
     """Create entities for all Z2M devices via native expose parsing.
 
-    ``discovery_covered`` maps device_id → set of Z2M property names already
-    handled by HA discovery entities.  Those properties are skipped here.
+    ``expose_covered`` maps device_id → property names handled here so stale
+    HA discovery rows for the same capability are skipped afterwards.
     """
-    covered = discovery_covered or {}
+    covered = expose_covered if expose_covered is not None else {}
+    device_meta = _build_device_meta(z2m_devices)
     out: list[dict[str, Any]] = []
     for d in z2m_devices:
         if not isinstance(d, dict) or d.get("type") == "Coordinator":
@@ -802,16 +1419,14 @@ def _entities_from_all_z2m_devices(
             continue
         ieee = (d.get("ieee_address") or "").strip()
         dev_id = ieee or friendly
-        dev_covered = covered.get(dev_id, set())
-        for ent in _entities_from_z2m_exposes(d, states):
+        for ent in _entities_from_z2m_exposes(d, states, device_meta):
             eid = ent["entity_id"]
             uid = ent.get("unique_id", "")
             if eid in seen or uid in seen:
                 continue
-            # Skip if HA discovery already covers this property for this device
             z2m_prop = (ent.get("attributes") or {}).get("z2m_property", "")
-            if z2m_prop and z2m_prop in dev_covered:
-                continue
+            if z2m_prop:
+                covered.setdefault(dev_id, set()).add(z2m_prop)
             seen.add(eid)
             if uid:
                 seen.add(uid)
@@ -835,6 +1450,8 @@ async def _drain_broker(cfg: dict[str, Any]) -> dict[str, Any]:
     discovery: dict[str, dict[str, Any]] = {}
     states: dict[str, Any] = {}
     z2m_devices: list[Any] = []
+    z2m_bridge_info: dict[str, Any] = {}
+    z2m_bridge_state: dict[str, Any] = {}
 
     try:
         async with aiomqtt.Client(
@@ -848,7 +1465,7 @@ async def _drain_broker(cfg: dict[str, Any]) -> dict[str, Any]:
             await client.subscribe(_HA_DISCOVERY_2)
             await client.subscribe(_HA_DISCOVERY_3)
             await client.subscribe(_Z2M_BRIDGE_DEVICES)
-            await client.subscribe(_Z2M_DEVICE_STATE)
+            await client.subscribe("zigbee2mqtt/#")
 
             async def _drain():
                 async for msg in client.messages:
@@ -861,9 +1478,17 @@ async def _drain_broker(cfg: dict[str, Any]) -> dict[str, Any]:
                     if topic == _Z2M_BRIDGE_DEVICES and isinstance(data, list):
                         z2m_devices.clear()
                         z2m_devices.extend(data)
+                    elif topic == _Z2M_BRIDGE_INFO and isinstance(data, dict):
+                        z2m_bridge_info.clear()
+                        z2m_bridge_info.update(data)
+                        states[topic] = data
+                    elif topic == _Z2M_BRIDGE_STATE and isinstance(data, dict):
+                        z2m_bridge_state.clear()
+                        z2m_bridge_state.update(data)
+                        states[topic] = data
                     elif topic.endswith("/config") and topic.startswith("homeassistant/") and isinstance(data, dict):
                         discovery[topic] = data
-                    else:
+                    elif not str(topic).startswith("zigbee2mqtt/bridge/"):
                         states[topic] = data
 
             # Phase 1: collect retained discovery + z2m devices snapshot.
@@ -889,7 +1514,7 @@ async def _drain_broker(cfg: dict[str, Any]) -> dict[str, Any]:
                 try:
                     await client.publish(
                         f"zigbee2mqtt/{friendly}/get",
-                        '{"state": ""}',
+                        json.dumps(z2m_get_payload_for_device(d), ensure_ascii=False),
                         qos=0,
                         retain=False,
                     )
@@ -908,15 +1533,25 @@ async def _drain_broker(cfg: dict[str, Any]) -> dict[str, Any]:
         "discovery": discovery,
         "states": states,
         "z2m_devices": z2m_devices,
+        "z2m_bridge": {
+            "info": dict(z2m_bridge_info),
+            "state": dict(z2m_bridge_state),
+        },
     }
 
 
-async def _publish(cfg: dict[str, Any], topic: str, payload: str) -> None:
+async def _publish(
+    cfg: dict[str, Any],
+    topic: str,
+    payload: str,
+    *,
+    entry_key: str = "",
+) -> None:
     import aiomqtt
 
     # bridge module loaded as _bridge_mod above
 
-    bridge = _bridge_mod.get_bridge()
+    bridge = _bridge_mod.get_bridge(entry_key or None)
     if bridge is not None and bridge.is_running():
         await bridge.publish(topic, payload)
         return

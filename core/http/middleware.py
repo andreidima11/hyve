@@ -129,7 +129,7 @@ def register_http_middleware(app: FastAPI) -> None:
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; "
                 "connect-src 'self' ws: wss:; "
-                "img-src 'self' data: blob:; "
+                "img-src 'self' data: blob: https://www.zigbee2mqtt.io; "
                 "frame-ancestors 'self'"
             )
         else:

@@ -146,6 +146,78 @@ class MosquittoEntity(BaseEntity):
 
     # ── Control ────────────────────────────────────────────────────────────
 
+    def _live_entity_items(self) -> list[dict[str, Any]]:
+        from addons.entity_store import get_entity_store
+
+        store = get_entity_store()
+        cached = store.get_entities(self.store_key) or {}
+        raw_payload = self.live_payload(cached.get("entities") or {})
+        return self.extract_entities(raw_payload)
+
+    def _record_has_command_caps(self, record: dict[str, Any] | None) -> bool:
+        if not record:
+            return False
+        return bool(_resolve_control_caps(record).get("command_topic"))
+
+    def _resolve_control_record(self, entity_id: str) -> dict[str, Any] | None:
+        """Find a control-ready entity row with fresh MQTT capabilities."""
+        from integrations.entity_utils import entity_id_lookup_variants
+
+        raw = str(entity_id or "").strip()
+        if not raw:
+            return None
+
+        items = self._live_entity_items()
+        for variant in entity_id_lookup_variants(raw):
+            hit = _find_entity_record(items, variant)
+            if self._record_has_command_caps(hit):
+                return hit
+
+        try:
+            from core import entity_registry
+
+            row = None
+            for variant in entity_id_lookup_variants(raw):
+                row = entity_registry.get_by_unique_id(variant) or entity_registry.get_by_entity_id(variant)
+                if row:
+                    break
+            if row:
+                for candidate in (
+                    str(row.get("unique_id") or ""),
+                    str(row.get("entity_id") or ""),
+                ):
+                    if not candidate:
+                        continue
+                    hit = _find_entity_record(items, candidate)
+                    if self._record_has_command_caps(hit):
+                        return hit
+        except Exception:
+            pass
+
+        try:
+            from core.state_observer import _last_snapshot
+
+            for variant in entity_id_lookup_variants(raw):
+                hit = _last_snapshot.get(variant)
+                if self._record_has_command_caps(hit):
+                    return hit
+                for ent in _last_snapshot.values():
+                    if ent.get("unique_id") == variant and self._record_has_command_caps(ent):
+                        return ent
+        except Exception:
+            pass
+
+        try:
+            from core.device_control import find_entity_record
+
+            hit = find_entity_record(raw, include_derived=False)
+            if self._record_has_command_caps(hit):
+                return hit
+        except Exception:
+            pass
+
+        return None
+
     async def control_entity(
         self,
         entity_id: str,
@@ -160,27 +232,7 @@ class MosquittoEntity(BaseEntity):
 
         import settings
 
-        # Fast path: try the state observer's snapshot (no I/O, no rebuild).
-        record = None
-        try:
-            from core.state_observer import _last_snapshot
-            record = _last_snapshot.get(entity_id)
-            if not record:
-                for ent in _last_snapshot.values():
-                    if ent.get("unique_id") == entity_id:
-                        record = ent
-                        break
-        except Exception:
-            pass
-
-        # Slow path: rebuild from stored payload (only if snapshot missed).
-        if not record:
-            from addons.entity_store import get_entity_store
-            store = get_entity_store()
-            cached = store.get_entities(self.store_key) or {}
-            raw_payload = cached.get("entities") or {}
-            record = _find_entity_record(self.extract_entities(raw_payload), entity_id)
-
+        record = self._resolve_control_record(entity_id)
         if not record:
             raise ValueError(f"Entity necunoscut: {entity_id}")
 
@@ -193,9 +245,15 @@ class MosquittoEntity(BaseEntity):
             raise ValueError(
                 f"Entitatea {entity_id} nu suportă acțiunea {action!r}"
             )
-        topic = _rewrite_z2m_command_topic(topic, record)
+        topic = _rewrite_z2m_command_topic(topic, record, entry_key=self.entry_id)
+        log.info("Z2M control %s %s -> %s %s", entity_id, verb, topic, mqtt_payload)
 
-        await _publish(self.config_section(settings.CFG), topic, mqtt_payload)
+        await _publish(
+            self.config_section(settings.CFG),
+            topic,
+            mqtt_payload,
+            entry_key=self.entry_id,
+        )
         return {"status": "ok", "topic": topic, "payload": mqtt_payload}
 
     async def rename_zigbee_device(
@@ -241,6 +299,7 @@ class MosquittoEntity(BaseEntity):
             self.config_section(_settings.CFG),
             "zigbee2mqtt/bridge/request/device/rename",
             payload,
+            entry_key=self.entry_id,
         )
         return {
             "status": "ok",

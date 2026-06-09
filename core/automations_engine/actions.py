@@ -177,6 +177,7 @@ def _execute_service_action(action: dict) -> str:
 
     record = resolve_entity_reference(entity_id)
     live_id = str((record or {}).get("entity_id") or entity_id).strip()
+    slug_hint = str((record or {}).get("source") or "").strip() or None
 
     try:
         result = control_entity_sync(
@@ -184,6 +185,7 @@ def _execute_service_action(action: dict) -> str:
             service,
             data or None,
             entity=record,
+            slug_hint=slug_hint,
             timeout=45.0,
         )
     except ControlTargetNotFound as exc:

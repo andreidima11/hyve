@@ -16,6 +16,7 @@ import { register as registerCamera } from './camera/index.js';
 import { register as registerPicture } from './picture/index.js';
 import { register as registerVacuum } from './vacuum/index.js';
 import { register as registerFusionSolar } from './fusion_solar/index.js';
+import { apiCall } from '../../js/api.js';
 import { ensureCardStylesheet } from '../core/card-styles.js';
 
 const SHARED_SHELL = '/static/hyveview/cards/shared/shell.css';
@@ -56,7 +57,7 @@ export async function loadCustomCardPackages() {
   _customPromise = (async () => {
     let res;
     try {
-      res = await fetch('/api/dashboard/card-packages', { credentials: 'same-origin' });
+      res = await apiCall('/api/dashboard/card-packages');
     } catch (_) {
       return;
     }

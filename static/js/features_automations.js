@@ -691,7 +691,7 @@ function _automationRenderBuilderActions() {
                         <div class="space-y-1">
                             <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_service_entity_id')}</label>
                             <div class="automation-inline-ac">
-                                <input type="text" data-automation-entity-input="1" data-action-field="entity_id" data-action-index="${index}" value="${escapeHtml(action?.entity_id || '')}" autocomplete="off" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none" placeholder="${t('automations.entity_search_placeholder')}">
+                                <input type="text" data-automation-entity-input="1" data-action-field="entity_id" data-action-index="${index}" value="${escapeHtml(action?.entity_id || '')}" autocomplete="off" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none" placeholder="${t('automations.entity_search_placeholder')}">
                                 <div class="automation-inline-ac-dropdown"></div>
                             </div>
                         </div>

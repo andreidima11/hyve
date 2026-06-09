@@ -893,3 +893,47 @@ def test_normalize_entities_includes_sensor_cards_for_dashboard():
 
     assert any(item["entity_id"] == "sensor.living_temperature" for item in items)
     assert any(item["entity_id"] == "switch.coffee_machine" for item in items)
+
+
+def test_add_dashboard_widget_post_assigns_id(monkeypatch):
+    """POST /api/dashboard/widgets must not 500 (uuid import regression)."""
+    from unittest.mock import MagicMock
+
+    import auth
+    from core.http.app import create_app
+    from fastapi.testclient import TestClient
+
+    _seed_dashboard_store({
+        "pages": [{
+            "id": "acasa",
+            "title": "Acasă",
+            "panels": [{"id": "panel1", "title": "Main", "widgets": []}],
+        }],
+        "current_page_id": "acasa",
+    })
+
+    bundle = create_app()
+    admin = MagicMock()
+    admin.username = "admin"
+    admin.is_admin = True
+    admin.is_active = True
+    bundle.app.dependency_overrides[auth.get_current_user] = lambda: admin
+    bundle.app.dependency_overrides[auth.get_current_admin] = lambda: admin
+
+    client = TestClient(bundle.app)
+    res = client.post(
+        "/api/dashboard/widgets?page_id=acasa",
+        json={
+            "type": "sensor",
+            "entity_id": "sensor.test_temp",
+            "title": "Test",
+            "size": "md",
+            "col_span": 4,
+            "row_span": 1,
+        },
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["status"] == "ok"
+    assert data["widget"]["id"]
+    assert data["widget"]["type"] == "sensor"
