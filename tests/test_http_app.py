@@ -20,6 +20,7 @@ def test_versioned_static_assets_do_not_500():
     for url in (
         "/static/css/base.css?v=test",
         "/static/js/app.js?v=test",
+        "/static/js/api.js?v=test",
     ):
         res = client.get(url)
         assert res.status_code == 200, url

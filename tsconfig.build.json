@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "allowJs": false,
+    "outDir": "./static/js",
+    "rootDir": "./static/js"
+  },
+  "include": ["static/js/**/*.ts"],
+  "exclude": ["static/js/types/**/*.ts"]
+}

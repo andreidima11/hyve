@@ -1,43 +1,67 @@
 /** HTTP client with JWT refresh for Hyve API routes. */
-export let authToken = localStorage.getItem('hyve_token');
-let _refreshToken = localStorage.getItem('hyve_refresh_token');
+
+export type ApiCallOptions = RequestInit & {
+    /** Optional fetch timeout in milliseconds. */
+    timeout?: number;
+    body?: BodyInit | Record<string, unknown> | null;
+};
+
+interface TokenRefreshResponse {
+    access_token: string;
+    refresh_token: string;
+}
+
+interface SseTokenResponse {
+    sse_token?: string;
+}
+
+interface RememberPayload {
+    t?: string;
+    rt?: string;
+    [key: string]: unknown;
+}
+
+export let authToken: string | null = localStorage.getItem('hyve_token');
+let _refreshToken: string | null = localStorage.getItem('hyve_refresh_token');
 let _suppressLogout = false;
-let _refreshing = null;
-export function setAuthToken(token) {
+let _refreshing: Promise<boolean> | null = null;
+
+export function setAuthToken(token: string | null): void {
     authToken = token;
     if (token) {
         localStorage.setItem('hyve_token', token);
-    }
-    else {
+    } else {
         localStorage.removeItem('hyve_token');
     }
 }
-export function setRefreshToken(token) {
+
+export function setRefreshToken(token: string | null): void {
     _refreshToken = token;
     if (token) {
         localStorage.setItem('hyve_refresh_token', token);
-    }
-    else {
+    } else {
         localStorage.removeItem('hyve_refresh_token');
     }
 }
-export function clearAuthToken() {
+
+export function clearAuthToken(): void {
     authToken = null;
     _refreshToken = null;
     localStorage.removeItem('hyve_token');
     localStorage.removeItem('hyve_refresh_token');
 }
-export function suppressLogout(suppress) {
+
+export function suppressLogout(suppress: boolean): void {
     _suppressLogout = suppress;
 }
-export function isNetworkFetchError(error) {
-    return error instanceof TypeError && /fetch/i.test(String(error?.message || ''));
+
+export function isNetworkFetchError(error: unknown): boolean {
+    return error instanceof TypeError && /fetch/i.test(String((error as Error)?.message || ''));
 }
-async function _tryRefresh() {
-    if (!_refreshToken)
-        return false;
-    if (_refreshing)
-        return _refreshing;
+
+async function _tryRefresh(): Promise<boolean> {
+    if (!_refreshToken) return false;
+    if (_refreshing) return _refreshing;
     _refreshing = (async () => {
         try {
             const res = await fetch('/api/token/refresh', {
@@ -45,85 +69,82 @@ async function _tryRefresh() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ refresh_token: _refreshToken }),
             });
-            if (!res.ok)
-                return false;
-            const data = (await res.json());
+            if (!res.ok) return false;
+            const data = (await res.json()) as TokenRefreshResponse;
             setAuthToken(data.access_token);
             setRefreshToken(data.refresh_token);
             try {
                 const rm = localStorage.getItem('hyve_remember');
                 if (rm) {
-                    const parsed = JSON.parse(rm);
+                    const parsed = JSON.parse(rm) as RememberPayload;
                     parsed.t = data.access_token;
                     parsed.rt = data.refresh_token;
                     localStorage.setItem('hyve_remember', JSON.stringify(parsed));
                 }
-            }
-            catch {
+            } catch {
                 /* ignore corrupt remember payload */
             }
             return true;
-        }
-        catch {
+        } catch {
             return false;
-        }
-        finally {
+        } finally {
             _refreshing = null;
         }
     })();
     return _refreshing;
 }
+
 /** Get a short-lived SSE exchange token for EventSource/WebSocket connections. */
-export async function getSSEToken() {
+export async function getSSEToken(): Promise<string> {
     try {
         const res = await apiCall('/api/token/sse', { method: 'POST' });
         if (res.ok) {
-            const data = (await res.json());
+            const data = (await res.json()) as SseTokenResponse;
             return data.sse_token || '';
         }
-    }
-    catch {
+    } catch {
         /* fall through */
     }
     return '';
 }
-export async function apiCall(url, options = {}) {
-    const opts = { ...options };
-    if (!opts.headers)
-        opts.headers = {};
-    const headers = opts.headers;
+
+export async function apiCall(url: string, options: ApiCallOptions = {}): Promise<Response> {
+    const opts: ApiCallOptions = { ...options };
+    if (!opts.headers) opts.headers = {};
+    const headers = opts.headers as Record<string, string>;
     if (authToken) {
         headers.Authorization = `Bearer ${authToken}`;
     }
+
     if (opts.body && typeof opts.body === 'object' && !(opts.body instanceof FormData) && !headers['Content-Type']) {
         headers['Content-Type'] = 'application/json';
         opts.body = JSON.stringify(opts.body);
     }
+
     const requestedTimeout = Number(opts.timeout || 0);
-    let timeoutId = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     if (requestedTimeout && !opts.signal && typeof AbortController !== 'undefined') {
         const ctrl = new AbortController();
         opts.signal = ctrl.signal;
         timeoutId = setTimeout(() => ctrl.abort(), requestedTimeout);
     }
     delete opts.timeout;
-    let res;
+
+    let res: Response;
     try {
         res = await fetch(url, opts);
-    }
-    catch (err) {
+    } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
-            const e = new Error(`Request timeout (${requestedTimeout}ms): ${url}`);
+            const e = new Error(`Request timeout (${requestedTimeout}ms): ${url}`) as Error & { name: string; url: string };
             e.name = 'TimeoutError';
             e.url = url;
             throw e;
         }
         throw err;
+    } finally {
+        if (timeoutId) clearTimeout(timeoutId);
     }
-    finally {
-        if (timeoutId)
-            clearTimeout(timeoutId);
-    }
+
     if (res.status === 401 && !_suppressLogout) {
         const refreshed = await _tryRefresh();
         if (refreshed) {
@@ -131,10 +152,7 @@ export async function apiCall(url, options = {}) {
             return fetch(url, opts);
         }
         clearAuthToken();
-        try {
-            localStorage.removeItem('hyve_remember');
-        }
-        catch { /* ignore */ }
+        try { localStorage.removeItem('hyve_remember'); } catch { /* ignore */ }
         window.location.replace(`/?_expired=${Date.now()}`);
         throw new Error('Session expired.');
     }

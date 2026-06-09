@@ -83,6 +83,7 @@ cp .env.example .env
 # Frontend CSS (optional if tailwind.built.css is already present)
 npm install
 npm run css:build
+npm run js:build
 
 # Run — config.json is created on first start
 python main.py
@@ -121,6 +122,7 @@ python main.py
 - **Port in use** — change `port` in `config.json` or pass `--port` to the installer.
 - **Setup wizard does not appear** — an admin user may already exist; log in or reset the `users` table on a fresh install.
 - **CSS looks broken** — run `npm install && npm run css:build`.
+- **JS changes not showing** — run `npm run js:build` after editing `.ts` files in `static/js/`.
 - **Server logs** — `logs/install-server.log` when started via `install_hyve.py`; otherwise check the terminal running `main.py`.
 
 ## Configuration
