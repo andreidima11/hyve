@@ -52,6 +52,11 @@ def main() -> int:
     parser.add_argument("--password", required=True)
     parser.add_argument("--full-name", default="")
     parser.add_argument("--email", default="")
+    parser.add_argument(
+        "--mark-setup-complete",
+        action="store_true",
+        help="Skip browser onboarding (headless/Docker installs).",
+    )
     args = parser.parse_args()
 
     action = upsert_admin(
@@ -60,6 +65,11 @@ def main() -> int:
         full_name=args.full_name.strip(),
         email=args.email.strip(),
     )
+    if args.mark_setup_complete:
+        from core.setup_service import mark_setup_complete
+
+        mark_setup_complete()
+        print("Setup marked complete.")
     print(f"Admin user {action}: {args.username.strip()}")
     return 0
 

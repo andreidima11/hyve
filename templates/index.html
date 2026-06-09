@@ -556,8 +556,48 @@
 </head>
 <body class="text-slate-200 flex overflow-hidden" style="height: 100dvh; height: 100vh;">
 
-    <div id="login-overlay" class="fixed inset-0 bg-bg-main z-50 hidden items-center justify-center p-4" style="padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));">
-        <div class="glass p-6 sm:p-10 rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-md border border-white/[0.06] relative overflow-hidden backdrop-blur-2xl">
+    <div id="setup-overlay" class="hyve-auth-overlay fixed inset-0 bg-bg-main z-[55] hidden items-center justify-center p-4" style="padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));">
+        <div class="glass p-6 sm:p-10 rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-md border border-[var(--glass-border,rgba(255,255,255,0.06))] relative overflow-hidden backdrop-blur-2xl">
+            <div class="text-center mb-8">
+                <div class="hyve-hero-wrap hyve-hero-wrap--login">
+                    <div class="hyve-hero-galaxy" aria-hidden="true">
+                        <span class="hyve-particle"></span><span class="hyve-particle"></span><span class="hyve-particle"></span><span class="hyve-particle"></span><span class="hyve-particle"></span><span class="hyve-particle"></span><span class="hyve-particle"></span><span class="hyve-particle"></span><span class="hyve-particle"></span><span class="hyve-particle"></span><span class="hyve-particle"></span><span class="hyve-particle"></span><span class="hyve-particle"></span><span class="hyve-particle"></span><span class="hyve-particle"></span>
+                    </div>
+                    <div class="hyve-logo hyve-logo--hero" aria-label="Hyve">
+                        <span class="hyve-logo__wordmark"><span class="hyve-me">HY</span><span class="hyve-mini">VE</span></span>
+                    </div>
+                </div>
+                <h1 class="text-lg font-semibold text-slate-200 mt-4" data-i18n="setup.title">Configure Hyve</h1>
+                <p class="text-sm text-slate-500 mt-1" data-i18n="setup.subtitle">Create your admin account and basic settings.</p>
+                <p class="text-[10px] text-slate-600 mt-2" id="setup-step-label"></p>
+            </div>
+            <form id="setup-form" class="space-y-4" autocomplete="off">
+                <div id="setup-step-account" class="space-y-4">
+                    <input type="text" id="setup-username" class="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.username_placeholder" placeholder="Admin username" required minlength="3" autocapitalize="off" autocomplete="username">
+                    <input type="text" id="setup-fullname" class="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.fullname_placeholder" placeholder="Display name (optional)" autocomplete="name">
+                    <input type="password" id="setup-password" class="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.password_placeholder" placeholder="Password" required minlength="8" autocomplete="new-password">
+                    <input type="password" id="setup-password-confirm" class="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.password_confirm_placeholder" placeholder="Confirm password" required minlength="8" autocomplete="new-password">
+                </div>
+                <div id="setup-step-preferences" class="space-y-4 hidden">
+                    <input type="text" id="setup-server-name" class="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.server_name_placeholder" placeholder="Home name">
+                    <select id="setup-language" class="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all">
+                        <option value="en">English</option>
+                        <option value="ro">Română</option>
+                    </select>
+                    <select id="setup-timezone" class="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all"></select>
+                    <p class="text-[10px] text-slate-500" data-i18n="setup.timezone_hint">Used for reminders and AI date/time context.</p>
+                </div>
+                <div id="setup-error" class="text-red-400 text-[10px] text-center hidden"></div>
+                <div class="flex gap-3 pt-1">
+                    <button type="button" id="setup-back-btn" class="hidden flex-1 py-3 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-slate-200 transition-colors" data-i18n="setup.back">Back</button>
+                    <button type="submit" id="setup-next-btn" class="flex-1 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-accent/15 hover:shadow-accent/25" style="background: linear-gradient(to right, var(--accent), var(--accent-hover));" data-i18n="setup.next">Continue</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="login-overlay" class="hyve-auth-overlay fixed inset-0 bg-bg-main z-50 hidden items-center justify-center p-4" style="padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));">
+        <div class="glass p-6 sm:p-10 rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-md border border-[var(--glass-border,rgba(255,255,255,0.06))] relative overflow-hidden backdrop-blur-2xl">
             <div class="text-center mb-10">
                 <div class="hyve-hero-wrap hyve-hero-wrap--login">
                     <div class="hyve-hero-galaxy" aria-hidden="true">

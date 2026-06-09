@@ -29,6 +29,7 @@ from routers import ollama_proxy as ollama_proxy_router
 from routers import openai_proxy as openai_proxy_router
 from routers import piper as piper_router
 from routers import scenes as scenes_router
+from routers import setup as setup_router
 from routers import sessions as sessions_router
 from routers import shell_proposals as shell_proposals_router
 from routers import skills_api as skills_router
@@ -44,6 +45,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(skills_router.router)
     app.include_router(memory_router.router)
     app.include_router(system_router.router)
+    app.include_router(setup_router.router)
     app.include_router(auth_tokens_router.router)
     app.include_router(chat_web_router.router)
     app.include_router(slash_router.router)

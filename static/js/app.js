@@ -1,6 +1,7 @@
 import { authToken, clearAuthToken } from './api.js';
 import { showToast, debounce, showConfirm, showSourcesModal } from './utils.js';
 import { handleLogin, loadUserProfile, restoreRememberedCredentials, tryAutoLogin } from './auth.js';
+import { initSetupWizard, showSetupWizard, fetchSetupStatus } from './setup.js';
 import { setTheme, loadThemeSelector, toggleSidebar, closeSidebar, isSidebarOpen, switchTab, switchConfigTab, openConfigSection, closeConfigSection, startLogStream, initSidebarGestures, getStoredThemeId } from './ui.js';
 import { initI18n, setLanguage, t, loadComponentTranslations } from './lang/index.js';
 import { applyDashboardEditAccess } from './dashboard/edit_access.js';
@@ -683,6 +684,18 @@ async function bootHyve() {
     if (overlay) overlay.classList.remove('is-hidden');
     setBootMessage('Se încarcă...');
 
+    try {
+        const setupStatus = await fetchSetupStatus();
+        if (!setupStatus?.complete) {
+            hideLoginScreen();
+            showSetupWizard(setupStatus);
+            hideBootOverlay();
+            return;
+        }
+    } catch (e) {
+        console.warn('setup status check failed', e);
+    }
+
     // Step 1: ensure we have a valid token (existing → autologin → fail)
     const stored = localStorage.getItem('hyve_token');
     let hasToken = stored && stored !== 'null' && stored !== 'undefined';
@@ -1076,6 +1089,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // 2. Bind la formularele principale (FastAPI form-data format)
     const loginForm = document.getElementById('login-form');
     if (loginForm) loginForm.onsubmit = handleLogin;
+    initSetupWizard();
 
     // 3. Auth + app boot — single deterministic state machine.
     bootHyve().catch(err => {

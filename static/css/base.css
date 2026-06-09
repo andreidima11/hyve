@@ -613,6 +613,28 @@ body.derived-page-open {
     z-index: 1;
 }
 
+.hyve-auth-overlay {
+    background: var(--bg-main);
+    color: var(--text-primary, #e2e8f0);
+}
+
+.hyve-auth-overlay .glass {
+    background: var(--surface-glass);
+    border-color: var(--glass-border, rgba(255, 255, 255, 0.06));
+}
+
+.hyve-auth-overlay input:not([type="checkbox"]),
+.hyve-auth-overlay select {
+    background: var(--surface-1, rgba(255, 255, 255, 0.03));
+    border-color: var(--glass-border, rgba(255, 255, 255, 0.06));
+    color: var(--text-primary, #e2e8f0);
+}
+
+.hyve-auth-overlay input:focus,
+.hyve-auth-overlay select:focus {
+    border-color: var(--accent-border, rgba(56, 189, 248, 0.4));
+}
+
 .hyve-hero-wrap--login {
     margin-bottom: 0;
 }
@@ -1062,24 +1084,32 @@ main.flex-1 {
         gap: 0.5rem !important;
     }
 
-    /* Login overlay — mobile-friendly */
-    #login-overlay .glass {
+    /* Login / first-run setup overlays — mobile-friendly */
+    #login-overlay .glass,
+    #setup-overlay .glass {
         padding: 1.5rem !important;
         border-radius: 1.25rem !important;
     }
 
-    #login-overlay h1 {
+    #login-overlay h1,
+    #setup-overlay h1 {
         font-size: 1.5rem !important;
     }
 
     #login-overlay input[type="text"],
-    #login-overlay input[type="password"] {
+    #login-overlay input[type="password"],
+    #setup-overlay input[type="text"],
+    #setup-overlay input[type="password"],
+    #setup-overlay select {
         padding: 0.875rem 1rem !important;
         border-radius: 1rem !important;
         font-size: 1rem !important;
     }
 
-    #login-overlay button[type="submit"] {
+    #login-overlay button[type="submit"],
+    #setup-overlay button[type="submit"],
+    #setup-overlay #setup-next-btn,
+    #setup-overlay #setup-back-btn {
         padding: 0.875rem !important;
         border-radius: 1rem !important;
     }

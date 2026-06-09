@@ -8,13 +8,14 @@ from env_bootstrap import ensure_env_loaded
 ensure_env_loaded()
 
 CONFIG_FILE = "config.json"
-RELEASE_VERSION = "0.8.3"
+RELEASE_VERSION = "0.8.4"
 APP_VERSION = RELEASE_VERSION
 _settings_log = logging.getLogger("settings")
 
 # --- CONFIGURAȚIE DEFAULT ---
 DEFAULT_CONFIG = {
     "version": RELEASE_VERSION,
+    "setup_complete": False,
     "server_name": "Hyve",
     "port": 8082,
     "verbose_logging": False,  # compact logs by default; set True for full agent/tool audit

@@ -35,6 +35,12 @@ def create_app() -> HyveApp:
     app = FastAPI(lifespan=lifespan)
     register_http_middleware(app)
     run_startup_migrations()
+    try:
+        from core.setup_service import migrate_legacy_setup
+
+        migrate_legacy_setup()
+    except Exception:
+        pass
 
     if not os.path.exists("static"):
         os.makedirs("static/css", exist_ok=True)

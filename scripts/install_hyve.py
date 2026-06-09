@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
+"""Install Hyve dependencies and start the server.
+
+First-time configuration (admin account, language, timezone) is done in the
+browser at http://localhost:<port>/ after the server starts.
+"""
 from __future__ import annotations
 
 import argparse
-import getpass
 import json
 import os
 import secrets
@@ -17,7 +21,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VENV_DIR = ROOT / "venv"
+VENV_DIR = ROOT / ".venv"
+if not VENV_DIR.exists():
+    VENV_DIR = ROOT / "venv"
 VENV_PYTHON = VENV_DIR / "bin" / "python"
 ENV_FILE = ROOT / ".env"
 ENV_EXAMPLE_FILE = ROOT / ".env.example"
@@ -26,7 +32,6 @@ PID_FILE = ROOT / ".hyve_server.pid"
 LOG_DIR = ROOT / "logs"
 LOG_FILE = LOG_DIR / "install-server.log"
 REQUIREMENTS_FILE = ROOT / "requirements.txt"
-REQUIREMENTS_DEV_FILE = ROOT / "requirements-dev.txt"
 DEFAULT_PORT = 8082
 
 
@@ -128,64 +133,8 @@ def ensure_config_file(port: int) -> None:
         CONFIG_FILE.write_text(json.dumps(data, indent=4) + "\n", encoding="utf-8")
 
 
-def prompt_value(label: str, default: str = "", *, secret: bool = False, allow_empty: bool = False) -> str:
-    while True:
-        if secret:
-            value = getpass.getpass(f"{label}: ")
-        else:
-            suffix = f" [{default}]" if default else ""
-            value = input(f"{label}{suffix}: ").strip()
-            if not value:
-                value = default
-        if value or allow_empty:
-            return value
-        print("A value is required.")
-
-
-def gather_setup_inputs(args: argparse.Namespace) -> tuple[str, str, str, str, int]:
-    interactive = sys.stdin.isatty() and not args.non_interactive
-
-    username = (args.admin_username or "").strip()
-    full_name = (args.admin_full_name or "").strip()
-    email = (args.admin_email or "").strip()
-    password = args.admin_password or ""
-    port = int(args.port or DEFAULT_PORT)
-
-    if interactive:
-        username = username or prompt_value("Admin username", "admin")
-        full_name = full_name or prompt_value("Admin full name", username)
-        email = email or prompt_value("Admin email", "", allow_empty=True)
-        if not password:
-            while True:
-                first = prompt_value("Admin password", secret=True)
-                second = prompt_value("Confirm password", secret=True)
-                if first != second:
-                    print("Passwords do not match. Try again.")
-                    continue
-                if len(first) < 8:
-                    print("Password must be at least 8 characters.")
-                    continue
-                password = first
-                break
-        if not args.port:
-            port = int(prompt_value("Application port", str(DEFAULT_PORT)))
-    else:
-        missing = []
-        if not username:
-            missing.append("--admin-username")
-        if not password:
-            missing.append("--admin-password")
-        if missing:
-            raise SystemExit(f"Missing required arguments for non-interactive mode: {', '.join(missing)}")
-        full_name = full_name or username
-
-    if len(password) < 8:
-        raise SystemExit("Admin password must be at least 8 characters.")
-    return username, full_name, email, password, port
-
-
 def bootstrap_admin(username: str, full_name: str, email: str, password: str) -> None:
-    print_step("Bootstrapping admin account")
+    print_step("Bootstrapping admin account (headless)")
     run([
         str(VENV_PYTHON),
         "scripts/bootstrap_admin.py",
@@ -197,6 +146,7 @@ def bootstrap_admin(username: str, full_name: str, email: str, password: str) ->
         full_name,
         "--email",
         email,
+        "--mark-setup-complete",
     ])
 
 
@@ -262,6 +212,7 @@ def start_server(port: int, open_browser_when_ready: bool) -> None:
 
     if wait_for_server(url, timeout_seconds=90):
         print(f"Hyve is ready at {url}")
+        print("Complete first-time setup in your browser (admin account, language, timezone).")
         if open_browser_when_ready:
             webbrowser.open(url)
         else:
@@ -272,40 +223,55 @@ def start_server(port: int, open_browser_when_ready: bool) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Guided local installer for Hyve.")
-    parser.add_argument("--admin-username", default="")
-    parser.add_argument("--admin-password", default="")
-    parser.add_argument("--admin-full-name", default="")
-    parser.add_argument("--admin-email", default="")
-    parser.add_argument("--port", type=int, default=None)
+    parser = argparse.ArgumentParser(
+        description="Install Hyve dependencies and start the server. Configure the app in the browser on first visit.",
+    )
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"HTTP port (default {DEFAULT_PORT})")
     parser.add_argument("--skip-npm", action="store_true")
-    parser.add_argument("--no-start", action="store_true")
+    parser.add_argument("--no-start", action="store_true", help="Install only; do not start uvicorn")
     parser.add_argument("--no-open-browser", action="store_true")
-    parser.add_argument("--non-interactive", action="store_true")
+    parser.add_argument(
+        "--bootstrap-admin",
+        nargs=2,
+        metavar=("USERNAME", "PASSWORD"),
+        help="Headless/Docker: create admin and skip browser onboarding",
+    )
+    parser.add_argument("--admin-full-name", default="", help="With --bootstrap-admin")
+    parser.add_argument("--admin-email", default="", help="With --bootstrap-admin")
     return parser.parse_args()
 
 
 def main() -> int:
     os.chdir(ROOT)
     args = parse_args()
-    username, full_name, email, password, port = gather_setup_inputs(args)
+    port = int(args.port or DEFAULT_PORT)
 
     ensure_venv()
     install_python_dependencies()
     install_node_dependencies(skip_npm=args.skip_npm)
     ensure_env_file()
     ensure_config_file(port)
-    bootstrap_admin(username, full_name, email, password)
+
+    if args.bootstrap_admin:
+        username, password = args.bootstrap_admin
+        if len(password) < 8:
+            raise SystemExit("Admin password must be at least 8 characters.")
+        bootstrap_admin(
+            username.strip(),
+            (args.admin_full_name or username).strip(),
+            (args.admin_email or "").strip(),
+            password,
+        )
 
     if args.no_start:
         print_step("Installation complete")
         print(f"Start the app with: {VENV_PYTHON} main.py")
+        if not args.bootstrap_admin:
+            print(f"Then open http://127.0.0.1:{port}/ to finish setup in the browser.")
         return 0
 
     start_server(port=port, open_browser_when_ready=not args.no_open_browser)
     print_step("Installation complete")
-    print(f"Admin username: {username}")
-    print("Use the password you entered during setup to log in.")
     return 0
 
 

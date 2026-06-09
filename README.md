@@ -2,7 +2,7 @@
 
 Self-hosted smart home hub with an integrated AI assistant. One FastAPI process serves the web UI, device integrations, automations, dashboards, and chat — with a built-in LLM agent for control, memory, and skills.
 
-**Current version:** 0.8.3
+**Current version:** 0.8.4
 
 ## Features
 
@@ -23,37 +23,105 @@ Self-hosted smart home hub with an integrated AI assistant. One FastAPI process 
 - SQLite (default), optional ChromaDB data dir (`chroma_db/`)
 - LLM backend: Ollama, OpenAI-compatible API, or configured provider in `config.json`
 
-## Quick start
+## Installation
+
+### Option A — Guided installer (recommended)
+
+The installer creates a virtual environment, installs Python and Node dependencies, generates `.env` / `config.json`, and starts the server.
 
 ```bash
-# Clone and enter the repo
 git clone https://github.com/andreidima11/hyve.git
 cd hyve
+python3 scripts/install_hyve.py
+```
 
-# Python environment
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+When the server is ready, open `http://localhost:8082` (default port). The **browser setup wizard** runs on first visit:
 
-# Local configuration (never commit this file)
-cp .env.example .env
-# Edit .env — set HYVE_SECRET_KEY at minimum
+1. **Step 1** — create the admin account (username + password, min. 8 characters)
+2. **Step 2** — choose UI language (English / Romanian), timezone, and home name
 
-# First-time app config is created on first run, or copy a template if you maintain one locally.
-# config.json is gitignored and holds LLM keys, integration toggles, and UI settings.
+You are logged in automatically when setup finishes.
 
-# Frontend CSS (optional if tailwind.built.css already present)
-npm install
-npm run css:build
+Useful installer flags:
 
-# Create an admin user
-python scripts/bootstrap_admin.py --username admin --password 'change-me' --full-name Admin
+| Flag | Purpose |
+|------|---------|
+| `--port 8082` | HTTP port (default `8082`) |
+| `--no-start` | Install dependencies only; start manually with `python main.py` |
+| `--skip-npm` | Skip Node.js / Tailwind build (use committed CSS) |
+| `--no-open-browser` | Do not open the browser automatically |
+| `--bootstrap-admin USER PASS` | Headless/Docker: create admin and skip the browser wizard |
 
-# Run
+Examples:
+
+```bash
+# Install only, then start yourself
+python3 scripts/install_hyve.py --no-start
+source .venv/bin/activate   # or: source venv/bin/activate
+python main.py
+
+# Docker / NAS without a browser
+python3 scripts/install_hyve.py --no-start --bootstrap-admin admin 'your-secure-password'
 python main.py
 ```
 
-Open `http://localhost:8082` (default port from config).
+### Option B — Manual install
+
+```bash
+git clone https://github.com/andreidima11/hyve.git
+cd hyve
+
+# Python
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# Secrets (never commit .env)
+cp .env.example .env
+# Set HYVE_SECRET_KEY — install_hyve.py generates one if missing
+
+# Frontend CSS (optional if tailwind.built.css is already present)
+npm install
+npm run css:build
+
+# Run — config.json is created on first start
+python main.py
+```
+
+Open `http://localhost:8082`. Complete the browser setup wizard on first visit.
+
+### Headless admin (no browser wizard)
+
+For servers without a GUI browser (Docker, SSH-only, CI):
+
+```bash
+source .venv/bin/activate
+python scripts/bootstrap_admin.py \
+  --username admin \
+  --password 'change-me' \
+  --full-name Admin \
+  --mark-setup-complete
+python main.py
+```
+
+`--mark-setup-complete` skips the onboarding overlay. Use a password of at least 8 characters.
+
+### After installation
+
+| Task | How |
+|------|-----|
+| Change port | Edit `port` in `config.json` or reinstall with `--port` |
+| Add LLM (Ollama, OpenAI, …) | Settings → AI in the web UI, or edit `config.json` |
+| Add integrations | Settings → Integrations |
+| Run tests | `PYTHONPATH=. pytest tests/` |
+| Dev mode | `HYVE_DEV=1 python main.py` |
+
+### Troubleshooting
+
+- **Port in use** — change `port` in `config.json` or pass `--port` to the installer.
+- **Setup wizard does not appear** — an admin user may already exist; log in or reset the `users` table on a fresh install.
+- **CSS looks broken** — run `npm install && npm run css:build`.
+- **Server logs** — `logs/install-server.log` when started via `install_hyve.py`; otherwise check the terminal running `main.py`.
 
 ## Configuration
 

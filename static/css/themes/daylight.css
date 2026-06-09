@@ -467,9 +467,11 @@
     border-color: rgba(15, 23, 42, 0.06) !important;
 }
 
-/* Login */
-[data-theme="light"] #login-overlay { background: var(--bg-main); }
-[data-theme="light"] #login-overlay .glass {
+/* Login / first-run setup */
+[data-theme="light"] #login-overlay,
+[data-theme="light"] #setup-overlay { background: var(--bg-main); }
+[data-theme="light"] #login-overlay .glass,
+[data-theme="light"] #setup-overlay .glass {
     background: rgba(255, 255, 255, 0.95) !important;
     border-color: rgba(15, 23, 42, 0.08) !important;
     box-shadow: 0 16px 48px rgba(15, 23, 42, 0.10);
