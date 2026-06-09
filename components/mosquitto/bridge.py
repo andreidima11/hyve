@@ -40,6 +40,10 @@ _Z2M_DEVICE_TOP = "zigbee2mqtt/+"
 
 _RECONNECT_BACKOFF = (1, 2, 5, 10, 20, 30)
 _Z2M_REFRESH_DELAY_SECONDS = 5.0
+_Z2M_RECONCILE_DELAY_SECONDS = 3.0
+_Z2M_RECONCILE_RETRIES = 3
+_Z2M_RENAME_REQUEST = "zigbee2mqtt/bridge/request/device/rename"
+_Z2M_RENAME_RESPONSE = "zigbee2mqtt/bridge/response/device/rename"
 _MQTT311_CLIENT_ID_MAX_BYTES = 23
 _HANDLE_CONCURRENCY = 48
 
@@ -90,6 +94,26 @@ def _persist_z2m_friendly_names(devices: list[Any]) -> None:
             device_aliases.set_alias("mosquitto", ieee, friendly)
         except Exception:
             pass
+
+
+def _resolve_desired_z2m_name(
+    ieee: str,
+    friendly: str,
+    row: dict[str, Any] | None,
+    yaml_alias: str | None,
+) -> str:
+    """Pick the friendly_name Hyve wants Z2M to use for ``ieee``."""
+    desired = ""
+    if row:
+        reg_name = str(row.get("name") or "").strip()
+        if reg_name and not _IEEE_RE.match(reg_name):
+            if row.get("name_by_user"):
+                desired = reg_name
+            elif _IEEE_RE.match(friendly):
+                desired = reg_name
+    if not desired and _IEEE_RE.match(friendly):
+        desired = str(yaml_alias or "").strip()
+    return desired
 
 
 class MosquittoBridge:
@@ -214,6 +238,31 @@ class MosquittoBridge:
         if hint:
             return hint
         return canonical
+
+    async def request_z2m_device_rename(
+        self,
+        from_name: str,
+        to_name: str,
+        *,
+        homeassistant_rename: bool = False,
+    ) -> None:
+        """Publish Z2M ``bridge/request/device/rename`` on the live bridge MQTT client.
+
+        Home Assistant uses the same topic; ``homeassistant_rename: true`` tells Z2M
+        to persist the new ``friendly_name`` *and* republish MQTT discovery topics
+        so entity IDs follow the rename.
+        """
+        current = str(from_name or "").strip()
+        target = str(to_name or "").strip()
+        if not current or not target or current == target:
+            return
+        payload_obj: dict[str, Any] = {"from": current, "to": target}
+        if homeassistant_rename:
+            payload_obj["homeassistant_rename"] = True
+        await self.publish(
+            _Z2M_RENAME_REQUEST,
+            json.dumps(payload_obj, ensure_ascii=False),
+        )
 
     async def publish(self, topic: str, payload: str) -> None:
         client = self._client
@@ -345,7 +394,7 @@ class MosquittoBridge:
 
         async def _delayed() -> None:
             try:
-                await asyncio.sleep(2.0)
+                await asyncio.sleep(_Z2M_RECONCILE_DELAY_SECONDS)
                 if not self._stop.is_set():
                     await self._reconcile_z2m_friendly_names(devices)
             except asyncio.CancelledError:
@@ -353,12 +402,31 @@ class MosquittoBridge:
 
         self._z2m_reconcile_task = asyncio.create_task(_delayed())
 
+    async def _wait_for_mqtt_client(self, *, timeout_seconds: float = 15.0) -> bool:
+        deadline = time.monotonic() + timeout_seconds
+        while time.monotonic() < deadline:
+            if self._stop.is_set():
+                return False
+            if self._client is not None:
+                return True
+            await asyncio.sleep(0.25)
+        return False
+
     async def _reconcile_z2m_friendly_names(self, devices: list[Any]) -> None:
-        """Re-apply user-chosen names when Z2M still reports the raw IEEE."""
+        """Push Hyve-side names to Z2M when upstream reports IEEE or a stale name.
+
+        Home Assistant does not run this on startup — it relies on Z2M's own
+        ``data/configuration.yaml`` persistence. Hyve keeps a local registry/YAML
+        copy and re-applies user names when Z2M forgot them after a restart.
+        """
         try:
             from integrations import device_aliases
             from core import device_registry
         except Exception:
+            return
+
+        if not await self._wait_for_mqtt_client():
+            log.warning("Z2M name reconcile skipped: MQTT client not connected")
             return
 
         pending: list[tuple[str, str, str]] = []
@@ -367,51 +435,68 @@ class MosquittoBridge:
                 continue
             ieee = device_aliases.canonical_device_id(raw.get("ieee_address"))
             friendly = str(raw.get("friendly_name") or "").strip()
-            if not ieee or not friendly or not _IEEE_RE.match(friendly):
+            if not ieee or not friendly:
                 continue
             if ieee in self._z2m_reconciled:
                 continue
 
             row = device_registry.get_device(ieee)
-            desired = ""
-            if row and row.get("name_by_user"):
-                desired = str(row.get("name") or "").strip()
-            elif row:
-                reg_name = str(row.get("name") or "").strip()
-                if reg_name and not _IEEE_RE.match(reg_name):
-                    desired = reg_name
-            if not desired:
-                desired = device_aliases.get_alias("mosquitto", ieee) or ""
+            yaml_alias = device_aliases.get_alias("mosquitto", ieee)
+            desired = _resolve_desired_z2m_name(ieee, friendly, row, yaml_alias)
             if not desired or _IEEE_RE.match(desired) or desired == friendly:
                 continue
-            pending.append((ieee, friendly, desired))
+            from_name = ieee if _IEEE_RE.match(friendly) else self.resolve_z2m_rename_from(ieee, friendly)
+            pending.append((ieee, from_name, desired))
 
         if not pending:
             return
 
-        rename_fn = None
-        try:
-            from integrations import get_integration_manager
-
-            inst = get_integration_manager().get("mosquitto")
-            rename_fn = getattr(inst, "rename_zigbee_device", None) if inst else None
-        except Exception:
-            rename_fn = None
-        if not callable(rename_fn):
-            return
-
-        for ieee, friendly, desired in pending:
-            try:
-                await rename_fn(
-                    friendly,
-                    desired,
-                    device_id=ieee,
-                    homeassistant_rename=False,
-                )
+        for ieee, from_name, desired in pending:
+            ok = False
+            for attempt in range(_Z2M_RECONCILE_RETRIES):
+                try:
+                    await self.request_z2m_device_rename(
+                        from_name,
+                        desired,
+                        homeassistant_rename=True,
+                    )
+                    ok = True
+                    break
+                except Exception as exc:
+                    log.debug(
+                        "Z2M name reconcile attempt %s for %s failed: %s",
+                        attempt + 1,
+                        ieee,
+                        exc,
+                    )
+                    if attempt + 1 < _Z2M_RECONCILE_RETRIES:
+                        await asyncio.sleep(1.0 + attempt)
+            if ok:
                 self._z2m_reconciled.add(ieee)
+                self._patch_z2m_device_friendly_name(ieee, desired)
                 log.info("Reconciled Z2M friendly_name for %s -> %s", ieee, desired)
-            except Exception as exc:
-                log.debug("Z2M name reconcile failed for %s: %s", ieee, exc)
+            else:
+                log.warning("Z2M name reconcile failed for %s -> %s", ieee, desired)
+
+    def _patch_z2m_device_friendly_name(self, ieee: str, friendly_name: str) -> None:
+        try:
+            from integrations import device_aliases
+        except Exception:
+            device_aliases = None  # type: ignore[assignment]
+        target = (
+            device_aliases.canonical_device_id(ieee)
+            if device_aliases is not None
+            else str(ieee or "").strip().lower()
+        )
+        for item in self._z2m_devices:
+            if not isinstance(item, dict):
+                continue
+            key = str(item.get("ieee_address") or "").strip()
+            if device_aliases is not None:
+                key = device_aliases.canonical_device_id(key) or key
+            if key == target:
+                item["friendly_name"] = friendly_name
+                break
 
     async def _handle(self, msg: Any) -> None:
         topic = str(msg.topic)
@@ -461,26 +546,50 @@ class MosquittoBridge:
         if not isinstance(data, dict):
             return
         await self._dispatch({"type": "z2m_bridge_response", "topic": topic, "payload": data})
-        if topic != "zigbee2mqtt/bridge/response/device/rename":
+        if topic != _Z2M_RENAME_RESPONSE:
             return
         if str(data.get("status") or "").lower() != "ok":
             return
         payload = data.get("data") if isinstance(data.get("data"), dict) else {}
-        if not payload.get("homeassistant_rename"):
-            return
-        asyncio.create_task(self._after_ha_rename(payload))
+        asyncio.create_task(
+            self._after_device_rename(
+                payload,
+                homeassistant_rename=bool(payload.get("homeassistant_rename")),
+            )
+        )
 
-    async def _after_ha_rename(self, payload: dict[str, Any]) -> None:
-        """Discovery topics are republished by Z2M; refresh Hyve caches and IDs."""
+    async def _after_device_rename(
+        self,
+        payload: dict[str, Any],
+        *,
+        homeassistant_rename: bool,
+    ) -> None:
+        """Refresh Hyve caches after Z2M confirms a device rename."""
         old_name = str(payload.get("from") or "").strip()
         new_name = str(payload.get("to") or "").strip()
+        if not new_name:
+            return
+        device_id = ""
         try:
-            from core import device_registry, entity_registry
+            from core import device_registry
 
             device_id = device_registry.resolve_device_id_from_z2m_devices(
                 old_name,
                 self._z2m_devices,
-            )
+            ) or ""
+            if not device_id:
+                from integrations import device_aliases
+
+                candidate = device_aliases.canonical_device_id(old_name)
+                if candidate and _IEEE_RE.match(candidate):
+                    device_id = candidate
+        except Exception:
+            device_id = ""
+        try:
+            from core import device_registry, entity_registry
+
+            if device_id:
+                self._patch_z2m_device_friendly_name(device_id, new_name)
             if device_id and new_name:
                 device_registry.set_device_name(
                     device_id,
@@ -489,7 +598,7 @@ class MosquittoBridge:
                     config_entry_id=self._entry_key,
                     z2m_friendly_name=new_name,
                 )
-            if device_id and old_name and new_name:
+            if homeassistant_rename and device_id and old_name and new_name:
                 entity_registry.refresh_entity_ids_for_device_rename(
                     device_id,
                     old_friendly=old_name,
@@ -501,35 +610,32 @@ class MosquittoBridge:
         try:
             from integrations import device_aliases
 
-            device_id = device_aliases.canonical_device_id(old_name)
-            if not device_id:
-                from core import device_registry
-
-                device_id = device_registry.resolve_device_id_from_z2m_devices(
-                    old_name,
-                    self._z2m_devices,
-                )
             if device_id and new_name:
                 device_aliases.set_alias("mosquitto", device_id, new_name)
         except Exception as exc:
             log.debug("post-rename alias update failed: %s", exc)
-        try:
-            from routers.integrations import helpers
+        if homeassistant_rename:
+            try:
+                from routers.integrations import helpers
 
-            helpers.invalidate_all_entities_cache()
-        except Exception as exc:
-            log.debug("rename cache invalidate failed: %s", exc)
-        try:
-            from core.mirror_nudge import nudge_entity_mirror
+                helpers.invalidate_all_entities_cache()
+            except Exception as exc:
+                log.debug("rename cache invalidate failed: %s", exc)
+            try:
+                from core.mirror_nudge import nudge_entity_mirror
 
-            nudge_entity_mirror(self._entry_key or "mosquitto")
-        except Exception as exc:
-            log.debug("rename mirror nudge failed: %s", exc)
-        log.info(
-            "Z2M rename with HA rediscovery: %s -> %s",
-            old_name,
-            new_name,
-        )
+                nudge_entity_mirror(self._entry_key or "mosquitto")
+            except Exception as exc:
+                log.debug("rename mirror nudge failed: %s", exc)
+            log.info(
+                "Z2M rename with HA rediscovery: %s -> %s",
+                old_name,
+                new_name,
+            )
+
+    async def _after_ha_rename(self, payload: dict[str, Any]) -> None:
+        """Backward-compatible wrapper for older call sites."""
+        await self._after_device_rename(payload, homeassistant_rename=True)
 
     async def _dispatch(self, event: dict[str, Any]) -> None:
         if not self._listeners:

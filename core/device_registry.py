@@ -285,24 +285,38 @@ def sync_z2m_devices(
 
             if existing and existing.get("name_by_user"):
                 display_name = existing["name"]
-            elif yaml_alias:
-                display_name = yaml_alias
+                name_by_user = True
+                # Keep YAML in sync with the registry so a stale alias cannot
+                # resurrect an old name on the next sync/restart.
+                if (
+                    device_aliases is not None
+                    and yaml_alias
+                    and yaml_alias != display_name
+                ):
+                    try:
+                        device_aliases.set_alias(source, ieee, display_name)
+                    except Exception:
+                        pass
             elif ieee_friendly:
-                # Z2M lost the rename — keep local metadata but skip until we
-                # have a user alias or registry row to preserve.
-                if not existing:
-                    continue
-                display_name = str(existing.get("name") or "").strip()
-                if not display_name or _IEEE_RE.match(display_name):
+                # Z2M lost the friendly name — fall back to local aliases.
+                if yaml_alias:
+                    display_name = yaml_alias
+                    name_by_user = True
+                elif existing:
+                    display_name = str(existing.get("name") or "").strip()
+                    if not display_name or _IEEE_RE.match(display_name):
+                        continue
+                    name_by_user = bool(existing.get("name_by_user"))
+                else:
                     continue
             else:
+                # Z2M still has a human-friendly name — trust it over stale YAML.
                 display_name = friendly
+                name_by_user = bool(existing and existing.get("name_by_user"))
 
-            name_by_user = bool(existing and existing.get("name_by_user"))
-            if yaml_alias and yaml_alias != friendly:
-                name_by_user = True
-
-            z2m_name = friendly if not ieee_friendly else str((existing or {}).get("z2m_friendly_name") or "")
+            z2m_name = friendly if not ieee_friendly else str(
+                (existing or {}).get("z2m_friendly_name") or yaml_alias or friendly
+            )
 
             try:
                 _upsert_unlocked(

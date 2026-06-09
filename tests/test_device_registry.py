@@ -11,6 +11,7 @@ from sqlalchemy import text
 import database
 from core import device_registry, entity_registry
 from core.http.startup_migrations import run_startup_migrations
+from integrations import device_aliases
 
 
 @pytest.fixture(autouse=True)
@@ -26,6 +27,25 @@ def _fresh_tables():
     yield
     device_registry.reload()
     entity_registry.reload()
+
+
+def test_sync_z2m_devices_ignores_stale_yaml_when_z2m_has_human_name():
+    ieee = "0xa4c138fe8b1226ab"
+
+    with patch.object(device_aliases, "get_alias", return_value="Lampa Birou"):
+        device_registry.sync_z2m_devices([
+            {
+                "ieee_address": ieee,
+                "friendly_name": "releu_dormitor2",
+                "definition": {"vendor": "Tuya", "model": "TS0003_switch_module_2"},
+            }
+        ], source="mosquitto")
+
+    row = device_registry.get_device(ieee)
+    assert row is not None
+    assert row["name"] == "releu_dormitor2"
+    assert row["name_by_user"] is False
+    assert row["z2m_friendly_name"] == "releu_dormitor2"
 
 
 def test_sync_z2m_devices_respects_user_name():
