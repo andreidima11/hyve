@@ -6,8 +6,6 @@ import { dashDebug, DASH_DEBUG_ENABLED } from './debug.js';
 import { createDashboardEntityPatcher } from './entity_patch.js';
 import { createDashboardLiveWs } from './live_ws.js';
 import { pendingForEntity, shouldHoldOptimisticState, clearPendingControl } from './control_state.js';
-/** @typedef {Record<string, unknown>} DashboardLiveDeps */
-/** @type {Record<string, unknown> | null} */
 let _deps = null;
 /** @type {ReturnType<typeof createDashboardEntityPatcher> | null} */
 let _entityPatcher = null;
@@ -42,7 +40,9 @@ function ensureEntityLive() {
         apiCall,
         dashDebug,
         DASH_DEBUG_ENABLED,
-        onLiveItems: (items, isSnapshot) => _entityPatcher.applyLiveItems(items, isSnapshot),
+        onLiveItems: (items, isSnapshot) => {
+            _entityPatcher.applyLiveItems(items, isSnapshot);
+        },
         onLiveRemoved: (entityIds) => _entityPatcher.removeLiveItems(entityIds),
     });
     _dashboardLive.initTabWatch();

@@ -45,6 +45,10 @@ declare global {
         };
         __hyveShowNotification?: (title: string, message: string, sessionId?: string) => void;
         __pendingHyveNotification?: { title: string; message: string; sessionId?: string };
+        __HYVE_NATIVE_APP?: boolean;
+        __setNativeWsServiceEnabled?: (enabled: boolean) => void;
+        __getNativeWsServiceStatus?: () => boolean | null | undefined;
+        currentUser?: { is_admin?: boolean; [key: string]: unknown };
         CodeMirror?: {
             fromTextArea: (
                 ta: HTMLTextAreaElement,
@@ -70,6 +74,7 @@ declare global {
         'entity-state-changed': CustomEvent<EntityStateChangedDetail>;
         'entity-discovery-refresh': CustomEvent;
         'entity-bridge-status': CustomEvent<Record<string, unknown>>;
+        'tts:ended': CustomEvent<{ voiceLoop?: boolean }>;
     }
 }
 

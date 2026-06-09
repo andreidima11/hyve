@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Hyveview schema editor bridge — add/edit/delete dashboard widgets via hvOpenEditor.
  */
@@ -12,20 +11,50 @@ import {
     SECTION_COLS,
 } from './constants.js';
 import { dashApiError } from './helpers.js';
+import type {
+    DashboardCache,
+    DashboardVisibilityConfig,
+    DashboardWidget,
+    DashboardWidgetEditorBridgeDeps,
+} from '../types/dashboard.js';
+import type { HyveEntity } from '../types/entity.js';
 
-/** @type {object | null} */
-let _deps = null;
+interface EditorEntityRef {
+    entity_id: string;
+    title?: string;
+    subtitle?: string;
+    unique_id?: string;
+}
 
-function deps() {
+interface EditorCard {
+    id?: string;
+    type: string;
+    entity: string | null;
+    layout: { col: number; row: number };
+    config: Record<string, unknown>;
+    visibility: DashboardVisibilityConfig | null;
+}
+
+interface EditorResult {
+    type?: string;
+    config?: Record<string, unknown>;
+    layout?: { col?: number; row?: number };
+    visibility?: DashboardVisibilityConfig;
+    __deleted?: boolean;
+}
+
+let _deps: DashboardWidgetEditorBridgeDeps | null = null;
+
+function deps(): DashboardWidgetEditorBridgeDeps {
     if (!_deps) throw new Error('Dashboard widget editor bridge not initialized');
     return _deps;
 }
 
-export function initDashboardWidgetEditorBridge(depsIn) {
+export function initDashboardWidgetEditorBridge(depsIn: DashboardWidgetEditorBridgeDeps) {
     _deps = depsIn;
 }
 
-function slug(value) {
+function slug(value: unknown) {
     return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'section';
 }
 
@@ -49,15 +78,19 @@ export async function ensureHyveviewEntitySeed() {
     } catch { /* offline ok */ }
 }
 
-function widgetToEditorCard(widget) {
-    const type = widget.type || 'button';
+function widgetToEditorCard(widget: DashboardWidget): EditorCard {
+    const type = String(widget.type || 'button');
     const rawCol = Number(widget.col_span);
     const col = Math.min(Math.max(Number.isFinite(rawCol) ? rawCol : SECTION_COLS, 1), SECTION_COLS);
     const row = Math.min(Math.max(Number(widget.row_span) || 2, 1), 12);
 
-    const cfg = {
+    const widgetConfig = widget.config && typeof widget.config === 'object'
+        ? widget.config as Record<string, unknown>
+        : {};
+
+    const cfg: Record<string, unknown> = {
         title: widget.title || '',
-        icon: widget.icon || widget?.config?.icon || '',
+        icon: widget.icon || widgetConfig.icon || '',
         color: widget.color || '',
         switch_style: !!widget.switch_style,
         show_background: !!widget.show_background,
@@ -66,42 +99,42 @@ function widgetToEditorCard(widget) {
     if (type !== 'label') cfg.entity_id = widget.entity_id || '';
     if (type === 'camera') {
         cfg.entity = widget.entity_id || '';
-        const raw = widget?.config?.camera_mode || 'snapshot';
+        const raw = widgetConfig.camera_mode || 'snapshot';
         cfg.mode = raw === 'live' ? 'live' : 'snapshot';
-        cfg.interval = Number(widget?.config?.interval) || DEFAULT_CAMERA_INTERVAL;
-        cfg.default_audio = !!widget?.config?.default_audio;
-        cfg.default_microphone = !!widget?.config?.default_microphone;
-        cfg.preload = !!widget?.config?.preload;
-        cfg.preload_scope = widget?.config?.preload_scope === 'all' ? 'all' : 'adjacent';
-        const ents = widget?.config?.entities || [];
+        cfg.interval = Number(widgetConfig.interval) || DEFAULT_CAMERA_INTERVAL;
+        cfg.default_audio = !!widgetConfig.default_audio;
+        cfg.default_microphone = !!widgetConfig.default_microphone;
+        cfg.preload = !!widgetConfig.preload;
+        cfg.preload_scope = widgetConfig.preload_scope === 'all' ? 'all' : 'adjacent';
+        const ents = widgetConfig.entities || [];
         cfg.entities = (Array.isArray(ents) ? ents : []).map((e) => typeof e === 'string'
             ? { entity_id: e, title: '', subtitle: '' }
-            : { entity_id: e.entity_id || '', title: e.title || '', subtitle: e.subtitle || '' }
-        ).filter((e) => e.entity_id);
-        if (!cfg.entities.length && widget.entity_id) {
+            : { entity_id: (e as EditorEntityRef).entity_id || '', title: (e as EditorEntityRef).title || '', subtitle: (e as EditorEntityRef).subtitle || '' }
+        ).filter((e: EditorEntityRef) => e.entity_id);
+        if (!(cfg.entities as EditorEntityRef[]).length && widget.entity_id) {
             cfg.entities = [{ entity_id: widget.entity_id, title: widget.title || '', subtitle: '' }];
         }
     }
     if (type === 'picture') {
-        cfg.sources = Array.isArray(widget?.config?.sources) ? widget.config.sources : [];
-        if (!cfg.sources.length && widget.entity_id && widget.entity_id.startsWith('image.')) {
+        cfg.sources = Array.isArray(widgetConfig.sources) ? widgetConfig.sources : [];
+        if (!(cfg.sources as unknown[]).length && widget.entity_id && widget.entity_id.startsWith('image.')) {
             cfg.sources = [{ type: 'entity', value: widget.entity_id }];
         }
-        cfg.interval = Number(widget?.config?.interval) || 15;
+        cfg.interval = Number(widgetConfig.interval) || 15;
     }
     if (type === 'climate') {
-        const ents = widget?.config?.entities || widget?.config?.entity_ids || [];
-        cfg.entities = ents.map(e => typeof e === 'string'
+        const ents = widgetConfig.entities || widgetConfig.entity_ids || [];
+        cfg.entities = (Array.isArray(ents) ? ents : []).map(e => typeof e === 'string'
             ? { entity_id: e, title: '', subtitle: '' }
-            : { entity_id: e.entity_id, title: e.title || '', subtitle: e.subtitle || '' });
+            : { entity_id: (e as EditorEntityRef).entity_id, title: (e as EditorEntityRef).title || '', subtitle: (e as EditorEntityRef).subtitle || '' });
     }
     if (type === 'fusion_solar') {
-        const cfgIn = widget?.config && typeof widget.config === 'object' ? widget.config : {};
+        const cfgIn = widgetConfig;
         const powerEnts = Array.isArray(cfgIn.power_entities) ? cfgIn.power_entities : [];
         cfg.power_entities = powerEnts.length
             ? powerEnts.map((e) => typeof e === 'string'
                 ? { entity_id: e, title: '', subtitle: '' }
-                : { entity_id: e.entity_id || '', title: e.title || '', subtitle: e.subtitle || '' })
+                : { entity_id: (e as EditorEntityRef).entity_id || '', title: (e as EditorEntityRef).title || '', subtitle: (e as EditorEntityRef).subtitle || '' })
             : (widget.entity_id ? [{ entity_id: widget.entity_id, title: '', subtitle: '' }] : []);
         cfg.entity_load = cfgIn.entity_load || '';
         cfg.entity_grid = cfgIn.entity_grid || '';
@@ -121,11 +154,11 @@ function widgetToEditorCard(widget) {
         entity: widget.entity_id || null,
         layout: { col, row },
         config: cfg,
-        visibility: widget.visibility || null,
+        visibility: (widget.visibility as DashboardVisibilityConfig) || null,
     };
 }
 
-function lookupDashboardEntity(entityId, cache) {
+function lookupDashboardEntity(entityId: string, cache: DashboardCache): HyveEntity | null {
     const id = String(entityId || '').trim();
     if (!id) return null;
     const list = cache?.available_entities || [];
@@ -134,7 +167,7 @@ function lookupDashboardEntity(entityId, cache) {
         || null;
 }
 
-function enrichEntityRecords(records, cache) {
+function enrichEntityRecords(records: EditorEntityRef[], cache: DashboardCache): EditorEntityRef[] {
     return (records || []).map((row) => {
         const ent = lookupDashboardEntity(row.entity_id, cache);
         const out = { ...row };
@@ -144,14 +177,17 @@ function enrichEntityRecords(records, cache) {
     }).filter((row) => row.entity_id);
 }
 
-function attachEntityRef(body, cache) {
-    const ent = lookupDashboardEntity(body.entity_id, cache);
+function attachEntityRef(body: Record<string, unknown>, cache: DashboardCache) {
+    const ent = lookupDashboardEntity(String(body.entity_id || ''), cache);
     if (ent?.unique_id) body.unique_id = ent.unique_id;
     else delete body.unique_id;
     if (ent?.entity_id) body.entity_id = ent.entity_id;
 }
 
-function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
+function editorResultToWidgetBody(
+    result: EditorResult,
+    { existingWidget = null }: { existingWidget?: DashboardWidget | null } = {},
+): Record<string, unknown> {
     const d = deps();
     const cache = d.getDashboardCache();
     const type = result.type || 'button';
@@ -159,31 +195,31 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
     const col = Math.min(Math.max(Number(result.layout?.col) || SECTION_COLS, 1), SECTION_COLS);
     const row = Math.min(Math.max(Number(result.layout?.row) || 2, 1), 12);
 
-    let entityId;
+    let entityId: string;
     if (type === 'label') {
-        const baseTitle = cfg.title || cfg.entity_name || 'section';
+        const baseTitle = String(cfg.title || cfg.entity_name || 'section');
         entityId = existingWidget?.entity_id || `label.${slug(baseTitle)}`;
     } else if (type === 'climate') {
         const entities = Array.isArray(cfg.entities) ? cfg.entities : [];
         const first = entities[0];
-        entityId = (typeof first === 'string' ? first : first?.entity_id) || '';
+        entityId = (typeof first === 'string' ? first : (first as EditorEntityRef)?.entity_id) || '';
     } else if (type === 'camera') {
         const entities = Array.isArray(cfg.entities) ? cfg.entities : [];
         const first = entities[0];
-        entityId = (typeof first === 'string' ? first : first?.entity_id) || (cfg.entity || cfg.entity_id || '').trim();
+        entityId = (typeof first === 'string' ? first : (first as EditorEntityRef)?.entity_id) || String(cfg.entity || cfg.entity_id || '').trim();
     } else if (type === 'picture') {
-        const sources = Array.isArray(cfg.sources) ? cfg.sources : [];
+        const sources = Array.isArray(cfg.sources) ? cfg.sources as Array<{ type?: string; value?: string }> : [];
         const firstEnt = sources.find(s => s.type === 'entity');
-        entityId = firstEnt ? firstEnt.value : (existingWidget?.entity_id || `picture.gallery_${Date.now()}`);
+        entityId = firstEnt ? String(firstEnt.value || '') : (existingWidget?.entity_id || `picture.gallery_${Date.now()}`);
     } else if (type === 'fusion_solar') {
         const powerRecords = (Array.isArray(cfg.power_entities) ? cfg.power_entities : [])
             .map((e) => typeof e === 'string'
                 ? { entity_id: e, title: '', subtitle: '' }
-                : { entity_id: e.entity_id || '', title: e.title || '', subtitle: e.subtitle || '' })
-            .filter((e) => e.entity_id);
-        entityId = powerRecords[0]?.entity_id || (cfg.entity_id || cfg.entity || '').trim();
+                : { entity_id: (e as EditorEntityRef).entity_id || '', title: (e as EditorEntityRef).title || '', subtitle: (e as EditorEntityRef).subtitle || '' })
+            .filter((e: EditorEntityRef) => e.entity_id);
+        entityId = powerRecords[0]?.entity_id || String(cfg.entity_id || cfg.entity || '').trim();
     } else {
-        entityId = (cfg.entity_id || cfg.entity || '').trim();
+        entityId = String(cfg.entity_id || cfg.entity || '').trim();
     }
 
     let source = existingWidget?.source || '';
@@ -195,12 +231,12 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
         }
     }
 
-    const body = {
+    const body: Record<string, unknown> = {
         type,
         entity_id: entityId,
-        entity_name: (cfg.entity_name || cfg.title || entityId || '').toString().trim(),
-        title: (cfg.title || '').toString().trim(),
-        icon: (cfg.icon || '').toString().trim(),
+        entity_name: String(cfg.entity_name || cfg.title || entityId || '').trim(),
+        title: String(cfg.title || '').trim(),
+        icon: String(cfg.icon || '').trim(),
         source,
         size: existingWidget?.size || 'md',
         favorite: !!existingWidget?.favorite,
@@ -215,7 +251,7 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
             (Array.isArray(cfg.entities) ? cfg.entities : []).map(e =>
                 typeof e === 'string'
                     ? { entity_id: e }
-                    : { entity_id: e.entity_id, title: e.title || '', subtitle: e.subtitle || '', unique_id: e.unique_id || '' }
+                    : { entity_id: (e as EditorEntityRef).entity_id, title: (e as EditorEntityRef).title || '', subtitle: (e as EditorEntityRef).subtitle || '', unique_id: (e as EditorEntityRef).unique_id || '' }
             ),
             cache,
         );
@@ -228,15 +264,15 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
             (Array.isArray(cfg.entities) ? cfg.entities : []).map((e) =>
                 typeof e === 'string'
                     ? { entity_id: e, title: '', subtitle: '' }
-                    : { entity_id: e.entity_id, title: e.title || '', subtitle: e.subtitle || '', unique_id: e.unique_id || '' }
+                    : { entity_id: (e as EditorEntityRef).entity_id, title: (e as EditorEntityRef).title || '', subtitle: (e as EditorEntityRef).subtitle || '', unique_id: (e as EditorEntityRef).unique_id || '' }
             ),
             cache,
         );
         if (!records.length && entityId) {
-            records.push({ entity_id: entityId, title: cfg.title || '', subtitle: '' });
+            records.push({ entity_id: entityId, title: String(cfg.title || ''), subtitle: '' });
         }
         body.config = {
-            ...(body.config || {}),
+            ...(body.config as Record<string, unknown> || {}),
             camera_mode: cameraMode,
             interval,
             entities: records,
@@ -249,9 +285,9 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
         if (records[0]?.title && !Object.prototype.hasOwnProperty.call(cfg, 'title')) body.title = records[0].title;
     }
     if (type === 'picture') {
-        const sources = Array.isArray(cfg.sources) ? cfg.sources.filter(s => s && s.value) : [];
+        const sources = Array.isArray(cfg.sources) ? (cfg.sources as Array<{ type?: string; value?: string }>).filter(s => s && s.value) : [];
         const interval = Number(cfg.interval) || 15;
-        body.config = { ...(body.config || {}), sources, interval };
+        body.config = { ...(body.config as Record<string, unknown> || {}), sources, interval };
         const firstEntity = sources.find(s => s.type === 'entity');
         if (firstEntity) body.entity_id = firstEntity.value;
         else if (!body.entity_id) body.entity_id = `picture.gallery_${Date.now()}`;
@@ -260,25 +296,28 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
         const powerRecords = (Array.isArray(cfg.power_entities) ? cfg.power_entities : [])
             .map((e) => typeof e === 'string'
                 ? { entity_id: e, title: '', subtitle: '' }
-                : { entity_id: e.entity_id || '', title: e.title || '', subtitle: e.subtitle || '' })
-            .filter((e) => e.entity_id);
-        const powerId = powerRecords[0]?.entity_id || body.entity_id || '';
+                : { entity_id: (e as EditorEntityRef).entity_id || '', title: (e as EditorEntityRef).title || '', subtitle: (e as EditorEntityRef).subtitle || '' })
+            .filter((e: EditorEntityRef) => e.entity_id);
+        const powerId = powerRecords[0]?.entity_id || String(body.entity_id || '');
         const slotKeys = [
             'entity_load', 'entity_grid', 'entity_grid_export', 'entity_grid_import',
             'entity_daily', 'entity_monthly', 'entity_yearly', 'entity_feed_in', 'entity_consumption',
-        ];
-        const slotCfg = {};
+        ] as const;
+        const slotCfg: Record<string, string> = {};
         slotKeys.forEach((k) => {
             const v = String(cfg[k] || '').trim();
             if (v) slotCfg[k] = v;
         });
         body.config = {
-            ...(body.config || {}),
+            ...(body.config as Record<string, unknown> || {}),
             power_entities: powerRecords,
             ...slotCfg,
             capacity_kw: cfg.capacity_kw === '' || cfg.capacity_kw == null ? undefined : Number(cfg.capacity_kw),
         };
-        body.config.entity_ids = fusionSolarWidgetEntityIds({ entity_id: powerId, config: body.config });
+        body.config = {
+            ...(body.config as Record<string, unknown>),
+            entity_ids: fusionSolarWidgetEntityIds({ entity_id: powerId, config: body.config as Record<string, unknown> }),
+        };
         if (!body.source || body.source === 'zigbee2mqtt') {
             const ent = (cache.available_entities || []).find(e => e.entity_id === powerId);
             if (ent?.source) body.source = ent.source;
@@ -293,11 +332,14 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
     return body;
 }
 
-export async function saveDashboardWidgetFromEditor(result, { editingId = null, original = null } = {}) {
+export async function saveDashboardWidgetFromEditor(
+    result: unknown,
+    { editingId = null, original = null }: { editingId?: string | null; original?: DashboardWidget | null } = {},
+) {
     const d = deps();
-    const body = editorResultToWidgetBody(result, { existingWidget: original });
+    const body = editorResultToWidgetBody(result as EditorResult, { existingWidget: original });
     const entitylessTypes = ['label', 'picture'];
-    if (!entitylessTypes.includes(body.type) && !body.entity_id) {
+    if (!entitylessTypes.includes(String(body.type)) && !body.entity_id) {
         showToast(d.t('dashboard.entity_required') || 'Pick an entity', 'warning');
         return;
     }
@@ -316,7 +358,7 @@ export async function saveDashboardWidgetFromEditor(result, { editingId = null, 
             await d.loadDashboard();
             showToast(d.t('dashboard.card_updated') || 'Card actualizat', 'success');
         } catch (e) {
-            showToast(e.message || d.t('dashboard.card_update_error'), 'error');
+            showToast(e instanceof Error ? e.message : d.t('dashboard.card_update_error'), 'error');
         }
         return;
     }
@@ -333,14 +375,16 @@ export async function saveDashboardWidgetFromEditor(result, { editingId = null, 
             throw new Error(dashApiError(err.detail, 'dashboard.save_widget_failed'));
         }
     } catch (e) {
-        if (String(e?.message || '').includes(d.t('dashboard.save_widget_failed'))) {
-            showToast(e.message, 'error');
+        const msg = e instanceof Error ? e.message : '';
+        if (msg.includes(d.t('dashboard.save_widget_failed'))) {
+            showToast(msg, 'error');
             return;
         }
     }
 
     try {
         const section = await d.readDashboardSectionFallback();
+        section.widgets = section.widgets || [];
         section.widgets.push({
             id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
             ...body,
@@ -349,11 +393,11 @@ export async function saveDashboardWidgetFromEditor(result, { editingId = null, 
         await d.loadDashboard();
         showToast(d.t('dashboard.card_added') || 'Card added', 'success');
     } catch (e) {
-        showToast(e.message || (d.t('dashboard.save_error') || 'Save error'), 'error');
+        showToast(e instanceof Error ? e.message : (d.t('dashboard.save_error') || 'Save error'), 'error');
     }
 }
 
-async function deleteDashboardWidgetSilent(widgetId) {
+async function deleteDashboardWidgetSilent(widgetId: string) {
     const d = deps();
     try {
         const res = await apiCall(`/api/dashboard/widgets/${encodeURIComponent(widgetId)}`, { method: 'DELETE' });
@@ -367,8 +411,9 @@ async function deleteDashboardWidgetSilent(widgetId) {
             throw new Error(dashApiError(err.detail, 'dashboard.delete_widget_failed'));
         }
     } catch (e) {
-        if (String(e?.message || '').includes(d.t('dashboard.delete_widget_failed'))) {
-            showToast(e.message, 'error');
+        const msg = e instanceof Error ? e.message : '';
+        if (msg.includes(d.t('dashboard.delete_widget_failed'))) {
+            showToast(msg, 'error');
             return;
         }
     }
@@ -379,11 +424,11 @@ async function deleteDashboardWidgetSilent(widgetId) {
         await d.loadDashboard();
         showToast(d.t('dashboard.widget_deleted') || 'Widget deleted', 'success');
     } catch (e) {
-        showToast(e.message || (d.t('dashboard.widget_delete_error') || 'Could not delete widget'), 'error');
+        showToast(e instanceof Error ? e.message : (d.t('dashboard.widget_delete_error') || 'Could not delete widget'), 'error');
     }
 }
 
-export async function openDashboardWidgetEditor(widgetId) {
+export async function openDashboardWidgetEditor(widgetId: string) {
     const d = deps();
     if (!d.requireDashboardEditAccess()) return;
     const widget = d.findWidget(widgetId);
@@ -393,7 +438,7 @@ export async function openDashboardWidgetEditor(widgetId) {
     }
     await ensureHyveviewEntitySeed();
     const card = widgetToEditorCard(widget);
-    const result = await hvOpenEditor({ mode: 'edit', card });
+    const result = await hvOpenEditor({ mode: 'edit', card }) as EditorResult | null;
     if (!result) return;
     if (result.__deleted) {
         await deleteDashboardWidgetSilent(widgetId);

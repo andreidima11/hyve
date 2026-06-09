@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Areas (rooms/zones/floors) UI.
  *
@@ -9,7 +8,7 @@ import { apiCall } from './api.js';
 import { showToast, showConfirm } from './utils.js';
 import { t } from './lang/index.js';
 let _areasCache = [];
-let _allEntitiesCache = []; // [{entity_id, name, source, domain, area, ...}]
+let _allEntitiesCache = [];
 let _entitiesCacheTime = 0;
 let _editorState = { mode: 'create', areaId: null, synced: false, entities: [] };
 let _pickerSelected = new Set();
@@ -17,7 +16,7 @@ let _pickerFilter = '';
 function _esc(value) {
     return String(value ?? '').replace(/[&<>"']/g, ch => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[ch]));
+    }[ch] || ch));
 }
 function _iconClass(spec, fallback = 'fas fa-location-dot') {
     const raw = String(spec || '').trim();
@@ -56,9 +55,6 @@ function _renderAreas() {
         const aliasText = aliases.length
             ? `<span class="text-[10px] text-slate-500 truncate">${_esc(aliases.join(', '))}</span>`
             : '';
-        const sourceBadge = a.synced
-            ? `<span class="inline-flex items-center gap-1 text-[9px] font-bold text-sky-300 bg-white/5 rounded-full px-2 py-0.5"><i class="fas fa-link text-[8px]"></i>Sync</span>`
-            : `<span class="inline-flex items-center gap-1 text-[9px] font-bold text-purple-300 bg-white/5 rounded-full px-2 py-0.5"><i class="fas fa-star text-[8px]"></i>Hyve</span>`;
         const iconClass = _iconClass(a.icon || 'fa-house-chimney-window', 'fas fa-house-chimney-window');
         const floor = a.floor ? `<span class="text-[10px] text-slate-500">· ${_esc(a.floor)}</span>` : '';
         const entCount = Array.isArray(a.extra_entities) ? a.extra_entities.length : 0;
@@ -104,7 +100,7 @@ export async function loadAreas() {
     }
 }
 export async function syncAreasFromHA(btn) {
-    const button = (btn instanceof HTMLElement) ? btn : null;
+    const button = (btn instanceof HTMLButtonElement) ? btn : (btn instanceof HTMLElement ? btn : null);
     if (button) {
         button.disabled = true;
         button.classList.add('opacity-60');
@@ -125,7 +121,7 @@ export async function syncAreasFromHA(btn) {
     }
     catch (err) {
         console.error('syncAreasFromHA failed', err);
-        showToast(`${t('areas.sync_error')}: ${err.message}`, 'error');
+        showToast(`${t('areas.sync_error')}: ${err instanceof Error ? err.message : String(err)}`, 'error');
     }
     finally {
         if (button) {
@@ -142,34 +138,35 @@ function _ensureModalAtTopLevel() {
     return modal;
 }
 function _openEditor(area) {
-    console.log('[areas] _openEditor called', { area });
     const modal = _ensureModalAtTopLevel();
     if (!modal) {
-        console.error('[areas] area-editor-modal NOT FOUND in DOM');
         showToast(t('areas.modal_missing'), 'error');
         return;
     }
     modal.classList.remove('hidden');
     modal.classList.add('flex');
-    console.log('[areas] modal classes now:', modal.className);
-    const $ = (id) => document.getElementById(id);
     const isEdit = !!area;
     const synced = !!(area && area.synced);
-    _editorState = { mode: isEdit ? 'edit' : 'create', areaId: isEdit ? area.id : null, synced };
+    _editorState = {
+        mode: isEdit ? 'edit' : 'create',
+        areaId: isEdit ? area.id : null,
+        synced,
+        entities: [],
+    };
     try {
-        const titleEl = $('area-editor-title');
+        const titleEl = document.getElementById('area-editor-title');
         if (titleEl)
             titleEl.innerHTML = `<i class="fas fa-house-chimney-window"></i><span>${_esc(isEdit ? t('areas.editor_title_edit') : t('areas.editor_title_new'))}</span>`;
-        const note = $('area-editor-synced-note');
+        const note = document.getElementById('area-editor-synced-note');
         if (note)
             note.classList.toggle('hidden', !synced);
-        const deleteBtn = $('area-editor-delete');
+        const deleteBtn = document.getElementById('area-editor-delete');
         if (deleteBtn)
             deleteBtn.classList.toggle('hidden', !isEdit || synced);
-        const nameEl = $('area-editor-name');
-        const floorEl = $('area-editor-floor');
-        const iconEl = $('area-editor-icon');
-        const aliasesEl = $('area-editor-aliases');
+        const nameEl = document.getElementById('area-editor-name');
+        const floorEl = document.getElementById('area-editor-floor');
+        const iconEl = document.getElementById('area-editor-icon');
+        const aliasesEl = document.getElementById('area-editor-aliases');
         if (nameEl)
             nameEl.value = area?.name || '';
         if (floorEl)
@@ -178,10 +175,8 @@ function _openEditor(area) {
             iconEl.value = area?.icon || '';
         if (aliasesEl)
             aliasesEl.value = (Array.isArray(area?.aliases) ? area.aliases : []).join(', ');
-        // Selected entities (separate from name/aliases form)
         _editorState.entities = Array.isArray(area?.extra_entities) ? [...area.extra_entities] : [];
         _renderEditorEntities();
-        // Pre-warm entities cache so the picker opens fast
         _ensureEntitiesLoaded().catch(() => { });
         setTimeout(() => nameEl?.focus(), 50);
     }
@@ -197,7 +192,6 @@ export function closeAreaEditor() {
     modal.classList.remove('flex');
 }
 export function openCreateAreaModal() {
-    console.log('[areas] openCreateAreaModal click');
     _openEditor(null);
 }
 export function editArea(areaId) {
@@ -207,17 +201,26 @@ export function editArea(areaId) {
     _openEditor(area);
 }
 export async function saveAreaFromEditor() {
-    const $ = (id) => document.getElementById(id);
-    const name = ($('area-editor-name')?.value || '').trim();
+    const nameEl = document.getElementById('area-editor-name');
+    const floorEl = document.getElementById('area-editor-floor');
+    const iconEl = document.getElementById('area-editor-icon');
+    const aliasesEl = document.getElementById('area-editor-aliases');
+    const name = (nameEl?.value || '').trim();
     if (!name) {
         showToast(t('areas.name_required'), 'error');
         return;
     }
-    const floor = ($('area-editor-floor')?.value || '').trim();
-    const icon = ($('area-editor-icon')?.value || '').trim();
-    const aliasesRaw = ($('area-editor-aliases')?.value || '').trim();
+    const floor = (floorEl?.value || '').trim();
+    const icon = (iconEl?.value || '').trim();
+    const aliasesRaw = (aliasesEl?.value || '').trim();
     const aliases = aliasesRaw ? aliasesRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
-    const payload = { name, floor: floor || null, icon: icon || null, aliases, extra_entities: Array.isArray(_editorState.entities) ? _editorState.entities : [] };
+    const payload = {
+        name,
+        floor: floor || null,
+        icon: icon || null,
+        aliases,
+        extra_entities: Array.isArray(_editorState.entities) ? _editorState.entities : [],
+    };
     try {
         let res;
         if (_editorState.mode === 'edit' && _editorState.areaId) {
@@ -242,7 +245,7 @@ export async function saveAreaFromEditor() {
     }
     catch (err) {
         console.error('saveAreaFromEditor failed', err);
-        showToast(`${t('common.error')}: ${err.message}`, 'error');
+        showToast(`${t('common.error')}: ${err instanceof Error ? err.message : String(err)}`, 'error');
     }
 }
 export async function deleteArea(areaId) {
@@ -262,7 +265,7 @@ export async function deleteArea(areaId) {
     }
     catch (err) {
         console.error('deleteArea failed', err);
-        showToast(`${t('common.error')}: ${err.message}`, 'error');
+        showToast(`${t('common.error')}: ${err instanceof Error ? err.message : String(err)}`, 'error');
     }
 }
 export async function deleteAreaFromEditor() {
@@ -285,12 +288,9 @@ export async function deleteAreaFromEditor() {
     }
     catch (err) {
         console.error('deleteAreaFromEditor failed', err);
-        showToast(`${t('common.error')}: ${err.message}`, 'error');
+        showToast(`${t('common.error')}: ${err instanceof Error ? err.message : String(err)}`, 'error');
     }
 }
-// ─────────────────────────────────────────────────────────────────────────
-// Entity assignment (selected list inside editor + picker modal)
-// ─────────────────────────────────────────────────────────────────────────
 async function _ensureEntitiesLoaded(force = false) {
     const fresh = (Date.now() - _entitiesCacheTime) < 30000;
     if (!force && fresh && _allEntitiesCache.length)

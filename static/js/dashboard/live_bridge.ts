@@ -4,25 +4,23 @@
 
 import { apiCall } from '../api.js';
 import { dashDebug, DASH_DEBUG_ENABLED } from './debug.js';
-import { createDashboardEntityPatcher } from './entity_patch.js';
+import { createDashboardEntityPatcher, type DashboardLiveEntityUpdate } from './entity_patch.js';
 import { createDashboardLiveWs } from './live_ws.js';
 import { pendingForEntity, shouldHoldOptimisticState, clearPendingControl } from './control_state.js';
+import type { DashboardLiveBridgeDeps, DashboardWidget } from '../types/dashboard.js';
 
-/** @typedef {Record<string, unknown>} DashboardLiveDeps */
-
-/** @type {Record<string, unknown> | null} */
-let _deps: Record<string, unknown> | null = null;
+let _deps: DashboardLiveBridgeDeps | null = null;
 /** @type {ReturnType<typeof createDashboardEntityPatcher> | null} */
 let _entityPatcher: ReturnType<typeof createDashboardEntityPatcher> | null = null;
 /** @type {ReturnType<typeof createDashboardLiveWs> | null} */
 let _dashboardLive: ReturnType<typeof createDashboardLiveWs> | null = null;
 
-function deps(): Record<string, unknown> {
+function deps(): DashboardLiveBridgeDeps {
     if (!_deps) throw new Error('Dashboard live bridge not initialized');
     return _deps;
 }
 
-export function initDashboardLiveBridge(depsIn: Record<string, unknown>): void {
+export function initDashboardLiveBridge(depsIn: DashboardLiveBridgeDeps): void {
     _deps = depsIn;
 }
 
@@ -47,7 +45,9 @@ function ensureEntityLive() {
         apiCall,
         dashDebug,
         DASH_DEBUG_ENABLED,
-        onLiveItems: (items: unknown[], isSnapshot: boolean) => _entityPatcher!.applyLiveItems(items, isSnapshot),
+        onLiveItems: (items: unknown[], isSnapshot: boolean) => {
+            _entityPatcher!.applyLiveItems(items as DashboardLiveEntityUpdate[], isSnapshot);
+        },
         onLiveRemoved: (entityIds: string[]) => _entityPatcher!.removeLiveItems(entityIds),
     });
     _dashboardLive.initTabWatch();
@@ -55,10 +55,10 @@ function ensureEntityLive() {
 }
 
 export function dashboardWidgetEntityIds(widget: unknown): string[] {
-    return ensureEntityLive().patcher.widgetEntityIds(widget) as string[];
+    return ensureEntityLive().patcher.widgetEntityIds(widget as DashboardWidget | null | undefined);
 }
 
-export function configureHyveviewMounted(root: unknown): void {
+export function configureHyveviewMounted(root: Element): void {
     ensureEntityLive().patcher.configureHyveviewMounted(root);
 }
 

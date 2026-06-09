@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Settings → Notifications tab (FCM / WebSocket transport, channel prefs).
  */
@@ -6,9 +5,6 @@ import { apiCall } from './api.js';
 import { t } from './lang/index.js';
 import { getNotificationTimer } from './user_context.js';
 import { showToast } from './utils.js';
-// ═══════════════════════════════════════════
-//  NOTIFICATION SETTINGS
-// ═══════════════════════════════════════════
 let _notifWsStatusTimer = null;
 let _notifSettingsHydrating = false;
 let _notifAutoSaveBound = false;
@@ -63,7 +59,10 @@ function _bindNotificationSettingsAutoSave() {
 /** Select notification channel: 'app' (Hyve) or 'whatsapp'. */
 export function selectNotifChannel(channel, opts = {}) {
     const persist = opts.persist !== false;
-    const cards = { app: document.getElementById('notif-card-app'), whatsapp: document.getElementById('notif-card-whatsapp') };
+    const cards = {
+        app: document.getElementById('notif-card-app'),
+        whatsapp: document.getElementById('notif-card-whatsapp'),
+    };
     const appGroup = document.getElementById('notif-app-settings-group');
     const waSection = document.getElementById('notif-whatsapp-section');
     for (const [key, card] of Object.entries(cards)) {
@@ -88,7 +87,6 @@ export function selectNotifChannel(channel, opts = {}) {
         appGroup.classList.toggle('hidden', !appOn);
     if (waSection)
         waSection.classList.toggle('hidden', appOn);
-    // When switching to WhatsApp, disable WS runtime
     if (!appOn) {
         _applyNotifRuntimeTransport('off');
         _stopNotifWsStatusPolling();
@@ -100,8 +98,14 @@ export function selectNotifChannel(channel, opts = {}) {
 /** Highlight the selected transport card and show/hide settings sections. */
 export function selectNotifTransport(transport, opts = {}) {
     const persist = opts.persist !== false;
-    const cards = { websocket: document.getElementById('notif-card-websocket'), firebase: document.getElementById('notif-card-firebase') };
-    const sections = { websocket: document.getElementById('notif-ws-settings'), firebase: document.getElementById('notif-fcm-settings') };
+    const cards = {
+        websocket: document.getElementById('notif-card-websocket'),
+        firebase: document.getElementById('notif-card-firebase'),
+    };
+    const sections = {
+        websocket: document.getElementById('notif-ws-settings'),
+        firebase: document.getElementById('notif-fcm-settings'),
+    };
     for (const [key, card] of Object.entries(cards)) {
         if (!card)
             continue;
@@ -123,7 +127,6 @@ export function selectNotifTransport(transport, opts = {}) {
         if (sec)
             sec.classList.toggle('hidden', key !== transport);
     }
-    // Start/stop WS status polling
     if (transport === 'websocket') {
         _refreshNotifWsStatus();
         _startNotifWsStatusPolling();
@@ -132,7 +135,6 @@ export function selectNotifTransport(transport, opts = {}) {
         _stopNotifWsStatusPolling();
     }
     _applyNotifRuntimeTransport(transport);
-    // Auto-refresh native WS badge (immediate + delayed to catch async service start)
     refreshNotifWsNativeStatus();
     setTimeout(refreshNotifWsNativeStatus, 1200);
     if (persist) {
@@ -178,7 +180,7 @@ async function _refreshNotifWsStatus() {
                 countEl.textContent = String(data.connection_count || 0);
         }
     }
-    catch (e) {
+    catch (_) {
         if (badge) {
             badge.textContent = t('common.error');
             badge.className = 'text-[10px] font-bold px-2.5 py-1 rounded-full border border-red-500/30 text-red-400 bg-red-500/10';
@@ -211,7 +213,7 @@ export function refreshNotifWsNativeStatus() {
             badge.classList.add('border-slate-500/30', 'text-slate-400', 'bg-slate-500/10');
         }
     }
-    catch (e) {
+    catch (_) {
         badge.textContent = t('common.error');
         badge.classList.add('border-red-500/30', 'text-red-400', 'bg-red-500/10');
     }
@@ -251,15 +253,13 @@ export async function testNotification() {
             showToast(t('config.notif_test_no_delivery', { transport: label }), 'warning');
         }
     }
-    catch (e) {
+    catch (_) {
         showToast(t('config.notif_test_error', { transport: label }), 'error');
     }
 }
-/** Send a test notification via WebSocket only (legacy). */
 export async function testWsNotification() {
     return testNotification();
 }
-/** Send a test notification via Firebase FCM only (legacy). */
 export async function testFcmNotification() {
     return testNotification();
 }
@@ -275,28 +275,23 @@ export async function loadNotificationPrefs() {
         if (cfgRes.ok) {
             cfg = await cfgRes.json();
         }
-        // Determine transport: map old hybrid/legacy to websocket
-        const fcm = cfg.fcm || {};
+        const fcm = (cfg.fcm || {});
         let transport = String(fcm.transport_mode || 'websocket').toLowerCase();
         if (transport === 'hybrid')
-            transport = 'websocket'; // hybrid → websocket (simplified)
-        // Populate FCM fields
+            transport = 'websocket';
         const fcmProject = document.getElementById('fcm_project_id');
         const fcmSaPath = document.getElementById('fcm_service_account_path');
         if (fcmProject)
-            fcmProject.value = fcm.project_id || '';
+            fcmProject.value = String(fcm.project_id || '');
         if (fcmSaPath)
-            fcmSaPath.value = fcm.service_account_path || '';
-        // Select transport card (this shows/hides sections)
-        selectNotifTransport(transport, { persist: false });
-        // User notification prefs → channel selector
+            fcmSaPath.value = String(fcm.service_account_path || '');
+        selectNotifTransport(transport === 'firebase' ? 'firebase' : 'websocket', { persist: false });
         let channel = 'app';
         if (userRes.ok) {
             const user = await userRes.json();
             const prefs = user.notification_prefs || { app: true, whatsapp: false };
             channel = prefs.whatsapp && !prefs.app ? 'whatsapp' : 'app';
         }
-        // If WAHA is not enabled, force app channel and hide WhatsApp card
         const wahaOn = !!(cfg.waha && cfg.waha.enabled);
         const waCard = document.getElementById('notif-card-whatsapp');
         if (!wahaOn) {
@@ -321,17 +316,15 @@ export async function loadNotificationPrefs() {
 /** Save notification settings from the Notifications tab. */
 export async function saveNotificationSettings(options = {}) {
     const silent = options.silent === true;
-    // Determine selected transport
     const wsRadio = document.querySelector('input[name="notif_transport"][value="websocket"]');
     const transport = wsRadio && wsRadio.checked ? 'websocket' : 'firebase';
-    // Save config (FCM/transport settings) — uses merge, so only fcm key is updated
     try {
         const newFcm = {
             enabled: transport === 'firebase',
             transport_mode: transport,
             websocket_enabled: transport === 'websocket',
-            project_id: (document.getElementById('fcm_project_id')?.value || '').trim(),
-            service_account_path: (document.getElementById('fcm_service_account_path')?.value || '').trim(),
+            project_id: document.getElementById('fcm_project_id')?.value.trim() || '',
+            service_account_path: document.getElementById('fcm_service_account_path')?.value.trim() || '',
             send_when_ws_disconnected: true,
         };
         const saveRes = await apiCall('/api/config', {
@@ -344,12 +337,11 @@ export async function saveNotificationSettings(options = {}) {
             return;
         }
     }
-    catch (e) {
+    catch (_) {
         if (!silent)
             showToast(t('hy.config_save_error'), 'error');
         return;
     }
-    // Save user notification prefs (channel)
     const channel = _getSelectedChannel();
     const appOn = channel === 'app';
     try {
@@ -358,7 +350,7 @@ export async function saveNotificationSettings(options = {}) {
             body: { notification_prefs: { app: appOn, whatsapp: !appOn } }
         });
     }
-    catch (e) { }
+    catch (_) { }
     if (appOn) {
         _applyNotifRuntimeTransport(transport);
     }

@@ -90,9 +90,9 @@ function dashboardViewCachePayload(payload: Record<string, unknown> = {}): Dashb
     };
 }
 
-export function saveDashboardViewCache(payload: Record<string, unknown>): void {
+export function saveDashboardViewCache(payload: DashboardCache | Record<string, unknown>): void {
     try {
-        localStorage.setItem(DASHBOARD_LOCAL_KEY, JSON.stringify(dashboardViewCachePayload(payload)));
+        localStorage.setItem(DASHBOARD_LOCAL_KEY, JSON.stringify(dashboardViewCachePayload(payload as Record<string, unknown>)));
     } catch { /* ignore */ }
 }
 

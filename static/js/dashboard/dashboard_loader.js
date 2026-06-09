@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Dashboard load/refresh — fetch layout, entity list, and orchestrate grid paint.
  */
@@ -8,7 +7,12 @@ import { DEFAULT_PREFS, DEFAULT_META, DASHBOARD_LOCAL_KEY, DASHBOARD_LAST_PAGE_K
 import { normalizeCache, saveDashboardViewCache, stashDashboardPageSnapshot, dashboardSnapshotFingerprint, } from './dashboard_cache.js';
 import { dashApiError } from './helpers.js';
 import { bindHashRouter, readHashPageId, setHashForPage } from './pages_nav.js';
-/** @type {object | null} */
+class DashboardRefreshAbortError extends Error {
+    constructor() {
+        super(...arguments);
+        this.name = 'DashboardRefreshAbortError';
+    }
+}
 let _deps = null;
 let _loadInFlight = null;
 let _loadStartedAt = 0;
@@ -113,12 +117,10 @@ async function fetchDashboardLayoutJson(url, timeoutMs = 8000, externalSignal = 
         return await res.json();
     }
     catch (err) {
-        if (err && err.name === 'AbortError') {
+        if (err instanceof DOMException && err.name === 'AbortError') {
             if (timedOut)
                 throw new Error('Refresh-ul dashboardului a expirat.');
-            const abortErr = new Error('Dashboard refresh superseded.');
-            abortErr.name = 'DashboardRefreshAbortError';
-            throw abortErr;
+            throw new DashboardRefreshAbortError('Dashboard refresh superseded.');
         }
         throw err;
     }
@@ -251,7 +253,9 @@ export async function refreshAvailableEntities(options = {}) {
             saveDashboardViewCache(normalized);
             if (normalized.page_id)
                 d.setCurrentPageId(normalized.page_id);
-            stashDashboardPageSnapshot(normalized.page_id || d.getCurrentPageId(), normalized);
+            const snapshotPageId = normalized.page_id || d.getCurrentPageId();
+            if (snapshotPageId)
+                stashDashboardPageSnapshot(snapshotPageId, normalized);
             return normalized.available_entities;
         };
         if (!includeEntities) {
@@ -271,15 +275,15 @@ export async function refreshAvailableEntities(options = {}) {
     const statesRes = await apiCall('/api/integrations/all-entities').catch(() => null);
     const states = statesRes && statesRes.ok ? await statesRes.json() : [];
     const items = (Array.isArray(states) ? states : [])
-        .filter(raw => {
+        .filter((raw) => {
         const entityId = String(raw?.entity_id || '');
         const domain = entityId.includes('.') ? entityId.split('.', 1)[0] : '';
         return d.isControllableDomain(domain) || d.isInfoDomain(domain);
     })
-        .map(raw => {
+        .map((raw) => {
         const entityId = String(raw.entity_id || '');
-        const attrs = raw.attributes || {};
-        const name = attrs.friendly_name || entityId;
+        const attrs = (raw.attributes || {});
+        const name = String(attrs.friendly_name || entityId);
         const domain = entityId.split('.', 1)[0] || 'switch';
         const source = /zigbee|z2m/i.test(`${entityId} ${name}`) ? 'zigbee2mqtt' : 'unknown';
         return {
@@ -289,11 +293,11 @@ export async function refreshAvailableEntities(options = {}) {
             domain,
             source,
             aliases: [],
-            unit: attrs.unit_of_measurement || '',
+            unit: String(attrs.unit_of_measurement || ''),
             controllable: d.isControllableDomain(domain),
         };
     })
-        .sort((a, b) => `${a.source}:${a.name}`.localeCompare(`${b.source}:${b.name}`, 'ro'));
+        .sort((a, b) => `${a.source}:${a.name}`.localeCompare(`${b.source}:${b.name || ''}`, 'ro'));
     d.setDashboardCache(normalizeCache({
         widgets: fallbackSection.widgets,
         panels: fallbackSection.panels,
@@ -399,8 +403,11 @@ async function loadDashboardImpl(signal = null, { soft = false } = {}) {
     try {
         getCameraStreamToken().catch(() => { });
         await refreshAvailableEntities({ includeEntities: false, signal });
-        if (d.getCurrentPageId())
-            setHashForPage(d.getCurrentPageId());
+        if (d.getCurrentPageId()) {
+            const pageId = d.getCurrentPageId();
+            if (pageId)
+                setHashForPage(pageId);
+        }
         const layoutFpAfter = dashboardSnapshotFingerprint(d.getDashboardCache());
         const layoutChanged = layoutFpBefore !== layoutFpAfter;
         if (!hadRealContent || layoutChanged || !soft) {
@@ -420,18 +427,18 @@ async function loadDashboardImpl(signal = null, { soft = false } = {}) {
         d.connectDashboardLive();
     }
     catch (e) {
-        if (e && (e.name === 'AbortError' || e.name === 'DashboardRefreshAbortError'))
+        if (e instanceof DashboardRefreshAbortError || (e instanceof DOMException && e.name === 'AbortError'))
             return;
         d.setEntitySelectState(d.t('dashboard.load_entities_failed'), true);
         const gridHasRealContent = !!grid.firstElementChild
             && !(grid.children.length === 1
                 && transientDashboardGridMatches(grid.textContent || ''));
         if (!gridHasRealContent) {
-            grid.innerHTML = `<div class="col-span-full rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">${d.escapeHtml(e.message || d.t('dashboard.load_error'))}</div>`;
+            grid.innerHTML = `<div class="col-span-full rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">${d.escapeHtml(e instanceof Error ? e.message : d.t('dashboard.load_error'))}</div>`;
         }
         else {
             try {
-                console.warn('[dashboard] refresh failed, keeping cached cards:', e?.message || e);
+                console.warn('[dashboard] refresh failed, keeping cached cards:', e instanceof Error ? e.message : e);
             }
             catch (_) { }
         }

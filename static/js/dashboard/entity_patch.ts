@@ -1,4 +1,3 @@
-// @ts-nocheck — Phase 3 TS shell; tighten types incrementally.
 /** Apply WS entity diffs to dashboard cache + Hyveview fast-path patching. */
 
 import { fusionSolarWidgetEntityIds } from '/static/hyveview/cards/fusion_solar/card.js';
@@ -6,8 +5,38 @@ import { entityIdVariants, findEntityById, updatesGetWithAliases, updatesHasWith
 import { patchRegistryCardStates } from './card_registry.js';
 import { widgetArticleEl } from './cards/updates.js';
 import { buildCardRenderCtx } from './widget_cards.js';
+import type { DashboardEntityPatcherDeps, DashboardWidget } from '../types/dashboard.js';
 
-export function createDashboardEntityPatcher(deps) {
+interface EntityStateSnapshot {
+    entity_id: string;
+    state: string | number | null;
+    attributes: Record<string, unknown>;
+    unit: string;
+    available: boolean;
+}
+
+export interface DashboardLiveEntityUpdate {
+    entity_id: string;
+    state?: string | number | null;
+    attributes?: Record<string, unknown>;
+    unit?: string;
+    available?: boolean;
+    current_state?: string | number | null;
+}
+
+interface EntityLiveUpdate extends DashboardLiveEntityUpdate {}
+
+interface HyveviewStateElement extends Element {
+    setState?: (snap: EntityStateSnapshot) => void;
+}
+
+function entityStateValue(value: unknown): string | number | null {
+    if (value == null) return null;
+    if (typeof value === 'string' || typeof value === 'number') return value;
+    return 'unknown';
+}
+
+export function createDashboardEntityPatcher(deps: DashboardEntityPatcherDeps) {
     const {
         HVBridge,
         getCache,
@@ -21,21 +50,23 @@ export function createDashboardEntityPatcher(deps) {
         renderDashboard,
     } = deps;
 
-    function widgetEntityIds(widget) {
+    function widgetEntityIds(widget: DashboardWidget | null | undefined): string[] {
         if (!widget) return [];
-        const ids = new Set();
-        const add = (raw) => {
-            const id = typeof raw === 'string' ? raw : raw?.entity_id;
+        const ids = new Set<string>();
+        const add = (raw: unknown) => {
+            const id = typeof raw === 'string' ? raw : (raw as { entity_id?: string })?.entity_id;
             if (id) ids.add(String(id));
         };
         add(widget.entity_id);
         climateConfiguredIds(widget).forEach((id) => ids.add(id));
         cameraWidgetEntities(widget).forEach((e) => ids.add(e.entity_id));
         if (widgetRenderer(widget) === 'fusion_solar') {
-            fusionSolarWidgetEntityIds(widget).forEach((id) => ids.add(id));
+            fusionSolarWidgetEntityIds(widget).forEach((id: string) => ids.add(id));
         }
         if (Array.isArray(widget.entities)) widget.entities.forEach(add);
-        const cfg = widget?.config && typeof widget.config === 'object' ? widget.config : {};
+        const cfg = widget?.config && typeof widget.config === 'object'
+            ? widget.config as Record<string, unknown>
+            : {};
         if (Array.isArray(cfg.entities)) cfg.entities.forEach(add);
         if (Array.isArray(cfg.entity_ids)) cfg.entity_ids.forEach(add);
         if (Array.isArray(cfg.power_entities)) cfg.power_entities.forEach(add);
@@ -45,7 +76,7 @@ export function createDashboardEntityPatcher(deps) {
         return Array.from(ids);
     }
 
-    function entitySnapshot(entityId, widget) {
+    function entitySnapshot(entityId: string, widget: DashboardWidget | null | undefined): EntityStateSnapshot | null {
         const id = String(entityId || '').trim();
         if (!id) return null;
         const cache = getCache();
@@ -55,9 +86,9 @@ export function createDashboardEntityPatcher(deps) {
         if (fromChild) {
             return {
                 entity_id: id,
-                state: fromChild.current_state ?? fromChild.state ?? 'unknown',
+                state: entityStateValue(fromChild.current_state ?? fromChild.state ?? 'unknown'),
                 attributes: fromChild.attributes || {},
-                unit: fromChild.unit || '',
+                unit: String(fromChild.unit || ''),
                 available: fromChild.available !== false,
             };
         }
@@ -76,56 +107,58 @@ export function createDashboardEntityPatcher(deps) {
                 entity_id: id,
                 state: widget.current_state,
                 attributes: widget.attributes || {},
-                unit: widget.unit || '',
+                unit: String(widget.unit || ''),
                 available: widget.available !== false,
             };
         }
         return null;
     }
 
-    function bootstrapHyveviewCardStates(el, widget) {
-        if (!el || typeof el.setState !== 'function' || !widget) return;
-        for (const entityId of widgetEntityIds(widget)) {
-            const snap = entitySnapshot(entityId, widget);
+    function bootstrapHyveviewCardStates(el: Element, widget: unknown) {
+        const stateEl = el as HyveviewStateElement;
+        const w = widget as DashboardWidget;
+        if (!stateEl || typeof stateEl.setState !== 'function' || !w) return;
+        for (const entityId of widgetEntityIds(w)) {
+            const snap = entitySnapshot(entityId, w);
             if (snap) {
-                try { el.setState(snap); } catch (_) {}
+                try { stateEl.setState(snap); } catch (_) {}
             }
         }
     }
 
-    function configureHyveviewMounted(root) {
+    function configureHyveviewMounted(root: Element) {
         try {
-            HVBridge.configureMounted(root, widgetById, {
+            HVBridge.configureMounted?.(root, widgetById, {
                 bootstrapStates: bootstrapHyveviewCardStates,
             });
         } catch (_) {}
     }
 
-    function widgetSkipsLiveRerender(widget) {
-        return widgetRenderer(widget) === 'camera';
+    function widgetSkipsLiveRerender(widget: DashboardWidget | null | undefined) {
+        return widgetRenderer(widget as DashboardWidget) === 'camera';
     }
 
-    function tryFastPathForUpdates(updates) {
+    function tryFastPathForUpdates(updates: Map<string, EntityLiveUpdate>) {
         if (!updates || typeof updates.size !== 'number' || updates.size === 0) return true;
         try {
             const cache = getCache();
             const handled = typeof HVBridge?.patchEntityStates === 'function'
                 ? HVBridge.patchEntityStates(updates, widgetById)
-                : new Set();
-            const touchedWidgetIds = new Set();
-            const collectTouched = (widget) => {
+                : new Set<string>();
+            const touchedWidgetIds = new Set<string>();
+            const collectTouched = (widget: DashboardWidget | null | undefined) => {
                 if (!widget || !widget.id) return;
                 if (widgetEntityIds(widget).some((id) => updatesHasWithAliases(updates, id))) {
                     touchedWidgetIds.add(String(widget.id));
                 }
             };
-            const walkTouched = (list) => Array.isArray(list) && list.forEach(collectTouched);
+            const walkTouched = (list: DashboardWidget[] | null | undefined) => Array.isArray(list) && list.forEach(collectTouched);
             walkTouched(cache.widgets);
-            (cache.panels || []).forEach(p => walkTouched(p && p.widgets));
+            (cache.panels || []).forEach(p => walkTouched(p?.widgets));
             (cache.pages || []).forEach(pg => {
                 if (!pg) return;
-                walkTouched(pg.widgets);
-                (pg.panels || []).forEach(p => walkTouched(p && p.widgets));
+                walkTouched(pg.widgets as DashboardWidget[] | undefined);
+                (pg.panels as Array<{ widgets?: DashboardWidget[] }> | undefined || []).forEach(p => walkTouched(p?.widgets));
             });
             if (touchedWidgetIds.size === 0) return true;
 
@@ -145,28 +178,28 @@ export function createDashboardEntityPatcher(deps) {
         } catch (_) { return false; }
     }
 
-    function tryFastPathForEntities(entityIds) {
+    function tryFastPathForEntities(entityIds: string | string[] | Set<string> | null | undefined) {
         if (!entityIds) return false;
         const ids = entityIds instanceof Set ? Array.from(entityIds)
             : (Array.isArray(entityIds) ? entityIds : [entityIds]);
         const targets = new Set(ids.map(String).filter(Boolean));
         if (!targets.size) return false;
         const cache = getCache();
-        const updates = new Map();
-        const addFromEntity = (entity) => {
+        const updates = new Map<string, EntityLiveUpdate>();
+        const addFromEntity = (entity: EntityLiveUpdate | DashboardWidget | null | undefined) => {
             if (!entity || !entity.entity_id) return;
             const eid = String(entity.entity_id);
             if (!entityIdVariants(eid).some((variant) => targets.has(variant))) return;
             if (updates.has(eid)) return;
             updates.set(entity.entity_id, {
                 entity_id: entity.entity_id,
-                state: entity.current_state ?? entity.state,
+                state: entityStateValue(entity.current_state ?? entity.state),
                 attributes: entity.attributes || {},
-                unit: entity.unit || '',
+                unit: String(entity.unit || ''),
                 available: entity.available !== false,
             });
         };
-        const walk = (widget) => {
+        const walk = (widget: DashboardWidget | null | undefined) => {
             if (!widget) return;
             addFromEntity(widget);
             if (Array.isArray(widget.entities)) widget.entities.forEach(addFromEntity);
@@ -174,8 +207,8 @@ export function createDashboardEntityPatcher(deps) {
         (cache.widgets || []).forEach(walk);
         (cache.panels || []).forEach(p => (p?.widgets || []).forEach(walk));
         (cache.pages || []).forEach(pg => {
-            (pg?.widgets || []).forEach(walk);
-            (pg?.panels || []).forEach(p => (p?.widgets || []).forEach(walk));
+            (pg?.widgets as DashboardWidget[] | undefined || []).forEach(walk);
+            (pg?.panels as Array<{ widgets?: DashboardWidget[] }> | undefined || []).forEach(p => (p?.widgets || []).forEach(walk));
         });
         targets.forEach(id => {
             if (updates.has(id)) return;
@@ -191,15 +224,15 @@ export function createDashboardEntityPatcher(deps) {
         return tryFastPathForUpdates(updates);
     }
 
-    function applyLiveItems(items, isSnapshot = false) {
+    function applyLiveItems(items: EntityLiveUpdate[], isSnapshot = false) {
         const cache = getCache();
         if (!Array.isArray(cache.available_entities)) {
             cache.available_entities = [];
         }
-        const idx = new Map();
+        const idx = new Map<string, number>();
         cache.available_entities.forEach((it, i) => idx.set(it.entity_id, i));
 
-        const updates = new Map();
+        const updates = new Map<string, EntityLiveUpdate>();
         let touched = false;
         for (const item of items) {
             if (!item || !item.entity_id) continue;
@@ -225,7 +258,7 @@ export function createDashboardEntityPatcher(deps) {
         }
 
         if (isSnapshot && items.length) {
-            const liveIds = new Set();
+            const liveIds = new Set<string>();
             for (const it of items) { if (it?.entity_id) liveIds.add(it.entity_id); }
             const before = cache.available_entities.length;
             const survivors = cache.available_entities.filter(e => liveIds.has(e.entity_id));
@@ -235,7 +268,7 @@ export function createDashboardEntityPatcher(deps) {
         }
 
         if (touched) {
-            const patchWidget = (widget) => {
+            const patchWidget = (widget: DashboardWidget | null | undefined) => {
                 if (!widget) return;
                 const targetIds = widgetEntityIds(widget);
                 if (!targetIds.length && widget.entity_id) targetIds.push(widget.entity_id);
@@ -243,7 +276,7 @@ export function createDashboardEntityPatcher(deps) {
                     const upd = updatesGetWithAliases(updates, entityId);
                     if (!upd) return;
                     const pending = pendingForEntity(entityId);
-                    if (pending) {
+                    if (pending?.widgetId) {
                         clearPendingControl(pending.widgetId);
                     }
                     if (widget.entity_id === entityId) {
@@ -263,20 +296,20 @@ export function createDashboardEntityPatcher(deps) {
                     }
                 });
             };
-            const walkWidgets = (list) => {
+            const walkWidgets = (list: DashboardWidget[] | null | undefined) => {
                 if (!Array.isArray(list)) return;
                 list.forEach(patchWidget);
             };
             walkWidgets(cache.widgets);
             if (Array.isArray(cache.panels)) {
-                cache.panels.forEach(p => walkWidgets(p && p.widgets));
+                cache.panels.forEach(p => walkWidgets(p?.widgets));
             }
             if (Array.isArray(cache.pages)) {
                 cache.pages.forEach(pg => {
                     if (!pg) return;
-                    walkWidgets(pg.widgets);
+                    walkWidgets(pg.widgets as DashboardWidget[] | undefined);
                     if (Array.isArray(pg.panels)) {
-                        pg.panels.forEach(p => walkWidgets(p && p.widgets));
+                        (pg.panels as Array<{ widgets?: DashboardWidget[] }>).forEach(p => walkWidgets(p?.widgets));
                     }
                 });
             }
@@ -284,7 +317,7 @@ export function createDashboardEntityPatcher(deps) {
         }
     }
 
-    function removeLiveItems(entityIds) {
+    function removeLiveItems(entityIds: string[]) {
         if (!entityIds.length) return;
         const cache = getCache();
         const set = new Set(entityIds);

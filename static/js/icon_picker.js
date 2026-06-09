@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 // Icon autocomplete picker for Font Awesome (fa-…) and Material Design Icons (mdi:…).
 //
 // Usage:
@@ -20,7 +19,6 @@ const FA_BRANDS_CSS_URL = '/static/vendor/fontawesome/css/brands.min.css';
 const MDI_CSS_URL = '/static/vendor/mdi/css/materialdesignicons.min.css';
 let _dbPromise = null;
 function _extractNames(cssText, prefix) {
-    // Match `.fa-NAME:before` / `.fa-NAME::before` / `.mdi-NAME::before`
     const re = new RegExp('\\.' + prefix + '-([a-z0-9-]+):{1,2}before', 'gi');
     const out = new Set();
     let m;
@@ -64,12 +62,10 @@ export function loadIconDatabase() {
 }
 function _parseQuery(raw) {
     const value = (raw || '').trim();
-    // Detect MDI prefix
-    let mdiMatch = value.match(/^mdi[:\-]\s*(.*)$/i);
+    const mdiMatch = value.match(/^mdi[:\-]\s*(.*)$/i);
     if (mdiMatch) {
         return { lib: 'mdi', term: mdiMatch[1].toLowerCase().trim(), stylePrefix: '', explicitLib: true };
     }
-    // Detect FA style prefix (fas, far, fab, fal, fad, fass, fa-solid, fa-regular, fa-brands)
     let faStyle = '';
     let term = value.toLowerCase();
     const styleMatch = term.match(/^(fa-(?:solid|regular|brands|light|duotone|sharp)|fass?|far|fab|fal|fad)\s+(.*)$/);
@@ -78,7 +74,6 @@ function _parseQuery(raw) {
         term = styleMatch[2];
     }
     const hasFaPrefix = /^fa-/.test(term);
-    // Strip leading "fa-" if present
     term = term.replace(/^fa-/, '').trim();
     return { lib: 'fa', term, stylePrefix: faStyle, explicitLib: !!faStyle || hasFaPrefix };
 }
@@ -88,7 +83,6 @@ function _scoreMatch(name, term) {
     const idx = name.indexOf(term);
     if (idx < 0)
         return -1;
-    // Prefer prefix matches, then word-boundary, then anywhere.
     if (idx === 0)
         return 1000 - name.length;
     if (name[idx - 1] === '-')
@@ -144,12 +138,10 @@ function _renderIcon(item) {
 function _formatValue(input, item, query) {
     if (item.lib === 'mdi')
         return `mdi:${item.name}`;
-    // Preserve user's existing FA style prefix if any.
     if (query.stylePrefix)
         return `${query.stylePrefix} fa-${item.name}`;
     if (item.style === 'fab')
         return `fab fa-${item.name}`;
-    // Look at the current value: if it already starts with a style prefix, keep it.
     const cur = (input.value || '').trim();
     const prev = cur.match(/^(fa-(?:solid|regular|brands|light|duotone|sharp)|fass?|far|fab|fal|fad)\s+/);
     if (prev)
@@ -289,14 +281,14 @@ export function attachIconPicker(input) {
         }
     });
     input.addEventListener('blur', () => {
-        // Delay so click on item lands first.
         setTimeout(() => { if (_activeInput === input)
             _hidePopover(); }, 120);
     });
 }
 function _autoAttach(root) {
-    const scope = root || document;
-    scope.querySelectorAll('input[data-icon-picker]').forEach(attachIconPicker);
+    root.querySelectorAll('input[data-icon-picker]').forEach((node) => {
+        attachIconPicker(node);
+    });
 }
 function _initObserver() {
     const obs = new MutationObserver((mutations) => {
@@ -304,22 +296,18 @@ function _initObserver() {
             m.addedNodes && m.addedNodes.forEach((node) => {
                 if (node.nodeType !== 1)
                     return;
-                if (node.matches && node.matches('input[data-icon-picker]'))
-                    attachIconPicker(node);
-                if (node.querySelectorAll)
-                    _autoAttach(node);
+                const el = node;
+                if (el.matches('input[data-icon-picker]'))
+                    attachIconPicker(el);
+                _autoAttach(el);
             });
         }
     });
     obs.observe(document.body, { childList: true, subtree: true });
 }
 export function initIconPicker() {
-    // Icon CSS (~450KB FA + MDI) is fetched+parsed lazily on first picker focus
-    // (loadIconDatabase is memoized and awaited inside _renderResults), not at
-    // boot — those stylesheets are already linked in <head> for rendering.
     _autoAttach(document);
     _initObserver();
-    // Hide on outside click. Reposition on scroll/resize instead of closing.
     document.addEventListener('mousedown', (ev) => {
         const pop = document.getElementById('icon-picker-popover');
         if (!pop || pop.style.display === 'none')

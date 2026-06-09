@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Dashboard section (panel) create/edit modal — background, visibility, pagination pages.
  */
@@ -7,13 +6,34 @@ import { apiCall } from '../api.js';
 import { syncModalViewportMetrics } from '../utils.js';
 import { dashApiError, escapeHtml } from './helpers.js';
 import { enhanceDashboardCustomSelects, syncDashboardCustomSelect } from './custom_selects.js';
+import type { DashboardPanel, DashboardPanelModalDeps } from '../types/dashboard.js';
 
-/** @type {object | null} */
-let _deps = null;
+interface PanelModalPage {
+    id: string;
+    title: string;
+    icon: string;
+}
 
-let _modalMode = 'add';
-let _modalPanelId = null;
-let _modalPages = [];
+interface PanelModalInput {
+    id?: string;
+    title?: string;
+    size?: string;
+    icon?: string;
+    show_pagination?: boolean;
+    pages?: Array<{ id?: string; title?: string; icon?: string }>;
+    background?: { color?: string; opacity?: number } | null;
+    visibility?: {
+        enabled?: boolean;
+        logic?: string;
+        conditions?: Array<Record<string, unknown>>;
+    } | null;
+}
+
+let _deps: DashboardPanelModalDeps | null = null;
+
+let _modalMode: 'add' | 'edit' = 'add';
+let _modalPanelId: string | null = null;
+let _modalPages: PanelModalPage[] = [];
 let _panelVisCondSeq = 0;
 
 const _SCREEN_PRESETS = [
@@ -21,12 +41,12 @@ const _SCREEN_PRESETS = [
     { label: 'Desktop (≥1024px)', value: '(min-width: 1024px)' },
 ];
 
-function deps() {
+function deps(): DashboardPanelModalDeps {
     if (!_deps) throw new Error('Dashboard panel modal not initialized');
     return _deps;
 }
 
-export function initDashboardPanelModal(depsIn) {
+export function initDashboardPanelModal(depsIn: DashboardPanelModalDeps) {
     _deps = depsIn;
 }
 
@@ -34,22 +54,24 @@ function panelModalElements() {
     return {
         modal: document.getElementById('dashboard-panel-modal'),
         modalTitle: document.getElementById('dashboard-panel-modal-title'),
-        title: document.getElementById('dashboard-panel-title-input'),
-        size: document.getElementById('dashboard-panel-size-input'),
-        sizeOptions: Array.from(document.querySelectorAll('[data-dashboard-panel-size-option]')),
-        icon: document.getElementById('dashboard-panel-icon-input'),
-        showPagination: document.getElementById('dashboard-panel-show-pagination-input'),
+        title: document.getElementById('dashboard-panel-title-input') as HTMLInputElement | null,
+        size: document.getElementById('dashboard-panel-size-input') as HTMLSelectElement | null,
+        sizeOptions: Array.from(document.querySelectorAll('[data-dashboard-panel-size-option]')) as HTMLElement[],
+        icon: document.getElementById('dashboard-panel-icon-input') as HTMLInputElement | null,
+        showPagination: document.getElementById('dashboard-panel-show-pagination-input') as HTMLInputElement | null,
         pagesList: document.getElementById('dashboard-panel-pages-list'),
         pagesEmpty: document.getElementById('dashboard-panel-pages-empty'),
         addPage: document.getElementById('dashboard-panel-page-add'),
     };
 }
 
-export function setDashboardPanelSize(value) {
+export function setDashboardPanelSize(value: string) {
     const els = panelModalElements();
     const normalized = ['sm', 'md', 'wide'].includes(value) ? value : 'sm';
-    if (els.size) els.size.value = normalized;
-    syncDashboardCustomSelect(els.size);
+    if (els.size) {
+        els.size.value = normalized;
+        syncDashboardCustomSelect(els.size);
+    }
     els.sizeOptions.forEach(option => {
         const isActive = option.getAttribute('data-dashboard-panel-size-option') === normalized;
         option.dataset.active = isActive ? 'true' : 'false';
@@ -58,7 +80,7 @@ export function setDashboardPanelSize(value) {
     });
 }
 
-function openDashboardPanelModal(mode, panel = {}) {
+function openDashboardPanelModal(mode: 'add' | 'edit', panel: PanelModalInput = {}) {
     const d = deps();
     const els = panelModalElements();
     if (!els.modal) return;
@@ -79,7 +101,7 @@ function openDashboardPanelModal(mode, panel = {}) {
             : d.t('dashboard.create_section');
     }
     if (els.title) els.title.value = _modalMode === 'edit' ? String(panel.title || '') : '';
-    setDashboardPanelSize(['sm', 'md', 'wide'].includes(panel.size) ? panel.size : 'sm');
+    setDashboardPanelSize(['sm', 'md', 'wide'].includes(String(panel.size || '')) ? String(panel.size) : 'sm');
     if (els.icon) els.icon.value = String(panel.icon || '');
     if (els.showPagination) els.showPagination.checked = panel.show_pagination !== false;
     populateDashboardPanelBackground(panel);
@@ -116,13 +138,15 @@ function renderDashboardPanelPagesEditor() {
     pagesList.querySelectorAll('[data-panel-page-title]').forEach(input => {
         input.addEventListener('input', () => {
             const index = Number(input.getAttribute('data-panel-page-title'));
-            if (_modalPages[index]) _modalPages[index].title = input.value;
+            const row = input as HTMLInputElement;
+            if (_modalPages[index]) _modalPages[index].title = row.value;
         });
     });
     pagesList.querySelectorAll('[data-panel-page-icon]').forEach(input => {
         input.addEventListener('input', () => {
             const index = Number(input.getAttribute('data-panel-page-icon'));
-            if (_modalPages[index]) _modalPages[index].icon = input.value;
+            const row = input as HTMLInputElement;
+            if (_modalPages[index]) _modalPages[index].icon = row.value;
         });
     });
     pagesList.querySelectorAll('[data-panel-page-remove]').forEach(button => {
@@ -156,16 +180,16 @@ function readDashboardPanelModalBody() {
 }
 
 export function toggleDashboardPanelBackground() {
-    const enabled = document.getElementById('dashboard-panel-bg-enabled');
+    const enabled = document.getElementById('dashboard-panel-bg-enabled') as HTMLInputElement | null;
     const body = document.getElementById('dashboard-panel-bg-body');
     if (body) body.classList.toggle('hidden', !enabled?.checked);
 }
 
-function populateDashboardPanelBackground(panel) {
-    const enabled = document.getElementById('dashboard-panel-bg-enabled');
+function populateDashboardPanelBackground(panel: PanelModalInput) {
+    const enabled = document.getElementById('dashboard-panel-bg-enabled') as HTMLInputElement | null;
     const body = document.getElementById('dashboard-panel-bg-body');
-    const color = document.getElementById('dashboard-panel-bg-color');
-    const opacity = document.getElementById('dashboard-panel-bg-opacity');
+    const color = document.getElementById('dashboard-panel-bg-color') as HTMLInputElement | null;
+    const opacity = document.getElementById('dashboard-panel-bg-opacity') as HTMLInputElement | null;
     const opacityVal = document.getElementById('dashboard-panel-bg-opacity-value');
     const bg = panel?.background || null;
     const on = !!(bg && bg.color);
@@ -178,15 +202,15 @@ function populateDashboardPanelBackground(panel) {
 }
 
 function readDashboardPanelBackground() {
-    const enabled = document.getElementById('dashboard-panel-bg-enabled');
+    const enabled = document.getElementById('dashboard-panel-bg-enabled') as HTMLInputElement | null;
     if (!enabled?.checked) return null;
-    const color = String(document.getElementById('dashboard-panel-bg-color')?.value || '#1e293b');
-    const pct = parseInt(document.getElementById('dashboard-panel-bg-opacity')?.value || '60', 10);
+    const color = String((document.getElementById('dashboard-panel-bg-color') as HTMLInputElement | null)?.value || '#1e293b');
+    const pct = parseInt((document.getElementById('dashboard-panel-bg-opacity') as HTMLInputElement | null)?.value || '60', 10);
     return { color, opacity: Math.min(Math.max(pct, 0), 100) / 100 };
 }
 
 export function toggleDashboardPanelVisibility() {
-    const enabled = document.getElementById('dashboard-panel-visibility-enabled');
+    const enabled = document.getElementById('dashboard-panel-visibility-enabled') as HTMLInputElement | null;
     const body = document.getElementById('dashboard-panel-visibility-body');
     if (body) body.classList.toggle('hidden', !enabled?.checked);
     if (enabled?.checked) {
@@ -195,7 +219,7 @@ export function toggleDashboardPanelVisibility() {
     }
 }
 
-export function addDashboardPanelVisibilityCondition(cond = null) {
+export function addDashboardPanelVisibilityCondition(cond: Record<string, unknown> | null = null) {
     const d = deps();
     const wrap = document.getElementById('dashboard-panel-visibility-conditions');
     if (!wrap) return;
@@ -214,23 +238,25 @@ export function addDashboardPanelVisibilityCondition(cond = null) {
             <button type="button" data-pvis-remove class="ml-auto text-slate-500 hover:text-red-400 text-xs px-1" aria-label="Șterge condiție"><i class="fas fa-xmark"></i></button>
         </div>
         <div data-pvis-fields></div>`;
-    const typeSel = row.querySelector('[data-pvis-field="type"]');
+    const typeSel = row.querySelector('[data-pvis-field="type"]') as HTMLSelectElement | null;
+    if (!typeSel) return;
     typeSel.value = ['entity', 'user', 'screen'].includes(type) ? type : 'entity';
     const renderFields = () => {
-        row.querySelector('[data-pvis-fields]').innerHTML = panelVisibilityFieldsHtml(typeSel.value, idx, cond);
+        const fields = row.querySelector('[data-pvis-fields]');
+        if (fields) fields.innerHTML = panelVisibilityFieldsHtml(typeSel.value, idx, cond);
         enhanceDashboardCustomSelects(row);
     };
     typeSel.addEventListener('change', () => { renderFields(); });
-    row.querySelector('[data-pvis-remove]').addEventListener('click', () => row.remove());
+    row.querySelector('[data-pvis-remove]')?.addEventListener('click', () => row.remove());
     wrap.appendChild(row);
     renderFields();
     enhanceDashboardCustomSelects(row);
 }
 
-function panelVisibilityFieldsHtml(type, idx, cond) {
+function panelVisibilityFieldsHtml(type: string, idx: number, cond: Record<string, unknown> | null) {
     const d = deps();
     if (type === 'user') {
-        const users = Array.isArray(cond?.users) ? cond.users.join(', ') : '';
+        const users = Array.isArray(cond?.users) ? (cond.users as string[]).join(', ') : '';
         const op = cond?.operator === 'is_not' ? 'is_not' : 'is';
         return `
             <div class="flex items-center gap-2">
@@ -257,7 +283,7 @@ function panelVisibilityFieldsHtml(type, idx, cond) {
     const ent = escapeHtml(cond?.entity_id || '');
     const op = String(cond?.operator || cond?.op || 'is');
     const val = escapeHtml(cond?.value != null ? String(cond.value) : '');
-    const opSel = (v, label) => `<option value="${v}"${op === v ? ' selected' : ''}>${label}</option>`;
+    const opSel = (v: string, label: string) => `<option value="${v}"${op === v ? ' selected' : ''}>${label}</option>`;
     return `
         <div class="flex items-center gap-2">
             <input type="text" list="${listId}" data-pvis-field="entity" value="${ent}" placeholder="entity_id"
@@ -271,10 +297,10 @@ function panelVisibilityFieldsHtml(type, idx, cond) {
         </div>`;
 }
 
-function populateDashboardPanelVisibility(panel) {
-    const enabled = document.getElementById('dashboard-panel-visibility-enabled');
+function populateDashboardPanelVisibility(panel: PanelModalInput) {
+    const enabled = document.getElementById('dashboard-panel-visibility-enabled') as HTMLInputElement | null;
     const body = document.getElementById('dashboard-panel-visibility-body');
-    const logic = document.getElementById('dashboard-panel-visibility-logic');
+    const logic = document.getElementById('dashboard-panel-visibility-logic') as HTMLSelectElement | null;
     const wrap = document.getElementById('dashboard-panel-visibility-conditions');
     if (!enabled || !wrap) return;
     const cfg = panel?.visibility || null;
@@ -289,26 +315,26 @@ function populateDashboardPanelVisibility(panel) {
 }
 
 function readDashboardPanelVisibility() {
-    const enabled = document.getElementById('dashboard-panel-visibility-enabled');
+    const enabled = document.getElementById('dashboard-panel-visibility-enabled') as HTMLInputElement | null;
     if (!enabled?.checked) return { enabled: false, logic: 'and', conditions: [] };
-    const logic = document.getElementById('dashboard-panel-visibility-logic')?.value === 'or' ? 'or' : 'and';
+    const logic = (document.getElementById('dashboard-panel-visibility-logic') as HTMLSelectElement | null)?.value === 'or' ? 'or' : 'and';
     const wrap = document.getElementById('dashboard-panel-visibility-conditions');
-    const conditions = [];
+    const conditions: Array<Record<string, unknown>> = [];
     if (wrap) {
         for (const row of wrap.querySelectorAll('[data-panel-cond]')) {
-            const type = row.querySelector('[data-pvis-field="type"]')?.value || 'entity';
+            const type = (row.querySelector('[data-pvis-field="type"]') as HTMLSelectElement | null)?.value || 'entity';
             if (type === 'user') {
-                const users = String(row.querySelector('[data-pvis-field="users"]')?.value || '')
+                const users = String((row.querySelector('[data-pvis-field="users"]') as HTMLInputElement | null)?.value || '')
                     .split(',').map(s => s.trim()).filter(Boolean);
-                const op = row.querySelector('[data-pvis-field="op"]')?.value === 'is_not' ? 'is_not' : 'is';
+                const op = (row.querySelector('[data-pvis-field="op"]') as HTMLSelectElement | null)?.value === 'is_not' ? 'is_not' : 'is';
                 if (users.length) conditions.push({ condition: 'user', users, operator: op });
             } else if (type === 'screen') {
-                const media = String(row.querySelector('[data-pvis-field="media"]')?.value || '').trim();
+                const media = String((row.querySelector('[data-pvis-field="media"]') as HTMLInputElement | null)?.value || '').trim();
                 if (media) conditions.push({ condition: 'screen', media });
             } else {
-                const ent = String(row.querySelector('[data-pvis-field="entity"]')?.value || '').trim();
-                const op = row.querySelector('[data-pvis-field="op"]')?.value || 'is';
-                const value = String(row.querySelector('[data-pvis-field="value"]')?.value || '');
+                const ent = String((row.querySelector('[data-pvis-field="entity"]') as HTMLInputElement | null)?.value || '').trim();
+                const op = (row.querySelector('[data-pvis-field="op"]') as HTMLSelectElement | null)?.value || 'is';
+                const value = String((row.querySelector('[data-pvis-field="value"]') as HTMLInputElement | null)?.value || '');
                 if (ent) conditions.push({ condition: 'entity', entity_id: ent, operator: op, value });
             }
         }
@@ -322,12 +348,12 @@ export function openDashboardPanelCreator() {
     openDashboardPanelModal('add', { title: '', size: 'sm', icon: '', show_pagination: true, pages: [] });
 }
 
-export function openDashboardPanelEditor(panelId) {
+export function openDashboardPanelEditor(panelId: string) {
     const d = deps();
     if (!d.requireDashboardEditAccess()) return;
-    const panel = (d.getDashboardCache().panels || []).find(p => String(p.id) === String(panelId));
+    const panel = (d.getDashboardCache().panels || []).find(p => String(p.id) === String(panelId)) as DashboardPanel | undefined;
     if (!panel) return;
-    openDashboardPanelModal('edit', panel);
+    openDashboardPanelModal('edit', panel as PanelModalInput);
 }
 
 export function closeDashboardPanelModal() {
@@ -348,7 +374,7 @@ export async function saveDashboardPanel() {
         const pageId = d.getCurrentPageId();
         const params = pageId ? `?page_id=${encodeURIComponent(pageId)}` : '';
         const isEdit = _modalMode === 'edit' && _modalPanelId;
-        const path = isEdit
+        const path = isEdit && _modalPanelId
             ? `/api/dashboard/panels/${encodeURIComponent(_modalPanelId)}${params}`
             : `/api/dashboard/panels${params}`;
         const res = await apiCall(path, {
@@ -364,7 +390,7 @@ export async function saveDashboardPanel() {
         d.renderDashboard();
         d.showToast(isEdit ? d.t('dashboard.section_updated') : d.t('dashboard.section_added'), 'success');
     } catch (e) {
-        d.showToast(e.message || d.t('dashboard.section_save_error'), 'error');
+        d.showToast(e instanceof Error ? e.message : d.t('dashboard.section_save_error'), 'error');
     }
 }
 

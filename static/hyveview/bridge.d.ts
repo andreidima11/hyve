@@ -16,11 +16,15 @@ export function renderCardOuter(widget: unknown, outerHtmlParts: unknown): strin
 
 export function renderCardElement(widget: unknown): string;
 
-export function configureMounted(rootElement: Element): void;
+export function configureMounted(
+    rootElement: Element,
+    widgetById: (id: string) => unknown,
+    options?: { bootstrapStates?: (el: Element, widget: unknown) => void },
+): void;
 
 export function patchEntityStates(
-    updatesByEntityId: Record<string, unknown>,
-    widgetById: Record<string, unknown>,
+    updatesByEntityId: Map<string, unknown>,
+    widgetById: (id: string) => unknown,
 ): Set<string>;
 
 export function getCardSpec(type: string): { shell?: Record<string, unknown> } | null | undefined;

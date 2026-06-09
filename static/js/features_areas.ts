@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Areas (rooms/zones/floors) UI.
  *
@@ -8,21 +7,44 @@
 import { apiCall } from './api.js';
 import { showToast, showConfirm } from './utils.js';
 import { t } from './lang/index.js';
+import type { HyveEntity } from './types/entity.js';
 
-let _areasCache = [];
-let _allEntitiesCache = [];        // [{entity_id, name, source, domain, area, ...}]
-let _entitiesCacheTime = 0;
-let _editorState = { mode: 'create', areaId: null, synced: false, entities: [] };
-let _pickerSelected = new Set();
-let _pickerFilter = '';
-
-function _esc(value) {
-    return String(value ?? '').replace(/[&<>"']/g, ch => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[ch]));
+interface HyveArea {
+    id: string;
+    name?: string;
+    aliases?: string[];
+    synced?: boolean;
+    icon?: string;
+    floor?: string;
+    extra_entities?: string[];
 }
 
-function _iconClass(spec, fallback = 'fas fa-location-dot') {
+interface AreaEditorState {
+    mode: 'create' | 'edit';
+    areaId: string | null;
+    synced: boolean;
+    entities: string[];
+}
+
+type AreaEntityRef = HyveEntity & {
+    friendly_name?: string;
+    area?: string;
+};
+
+let _areasCache: HyveArea[] = [];
+let _allEntitiesCache: AreaEntityRef[] = [];
+let _entitiesCacheTime = 0;
+let _editorState: AreaEditorState = { mode: 'create', areaId: null, synced: false, entities: [] };
+let _pickerSelected = new Set<string>();
+let _pickerFilter = '';
+
+function _esc(value: unknown) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[ch as string] || ch));
+}
+
+function _iconClass(spec: unknown, fallback = 'fas fa-location-dot') {
     const raw = String(spec || '').trim();
     if (!raw) return fallback;
     if (raw.startsWith('mdi:')) return `mdi mdi-${raw.slice(4)}`;
@@ -51,9 +73,6 @@ function _renderAreas() {
         const aliasText = aliases.length
             ? `<span class="text-[10px] text-slate-500 truncate">${_esc(aliases.join(', '))}</span>`
             : '';
-        const sourceBadge = a.synced
-            ? `<span class="inline-flex items-center gap-1 text-[9px] font-bold text-sky-300 bg-white/5 rounded-full px-2 py-0.5"><i class="fas fa-link text-[8px]"></i>Sync</span>`
-            : `<span class="inline-flex items-center gap-1 text-[9px] font-bold text-purple-300 bg-white/5 rounded-full px-2 py-0.5"><i class="fas fa-star text-[8px]"></i>Hyve</span>`;
         const iconClass = _iconClass(a.icon || 'fa-house-chimney-window', 'fas fa-house-chimney-window');
         const floor = a.floor ? `<span class="text-[10px] text-slate-500">· ${_esc(a.floor)}</span>` : '';
         const entCount = Array.isArray(a.extra_entities) ? a.extra_entities.length : 0;
@@ -88,7 +107,7 @@ export async function loadAreas() {
     try {
         const res = await apiCall('/api/areas');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
+        const data = await res.json() as { areas?: HyveArea[] };
         _areasCache = Array.isArray(data?.areas) ? data.areas : [];
         _renderAreas();
     } catch (err) {
@@ -97,16 +116,16 @@ export async function loadAreas() {
     }
 }
 
-export async function syncAreasFromHA(btn) {
-    const button = (btn instanceof HTMLElement) ? btn : null;
+export async function syncAreasFromHA(btn?: Event | HTMLElement | null) {
+    const button = (btn instanceof HTMLButtonElement) ? btn : (btn instanceof HTMLElement ? btn as HTMLButtonElement : null);
     if (button) { button.disabled = true; button.classList.add('opacity-60'); }
     try {
         const res = await apiCall('/api/areas/sync', { method: 'POST' });
         if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
+            const err = await res.json().catch(() => ({})) as { detail?: string };
             throw new Error(err?.detail || `HTTP ${res.status}`);
         }
-        const data = await res.json();
+        const data = await res.json() as { synced?: number; removed?: number; areas?: HyveArea[] };
         const synced = Number(data?.synced || 0);
         const removed = Number(data?.removed || 0);
         const removedSuffix = removed ? t('areas.sync_removed_suffix', { count: removed }) : '';
@@ -115,7 +134,7 @@ export async function syncAreasFromHA(btn) {
         _renderAreas();
     } catch (err) {
         console.error('syncAreasFromHA failed', err);
-        showToast(`${t('areas.sync_error')}: ${err.message}`, 'error');
+        showToast(`${t('areas.sync_error')}: ${err instanceof Error ? err.message : String(err)}`, 'error');
     } finally {
         if (button) { button.disabled = false; button.classList.remove('opacity-60'); }
     }
@@ -129,46 +148,45 @@ function _ensureModalAtTopLevel() {
     return modal;
 }
 
-function _openEditor(area) {
-    console.log('[areas] _openEditor called', { area });
+function _openEditor(area: HyveArea | null) {
     const modal = _ensureModalAtTopLevel();
     if (!modal) {
-        console.error('[areas] area-editor-modal NOT FOUND in DOM');
         showToast(t('areas.modal_missing'), 'error');
         return;
     }
     modal.classList.remove('hidden');
     modal.classList.add('flex');
-    console.log('[areas] modal classes now:', modal.className);
 
-    const $ = (id) => document.getElementById(id);
     const isEdit = !!area;
     const synced = !!(area && area.synced);
-    _editorState = { mode: isEdit ? 'edit' : 'create', areaId: isEdit ? area.id : null, synced };
+    _editorState = {
+        mode: isEdit ? 'edit' : 'create',
+        areaId: isEdit ? area!.id : null,
+        synced,
+        entities: [],
+    };
 
     try {
-        const titleEl = $('area-editor-title');
+        const titleEl = document.getElementById('area-editor-title');
         if (titleEl) titleEl.innerHTML = `<i class="fas fa-house-chimney-window"></i><span>${_esc(isEdit ? t('areas.editor_title_edit') : t('areas.editor_title_new'))}</span>`;
 
-        const note = $('area-editor-synced-note');
+        const note = document.getElementById('area-editor-synced-note');
         if (note) note.classList.toggle('hidden', !synced);
 
-        const deleteBtn = $('area-editor-delete');
+        const deleteBtn = document.getElementById('area-editor-delete');
         if (deleteBtn) deleteBtn.classList.toggle('hidden', !isEdit || synced);
 
-        const nameEl = $('area-editor-name');
-        const floorEl = $('area-editor-floor');
-        const iconEl = $('area-editor-icon');
-        const aliasesEl = $('area-editor-aliases');
+        const nameEl = document.getElementById('area-editor-name') as HTMLInputElement | null;
+        const floorEl = document.getElementById('area-editor-floor') as HTMLInputElement | null;
+        const iconEl = document.getElementById('area-editor-icon') as HTMLInputElement | null;
+        const aliasesEl = document.getElementById('area-editor-aliases') as HTMLInputElement | null;
         if (nameEl) nameEl.value = area?.name || '';
         if (floorEl) floorEl.value = area?.floor || '';
         if (iconEl) iconEl.value = area?.icon || '';
         if (aliasesEl) aliasesEl.value = (Array.isArray(area?.aliases) ? area.aliases : []).join(', ');
 
-        // Selected entities (separate from name/aliases form)
         _editorState.entities = Array.isArray(area?.extra_entities) ? [...area.extra_entities] : [];
         _renderEditorEntities();
-        // Pre-warm entities cache so the picker opens fast
         _ensureEntitiesLoaded().catch(() => {});
 
         setTimeout(() => nameEl?.focus(), 50);
@@ -185,29 +203,37 @@ export function closeAreaEditor() {
 }
 
 export function openCreateAreaModal() {
-    console.log('[areas] openCreateAreaModal click');
     _openEditor(null);
 }
 
-export function editArea(areaId) {
+export function editArea(areaId: string) {
     const area = _areasCache.find(a => a.id === areaId);
     if (!area) return;
     _openEditor(area);
 }
 
 export async function saveAreaFromEditor() {
-    const $ = (id) => document.getElementById(id);
-    const name = ($('area-editor-name')?.value || '').trim();
+    const nameEl = document.getElementById('area-editor-name') as HTMLInputElement | null;
+    const floorEl = document.getElementById('area-editor-floor') as HTMLInputElement | null;
+    const iconEl = document.getElementById('area-editor-icon') as HTMLInputElement | null;
+    const aliasesEl = document.getElementById('area-editor-aliases') as HTMLInputElement | null;
+    const name = (nameEl?.value || '').trim();
     if (!name) { showToast(t('areas.name_required'), 'error'); return; }
-    const floor = ($('area-editor-floor')?.value || '').trim();
-    const icon = ($('area-editor-icon')?.value || '').trim();
-    const aliasesRaw = ($('area-editor-aliases')?.value || '').trim();
+    const floor = (floorEl?.value || '').trim();
+    const icon = (iconEl?.value || '').trim();
+    const aliasesRaw = (aliasesEl?.value || '').trim();
     const aliases = aliasesRaw ? aliasesRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
 
-    const payload = { name, floor: floor || null, icon: icon || null, aliases, extra_entities: Array.isArray(_editorState.entities) ? _editorState.entities : [] };
+    const payload = {
+        name,
+        floor: floor || null,
+        icon: icon || null,
+        aliases,
+        extra_entities: Array.isArray(_editorState.entities) ? _editorState.entities : [],
+    };
 
     try {
-        let res;
+        let res: Response;
         if (_editorState.mode === 'edit' && _editorState.areaId) {
             res = await apiCall(`/api/areas/${encodeURIComponent(_editorState.areaId)}`, {
                 method: 'PATCH',
@@ -220,7 +246,7 @@ export async function saveAreaFromEditor() {
             });
         }
         if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
+            const err = await res.json().catch(() => ({})) as { detail?: string };
             throw new Error(err?.detail || `HTTP ${res.status}`);
         }
         showToast(t('areas.saved'), 'success');
@@ -228,25 +254,25 @@ export async function saveAreaFromEditor() {
         await loadAreas();
     } catch (err) {
         console.error('saveAreaFromEditor failed', err);
-        showToast(`${t('common.error')}: ${err.message}`, 'error');
+        showToast(`${t('common.error')}: ${err instanceof Error ? err.message : String(err)}`, 'error');
     }
 }
 
-export async function deleteArea(areaId) {
+export async function deleteArea(areaId: string) {
     const area = _areasCache.find(a => a.id === areaId);
     if (!area) return;
     if (!(await showConfirm(t('areas.delete_confirm', { name: area.name })))) return;
     try {
         const res = await apiCall(`/api/areas/${encodeURIComponent(areaId)}`, { method: 'DELETE' });
         if (!res.ok && res.status !== 204) {
-            const err = await res.json().catch(() => ({}));
+            const err = await res.json().catch(() => ({})) as { detail?: string };
             throw new Error(err?.detail || `HTTP ${res.status}`);
         }
         showToast(t('areas.deleted'), 'success');
         await loadAreas();
     } catch (err) {
         console.error('deleteArea failed', err);
-        showToast(`${t('common.error')}: ${err.message}`, 'error');
+        showToast(`${t('common.error')}: ${err instanceof Error ? err.message : String(err)}`, 'error');
     }
 }
 
@@ -258,7 +284,7 @@ export async function deleteAreaFromEditor() {
     try {
         const res = await apiCall(`/api/areas/${encodeURIComponent(_editorState.areaId)}`, { method: 'DELETE' });
         if (!res.ok && res.status !== 204) {
-            const err = await res.json().catch(() => ({}));
+            const err = await res.json().catch(() => ({})) as { detail?: string };
             throw new Error(err?.detail || `HTTP ${res.status}`);
         }
         showToast(t('areas.deleted'), 'success');
@@ -266,26 +292,22 @@ export async function deleteAreaFromEditor() {
         await loadAreas();
     } catch (err) {
         console.error('deleteAreaFromEditor failed', err);
-        showToast(`${t('common.error')}: ${err.message}`, 'error');
+        showToast(`${t('common.error')}: ${err instanceof Error ? err.message : String(err)}`, 'error');
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────
-// Entity assignment (selected list inside editor + picker modal)
-// ─────────────────────────────────────────────────────────────────────────
 
 async function _ensureEntitiesLoaded(force = false) {
     const fresh = (Date.now() - _entitiesCacheTime) < 30_000;
     if (!force && fresh && _allEntitiesCache.length) return _allEntitiesCache;
     const res = await apiCall('/api/integrations/all-entities');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    const data = await res.json() as { entities?: AreaEntityRef[] };
     _allEntitiesCache = Array.isArray(data?.entities) ? data.entities : [];
     _entitiesCacheTime = Date.now();
     return _allEntitiesCache;
 }
 
-function _entityLookup(eid) {
+function _entityLookup(eid: string) {
     return _allEntitiesCache.find(e => e.entity_id === eid);
 }
 
@@ -311,7 +333,7 @@ function _renderEditorEntities() {
     }).join('');
 }
 
-export function removeAreaEditorEntity(eid) {
+export function removeAreaEditorEntity(eid: string) {
     _editorState.entities = (_editorState.entities || []).filter(x => x !== eid);
     _renderEditorEntities();
 }
@@ -325,7 +347,7 @@ export async function openAreaEntityPicker() {
 
     _pickerSelected = new Set(_editorState.entities || []);
     _pickerFilter = '';
-    const search = document.getElementById('area-entity-picker-search');
+    const search = document.getElementById('area-entity-picker-search') as HTMLInputElement | null;
     if (search) search.value = '';
 
     const list = document.getElementById('area-entity-picker-list');
@@ -348,7 +370,7 @@ export function closeAreaEntityPicker() {
     modal.classList.remove('flex');
 }
 
-export function filterAreaEntityPicker(value) {
+export function filterAreaEntityPicker(value: string) {
     _pickerFilter = String(value || '').trim().toLowerCase();
     _renderPickerList();
 }
@@ -391,7 +413,7 @@ function _renderPickerList() {
     }).join('') + (filtered.length > 500 ? `<p class="text-center text-[10px] text-slate-500 py-2">${_esc(t('areas.picker_truncated', { count: filtered.length - 500 }))}</p>` : '');
 }
 
-export function toggleAreaPickerEntity(eid, checked) {
+export function toggleAreaPickerEntity(eid: string, checked: boolean) {
     if (checked) _pickerSelected.add(eid);
     else _pickerSelected.delete(eid);
     const counter = document.getElementById('area-entity-picker-count');

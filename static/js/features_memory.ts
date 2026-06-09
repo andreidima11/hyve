@@ -1,9 +1,15 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 import { apiCall } from './api.js';
 import { t } from './lang/index.js';
 import { escapeHtml, showToast, showConfirm } from './utils.js';
+import type {
+    MemoryConsolidationResult,
+    MemoryEventsResponse,
+    MemoryExtractionExample,
+    MemoryFact,
+    MemoryLogEvent,
+} from './types/memory.js';
 
-export let memCache = [];
+export let memCache: MemoryFact[] = [];
 export let memPage = 1;
 
 const MEM_LOG_PAGE_SIZE = 12;
@@ -13,14 +19,14 @@ let memLogTotal = 0;
 export async function loadMemory() {
     const res = await apiCall('/api/memory');
     if (!res.ok) { memCache = []; renderMemoryTable(); return; }
-    memCache = await res.json();
+    memCache = await res.json() as MemoryFact[];
     renderMemoryTable();
     loadMemoryEvents(0);
 }
 
 export async function loadMemoryEvents(offset = 0) {
     const tbody = document.getElementById('mem-log-tbody');
-    const filterEl = document.getElementById('mem-log-type-filter');
+    const filterEl = document.getElementById('mem-log-type-filter') as HTMLInputElement | null;
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-slate-500">' + (t('memory.log_loading')) + '</td></tr>';
     const eventType = (filterEl && filterEl.value) || '';
@@ -28,18 +34,18 @@ export async function loadMemoryEvents(offset = 0) {
         let url = `/api/memory/events?limit=${MEM_LOG_PAGE_SIZE}&offset=${offset}`;
         if (eventType) url += `&event_type=${encodeURIComponent(eventType)}`;
         const res = await apiCall(url);
-        const data = await res.json();
+        const data = await res.json() as MemoryEventsResponse;
         const events = data.events || [];
         memLogTotal = data.total ?? 0;
         memLogOffset = offset;
         renderMemoryEventsTable(events);
         updateMemLogPagination();
-    } catch (e) {
+    } catch (_) {
         tbody.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-red-400">' + (t('memory.log_error')) + '</td></tr>';
     }
 }
 
-function renderMemoryEventsTable(events) {
+function renderMemoryEventsTable(events: MemoryLogEvent[]) {
     const tbody = document.getElementById('mem-log-tbody');
     if (!tbody) return;
     if (!events.length) {
@@ -64,14 +70,12 @@ function renderMemoryEventsTable(events) {
     }).join('');
 }
 
-// escapeHtml imported from utils.js
-
 function updateMemLogPagination() {
     const from = memLogTotal === 0 ? 0 : memLogOffset + 1;
     const to = Math.min(memLogOffset + MEM_LOG_PAGE_SIZE, memLogTotal);
     const rangeEl = document.getElementById('mem-log-range');
-    const prevBtn = document.getElementById('mem-log-prev');
-    const nextBtn = document.getElementById('mem-log-next');
+    const prevBtn = document.getElementById('mem-log-prev') as HTMLButtonElement | null;
+    const nextBtn = document.getElementById('mem-log-next') as HTMLButtonElement | null;
     if (rangeEl) rangeEl.textContent = memLogTotal === 0 ? '' : `${from}–${to} of ${memLogTotal}`;
     if (prevBtn) prevBtn.disabled = memLogOffset <= 0;
     if (nextBtn) nextBtn.disabled = memLogOffset + MEM_LOG_PAGE_SIZE >= memLogTotal;
@@ -87,7 +91,7 @@ export function memLogNextPage() {
     loadMemoryEvents(memLogOffset + MEM_LOG_PAGE_SIZE);
 }
 
-export function toggleMemLogDetails(detailsId) {
+export function toggleMemLogDetails(detailsId: string) {
     const row = document.getElementById(detailsId);
     if (!row) return;
     row.classList.toggle('hidden');
@@ -98,12 +102,12 @@ export async function clearMemoryLog() {
     if (!confirmed) return;
     try {
         const res = await apiCall('/api/memory/clear_events', { method: 'POST' });
-        const data = await res.json();
+        const data = await res.json() as { error?: string };
         if (!res.ok) throw new Error(data.error || t('common.error'));
         showToast(t('memory.log_cleared'), 'success');
         loadMemoryEvents(0);
     } catch (e) {
-        showToast((t('memory.log_clear_error')) + ': ' + (e.message || String(e)), 'error');
+        showToast((t('memory.log_clear_error')) + ': ' + (e instanceof Error ? e.message : String(e)), 'error');
     }
 }
 
@@ -112,7 +116,7 @@ export async function runConsolidationNow() {
     if (resultEl) resultEl.textContent = t('memory.consolidation_running');
     try {
         const res = await apiCall('/api/memory/consolidation/run', { method: 'POST' });
-        const data = await res.json();
+        const data = await res.json() as { error?: string; result?: MemoryConsolidationResult };
         if (!res.ok) throw new Error(data.error || t('common.error'));
         const r = data.result || {};
         const msg = t('memory.consolidation_result', {
@@ -122,18 +126,16 @@ export async function runConsolidationNow() {
         if (resultEl) resultEl.textContent = msg;
         loadMemoryEvents(0);
     } catch (e) {
-        if (resultEl) resultEl.textContent = (t('memory.consolidation_error')) + ': ' + (e.message || String(e));
+        if (resultEl) resultEl.textContent = (t('memory.consolidation_error')) + ': ' + (e instanceof Error ? e.message : String(e));
     }
 }
 
-// ── Extraction examples (few-shot) ──
-
-let _extractionExamples = [];
+let _extractionExamples: MemoryExtractionExample[] = [];
 
 export function getExtractionExamples() { return _extractionExamples; }
 
-export function renderExtractionExamples(examples) {
-    _extractionExamples = Array.isArray(examples) ? examples : [];
+export function renderExtractionExamples(examples: MemoryExtractionExample[] | unknown) {
+    _extractionExamples = Array.isArray(examples) ? examples as MemoryExtractionExample[] : [];
     const container = document.getElementById('extraction-examples-list');
     if (!container) return;
     container.innerHTML = '';
@@ -160,15 +162,15 @@ export function renderExtractionExamples(examples) {
         container.appendChild(row);
     });
 
-    // Live edits update the in-memory array
     container.querySelectorAll('input[data-ex-idx]').forEach(inp => {
         inp.addEventListener('input', () => {
-            const idx = parseInt(inp.dataset.exIdx);
-            const field = inp.dataset.exField;
+            const el = inp as HTMLInputElement;
+            const idx = parseInt(el.dataset.exIdx || '', 10);
+            const field = el.dataset.exField;
             if (field === 'input') {
-                _extractionExamples[idx].input = inp.value;
+                _extractionExamples[idx].input = el.value;
             } else if (field === 'output') {
-                _extractionExamples[idx].output = inp.value.split(',').map(s => s.trim()).filter(Boolean);
+                _extractionExamples[idx].output = el.value.split(',').map(s => s.trim()).filter(Boolean);
             }
         });
     });
@@ -177,22 +179,19 @@ export function renderExtractionExamples(examples) {
 export function addExtractionExample() {
     _extractionExamples.push({ input: '', output: [] });
     renderExtractionExamples(_extractionExamples);
-    // Focus last input
     const container = document.getElementById('extraction-examples-list');
     if (container) {
         const inputs = container.querySelectorAll('.extraction-ex-input');
-        if (inputs.length) inputs[inputs.length - 1].focus();
+        const last = inputs[inputs.length - 1] as HTMLInputElement | undefined;
+        if (last) last.focus();
     }
 }
 
-export function removeExtractionExample(idx) {
+export function removeExtractionExample(idx: number) {
     _extractionExamples.splice(idx, 1);
     renderExtractionExamples(_extractionExamples);
 }
 
-// Daily news is now a skill (skills/daily_news.py) — no longer a core system feature.
-
-// --- MEMENTO (removed — replaced by Planner calendar events) ---
 export function loadReminders() {}
 export function deleteReminder() {}
 export function openMementoEdit() {}
@@ -202,22 +201,21 @@ export function updateMementoBulkCount() {}
 export function toggleAllMemento() {}
 export async function deleteMementoBulk() {}
 
-
 export function toggleMemLogTypeDropdown() {
     const dd = document.getElementById('mem_log_type_dropdown');
     if (!dd) return;
     dd.dataset.open = dd.dataset.open === 'true' ? 'false' : 'true';
 }
 
-export function setMemLogType(value, label) {
+export function setMemLogType(value: string, label: string) {
     const dd = document.getElementById('mem_log_type_dropdown');
-    const hidden = document.getElementById('mem-log-type-filter');
+    const hidden = document.getElementById('mem-log-type-filter') as HTMLInputElement | null;
     if (dd) {
         dd.dataset.open = 'false';
         const valueEl = dd.querySelector('.dashboard-custom-select__value');
         if (valueEl) valueEl.textContent = label || value || (t('memory.log_type_all'));
         dd.querySelectorAll('.dashboard-custom-select__option').forEach(o => {
-            o.dataset.selected = o.dataset.value === value ? 'true' : 'false';
+            (o as HTMLElement).dataset.selected = (o as HTMLElement).dataset.value === value ? 'true' : 'false';
         });
     }
     if (hidden) hidden.value = value;
@@ -231,27 +229,29 @@ if (typeof document !== 'undefined' && !_memLogTypeDropdownBound) {
     document.addEventListener('click', e => {
         const dd = document.getElementById('mem_log_type_dropdown');
         if (!dd) return;
-        const toggleBtn = e.target.closest('[data-action="toggle-mem-log-type"]');
+        const target = e.target;
+        if (!(target instanceof Element)) return;
+        const toggleBtn = target.closest('[data-action="toggle-mem-log-type"]');
         if (toggleBtn && dd.contains(toggleBtn)) {
             e.preventDefault();
             e.stopPropagation();
             dd.dataset.open = dd.dataset.open === 'true' ? 'false' : 'true';
             return;
         }
-        const opt = e.target.closest('.dashboard-custom-select__option');
+        const opt = target.closest('.dashboard-custom-select__option');
         if (opt && dd.contains(opt)) {
             e.preventDefault();
             e.stopPropagation();
-            setMemLogType(opt.dataset.value, opt.textContent.trim());
+            setMemLogType((opt as HTMLElement).dataset.value || '', (opt.textContent || '').trim());
             return;
         }
-        if (dd.dataset.open === 'true' && !dd.contains(e.target)) {
+        if (dd.dataset.open === 'true' && !dd.contains(target)) {
             dd.dataset.open = 'false';
         }
     });
 }
 
-export function switchMemorySubtab(tab) {
+export function switchMemorySubtab(tab: string) {
     const panels = ['memories', 'log'];
     panels.forEach(id => {
         const panel = document.getElementById(`mem-panel-${id}`);
@@ -272,19 +272,18 @@ export function switchMemorySubtab(tab) {
     }
 }
 
-function formatLearnedTime(ts) {
+function formatLearnedTime(ts: number | string | undefined) {
     if (!ts) return '—';
     const d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
     const now = Date.now();
     const diff = now - d.getTime();
     if (diff < 60000) return (t('intelligence.updated_just_now'));
-    if (diff < 3600000) return (t('intelligence.updated_minutes_ago')).replace('{n}', Math.floor(diff / 60000));
-    if (diff < 86400000) return (t('intelligence.updated_hours_ago')).replace('{n}', Math.floor(diff / 3600000));
+    if (diff < 3600000) return (t('intelligence.updated_minutes_ago')).replace('{n}', String(Math.floor(diff / 60000)));
+    if (diff < 86400000) return (t('intelligence.updated_hours_ago')).replace('{n}', String(Math.floor(diff / 3600000)));
     return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-/** Data/ora exactă + cât de veche (pentru memorii). */
-function formatMemoryDate(ts) {
+function formatMemoryDate(ts: number | string | undefined) {
     if (!ts) return { dateTime: '—', age: '—' };
     const d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
     const dateStr = d.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -300,13 +299,13 @@ function formatMemoryDate(ts) {
     return { dateTime: `${dateStr}, ${timeStr}`, age };
 }
 
-
 const MEM_PER_PAGE = 12;
 
 export function renderMemoryTable() {
     const container = document.getElementById("mem-container");
     if (!container) return;
-    const term = document.getElementById("mem-search")?.value.toLowerCase() || '';
+    const searchEl = document.getElementById("mem-search") as HTMLInputElement | null;
+    const term = searchEl?.value.toLowerCase() || '';
     const filtered = memCache.filter(m => m.document.toLowerCase().includes(term));
     const maxPage = Math.max(1, Math.ceil(filtered.length / MEM_PER_PAGE));
     if (memPage > maxPage) memPage = maxPage;
@@ -320,8 +319,8 @@ export function renderMemoryTable() {
             pageInfoEl.classList.add('hidden');
         }
     }
-    const memPrev = document.getElementById('mem-prev');
-    const memNext = document.getElementById('mem-next');
+    const memPrev = document.getElementById('mem-prev') as HTMLButtonElement | null;
+    const memNext = document.getElementById('mem-next') as HTMLButtonElement | null;
     if (memPrev) memPrev.disabled = memPage <= 1;
     if (memNext) memNext.disabled = memPage >= maxPage;
     container.innerHTML = slice.map(m => {
@@ -342,24 +341,37 @@ export function renderMemoryTable() {
         </div>`;
     }).join('');
 }
-export function toggleAllMem(checked) { document.querySelectorAll('.mem-bulk-check').forEach(cb => cb.checked = checked); updateMemBulkCount(); }
+
+export function toggleAllMem(checked: boolean) {
+    document.querySelectorAll('.mem-bulk-check').forEach(cb => { (cb as HTMLInputElement).checked = checked; });
+    updateMemBulkCount();
+}
+
 export function updateMemBulkCount() {
     const count = document.querySelectorAll('.mem-bulk-check:checked').length;
     const btn = document.getElementById('mem-bulk-delete-btn');
-    if(btn) btn.style.display = count > 0 ? 'block' : 'none';
+    if (btn) btn.style.display = count > 0 ? 'block' : 'none';
 }
-export async function deleteMemBulk(ids) {
-    const targetIds = ids || Array.from(document.querySelectorAll('.mem-bulk-check:checked')).map(i => i.value);
-    if(!(await showConfirm(t('memory.delete_confirm')))) return;
+
+export async function deleteMemBulk(ids?: string[]) {
+    const targetIds = ids || Array.from(document.querySelectorAll('.mem-bulk-check:checked')).map(i => (i as HTMLInputElement).value);
+    if (!(await showConfirm(t('memory.delete_confirm')))) return;
     await apiCall('/api/memory/bulk_delete', { method: 'POST', body: { ids: targetIds } });
     loadMemory();
 }
-export function changeMemPage(step) {
-    const term = document.getElementById("mem-search")?.value.toLowerCase() || '';
+
+export function changeMemPage(step: number) {
+    const searchEl = document.getElementById("mem-search") as HTMLInputElement | null;
+    const term = searchEl?.value.toLowerCase() || '';
     const filtered = memCache.filter(m => m.document.toLowerCase().includes(term));
     const maxPage = Math.max(1, Math.ceil(filtered.length / MEM_PER_PAGE));
     memPage = Math.max(1, Math.min(memPage + step, maxPage));
     renderMemoryTable();
 }
+
 export function filterMemory() { memPage = 1; renderMemoryTable(); }
-export async function updateMemory(id, text) { if (!text.trim()) return; await apiCall(`/api/memory/${id}`, { method: 'PUT', body: { text: text } }); }
+
+export async function updateMemory(id: string, text: string) {
+    if (!text.trim()) return;
+    await apiCall(`/api/memory/${id}`, { method: 'PUT', body: { text } });
+}

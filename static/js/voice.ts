@@ -1,8 +1,6 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Voice recording, voice loop, always-speak UI, and keyboard shortcuts.
  */
-import { apiCall } from './api.js';
 import { t } from './lang/index.js';
 import { showToast } from './utils.js';
 import { getTts } from './chat.js';
@@ -12,23 +10,43 @@ import {
     setVoiceInputPending,
 } from './voice_state.js';
 
-let _voiceMediaRecorder = null;
-let _voiceChunks = [];
-let _voiceStream = null;
-let _voiceAudioCtx = null;
-let _voiceSilenceTimer = null;
+interface VoiceRecordingOpts {
+    btn?: HTMLElement | null;
+    inputId?: string;
+    sendFn?: (() => void) | null;
+}
+
+interface HyveTtsController {
+    alwaysSpeak: boolean;
+    audio: HTMLAudioElement | null;
+    _streamPlaying?: boolean;
+    stop?: () => void;
+    speak?: (bubble: Element) => Promise<void>;
+}
+
+interface VoiceButton extends HTMLButtonElement {}
+
+let _voiceMediaRecorder: MediaRecorder | null = null;
+let _voiceChunks: Blob[] = [];
+let _voiceStream: MediaStream | null = null;
+let _voiceAudioCtx: AudioContext | null = null;
+let _voiceSilenceTimer: number | null = null;
 let _VOICE_SILENCE_MS = 2500;
 let _VOICE_SILENCE_RMS = 0.015;
 
-function _voiceMicIconClass() {
+function _voiceMicIconClass(): string {
     return isVoiceLoopActive() ? 'fas fa-sync-alt' : 'fas fa-microphone';
 }
 
-export async function toggleVoiceRecording(opts) {
+function _voiceBtnIcon(btn: VoiceButton): HTMLElement | null {
+    return btn.querySelector('i');
+}
+
+export async function toggleVoiceRecording(opts?: VoiceRecordingOpts) {
     const _opts = opts || {};
-    const btn = _opts.btn || document.getElementById('btn-voice');
+    const btn = (_opts.btn || document.getElementById('btn-voice')) as VoiceButton | null;
     const inputId = _opts.inputId || 'user-input';
-    const sendFn = _opts.sendFn || (window.sendMessage ? () => window.sendMessage() : null);
+    const sendFn = _opts.sendFn || (window.sendMessage ? () => window.sendMessage!() : null);
     if (!btn) return;
 
     if (_voiceMediaRecorder && _voiceMediaRecorder.state === 'recording') {
@@ -41,7 +59,8 @@ export async function toggleVoiceRecording(opts) {
         _voiceMediaRecorder = null;
         _voiceChunks = [];
         btn.classList.remove('recording');
-        btn.querySelector('i').className = _voiceMicIconClass();
+        const icon = _voiceBtnIcon(btn);
+        if (icon) icon.className = _voiceMicIconClass();
         btn.classList.add('flash-red-cancelled');
         setTimeout(() => {
             btn.classList.remove('flash-red-cancelled');
@@ -63,12 +82,13 @@ export async function toggleVoiceRecording(opts) {
     try {
         _voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (e) {
-        if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+        const err = e as DOMException;
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
             showToast(t('voice.mic_denied'), 'error', 5000);
-        } else if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError') {
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
             showToast(t('voice.mic_not_found'), 'error');
         } else {
-            showToast(t('voice.mic_error_detail', { message: e.message }), 'error');
+            showToast(t('voice.mic_error_detail', { message: err.message }), 'error');
         }
         return;
     }
@@ -105,14 +125,15 @@ export async function toggleVoiceRecording(opts) {
 
         btn.disabled = true;
         btn.classList.add('recording');
-        btn.querySelector('i').className = 'fas fa-spinner fa-spin';
+        const spinnerIcon = _voiceBtnIcon(btn);
+        if (spinnerIcon) spinnerIcon.className = 'fas fa-spinner fa-spin';
 
         try {
             const formData = new FormData();
             formData.append('file', blob, 'recording.webm');
 
             const token = localStorage.getItem('hyve_token');
-            const headers = {};
+            const headers: Record<string, string> = {};
             if (token) headers['Authorization'] = 'Bearer ' + token;
 
             const res = await fetch('/api/whisper/transcribe', {
@@ -122,13 +143,13 @@ export async function toggleVoiceRecording(opts) {
             });
 
             if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
+                const errData = await res.json().catch(() => ({})) as { detail?: string };
                 throw new Error(errData.detail || 'Transcription failed');
             }
 
-            const data = await res.json();
+            const data = await res.json() as { text?: string };
             if (data.text && data.text.trim()) {
-                const input = document.getElementById(inputId);
+                const input = document.getElementById(inputId) as HTMLTextAreaElement | null;
                 if (input) {
                     const existing = input.value.trim();
                     input.value = existing ? existing + ' ' + data.text.trim() : data.text.trim();
@@ -144,11 +165,12 @@ export async function toggleVoiceRecording(opts) {
                 showToast(t('voice.no_speech'), 'info');
             }
         } catch (e) {
-            showToast(t('voice.transcribe_error') + e.message, 'error');
+            showToast(t('voice.transcribe_error') + (e instanceof Error ? e.message : ''), 'error');
         } finally {
             btn.disabled = false;
             btn.classList.remove('recording');
-            btn.querySelector('i').className = _voiceMicIconClass();
+            const micIcon = _voiceBtnIcon(btn);
+            if (micIcon) micIcon.className = _voiceMicIconClass();
         }
     };
 
@@ -168,13 +190,15 @@ export async function toggleVoiceRecording(opts) {
     _voiceMediaRecorder.start(250);
 
     try {
-        _voiceAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) throw new Error('AudioContext unavailable');
+        _voiceAudioCtx = new AudioCtx();
         const source = _voiceAudioCtx.createMediaStreamSource(_voiceStream);
         const analyser = _voiceAudioCtx.createAnalyser();
         analyser.fftSize = 1024;
         source.connect(analyser);
         const buf = new Uint8Array(analyser.frequencyBinCount);
-        let silenceStart = null;
+        let silenceStart: number | null = null;
 
         const checkLevel = () => {
             if (!_voiceMediaRecorder || _voiceMediaRecorder.state !== 'recording') return;
@@ -204,28 +228,29 @@ export async function toggleVoiceRecording(opts) {
 }
 
 function _syncVadSettings() {
-    const ms = parseInt(document.getElementById('whisper_vad_silence_ms')?.value, 10);
+    const ms = parseInt((document.getElementById('whisper_vad_silence_ms') as HTMLInputElement | null)?.value || '', 10);
     if (ms >= 500 && ms <= 10000) _VOICE_SILENCE_MS = ms;
-    const sens = document.getElementById('whisper_vad_sensitivity')?.value || 'medium';
-    const rmsMap = { low: 0.025, medium: 0.015, high: 0.008 };
+    const sens = (document.getElementById('whisper_vad_sensitivity') as HTMLSelectElement | null)?.value || 'medium';
+    const rmsMap: Record<string, number> = { low: 0.025, medium: 0.015, high: 0.008 };
     _VOICE_SILENCE_RMS = rmsMap[sens] || 0.015;
 }
 
 function _initAlwaysSpeakBtn() {
-    const btn = document.getElementById('btn-always-speak');
+    const btn = document.getElementById('btn-always-speak') as VoiceButton | null;
     if (!btn) return;
     if (btn.dataset.boundAlwaysSpeak === '1') return;
     btn.dataset.boundAlwaysSpeak = '1';
 
-    const tts = getTts();
+    const tts = getTts() as unknown as HyveTtsController;
     if (tts && tts.alwaysSpeak) {
         btn.classList.add('active');
-        btn.querySelector('i').className = 'fas fa-volume-up';
+        const icon = _voiceBtnIcon(btn);
+        if (icon) icon.className = 'fas fa-volume-up';
     }
     btn.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const ttsCtrl = getTts();
+        const ttsCtrl = getTts() as unknown as HyveTtsController;
         if (!ttsCtrl) return;
 
         const isSpeakingNow = !!((ttsCtrl.audio && !ttsCtrl.audio.paused) || ttsCtrl._streamPlaying);
@@ -236,11 +261,12 @@ function _initAlwaysSpeakBtn() {
 
         ttsCtrl.alwaysSpeak = !ttsCtrl.alwaysSpeak;
         btn.classList.toggle('active', ttsCtrl.alwaysSpeak);
-        btn.querySelector('i').className = ttsCtrl.alwaysSpeak ? 'fas fa-volume-up' : 'fas fa-volume-off';
+        const icon = _voiceBtnIcon(btn);
+        if (icon) icon.className = ttsCtrl.alwaysSpeak ? 'fas fa-volume-up' : 'fas fa-volume-off';
 
         if (ttsCtrl.alwaysSpeak) {
             for (const id of ['piper_enabled', 'integrations-piper-enabled']) {
-                const piperCb = document.getElementById(id);
+                const piperCb = document.getElementById(id) as HTMLInputElement | null;
                 if (piperCb && !piperCb.checked) piperCb.checked = true;
             }
         }
@@ -262,13 +288,15 @@ function _initAlwaysSpeakBtn() {
 }
 
 function _initVoiceBalloon() {
-    const voiceBtn = document.getElementById('btn-voice');
-    const balloon = document.getElementById('voice-mode-balloon');
+    const voiceBtn = document.getElementById('btn-voice') as VoiceButton | null;
+    const balloonEl = document.getElementById('voice-mode-balloon');
     const loopToggle = document.getElementById('voice-loop-toggle');
     const loopBadge = document.getElementById('voice-loop-badge');
-    if (!voiceBtn || !balloon) return;
+    if (!voiceBtn || !balloonEl) return;
+    const balloon = balloonEl;
+    const activeVoiceBtn = voiceBtn;
 
-    let longPressTimer = null;
+    let longPressTimer: ReturnType<typeof setTimeout> | null = null;
     let didLongPress = false;
 
     function closeBalloon() {
@@ -284,23 +312,24 @@ function _initVoiceBalloon() {
             loopBadge.classList.toggle('on', on);
             loopBadge.classList.toggle('off', !on);
         }
-        voiceBtn.classList.toggle('voice-loop-active', on);
-        const icon = voiceBtn.querySelector('i');
-        if (icon && !voiceBtn.classList.contains('recording')) {
+        activeVoiceBtn.classList.toggle('voice-loop-active', on);
+        const icon = _voiceBtnIcon(activeVoiceBtn);
+        if (icon && !activeVoiceBtn.classList.contains('recording')) {
             icon.className = on ? 'fas fa-sync-alt' : 'fas fa-microphone';
         }
-        const tts = getTts();
+        const tts = getTts() as unknown as HyveTtsController;
         if (on && tts) {
             tts.alwaysSpeak = true;
-            const asBtn = document.getElementById('btn-always-speak');
+            const asBtn = document.getElementById('btn-always-speak') as VoiceButton | null;
             if (asBtn) {
                 asBtn.classList.add('active');
-                asBtn.querySelector('i').className = 'fas fa-volume-up';
+                const asIcon = _voiceBtnIcon(asBtn);
+                if (asIcon) asIcon.className = 'fas fa-volume-up';
             }
         }
     }
 
-    voiceBtn.addEventListener('touchstart', () => {
+    activeVoiceBtn.addEventListener('touchstart', () => {
         didLongPress = false;
         longPressTimer = setTimeout(() => {
             didLongPress = true;
@@ -308,21 +337,21 @@ function _initVoiceBalloon() {
             else closeBalloon();
         }, 500);
     }, { passive: true });
-    voiceBtn.addEventListener('touchend', (e) => {
+    activeVoiceBtn.addEventListener('touchend', (e) => {
         if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
         if (didLongPress) e.preventDefault();
     });
-    voiceBtn.addEventListener('touchcancel', () => {
+    activeVoiceBtn.addEventListener('touchcancel', () => {
         if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     });
 
-    voiceBtn.addEventListener('contextmenu', (e) => {
+    activeVoiceBtn.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         if (balloon.classList.contains('hidden')) openBalloon();
         else closeBalloon();
     });
 
-    voiceBtn.addEventListener('click', () => {
+    activeVoiceBtn.addEventListener('click', () => {
         if (didLongPress) { didLongPress = false; return; }
         toggleVoiceRecording();
     });
@@ -337,7 +366,9 @@ function _initVoiceBalloon() {
     }
 
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('.voice-btn-wrap')) closeBalloon();
+        const target = e.target;
+        if (!(target instanceof Element)) return;
+        if (!target.closest('.voice-btn-wrap')) closeBalloon();
     });
 
     window.addEventListener('tts:ended', (e) => {
@@ -355,8 +386,10 @@ function _initVoiceKeyboardShortcuts() {
     let spaceHeld = false;
 
     document.addEventListener('keydown', (e) => {
-        const tag = e.target.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+        const target = e.target;
+        if (!(target instanceof HTMLElement)) return;
+        const tag = target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return;
 
         if (e.code === 'Space' && !e.repeat) {
             const voiceBtn = document.getElementById('btn-voice');
@@ -377,8 +410,8 @@ function _initVoiceKeyboardShortcuts() {
             }
         }
 
-        const tts = getTts();
-        if (e.code === 'Escape' && tts) tts.stop();
+        const tts = getTts() as unknown as HyveTtsController;
+        if (e.code === 'Escape' && tts?.stop) tts.stop();
     });
 
     document.addEventListener('keyup', (e) => {

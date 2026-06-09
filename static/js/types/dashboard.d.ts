@@ -94,10 +94,13 @@ export interface DashboardVisibilityCondition {
     type?: string;
     media?: string;
     value?: string;
+    entity_id?: string;
+    op?: string;
 }
 
 export interface DashboardVisibilityConfig {
     enabled?: boolean;
+    logic?: string;
     conditions?: DashboardVisibilityCondition[];
 }
 
@@ -391,6 +394,137 @@ export interface DashboardWidgetToggleDeps {
     tryFastPathForEntities: (entityIds: string[]) => boolean;
     renderDashboard: () => void;
     t: (key: string, params?: Record<string, unknown>) => string;
+}
+
+export interface DashboardLoaderDeps {
+    getDashboardCache: () => DashboardCache;
+    setDashboardCache: (cache: DashboardCache) => void;
+    getCurrentPageId: () => string | null;
+    setCurrentPageId: (id: string | null) => void;
+    isControllableDomain: (domain: string) => boolean;
+    isInfoDomain: (domain: string) => boolean;
+    renderCachedDashboardIfEmpty: () => boolean;
+    renderDashboard: () => void;
+    applyDashboardEditAccess: () => void;
+    canEditDashboard: () => boolean;
+    getEditMode: () => boolean;
+    resetDashboardEditingState: () => void;
+    resumeDashboardCameras: () => void;
+    connectDashboardLive: () => void;
+    configureHyveviewMounted: (root: Element) => void;
+    updateDashboardEntityOptions: () => void;
+    setEntitySelectState: (message: string, error?: boolean) => void;
+    escapeHtml: (text: string) => string;
+    t: (key: string, params?: Record<string, unknown>) => string;
+}
+
+export interface DashboardPanelModalDeps {
+    requireDashboardEditAccess: () => boolean;
+    getDashboardCache: () => DashboardCache;
+    getCurrentPageId: () => string | null;
+    refreshAvailableEntities: (options?: { includeEntities?: boolean; signal?: AbortSignal | null }) => Promise<unknown>;
+    renderDashboard: () => void;
+    closeDashboardMenu: () => void;
+    t: (key: string, params?: Record<string, unknown>) => string;
+    showToast: (message: string, type?: string) => void;
+}
+
+export interface DashboardPreferencesDeps {
+    getCache: () => DashboardCache;
+    getCurrentPageId: () => string | null;
+    getEditMode: () => boolean;
+    setEditMode: (on: boolean) => void;
+    requireDashboardEditAccess: () => boolean;
+    resolveCurrentDashboardPageId: () => void | string;
+    closeDashboardMenu: () => void;
+    renderDashboard: () => void;
+    readDashboardSectionFallback: () => Promise<Record<string, unknown>>;
+    writeDashboardSectionFallback: (section: Record<string, unknown>) => Promise<void>;
+    t: (key: string, params?: Record<string, unknown>) => string;
+}
+
+export interface DashboardWidgetAddEditorDeps {
+    getDashboardCache: () => DashboardCache;
+    getAvailableEntity: (entityId: string) => import('./entity.js').HyveEntity | null;
+    renderWidgetCardForPreview: (widget: DashboardWidget) => string;
+    climateEntityRecordsForSave: () => Array<{ entity_id: string; title?: string; subtitle?: string; [key: string]: unknown }>;
+    t: (key: string, params?: Record<string, unknown>) => string;
+}
+
+export interface DashboardWidgetAddModalDeps {
+    requireDashboardEditAccess: () => boolean;
+    closeDashboardMenu: () => void;
+    closeDashboardWidgetEditor: () => void;
+    getCurrentPageId: () => string | null;
+    getCurrentEditorId: () => string | null;
+    clearCurrentEditorId: () => void;
+    getAvailableEntity: (entityId: string) => import('./entity.js').HyveEntity | null;
+    dashboardEditorRenderer: (type: string) => string;
+    dashboardDefaultRowsForType: (type: string) => number;
+    loadDashboardCardCatalog: () => Promise<unknown>;
+    refreshAvailableEntities: () => Promise<unknown>;
+    loadDashboard: () => Promise<void>;
+    readDashboardSectionFallback: () => Promise<{ widgets?: DashboardWidget[]; [key: string]: unknown }>;
+    writeDashboardSectionFallback: (section: Record<string, unknown>) => Promise<void>;
+    clearDashboardClimateEntitySelection: () => void;
+    climateEntityRecordsForSave: () => Array<{ entity_id: string; [key: string]: unknown }>;
+    renderDashboardClimateEntityChips: () => void;
+    t: (key: string, params?: Record<string, unknown>) => string;
+}
+
+export interface DashboardWidgetEditorBridgeDeps {
+    requireDashboardEditAccess: () => boolean;
+    findWidget: (widgetId: string) => DashboardWidget | null | undefined;
+    getDashboardCache: () => DashboardCache;
+    getCurrentPageId: () => string | null;
+    refreshAvailableEntities: () => Promise<unknown>;
+    loadDashboard: () => Promise<void>;
+    readDashboardSectionFallback: () => Promise<{ widgets?: DashboardWidget[]; [key: string]: unknown }>;
+    writeDashboardSectionFallback: (section: Record<string, unknown>) => Promise<void>;
+    t: (key: string, params?: Record<string, unknown>) => string;
+}
+
+export interface DashboardLiveBridgeDeps {
+    HVBridge: {
+        configureMounted?: (
+            root: Element,
+            widgetById: (id: string) => unknown,
+            options?: { bootstrapStates?: (el: Element, widget: unknown) => void },
+        ) => void;
+        patchEntityStates?: (
+            updates: Map<string, unknown>,
+            widgetById: (id: string) => DashboardWidget | null | undefined,
+        ) => Set<string>;
+    };
+    getCache: () => DashboardCache;
+    climateConfiguredIds: (widget: DashboardWidget) => string[];
+    cameraWidgetEntities: (widget: DashboardWidget) => Array<{ entity_id: string }>;
+    widgetRenderer: (widget: DashboardWidget) => string;
+    widgetById: (id: string) => DashboardWidget | null | undefined;
+    renderDashboard: () => void;
+}
+
+export interface DashboardEntityPatcherDeps {
+    HVBridge: {
+        configureMounted?: (
+            root: Element,
+            widgetById: (id: string) => unknown,
+            options?: { bootstrapStates?: (el: Element, widget: unknown) => void },
+        ) => void;
+        patchEntityStates?: (
+            updates: Map<string, unknown>,
+            widgetById: (id: string) => DashboardWidget | null | undefined,
+        ) => Set<string>;
+    };
+    getCache: () => DashboardCache;
+    shouldHoldOptimisticState: (entityId: string, state: unknown) => boolean;
+    pendingForEntity: (entityId: string) => { widgetId?: string } | null | undefined;
+    clearPendingControl: (widgetId: string) => void;
+    climateConfiguredIds: (widget: DashboardWidget) => string[];
+    cameraWidgetEntities: (widget: DashboardWidget) => Array<{ entity_id: string }>;
+    widgetRenderer: (widget: DashboardWidget) => string;
+    widgetById: (id: string) => DashboardWidget | null | undefined;
+    renderDashboard: () => void;
 }
 
 export interface DashboardWidgetLegacyEditDeps {

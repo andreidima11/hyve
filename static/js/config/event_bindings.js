@@ -1,8 +1,6 @@
-// @ts-nocheck — Phase 5 TS shell; tighten types incrementally.
 /**
  * Config hub / settings event delegation.
  */
-/** @type {Record<string, (...args: unknown[]) => unknown> | null} */
 let _handlers = null;
 let _bound = false;
 function _inConfigScope(el) {
@@ -172,13 +170,13 @@ function _run(action, el, event) {
     }
 }
 function _onClick(event) {
-    const el = event.target.closest('[data-config-action]');
+    const el = event.target?.closest('[data-config-action]');
     if (!el)
         return;
-    _run(el.dataset.configAction, el, event);
+    _run(el.dataset.configAction || '', el, event);
 }
 function _onInput(event) {
-    const el = event.target.closest('[data-config-input]');
+    const el = event.target?.closest('[data-config-input]');
     if (!el || !_inConfigScope(el))
         return;
     const kind = el.dataset.configInput;
@@ -190,7 +188,7 @@ function _onInput(event) {
         _handlers.filterAreaEntityPicker?.(el.value, event, el);
 }
 function _onChange(event) {
-    const el = event.target.closest('[data-config-input]');
+    const el = event.target?.closest('[data-config-input]');
     if (!el || !_inConfigScope(el))
         return;
     const kind = el.dataset.configInput;
@@ -218,7 +216,7 @@ function _onChange(event) {
     }
 }
 /**
- * @param {Record<string, (...args: unknown[]) => unknown>} handlers
+ * Register config hub delegated event handlers.
  */
 export function initConfigEventBindings(handlers) {
     _handlers = handlers || {};

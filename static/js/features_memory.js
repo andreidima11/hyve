@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 import { apiCall } from './api.js';
 import { t } from './lang/index.js';
 import { escapeHtml, showToast, showConfirm } from './utils.js';
@@ -37,7 +36,7 @@ export async function loadMemoryEvents(offset = 0) {
         renderMemoryEventsTable(events);
         updateMemLogPagination();
     }
-    catch (e) {
+    catch (_) {
         tbody.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-red-400">' + (t('memory.log_error')) + '</td></tr>';
     }
 }
@@ -66,7 +65,6 @@ function renderMemoryEventsTable(events) {
         <tr id="${detailsId}" class="hidden bg-white/[0.02] border-b border-white/5"><td colspan="4" class="p-3"><pre class="text-[10px] mono text-slate-500 overflow-x-auto whitespace-pre-wrap break-all">${escapeHtml(detailsJson)}</pre></td></tr>`;
     }).join('');
 }
-// escapeHtml imported from utils.js
 function updateMemLogPagination() {
     const from = memLogTotal === 0 ? 0 : memLogOffset + 1;
     const to = Math.min(memLogOffset + MEM_LOG_PAGE_SIZE, memLogTotal);
@@ -109,7 +107,7 @@ export async function clearMemoryLog() {
         loadMemoryEvents(0);
     }
     catch (e) {
-        showToast((t('memory.log_clear_error')) + ': ' + (e.message || String(e)), 'error');
+        showToast((t('memory.log_clear_error')) + ': ' + (e instanceof Error ? e.message : String(e)), 'error');
     }
 }
 export async function runConsolidationNow() {
@@ -132,10 +130,9 @@ export async function runConsolidationNow() {
     }
     catch (e) {
         if (resultEl)
-            resultEl.textContent = (t('memory.consolidation_error')) + ': ' + (e.message || String(e));
+            resultEl.textContent = (t('memory.consolidation_error')) + ': ' + (e instanceof Error ? e.message : String(e));
     }
 }
-// ── Extraction examples (few-shot) ──
 let _extractionExamples = [];
 export function getExtractionExamples() { return _extractionExamples; }
 export function renderExtractionExamples(examples) {
@@ -166,16 +163,16 @@ export function renderExtractionExamples(examples) {
         `;
         container.appendChild(row);
     });
-    // Live edits update the in-memory array
     container.querySelectorAll('input[data-ex-idx]').forEach(inp => {
         inp.addEventListener('input', () => {
-            const idx = parseInt(inp.dataset.exIdx);
-            const field = inp.dataset.exField;
+            const el = inp;
+            const idx = parseInt(el.dataset.exIdx || '', 10);
+            const field = el.dataset.exField;
             if (field === 'input') {
-                _extractionExamples[idx].input = inp.value;
+                _extractionExamples[idx].input = el.value;
             }
             else if (field === 'output') {
-                _extractionExamples[idx].output = inp.value.split(',').map(s => s.trim()).filter(Boolean);
+                _extractionExamples[idx].output = el.value.split(',').map(s => s.trim()).filter(Boolean);
             }
         });
     });
@@ -183,20 +180,18 @@ export function renderExtractionExamples(examples) {
 export function addExtractionExample() {
     _extractionExamples.push({ input: '', output: [] });
     renderExtractionExamples(_extractionExamples);
-    // Focus last input
     const container = document.getElementById('extraction-examples-list');
     if (container) {
         const inputs = container.querySelectorAll('.extraction-ex-input');
-        if (inputs.length)
-            inputs[inputs.length - 1].focus();
+        const last = inputs[inputs.length - 1];
+        if (last)
+            last.focus();
     }
 }
 export function removeExtractionExample(idx) {
     _extractionExamples.splice(idx, 1);
     renderExtractionExamples(_extractionExamples);
 }
-// Daily news is now a skill (skills/daily_news.py) — no longer a core system feature.
-// --- MEMENTO (removed — replaced by Planner calendar events) ---
 export function loadReminders() { }
 export function deleteReminder() { }
 export function openMementoEdit() { }
@@ -234,21 +229,24 @@ if (typeof document !== 'undefined' && !_memLogTypeDropdownBound) {
         const dd = document.getElementById('mem_log_type_dropdown');
         if (!dd)
             return;
-        const toggleBtn = e.target.closest('[data-action="toggle-mem-log-type"]');
+        const target = e.target;
+        if (!(target instanceof Element))
+            return;
+        const toggleBtn = target.closest('[data-action="toggle-mem-log-type"]');
         if (toggleBtn && dd.contains(toggleBtn)) {
             e.preventDefault();
             e.stopPropagation();
             dd.dataset.open = dd.dataset.open === 'true' ? 'false' : 'true';
             return;
         }
-        const opt = e.target.closest('.dashboard-custom-select__option');
+        const opt = target.closest('.dashboard-custom-select__option');
         if (opt && dd.contains(opt)) {
             e.preventDefault();
             e.stopPropagation();
-            setMemLogType(opt.dataset.value, opt.textContent.trim());
+            setMemLogType(opt.dataset.value || '', (opt.textContent || '').trim());
             return;
         }
-        if (dd.dataset.open === 'true' && !dd.contains(e.target)) {
+        if (dd.dataset.open === 'true' && !dd.contains(target)) {
             dd.dataset.open = 'false';
         }
     });
@@ -283,12 +281,11 @@ function formatLearnedTime(ts) {
     if (diff < 60000)
         return (t('intelligence.updated_just_now'));
     if (diff < 3600000)
-        return (t('intelligence.updated_minutes_ago')).replace('{n}', Math.floor(diff / 60000));
+        return (t('intelligence.updated_minutes_ago')).replace('{n}', String(Math.floor(diff / 60000)));
     if (diff < 86400000)
-        return (t('intelligence.updated_hours_ago')).replace('{n}', Math.floor(diff / 3600000));
+        return (t('intelligence.updated_hours_ago')).replace('{n}', String(Math.floor(diff / 3600000)));
     return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
-/** Data/ora exactă + cât de veche (pentru memorii). */
 function formatMemoryDate(ts) {
     if (!ts)
         return { dateTime: '—', age: '—' };
@@ -314,7 +311,8 @@ export function renderMemoryTable() {
     const container = document.getElementById("mem-container");
     if (!container)
         return;
-    const term = document.getElementById("mem-search")?.value.toLowerCase() || '';
+    const searchEl = document.getElementById("mem-search");
+    const term = searchEl?.value.toLowerCase() || '';
     const filtered = memCache.filter(m => m.document.toLowerCase().includes(term));
     const maxPage = Math.max(1, Math.ceil(filtered.length / MEM_PER_PAGE));
     if (memPage > maxPage)
@@ -354,7 +352,10 @@ export function renderMemoryTable() {
         </div>`;
     }).join('');
 }
-export function toggleAllMem(checked) { document.querySelectorAll('.mem-bulk-check').forEach(cb => cb.checked = checked); updateMemBulkCount(); }
+export function toggleAllMem(checked) {
+    document.querySelectorAll('.mem-bulk-check').forEach(cb => { cb.checked = checked; });
+    updateMemBulkCount();
+}
 export function updateMemBulkCount() {
     const count = document.querySelectorAll('.mem-bulk-check:checked').length;
     const btn = document.getElementById('mem-bulk-delete-btn');
@@ -369,12 +370,16 @@ export async function deleteMemBulk(ids) {
     loadMemory();
 }
 export function changeMemPage(step) {
-    const term = document.getElementById("mem-search")?.value.toLowerCase() || '';
+    const searchEl = document.getElementById("mem-search");
+    const term = searchEl?.value.toLowerCase() || '';
     const filtered = memCache.filter(m => m.document.toLowerCase().includes(term));
     const maxPage = Math.max(1, Math.ceil(filtered.length / MEM_PER_PAGE));
     memPage = Math.max(1, Math.min(memPage + step, maxPage));
     renderMemoryTable();
 }
 export function filterMemory() { memPage = 1; renderMemoryTable(); }
-export async function updateMemory(id, text) { if (!text.trim())
-    return; await apiCall(`/api/memory/${id}`, { method: 'PUT', body: { text: text } }); }
+export async function updateMemory(id, text) {
+    if (!text.trim())
+        return;
+    await apiCall(`/api/memory/${id}`, { method: 'PUT', body: { text } });
+}

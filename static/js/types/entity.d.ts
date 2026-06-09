@@ -48,6 +48,7 @@ export interface HyveEntity {
     source?: string;
     unit?: string;
     controllable?: boolean;
+    available?: boolean;
     aliases?: string[];
     entry_id?: string;
     entry_title?: string;

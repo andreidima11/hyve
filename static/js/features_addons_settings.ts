@@ -1,19 +1,73 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Settings → Add-ons list + Updates hub (install/enable/update add-ons).
  */
 import { apiCall } from './api.js';
 import { t } from './lang/index.js';
-import { showToast, showConfirm, escapeHtml } from './utils.js';
+import { showToast, showConfirm, escapeHtml, openSubPage, closeSubPage } from './utils.js';
 import { isExplicitNonAdmin } from './user_context.js';
+import { loadIntegrationEntities } from './features_integrations_settings.js';
+
+interface AddonColorScheme {
+    bg: string;
+    text: string;
+    border: string;
+    btnBg: string;
+    btnHover: string;
+    btnText: string;
+    btnBorder: string;
+}
+
+interface AddonState {
+    installed?: boolean;
+    enabled?: boolean;
+    config?: Record<string, unknown>;
+    watchdog?: boolean;
+}
+
+interface AddonConfigField {
+    key: string;
+    label?: string;
+    description?: string;
+    placeholder?: string;
+    type?: string;
+    default?: unknown;
+}
+
+interface AddonRecord {
+    slug: string;
+    name?: string;
+    description?: string;
+    version?: string;
+    color?: string;
+    icon?: string;
+    state?: AddonState;
+    config_schema?: AddonConfigField[];
+    integration_key?: string;
+    start_command?: {
+        command?: string;
+        args?: string[];
+        description?: string;
+    };
+}
+
+interface AddonUpdateRow {
+    slug: string;
+    name?: string;
+    color?: string;
+    icon?: string;
+    image?: string;
+    current?: string;
+    latest?: string;
+    update_available?: boolean;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ADDONS / APPS
 // ═══════════════════════════════════════════════════════════════════════════
 
-let _currentAddonSlug = null;
+let _currentAddonSlug: string | null = null;
 
-const _addonColorMap = {
+const _addonColorMap: Record<string, AddonColorScheme> = {
     cyan: { bg: 'bg-cyan-500/20', text: 'text-cyan-400', border: '#22d3ee', btnBg: 'bg-cyan-500/15', btnHover: 'hover:bg-cyan-500/25', btnText: 'text-cyan-300', btnBorder: 'border-cyan-500/25' },
     blue: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: '#3b82f6', btnBg: 'bg-blue-500/15', btnHover: 'hover:bg-blue-500/25', btnText: 'text-blue-300', btnBorder: 'border-blue-500/25' },
     emerald: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: '#10b981', btnBg: 'bg-emerald-500/15', btnHover: 'hover:bg-emerald-500/25', btnText: 'text-emerald-300', btnBorder: 'border-emerald-500/25' },
@@ -22,16 +76,16 @@ const _addonColorMap = {
     rose: { bg: 'bg-rose-500/20', text: 'text-rose-400', border: '#f43f5e', btnBg: 'bg-rose-500/15', btnHover: 'hover:bg-rose-500/25', btnText: 'text-rose-300', btnBorder: 'border-rose-500/25' },
     indigo: { bg: 'bg-indigo-500/20', text: 'text-indigo-400', border: '#6366f1', btnBg: 'bg-indigo-500/15', btnHover: 'hover:bg-indigo-500/25', btnText: 'text-indigo-300', btnBorder: 'border-indigo-500/25' },
 };
-const _defaultColor = { bg: 'bg-slate-500/20', text: 'text-slate-400', border: '#64748b', btnBg: 'bg-slate-500/15', btnHover: 'hover:bg-slate-500/25', btnText: 'text-slate-300', btnBorder: 'border-slate-500/25' };
+const _defaultColor: AddonColorScheme = { bg: 'bg-slate-500/20', text: 'text-slate-400', border: '#64748b', btnBg: 'bg-slate-500/15', btnHover: 'hover:bg-slate-500/25', btnText: 'text-slate-300', btnBorder: 'border-slate-500/25' };
 
 export async function loadAddons() {
     const container = document.getElementById('addons-list');
     if (!container) return;
 
-    let addons = [];
+    let addons: AddonRecord[] = [];
     try {
         const res = await apiCall('/api/addons');
-        if (res.ok) addons = await res.json();
+        if (res.ok) addons = await res.json() as AddonRecord[];
     } catch (e) {
         container.innerHTML = `<p class="text-sm text-red-400 text-center py-8">${escapeHtml(t('hy.addon_list_load_error'))}</p>`;
         return;
@@ -45,13 +99,13 @@ export async function loadAddons() {
     container.innerHTML = addons.map(addon => _renderAddonCard(addon)).join('');
 }
 
-function _renderAddonCard(addon) {
+function _renderAddonCard(addon: AddonRecord) {
     const s = addon.state || {};
     const installed = !!s.installed;
     const enabled = !!s.enabled;
-    const c = _addonColorMap[addon.color] || _defaultColor;
+    const c = _addonColorMap[addon.color || ''] || _defaultColor;
     const slug = escapeHtml(addon.slug);
-    const name = escapeHtml(addon.name);
+    const name = escapeHtml(addon.name || addon.slug);
     const desc = escapeHtml(addon.description || '');
     const version = escapeHtml(addon.version || '');
 
@@ -103,9 +157,9 @@ function _renderAddonCard(addon) {
     `;
 }
 
-export async function installAddon(slug) {
+export async function installAddon(slug: string) {
     const card = document.getElementById(`addon-card-${slug}`);
-    const btn = card?.querySelector('button');
+    const btn = card?.querySelector('button') as HTMLButtonElement | null;
     if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${escapeHtml(t('hy.addon_installing'))}`; }
 
     try {
@@ -114,7 +168,7 @@ export async function installAddon(slug) {
             showToast(t('hy.addon_installed'), 'success');
             await loadAddons();
         } else {
-            const err = await res.json().catch(() => ({}));
+            const err = await res.json().catch(() => ({})) as { detail?: string };
             showToast(err.detail || t('hy.addon_install_error'), 'error');
             if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fas fa-download"></i> ${escapeHtml(t('hy.addon_install_btn'))}`; }
         }
@@ -124,7 +178,7 @@ export async function installAddon(slug) {
     }
 }
 
-export async function uninstallAddon(slug) {
+export async function uninstallAddon(slug: string) {
     if (!(await showConfirm(t('hy.addon_uninstall_confirm', { slug })))) return;
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/uninstall`, { method: 'POST' });
@@ -139,7 +193,7 @@ export async function uninstallAddon(slug) {
     }
 }
 
-export async function toggleAddon(slug, enabled) {
+export async function toggleAddon(slug: string, enabled: boolean) {
     const ep = enabled ? 'enable' : 'disable';
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/${ep}`, { method: 'POST' });
@@ -154,18 +208,18 @@ export async function toggleAddon(slug, enabled) {
     }
 }
 
-export async function openAddonConfigModal(slug) {
+export async function openAddonConfigModal(slug: string) {
     _currentAddonSlug = slug;
     const titleEl = document.getElementById('addon-config-modal-title');
     const iconEl = document.getElementById('addon-config-modal-icon');
     const fieldsEl = document.getElementById('addon-config-fields');
     if (!fieldsEl) return;
 
-    let addon = null;
+    let addon: AddonRecord | null = null;
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}`);
-        if (res.ok) addon = await res.json();
-    } catch (e) {}
+        if (res.ok) addon = await res.json() as AddonRecord;
+    } catch (_) {}
 
     if (!addon) { showToast(t('hy.addon_not_found'), 'error'); return; }
 
@@ -197,9 +251,9 @@ export async function openAddonConfigModal(slug) {
     }).join('');
 
     if (addon.start_command) {
-        const args = (addon.start_command.args || []).map(a => {
-            return a.replace(/\{(\w+)\}/g, (_, k) => cfg[k] ?? k);
-        });
+        const args = (addon.start_command.args || []).map(a =>
+            a.replace(/\{(\w+)\}/g, (_, k) => String(cfg[k] ?? k))
+        );
         const cmd = `${addon.start_command.command} ${args.join(' ')}`;
         fieldsEl.innerHTML += `
             <div class="mt-4 pt-4 border-t border-white/5 space-y-2">
@@ -214,7 +268,7 @@ export async function openAddonConfigModal(slug) {
     if (healthResult) { healthResult.classList.add('hidden'); healthResult.textContent = ''; }
 
     // Watchdog toggle
-    const watchdogToggle = document.getElementById('addon-watchdog-toggle');
+    const watchdogToggle = document.getElementById('addon-watchdog-toggle') as HTMLInputElement | null;
     const watchdogSection = document.getElementById('addon-watchdog-section');
     if (watchdogToggle) watchdogToggle.checked = !!(addon.state?.watchdog);
     // Only show watchdog if addon has a start_command
@@ -237,10 +291,12 @@ export function closeAddonConfigModal() {
 export async function saveAddonConfig() {
     if (!_currentAddonSlug) return;
     const fields = document.querySelectorAll('#addon-config-fields [data-addon-key]');
-    const config = {};
+    const config: Record<string, unknown> = {};
     fields.forEach(f => {
-        const key = f.dataset.addonKey;
-        config[key] = f.type === 'number' ? Number(f.value) : f.value;
+        const el = f as HTMLInputElement;
+        const key = el.dataset.addonKey;
+        if (!key) return;
+        config[key] = el.type === 'number' ? Number(el.value) : el.value;
     });
 
     try {
@@ -258,7 +314,7 @@ export async function saveAddonConfig() {
     }
 
     // Save watchdog setting
-    const watchdogToggle = document.getElementById('addon-watchdog-toggle');
+    const watchdogToggle = document.getElementById('addon-watchdog-toggle') as HTMLInputElement | null;
     if (watchdogToggle && !watchdogToggle.closest('.hidden')) {
         try {
             await apiCall(`/api/addons/${encodeURIComponent(_currentAddonSlug)}/watchdog`, {
@@ -274,11 +330,11 @@ export async function saveAddonConfig() {
 export async function checkAddonHealth() {
     if (!_currentAddonSlug) return;
     const resultEl = document.getElementById('addon-health-result');
-    const btn = document.getElementById('addon-health-btn');
+    const btn = document.getElementById('addon-health-btn') as HTMLButtonElement | null;
     if (btn) btn.disabled = true;
     if (resultEl) { resultEl.classList.remove('hidden'); resultEl.className = 'text-xs rounded-xl p-3 bg-slate-900 border border-white/5 text-slate-400'; resultEl.textContent = t('common.checking'); }
 
-    const formatHealthError = (detail) => {
+    const formatHealthError = (detail: unknown) => {
         const raw = String(detail || '').trim();
         const low = raw.toLowerCase();
         if (!raw) return t('hy.addon_health_no_response');
@@ -295,7 +351,7 @@ export async function checkAddonHealth() {
 
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(_currentAddonSlug)}/health`);
-        const data = await res.json();
+        const data = await res.json() as { ok?: boolean; detail?: string };
         if (data.ok) {
             if (resultEl) { resultEl.className = 'text-xs rounded-xl p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'; resultEl.textContent = `✓ ${t('hy.addon_health_connected', { detail: data.detail || 'OK' })}`; }
         } else {
@@ -311,13 +367,13 @@ export async function checkAddonHealth() {
 // UPDATES — Add-on update management
 // ─────────────────────────────────────────────────────────────────────────────
 
-let _addonUpdatesCache = [];
+let _addonUpdatesCache: AddonUpdateRow[] = [];
 
 /** Update the iOS-style badge on the Updates hub card with the number of available updates. */
-export function updateHeaderUpdatesBadge(count) {
+export function updateHeaderUpdatesBadge(count: number | string) {
     const badge = document.getElementById('hub-updates-badge-count');
     if (!badge) return;
-    const n = Math.max(0, parseInt(count, 10) || 0);
+    const n = Math.max(0, typeof count === 'number' ? count : parseInt(String(count), 10) || 0);
     if (n <= 0) {
         badge.classList.add('hidden');
         return;
@@ -336,7 +392,7 @@ export async function refreshUpdatesHeaderBadge() {
     try {
         const res = await apiCall('/api/updates/addons');
         if (!res.ok) return;
-        const data = await res.json();
+        const data = await res.json() as { total_updates?: number };
         updateHeaderUpdatesBadge(data?.total_updates || 0);
     } catch (_) {}
 }
@@ -348,17 +404,17 @@ export async function loadUpdatesAddons() {
     _setUpdatesStatus('', 'hidden');
     try {
         const res = await apiCall('/api/updates/addons');
-        const data = await res.json();
+        const data = await res.json() as { addons?: AddonUpdateRow[]; total_updates?: number };
         _addonUpdatesCache = data.addons || [];
         updateHeaderUpdatesBadge(data.total_updates || 0);
         _renderAddonUpdateRows();
     } catch (e) {
-        list.innerHTML = `<div class="text-center py-8 text-red-400 text-xs"><i class="fas fa-triangle-exclamation mr-2"></i>${escapeHtml(e.message || String(e))}</div>`;
+        list.innerHTML = `<div class="text-center py-8 text-red-400 text-xs"><i class="fas fa-triangle-exclamation mr-2"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}</div>`;
     }
 }
 
 export async function checkAddonUpdates() {
-    const btn = document.getElementById('updates-addons-check-btn');
+    const btn = document.getElementById('updates-addons-check-btn') as HTMLButtonElement | null;
     if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>${escapeHtml(t('updates.check_btn'))}</span>`; }
     _setUpdatesStatus(`<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('updates.checking'))}`, 'info');
     try {
@@ -372,7 +428,7 @@ export async function checkAddonUpdates() {
             _setUpdatesStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(t('updates.all_up_to_date'))}`, 'success');
         }
     } catch (e) {
-        _setUpdatesStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e.message || String(e))}`, 'error');
+        _setUpdatesStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`, 'error');
     } finally {
         if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fas fa-rotate"></i><span>${escapeHtml(t('updates.check_btn'))}</span>`; }
     }
@@ -385,20 +441,25 @@ export async function updateAllAddons() {
     await _runAddonUpdate({ all: true });
 }
 
-export async function updateSingleAddon(slug) {
+export async function updateSingleAddon(slug: string) {
     const addon = _addonUpdatesCache.find(a => a.slug === slug);
     const name = addon ? addon.name : slug;
     if (!(await showConfirm(t('updates.confirm_update_addon', { name })))) return;
     await _runAddonUpdate({ slugs: [slug] });
 }
 
-async function _runAddonUpdate(body) {
-    const upgradeBtn = document.getElementById('updates-addons-upgrade-btn');
+async function _runAddonUpdate(body: { all?: boolean; slugs?: string[] }) {
+    const upgradeBtn = document.getElementById('updates-addons-upgrade-btn') as HTMLButtonElement | null;
     if (upgradeBtn) { upgradeBtn.disabled = true; upgradeBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>${escapeHtml(t('updates.upgrade_btn_loading'))}</span>`; }
     _setUpdatesStatus(`<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('updates.installing'))}`, 'info');
     try {
         const res = await apiCall('/api/updates/addons/update', { method: 'POST', body });
-        const data = await res.json();
+        const data = await res.json() as {
+            status?: string;
+            updated?: unknown[];
+            message?: string;
+            failed?: Array<{ slug?: string; error?: string }>;
+        };
         if (data.status === 'ok') {
             _setUpdatesStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(t('updates.addons_updated', { count: (data.updated || []).length }))}`, 'success');
         } else if (data.status === 'partial') {
@@ -414,13 +475,13 @@ async function _runAddonUpdate(body) {
         }
         await loadUpdatesAddons();
     } catch (e) {
-        _setUpdatesStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e.message || String(e))}`, 'error');
+        _setUpdatesStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`, 'error');
     } finally {
         if (upgradeBtn) { upgradeBtn.disabled = false; upgradeBtn.innerHTML = `<i class="fas fa-arrow-up"></i><span>${escapeHtml(t('updates.upgrade_all_btn'))}</span>`; }
     }
 }
 
-const _ADDON_COLOR_MAP = {
+const _ADDON_COLOR_MAP: Record<string, string> = {
     cyan: 'text-cyan-400', blue: 'text-blue-400', purple: 'text-purple-400',
     fuchsia: 'text-fuchsia-400', amber: 'text-amber-400', red: 'text-red-400',
     green: 'text-green-400', emerald: 'text-emerald-400', slate: 'text-slate-400',
@@ -450,7 +511,7 @@ function _renderAddonUpdateRows() {
     }
 
     list.innerHTML = sorted.map(a => {
-        const iconColor = _ADDON_COLOR_MAP[a.color] || _ADDON_COLOR_MAP.slate;
+        const iconColor = _ADDON_COLOR_MAP[a.color || ''] || _ADDON_COLOR_MAP.slate;
         const iconHtml = a.image
             ? `<img src="${escapeHtml(a.image)}" alt="" class="w-4 h-4 rounded object-contain" loading="lazy">`
             : `<i class="${escapeHtml(a.icon || 'fas fa-puzzle-piece')} ${iconColor}"></i>`;
@@ -477,12 +538,12 @@ function _renderAddonUpdateRows() {
     }).join('');
 }
 
-function _setUpdatesStatus(html, type) {
+function _setUpdatesStatus(html: string, type: 'hidden' | 'info' | 'success' | 'warning' | 'error') {
     const el = document.getElementById('updates-addons-status');
     if (!el) return;
     if (type === 'hidden') { el.classList.add('hidden'); return; }
     el.classList.remove('hidden');
-    const colors = {
+    const colors: Record<string, string> = {
         info: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
         success: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
         warning: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
@@ -494,8 +555,8 @@ function _setUpdatesStatus(html, type) {
 
 // --- Updates interval custom dropdown ---
 
-function _intervalLabel(val) {
-    const key = { never: 'updates.interval_never', daily: 'updates.interval_daily', weekly: 'updates.interval_weekly', monthly: 'updates.interval_monthly' }[val];
+function _intervalLabel(val: string) {
+    const key = ({ never: 'updates.interval_never', daily: 'updates.interval_daily', weekly: 'updates.interval_weekly', monthly: 'updates.interval_monthly' } as Record<string, string>)[val];
     return key ? t(key) : val;
 }
 
@@ -507,24 +568,26 @@ if (typeof document !== 'undefined' && !_updatesDropdownBound) {
     document.addEventListener('click', (e) => {
         const dd = document.getElementById('updates_interval_dropdown');
         if (!dd) return;
-        const toggleBtn = e.target.closest('[data-action="toggle-updates-interval"]');
+        const target = e.target;
+        if (!(target instanceof Element)) return;
+        const toggleBtn = target.closest('[data-action="toggle-updates-interval"]');
         if (toggleBtn && dd.contains(toggleBtn)) {
             e.preventDefault();
             e.stopPropagation();
             dd.dataset.open = dd.dataset.open === 'true' ? 'false' : 'true';
             return;
         }
-        const opt = e.target.closest('.dashboard-custom-select__option');
+        const opt = target.closest('.dashboard-custom-select__option');
         if (opt && dd.contains(opt)) {
             e.preventDefault();
             e.stopPropagation();
-            const value = opt.dataset.value;
-            const labelKey = opt.dataset.labelKey;
-            const label = labelKey ? t(labelKey) : (opt.textContent.trim());
+            const value = (opt as HTMLElement).dataset.value || '';
+            const labelKey = (opt as HTMLElement).dataset.labelKey;
+            const label = labelKey ? t(labelKey) : (opt.textContent || '').trim();
             setUpdatesInterval(value, label);
             return;
         }
-        if (!dd.contains(e.target)) dd.dataset.open = 'false';
+        if (!dd.contains(target)) dd.dataset.open = 'false';
     });
 }
 
@@ -536,16 +599,17 @@ export function toggleUpdatesIntervalDropdown() {
     dd.dataset.open = dd.dataset.open === 'true' ? 'false' : 'true';
 }
 
-export function setUpdatesInterval(value, label) {
+export function setUpdatesInterval(value: string, label?: string) {
     const dd = document.getElementById('updates_interval_dropdown');
-    const hidden = document.getElementById('updates_addons_check_interval');
+    const hidden = document.getElementById('updates_addons_check_interval') as HTMLInputElement | null;
     const lbl = label || _intervalLabel(value);
     if (dd) {
         dd.dataset.open = 'false';
         const valueEl = dd.querySelector('.dashboard-custom-select__value');
         if (valueEl) valueEl.textContent = lbl;
         dd.querySelectorAll('.dashboard-custom-select__option').forEach(o => {
-            o.dataset.selected = o.dataset.value === value ? 'true' : 'false';
+            const opt = o as HTMLElement;
+            opt.dataset.selected = opt.dataset.value === value ? 'true' : 'false';
         });
     }
     if (hidden) {
@@ -556,12 +620,14 @@ export function setUpdatesInterval(value, label) {
 
 export function syncUpdatesIntervalDropdown() {
     _bindUpdatesIntervalDropdownOnce();
-    const hidden = document.getElementById('updates_addons_check_interval');
+    const hidden = document.getElementById('updates_addons_check_interval') as HTMLInputElement | null;
     const dd = document.getElementById('updates_interval_dropdown');
     if (!hidden || !dd) return;
     const val = hidden.value || 'never';
-    dd.querySelector('.dashboard-custom-select__value').textContent = _intervalLabel(val);
+    const valueEl = dd.querySelector('.dashboard-custom-select__value');
+    if (valueEl) valueEl.textContent = _intervalLabel(val);
     dd.querySelectorAll('.dashboard-custom-select__option').forEach(o => {
-        o.dataset.selected = o.dataset.value === val ? 'true' : 'false';
+        const opt = o as HTMLElement;
+        opt.dataset.selected = opt.dataset.value === val ? 'true' : 'false';
     });
 }

@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Legacy dashboard add-card modal — open/close, type UI, and save (POST/PATCH).
  */
@@ -19,31 +18,32 @@ import {
     wireDashboardAddPreviewListeners,
 } from './widget_add_editor.js';
 import { renderEntityOptions, resolveEntityMatch, setEntitySelectState } from './entity_picker.js';
+import type { DashboardCardMeta, DashboardWidgetAddModalDeps } from '../types/dashboard.js';
+import type { HyveEntity } from '../types/entity.js';
 
-/** @type {object | null} */
-let _deps = null;
+let _deps: DashboardWidgetAddModalDeps | null = null;
 
-function deps() {
+function deps(): DashboardWidgetAddModalDeps {
     if (!_deps) throw new Error('Dashboard widget add modal not initialized');
     return _deps;
 }
 
-export function initDashboardWidgetAddModal(depsIn) {
+export function initDashboardWidgetAddModal(depsIn: DashboardWidgetAddModalDeps) {
     _deps = depsIn;
 }
 
-function slug(value) {
+function slug(value: unknown) {
     return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'section';
 }
 
-function applyDashboardModalMode(mode /* 'add' | 'edit' */) {
+function applyDashboardModalMode(mode: 'add' | 'edit') {
     const d = deps();
     const modal = document.getElementById('dashboard-add-modal');
     if (!modal) return;
     const isEdit = mode === 'edit';
     modal.dataset.mode = isEdit ? 'edit' : 'add';
 
-    const apply = (selector, i18nKey, fallback) => {
+    const apply = (selector: string, i18nKey: string, fallback: string) => {
         const el = modal.querySelector(selector);
         if (!el) return;
         el.setAttribute('data-i18n', i18nKey);
@@ -64,13 +64,14 @@ function applyDashboardModalMode(mode /* 'add' | 'edit' */) {
 
 export function updateDashboardTypeUI() {
     const d = deps();
-    const type = document.getElementById('dashboard-widget-type')?.value || 'button';
+    const typeEl = document.getElementById('dashboard-widget-type') as HTMLSelectElement | null;
+    const type = typeEl?.value || 'button';
     const renderer = d.dashboardEditorRenderer(type);
     const entityGroup = document.getElementById('dashboard-entity-group');
     const titleSubtitleGroup = document.getElementById('dashboard-title-subtitle-group')
         || document.getElementById('dashboard-widget-title')?.closest?.('.grid');
     const subtitleLabel = document.getElementById('dashboard-widget-subtitle-label');
-    const subtitleInput = document.getElementById('dashboard-widget-subtitle');
+    const subtitleInput = document.getElementById('dashboard-widget-subtitle') as HTMLInputElement | null;
     const bgWrap = document.getElementById('dashboard-label-background-wrap');
     const switchWrap = document.getElementById('dashboard-button-switch-wrap');
     const climateEntitiesGroup = document.getElementById('dashboard-climate-entities-group');
@@ -91,34 +92,37 @@ export function updateDashboardTypeUI() {
             ? (d.t('dashboard.subtitle_placeholder_label') || 'You can leave this empty for title only')
             : (d.t('dashboard.subtitle_placeholder_default') || 'e.g. Ground floor or short text');
     }
-    const rowSpan = document.getElementById('dashboard-widget-row-span');
+    const rowSpan = document.getElementById('dashboard-widget-row-span') as HTMLSelectElement | null;
     const defaultRows = d.dashboardDefaultRowsForType(type);
     if (!d.getCurrentEditorId() && rowSpan && defaultRows > (parseInt(rowSpan.value || '1', 10) || 1)) {
         rowSpan.value = String(defaultRows);
         syncDashboardSizeSlidersFromSelects();
         syncDashboardCustomSelect(rowSpan);
     }
-    renderEntityOptions(document.getElementById('dashboard-entity-select'), type);
+    renderEntityOptions(document.getElementById('dashboard-entity-select') as HTMLInputElement | null, type);
     d.renderDashboardClimateEntityChips();
-    enhanceDashboardCustomSelects(document.getElementById('dashboard-add-modal'));
+    enhanceDashboardCustomSelects(document.getElementById('dashboard-add-modal') || document);
     renderDashboardAddPreview();
 }
 
 export function updateDashboardEditTypeUI() {
-    const type = document.getElementById('dashboard-edit-widget-type')?.value || 'button';
+    const typeEl = document.getElementById('dashboard-edit-widget-type') as HTMLSelectElement | null;
+    const type = typeEl?.value || 'button';
     const entityGroup = document.getElementById('dashboard-edit-entity-group');
     const bgWrap = document.getElementById('dashboard-edit-label-background-wrap');
     const switchWrap = document.getElementById('dashboard-edit-button-switch-wrap');
     if (entityGroup) entityGroup.classList.toggle('hidden', type === 'label');
     if (bgWrap) bgWrap.classList.toggle('hidden', type !== 'label');
     if (switchWrap) switchWrap.classList.toggle('hidden', type !== 'button');
-    const current = document.getElementById('dashboard-edit-entity-select')?.dataset?.currentValue || '';
-    renderEntityOptions(document.getElementById('dashboard-edit-entity-select'), type, current);
+    const picker = document.getElementById('dashboard-edit-entity-select') as HTMLInputElement | null;
+    const current = picker?.dataset?.currentValue || '';
+    renderEntityOptions(picker, type, current);
 }
 
 export function updateDashboardEntityOptions() {
-    const select = document.getElementById('dashboard-entity-select');
-    const type = document.getElementById('dashboard-widget-type')?.value || 'button';
+    const select = document.getElementById('dashboard-entity-select') as HTMLInputElement | null;
+    const typeEl = document.getElementById('dashboard-widget-type') as HTMLSelectElement | null;
+    const type = typeEl?.value || 'button';
     renderEntityOptions(select, type);
 }
 
@@ -133,24 +137,24 @@ export async function openDashboardAddModal(kind = 'button') {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 
-    const type = document.getElementById('dashboard-widget-type');
+    const type = document.getElementById('dashboard-widget-type') as HTMLSelectElement | null;
     try {
-        const cards = await d.loadDashboardCardCatalog();
+        const cards = (await d.loadDashboardCardCatalog()) as DashboardCardMeta[];
         if (type && cards.length) {
             type.innerHTML = cards.map(c =>
-                `<option value="${escapeHtml(c.id)}">${escapeHtml(c.label)}</option>`
+                `<option value="${escapeHtml(c.id)}">${escapeHtml(String(c.label || c.id || ''))}</option>`
             ).join('');
         }
     } catch (_) { /* keep existing options */ }
 
-    const title = document.getElementById('dashboard-widget-title');
-    const subtitle = document.getElementById('dashboard-widget-subtitle');
-    const icon = document.getElementById('dashboard-widget-icon');
-    const size = document.getElementById('dashboard-widget-size');
-    const colSpan = document.getElementById('dashboard-widget-col-span');
-    const rowSpan = document.getElementById('dashboard-widget-row-span');
-    const showBackground = document.getElementById('dashboard-widget-label-bg');
-    const cameraMode = document.getElementById('dashboard-widget-camera-mode');
+    const title = document.getElementById('dashboard-widget-title') as HTMLInputElement | null;
+    const subtitle = document.getElementById('dashboard-widget-subtitle') as HTMLInputElement | null;
+    const icon = document.getElementById('dashboard-widget-icon') as HTMLInputElement | null;
+    const size = document.getElementById('dashboard-widget-size') as HTMLSelectElement | null;
+    const colSpan = document.getElementById('dashboard-widget-col-span') as HTMLSelectElement | null;
+    const rowSpan = document.getElementById('dashboard-widget-row-span') as HTMLSelectElement | null;
+    const showBackground = document.getElementById('dashboard-widget-label-bg') as HTMLInputElement | null;
+    const cameraMode = document.getElementById('dashboard-widget-camera-mode') as HTMLSelectElement | null;
     if (title) title.value = '';
     if (subtitle) subtitle.value = '';
     if (icon) icon.value = '';
@@ -160,9 +164,9 @@ export async function openDashboardAddModal(kind = 'button') {
     if (rowSpan) rowSpan.value = String(d.dashboardDefaultRowsForType(kind || 'button'));
     if (showBackground) showBackground.checked = false;
     if (cameraMode) cameraMode.value = 'snapshots';
-    const switchStyle = document.getElementById('dashboard-widget-switch-style');
+    const switchStyle = document.getElementById('dashboard-widget-switch-style') as HTMLInputElement | null;
     if (switchStyle) switchStyle.checked = false;
-    const picker = document.getElementById('dashboard-entity-select');
+    const picker = document.getElementById('dashboard-entity-select') as HTMLInputElement | null;
     if (picker) {
         picker.value = '';
         picker.dataset.currentValue = '';
@@ -176,12 +180,12 @@ export async function openDashboardAddModal(kind = 'button') {
         updateDashboardTypeUI();
     } catch (e) {
         setEntitySelectState(d.t('dashboard.loading_entities_error') || 'Could not load entities.', true);
-        showToast(e.message || (d.t('dashboard.loading_entities_error_toast') || 'Error loading entities'), 'error');
+        showToast(e instanceof Error ? e.message : (d.t('dashboard.loading_entities_error_toast') || 'Error loading entities'), 'error');
     }
 
     wireDashboardAddPreviewListeners();
     setDashboardAddEditorMode('visual');
-    const visEnabled = document.getElementById('dashboard-visibility-enabled');
+    const visEnabled = document.getElementById('dashboard-visibility-enabled') as HTMLInputElement | null;
     if (visEnabled) visEnabled.checked = false;
     const visBody = document.getElementById('dashboard-visibility-body');
     if (visBody) visBody.classList.add('hidden');
@@ -209,17 +213,17 @@ export function closeDashboardAddModal() {
 export async function addDashboardSwitch() {
     const d = deps();
     if (!d.requireDashboardEditAccess()) return;
-    const entityInput = document.getElementById('dashboard-entity-select');
-    const title = document.getElementById('dashboard-widget-title');
-    const subtitle = document.getElementById('dashboard-widget-subtitle');
-    const type = document.getElementById('dashboard-widget-type');
-    const size = document.getElementById('dashboard-widget-size');
-    const widgetType = type?.value || 'button';
+    const entityInput = document.getElementById('dashboard-entity-select') as HTMLInputElement | null;
+    const title = document.getElementById('dashboard-widget-title') as HTMLInputElement | null;
+    const subtitle = document.getElementById('dashboard-widget-subtitle') as HTMLInputElement | null;
+    const typeEl = document.getElementById('dashboard-widget-type') as HTMLSelectElement | null;
+    const size = document.getElementById('dashboard-widget-size') as HTMLSelectElement | null;
+    const widgetType = typeEl?.value || 'button';
     const widgetRenderer = d.dashboardEditorRenderer(widgetType);
 
     let selected = resolveEntityMatch(entityInput, widgetType);
-    let climateEntityIds = [];
-    let climateEntityRecords = [];
+    let climateEntityIds: string[] = [];
+    let climateEntityRecords: Array<{ entity_id: string; [key: string]: unknown }> = [];
     if (widgetType === 'climate') {
         climateEntityRecords = d.climateEntityRecordsForSave();
         climateEntityIds = climateEntityRecords.map(item => item.entity_id);
@@ -239,15 +243,15 @@ export async function addDashboardSwitch() {
         return;
     }
 
-    const switchStyle = document.getElementById('dashboard-widget-switch-style');
-    const showBackground = document.getElementById('dashboard-widget-label-bg');
-    const iconInput = document.getElementById('dashboard-widget-icon');
-    const colSpanEl = document.getElementById('dashboard-widget-col-span');
-    const rowSpanEl = document.getElementById('dashboard-widget-row-span');
-    const cameraMode = document.getElementById('dashboard-widget-camera-mode');
+    const switchStyle = document.getElementById('dashboard-widget-switch-style') as HTMLInputElement | null;
+    const showBackground = document.getElementById('dashboard-widget-label-bg') as HTMLInputElement | null;
+    const iconInput = document.getElementById('dashboard-widget-icon') as HTMLInputElement | null;
+    const colSpanEl = document.getElementById('dashboard-widget-col-span') as HTMLSelectElement | null;
+    const rowSpanEl = document.getElementById('dashboard-widget-row-span') as HTMLSelectElement | null;
+    const cameraMode = document.getElementById('dashboard-widget-camera-mode') as HTMLSelectElement | null;
     const manualEntityId = `label.${slug(title?.value || subtitle?.value || 'section')}`;
-    const resolvedEntityId = widgetType === 'label' ? manualEntityId : selected.entity_id;
-    const body = {
+    const resolvedEntityId = widgetType === 'label' ? manualEntityId : (selected as HyveEntity).entity_id;
+    const body: Record<string, unknown> = {
         type: widgetType,
         entity_id: resolvedEntityId,
         entity_name: widgetType === 'label'
@@ -265,11 +269,11 @@ export async function addDashboardSwitch() {
     };
     if (widgetType === 'climate') {
         body.entity_id = climateEntityIds[0];
-        body.config = { ...(body.config || {}), entities: climateEntityRecords, entity_ids: climateEntityIds };
+        body.config = { ...(body.config as Record<string, unknown> || {}), entities: climateEntityRecords, entity_ids: climateEntityIds };
     }
     if (widgetRenderer === 'camera') {
         const selectedMode = String(cameraMode?.value || 'snapshots').trim() === 'live' ? 'live' : 'snapshots';
-        body.config = { ...(body.config || {}), camera_mode: selectedMode };
+        body.config = { ...(body.config as Record<string, unknown> || {}), camera_mode: selectedMode };
     }
 
     const colSpanVal = parseInt(colSpanEl?.value || '0', 10);
@@ -298,7 +302,7 @@ export async function addDashboardSwitch() {
             await d.loadDashboard();
             showToast(d.t('dashboard.card_updated'), 'success');
         } catch (e) {
-            showToast(e.message || d.t('dashboard.card_update_error'), 'error');
+            showToast(e instanceof Error ? e.message : d.t('dashboard.card_update_error'), 'error');
         }
         return;
     }
@@ -317,14 +321,16 @@ export async function addDashboardSwitch() {
             throw new Error(dashApiError(err.detail, 'dashboard.save_widget_failed'));
         }
     } catch (e) {
-        if (String(e?.message || '').includes(d.t('dashboard.save_widget_failed'))) {
-            showToast(e.message, 'error');
+        const msg = e instanceof Error ? e.message : '';
+        if (msg.includes(d.t('dashboard.save_widget_failed'))) {
+            showToast(msg, 'error');
             return;
         }
     }
 
     try {
         const section = await d.readDashboardSectionFallback();
+        section.widgets = section.widgets || [];
         section.widgets.push({
             id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
             ...body,
@@ -334,6 +340,6 @@ export async function addDashboardSwitch() {
         await d.loadDashboard();
         showToast(d.t('dashboard.card_added') || 'Card added', 'success');
     } catch (e) {
-        showToast(e.message || (d.t('dashboard.save_error') || 'Save error'), 'error');
+        showToast(e instanceof Error ? e.message : (d.t('dashboard.save_error') || 'Save error'), 'error');
     }
 }

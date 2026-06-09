@@ -1,10 +1,16 @@
-// @ts-nocheck — Phase 3 TS shell; tighten types incrementally.
 /** Apply WS entity diffs to dashboard cache + Hyveview fast-path patching. */
 import { fusionSolarWidgetEntityIds } from '/static/hyveview/cards/fusion_solar/card.js';
 import { entityIdVariants, findEntityById, updatesGetWithAliases, updatesHasWithAliases } from '../entity_aliases.js';
 import { patchRegistryCardStates } from './card_registry.js';
 import { widgetArticleEl } from './cards/updates.js';
 import { buildCardRenderCtx } from './widget_cards.js';
+function entityStateValue(value) {
+    if (value == null)
+        return null;
+    if (typeof value === 'string' || typeof value === 'number')
+        return value;
+    return 'unknown';
+}
 export function createDashboardEntityPatcher(deps) {
     const { HVBridge, getCache, shouldHoldOptimisticState, pendingForEntity, clearPendingControl, climateConfiguredIds, cameraWidgetEntities, widgetRenderer, widgetById, renderDashboard, } = deps;
     function widgetEntityIds(widget) {
@@ -24,7 +30,9 @@ export function createDashboardEntityPatcher(deps) {
         }
         if (Array.isArray(widget.entities))
             widget.entities.forEach(add);
-        const cfg = widget?.config && typeof widget.config === 'object' ? widget.config : {};
+        const cfg = widget?.config && typeof widget.config === 'object'
+            ? widget.config
+            : {};
         if (Array.isArray(cfg.entities))
             cfg.entities.forEach(add);
         if (Array.isArray(cfg.entity_ids))
@@ -47,9 +55,9 @@ export function createDashboardEntityPatcher(deps) {
         if (fromChild) {
             return {
                 entity_id: id,
-                state: fromChild.current_state ?? fromChild.state ?? 'unknown',
+                state: entityStateValue(fromChild.current_state ?? fromChild.state ?? 'unknown'),
                 attributes: fromChild.attributes || {},
-                unit: fromChild.unit || '',
+                unit: String(fromChild.unit || ''),
                 available: fromChild.available !== false,
             };
         }
@@ -68,20 +76,22 @@ export function createDashboardEntityPatcher(deps) {
                 entity_id: id,
                 state: widget.current_state,
                 attributes: widget.attributes || {},
-                unit: widget.unit || '',
+                unit: String(widget.unit || ''),
                 available: widget.available !== false,
             };
         }
         return null;
     }
     function bootstrapHyveviewCardStates(el, widget) {
-        if (!el || typeof el.setState !== 'function' || !widget)
+        const stateEl = el;
+        const w = widget;
+        if (!stateEl || typeof stateEl.setState !== 'function' || !w)
             return;
-        for (const entityId of widgetEntityIds(widget)) {
-            const snap = entitySnapshot(entityId, widget);
+        for (const entityId of widgetEntityIds(w)) {
+            const snap = entitySnapshot(entityId, w);
             if (snap) {
                 try {
-                    el.setState(snap);
+                    stateEl.setState(snap);
                 }
                 catch (_) { }
             }
@@ -89,7 +99,7 @@ export function createDashboardEntityPatcher(deps) {
     }
     function configureHyveviewMounted(root) {
         try {
-            HVBridge.configureMounted(root, widgetById, {
+            HVBridge.configureMounted?.(root, widgetById, {
                 bootstrapStates: bootstrapHyveviewCardStates,
             });
         }
@@ -116,12 +126,12 @@ export function createDashboardEntityPatcher(deps) {
             };
             const walkTouched = (list) => Array.isArray(list) && list.forEach(collectTouched);
             walkTouched(cache.widgets);
-            (cache.panels || []).forEach(p => walkTouched(p && p.widgets));
+            (cache.panels || []).forEach(p => walkTouched(p?.widgets));
             (cache.pages || []).forEach(pg => {
                 if (!pg)
                     return;
                 walkTouched(pg.widgets);
-                (pg.panels || []).forEach(p => walkTouched(p && p.widgets));
+                (pg.panels || []).forEach(p => walkTouched(p?.widgets));
             });
             if (touchedWidgetIds.size === 0)
                 return true;
@@ -163,9 +173,9 @@ export function createDashboardEntityPatcher(deps) {
                 return;
             updates.set(entity.entity_id, {
                 entity_id: entity.entity_id,
-                state: entity.current_state ?? entity.state,
+                state: entityStateValue(entity.current_state ?? entity.state),
                 attributes: entity.attributes || {},
-                unit: entity.unit || '',
+                unit: String(entity.unit || ''),
                 available: entity.available !== false,
             });
         };
@@ -256,7 +266,7 @@ export function createDashboardEntityPatcher(deps) {
                     if (!upd)
                         return;
                     const pending = pendingForEntity(entityId);
-                    if (pending) {
+                    if (pending?.widgetId) {
                         clearPendingControl(pending.widgetId);
                     }
                     if (widget.entity_id === entityId) {
@@ -285,7 +295,7 @@ export function createDashboardEntityPatcher(deps) {
             };
             walkWidgets(cache.widgets);
             if (Array.isArray(cache.panels)) {
-                cache.panels.forEach(p => walkWidgets(p && p.widgets));
+                cache.panels.forEach(p => walkWidgets(p?.widgets));
             }
             if (Array.isArray(cache.pages)) {
                 cache.pages.forEach(pg => {
@@ -293,7 +303,7 @@ export function createDashboardEntityPatcher(deps) {
                         return;
                     walkWidgets(pg.widgets);
                     if (Array.isArray(pg.panels)) {
-                        pg.panels.forEach(p => walkWidgets(p && p.widgets));
+                        pg.panels.forEach(p => walkWidgets(p?.widgets));
                     }
                 });
             }

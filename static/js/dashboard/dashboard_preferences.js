@@ -1,4 +1,3 @@
-// @ts-nocheck — Phase 7 TS shell; tighten types incrementally.
 /**
  * Dashboard preferences UI — layout, filter, edit mode, and preference sync.
  */
@@ -6,7 +5,6 @@ import { apiCall } from '../api.js';
 import { showToast } from '../utils.js';
 import { DEFAULT_PREFS, DEFAULT_META } from './constants.js';
 import { dashApiError } from './helpers.js';
-/** @type {object | null} */
 let _deps = null;
 function deps() {
     if (!_deps)
@@ -160,14 +158,15 @@ export async function saveDashboardPreferences(silent = false) {
         }
     }
     catch (e) {
-        if (!String(e?.message || '').includes(d.t('dashboard.save_widget_failed'))) {
+        const msg = e instanceof Error ? e.message : '';
+        if (!msg.includes(d.t('dashboard.save_widget_failed'))) {
             // continue to fallback
         }
     }
     const section = await d.readDashboardSectionFallback();
     section.preferences = prefs;
     await d.writeDashboardSectionFallback(section);
-    cache.preferences = section.preferences;
+    cache.preferences = { ...DEFAULT_PREFS, ...section.preferences };
     d.renderDashboard();
     if (!silent)
         showToast(d.t('dashboard.preferences_saved'), 'success');

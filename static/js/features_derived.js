@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 // Derived entities ("template sensors") — create, edit, delete, live preview.
 //
 // Architecture:
@@ -17,18 +16,29 @@ const VIEW_FORM = 'form';
 const VIEW_YAML = 'yaml';
 let _builder = BUILDER_PRESET;
 let _view = VIEW_FORM;
-let _editingId = null; // entity_id when editing; null when creating
-let _candidates = []; // all entities usable as inputs
-let _selectedInputs = new Set(); // entity_ids selected in preset/transform
+let _editingId = null;
+let _candidates = [];
+let _selectedInputs = new Set();
 let _previewTimer = null;
-let _yamlTouched = false; // user manually edited YAML?
-function $(id) { return document.getElementById(id); }
+let _yamlTouched = false;
+function $(id) {
+    return document.getElementById(id);
+}
+function $input(id) {
+    return document.getElementById(id);
+}
+function $select(id) {
+    return document.getElementById(id);
+}
+function $textarea(id) {
+    return document.getElementById(id);
+}
 /* ───────────────────── Builder (preset/transform/expression) ─────────── */
 function _setBuilderUi(builder) {
     _builder = builder;
-    $('derived-pane-preset').classList.toggle('hidden', builder !== BUILDER_PRESET);
-    $('derived-pane-transform').classList.toggle('hidden', builder !== BUILDER_TRANSFORM);
-    $('derived-pane-expression').classList.toggle('hidden', builder !== BUILDER_EXPRESSION);
+    $('derived-pane-preset')?.classList.toggle('hidden', builder !== BUILDER_PRESET);
+    $('derived-pane-transform')?.classList.toggle('hidden', builder !== BUILDER_TRANSFORM);
+    $('derived-pane-expression')?.classList.toggle('hidden', builder !== BUILDER_EXPRESSION);
     // Inputs section is only relevant for preset + transform
     const inputsSection = $('derived-inputs-section');
     if (inputsSection)
@@ -71,7 +81,7 @@ export function switchDerivedBuilder(builder) {
 /* ───────────────────── View switcher (form/yaml) ─────────────────────── */
 function _setViewUi(view) {
     _view = view;
-    $('derived-view-form-pane').classList.toggle('hidden', view !== VIEW_FORM);
+    $('derived-view-form-pane')?.classList.toggle('hidden', view !== VIEW_FORM);
     const yamlPane = $('derived-view-yaml-pane');
     if (yamlPane)
         yamlPane.classList.toggle('hidden', view !== VIEW_YAML);
@@ -86,8 +96,7 @@ function _setViewUi(view) {
         btn.classList.toggle('text-slate-400', !active);
     }
     if (view === VIEW_YAML) {
-        // Re-serialise only when the YAML is empty or was machine-generated.
-        const ta = $('derived-yaml');
+        const ta = $textarea('derived-yaml');
         const shouldSync = !ta?.value || !_yamlTouched;
         if (shouldSync)
             _renderYamlFromForm();
@@ -112,7 +121,7 @@ function _updateYamlSyncBadge() {
 }
 /* ───────────────────── Candidates + inputs picker ────────────────────── */
 async function _loadCandidates() {
-    const insertSelect = $('derived-expression-insert');
+    const insertSelect = $select('derived-expression-insert');
     try {
         const res = await apiCall('/api/derived/candidates');
         const data = await res.json();
@@ -134,7 +143,7 @@ function _renderCandidates() {
     const list = $('derived-candidates-list');
     if (!list)
         return;
-    const q = ($('derived-inputs-search')?.value || '').toLowerCase().trim();
+    const q = ($input('derived-inputs-search')?.value || '').toLowerCase().trim();
     const items = _candidates.filter(e => {
         if (!q)
             return true;
@@ -185,8 +194,8 @@ export function toggleDerivedInput(el) {
 }
 export function filterDerivedCandidates() { _renderCandidates(); }
 export function insertDerivedExpressionEntity() {
-    const select = $('derived-expression-insert');
-    const textarea = $('derived-expression');
+    const select = $select('derived-expression-insert');
+    const textarea = $textarea('derived-expression');
     if (!select || !textarea || !select.value)
         return;
     const start = textarea.selectionStart ?? textarea.value.length;
@@ -208,7 +217,7 @@ function _buildFormulaPayload() {
     if (_builder === BUILDER_EXPRESSION) {
         return {
             type: 'expression',
-            expression: ($('derived-expression').value || '').trim(),
+            expression: ($textarea('derived-expression')?.value || '').trim(),
             inputs: [],
         };
     }
@@ -217,26 +226,26 @@ function _buildFormulaPayload() {
         return {
             type: 'transform',
             inputs,
-            filter: $('derived-transform-filter')?.value || 'none',
-            scale: parseFloat($('derived-transform-scale')?.value || '1'),
-            offset: parseFloat($('derived-transform-offset')?.value || '0'),
+            filter: $select('derived-transform-filter')?.value || 'none',
+            scale: parseFloat($input('derived-transform-scale')?.value || '1'),
+            offset: parseFloat($input('derived-transform-offset')?.value || '0'),
         };
     }
-    const preset = $('derived-preset').value || 'sum';
+    const preset = $select('derived-preset')?.value || 'sum';
     return { type: preset, inputs: Array.from(_selectedInputs) };
 }
 function _buildEntryPayload() {
     return {
-        name: $('derived-name').value.trim(),
-        value_type: $('derived-value-type').value || 'number',
-        unit: $('derived-unit').value.trim(),
+        name: ($input('derived-name')?.value || '').trim(),
+        value_type: $select('derived-value-type')?.value || 'number',
+        unit: ($input('derived-unit')?.value || '').trim(),
         selected: true,
         formula: _buildFormulaPayload(),
     };
 }
 /* ───────────────────── YAML ↔ Form sync ──────────────────────────────── */
 async function _renderYamlFromForm() {
-    const ta = $('derived-yaml');
+    const ta = $textarea('derived-yaml');
     if (!ta)
         return;
     try {
@@ -271,7 +280,7 @@ function _schedulePreview() {
 }
 async function _resolveFormulaForPreview() {
     if (_view === VIEW_YAML) {
-        const text = ($('derived-yaml')?.value || '').trim();
+        const text = ($textarea('derived-yaml')?.value || '').trim();
         if (!text)
             return null;
         const res = await apiCall('/api/derived/yaml/parse', { method: 'POST', body: { yaml: text } });
@@ -283,12 +292,12 @@ async function _resolveFormulaForPreview() {
         return {
             value_type: parsed.value_type || 'number',
             unit: parsed.unit || '',
-            formula: parsed.formula || {},
+            formula: parsed.formula || { type: 'sum', inputs: [] },
         };
     }
     return {
-        value_type: $('derived-value-type').value || 'number',
-        unit: $('derived-unit').value.trim(),
+        value_type: $select('derived-value-type')?.value || 'number',
+        unit: ($input('derived-unit')?.value || '').trim(),
         formula: _buildFormulaPayload(),
     };
 }
@@ -306,9 +315,10 @@ export async function runDerivedPreview() {
         resolved = await _resolveFormulaForPreview();
     }
     catch (e) {
+        const msg = e instanceof Error ? e.message : 'invalid YAML';
         valueEl.textContent = '!';
         valueEl.classList.add('text-red-400');
-        _setPreviewInputs(`<span class="text-red-400">${escapeHtml(e?.message || 'invalid YAML')}</span>`);
+        _setPreviewInputs(`<span class="text-red-400">${escapeHtml(msg)}</span>`);
         return;
     }
     valueEl.classList.remove('text-red-400');
@@ -318,7 +328,7 @@ export async function runDerivedPreview() {
         return;
     }
     const { value_type, unit, formula } = resolved;
-    if (formula.type === 'expression' && !formula.expression) {
+    if (formula.type === 'expression' && !('expression' in formula && formula.expression)) {
         valueEl.textContent = '—';
         _setPreviewInputs('');
         return;
@@ -355,28 +365,50 @@ export async function runDerivedPreview() {
 }
 /* ───────────────────── Open / populate / reset ───────────────────────── */
 function _resetForm() {
-    $('derived-name').value = '';
-    $('derived-value-type').value = 'number';
-    $('derived-unit').value = '';
-    $('derived-preset').value = 'sum';
-    $('derived-expression').value = '';
-    $('derived-inputs-search').value = '';
-    $('derived-preview-value').textContent = '—';
-    if ($('derived-preview-inputs'))
-        $('derived-preview-inputs').innerHTML = '';
-    if ($('derived-transform-filter'))
-        $('derived-transform-filter').value = 'none';
-    if ($('derived-transform-scale'))
-        $('derived-transform-scale').value = '1';
-    if ($('derived-transform-offset'))
-        $('derived-transform-offset').value = '0';
-    if ($('derived-yaml'))
-        $('derived-yaml').value = '';
+    const nameEl = $input('derived-name');
+    const valueTypeEl = $select('derived-value-type');
+    const unitEl = $input('derived-unit');
+    const presetEl = $select('derived-preset');
+    const expressionEl = $textarea('derived-expression');
+    const searchEl = $input('derived-inputs-search');
+    const previewValueEl = $('derived-preview-value');
+    const previewInputsEl = $('derived-preview-inputs');
+    const filterEl = $select('derived-transform-filter');
+    const scaleEl = $input('derived-transform-scale');
+    const offsetEl = $input('derived-transform-offset');
+    const yamlEl = $textarea('derived-yaml');
+    const deleteBtn = $('derived-delete-btn');
+    const titleEl = $('derived-modal-title');
+    if (nameEl)
+        nameEl.value = '';
+    if (valueTypeEl)
+        valueTypeEl.value = 'number';
+    if (unitEl)
+        unitEl.value = '';
+    if (presetEl)
+        presetEl.value = 'sum';
+    if (expressionEl)
+        expressionEl.value = '';
+    if (searchEl)
+        searchEl.value = '';
+    if (previewValueEl)
+        previewValueEl.textContent = '—';
+    if (previewInputsEl)
+        previewInputsEl.innerHTML = '';
+    if (filterEl)
+        filterEl.value = 'none';
+    if (scaleEl)
+        scaleEl.value = '1';
+    if (offsetEl)
+        offsetEl.value = '0';
+    if (yamlEl)
+        yamlEl.value = '';
     _selectedInputs = new Set();
     _editingId = null;
     _yamlTouched = false;
-    $('derived-delete-btn').classList.add('hidden');
-    $('derived-modal-title').textContent = t('derived.modal_title');
+    deleteBtn?.classList.add('hidden');
+    if (titleEl)
+        titleEl.textContent = t('derived.modal_title');
     _setBuilderUi(BUILDER_PRESET);
     _setViewUi(VIEW_FORM);
 }
@@ -407,7 +439,7 @@ export async function openDerivedModal(entityId) {
             el.addEventListener('input', () => { _schedulePreview(); _syncYamlIfUntouched(); });
             el.addEventListener('change', () => { _schedulePreview(); _syncYamlIfUntouched(); });
         }
-        const yamlEl = $('derived-yaml');
+        const yamlEl = $textarea('derived-yaml');
         if (yamlEl) {
             yamlEl.addEventListener('input', () => {
                 _yamlTouched = true;
@@ -430,32 +462,48 @@ export async function openDerivedModal(entityId) {
     _schedulePreview();
 }
 function _populateForm(entry) {
-    _editingId = entry.entity_id;
-    $('derived-modal-title').textContent = (t('derived.modal_edit_title'));
-    $('derived-delete-btn').classList.remove('hidden');
-    $('derived-name').value = entry.name || '';
-    $('derived-value-type').value = entry.value_type || 'number';
-    $('derived-unit').value = entry.unit || '';
-    const formula = entry.formula || {};
+    _editingId = entry.entity_id || null;
+    const titleEl = $('derived-modal-title');
+    const deleteBtn = $('derived-delete-btn');
+    const nameEl = $input('derived-name');
+    const valueTypeEl = $select('derived-value-type');
+    const unitEl = $input('derived-unit');
+    const expressionEl = $textarea('derived-expression');
+    const presetEl = $select('derived-preset');
+    const filterEl = $select('derived-transform-filter');
+    const scaleEl = $input('derived-transform-scale');
+    const offsetEl = $input('derived-transform-offset');
+    if (titleEl)
+        titleEl.textContent = t('derived.modal_edit_title');
+    deleteBtn?.classList.remove('hidden');
+    if (nameEl)
+        nameEl.value = entry.name || '';
+    if (valueTypeEl)
+        valueTypeEl.value = entry.value_type || 'number';
+    if (unitEl)
+        unitEl.value = entry.unit || '';
+    const formula = entry.formula || { type: 'sum', inputs: [] };
     const ftype = (formula.type || '').toLowerCase();
     if (ftype === 'expression') {
-        $('derived-expression').value = formula.expression || '';
+        if (expressionEl)
+            expressionEl.value = 'expression' in formula ? (formula.expression || '') : '';
         _selectedInputs = new Set();
         _setBuilderUi(BUILDER_EXPRESSION);
     }
     else if (ftype === 'transform') {
         _selectedInputs = new Set((formula.inputs || []).slice(0, 1));
-        if ($('derived-transform-filter'))
-            $('derived-transform-filter').value = formula.filter || 'none';
-        if ($('derived-transform-scale'))
-            $('derived-transform-scale').value = formula.scale != null ? String(formula.scale) : '1';
-        if ($('derived-transform-offset'))
-            $('derived-transform-offset').value = formula.offset != null ? String(formula.offset) : '0';
+        if (filterEl)
+            filterEl.value = 'filter' in formula ? (formula.filter || 'none') : 'none';
+        if (scaleEl)
+            scaleEl.value = 'scale' in formula && formula.scale != null ? String(formula.scale) : '1';
+        if (offsetEl)
+            offsetEl.value = 'offset' in formula && formula.offset != null ? String(formula.offset) : '0';
         _setBuilderUi(BUILDER_TRANSFORM);
         _renderCandidates();
     }
     else {
-        $('derived-preset').value = ftype || 'sum';
+        if (presetEl)
+            presetEl.value = ftype || 'sum';
         _selectedInputs = new Set(formula.inputs || []);
         _setBuilderUi(BUILDER_PRESET);
         _renderCandidates();
@@ -474,7 +522,7 @@ export async function saveDerived() {
     try {
         let res;
         if (_view === VIEW_YAML) {
-            const text = ($('derived-yaml')?.value || '').trim();
+            const text = ($textarea('derived-yaml')?.value || '').trim();
             if (!text) {
                 showToast(t('derived.err_yaml'), 'error');
                 return;
@@ -485,28 +533,26 @@ export async function saveDerived() {
             });
         }
         else {
-            const name = $('derived-name').value.trim();
+            const name = ($input('derived-name')?.value || '').trim();
             if (!name) {
                 showToast(t('derived.err_name'), 'error');
                 return;
             }
             const formula = _buildFormulaPayload();
             if (formula.type === 'expression') {
-                if (!formula.expression) {
+                if (!('expression' in formula) || !formula.expression) {
                     showToast(t('derived.err_expression'), 'error');
                     return;
                 }
             }
-            else {
-                if (!formula.inputs || !formula.inputs.length) {
-                    showToast(t('derived.err_inputs'), 'error');
-                    return;
-                }
+            else if (!formula.inputs?.length) {
+                showToast(t('derived.err_inputs'), 'error');
+                return;
             }
             const body = {
                 name,
-                value_type: $('derived-value-type').value || 'number',
-                unit: $('derived-unit').value.trim(),
+                value_type: $select('derived-value-type')?.value || 'number',
+                unit: ($input('derived-unit')?.value || '').trim(),
                 selected: true,
                 formula,
             };
@@ -564,9 +610,9 @@ export async function toggleDerivedSelection(entityId, selected) {
 // Back-compat for any stale inline handlers that may still call switchDerivedMode.
 export function switchDerivedMode(kind) {
     if (kind === 'yaml')
-        return switchDerivedView('yaml');
-    if (kind === 'preset' || kind === 'transform' || kind === 'expression') {
-        switchDerivedView('form');
+        return switchDerivedView(VIEW_YAML);
+    if (kind === BUILDER_PRESET || kind === BUILDER_TRANSFORM || kind === BUILDER_EXPRESSION) {
+        switchDerivedView(VIEW_FORM);
         return switchDerivedBuilder(kind);
     }
 }

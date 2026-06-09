@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Legacy dashboard add-card modal — open/close, type UI, and save (POST/PATCH).
  */
@@ -9,7 +8,6 @@ import { dashApiError, escapeHtml } from './helpers.js';
 import { enhanceDashboardCustomSelects, syncDashboardCustomSelect } from './custom_selects.js';
 import { readDashboardVisibilityConfig, renderDashboardAddPreview, setDashboardAddEditorMode, syncDashboardSizeSlidersFromSelects, wireDashboardAddPreviewListeners, } from './widget_add_editor.js';
 import { renderEntityOptions, resolveEntityMatch, setEntitySelectState } from './entity_picker.js';
-/** @type {object | null} */
 let _deps = null;
 function deps() {
     if (!_deps)
@@ -22,7 +20,7 @@ export function initDashboardWidgetAddModal(depsIn) {
 function slug(value) {
     return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'section';
 }
-function applyDashboardModalMode(mode /* 'add' | 'edit' */) {
+function applyDashboardModalMode(mode) {
     const d = deps();
     const modal = document.getElementById('dashboard-add-modal');
     if (!modal)
@@ -50,7 +48,8 @@ function applyDashboardModalMode(mode /* 'add' | 'edit' */) {
 }
 export function updateDashboardTypeUI() {
     const d = deps();
-    const type = document.getElementById('dashboard-widget-type')?.value || 'button';
+    const typeEl = document.getElementById('dashboard-widget-type');
+    const type = typeEl?.value || 'button';
     const renderer = d.dashboardEditorRenderer(type);
     const entityGroup = document.getElementById('dashboard-entity-group');
     const titleSubtitleGroup = document.getElementById('dashboard-title-subtitle-group')
@@ -92,11 +91,12 @@ export function updateDashboardTypeUI() {
     }
     renderEntityOptions(document.getElementById('dashboard-entity-select'), type);
     d.renderDashboardClimateEntityChips();
-    enhanceDashboardCustomSelects(document.getElementById('dashboard-add-modal'));
+    enhanceDashboardCustomSelects(document.getElementById('dashboard-add-modal') || document);
     renderDashboardAddPreview();
 }
 export function updateDashboardEditTypeUI() {
-    const type = document.getElementById('dashboard-edit-widget-type')?.value || 'button';
+    const typeEl = document.getElementById('dashboard-edit-widget-type');
+    const type = typeEl?.value || 'button';
     const entityGroup = document.getElementById('dashboard-edit-entity-group');
     const bgWrap = document.getElementById('dashboard-edit-label-background-wrap');
     const switchWrap = document.getElementById('dashboard-edit-button-switch-wrap');
@@ -106,12 +106,14 @@ export function updateDashboardEditTypeUI() {
         bgWrap.classList.toggle('hidden', type !== 'label');
     if (switchWrap)
         switchWrap.classList.toggle('hidden', type !== 'button');
-    const current = document.getElementById('dashboard-edit-entity-select')?.dataset?.currentValue || '';
-    renderEntityOptions(document.getElementById('dashboard-edit-entity-select'), type, current);
+    const picker = document.getElementById('dashboard-edit-entity-select');
+    const current = picker?.dataset?.currentValue || '';
+    renderEntityOptions(picker, type, current);
 }
 export function updateDashboardEntityOptions() {
     const select = document.getElementById('dashboard-entity-select');
-    const type = document.getElementById('dashboard-widget-type')?.value || 'button';
+    const typeEl = document.getElementById('dashboard-widget-type');
+    const type = typeEl?.value || 'button';
     renderEntityOptions(select, type);
 }
 export async function openDashboardAddModal(kind = 'button') {
@@ -128,9 +130,9 @@ export async function openDashboardAddModal(kind = 'button') {
     modal.classList.add('flex');
     const type = document.getElementById('dashboard-widget-type');
     try {
-        const cards = await d.loadDashboardCardCatalog();
+        const cards = (await d.loadDashboardCardCatalog());
         if (type && cards.length) {
-            type.innerHTML = cards.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.label)}</option>`).join('');
+            type.innerHTML = cards.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(String(c.label || c.id || ''))}</option>`).join('');
         }
     }
     catch (_) { /* keep existing options */ }
@@ -177,7 +179,7 @@ export async function openDashboardAddModal(kind = 'button') {
     }
     catch (e) {
         setEntitySelectState(d.t('dashboard.loading_entities_error') || 'Could not load entities.', true);
-        showToast(e.message || (d.t('dashboard.loading_entities_error_toast') || 'Error loading entities'), 'error');
+        showToast(e instanceof Error ? e.message : (d.t('dashboard.loading_entities_error_toast') || 'Error loading entities'), 'error');
     }
     wireDashboardAddPreviewListeners();
     setDashboardAddEditorMode('visual');
@@ -217,9 +219,9 @@ export async function addDashboardSwitch() {
     const entityInput = document.getElementById('dashboard-entity-select');
     const title = document.getElementById('dashboard-widget-title');
     const subtitle = document.getElementById('dashboard-widget-subtitle');
-    const type = document.getElementById('dashboard-widget-type');
+    const typeEl = document.getElementById('dashboard-widget-type');
     const size = document.getElementById('dashboard-widget-size');
-    const widgetType = type?.value || 'button';
+    const widgetType = typeEl?.value || 'button';
     const widgetRenderer = d.dashboardEditorRenderer(widgetType);
     let selected = resolveEntityMatch(entityInput, widgetType);
     let climateEntityIds = [];
@@ -299,7 +301,7 @@ export async function addDashboardSwitch() {
             showToast(d.t('dashboard.card_updated'), 'success');
         }
         catch (e) {
-            showToast(e.message || d.t('dashboard.card_update_error'), 'error');
+            showToast(e instanceof Error ? e.message : d.t('dashboard.card_update_error'), 'error');
         }
         return;
     }
@@ -317,13 +319,15 @@ export async function addDashboardSwitch() {
         }
     }
     catch (e) {
-        if (String(e?.message || '').includes(d.t('dashboard.save_widget_failed'))) {
-            showToast(e.message, 'error');
+        const msg = e instanceof Error ? e.message : '';
+        if (msg.includes(d.t('dashboard.save_widget_failed'))) {
+            showToast(msg, 'error');
             return;
         }
     }
     try {
         const section = await d.readDashboardSectionFallback();
+        section.widgets = section.widgets || [];
         section.widgets.push({
             id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
             ...body,
@@ -334,6 +338,6 @@ export async function addDashboardSwitch() {
         showToast(d.t('dashboard.card_added') || 'Card added', 'success');
     }
     catch (e) {
-        showToast(e.message || (d.t('dashboard.save_error') || 'Save error'), 'error');
+        showToast(e instanceof Error ? e.message : (d.t('dashboard.save_error') || 'Save error'), 'error');
     }
 }

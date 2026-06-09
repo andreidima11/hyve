@@ -1,11 +1,9 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Dashboard add-card modal — live preview, size grid, and visibility rules.
  */
 import { DASHBOARD_COL_POINTS_MIN, DASHBOARD_COL_POINTS_MAX, SECTION_COLS, } from './constants.js';
 import { escapeHtml } from './helpers.js';
 import { enhanceDashboardCustomSelects } from './custom_selects.js';
-/** @type {object | null} */
 let _deps = null;
 let _visibilityCondSeq = 0;
 let _sizeSlidersWired = false;
@@ -24,16 +22,21 @@ export function renderDashboardAddPreview() {
     if (!target)
         return;
     const cache = d.getDashboardCache();
-    const type = (document.getElementById('dashboard-widget-type')?.value || 'button').trim();
-    const title = (document.getElementById('dashboard-widget-title')?.value || '').trim();
-    const subtitle = (document.getElementById('dashboard-widget-subtitle')?.value || '').trim();
-    const size = document.getElementById('dashboard-widget-size')?.value || 'md';
+    const typeEl = document.getElementById('dashboard-widget-type');
+    const type = (typeEl?.value || 'button').trim();
+    const titleEl = document.getElementById('dashboard-widget-title');
+    const subtitleEl = document.getElementById('dashboard-widget-subtitle');
+    const title = (titleEl?.value || '').trim();
+    const subtitle = (subtitleEl?.value || '').trim();
+    const sizeEl = document.getElementById('dashboard-widget-size');
+    const size = sizeEl?.value || 'md';
     const colSpanPv = parseInt(document.getElementById('dashboard-widget-col-span')?.value || '0', 10);
     const rowSpanPv = parseInt(document.getElementById('dashboard-widget-row-span')?.value || '0', 10);
     const showBackground = !!document.getElementById('dashboard-widget-label-bg')?.checked;
     const switchStyle = !!document.getElementById('dashboard-widget-switch-style')?.checked;
     const cameraMode = String(document.getElementById('dashboard-widget-camera-mode')?.value || 'snapshots') === 'live' ? 'live' : 'snapshots';
-    const icon = (document.getElementById('dashboard-widget-icon')?.value || '').trim();
+    const iconEl = document.getElementById('dashboard-widget-icon');
+    const icon = (iconEl?.value || '').trim();
     const entityInput = document.getElementById('dashboard-entity-select');
     const climateEntityRecords = type === 'climate' ? d.climateEntityRecordsForSave() : [];
     const climateEntityIds = climateEntityRecords.map(item => item.entity_id);
@@ -77,17 +80,20 @@ export function renderDashboardAddPreview() {
         widget.config = { entities: climateEntityRecords, entity_ids: climateEntityIds };
         widget.entities = climateEntityRecords.map(record => {
             const entityId = record.entity_id;
-            const ent = d.getAvailableEntity(entityId) || {};
+            const ent = d.getAvailableEntity(entityId);
             return {
                 entity_id: entityId,
                 title: record.title,
                 subtitle: record.subtitle,
-                entity_name: ent.name || ent.entity_name || entityId,
-                current_state: ent.state ?? ent.current_state ?? 'unknown',
-                attributes: ent.attributes || {},
-                unit: ent.unit || '',
-                available: ent.available !== false,
-                controllable: ent.controllable !== false,
+                entity_name: ent?.name || ent?.entity_name || entityId,
+                current_state: (() => {
+                    const raw = ent?.state ?? ent?.current_state ?? 'unknown';
+                    return typeof raw === 'string' || typeof raw === 'number' ? raw : 'unknown';
+                })(),
+                attributes: ent?.attributes || {},
+                unit: ent?.unit || '',
+                available: ent?.available !== false,
+                controllable: ent?.controllable !== false,
             };
         });
     }
@@ -107,7 +113,8 @@ export function renderDashboardAddPreview() {
         target.innerHTML = `<div class="grid grid-cols-1 gap-3 w-full">${html}</div>`;
     }
     catch (e) {
-        target.innerHTML = `<div class="text-xs text-red-400">${escapeHtml(d.t('dashboard.preview_unavailable', { message: e?.message || d.t('common.error') }))}</div>`;
+        const message = e instanceof Error ? e.message : d.t('common.error');
+        target.innerHTML = `<div class="text-xs text-red-400">${escapeHtml(d.t('dashboard.preview_unavailable', { message }))}</div>`;
     }
 }
 export function wireDashboardAddPreviewListeners() {
@@ -237,7 +244,7 @@ function renderDashboardSizeGridPreview() {
     }
     target.innerHTML = cells.join('');
 }
-export function toggleDashboardVisibilityEditor(scope = 'add') {
+export function toggleDashboardVisibilityEditor(_scope = 'add') {
     const enabledEl = document.getElementById('dashboard-visibility-enabled');
     const body = document.getElementById('dashboard-visibility-body');
     if (!enabledEl || !body)
@@ -246,7 +253,7 @@ export function toggleDashboardVisibilityEditor(scope = 'add') {
     if (enabledEl.checked) {
         const conds = document.getElementById('dashboard-visibility-conditions');
         if (conds && !conds.children.length)
-            addDashboardVisibilityCondition(scope);
+            addDashboardVisibilityCondition(_scope);
     }
 }
 export function addDashboardVisibilityCondition(_scope = 'add') {
@@ -277,7 +284,7 @@ export function addDashboardVisibilityCondition(_scope = 'add') {
         <button type="button" class="text-slate-500 hover:text-red-400 text-xs px-1" aria-label="Șterge condiție">
             <i class="fas fa-xmark"></i>
         </button>`;
-    row.querySelector('button').addEventListener('click', () => row.remove());
+    row.querySelector('button')?.addEventListener('click', () => row.remove());
     wrap.appendChild(row);
     enhanceDashboardCustomSelects(row);
 }
@@ -285,7 +292,8 @@ export function readDashboardVisibilityConfig() {
     const enabledEl = document.getElementById('dashboard-visibility-enabled');
     if (!enabledEl?.checked)
         return null;
-    const logic = document.getElementById('dashboard-visibility-logic')?.value || 'and';
+    const logicEl = document.getElementById('dashboard-visibility-logic');
+    const logic = logicEl?.value || 'and';
     const wrap = document.getElementById('dashboard-visibility-conditions');
     const conditions = [];
     if (wrap) {

@@ -13,7 +13,9 @@
       "/static/hyveview/cards/loader.js": ["static/hyveview/cards/loader.d.ts"],
       "/static/hyveview/editor/modal.js": ["static/hyveview/editor/modal.d.ts"],
       "/static/hyveview/elements/camera_stream.js": ["static/hyveview/elements/camera_stream.d.ts"],
-      "/static/hyveview/elements/camera_carousel.js": ["static/hyveview/elements/camera_carousel.d.ts"]
+      "/static/hyveview/elements/camera_carousel.js": ["static/hyveview/elements/camera_carousel.d.ts"],
+      "/static/hyveview/cards/fusion_solar/card.js": ["static/hyveview/cards/fusion_solar/card.d.ts"],
+      "/static/hyveview/core/store.js": ["static/hyveview/core/store.d.ts"]
     }
   },
   "include": [

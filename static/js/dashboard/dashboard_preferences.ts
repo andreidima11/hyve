@@ -1,4 +1,3 @@
-// @ts-nocheck — Phase 7 TS shell; tighten types incrementally.
 /**
  * Dashboard preferences UI — layout, filter, edit mode, and preference sync.
  */
@@ -7,16 +6,16 @@ import { apiCall } from '../api.js';
 import { showToast } from '../utils.js';
 import { DEFAULT_PREFS, DEFAULT_META } from './constants.js';
 import { dashApiError } from './helpers.js';
+import type { DashboardCache, DashboardPreferencesDeps } from '../types/dashboard.js';
 
-/** @type {object | null} */
-let _deps = null;
+let _deps: DashboardPreferencesDeps | null = null;
 
-function deps() {
+function deps(): DashboardPreferencesDeps {
     if (!_deps) throw new Error('Dashboard preferences not initialized');
     return _deps;
 }
 
-export function initDashboardPreferences(depsIn) {
+export function initDashboardPreferences(depsIn: DashboardPreferencesDeps) {
     _deps = depsIn;
 }
 
@@ -26,9 +25,9 @@ export function syncPreferenceControls() {
     const prefs = cache.preferences || DEFAULT_PREFS;
 
     const titleEl = document.getElementById('dashboard-page-title');
-    const titleInput = document.getElementById('dashboard-page-title-input');
-    const pageLayoutInput = document.getElementById('dashboard-page-layout-mode');
-    const pageHideInput = document.getElementById('dashboard-page-hide-unavailable');
+    const titleInput = document.getElementById('dashboard-page-title-input') as HTMLInputElement | null;
+    const pageLayoutInput = document.getElementById('dashboard-page-layout-mode') as HTMLSelectElement | null;
+    const pageHideInput = document.getElementById('dashboard-page-hide-unavailable') as HTMLInputElement | null;
     const effectiveTitle = cache.title || DEFAULT_META.title;
     if (titleEl) titleEl.textContent = effectiveTitle;
     if (titleInput) titleInput.value = effectiveTitle;
@@ -95,7 +94,7 @@ export function toggleDashboardEditMode() {
         : (d.t('dashboard.edit_mode_off') || 'Edit mode disabled'), 'success');
 }
 
-export async function setDashboardFilter(mode) {
+export async function setDashboardFilter(mode: string) {
     const d = deps();
     if (!d.requireDashboardEditAccess()) return;
     const cache = d.getCache();
@@ -114,8 +113,8 @@ export async function toggleDashboardLayout() {
     await saveDashboardPreferences(true);
 }
 
-function _hideUnavailableFromUi(cache) {
-    const pageHide = document.getElementById('dashboard-page-hide-unavailable');
+function _hideUnavailableFromUi(cache: DashboardCache) {
+    const pageHide = document.getElementById('dashboard-page-hide-unavailable') as HTMLInputElement | null;
     if (pageHide) return !pageHide.checked;
     if (cache?.preferences && typeof cache.preferences.show_unavailable === 'boolean') {
         return cache.preferences.show_unavailable;
@@ -144,7 +143,7 @@ export async function saveDashboardPreferences(silent = false) {
             },
         });
         if (res.ok) {
-            const data = await res.json().catch(() => ({}));
+            const data = await res.json().catch(() => ({})) as { preferences?: typeof prefs };
             cache.preferences = { ...DEFAULT_PREFS, ...(data.preferences || prefs) };
             d.renderDashboard();
             if (!silent) showToast(d.t('dashboard.preferences_saved'), 'success');
@@ -155,7 +154,8 @@ export async function saveDashboardPreferences(silent = false) {
             throw new Error(dashApiError(err.detail, 'dashboard.save_preferences_failed'));
         }
     } catch (e) {
-        if (!String(e?.message || '').includes(d.t('dashboard.save_widget_failed'))) {
+        const msg = e instanceof Error ? e.message : '';
+        if (!msg.includes(d.t('dashboard.save_widget_failed'))) {
             // continue to fallback
         }
     }
@@ -163,7 +163,7 @@ export async function saveDashboardPreferences(silent = false) {
     const section = await d.readDashboardSectionFallback();
     section.preferences = prefs;
     await d.writeDashboardSectionFallback(section);
-    cache.preferences = section.preferences;
+    cache.preferences = { ...DEFAULT_PREFS, ...(section.preferences as typeof prefs) };
     d.renderDashboard();
     if (!silent) showToast(d.t('dashboard.preferences_saved'), 'success');
 }

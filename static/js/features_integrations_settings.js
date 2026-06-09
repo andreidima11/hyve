@@ -2575,7 +2575,7 @@ function _ensureEntitySection(slug) {
     </div>`;
     panel.insertAdjacentHTML('beforeend', html);
 }
-async function loadIntegrationEntities(slug) {
+export async function loadIntegrationEntities(slug) {
     _ensureEntitySection(slug);
     const section = document.getElementById(`${slug}-entities-section`);
     const grid = document.getElementById(`${slug}-entities-grid`);

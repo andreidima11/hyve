@@ -1,11 +1,11 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Settings → Add-ons list + Updates hub (install/enable/update add-ons).
  */
 import { apiCall } from './api.js';
 import { t } from './lang/index.js';
-import { showToast, showConfirm, escapeHtml } from './utils.js';
+import { showToast, showConfirm, escapeHtml, openSubPage, closeSubPage } from './utils.js';
 import { isExplicitNonAdmin } from './user_context.js';
+import { loadIntegrationEntities } from './features_integrations_settings.js';
 // ═══════════════════════════════════════════════════════════════════════════
 // ADDONS / APPS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -44,9 +44,9 @@ function _renderAddonCard(addon) {
     const s = addon.state || {};
     const installed = !!s.installed;
     const enabled = !!s.enabled;
-    const c = _addonColorMap[addon.color] || _defaultColor;
+    const c = _addonColorMap[addon.color || ''] || _defaultColor;
     const slug = escapeHtml(addon.slug);
-    const name = escapeHtml(addon.name);
+    const name = escapeHtml(addon.name || addon.slug);
     const desc = escapeHtml(addon.description || '');
     const version = escapeHtml(addon.version || '');
     let statusBadge = '';
@@ -171,7 +171,7 @@ export async function openAddonConfigModal(slug) {
         if (res.ok)
             addon = await res.json();
     }
-    catch (e) { }
+    catch (_) { }
     if (!addon) {
         showToast(t('hy.addon_not_found'), 'error');
         return;
@@ -202,9 +202,7 @@ export async function openAddonConfigModal(slug) {
         </div>`;
     }).join('');
     if (addon.start_command) {
-        const args = (addon.start_command.args || []).map(a => {
-            return a.replace(/\{(\w+)\}/g, (_, k) => cfg[k] ?? k);
-        });
+        const args = (addon.start_command.args || []).map(a => a.replace(/\{(\w+)\}/g, (_, k) => String(cfg[k] ?? k)));
         const cmd = `${addon.start_command.command} ${args.join(' ')}`;
         fieldsEl.innerHTML += `
             <div class="mt-4 pt-4 border-t border-white/5 space-y-2">
@@ -245,8 +243,11 @@ export async function saveAddonConfig() {
     const fields = document.querySelectorAll('#addon-config-fields [data-addon-key]');
     const config = {};
     fields.forEach(f => {
-        const key = f.dataset.addonKey;
-        config[key] = f.type === 'number' ? Number(f.value) : f.value;
+        const el = f;
+        const key = el.dataset.addonKey;
+        if (!key)
+            return;
+        config[key] = el.type === 'number' ? Number(el.value) : el.value;
     });
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(_currentAddonSlug)}/config`, {
@@ -338,7 +339,7 @@ export function updateHeaderUpdatesBadge(count) {
     const badge = document.getElementById('hub-updates-badge-count');
     if (!badge)
         return;
-    const n = Math.max(0, parseInt(count, 10) || 0);
+    const n = Math.max(0, typeof count === 'number' ? count : parseInt(String(count), 10) || 0);
     if (n <= 0) {
         badge.classList.add('hidden');
         return;
@@ -377,7 +378,7 @@ export async function loadUpdatesAddons() {
         _renderAddonUpdateRows();
     }
     catch (e) {
-        list.innerHTML = `<div class="text-center py-8 text-red-400 text-xs"><i class="fas fa-triangle-exclamation mr-2"></i>${escapeHtml(e.message || String(e))}</div>`;
+        list.innerHTML = `<div class="text-center py-8 text-red-400 text-xs"><i class="fas fa-triangle-exclamation mr-2"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}</div>`;
     }
 }
 export async function checkAddonUpdates() {
@@ -400,7 +401,7 @@ export async function checkAddonUpdates() {
         }
     }
     catch (e) {
-        _setUpdatesStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e.message || String(e))}`, 'error');
+        _setUpdatesStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`, 'error');
     }
     finally {
         if (btn) {
@@ -453,7 +454,7 @@ async function _runAddonUpdate(body) {
         await loadUpdatesAddons();
     }
     catch (e) {
-        _setUpdatesStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e.message || String(e))}`, 'error');
+        _setUpdatesStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`, 'error');
     }
     finally {
         if (upgradeBtn) {
@@ -490,7 +491,7 @@ function _renderAddonUpdateRows() {
         return;
     }
     list.innerHTML = sorted.map(a => {
-        const iconColor = _ADDON_COLOR_MAP[a.color] || _ADDON_COLOR_MAP.slate;
+        const iconColor = _ADDON_COLOR_MAP[a.color || ''] || _ADDON_COLOR_MAP.slate;
         const iconHtml = a.image
             ? `<img src="${escapeHtml(a.image)}" alt="" class="w-4 h-4 rounded object-contain" loading="lazy">`
             : `<i class="${escapeHtml(a.icon || 'fas fa-puzzle-piece')} ${iconColor}"></i>`;
@@ -546,24 +547,27 @@ if (typeof document !== 'undefined' && !_updatesDropdownBound) {
         const dd = document.getElementById('updates_interval_dropdown');
         if (!dd)
             return;
-        const toggleBtn = e.target.closest('[data-action="toggle-updates-interval"]');
+        const target = e.target;
+        if (!(target instanceof Element))
+            return;
+        const toggleBtn = target.closest('[data-action="toggle-updates-interval"]');
         if (toggleBtn && dd.contains(toggleBtn)) {
             e.preventDefault();
             e.stopPropagation();
             dd.dataset.open = dd.dataset.open === 'true' ? 'false' : 'true';
             return;
         }
-        const opt = e.target.closest('.dashboard-custom-select__option');
+        const opt = target.closest('.dashboard-custom-select__option');
         if (opt && dd.contains(opt)) {
             e.preventDefault();
             e.stopPropagation();
-            const value = opt.dataset.value;
+            const value = opt.dataset.value || '';
             const labelKey = opt.dataset.labelKey;
-            const label = labelKey ? t(labelKey) : (opt.textContent.trim());
+            const label = labelKey ? t(labelKey) : (opt.textContent || '').trim();
             setUpdatesInterval(value, label);
             return;
         }
-        if (!dd.contains(e.target))
+        if (!dd.contains(target))
             dd.dataset.open = 'false';
     });
 }
@@ -584,7 +588,8 @@ export function setUpdatesInterval(value, label) {
         if (valueEl)
             valueEl.textContent = lbl;
         dd.querySelectorAll('.dashboard-custom-select__option').forEach(o => {
-            o.dataset.selected = o.dataset.value === value ? 'true' : 'false';
+            const opt = o;
+            opt.dataset.selected = opt.dataset.value === value ? 'true' : 'false';
         });
     }
     if (hidden) {
@@ -602,8 +607,11 @@ export function syncUpdatesIntervalDropdown() {
     if (!hidden || !dd)
         return;
     const val = hidden.value || 'never';
-    dd.querySelector('.dashboard-custom-select__value').textContent = _intervalLabel(val);
+    const valueEl = dd.querySelector('.dashboard-custom-select__value');
+    if (valueEl)
+        valueEl.textContent = _intervalLabel(val);
     dd.querySelectorAll('.dashboard-custom-select__option').forEach(o => {
-        o.dataset.selected = o.dataset.value === val ? 'true' : 'false';
+        const opt = o;
+        opt.dataset.selected = opt.dataset.value === val ? 'true' : 'false';
     });
 }

@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Scenes UI — list, editor, activation.
  *
@@ -8,27 +7,41 @@
 import { apiCall } from './api.js';
 import { showToast, showConfirm } from './utils.js';
 import { t } from './lang/index.js';
+import type {
+    SceneDetail,
+    SceneEntityCatalogItem,
+    SceneEntry,
+    SceneService,
+    SceneSummary,
+} from './types/scenes.js';
 
 const _MAX_ENTRIES = 64;
-const _SERVICE_VALUES = ['turn_on', 'turn_off', 'toggle'];
+const _SERVICE_VALUES: SceneService[] = ['turn_on', 'turn_off', 'toggle'];
 
-let _scenesCache = [];
-let _entityCatalog = [];
+interface SceneEditorState {
+    mode: 'create' | 'edit';
+    sceneId: string | null;
+    entries: SceneEntry[];
+    entityPickerTargetIdx: number;
+}
+
+let _scenesCache: SceneSummary[] = [];
+let _entityCatalog: SceneEntityCatalogItem[] = [];
 let _entityCatalogLoaded = false;
-let _editorState = {
-    mode: 'create',           // 'create' | 'edit'
+let _editorState: SceneEditorState = {
+    mode: 'create',
     sceneId: null,
-    entries: [],              // working copy of entries during edit
+    entries: [],
     entityPickerTargetIdx: -1,
 };
 
-function _escapeHtml(value) {
+function _escapeHtml(value: unknown) {
     return String(value ?? '').replace(/[&<>"']/g, ch => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[ch]));
+    }[ch as string] || ch));
 }
 
-function _iconClass(spec, fallback = 'fas fa-film') {
+function _iconClass(spec: unknown, fallback = 'fas fa-film') {
     const raw = String(spec || '').trim();
     if (!raw) return fallback;
     if (raw.startsWith('mdi:')) return `mdi mdi-${raw.slice(4)}`;
@@ -37,7 +50,7 @@ function _iconClass(spec, fallback = 'fas fa-film') {
     return raw;
 }
 
-function _entityDomain(entityId) {
+function _entityDomain(entityId: string) {
     const idx = String(entityId || '').indexOf('.');
     return idx > 0 ? entityId.slice(0, idx) : '';
 }
@@ -47,7 +60,7 @@ async function _ensureEntityCatalog(force = false) {
     try {
         const res = await apiCall('/api/integrations/all-entities');
         if (res?.ok) {
-            const data = await res.json();
+            const data = await res.json() as { entities?: SceneEntityCatalogItem[] };
             _entityCatalog = Array.isArray(data?.entities) ? data.entities : [];
             _entityCatalogLoaded = true;
         }
@@ -57,8 +70,8 @@ async function _ensureEntityCatalog(force = false) {
     return _entityCatalog;
 }
 
-function _serviceSelectHtml(idx, currentService) {
-    const labels = {
+function _serviceSelectHtml(idx: number, currentService: string) {
+    const labels: Record<SceneService, string> = {
         turn_on: t('scenes.service_turn_on'),
         turn_off: t('scenes.service_turn_off'),
         toggle: t('scenes.service_toggle'),
@@ -69,7 +82,7 @@ function _serviceSelectHtml(idx, currentService) {
     return `<select data-scene-entry-service="${idx}" class="bg-slate-900 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:border-accent outline-none">${opts}</select>`;
 }
 
-function _entryRowHtml(entry, idx) {
+function _entryRowHtml(entry: SceneEntry, idx: number) {
     const eid = _escapeHtml(entry.entity_id || '');
     const service = entry.service || 'turn_on';
     const dataJson = entry.service_data ? _escapeHtml(JSON.stringify(entry.service_data)) : '';
@@ -84,7 +97,7 @@ function _entryRowHtml(entry, idx) {
                     class="px-2 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/5 border border-white/10" title="${_escapeHtml(t('scenes.pick_entity_title'))}">
                     <i class="fas fa-magnifying-glass"></i>
                 </button>
-                ${_serviceSelectHtml(idx, service)}
+                ${_serviceSelectHtml(idx, String(service))}
                 <button type="button" data-config-action="removeSceneEntry" data-config-index="${idx}"
                     class="w-7 h-7 rounded-lg text-red-400 hover:bg-red-500/10 flex items-center justify-center" title="${_escapeHtml(t('scenes.remove_entry_title'))}">
                     <i class="fas fa-trash-can text-xs"></i>
@@ -111,21 +124,21 @@ function _renderEditorEntries() {
     wrap.innerHTML = _editorState.entries.map((e, i) => _entryRowHtml(e, i)).join('');
 }
 
-function _readEditorEntriesFromDOM() {
+function _readEditorEntriesFromDOM(): SceneEntry[] {
     const rows = document.querySelectorAll('[data-scene-entry-row]');
-    const out = [];
+    const out: SceneEntry[] = [];
     rows.forEach((row) => {
         const idx = Number(row.getAttribute('data-scene-entry-row'));
-        const eid = (row.querySelector(`[data-scene-entry-entity="${idx}"]`)?.value || '').trim();
-        const service = row.querySelector(`[data-scene-entry-service="${idx}"]`)?.value || 'turn_on';
-        const dataRaw = (row.querySelector(`[data-scene-entry-data="${idx}"]`)?.value || '').trim();
+        const eid = (row.querySelector(`[data-scene-entry-entity="${idx}"]`) as HTMLInputElement | null)?.value.trim() || '';
+        const service = (row.querySelector(`[data-scene-entry-service="${idx}"]`) as HTMLSelectElement | null)?.value || 'turn_on';
+        const dataRaw = (row.querySelector(`[data-scene-entry-data="${idx}"]`) as HTMLInputElement | null)?.value.trim() || '';
         if (!eid) return;
-        const item = { entity_id: eid, service };
+        const item: SceneEntry = { entity_id: eid, service };
         if (dataRaw) {
             try {
-                const parsed = JSON.parse(dataRaw);
+                const parsed = JSON.parse(dataRaw) as unknown;
                 if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-                    item.service_data = parsed;
+                    item.service_data = parsed as Record<string, unknown>;
                 }
             } catch (_) {
                 throw new Error(t('scenes.entry_invalid_json', { n: idx + 1 }));
@@ -198,13 +211,13 @@ export async function loadScenes() {
     try {
         const res = await apiCall('/api/scenes');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
+        const data = await res.json() as { scenes?: SceneSummary[] };
         _scenesCache = Array.isArray(data?.scenes) ? data.scenes : [];
         _renderScenesList();
     } catch (e) {
         if (wrap) {
             wrap.innerHTML = `<div class="col-span-full text-center text-xs text-red-400 py-10">
-                ${_escapeHtml(t('scenes.load_failed', { message: e.message }))}
+                ${_escapeHtml(t('scenes.load_failed', { message: e instanceof Error ? e.message : String(e) }))}
             </div>`;
         }
     }
@@ -216,7 +229,6 @@ export async function openScenesPage() {
     page.classList.remove('hidden');
     page.classList.add('flex');
     await loadScenes();
-    // Pre-load entity catalog so the editor is snappy
     _ensureEntityCatalog().catch(() => {});
 }
 
@@ -227,7 +239,7 @@ export function closeScenesPage() {
     page.classList.remove('flex');
 }
 
-export async function openSceneEditor(sceneId = null) {
+export async function openSceneEditor(sceneId: string | null = null) {
     const modal = document.getElementById('scene-editor-modal');
     if (!modal) return;
     modal.classList.remove('hidden');
@@ -237,16 +249,15 @@ export async function openSceneEditor(sceneId = null) {
     _editorState.sceneId = sceneId;
     _editorState.entries = [];
 
-    const $ = id => document.getElementById(id);
-    const titleEl = $('scene-editor-title');
-    const deleteBtn = $('scene-editor-delete');
-    const nameEl = $('scene-name');
-    const descEl = $('scene-description');
-    const iconEl = $('scene-icon');
-    const colorEl = $('scene-color');
-    const enabledEl = $('scene-enabled');
-    const sharedRow = $('scene-shared-row');
-    const sharedEl = $('scene-shared');
+    const titleEl = document.getElementById('scene-editor-title');
+    const deleteBtn = document.getElementById('scene-editor-delete');
+    const nameEl = document.getElementById('scene-name') as HTMLInputElement | null;
+    const descEl = document.getElementById('scene-description') as HTMLInputElement | null;
+    const iconEl = document.getElementById('scene-icon') as HTMLInputElement | null;
+    const colorEl = document.getElementById('scene-color') as HTMLInputElement | null;
+    const enabledEl = document.getElementById('scene-enabled') as HTMLInputElement | null;
+    const sharedRow = document.getElementById('scene-shared-row');
+    const sharedEl = document.getElementById('scene-shared') as HTMLInputElement | null;
 
     if (titleEl) {
         const label = _escapeHtml(sceneId ? t('scenes.editor_title_edit') : t('scenes.editor_title_new'));
@@ -254,15 +265,14 @@ export async function openSceneEditor(sceneId = null) {
     }
     if (deleteBtn) deleteBtn.classList.toggle('hidden', !sceneId);
 
-    // admin-only field; show/hide by sniffing window state
-    const isAdmin = !!(window.currentUser?.is_admin);
+    const isAdmin = !!window.currentUser?.is_admin;
     if (sharedRow) sharedRow.classList.toggle('hidden', !isAdmin);
 
     if (sceneId) {
         try {
             const res = await apiCall(`/api/scenes/${encodeURIComponent(sceneId)}`);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const scene = await res.json();
+            const scene = await res.json() as SceneDetail;
             if (nameEl) nameEl.value = scene.name || '';
             if (descEl) descEl.value = scene.description || '';
             if (iconEl) iconEl.value = scene.icon || '';
@@ -271,7 +281,7 @@ export async function openSceneEditor(sceneId = null) {
             if (sharedEl) sharedEl.checked = !!scene.is_shared;
             _editorState.entries = Array.isArray(scene.entries) ? scene.entries.map(e => ({ ...e })) : [];
         } catch (e) {
-            showToast(t('scenes.load_scene_failed', { message: e.message }), 'error');
+            showToast(t('scenes.load_scene_failed', { message: e instanceof Error ? e.message : String(e) }), 'error');
             closeSceneEditor();
             return;
         }
@@ -302,17 +312,14 @@ export function addSceneEntry() {
         showToast(t('scenes.max_entries', { max: _MAX_ENTRIES }), 'warning');
         return;
     }
-    // Persist current edits before re-rendering
     try {
         _editorState.entries = _readEditorEntriesFromDOM();
-    } catch (_) {
-        // Ignore parse errors at this point — user is just adding a row
-    }
+    } catch (_) {}
     _editorState.entries.push({ entity_id: '', service: 'turn_on' });
     _renderEditorEntries();
 }
 
-export function removeSceneEntry(idx) {
+export function removeSceneEntry(idx: number) {
     try {
         _editorState.entries = _readEditorEntriesFromDOM();
     } catch (_) {}
@@ -322,17 +329,22 @@ export function removeSceneEntry(idx) {
 }
 
 export async function saveScene() {
-    const $ = id => document.getElementById(id);
-    const name = ($('scene-name')?.value || '').trim();
+    const nameEl = document.getElementById('scene-name') as HTMLInputElement | null;
+    const descEl = document.getElementById('scene-description') as HTMLInputElement | null;
+    const iconEl = document.getElementById('scene-icon') as HTMLInputElement | null;
+    const colorEl = document.getElementById('scene-color') as HTMLInputElement | null;
+    const enabledEl = document.getElementById('scene-enabled') as HTMLInputElement | null;
+    const sharedEl = document.getElementById('scene-shared') as HTMLInputElement | null;
+    const name = (nameEl?.value || '').trim();
     if (!name) {
         showToast(t('scenes.name_required'), 'warning');
         return;
     }
-    let entries;
+    let entries: SceneEntry[];
     try {
         entries = _readEditorEntriesFromDOM();
     } catch (e) {
-        showToast(e.message, 'error');
+        showToast(e instanceof Error ? e.message : String(e), 'error');
         return;
     }
     if (!entries.length) {
@@ -342,16 +354,16 @@ export async function saveScene() {
 
     const payload = {
         name,
-        description: ($('scene-description')?.value || '').trim() || null,
-        icon: ($('scene-icon')?.value || '').trim() || null,
-        color: ($('scene-color')?.value || '').trim() || null,
-        enabled: !!$('scene-enabled')?.checked,
-        is_shared: !!$('scene-shared')?.checked,
+        description: (descEl?.value || '').trim() || null,
+        icon: (iconEl?.value || '').trim() || null,
+        color: (colorEl?.value || '').trim() || null,
+        enabled: !!enabledEl?.checked,
+        is_shared: !!sharedEl?.checked,
         entries,
     };
 
     try {
-        let res;
+        let res: Response;
         if (_editorState.mode === 'edit' && _editorState.sceneId) {
             res = await apiCall(`/api/scenes/${encodeURIComponent(_editorState.sceneId)}`, {
                 method: 'PUT', body: payload,
@@ -360,7 +372,7 @@ export async function saveScene() {
             res = await apiCall('/api/scenes', { method: 'POST', body: payload });
         }
         if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
+            const err = await res.json().catch(() => ({})) as { detail?: string };
             throw new Error(err.detail || `HTTP ${res.status}`);
         }
         showToast(
@@ -372,7 +384,7 @@ export async function saveScene() {
         closeSceneEditor();
         await loadScenes();
     } catch (e) {
-        showToast(`${t('scenes.save_failed')}: ${e.message}`, 'error');
+        showToast(`${t('scenes.save_failed')}: ${e instanceof Error ? e.message : String(e)}`, 'error');
     }
 }
 
@@ -384,7 +396,7 @@ export async function deleteSceneFromEditor() {
     closeSceneEditor();
 }
 
-export async function deleteScene(sceneId, opts = {}) {
+export async function deleteScene(sceneId: string, opts: { skipConfirm?: boolean } = {}) {
     if (!sceneId) return;
     if (!opts.skipConfirm) {
         const ok = await showConfirm(t('scenes.delete_confirm'));
@@ -393,21 +405,26 @@ export async function deleteScene(sceneId, opts = {}) {
     try {
         const res = await apiCall(`/api/scenes/${encodeURIComponent(sceneId)}`, { method: 'DELETE' });
         if (!res.ok && res.status !== 204) {
-            const err = await res.json().catch(() => ({}));
+            const err = await res.json().catch(() => ({})) as { detail?: string };
             throw new Error(err.detail || `HTTP ${res.status}`);
         }
         showToast(t('scenes.deleted'), 'success');
         await loadScenes();
     } catch (e) {
-        showToast(`${t('scenes.delete_failed')}: ${e.message}`, 'error');
+        showToast(`${t('scenes.delete_failed')}: ${e instanceof Error ? e.message : String(e)}`, 'error');
     }
 }
 
-export async function activateScene(sceneId) {
+export async function activateScene(sceneId: string) {
     if (!sceneId) return;
     try {
         const res = await apiCall(`/api/scenes/${encodeURIComponent(sceneId)}/activate`, { method: 'POST' });
-        const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch(() => ({})) as {
+            detail?: string;
+            succeeded?: number;
+            failed?: number;
+            total?: number;
+        };
         if (!res.ok) {
             throw new Error(data.detail || `HTTP ${res.status}`);
         }
@@ -419,18 +436,14 @@ export async function activateScene(sceneId) {
         } else {
             showToast(`${t('scenes.activated_with_errors')}: ${t('scenes.activated_errors_detail', { succeeded, failed })}`, 'warning');
         }
-        // Refresh in background to update last_activated_at + count
         loadScenes().catch(() => {});
     } catch (e) {
-        showToast(`${t('scenes.activation_failed')}: ${e.message}`, 'error');
+        showToast(`${t('scenes.activation_failed')}: ${e instanceof Error ? e.message : String(e)}`, 'error');
     }
 }
 
-// ─── Entity picker ─────────────────────────────────────────────────────────
-
-export async function openSceneEntityPicker(targetIdx) {
+export async function openSceneEntityPicker(targetIdx: number) {
     _editorState.entityPickerTargetIdx = targetIdx;
-    // Make sure DOM state is synced into editor state before opening picker
     try {
         _editorState.entries = _readEditorEntriesFromDOM();
     } catch (_) {}
@@ -442,7 +455,7 @@ export async function openSceneEntityPicker(targetIdx) {
 
     await _ensureEntityCatalog();
     _renderEntityPickerList('');
-    const search = document.getElementById('scene-entity-picker-search');
+    const search = document.getElementById('scene-entity-picker-search') as HTMLInputElement | null;
     if (search) {
         search.value = '';
         setTimeout(() => search.focus(), 50);
@@ -457,7 +470,7 @@ export function closeSceneEntityPicker() {
     _editorState.entityPickerTargetIdx = -1;
 }
 
-function _renderEntityPickerList(query) {
+function _renderEntityPickerList(query: string) {
     const list = document.getElementById('scene-entity-picker-list');
     if (!list) return;
     const q = String(query || '').trim().toLowerCase();
@@ -491,17 +504,16 @@ function _renderEntityPickerList(query) {
 }
 
 export function filterSceneEntityPicker() {
-    const q = document.getElementById('scene-entity-picker-search')?.value || '';
+    const q = (document.getElementById('scene-entity-picker-search') as HTMLInputElement | null)?.value || '';
     _renderEntityPickerList(q);
 }
 
-export function pickSceneEntity(entityId) {
+export function pickSceneEntity(entityId: string) {
     const idx = _editorState.entityPickerTargetIdx;
     if (idx < 0) {
         closeSceneEntityPicker();
         return;
     }
-    // Sync DOM → state, then mutate target row, then re-render
     try {
         _editorState.entries = _readEditorEntriesFromDOM();
     } catch (_) {}

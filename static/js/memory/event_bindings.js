@@ -1,8 +1,6 @@
-// @ts-nocheck — Phase 5 TS shell; tighten types incrementally.
 /**
  * Intelligence / memory / automations view event delegation.
  */
-/** @type {Record<string, (...args: unknown[]) => unknown> | null} */
 let _handlers = null;
 let _bound = false;
 function _inMemoryScope(el) {
@@ -118,13 +116,13 @@ function _run(action, el, event) {
     }
 }
 function _onClick(event) {
-    const el = event.target.closest('[data-memory-action]');
+    const el = event.target?.closest('[data-memory-action]');
     if (!el)
         return;
-    _run(el.dataset.memoryAction, el, event);
+    _run(el.dataset.memoryAction || '', el, event);
 }
 function _onInput(event) {
-    const el = event.target.closest('[data-memory-input]');
+    const el = event.target?.closest('[data-memory-input]');
     if (!el || !_inMemoryScope(el))
         return;
     const kind = el.dataset.memoryInput;
@@ -150,7 +148,7 @@ function _onInput(event) {
         _handlers.updateBlueprintCreatorYaml?.(event, el);
 }
 function _onChange(event) {
-    const el = event.target.closest('[data-memory-input]');
+    const el = event.target?.closest('[data-memory-input]');
     if (!el || !_inMemoryScope(el))
         return;
     const kind = el.dataset.memoryInput;
@@ -170,22 +168,19 @@ function _onChange(event) {
         _handlers.updateMemBulkCount?.(event, el);
 }
 function _onMouseEnter(event) {
-    const el = event.target.closest('[data-memory-hover="showAutoDotTooltip"]');
+    const el = event.target?.closest('[data-memory-hover="showAutoDotTooltip"]');
     if (!el || !_inMemoryScope(el))
         return;
     _handlers?.showAutoDotTooltip?.(event, el);
 }
 function _onMouseLeave(event) {
-    const el = event.target.closest('[data-memory-hover="showAutoDotTooltip"]');
+    const el = event.target?.closest('[data-memory-hover="showAutoDotTooltip"]');
     if (!el || !_inMemoryScope(el))
         return;
     if (event.relatedTarget && el.contains(event.relatedTarget))
         return;
     _handlers?.hideAutoDotTooltip?.(event, el);
 }
-/**
- * @param {Record<string, (...args: unknown[]) => unknown>} handlers
- */
 export function initMemoryEventBindings(handlers) {
     _handlers = handlers || {};
     if (_bound)

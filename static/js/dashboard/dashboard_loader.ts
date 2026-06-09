@@ -1,10 +1,11 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Dashboard load/refresh — fetch layout, entity list, and orchestrate grid paint.
  */
 
 import { apiCall } from '../api.js';
 import { getCameraStreamToken } from '../camera_auth.js';
+import type { DashboardCache, DashboardLoaderDeps } from '../types/dashboard.js';
+import type { HyveEntity } from '../types/entity.js';
 import {
     DEFAULT_PREFS,
     DEFAULT_META,
@@ -20,24 +21,27 @@ import {
 import { dashApiError } from './helpers.js';
 import { bindHashRouter, readHashPageId, setHashForPage } from './pages_nav.js';
 
-/** @type {object | null} */
-let _deps = null;
+class DashboardRefreshAbortError extends Error {
+    override name = 'DashboardRefreshAbortError';
+}
 
-let _loadInFlight = null;
+let _deps: DashboardLoaderDeps | null = null;
+
+let _loadInFlight: Promise<void> | null = null;
 let _loadStartedAt = 0;
-let _loadAbortController = null;
-let _refreshIndicatorSafetyTimer = null;
+let _loadAbortController: AbortController | null = null;
+let _refreshIndicatorSafetyTimer: ReturnType<typeof setTimeout> | null = null;
 
-function deps() {
+function deps(): DashboardLoaderDeps {
     if (!_deps) throw new Error('Dashboard loader not initialized');
     return _deps;
 }
 
-export function initDashboardLoader(depsIn) {
+export function initDashboardLoader(depsIn: DashboardLoaderDeps) {
     _deps = depsIn;
 }
 
-export function setDashboardRefreshIndicator(active) {
+export function setDashboardRefreshIndicator(active: boolean) {
     let bar = document.getElementById('dashboard-refresh-bar');
     if (!bar) {
         const grid = document.getElementById('dashboard-grid');
@@ -69,9 +73,9 @@ export function setDashboardRefreshIndicator(active) {
     }
 }
 
-export function withDashboardTimeout(promise, ms, message) {
-    let timer = null;
-    const timeout = new Promise((_, reject) => {
+export function withDashboardTimeout<T>(promise: Promise<T>, ms: number, message?: string): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const timeout = new Promise<T>((_, reject) => {
         timer = setTimeout(() => reject(new Error(message || 'Dashboard refresh timeout')), ms);
     });
     return Promise.race([promise, timeout]).finally(() => {
@@ -79,7 +83,11 @@ export function withDashboardTimeout(promise, ms, message) {
     });
 }
 
-async function fetchDashboardLayoutJson(url, timeoutMs = 8000, externalSignal = null) {
+async function fetchDashboardLayoutJson(
+    url: string,
+    timeoutMs = 8000,
+    externalSignal: AbortSignal | null = null,
+) {
     const ctrl = new AbortController();
     let timedOut = false;
     const timeoutId = setTimeout(() => { timedOut = true; ctrl.abort(); }, timeoutMs);
@@ -90,7 +98,7 @@ async function fetchDashboardLayoutJson(url, timeoutMs = 8000, externalSignal = 
         if (externalSignal.aborted) onExternalAbort();
         else externalSignal.addEventListener('abort', onExternalAbort, { once: true });
     }
-    const headers = {};
+    const headers: Record<string, string> = {};
     const token = localStorage.getItem('hyve_token') || '';
     if (token) headers.Authorization = `Bearer ${token}`;
     try {
@@ -116,11 +124,9 @@ async function fetchDashboardLayoutJson(url, timeoutMs = 8000, externalSignal = 
         if (!res.ok) throw new Error(`Dashboard page request failed (${res.status})`);
         return await res.json();
     } catch (err) {
-        if (err && err.name === 'AbortError') {
+        if (err instanceof DOMException && err.name === 'AbortError') {
             if (timedOut) throw new Error('Refresh-ul dashboardului a expirat.');
-            const abortErr = new Error('Dashboard refresh superseded.');
-            abortErr.name = 'DashboardRefreshAbortError';
-            throw abortErr;
+            throw new DashboardRefreshAbortError('Dashboard refresh superseded.');
         }
         throw err;
     } finally {
@@ -181,7 +187,7 @@ export async function readDashboardSectionFallback() {
     };
 }
 
-export async function writeDashboardSectionFallback(section) {
+export async function writeDashboardSectionFallback(section: Record<string, unknown>) {
     const payload = {
         widgets: Array.isArray(section.widgets) ? section.widgets : [],
         panels: Array.isArray(section.panels) ? section.panels : [],
@@ -205,7 +211,7 @@ export async function writeDashboardSectionFallback(section) {
     try { localStorage.setItem(DASHBOARD_LOCAL_KEY, JSON.stringify(payload)); } catch (_) {}
 }
 
-export async function refreshAvailableEntities(options = {}) {
+export async function refreshAvailableEntities(options: { includeEntities?: boolean; signal?: AbortSignal | null } = {}) {
     const d = deps();
     const includeEntities = options.includeEntities !== false;
     const externalSignal = options.signal || null;
@@ -236,7 +242,7 @@ export async function refreshAvailableEntities(options = {}) {
         const query = params.toString();
         const url = query ? `/api/dashboard/widgets?${query}` : '/api/dashboard/widgets';
 
-        const applyNormalized = (payload, keepEntities = false) => {
+        const applyNormalized = (payload: Record<string, unknown>, keepEntities = false) => {
             const normalized = normalizeCache(payload);
             if (keepEntities || !Array.isArray(payload.available_entities)) {
                 normalized.available_entities = Array.isArray(cache.available_entities)
@@ -246,7 +252,8 @@ export async function refreshAvailableEntities(options = {}) {
             d.setDashboardCache(normalized);
             saveDashboardViewCache(normalized);
             if (normalized.page_id) d.setCurrentPageId(normalized.page_id);
-            stashDashboardPageSnapshot(normalized.page_id || d.getCurrentPageId(), normalized);
+            const snapshotPageId = normalized.page_id || d.getCurrentPageId();
+            if (snapshotPageId) stashDashboardPageSnapshot(snapshotPageId, normalized);
             return normalized.available_entities;
         };
 
@@ -267,16 +274,16 @@ export async function refreshAvailableEntities(options = {}) {
     const statesRes = await apiCall('/api/integrations/all-entities').catch(() => null);
     const states = statesRes && statesRes.ok ? await statesRes.json() : [];
 
-    const items = (Array.isArray(states) ? states : [])
-        .filter(raw => {
+    const items: HyveEntity[] = (Array.isArray(states) ? states : [])
+        .filter((raw: Record<string, unknown>) => {
             const entityId = String(raw?.entity_id || '');
             const domain = entityId.includes('.') ? entityId.split('.', 1)[0] : '';
             return d.isControllableDomain(domain) || d.isInfoDomain(domain);
         })
-        .map(raw => {
+        .map((raw: Record<string, unknown>) => {
             const entityId = String(raw.entity_id || '');
-            const attrs = raw.attributes || {};
-            const name = attrs.friendly_name || entityId;
+            const attrs = (raw.attributes || {}) as Record<string, unknown>;
+            const name = String(attrs.friendly_name || entityId);
             const domain = entityId.split('.', 1)[0] || 'switch';
             const source = /zigbee|z2m/i.test(`${entityId} ${name}`) ? 'zigbee2mqtt' : 'unknown';
             return {
@@ -286,11 +293,11 @@ export async function refreshAvailableEntities(options = {}) {
                 domain,
                 source,
                 aliases: [],
-                unit: attrs.unit_of_measurement || '',
+                unit: String(attrs.unit_of_measurement || ''),
                 controllable: d.isControllableDomain(domain),
             };
         })
-        .sort((a, b) => `${a.source}:${a.name}`.localeCompare(`${b.source}:${b.name}`, 'ro'));
+        .sort((a, b) => `${a.source}:${a.name}`.localeCompare(`${b.source}:${b.name || ''}`, 'ro'));
 
     d.setDashboardCache(normalizeCache({
         widgets: fallbackSection.widgets,
@@ -306,7 +313,7 @@ export async function refreshAvailableEntities(options = {}) {
     return items;
 }
 
-function transientDashboardGridMatches(text) {
+function transientDashboardGridMatches(text: string) {
     const d = deps();
     const haystack = String(text || '');
     const patterns = [
@@ -336,7 +343,7 @@ export function abortPendingLoad() {
     _loadAbortController = null;
 }
 
-export function loadDashboard(options = {}) {
+export function loadDashboard(options: { force?: boolean; soft?: boolean } = {}) {
     const force = !!options.force;
     const soft = !!options.soft;
     const now = Date.now();
@@ -355,7 +362,7 @@ export function loadDashboard(options = {}) {
     return _loadInFlight;
 }
 
-async function loadDashboardImpl(signal = null, { soft = false } = {}) {
+async function loadDashboardImpl(signal: AbortSignal | null = null, { soft = false }: { soft?: boolean } = {}) {
     const d = deps();
     const grid = document.getElementById('dashboard-grid');
     if (!grid) return;
@@ -393,7 +400,10 @@ async function loadDashboardImpl(signal = null, { soft = false } = {}) {
     try {
         getCameraStreamToken().catch(() => {});
         await refreshAvailableEntities({ includeEntities: false, signal });
-        if (d.getCurrentPageId()) setHashForPage(d.getCurrentPageId());
+        if (d.getCurrentPageId()) {
+            const pageId = d.getCurrentPageId();
+            if (pageId) setHashForPage(pageId);
+        }
         const layoutFpAfter = dashboardSnapshotFingerprint(d.getDashboardCache());
         const layoutChanged = layoutFpBefore !== layoutFpAfter;
         if (!hadRealContent || layoutChanged || !soft) {
@@ -405,15 +415,15 @@ async function loadDashboardImpl(signal = null, { soft = false } = {}) {
         d.updateDashboardEntityOptions();
         d.connectDashboardLive();
     } catch (e) {
-        if (e && (e.name === 'AbortError' || e.name === 'DashboardRefreshAbortError')) return;
+        if (e instanceof DashboardRefreshAbortError || (e instanceof DOMException && e.name === 'AbortError')) return;
         d.setEntitySelectState(d.t('dashboard.load_entities_failed'), true);
         const gridHasRealContent = !!grid.firstElementChild
             && !(grid.children.length === 1
                 && transientDashboardGridMatches(grid.textContent || ''));
         if (!gridHasRealContent) {
-            grid.innerHTML = `<div class="col-span-full rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">${d.escapeHtml(e.message || d.t('dashboard.load_error'))}</div>`;
+            grid.innerHTML = `<div class="col-span-full rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">${d.escapeHtml(e instanceof Error ? e.message : d.t('dashboard.load_error'))}</div>`;
         } else {
-            try { console.warn('[dashboard] refresh failed, keeping cached cards:', e?.message || e); } catch (_) {}
+            try { console.warn('[dashboard] refresh failed, keeping cached cards:', e instanceof Error ? e.message : e); } catch (_) {}
         }
     }
 }

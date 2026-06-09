@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Hyveview schema editor bridge — add/edit/delete dashboard widgets via hvOpenEditor.
  */
@@ -8,7 +7,6 @@ import { fusionSolarWidgetEntityIds } from '/static/hyveview/cards/fusion_solar/
 import { hvOpenEditor } from './hyveview_setup.js';
 import { DEFAULT_CAMERA_INTERVAL, SECTION_COLS, } from './constants.js';
 import { dashApiError } from './helpers.js';
-/** @type {object | null} */
 let _deps = null;
 function deps() {
     if (!_deps)
@@ -46,13 +44,16 @@ export async function ensureHyveviewEntitySeed() {
     catch { /* offline ok */ }
 }
 function widgetToEditorCard(widget) {
-    const type = widget.type || 'button';
+    const type = String(widget.type || 'button');
     const rawCol = Number(widget.col_span);
     const col = Math.min(Math.max(Number.isFinite(rawCol) ? rawCol : SECTION_COLS, 1), SECTION_COLS);
     const row = Math.min(Math.max(Number(widget.row_span) || 2, 1), 12);
+    const widgetConfig = widget.config && typeof widget.config === 'object'
+        ? widget.config
+        : {};
     const cfg = {
         title: widget.title || '',
-        icon: widget.icon || widget?.config?.icon || '',
+        icon: widget.icon || widgetConfig.icon || '',
         color: widget.color || '',
         switch_style: !!widget.switch_style,
         show_background: !!widget.show_background,
@@ -62,14 +63,14 @@ function widgetToEditorCard(widget) {
         cfg.entity_id = widget.entity_id || '';
     if (type === 'camera') {
         cfg.entity = widget.entity_id || '';
-        const raw = widget?.config?.camera_mode || 'snapshot';
+        const raw = widgetConfig.camera_mode || 'snapshot';
         cfg.mode = raw === 'live' ? 'live' : 'snapshot';
-        cfg.interval = Number(widget?.config?.interval) || DEFAULT_CAMERA_INTERVAL;
-        cfg.default_audio = !!widget?.config?.default_audio;
-        cfg.default_microphone = !!widget?.config?.default_microphone;
-        cfg.preload = !!widget?.config?.preload;
-        cfg.preload_scope = widget?.config?.preload_scope === 'all' ? 'all' : 'adjacent';
-        const ents = widget?.config?.entities || [];
+        cfg.interval = Number(widgetConfig.interval) || DEFAULT_CAMERA_INTERVAL;
+        cfg.default_audio = !!widgetConfig.default_audio;
+        cfg.default_microphone = !!widgetConfig.default_microphone;
+        cfg.preload = !!widgetConfig.preload;
+        cfg.preload_scope = widgetConfig.preload_scope === 'all' ? 'all' : 'adjacent';
+        const ents = widgetConfig.entities || [];
         cfg.entities = (Array.isArray(ents) ? ents : []).map((e) => typeof e === 'string'
             ? { entity_id: e, title: '', subtitle: '' }
             : { entity_id: e.entity_id || '', title: e.title || '', subtitle: e.subtitle || '' }).filter((e) => e.entity_id);
@@ -78,20 +79,20 @@ function widgetToEditorCard(widget) {
         }
     }
     if (type === 'picture') {
-        cfg.sources = Array.isArray(widget?.config?.sources) ? widget.config.sources : [];
+        cfg.sources = Array.isArray(widgetConfig.sources) ? widgetConfig.sources : [];
         if (!cfg.sources.length && widget.entity_id && widget.entity_id.startsWith('image.')) {
             cfg.sources = [{ type: 'entity', value: widget.entity_id }];
         }
-        cfg.interval = Number(widget?.config?.interval) || 15;
+        cfg.interval = Number(widgetConfig.interval) || 15;
     }
     if (type === 'climate') {
-        const ents = widget?.config?.entities || widget?.config?.entity_ids || [];
-        cfg.entities = ents.map(e => typeof e === 'string'
+        const ents = widgetConfig.entities || widgetConfig.entity_ids || [];
+        cfg.entities = (Array.isArray(ents) ? ents : []).map(e => typeof e === 'string'
             ? { entity_id: e, title: '', subtitle: '' }
             : { entity_id: e.entity_id, title: e.title || '', subtitle: e.subtitle || '' });
     }
     if (type === 'fusion_solar') {
-        const cfgIn = widget?.config && typeof widget.config === 'object' ? widget.config : {};
+        const cfgIn = widgetConfig;
         const powerEnts = Array.isArray(cfgIn.power_entities) ? cfgIn.power_entities : [];
         cfg.power_entities = powerEnts.length
             ? powerEnts.map((e) => typeof e === 'string'
@@ -139,7 +140,7 @@ function enrichEntityRecords(records, cache) {
     }).filter((row) => row.entity_id);
 }
 function attachEntityRef(body, cache) {
-    const ent = lookupDashboardEntity(body.entity_id, cache);
+    const ent = lookupDashboardEntity(String(body.entity_id || ''), cache);
     if (ent?.unique_id)
         body.unique_id = ent.unique_id;
     else
@@ -156,7 +157,7 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
     const row = Math.min(Math.max(Number(result.layout?.row) || 2, 1), 12);
     let entityId;
     if (type === 'label') {
-        const baseTitle = cfg.title || cfg.entity_name || 'section';
+        const baseTitle = String(cfg.title || cfg.entity_name || 'section');
         entityId = existingWidget?.entity_id || `label.${slug(baseTitle)}`;
     }
     else if (type === 'climate') {
@@ -167,12 +168,12 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
     else if (type === 'camera') {
         const entities = Array.isArray(cfg.entities) ? cfg.entities : [];
         const first = entities[0];
-        entityId = (typeof first === 'string' ? first : first?.entity_id) || (cfg.entity || cfg.entity_id || '').trim();
+        entityId = (typeof first === 'string' ? first : first?.entity_id) || String(cfg.entity || cfg.entity_id || '').trim();
     }
     else if (type === 'picture') {
         const sources = Array.isArray(cfg.sources) ? cfg.sources : [];
         const firstEnt = sources.find(s => s.type === 'entity');
-        entityId = firstEnt ? firstEnt.value : (existingWidget?.entity_id || `picture.gallery_${Date.now()}`);
+        entityId = firstEnt ? String(firstEnt.value || '') : (existingWidget?.entity_id || `picture.gallery_${Date.now()}`);
     }
     else if (type === 'fusion_solar') {
         const powerRecords = (Array.isArray(cfg.power_entities) ? cfg.power_entities : [])
@@ -180,10 +181,10 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
             ? { entity_id: e, title: '', subtitle: '' }
             : { entity_id: e.entity_id || '', title: e.title || '', subtitle: e.subtitle || '' })
             .filter((e) => e.entity_id);
-        entityId = powerRecords[0]?.entity_id || (cfg.entity_id || cfg.entity || '').trim();
+        entityId = powerRecords[0]?.entity_id || String(cfg.entity_id || cfg.entity || '').trim();
     }
     else {
-        entityId = (cfg.entity_id || cfg.entity || '').trim();
+        entityId = String(cfg.entity_id || cfg.entity || '').trim();
     }
     let source = existingWidget?.source || '';
     if (!source) {
@@ -197,9 +198,9 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
     const body = {
         type,
         entity_id: entityId,
-        entity_name: (cfg.entity_name || cfg.title || entityId || '').toString().trim(),
-        title: (cfg.title || '').toString().trim(),
-        icon: (cfg.icon || '').toString().trim(),
+        entity_name: String(cfg.entity_name || cfg.title || entityId || '').trim(),
+        title: String(cfg.title || '').trim(),
+        icon: String(cfg.icon || '').trim(),
         source,
         size: existingWidget?.size || 'md',
         favorite: !!existingWidget?.favorite,
@@ -223,7 +224,7 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
             ? { entity_id: e, title: '', subtitle: '' }
             : { entity_id: e.entity_id, title: e.title || '', subtitle: e.subtitle || '', unique_id: e.unique_id || '' }), cache);
         if (!records.length && entityId) {
-            records.push({ entity_id: entityId, title: cfg.title || '', subtitle: '' });
+            records.push({ entity_id: entityId, title: String(cfg.title || ''), subtitle: '' });
         }
         body.config = {
             ...(body.config || {}),
@@ -255,7 +256,7 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
             ? { entity_id: e, title: '', subtitle: '' }
             : { entity_id: e.entity_id || '', title: e.title || '', subtitle: e.subtitle || '' })
             .filter((e) => e.entity_id);
-        const powerId = powerRecords[0]?.entity_id || body.entity_id || '';
+        const powerId = powerRecords[0]?.entity_id || String(body.entity_id || '');
         const slotKeys = [
             'entity_load', 'entity_grid', 'entity_grid_export', 'entity_grid_import',
             'entity_daily', 'entity_monthly', 'entity_yearly', 'entity_feed_in', 'entity_consumption',
@@ -272,7 +273,10 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
             ...slotCfg,
             capacity_kw: cfg.capacity_kw === '' || cfg.capacity_kw == null ? undefined : Number(cfg.capacity_kw),
         };
-        body.config.entity_ids = fusionSolarWidgetEntityIds({ entity_id: powerId, config: body.config });
+        body.config = {
+            ...body.config,
+            entity_ids: fusionSolarWidgetEntityIds({ entity_id: powerId, config: body.config }),
+        };
         if (!body.source || body.source === 'zigbee2mqtt') {
             const ent = (cache.available_entities || []).find(e => e.entity_id === powerId);
             if (ent?.source)
@@ -293,7 +297,7 @@ export async function saveDashboardWidgetFromEditor(result, { editingId = null, 
     const d = deps();
     const body = editorResultToWidgetBody(result, { existingWidget: original });
     const entitylessTypes = ['label', 'picture'];
-    if (!entitylessTypes.includes(body.type) && !body.entity_id) {
+    if (!entitylessTypes.includes(String(body.type)) && !body.entity_id) {
         showToast(d.t('dashboard.entity_required') || 'Pick an entity', 'warning');
         return;
     }
@@ -312,7 +316,7 @@ export async function saveDashboardWidgetFromEditor(result, { editingId = null, 
             showToast(d.t('dashboard.card_updated') || 'Card actualizat', 'success');
         }
         catch (e) {
-            showToast(e.message || d.t('dashboard.card_update_error'), 'error');
+            showToast(e instanceof Error ? e.message : d.t('dashboard.card_update_error'), 'error');
         }
         return;
     }
@@ -329,13 +333,15 @@ export async function saveDashboardWidgetFromEditor(result, { editingId = null, 
         }
     }
     catch (e) {
-        if (String(e?.message || '').includes(d.t('dashboard.save_widget_failed'))) {
-            showToast(e.message, 'error');
+        const msg = e instanceof Error ? e.message : '';
+        if (msg.includes(d.t('dashboard.save_widget_failed'))) {
+            showToast(msg, 'error');
             return;
         }
     }
     try {
         const section = await d.readDashboardSectionFallback();
+        section.widgets = section.widgets || [];
         section.widgets.push({
             id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
             ...body,
@@ -345,7 +351,7 @@ export async function saveDashboardWidgetFromEditor(result, { editingId = null, 
         showToast(d.t('dashboard.card_added') || 'Card added', 'success');
     }
     catch (e) {
-        showToast(e.message || (d.t('dashboard.save_error') || 'Save error'), 'error');
+        showToast(e instanceof Error ? e.message : (d.t('dashboard.save_error') || 'Save error'), 'error');
     }
 }
 async function deleteDashboardWidgetSilent(widgetId) {
@@ -363,8 +369,9 @@ async function deleteDashboardWidgetSilent(widgetId) {
         }
     }
     catch (e) {
-        if (String(e?.message || '').includes(d.t('dashboard.delete_widget_failed'))) {
-            showToast(e.message, 'error');
+        const msg = e instanceof Error ? e.message : '';
+        if (msg.includes(d.t('dashboard.delete_widget_failed'))) {
+            showToast(msg, 'error');
             return;
         }
     }
@@ -376,7 +383,7 @@ async function deleteDashboardWidgetSilent(widgetId) {
         showToast(d.t('dashboard.widget_deleted') || 'Widget deleted', 'success');
     }
     catch (e) {
-        showToast(e.message || (d.t('dashboard.widget_delete_error') || 'Could not delete widget'), 'error');
+        showToast(e instanceof Error ? e.message : (d.t('dashboard.widget_delete_error') || 'Could not delete widget'), 'error');
     }
 }
 export async function openDashboardWidgetEditor(widgetId) {

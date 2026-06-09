@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Dashboard section (panel) create/edit modal — background, visibility, pagination pages.
  */
@@ -6,7 +5,6 @@ import { apiCall } from '../api.js';
 import { syncModalViewportMetrics } from '../utils.js';
 import { dashApiError, escapeHtml } from './helpers.js';
 import { enhanceDashboardCustomSelects, syncDashboardCustomSelect } from './custom_selects.js';
-/** @type {object | null} */
 let _deps = null;
 let _modalMode = 'add';
 let _modalPanelId = null;
@@ -41,9 +39,10 @@ function panelModalElements() {
 export function setDashboardPanelSize(value) {
     const els = panelModalElements();
     const normalized = ['sm', 'md', 'wide'].includes(value) ? value : 'sm';
-    if (els.size)
+    if (els.size) {
         els.size.value = normalized;
-    syncDashboardCustomSelect(els.size);
+        syncDashboardCustomSelect(els.size);
+    }
     els.sizeOptions.forEach(option => {
         const isActive = option.getAttribute('data-dashboard-panel-size-option') === normalized;
         option.dataset.active = isActive ? 'true' : 'false';
@@ -73,7 +72,7 @@ function openDashboardPanelModal(mode, panel = {}) {
     }
     if (els.title)
         els.title.value = _modalMode === 'edit' ? String(panel.title || '') : '';
-    setDashboardPanelSize(['sm', 'md', 'wide'].includes(panel.size) ? panel.size : 'sm');
+    setDashboardPanelSize(['sm', 'md', 'wide'].includes(String(panel.size || '')) ? String(panel.size) : 'sm');
     if (els.icon)
         els.icon.value = String(panel.icon || '');
     if (els.showPagination)
@@ -112,15 +111,17 @@ function renderDashboardPanelPagesEditor() {
     pagesList.querySelectorAll('[data-panel-page-title]').forEach(input => {
         input.addEventListener('input', () => {
             const index = Number(input.getAttribute('data-panel-page-title'));
+            const row = input;
             if (_modalPages[index])
-                _modalPages[index].title = input.value;
+                _modalPages[index].title = row.value;
         });
     });
     pagesList.querySelectorAll('[data-panel-page-icon]').forEach(input => {
         input.addEventListener('input', () => {
             const index = Number(input.getAttribute('data-panel-page-icon'));
+            const row = input;
             if (_modalPages[index])
-                _modalPages[index].icon = input.value;
+                _modalPages[index].icon = row.value;
         });
     });
     pagesList.querySelectorAll('[data-panel-page-remove]').forEach(button => {
@@ -217,13 +218,17 @@ export function addDashboardPanelVisibilityCondition(cond = null) {
         </div>
         <div data-pvis-fields></div>`;
     const typeSel = row.querySelector('[data-pvis-field="type"]');
+    if (!typeSel)
+        return;
     typeSel.value = ['entity', 'user', 'screen'].includes(type) ? type : 'entity';
     const renderFields = () => {
-        row.querySelector('[data-pvis-fields]').innerHTML = panelVisibilityFieldsHtml(typeSel.value, idx, cond);
+        const fields = row.querySelector('[data-pvis-fields]');
+        if (fields)
+            fields.innerHTML = panelVisibilityFieldsHtml(typeSel.value, idx, cond);
         enhanceDashboardCustomSelects(row);
     };
     typeSel.addEventListener('change', () => { renderFields(); });
-    row.querySelector('[data-pvis-remove]').addEventListener('click', () => row.remove());
+    row.querySelector('[data-pvis-remove]')?.addEventListener('click', () => row.remove());
     wrap.appendChild(row);
     renderFields();
     enhanceDashboardCustomSelects(row);
@@ -359,7 +364,7 @@ export async function saveDashboardPanel() {
         const pageId = d.getCurrentPageId();
         const params = pageId ? `?page_id=${encodeURIComponent(pageId)}` : '';
         const isEdit = _modalMode === 'edit' && _modalPanelId;
-        const path = isEdit
+        const path = isEdit && _modalPanelId
             ? `/api/dashboard/panels/${encodeURIComponent(_modalPanelId)}${params}`
             : `/api/dashboard/panels${params}`;
         const res = await apiCall(path, {
@@ -376,7 +381,7 @@ export async function saveDashboardPanel() {
         d.showToast(isEdit ? d.t('dashboard.section_updated') : d.t('dashboard.section_added'), 'success');
     }
     catch (e) {
-        d.showToast(e.message || d.t('dashboard.section_save_error'), 'error');
+        d.showToast(e instanceof Error ? e.message : d.t('dashboard.section_save_error'), 'error');
     }
 }
 export function addDashboardPanelModalPage() {

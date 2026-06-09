@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 // Derived entities ("template sensors") — create, edit, delete, live preview.
 //
 // Architecture:
@@ -10,6 +9,13 @@ import { apiCall } from './api.js';
 import { t } from './lang/index.js';
 import { escapeHtml, showToast, showConfirm } from './utils.js';
 import { loadSmarthome } from './features.js';
+import type {
+    DerivedCandidate,
+    DerivedEntry,
+    DerivedFormula,
+    DerivedModalEl,
+    DerivedPreviewResolved,
+} from './types/derived.js';
 
 const BUILDER_PRESET = 'preset';
 const BUILDER_TRANSFORM = 'transform';
@@ -17,24 +23,41 @@ const BUILDER_EXPRESSION = 'expression';
 const VIEW_FORM = 'form';
 const VIEW_YAML = 'yaml';
 
-let _builder = BUILDER_PRESET;
-let _view = VIEW_FORM;
-let _editingId = null;            // entity_id when editing; null when creating
-let _candidates = [];             // all entities usable as inputs
-let _selectedInputs = new Set();  // entity_ids selected in preset/transform
-let _previewTimer = null;
-let _yamlTouched = false;         // user manually edited YAML?
+type BuilderKind = typeof BUILDER_PRESET | typeof BUILDER_TRANSFORM | typeof BUILDER_EXPRESSION;
+type ViewKind = typeof VIEW_FORM | typeof VIEW_YAML;
 
-function $(id) { return document.getElementById(id); }
+let _builder: BuilderKind = BUILDER_PRESET;
+let _view: ViewKind = VIEW_FORM;
+let _editingId: string | null = null;
+let _candidates: DerivedCandidate[] = [];
+let _selectedInputs = new Set<string>();
+let _previewTimer: ReturnType<typeof setTimeout> | null = null;
+let _yamlTouched = false;
+
+function $(id: string): HTMLElement | null {
+    return document.getElementById(id);
+}
+
+function $input(id: string): HTMLInputElement | null {
+    return document.getElementById(id) as HTMLInputElement | null;
+}
+
+function $select(id: string): HTMLSelectElement | null {
+    return document.getElementById(id) as HTMLSelectElement | null;
+}
+
+function $textarea(id: string): HTMLTextAreaElement | null {
+    return document.getElementById(id) as HTMLTextAreaElement | null;
+}
 
 /* ───────────────────── Builder (preset/transform/expression) ─────────── */
 
-function _setBuilderUi(builder) {
+function _setBuilderUi(builder: BuilderKind) {
     _builder = builder;
 
-    $('derived-pane-preset').classList.toggle('hidden', builder !== BUILDER_PRESET);
-    $('derived-pane-transform').classList.toggle('hidden', builder !== BUILDER_TRANSFORM);
-    $('derived-pane-expression').classList.toggle('hidden', builder !== BUILDER_EXPRESSION);
+    $('derived-pane-preset')?.classList.toggle('hidden', builder !== BUILDER_PRESET);
+    $('derived-pane-transform')?.classList.toggle('hidden', builder !== BUILDER_TRANSFORM);
+    $('derived-pane-expression')?.classList.toggle('hidden', builder !== BUILDER_EXPRESSION);
 
     // Inputs section is only relevant for preset + transform
     const inputsSection = $('derived-inputs-section');
@@ -65,7 +88,7 @@ function _setBuilderUi(builder) {
 
     // Transform wants exactly one input
     if (builder === BUILDER_TRANSFORM && _selectedInputs.size > 1) {
-        const first = _selectedInputs.values().next().value;
+        const first = _selectedInputs.values().next().value as string;
         _selectedInputs = new Set([first]);
         _renderCandidates();
     }
@@ -73,16 +96,16 @@ function _setBuilderUi(builder) {
     _schedulePreview();
 }
 
-export function switchDerivedBuilder(builder) {
+export function switchDerivedBuilder(builder: BuilderKind) {
     if (![BUILDER_PRESET, BUILDER_TRANSFORM, BUILDER_EXPRESSION].includes(builder)) return;
     _setBuilderUi(builder);
 }
 
 /* ───────────────────── View switcher (form/yaml) ─────────────────────── */
 
-function _setViewUi(view) {
+function _setViewUi(view: ViewKind) {
     _view = view;
-    $('derived-view-form-pane').classList.toggle('hidden', view !== VIEW_FORM);
+    $('derived-view-form-pane')?.classList.toggle('hidden', view !== VIEW_FORM);
     const yamlPane = $('derived-view-yaml-pane');
     if (yamlPane) yamlPane.classList.toggle('hidden', view !== VIEW_YAML);
 
@@ -97,8 +120,7 @@ function _setViewUi(view) {
     }
 
     if (view === VIEW_YAML) {
-        // Re-serialise only when the YAML is empty or was machine-generated.
-        const ta = $('derived-yaml');
+        const ta = $textarea('derived-yaml');
         const shouldSync = !ta?.value || !_yamlTouched;
         if (shouldSync) _renderYamlFromForm();
         _updateYamlSyncBadge();
@@ -106,7 +128,7 @@ function _setViewUi(view) {
     _schedulePreview();
 }
 
-export function switchDerivedView(view) {
+export function switchDerivedView(view: ViewKind) {
     if (![VIEW_FORM, VIEW_YAML].includes(view)) return;
     _setViewUi(view);
 }
@@ -124,10 +146,10 @@ function _updateYamlSyncBadge() {
 /* ───────────────────── Candidates + inputs picker ────────────────────── */
 
 async function _loadCandidates() {
-    const insertSelect = $('derived-expression-insert');
+    const insertSelect = $select('derived-expression-insert');
     try {
         const res = await apiCall('/api/derived/candidates');
-        const data = await res.json();
+        const data = await res.json() as { entities?: DerivedCandidate[] };
         _candidates = (data.entities || []).filter(e => !(e.entity_id || '').startsWith('derived.'));
     } catch {
         _candidates = [];
@@ -145,7 +167,7 @@ async function _loadCandidates() {
 function _renderCandidates() {
     const list = $('derived-candidates-list');
     if (!list) return;
-    const q = ($('derived-inputs-search')?.value || '').toLowerCase().trim();
+    const q = ($input('derived-inputs-search')?.value || '').toLowerCase().trim();
     const items = _candidates.filter(e => {
         if (!q) return true;
         return (e.entity_id || '').toLowerCase().includes(q)
@@ -179,7 +201,7 @@ function _updateInputsCount() {
     if (el) el.textContent = String(_selectedInputs.size);
 }
 
-export function toggleDerivedInput(el) {
+export function toggleDerivedInput(el: HTMLInputElement) {
     if (_builder === BUILDER_TRANSFORM) {
         _selectedInputs = new Set([el.value]);
         _renderCandidates();
@@ -195,8 +217,8 @@ export function toggleDerivedInput(el) {
 export function filterDerivedCandidates() { _renderCandidates(); }
 
 export function insertDerivedExpressionEntity() {
-    const select = $('derived-expression-insert');
-    const textarea = $('derived-expression');
+    const select = $select('derived-expression-insert');
+    const textarea = $textarea('derived-expression');
     if (!select || !textarea || !select.value) return;
     const start = textarea.selectionStart ?? textarea.value.length;
     const end = textarea.selectionEnd ?? start;
@@ -215,11 +237,11 @@ export function insertDerivedExpressionEntity() {
 
 /* ───────────────────── Payload builders ──────────────────────────────── */
 
-function _buildFormulaPayload() {
+function _buildFormulaPayload(): DerivedFormula {
     if (_builder === BUILDER_EXPRESSION) {
         return {
             type: 'expression',
-            expression: ($('derived-expression').value || '').trim(),
+            expression: ($textarea('derived-expression')?.value || '').trim(),
             inputs: [],
         };
     }
@@ -228,20 +250,20 @@ function _buildFormulaPayload() {
         return {
             type: 'transform',
             inputs,
-            filter: $('derived-transform-filter')?.value || 'none',
-            scale: parseFloat($('derived-transform-scale')?.value || '1'),
-            offset: parseFloat($('derived-transform-offset')?.value || '0'),
+            filter: $select('derived-transform-filter')?.value || 'none',
+            scale: parseFloat($input('derived-transform-scale')?.value || '1'),
+            offset: parseFloat($input('derived-transform-offset')?.value || '0'),
         };
     }
-    const preset = $('derived-preset').value || 'sum';
+    const preset = $select('derived-preset')?.value || 'sum';
     return { type: preset, inputs: Array.from(_selectedInputs) };
 }
 
-function _buildEntryPayload() {
+function _buildEntryPayload(): DerivedEntry {
     return {
-        name: $('derived-name').value.trim(),
-        value_type: $('derived-value-type').value || 'number',
-        unit: $('derived-unit').value.trim(),
+        name: ($input('derived-name')?.value || '').trim(),
+        value_type: $select('derived-value-type')?.value || 'number',
+        unit: ($input('derived-unit')?.value || '').trim(),
         selected: true,
         formula: _buildFormulaPayload(),
     };
@@ -250,15 +272,15 @@ function _buildEntryPayload() {
 /* ───────────────────── YAML ↔ Form sync ──────────────────────────────── */
 
 async function _renderYamlFromForm() {
-    const ta = $('derived-yaml');
+    const ta = $textarea('derived-yaml');
     if (!ta) return;
     try {
         const res = await apiCall('/api/derived/yaml/serialize', {
             method: 'POST',
-            body: _buildEntryPayload(),
+            body: _buildEntryPayload() as Record<string, unknown>,
         });
         if (res.ok) {
-            const data = await res.json();
+            const data = await res.json() as { yaml?: string };
             ta.value = data.yaml || '';
             _yamlTouched = false;
             _updateYamlSyncBadge();
@@ -283,30 +305,30 @@ function _schedulePreview() {
     _previewTimer = setTimeout(runDerivedPreview, 400);
 }
 
-async function _resolveFormulaForPreview() {
+async function _resolveFormulaForPreview(): Promise<DerivedPreviewResolved | null> {
     if (_view === VIEW_YAML) {
-        const text = ($('derived-yaml')?.value || '').trim();
+        const text = ($textarea('derived-yaml')?.value || '').trim();
         if (!text) return null;
         const res = await apiCall('/api/derived/yaml/parse', { method: 'POST', body: { yaml: text } });
         if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
+            const err = await res.json().catch(() => ({})) as { detail?: string };
             throw new Error(err.detail || 'invalid YAML');
         }
-        const parsed = await res.json();
+        const parsed = await res.json() as DerivedEntry;
         return {
             value_type: parsed.value_type || 'number',
             unit: parsed.unit || '',
-            formula: parsed.formula || {},
+            formula: parsed.formula || { type: 'sum', inputs: [] },
         };
     }
     return {
-        value_type: $('derived-value-type').value || 'number',
-        unit: $('derived-unit').value.trim(),
+        value_type: $select('derived-value-type')?.value || 'number',
+        unit: ($input('derived-unit')?.value || '').trim(),
         formula: _buildFormulaPayload(),
     };
 }
 
-function _setPreviewInputs(html) {
+function _setPreviewInputs(html: string) {
     const inputsEl = $('derived-preview-inputs');
     if (inputsEl) inputsEl.innerHTML = html || '<span class="text-slate-600">—</span>';
 }
@@ -318,9 +340,10 @@ export async function runDerivedPreview() {
     try {
         resolved = await _resolveFormulaForPreview();
     } catch (e) {
+        const msg = e instanceof Error ? e.message : 'invalid YAML';
         valueEl.textContent = '!';
         valueEl.classList.add('text-red-400');
-        _setPreviewInputs(`<span class="text-red-400">${escapeHtml(e?.message || 'invalid YAML')}</span>`);
+        _setPreviewInputs(`<span class="text-red-400">${escapeHtml(msg)}</span>`);
         return;
     }
     valueEl.classList.remove('text-red-400');
@@ -330,7 +353,7 @@ export async function runDerivedPreview() {
         return;
     }
     const { value_type, unit, formula } = resolved;
-    if (formula.type === 'expression' && !formula.expression) {
+    if (formula.type === 'expression' && !('expression' in formula && formula.expression)) {
         valueEl.textContent = '—'; _setPreviewInputs(''); return;
     }
     if (formula.type !== 'expression' && (!formula.inputs || !formula.inputs.length)) {
@@ -342,13 +365,13 @@ export async function runDerivedPreview() {
             body: { value_type, formula },
         });
         if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
+            const err = await res.json().catch(() => ({})) as { detail?: string };
             valueEl.textContent = '!';
             valueEl.classList.add('text-red-400');
             _setPreviewInputs(`<span class="text-red-400">${escapeHtml(err.detail || 'error')}</span>`);
             return;
         }
-        const data = await res.json();
+        const data = await res.json() as { state?: string | number | null; input_states?: Record<string, unknown> };
         const state = data.state;
         const hasValue = state != null && state !== 'unavailable' && state !== '';
         valueEl.textContent = (state ?? '—') + (unit && hasValue ? ' ' + unit : '');
@@ -366,30 +389,45 @@ export async function runDerivedPreview() {
 /* ───────────────────── Open / populate / reset ───────────────────────── */
 
 function _resetForm() {
-    $('derived-name').value = '';
-    $('derived-value-type').value = 'number';
-    $('derived-unit').value = '';
-    $('derived-preset').value = 'sum';
-    $('derived-expression').value = '';
-    $('derived-inputs-search').value = '';
-    $('derived-preview-value').textContent = '—';
-    if ($('derived-preview-inputs')) $('derived-preview-inputs').innerHTML = '';
-    if ($('derived-transform-filter')) $('derived-transform-filter').value = 'none';
-    if ($('derived-transform-scale')) $('derived-transform-scale').value = '1';
-    if ($('derived-transform-offset')) $('derived-transform-offset').value = '0';
-    if ($('derived-yaml')) $('derived-yaml').value = '';
+    const nameEl = $input('derived-name');
+    const valueTypeEl = $select('derived-value-type');
+    const unitEl = $input('derived-unit');
+    const presetEl = $select('derived-preset');
+    const expressionEl = $textarea('derived-expression');
+    const searchEl = $input('derived-inputs-search');
+    const previewValueEl = $('derived-preview-value');
+    const previewInputsEl = $('derived-preview-inputs');
+    const filterEl = $select('derived-transform-filter');
+    const scaleEl = $input('derived-transform-scale');
+    const offsetEl = $input('derived-transform-offset');
+    const yamlEl = $textarea('derived-yaml');
+    const deleteBtn = $('derived-delete-btn');
+    const titleEl = $('derived-modal-title');
+
+    if (nameEl) nameEl.value = '';
+    if (valueTypeEl) valueTypeEl.value = 'number';
+    if (unitEl) unitEl.value = '';
+    if (presetEl) presetEl.value = 'sum';
+    if (expressionEl) expressionEl.value = '';
+    if (searchEl) searchEl.value = '';
+    if (previewValueEl) previewValueEl.textContent = '—';
+    if (previewInputsEl) previewInputsEl.innerHTML = '';
+    if (filterEl) filterEl.value = 'none';
+    if (scaleEl) scaleEl.value = '1';
+    if (offsetEl) offsetEl.value = '0';
+    if (yamlEl) yamlEl.value = '';
     _selectedInputs = new Set();
     _editingId = null;
     _yamlTouched = false;
-    $('derived-delete-btn').classList.add('hidden');
-    $('derived-modal-title').textContent = t('derived.modal_title');
+    deleteBtn?.classList.add('hidden');
+    if (titleEl) titleEl.textContent = t('derived.modal_title');
     _setBuilderUi(BUILDER_PRESET);
     _setViewUi(VIEW_FORM);
 }
 
-export async function openDerivedModal(entityId) {
+export async function openDerivedModal(entityId?: string) {
     _resetForm();
-    const modal = $('derived-modal');
+    const modal = $('derived-modal') as DerivedModalEl | null;
     if (!modal) return;
     // Reparent la <body> ca să nu fie afectat de overflow/transform din strămoși (#view-smarthome)
     if (modal.parentElement !== document.body) {
@@ -413,7 +451,7 @@ export async function openDerivedModal(entityId) {
             el.addEventListener('input', () => { _schedulePreview(); _syncYamlIfUntouched(); });
             el.addEventListener('change', () => { _schedulePreview(); _syncYamlIfUntouched(); });
         }
-        const yamlEl = $('derived-yaml');
+        const yamlEl = $textarea('derived-yaml');
         if (yamlEl) {
             yamlEl.addEventListener('input', () => {
                 _yamlTouched = true;
@@ -427,7 +465,7 @@ export async function openDerivedModal(entityId) {
     if (entityId) {
         try {
             const res = await apiCall('/api/derived/raw');
-            const data = await res.json();
+            const data = await res.json() as { entries?: DerivedEntry[] };
             const entry = (data.entries || []).find(e => e.entity_id === entityId);
             if (entry) _populateForm(entry);
         } catch { /* ignore */ }
@@ -435,29 +473,40 @@ export async function openDerivedModal(entityId) {
     _schedulePreview();
 }
 
-function _populateForm(entry) {
-    _editingId = entry.entity_id;
-    $('derived-modal-title').textContent = (t('derived.modal_edit_title'));
-    $('derived-delete-btn').classList.remove('hidden');
-    $('derived-name').value = entry.name || '';
-    $('derived-value-type').value = entry.value_type || 'number';
-    $('derived-unit').value = entry.unit || '';
-    const formula = entry.formula || {};
+function _populateForm(entry: DerivedEntry) {
+    _editingId = entry.entity_id || null;
+    const titleEl = $('derived-modal-title');
+    const deleteBtn = $('derived-delete-btn');
+    const nameEl = $input('derived-name');
+    const valueTypeEl = $select('derived-value-type');
+    const unitEl = $input('derived-unit');
+    const expressionEl = $textarea('derived-expression');
+    const presetEl = $select('derived-preset');
+    const filterEl = $select('derived-transform-filter');
+    const scaleEl = $input('derived-transform-scale');
+    const offsetEl = $input('derived-transform-offset');
+
+    if (titleEl) titleEl.textContent = t('derived.modal_edit_title');
+    deleteBtn?.classList.remove('hidden');
+    if (nameEl) nameEl.value = entry.name || '';
+    if (valueTypeEl) valueTypeEl.value = entry.value_type || 'number';
+    if (unitEl) unitEl.value = entry.unit || '';
+    const formula = entry.formula || { type: 'sum', inputs: [] };
     const ftype = (formula.type || '').toLowerCase();
 
     if (ftype === 'expression') {
-        $('derived-expression').value = formula.expression || '';
+        if (expressionEl) expressionEl.value = 'expression' in formula ? (formula.expression || '') : '';
         _selectedInputs = new Set();
         _setBuilderUi(BUILDER_EXPRESSION);
     } else if (ftype === 'transform') {
         _selectedInputs = new Set((formula.inputs || []).slice(0, 1));
-        if ($('derived-transform-filter')) $('derived-transform-filter').value = formula.filter || 'none';
-        if ($('derived-transform-scale')) $('derived-transform-scale').value = formula.scale != null ? String(formula.scale) : '1';
-        if ($('derived-transform-offset')) $('derived-transform-offset').value = formula.offset != null ? String(formula.offset) : '0';
+        if (filterEl) filterEl.value = 'filter' in formula ? (formula.filter || 'none') : 'none';
+        if (scaleEl) scaleEl.value = 'scale' in formula && formula.scale != null ? String(formula.scale) : '1';
+        if (offsetEl) offsetEl.value = 'offset' in formula && formula.offset != null ? String(formula.offset) : '0';
         _setBuilderUi(BUILDER_TRANSFORM);
         _renderCandidates();
     } else {
-        $('derived-preset').value = ftype || 'sum';
+        if (presetEl) presetEl.value = ftype || 'sum';
         _selectedInputs = new Set(formula.inputs || []);
         _setBuilderUi(BUILDER_PRESET);
         _renderCandidates();
@@ -476,33 +525,31 @@ export function closeDerivedModal() {
 
 export async function saveDerived() {
     try {
-        let res;
+        let res: Response;
         if (_view === VIEW_YAML) {
-            const text = ($('derived-yaml')?.value || '').trim();
+            const text = ($textarea('derived-yaml')?.value || '').trim();
             if (!text) { showToast(t('derived.err_yaml'), 'error'); return; }
             res = await apiCall('/api/derived/yaml/save', {
                 method: 'POST',
                 body: { yaml: text, entity_id: _editingId || null },
             });
         } else {
-            const name = $('derived-name').value.trim();
+            const name = ($input('derived-name')?.value || '').trim();
             if (!name) { showToast(t('derived.err_name'), 'error'); return; }
             const formula = _buildFormulaPayload();
             if (formula.type === 'expression') {
-                if (!formula.expression) {
+                if (!('expression' in formula) || !formula.expression) {
                     showToast(t('derived.err_expression'), 'error');
                     return;
                 }
-            } else {
-                if (!formula.inputs || !formula.inputs.length) {
-                    showToast(t('derived.err_inputs'), 'error');
-                    return;
-                }
+            } else if (!formula.inputs?.length) {
+                showToast(t('derived.err_inputs'), 'error');
+                return;
             }
             const body = {
                 name,
-                value_type: $('derived-value-type').value || 'number',
-                unit: $('derived-unit').value.trim(),
+                value_type: $select('derived-value-type')?.value || 'number',
+                unit: ($input('derived-unit')?.value || '').trim(),
                 selected: true,
                 formula,
             };
@@ -513,7 +560,7 @@ export async function saveDerived() {
             }
         }
         if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
+            const err = await res.json().catch(() => ({})) as { detail?: string };
             showToast(err.detail || t('derived.save_failed'), 'error');
             return;
         }
@@ -544,7 +591,7 @@ export async function deleteDerivedFromModal() {
     }
 }
 
-export async function toggleDerivedSelection(entityId, selected) {
+export async function toggleDerivedSelection(entityId: string, selected: boolean) {
     try {
         await apiCall(`/api/derived/${encodeURIComponent(entityId)}/selection`, {
             method: 'POST', body: { selected: !!selected },
@@ -555,10 +602,10 @@ export async function toggleDerivedSelection(entityId, selected) {
 }
 
 // Back-compat for any stale inline handlers that may still call switchDerivedMode.
-export function switchDerivedMode(kind) {
-    if (kind === 'yaml') return switchDerivedView('yaml');
-    if (kind === 'preset' || kind === 'transform' || kind === 'expression') {
-        switchDerivedView('form');
+export function switchDerivedMode(kind: string) {
+    if (kind === 'yaml') return switchDerivedView(VIEW_YAML);
+    if (kind === BUILDER_PRESET || kind === BUILDER_TRANSFORM || kind === BUILDER_EXPRESSION) {
+        switchDerivedView(VIEW_FORM);
         return switchDerivedBuilder(kind);
     }
 }

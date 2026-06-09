@@ -1,17 +1,18 @@
-// @ts-nocheck — Phase 5 TS shell; tighten types incrementally.
 /**
  * Config hub / settings event delegation.
  */
 
-/** @type {Record<string, (...args: unknown[]) => unknown> | null} */
-let _handlers = null;
+type ConfigEventHandler = (...args: unknown[]) => unknown;
+type ConfigEventHandlers = Record<string, ConfigEventHandler>;
+
+let _handlers: ConfigEventHandlers | null = null;
 let _bound = false;
 
-function _inConfigScope(el) {
+function _inConfigScope(el: Element | null | undefined) {
     return !!el?.closest('#view-config');
 }
 
-function _run(action, el, event) {
+function _run(action: string, el: HTMLElement, event: Event) {
     if (!_handlers) return;
     if (action === 'closeAddonWebUI') {
         _handlers.closeAddonWebUI?.(event, el);
@@ -92,7 +93,7 @@ function _run(action, el, event) {
         _handlers.removeAreaEditorEntity?.(el.dataset.configEntityId || '', event, el);
         return;
     case 'toggleAreaPickerEntity':
-        _handlers.toggleAreaPickerEntity?.(el.dataset.configEntityId || '', el.checked, event, el);
+        _handlers.toggleAreaPickerEntity?.(el.dataset.configEntityId || '', (el as HTMLInputElement).checked, event, el);
         return;
     case 'openSceneEntityPicker':
         _handlers.openSceneEntityPicker?.(Number(el.dataset.configIndex ?? -1), event, el);
@@ -172,14 +173,14 @@ function _run(action, el, event) {
     }
 }
 
-function _onClick(event) {
-    const el = event.target.closest('[data-config-action]');
+function _onClick(event: MouseEvent) {
+    const el = (event.target as Element | null)?.closest('[data-config-action]') as HTMLElement | null;
     if (!el) return;
-    _run(el.dataset.configAction, el, event);
+    _run(el.dataset.configAction || '', el, event);
 }
 
-function _onInput(event) {
-    const el = event.target.closest('[data-config-input]');
+function _onInput(event: Event) {
+    const el = (event.target as Element | null)?.closest('[data-config-input]') as HTMLInputElement | null;
     if (!el || !_inConfigScope(el)) return;
     const kind = el.dataset.configInput;
     if (!kind || !_handlers) return;
@@ -187,8 +188,8 @@ function _onInput(event) {
     else if (kind === 'filterAreaEntityPicker') _handlers.filterAreaEntityPicker?.(el.value, event, el);
 }
 
-function _onChange(event) {
-    const el = event.target.closest('[data-config-input]');
+function _onChange(event: Event) {
+    const el = (event.target as Element | null)?.closest('[data-config-input]') as HTMLInputElement | null;
     if (!el || !_inConfigScope(el)) return;
     const kind = el.dataset.configInput;
     if (!kind || !_handlers) return;
@@ -201,16 +202,16 @@ function _onChange(event) {
         if (el.id === 'profile-vision-enabled') _handlers.syncVisionCapabilityCheckbox?.(event, el);
     } else if (kind === 'uploadComfyUIWorkflow') _handlers.uploadComfyUIWorkflow?.(el, event);
     else if (kind === 'toggleAreaPickerEntity') {
-        _handlers.toggleAreaPickerEntity?.(el.dataset.configEntityId || '', el.checked, event, el);
+        _handlers.toggleAreaPickerEntity?.(el.dataset.configEntityId || '', (el as HTMLInputElement).checked, event, el);
     } else if (kind === 'toggleAddonWatchdog') {
         _handlers.toggleAddonWatchdog?.(el.dataset.configSlug || '', el.checked, event, el);
     }
 }
 
 /**
- * @param {Record<string, (...args: unknown[]) => unknown>} handlers
+ * Register config hub delegated event handlers.
  */
-export function initConfigEventBindings(handlers) {
+export function initConfigEventBindings(handlers: ConfigEventHandlers) {
     _handlers = handlers || {};
     if (_bound) return;
     _bound = true;
