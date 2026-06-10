@@ -1,5 +1,9 @@
 /** Integration UI event-handler and control payloads. */
 
+import type { DelegatedEventHandlers, SmarthomeEventHandlers } from './event_bindings.js';
+
+export type { DelegatedEventHandlers, SmarthomeEventHandlers };
+
 export type ControlPayload =
     | Record<string, unknown>
     | { brightness: number }
@@ -23,11 +27,6 @@ export interface IntegrationEventHandlers {
     ) => void | Promise<void>;
     [key: string]: unknown;
 }
-
-export type SmarthomeEventHandlers = Record<string, (...args: unknown[]) => unknown>;
-
-/** Generic delegated UI handler map (chat, planner, config, etc.). */
-export type DelegatedEventHandlers = Record<string, (...args: unknown[]) => unknown>;
 
 export interface EntityStateChangedDetail {
     entity_id?: string;

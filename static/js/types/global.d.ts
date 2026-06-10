@@ -19,6 +19,25 @@ declare global {
         lineNumbersBlock: (el: Element, opts?: { singleLine?: boolean }) => void | Promise<void>;
     };
 
+    interface SortableInstance {
+        destroy?: () => void;
+    }
+
+    interface SortableStatic {
+        new (el: HTMLElement, options?: Record<string, unknown>): SortableInstance;
+    }
+
+    interface HyveNativeConfig {
+        externalUrl?: string;
+        localUrl?: string;
+        homeWifi?: string;
+        biometricEnabled?: boolean;
+        biometricAvailable?: boolean;
+        serverMode?: string;
+        currentSsid?: string;
+        [key: string]: unknown;
+    }
+
     interface Window {
         __cacheBust?: string;
         __appVersion?: string;
@@ -28,8 +47,27 @@ declare global {
         __hyveDashDebug?: { enabled: boolean; log: () => unknown[] };
         __hyveSourceFaviconError?: (img: HTMLImageElement) => void | Promise<void>;
         __saveNativeAuthToken?: (token: string) => void;
+        __clearNativeAuthToken?: () => void;
+        __HYVE_NATIVE_CONFIG?: import('./app.js').HyveNativeConfig;
+        __saveNativeServerConfig?: (config: import('./app.js').AppConfigFormData) => void;
+        __getNativeWifiSsid?: () => string | null | undefined;
+        __clearNativeCache?: () => void;
+        __checkNativePermission?: (name: string) => import('./app.js').PermissionState;
+        __requestNativePermission?: (name: string) => void;
+        __onNativePermissionResult?: (name: string, granted: boolean) => void;
+        doLogout?: () => void | Promise<void>;
+        detectAppWifi?: () => void;
+        clearAppCache?: () => void;
+        toggleAppBiometric?: () => void;
+        refreshWsServiceStatus?: () => void;
+        requestMicPermission?: () => void;
+        requestLocationPermission?: () => void;
+        requestCameraPermission?: () => void;
+        requestStoragePermission?: () => void;
+        checkPermissions?: () => void | Promise<void>;
         bootHyve?: () => void | Promise<void>;
-        sendMessage?: (...args: unknown[]) => unknown;
+        sendMessage?: (optionalMessage?: string) => void | Promise<void>;
+        Sortable?: import('./drag_resize.js').SortableConstructor;
         HVBridge?: typeof import('/static/hyveview/bridge.js');
         openHyveviewEditor?: (options: Record<string, unknown>) => Promise<unknown>;
         __hyveCameraTimer?: ReturnType<typeof setInterval> | null;

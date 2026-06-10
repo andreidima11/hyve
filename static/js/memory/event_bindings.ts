@@ -2,13 +2,13 @@
  * Intelligence / memory / automations view event delegation.
  */
 
-type MemoryEventHandler = (...args: unknown[]) => unknown;
-type MemoryEventHandlers = Record<string, MemoryEventHandler>;
+import type { MemoryEventHandlers } from '../types/event_bindings.js';
+import type { SyncAutomationOptions } from '../types/features_automations.js';
 
 let _handlers: MemoryEventHandlers | null = null;
 let _bound = false;
 
-function _inMemoryScope(el: Element | null | undefined) {
+function _inMemoryScope(el: Element | null | undefined): boolean {
     if (!el) return false;
     // Panels may live under #view-memory or be moved into config standalone (Automatizări / Memorii hub).
     // Kebab menus are portaled to document.body (see toggleAutoMenu).
@@ -21,7 +21,7 @@ function _inMemoryScope(el: Element | null | undefined) {
     );
 }
 
-function _syncAutomationOpts(el: HTMLElement) {
+function _syncAutomationOpts(el: HTMLElement): SyncAutomationOptions {
     const rerender = el.dataset.memoryRerender || '';
     if (rerender === 'triggers') return { rerenderTriggers: true };
     if (rerender === 'conditions') return { rerenderConditions: true };
@@ -29,7 +29,7 @@ function _syncAutomationOpts(el: HTMLElement) {
     return {};
 }
 
-function _run(action: string, el: HTMLElement, event: Event) {
+function _run(action: string, el: HTMLElement, event: Event): void {
     if (!_handlers || !_inMemoryScope(el)) return;
 
     switch (action) {
@@ -122,13 +122,13 @@ function _run(action: string, el: HTMLElement, event: Event) {
     }
 }
 
-function _onClick(event: MouseEvent) {
+function _onClick(event: MouseEvent): void {
     const el = (event.target as Element | null)?.closest('[data-memory-action]') as HTMLElement | null;
     if (!el) return;
     _run(el.dataset.memoryAction || '', el, event);
 }
 
-function _onInput(event: Event) {
+function _onInput(event: Event): void {
     const el = (event.target as Element | null)?.closest('[data-memory-input]') as HTMLInputElement | null;
     if (!el || !_inMemoryScope(el)) return;
     const kind = el.dataset.memoryInput;
@@ -147,7 +147,7 @@ function _onInput(event: Event) {
     } else if (kind === 'updateBlueprintCreatorYaml') _handlers.updateBlueprintCreatorYaml?.(event, el);
 }
 
-function _onChange(event: Event) {
+function _onChange(event: Event): void {
     const el = (event.target as Element | null)?.closest('[data-memory-input]') as HTMLInputElement | null;
     if (!el || !_inMemoryScope(el)) return;
     const kind = el.dataset.memoryInput;
@@ -161,20 +161,20 @@ function _onChange(event: Event) {
     else if (kind === 'updateMemBulkCount') _handlers.updateMemBulkCount?.(event, el);
 }
 
-function _onMouseEnter(event: MouseEvent) {
+function _onMouseEnter(event: MouseEvent): void {
     const el = (event.target as Element | null)?.closest('[data-memory-hover="showAutoDotTooltip"]') as HTMLElement | null;
     if (!el || !_inMemoryScope(el)) return;
     _handlers?.showAutoDotTooltip?.(event, el);
 }
 
-function _onMouseLeave(event: MouseEvent) {
+function _onMouseLeave(event: MouseEvent): void {
     const el = (event.target as Element | null)?.closest('[data-memory-hover="showAutoDotTooltip"]') as HTMLElement | null;
     if (!el || !_inMemoryScope(el)) return;
     if (event.relatedTarget && el.contains(event.relatedTarget as Node)) return;
     _handlers?.hideAutoDotTooltip?.(event, el);
 }
 
-export function initMemoryEventBindings(handlers: MemoryEventHandlers) {
+export function initMemoryEventBindings(handlers: MemoryEventHandlers): void {
     _handlers = handlers || {};
     if (_bound) return;
     _bound = true;

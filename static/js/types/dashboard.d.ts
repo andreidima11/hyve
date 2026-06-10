@@ -344,6 +344,8 @@ export interface DashboardWidgetSpan {
     rowStart: number | null;
 }
 
+export type { DashboardDragResizeDeps } from './drag_resize.js';
+
 export interface DashboardRenderDeps {
     getCache: () => DashboardCache;
     getEditMode: () => boolean;

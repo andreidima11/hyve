@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 import { authToken, clearAuthToken } from './api.js';
 import { showToast, debounce, showConfirm, showSourcesModal } from './utils.js';
 import { handleLogin, loadUserProfile, restoreRememberedCredentials, tryAutoLogin } from './auth.js';
@@ -29,6 +28,24 @@ import { switchIntegrationSubtab, testComfyUIConnection, refreshComfyUICheckpoin
 window.sendMessage = sendMessage;
 import { saveConfig, restartServer, syncHA, toggleSelection, toggleAllAI, loadMemory, changeMemPage, deleteMemBulk, filterMemory, toggleAllMem, updateMemBulkCount, openAliasModal, addAliasInput, closeAliasModal, saveAliasesFromModal, closeRowActionsModal, handleHaRowClick, closeAddDevicesModal, confirmAddDevices, toggleAvailableDevice, toggleAllAvailableDevices, filterAvailableDevices, resetSmarthomeFilters, copyEntityIdFromRowActions, toggleSmarthomeFilters, toggleSmarthomePicker, selectSmarthomePickerOption, setDevicesPage, setDevicesPageSize, sortDevicesBy, controlDeviceEntity, openAliasModalFromDetail, closeEntityDetailModal, loadSessionsList, openSession, newChatSession, deleteSession, confirmDeleteSession, cancelDeleteSession, clearSessionContext, copyWebhook, openIntegrationConfigModal, closeIntegrationConfigModal, loadAdminUsers, createUser, deleteUser, unlinkUserPhone, loadModelProfiles, openSkillEdit, closeSkillEditModal, saveSkillEdit, deleteSkill, toggleSkillDesc, toggleSkillDisabled, loadMemoryEvents, memLogPrevPage, memLogNextPage, toggleMemLogDetails, clearMemoryLog, runConsolidationNow, switchIntelligenceTab, addExtractionExample, removeExtractionExample, loadAutomations, deleteAutomation, openAutomationEditor, closeAutomationEditor, saveAutomationEditor, validateAutomationEditor, toggleAutomationDefinition, runAutomationDefinition, testAutomationEditor, exportAutomationYaml, importAutomationYaml, toggleAutoMenu, closeAutoMenu, showAutoDotTooltip, hideAutoDotTooltip, autoSyncAutomationId, markAutomationIdManual, openBlueprintPicker, closeBlueprintPicker, loadBlueprints, importBlueprintYaml, backToBlueprintList, instantiateCurrentBlueprint, deleteCurrentBlueprint, openBlueprintCreator, addBlueprintCreatorInput, removeBlueprintCreatorInput, changeBlueprintCreatorInputType, insertBlueprintCreatorPlaceholder, updateBlueprintCreatorYaml, saveCreatedBlueprint, switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, loadAutomationEditorHistory, updateAutomationStructuredServiceData, selectNotifTransport, selectNotifChannel, testNotification, refreshNotifWsNativeStatus, switchMemorySubtab, checkAddonUpdates, updateAllAddons, updateSingleAddon, closeAddonConfigModal, checkAddonHealth, installAddon, uninstallAddon, toggleAddon, openAddonConfigModal, } from './features.js';
 import { loadDashboard, initDashboardSidebarNav, } from './dashboard.js';
+function _errMsg(err) {
+    if (err instanceof Error)
+        return err.message;
+    return String(err ?? '');
+}
+function _appEl(id) {
+    return document.getElementById(id);
+}
+function _bindHandler(fn) {
+    return (...args) => fn(...args);
+}
+function _str(v) {
+    return v == null ? '' : String(v);
+}
+function _num(v, fallback = 0) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+}
 const _lazyModulePromises = new Map();
 function _lazyModule(key, importer) {
     if (!_lazyModulePromises.has(key)) {
@@ -36,11 +53,6 @@ function _lazyModule(key, importer) {
     }
     return _lazyModulePromises.get(key);
 }
-const _loadDerivedModule = () => _lazyModule('derived', () => importWithCacheBust('./features_derived.js'));
-const _loadPlannerModule = () => _lazyModule('planner', () => importWithCacheBust('./planner.js'));
-const _loadAppsModule = () => _lazyModule('apps', () => importWithCacheBust('./features_apps.js'));
-const _loadScenesModule = () => _lazyModule('scenes', () => importWithCacheBust('./features_scenes.js'));
-const _loadAreasModule = () => _lazyModule('areas', () => importWithCacheBust('./features_areas.js'));
 function _lazyAction(moduleLoader, exportName) {
     return async (...args) => {
         try {
@@ -58,6 +70,11 @@ function _lazyAction(moduleLoader, exportName) {
         }
     };
 }
+const _loadDerivedModule = () => _lazyModule('derived', () => importWithCacheBust('./features_derived.js'));
+const _loadPlannerModule = () => _lazyModule('planner', () => importWithCacheBust('./planner.js'));
+const _loadAppsModule = () => _lazyModule('apps', () => importWithCacheBust('./features_apps.js'));
+const _loadScenesModule = () => _lazyModule('scenes', () => importWithCacheBust('./features_scenes.js'));
+const _loadAreasModule = () => _lazyModule('areas', () => importWithCacheBust('./features_areas.js'));
 import { registerNavBridge } from './nav_bridge.js';
 // Logout disponibil imediat (înainte de orice async), ca butonul să funcționeze mereu
 async function doLogout() {
@@ -142,7 +159,7 @@ function populateAppTab() {
     const cfg = window.__HYVE_NATIVE_CONFIG;
     if (!cfg)
         return;
-    const el = (id) => document.getElementById(id);
+    const el = (id) => _appEl(id);
     const urlExt = el('app-url-external');
     const urlLocal = el('app-url-local');
     const wifi = el('app-wifi-ssid');
@@ -187,9 +204,9 @@ let _lastSavedAppConfigJson = '';
 function _readAppConfigForm() {
     const bioBtn = document.getElementById('app-biometric-toggle');
     return {
-        externalUrl: document.getElementById('app-url-external')?.value?.trim() || '',
-        localUrl: document.getElementById('app-url-local')?.value?.trim() || '',
-        homeWifi: document.getElementById('app-wifi-ssid')?.value?.trim() || '',
+        externalUrl: _appEl('app-url-external')?.value?.trim() || '',
+        localUrl: _appEl('app-url-local')?.value?.trim() || '',
+        homeWifi: _appEl('app-wifi-ssid')?.value?.trim() || '',
         biometricEnabled: bioBtn?.__biometricOn ?? false,
     };
 }
@@ -209,7 +226,8 @@ function bindAppConfigAutosave() {
 function scheduleAppConfigAutosave() {
     if (_appAutosaveHydrating)
         return;
-    window.clearTimeout(_appAutosaveTimer);
+    if (_appAutosaveTimer != null)
+        window.clearTimeout(_appAutosaveTimer);
     _appAutosaveTimer = window.setTimeout(() => saveAppConfig({ silent: true }), 550);
 }
 function _setWsStatusBadge(state) {
@@ -252,12 +270,13 @@ function refreshWsServiceStatus() {
         _wsStatusPollTimer = setInterval(() => {
             const currentTab = document.getElementById('cfg-tab-app');
             if (!currentTab || currentTab.classList.contains('hidden')) {
-                clearInterval(_wsStatusPollTimer);
+                if (_wsStatusPollTimer != null)
+                    clearInterval(_wsStatusPollTimer);
                 _wsStatusPollTimer = null;
                 return;
             }
             try {
-                const isRunning = window.__getNativeWsServiceStatus();
+                const isRunning = window.__getNativeWsServiceStatus?.();
                 _setWsStatusBadge(typeof isRunning === 'boolean' ? isRunning : null);
             }
             catch (_) {
@@ -297,7 +316,7 @@ function saveAppConfig(options = {}) {
         showToast(t('config.save_success') || 'Settings saved.', 'success');
 }
 function detectAppWifi() {
-    const input = document.getElementById('app-wifi-ssid');
+    const input = _appEl('app-wifi-ssid');
     if (!input)
         return;
     // Ask native to refresh the SSID and return it
@@ -611,7 +630,7 @@ function startBackgroundLoaders(profile) {
             }
         }
         try {
-            setNotificationTimer(initNotifications(`user_${profile.id}`));
+            setNotificationTimer(initNotifications());
         }
         catch (e) {
             console.warn('Notifications init failed', e);
@@ -629,7 +648,7 @@ function startBackgroundLoaders(profile) {
         }).then(r => r.ok ? r.json() : null).then(data => {
             if (!data?.integrations)
                 return;
-            const whisper = data.integrations.find(i => i.slug === 'whisper');
+            const whisper = data.integrations.find((i) => i.slug === 'whisper');
             const voiceBtn = document.getElementById('btn-voice');
             if (voiceBtn && whisper)
                 voiceBtn.classList.toggle('hidden', !whisper.enabled);
@@ -765,14 +784,14 @@ window.addEventListener('DOMContentLoaded', () => {
     initThinkingModeSelector();
     initChatEventBindings({
         toggleModelSelector: () => toggleModelSelector(),
-        selectThinkingMode: (mode) => setThinkingMode(mode),
-        openSession: (id) => openSession(id),
-        deleteSession: (id, event) => deleteSession(id, event),
-        confirmDeleteSession: (id) => confirmDeleteSession(id),
-        cancelDeleteSession: (id) => cancelDeleteSession(id),
-        activateProfile: (id) => activateProfile(id),
+        selectThinkingMode: (mode) => setThinkingMode(_str(mode)),
+        openSession: (id) => openSession(_str(id)),
+        deleteSession: (id, event) => deleteSession(_str(id), event),
+        confirmDeleteSession: (id) => confirmDeleteSession(_str(id)),
+        cancelDeleteSession: (id) => cancelDeleteSession(_str(id)),
+        activateProfile: (id) => activateProfile(_str(id)),
         closeModelSelector: () => closeModelSelector(),
-        showSourcesModal: (groupId) => showSourcesModal(groupId),
+        showSourcesModal: (groupId) => showSourcesModal(_str(groupId)),
     });
     initPlannerEventBindings({
         closeDrawer: _lazyAction(_loadPlannerModule, 'plannerCloseDrawer'),
@@ -810,41 +829,41 @@ window.addEventListener('DOMContentLoaded', () => {
         backToConfig: () => switchTab('config'),
         closeModal: () => closeSkillEditModal(),
         saveEdit: () => saveSkillEdit(),
-        toggleDesc: (name) => toggleSkillDesc(name),
-        toggleDisabled: (name) => toggleSkillDisabled(name),
-        openEdit: (name) => openSkillEdit(name),
-        deleteSkill: (name) => deleteSkill(name),
+        toggleDesc: (name) => toggleSkillDesc(_str(name)),
+        toggleDisabled: (name) => toggleSkillDisabled(_str(name)),
+        openEdit: (name) => openSkillEdit(_str(name)),
+        deleteSkill: (name) => deleteSkill(_str(name)),
     });
     initUserEventBindings({
         logout: () => doLogout(),
-        switchTab: (tab) => switchUserProfileTab(tab),
+        switchTab: (tab) => switchUserProfileTab(_str(tab)),
         toggleFilterMenu: () => toggleUserNotificationFilterMenu(),
-        switchNotificationFilter: (filter) => switchUserNotificationFilter(filter),
+        switchNotificationFilter: (filter) => switchUserNotificationFilter(_str(filter)),
         saveGeneral: () => saveUserProfileGeneral(),
         saveSecurity: () => saveUserProfileSecurity(),
         notifClearAll: () => clearAllUserNotifications(),
-        changeNotificationsPage: (delta) => changeUserNotificationsPage(delta),
-        markNotificationRead: (id) => markUserNotificationRead(id),
-        archiveNotification: (id) => archiveUserNotification(id),
-        deleteNotification: (id) => deleteUserNotification(id),
-        navigateNotification: (url, id) => navigateNotification(url, id),
+        changeNotificationsPage: (delta) => changeUserNotificationsPage(_num(delta)),
+        markNotificationRead: (id) => markUserNotificationRead(_str(id)),
+        archiveNotification: (id) => archiveUserNotification(_str(id)),
+        deleteNotification: (id) => deleteUserNotification(_str(id)),
+        navigateNotification: (url, id) => navigateNotification(_str(url), _str(id)),
     });
     initConfigEventBindings({
         saveConfig: (event) => saveConfig(event),
-        setTheme: (themeId) => setTheme(themeId),
-        openSection: (section) => openConfigSection(section),
+        setTheme: (themeId) => setTheme(_str(themeId)),
+        openSection: (section) => openConfigSection(_str(section)),
         closeSection: () => closeConfigSection(),
-        switchTab: (tab) => switchConfigTab(tab),
+        switchTab: (tab) => switchConfigTab(_str(tab)),
         restartServer: () => restartServer(),
         showProfileEditor: () => showProfileEditor(),
         closeProfileCardMenu: () => closeProfileCardMenu(),
         closeProfileEditor: () => closeProfileEditor(),
         saveProfile: (event) => saveProfile(event),
-        switchIntegrationSubtab: (tab) => switchIntegrationSubtab(tab),
+        switchIntegrationSubtab: (tab) => switchIntegrationSubtab(_str(tab)),
         addExtractionExample: () => addExtractionExample(),
         runConsolidationNow: () => runConsolidationNow(),
-        selectNotifChannel: (channel) => selectNotifChannel(channel),
-        selectNotifTransport: (transport) => selectNotifTransport(transport),
+        selectNotifChannel: (channel) => selectNotifChannel(_str(channel)),
+        selectNotifTransport: (transport) => selectNotifTransport(_str(transport)),
         testNotification: () => testNotification(),
         refreshNotifWsNativeStatus: () => refreshNotifWsNativeStatus(),
         detectAppWifi: () => detectAppWifi(),
@@ -868,8 +887,6 @@ window.addEventListener('DOMContentLoaded', () => {
         closeAppLogModal: _lazyAction(_loadAppsModule, 'closeAppLogModal'),
         refreshAppLogs: _lazyAction(_loadAppsModule, 'refreshAppLogs'),
         closeInstallLogModal: _lazyAction(_loadAppsModule, 'closeInstallLogModal'),
-        saveAddonConfig: _lazyAction(_loadAppsModule, 'saveAddonConfig'),
-        openSceneEditor: _lazyAction(_loadScenesModule, 'openSceneEditor'),
         closeSceneEditor: _lazyAction(_loadScenesModule, 'closeSceneEditor'),
         addSceneEntry: _lazyAction(_loadScenesModule, 'addSceneEntry'),
         deleteSceneFromEditor: _lazyAction(_loadScenesModule, 'deleteSceneFromEditor'),
@@ -885,30 +902,29 @@ window.addEventListener('DOMContentLoaded', () => {
         filterSceneEntityPicker: _lazyAction(_loadScenesModule, 'filterSceneEntityPicker'),
         filterAreaEntityPicker: (value) => _lazyAction(_loadAreasModule, 'filterAreaEntityPicker')(value),
         onProfileProviderChange: () => onProfileProviderChange(),
-        onProfileSubProviderChange: (type) => onProfileSubProviderChange(type),
+        onProfileSubProviderChange: (type) => onProfileSubProviderChange(_str(type)),
         syncVisionCapabilityCheckbox: () => syncVisionCapabilityCheckbox(),
         uploadComfyUIWorkflow: (input) => uploadComfyUIWorkflow(input),
-        syncConfiguredIntegration: (slug, btn) => syncConfiguredIntegration(slug, btn),
-        openIntegrationConfigModal: (slug) => openIntegrationConfigModal(slug),
-        syncIntegrationEntities: (slug) => syncIntegrationEntities(slug),
-        navigateToSmartHomeSource: (slug) => navigateToSmartHomeSource(slug),
+        syncConfiguredIntegration: (slug, btn) => syncConfiguredIntegration(_str(slug), btn),
+        openIntegrationConfigModal: (slug) => openIntegrationConfigModal(_str(slug)),
+        syncIntegrationEntities: (slug) => syncIntegrationEntities(_str(slug)),
+        navigateToSmartHomeSource: (slug) => navigateToSmartHomeSource(_str(slug)),
         openSmarthomeTab: () => switchTab('smarthome'),
-        unlinkUserPhone: (phone) => unlinkUserPhone(phone),
-        moveProfileOrder: (profileId, direction) => moveProfileOrder(profileId, direction),
-        openProfileCardMenu: (profileId, event) => openProfileCardMenu(profileId, event),
-        openAddonConfigModal: (slug) => openAddonConfigModal(slug),
-        toggleAddon: (slug, enabled) => toggleAddon(slug, enabled),
-        uninstallAddon: (slug) => uninstallAddon(slug),
-        installAddon: (slug) => installAddon(slug),
-        updateSingleAddon: (slug) => updateSingleAddon(slug),
-        deleteUser: (id) => deleteUser(id),
+        unlinkUserPhone: (phone) => unlinkUserPhone(_str(phone)),
+        moveProfileOrder: (profileId, direction) => moveProfileOrder(_str(profileId), _str(direction)),
+        openProfileCardMenu: (profileId, event) => openProfileCardMenu(_str(profileId), event),
+        openAddonConfigModal: (slug) => openAddonConfigModal(_str(slug)),
+        toggleAddon: (slug, enabled) => toggleAddon(_str(slug), Boolean(enabled)),
+        uninstallAddon: (slug) => uninstallAddon(_str(slug)),
+        installAddon: (slug) => installAddon(_str(slug)),
+        updateSingleAddon: (slug) => updateSingleAddon(_str(slug)),
+        deleteUser: (id) => deleteUser(_str(id)),
         deleteArea: (id) => _lazyAction(_loadAreasModule, 'deleteArea')(id),
         editArea: (id) => _lazyAction(_loadAreasModule, 'editArea')(id),
         removeAreaEditorEntity: (entityId) => _lazyAction(_loadAreasModule, 'removeAreaEditorEntity')(entityId),
         toggleAreaPickerEntity: (entityId, checked) => _lazyAction(_loadAreasModule, 'toggleAreaPickerEntity')(entityId, checked),
         openSceneEntityPicker: (index) => _lazyAction(_loadScenesModule, 'openSceneEntityPicker')(index),
         removeSceneEntry: (index) => _lazyAction(_loadScenesModule, 'removeSceneEntry')(index),
-        openSceneEditor: (sceneId) => _lazyAction(_loadScenesModule, 'openSceneEditor')(sceneId),
         activateScene: (sceneId) => _lazyAction(_loadScenesModule, 'activateScene')(sceneId),
         deleteScene: (sceneId) => _lazyAction(_loadScenesModule, 'deleteScene')(sceneId),
         pickSceneEntity: (entityId) => _lazyAction(_loadScenesModule, 'pickSceneEntity')(entityId),
@@ -925,48 +941,46 @@ window.addEventListener('DOMContentLoaded', () => {
         openAddonWebUI: (slug) => _lazyAction(_loadAppsModule, 'openAddonWebUI')(slug),
         closeAddonWebUI: () => _lazyAction(_loadAppsModule, 'closeAddonWebUI')(),
         testAddonHealth: (slug) => _lazyAction(_loadAppsModule, 'testAddonHealth')(slug),
-        saveAddonConfig: (slug) => _lazyAction(_loadAppsModule, 'saveAddonConfig')(slug),
-        copyPreflightFix: (text) => { if (text)
-            navigator.clipboard.writeText(text).catch(() => { }); },
+        copyPreflightFix: (text) => { const s = _str(text); if (s)
+            navigator.clipboard.writeText(s).catch(() => { }); },
         toggleAddonWatchdog: (slug, enabled) => _lazyAction(_loadAppsModule, 'toggleAddonWatchdog')(slug, enabled),
     });
     const debouncedFilterMemory = debounce(() => filterMemory(), 200);
     initMemoryEventBindings({
-        switchIntelligenceTab: (tab) => switchIntelligenceTab(tab),
-        switchMemorySubtab: (tab) => switchMemorySubtab(tab),
+        switchIntelligenceTab: (tab) => switchIntelligenceTab(_str(tab)),
+        switchMemorySubtab: (tab) => switchMemorySubtab(_str(tab)),
         loadMemory: () => loadMemory(),
-        deleteMemBulk: () => deleteMemBulk(),
-        changeMemPage: (delta) => changeMemPage(delta),
-        loadMemoryEvents: (offset) => loadMemoryEvents(offset),
+        changeMemPage: (delta) => changeMemPage(_num(delta)),
+        loadMemoryEvents: (offset) => loadMemoryEvents(_num(offset)),
         memLogPrevPage: () => memLogPrevPage(),
         memLogNextPage: () => memLogNextPage(),
         clearMemoryLog: () => clearMemoryLog(),
-        openAutomationEditor: (defId) => openAutomationEditor(typeof defId === 'string' ? defId : undefined),
+        openAutomationEditor: (defId) => openAutomationEditor(defId == null ? null : _str(defId)),
         openBlueprintPicker: () => openBlueprintPicker(),
         loadAutomations: () => loadAutomations(),
         closeAutomationEditor: () => closeAutomationEditor(),
-        switchAutomationEditorMode: (mode) => switchAutomationEditorMode(mode),
-        addAutomationBuilderTrigger: (kind) => addAutomationBuilderTrigger(kind),
-        addAutomationBuilderCondition: (kind) => addAutomationBuilderCondition(kind),
-        addAutomationBuilderAction: (kind) => addAutomationBuilderAction(kind),
-        removeAutomationBuilderTrigger: (idx) => removeAutomationBuilderTrigger(idx),
-        removeAutomationBuilderCondition: (idx) => removeAutomationBuilderCondition(idx),
-        removeAutomationBuilderAction: (idx) => removeAutomationBuilderAction(idx),
-        updateAutomationStructuredServiceData: (idx) => updateAutomationStructuredServiceData(idx),
-        runAutomationDefinition: (defId) => runAutomationDefinition(defId),
-        toggleAutomationDefinition: (defId, enabled, revision) => toggleAutomationDefinition(defId, enabled, revision),
-        deleteAutomation: (defId) => deleteAutomation(defId),
-        toggleAutoMenu: (event, defId, el) => toggleAutoMenu(event, defId, el),
+        switchAutomationEditorMode: (mode) => switchAutomationEditorMode(_str(mode)),
+        addAutomationBuilderTrigger: (kind) => addAutomationBuilderTrigger(_str(kind)),
+        addAutomationBuilderCondition: (kind) => addAutomationBuilderCondition(_str(kind)),
+        addAutomationBuilderAction: (kind) => addAutomationBuilderAction(_str(kind)),
+        removeAutomationBuilderTrigger: (idx) => removeAutomationBuilderTrigger(_num(idx)),
+        removeAutomationBuilderCondition: (idx) => removeAutomationBuilderCondition(_num(idx)),
+        removeAutomationBuilderAction: (idx) => removeAutomationBuilderAction(_num(idx)),
+        updateAutomationStructuredServiceData: (idx) => updateAutomationStructuredServiceData(_num(idx)),
+        runAutomationDefinition: (defId) => runAutomationDefinition(_str(defId)),
+        toggleAutomationDefinition: (defId, enabled, revision) => toggleAutomationDefinition(_str(defId), Boolean(enabled), _str(revision)),
+        deleteAutomation: (defId) => deleteAutomation(_str(defId)),
+        toggleAutoMenu: (event, defId, el) => toggleAutoMenu(event, _str(defId), el),
         closeAutoMenu: () => closeAutoMenu(),
         showAutoDotTooltip: (event, el) => showAutoDotTooltip(event, el),
         hideAutoDotTooltip: () => hideAutoDotTooltip(),
-        toggleMemLogDetails: (id) => toggleMemLogDetails(id),
-        removeExtractionExample: (idx) => removeExtractionExample(idx),
+        toggleMemLogDetails: (id) => toggleMemLogDetails(_str(id)),
+        removeExtractionExample: (idx) => removeExtractionExample(_num(idx)),
         deleteMemBulk: (ids) => { if (Array.isArray(ids) && ids.length)
             return deleteMemBulk(ids); return deleteMemBulk(); },
-        removeBlueprintCreatorInput: (idx) => removeBlueprintCreatorInput(idx),
-        changeBlueprintCreatorInputType: (idx, type) => changeBlueprintCreatorInputType(idx, type),
-        insertBlueprintCreatorPlaceholder: (inputId, slugify) => insertBlueprintCreatorPlaceholder(inputId, slugify),
+        removeBlueprintCreatorInput: (idx) => removeBlueprintCreatorInput(_num(idx)),
+        changeBlueprintCreatorInputType: (idx, type) => changeBlueprintCreatorInputType(_num(idx), _str(type)),
+        insertBlueprintCreatorPlaceholder: (inputId, slugify) => insertBlueprintCreatorPlaceholder(_str(inputId), Boolean(slugify)),
         loadAutomationEditorHistory: () => loadAutomationEditorHistory(),
         validateAutomationEditor: () => validateAutomationEditor(),
         testAutomationEditor: () => testAutomationEditor(),
@@ -983,16 +997,16 @@ window.addEventListener('DOMContentLoaded', () => {
         instantiateCurrentBlueprint: () => instantiateCurrentBlueprint(),
         addBlueprintCreatorInput: () => addBlueprintCreatorInput(),
         filterMemory: () => debouncedFilterMemory(),
-        toggleAllMem: (checked) => toggleAllMem(checked),
+        toggleAllMem: (checked) => toggleAllMem(Boolean(checked)),
         autoSyncAutomationId: () => autoSyncAutomationId(),
         markAutomationIdManual: () => markAutomationIdManual(),
-        syncAutomationYamlFromBuilder: (opts) => syncAutomationYamlFromBuilder(opts || {}),
+        syncAutomationYamlFromBuilder: (opts) => syncAutomationYamlFromBuilder((opts || {})),
         updateBlueprintCreatorYaml: () => updateBlueprintCreatorYaml(),
         updateMemBulkCount: () => updateMemBulkCount(),
     });
     initShellEventBindings({
         toggleSidebar: () => toggleSidebar(),
-        switchTab: (tab) => switchTab(tab),
+        switchTab: (tab) => switchTab(_str(tab)),
         newChatSession: () => newChatSession(),
         clearSessionContext: () => clearSessionContext(),
     });
@@ -1006,19 +1020,25 @@ window.addEventListener('DOMContentLoaded', () => {
         openDerivedModal: (entityId) => _lazyAction(_loadDerivedModule, 'openDerivedModal')(entityId || undefined),
         toggleSmarthomeFilters: () => toggleSmarthomeFilters(),
         resetSmarthomeFilters: () => resetSmarthomeFilters(),
-        sortDevicesBy: (sortBy) => sortDevicesBy(sortBy),
+        sortDevicesBy: (sortBy) => sortDevicesBy(_str(sortBy)),
         handleHaRowClick: (event) => handleHaRowClick(event),
-        openAliasModal: (entityId) => openAliasModal(entityId),
-        setDevicesPage: (page) => setDevicesPage(page),
-        setDevicesPageSize: (value) => setDevicesPageSize(value),
+        openAliasModal: (entityId) => openAliasModal(_str(entityId)),
+        setDevicesPage: (page) => setDevicesPage(_num(page)),
+        setDevicesPageSize: (value) => setDevicesPageSize(_num(value)),
         toggleSmarthomePicker: (event) => toggleSmarthomePicker(event),
         selectSmarthomePickerOption: (event) => selectSmarthomePickerOption(event),
-        toggleSelection: (entityId, checked) => toggleSelection(entityId, checked),
+        toggleSelection: (entityId, checked) => toggleSelection(_str(entityId), Boolean(checked)),
         toggleDerivedSelection: (entityId, checked) => _lazyAction(_loadDerivedModule, 'toggleDerivedSelection')(entityId, checked),
-        toggleAllAIVisible: (checked) => toggleAllAI(checked),
-        openAliasModalFromDetail: (entityId) => openAliasModalFromDetail(entityId),
-        controlDeviceEntity: (source, entityId, action, btn) => controlDeviceEntity(source, entityId, action, btn),
-        toggleAvailableDevice: (el, entityId) => toggleAvailableDevice(el.closest?.('.add-device-item') || el, entityId),
+        toggleAllAIVisible: (checked) => toggleAllAI(Boolean(checked)),
+        openAliasModalFromDetail: (entityId) => openAliasModalFromDetail(_str(entityId)),
+        controlDeviceEntity: (source, entityId, action, btn) => controlDeviceEntity(_str(source), _str(entityId), _str(action), btn),
+        toggleAvailableDevice: (el, entityId) => {
+            const base = el instanceof HTMLElement ? el : null;
+            if (!base)
+                return;
+            const node = base.closest?.('.add-device-item') || base;
+            return toggleAvailableDevice(node, _str(entityId));
+        },
         closeAddDevicesModal: () => closeAddDevicesModal(),
         toggleAllAvailableDevices: () => toggleAllAvailableDevices(),
         confirmAddDevices: () => confirmAddDevices(),
@@ -1105,7 +1125,7 @@ window.addEventListener('DOMContentLoaded', () => {
             }
             const isOpen = !balloon.classList.contains('hidden');
             balloon.classList.toggle('hidden', isOpen);
-            btnAttach.setAttribute('aria-expanded', !isOpen);
+            btnAttach.setAttribute('aria-expanded', String(!isOpen));
             if (!isOpen)
                 closeModelSelector();
         };
@@ -1177,7 +1197,8 @@ window.addEventListener('DOMContentLoaded', () => {
             if (!file || !file.type.startsWith('image/'))
                 return;
             const reader = new FileReader();
-            reader.onload = () => { addAttachedImage(reader.result); };
+            reader.onload = () => { if (typeof reader.result === 'string')
+                addAttachedImage(reader.result); };
             reader.readAsDataURL(file);
             imageInput.value = '';
         };
@@ -1190,7 +1211,8 @@ window.addEventListener('DOMContentLoaded', () => {
             if (!file || !file.type.startsWith('image/'))
                 return;
             const reader = new FileReader();
-            reader.onload = () => { addAttachedImage(reader.result); };
+            reader.onload = () => { if (typeof reader.result === 'string')
+                addAttachedImage(reader.result); };
             reader.readAsDataURL(file);
             cameraInput.value = '';
         };
@@ -1224,7 +1246,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 }
             }
             catch (err) {
-                showToast(err.message || t('chat.error_document') || 'Document error', 'error');
+                showToast(_errMsg(err) || t('chat.error_document') || 'Document error', 'error');
             }
             documentInput.value = '';
         };
@@ -1257,7 +1279,8 @@ window.addEventListener('DOMContentLoaded', () => {
                     if (!blob)
                         continue;
                     const reader = new FileReader();
-                    reader.onload = () => { addAttachedImage(reader.result); };
+                    reader.onload = () => { const r = reader.result; if (typeof r === 'string')
+                        addAttachedImage(r); };
                     reader.readAsDataURL(blob);
                     return; // only first image
                 }
@@ -1275,14 +1298,17 @@ window.addEventListener('DOMContentLoaded', () => {
     // ── Drag & drop image onto chat area ──────────────────────────
     const chatWrapper = document.querySelector('.chat-messages-wrapper') || document.getElementById('chat-container');
     if (chatWrapper) {
-        chatWrapper.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+        chatWrapper.addEventListener('dragover', (e) => { const de = e; de.preventDefault(); if (de.dataTransfer)
+            de.dataTransfer.dropEffect = 'copy'; });
         chatWrapper.addEventListener('drop', (e) => {
-            e.preventDefault();
-            const file = [...(e.dataTransfer.files || [])].find(f => f.type.startsWith('image/'));
+            const de = e;
+            de.preventDefault();
+            const file = [...(de.dataTransfer?.files || [])].find(f => f.type.startsWith('image/'));
             if (!file)
                 return;
             const reader = new FileReader();
-            reader.onload = () => { addAttachedImage(reader.result); };
+            reader.onload = () => { if (typeof reader.result === 'string')
+                addAttachedImage(reader.result); };
             reader.readAsDataURL(file);
         });
     }
@@ -1326,6 +1352,8 @@ window.addEventListener('DOMContentLoaded', () => {
         let _lastVVHeight = window.visualViewport.height;
         window.visualViewport.addEventListener('resize', () => {
             const vv = window.visualViewport;
+            if (!vv)
+                return;
             const delta = _lastVVHeight - vv.height;
             _lastVVHeight = vv.height;
             _onKeyboardChange(delta > 80 ? delta : 0);
@@ -1336,21 +1364,27 @@ window.addEventListener('DOMContentLoaded', () => {
     if (adminForm) {
         adminForm.onsubmit = async (e) => {
             e.preventDefault();
-            const username = document.getElementById('admin-username')?.value?.trim();
-            const password = document.getElementById('admin-password')?.value || '';
-            const fullName = document.getElementById('admin-full-name')?.value?.trim();
+            const username = _appEl('admin-username')?.value?.trim();
+            const password = _appEl('admin-password')?.value || '';
+            const fullName = _appEl('admin-full-name')?.value?.trim();
             if (!username || !password)
                 return;
             try {
-                await createUser(username, password, fullName);
-                document.getElementById('admin-username').value = '';
-                document.getElementById('admin-password').value = '';
-                document.getElementById('admin-full-name').value = '';
+                await createUser(username, password, fullName || '');
+                const u = _appEl('admin-username');
+                const p = _appEl('admin-password');
+                const f = _appEl('admin-full-name');
+                if (u)
+                    u.value = '';
+                if (p)
+                    p.value = '';
+                if (f)
+                    f.value = '';
                 await loadAdminUsers();
                 showToast(t('admin.created'), 'success');
             }
             catch (err) {
-                showToast(err.message || t('admin.error_create'), 'error');
+                showToast(_errMsg(err) || t('admin.error_create'), 'error');
             }
         };
     }

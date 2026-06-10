@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 import { authToken, clearAuthToken } from './api.js';
 import { showToast, debounce, showConfirm, showSourcesModal } from './utils.js';
 import { handleLogin, loadUserProfile, restoreRememberedCredentials, tryAutoLogin } from './auth.js';
@@ -88,30 +87,61 @@ import {
     initDashboardSidebarNav,
 } from './dashboard.js';
 
-const _lazyModulePromises = new Map();
+import type { ConfigFormElement } from './types/features_config.js';
+import type {
+    AppConfigSaveOptions,
+    BiometricToggleElement,
+    DelegatedHandler,
+    HyveNativeConfig,
+    HyveSetupStatus,
+    LazyModuleLoader,
+    LazyModuleRecord,
+    NativePermissionName,
+    PermissionState,
+} from './types/app.js';
+import type { UserProfileResponse } from './types/dashboard.js';
+import type { DelegatedEventHandlers } from './types/integration.js';
 
-function _lazyModule(key, importer) {
+function _errMsg(err: unknown): string {
+    if (err instanceof Error) return err.message;
+    return String(err ?? '');
+}
+
+function _appEl(id: string): ConfigFormElement | null {
+    return document.getElementById(id) as ConfigFormElement | null;
+}
+
+function _bindHandler<A extends unknown[]>(fn: (...args: A) => unknown): DelegatedHandler {
+    return (...args: unknown[]) => fn(...(args as A));
+}
+
+function _str(v: unknown): string {
+    return v == null ? '' : String(v);
+}
+
+function _num(v: unknown, fallback = 0): number {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+}
+
+const _lazyModulePromises = new Map<string, Promise<LazyModuleRecord>>();
+
+function _lazyModule(key: string, importer: LazyModuleLoader): Promise<LazyModuleRecord> {
     if (!_lazyModulePromises.has(key)) {
         _lazyModulePromises.set(key, importer());
     }
-    return _lazyModulePromises.get(key);
+    return _lazyModulePromises.get(key)!;
 }
 
-const _loadDerivedModule = () => _lazyModule('derived', () => importWithCacheBust('./features_derived.js'));
-const _loadPlannerModule = () => _lazyModule('planner', () => importWithCacheBust('./planner.js'));
-const _loadAppsModule = () => _lazyModule('apps', () => importWithCacheBust('./features_apps.js'));
-const _loadScenesModule = () => _lazyModule('scenes', () => importWithCacheBust('./features_scenes.js'));
-const _loadAreasModule = () => _lazyModule('areas', () => importWithCacheBust('./features_areas.js'));
-
-function _lazyAction(moduleLoader, exportName) {
-    return async (...args) => {
+function _lazyAction(moduleLoader: LazyModuleLoader, exportName: string) {
+    return async (...args: unknown[]) => {
         try {
             const module = await moduleLoader();
             const action = module[exportName];
             if (typeof action !== 'function') {
                 throw new Error(`Missing lazy export: ${exportName}`);
             }
-            return await action(...args);
+            return await (action as (...a: unknown[]) => unknown)(...args);
         } catch (err) {
             console.warn(`${exportName} lazy load failed`, err);
             showToast(t('app.function_load_error'), 'error');
@@ -119,6 +149,12 @@ function _lazyAction(moduleLoader, exportName) {
         }
     };
 }
+
+const _loadDerivedModule = () => _lazyModule('derived', () => importWithCacheBust('./features_derived.js') as Promise<LazyModuleRecord>);
+const _loadPlannerModule = () => _lazyModule('planner', () => importWithCacheBust('./planner.js') as Promise<LazyModuleRecord>);
+const _loadAppsModule = () => _lazyModule('apps', () => importWithCacheBust('./features_apps.js') as Promise<LazyModuleRecord>);
+const _loadScenesModule = () => _lazyModule('scenes', () => importWithCacheBust('./features_scenes.js') as Promise<LazyModuleRecord>);
+const _loadAreasModule = () => _lazyModule('areas', () => importWithCacheBust('./features_areas.js') as Promise<LazyModuleRecord>);
 
 import { registerNavBridge } from './nav_bridge.js';
 
@@ -211,7 +247,7 @@ function populateAppTab() {
     const cfg = window.__HYVE_NATIVE_CONFIG;
     if (!cfg) return;
 
-    const el = (id) => document.getElementById(id);
+    const el = (id: string) => _appEl(id);
     const urlExt = el('app-url-external');
     const urlLocal = el('app-url-local');
     const wifi = el('app-wifi-ssid');
@@ -248,8 +284,8 @@ function populateAppTab() {
     refreshWsServiceStatus();
 }
 
-let _wsStatusPollTimer = null;
-let _appAutosaveTimer = null;
+let _wsStatusPollTimer: ReturnType<typeof setInterval> | null = null;
+let _appAutosaveTimer: ReturnType<typeof setTimeout> | null = null;
 let _appAutosaveBound = false;
 let _appAutosaveHydrating = false;
 let _lastSavedAppConfigJson = '';
@@ -257,10 +293,10 @@ let _lastSavedAppConfigJson = '';
 function _readAppConfigForm() {
     const bioBtn = document.getElementById('app-biometric-toggle');
     return {
-        externalUrl: document.getElementById('app-url-external')?.value?.trim() || '',
-        localUrl: document.getElementById('app-url-local')?.value?.trim() || '',
-        homeWifi: document.getElementById('app-wifi-ssid')?.value?.trim() || '',
-        biometricEnabled: bioBtn?.__biometricOn ?? false,
+        externalUrl: _appEl('app-url-external')?.value?.trim() || '',
+        localUrl: _appEl('app-url-local')?.value?.trim() || '',
+        homeWifi: _appEl('app-wifi-ssid')?.value?.trim() || '',
+        biometricEnabled: (bioBtn as BiometricToggleElement | null)?.__biometricOn ?? false,
     };
 }
 
@@ -278,11 +314,11 @@ function bindAppConfigAutosave() {
 
 function scheduleAppConfigAutosave() {
     if (_appAutosaveHydrating) return;
-    window.clearTimeout(_appAutosaveTimer);
+    if (_appAutosaveTimer != null) window.clearTimeout(_appAutosaveTimer);
     _appAutosaveTimer = window.setTimeout(() => saveAppConfig({ silent: true }), 550);
 }
 
-function _setWsStatusBadge(state) {
+function _setWsStatusBadge(state: boolean | null) {
     const badge = document.getElementById('app-ws-service-status');
     if (!badge) return;
 
@@ -326,12 +362,12 @@ function refreshWsServiceStatus() {
         _wsStatusPollTimer = setInterval(() => {
             const currentTab = document.getElementById('cfg-tab-app');
             if (!currentTab || currentTab.classList.contains('hidden')) {
-                clearInterval(_wsStatusPollTimer);
+                if (_wsStatusPollTimer != null) clearInterval(_wsStatusPollTimer);
                 _wsStatusPollTimer = null;
                 return;
             }
             try {
-                const isRunning = window.__getNativeWsServiceStatus();
+                const isRunning = window.__getNativeWsServiceStatus?.();
                 _setWsStatusBadge(typeof isRunning === 'boolean' ? isRunning : null);
             } catch (_) {
                 _setWsStatusBadge(null);
@@ -340,22 +376,22 @@ function refreshWsServiceStatus() {
     }
 }
 
-function updateBiometricToggle(on) {
+function updateBiometricToggle(on: boolean) {
     const btn = document.getElementById('app-biometric-toggle');
     if (!btn) return;
     btn.setAttribute('aria-checked', on ? 'true' : 'false');
     btn.setAttribute('data-on', on ? 'true' : 'false');
-    btn.__biometricOn = on;
+    (btn as BiometricToggleElement).__biometricOn = on;
 }
 
 function toggleAppBiometric() {
     const btn = document.getElementById('app-biometric-toggle');
-    const newState = !(btn?.__biometricOn ?? false);
+    const newState = !((btn as BiometricToggleElement | null)?.__biometricOn ?? false);
     updateBiometricToggle(newState);
     saveAppConfig({ silent: true });
 }
 
-function saveAppConfig(options = {}) {
+function saveAppConfig(options: AppConfigSaveOptions = {}) {
     if (_appAutosaveHydrating) return;
     if (typeof window.__saveNativeServerConfig !== 'function') {
         return;
@@ -370,7 +406,7 @@ function saveAppConfig(options = {}) {
 }
 
 function detectAppWifi() {
-    const input = document.getElementById('app-wifi-ssid');
+    const input = _appEl('app-wifi-ssid');
     if (!input) return;
 
     // Ask native to refresh the SSID and return it
@@ -436,7 +472,7 @@ window.refreshWsServiceStatus = refreshWsServiceStatus;
 
 // ── Permissions management ───────────────────────────────────────────
 
-function updatePermissionBadge(badgeId, btnId, state) {
+function updatePermissionBadge(badgeId: string, btnId: string, state: PermissionState) {
     const badge = document.getElementById(badgeId);
     const btn = document.getElementById(btnId);
     if (!badge) return;
@@ -482,16 +518,16 @@ function _isNativeApp() {
  * Global callback invoked by native Android when a permission request completes.
  * The native side calls: window.__onNativePermissionResult('camera', true/false)
  */
-window.__onNativePermissionResult = function(name, granted) {
+window.__onNativePermissionResult = function(name: string, granted: boolean) {
     console.log('[PERMS] Native permission result:', name, granted);
     const state = granted ? 'granted' : 'denied';
-    const mapping = {
+    const mapping: Record<NativePermissionName, { badge: string; btn: string; toast: string }> = {
         microphone: { badge: 'app-perm-mic-status', btn: 'app-perm-mic-btn', toast: granted ? 'config.app_perm_mic_granted' : 'config.app_perm_mic_denied_toast' },
         camera:     { badge: 'app-perm-camera-status', btn: 'app-perm-camera-btn', toast: granted ? 'config.app_perm_camera_granted' : 'config.app_perm_camera_denied_toast' },
         location:   { badge: 'app-perm-location-status', btn: 'app-perm-location-btn', toast: granted ? 'config.app_perm_location_granted' : 'config.app_perm_location_denied_toast' },
         storage:    { badge: 'app-perm-storage-status', btn: 'app-perm-storage-btn', toast: granted ? 'config.app_perm_storage_granted' : 'config.app_perm_storage_denied_toast' },
     };
-    const m = mapping[name];
+    const m = mapping[name as NativePermissionName];
     if (m) {
         updatePermissionBadge(m.badge, m.btn, state);
         showToast(t(m.toast) || (granted ? 'Permission granted' : 'Permission denied'), granted ? 'success' : 'error');
@@ -503,8 +539,8 @@ async function checkPermissions() {
 
     if (_isNativeApp()) {
         // Use native Android bridge to check all permissions
-        const perms = ['microphone', 'camera', 'location', 'storage'];
-        const badgeMap = {
+        const perms: NativePermissionName[] = ['microphone', 'camera', 'location', 'storage'];
+        const badgeMap: Record<NativePermissionName, { badge: string; btn: string }> = {
             microphone: { badge: 'app-perm-mic-status', btn: 'app-perm-mic-btn' },
             camera:     { badge: 'app-perm-camera-status', btn: 'app-perm-camera-btn' },
             location:   { badge: 'app-perm-location-status', btn: 'app-perm-location-btn' },
@@ -512,9 +548,9 @@ async function checkPermissions() {
         };
         for (const p of perms) {
             try {
-                const state = window.__checkNativePermission(p);
+                const state = window.__checkNativePermission!(p);
                 console.log('[PERMS] Native check', p, '=', state);
-                updatePermissionBadge(badgeMap[p].badge, badgeMap[p].btn, state);
+                updatePermissionBadge(badgeMap[p as NativePermissionName].badge, badgeMap[p as NativePermissionName].btn, state);
             } catch (e) {
                 console.warn('[PERMS] Native check error for', p, e);
             }
@@ -545,7 +581,7 @@ async function checkPermissions() {
 }
 
 function requestMicPermission() {
-    if (_isNativeApp()) { window.__requestNativePermission('microphone'); return; }
+    if (_isNativeApp()) { window.__requestNativePermission!('microphone'); return; }
     // Browser fallback
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         showToast(t('voice.mic_unavailable') || 'Microphone not available', 'error');
@@ -557,12 +593,12 @@ function requestMicPermission() {
 }
 
 function requestCameraPermission() {
-    if (_isNativeApp()) { window.__requestNativePermission('camera'); return; }
+    if (_isNativeApp()) { window.__requestNativePermission!('camera'); return; }
     showToast(t('app.perm_camera_native'), 'info');
 }
 
 function requestLocationPermission() {
-    if (_isNativeApp()) { window.__requestNativePermission('location'); return; }
+    if (_isNativeApp()) { window.__requestNativePermission!('location'); return; }
     // Browser fallback
     if (!navigator.geolocation) {
         showToast(t('app.perm_location_unavailable'), 'error');
@@ -579,7 +615,7 @@ function requestLocationPermission() {
 }
 
 function requestStoragePermission() {
-    if (_isNativeApp()) { window.__requestNativePermission('storage'); return; }
+    if (_isNativeApp()) { window.__requestNativePermission!('storage'); return; }
     showToast(t('app.perm_storage_native'), 'info');
 }
 
@@ -590,7 +626,7 @@ window.requestStoragePermission = requestStoragePermission;
 window.checkPermissions = checkPermissions;
 // ─────────────────────────────────────────────────────────────────────
 
-let notificationInterval = null;
+let notificationInterval: ReturnType<typeof setInterval> | null = null;
 
 // ─── Boot state machine ──────────────────────────────────────────────
 // Single, deterministic startup flow. Boot overlay is shown from the
@@ -603,7 +639,7 @@ function hideBootOverlay() {
     overlay.classList.add('is-hidden');
 }
 
-function setBootMessage(message) {
+function setBootMessage(message: string) {
     if (typeof message !== 'string' || !message.trim()) return;
     const text = document.getElementById('boot-overlay-text');
     if (text) text.textContent = message.trim();
@@ -647,7 +683,7 @@ async function syncUiLanguageFromConfig() {
     } catch (_) {}
 }
 
-function applyProfileFlags(profile) {
+function applyProfileFlags(profile: UserProfileResponse & { id?: string | number }) {
     setIsAdmin(!!profile.is_admin);
     setUserProfileContext(profile);
     try { applyDashboardEditAccess(); } catch (_) {}
@@ -657,13 +693,13 @@ function applyProfileFlags(profile) {
     }
 }
 
-function startBackgroundLoaders(profile) {
+function startBackgroundLoaders(profile: UserProfileResponse & { id?: string | number }) {
     // Fire-and-forget secondary loaders. They must NOT block the boot.
     Promise.resolve().then(() => {
         loadSessionsList().catch(e => console.warn('Sessions list load failed', e));
         if (profile.is_admin) { try { startLogStream(); } catch (e) { console.warn('Log stream failed', e); } }
         try {
-            setNotificationTimer(initNotifications(`user_${profile.id}`));
+            setNotificationTimer(initNotifications());
         } catch (e) { console.warn('Notifications init failed', e); }
         loadModelProfiles().catch(e => console.warn('Model profiles load failed', e));
         try { startStartupStatusPolling(); } catch (e) { console.warn('Startup status polling failed', e); }
@@ -672,7 +708,7 @@ function startBackgroundLoaders(profile) {
             headers: { 'Authorization': 'Bearer ' + localStorage.getItem('hyve_token') }
         }).then(r => r.ok ? r.json() : null).then(data => {
             if (!data?.integrations) return;
-            const whisper = data.integrations.find(i => i.slug === 'whisper');
+            const whisper = data.integrations.find((i: { slug?: string }) => i.slug === 'whisper');
             const voiceBtn = document.getElementById('btn-voice');
             if (voiceBtn && whisper) voiceBtn.classList.toggle('hidden', !whisper.enabled);
         }).catch(e => console.warn('Whisper status check failed', e));
@@ -686,7 +722,7 @@ async function bootHyve() {
     setBootMessage('Se încarcă...');
 
     try {
-        const setupStatus = await fetchSetupStatus();
+        const setupStatus = await fetchSetupStatus() as HyveSetupStatus;
         if (!setupStatus?.complete) {
             hideLoginScreen();
             showSetupWizard(setupStatus);
@@ -700,7 +736,7 @@ async function bootHyve() {
     // Step 1: ensure we have a valid token (existing → autologin → fail)
     const stored = localStorage.getItem('hyve_token');
     let hasToken = stored && stored !== 'null' && stored !== 'undefined';
-    let profile = null;
+    let profile: (UserProfileResponse & { id?: string | number }) | null = null;
 
     if (hasToken) {
         try {
@@ -795,14 +831,14 @@ window.addEventListener('DOMContentLoaded', () => {
     initThinkingModeSelector();
     initChatEventBindings({
         toggleModelSelector: () => toggleModelSelector(),
-        selectThinkingMode: (mode) => setThinkingMode(mode),
-        openSession: (id) => openSession(id),
-        deleteSession: (id, event) => deleteSession(id, event),
-        confirmDeleteSession: (id) => confirmDeleteSession(id),
-        cancelDeleteSession: (id) => cancelDeleteSession(id),
-        activateProfile: (id) => activateProfile(id),
+        selectThinkingMode: (mode) => setThinkingMode(_str(mode) as import('./types/dashboard.js').ThinkingMode),
+        openSession: (id) => openSession(_str(id)),
+        deleteSession: (id, event) => deleteSession(_str(id), event as Event),
+        confirmDeleteSession: (id) => confirmDeleteSession(_str(id)),
+        cancelDeleteSession: (id) => cancelDeleteSession(_str(id)),
+        activateProfile: (id) => activateProfile(_str(id)),
         closeModelSelector: () => closeModelSelector(),
-        showSourcesModal: (groupId) => showSourcesModal(groupId),
+        showSourcesModal: (groupId) => showSourcesModal(_str(groupId)),
     });
     initPlannerEventBindings({
         closeDrawer: _lazyAction(_loadPlannerModule, 'plannerCloseDrawer'),
@@ -840,41 +876,41 @@ window.addEventListener('DOMContentLoaded', () => {
         backToConfig: () => switchTab('config'),
         closeModal: () => closeSkillEditModal(),
         saveEdit: () => saveSkillEdit(),
-        toggleDesc: (name) => toggleSkillDesc(name),
-        toggleDisabled: (name) => toggleSkillDisabled(name),
-        openEdit: (name) => openSkillEdit(name),
-        deleteSkill: (name) => deleteSkill(name),
+        toggleDesc: (name) => toggleSkillDesc(_str(name)),
+        toggleDisabled: (name) => toggleSkillDisabled(_str(name)),
+        openEdit: (name) => openSkillEdit(_str(name)),
+        deleteSkill: (name) => deleteSkill(_str(name)),
     });
     initUserEventBindings({
         logout: () => doLogout(),
-        switchTab: (tab) => switchUserProfileTab(tab),
+        switchTab: (tab) => switchUserProfileTab(_str(tab)),
         toggleFilterMenu: () => toggleUserNotificationFilterMenu(),
-        switchNotificationFilter: (filter) => switchUserNotificationFilter(filter),
+        switchNotificationFilter: (filter) => switchUserNotificationFilter(_str(filter)),
         saveGeneral: () => saveUserProfileGeneral(),
         saveSecurity: () => saveUserProfileSecurity(),
         notifClearAll: () => clearAllUserNotifications(),
-        changeNotificationsPage: (delta) => changeUserNotificationsPage(delta),
-        markNotificationRead: (id) => markUserNotificationRead(id),
-        archiveNotification: (id) => archiveUserNotification(id),
-        deleteNotification: (id) => deleteUserNotification(id),
-        navigateNotification: (url, id) => navigateNotification(url, id),
+        changeNotificationsPage: (delta) => changeUserNotificationsPage(_num(delta)),
+        markNotificationRead: (id) => markUserNotificationRead(_str(id)),
+        archiveNotification: (id) => archiveUserNotification(_str(id)),
+        deleteNotification: (id) => deleteUserNotification(_str(id)),
+        navigateNotification: (url, id) => navigateNotification(_str(url), _str(id)),
     });
     initConfigEventBindings({
-        saveConfig: (event) => saveConfig(event),
-        setTheme: (themeId) => setTheme(themeId),
-        openSection: (section) => openConfigSection(section),
+        saveConfig: (event) => saveConfig(event as import('./types/features_config.js').SaveConfigOptions | Event),
+        setTheme: (themeId) => setTheme(_str(themeId)),
+        openSection: (section) => openConfigSection(_str(section)),
         closeSection: () => closeConfigSection(),
-        switchTab: (tab) => switchConfigTab(tab),
+        switchTab: (tab) => switchConfigTab(_str(tab)),
         restartServer: () => restartServer(),
         showProfileEditor: () => showProfileEditor(),
         closeProfileCardMenu: () => closeProfileCardMenu(),
         closeProfileEditor: () => closeProfileEditor(),
-        saveProfile: (event) => saveProfile(event),
-        switchIntegrationSubtab: (tab) => switchIntegrationSubtab(tab),
+        saveProfile: (event) => saveProfile(event as Event),
+        switchIntegrationSubtab: (tab) => switchIntegrationSubtab(_str(tab)),
         addExtractionExample: () => addExtractionExample(),
         runConsolidationNow: () => runConsolidationNow(),
-        selectNotifChannel: (channel) => selectNotifChannel(channel),
-        selectNotifTransport: (transport) => selectNotifTransport(transport),
+        selectNotifChannel: (channel) => selectNotifChannel(_str(channel) as 'app' | 'whatsapp'),
+        selectNotifTransport: (transport) => selectNotifTransport(_str(transport) as 'websocket' | 'firebase' | 'off'),
         testNotification: () => testNotification(),
         refreshNotifWsNativeStatus: () => refreshNotifWsNativeStatus(),
         detectAppWifi: () => detectAppWifi(),
@@ -898,8 +934,6 @@ window.addEventListener('DOMContentLoaded', () => {
         closeAppLogModal: _lazyAction(_loadAppsModule, 'closeAppLogModal'),
         refreshAppLogs: _lazyAction(_loadAppsModule, 'refreshAppLogs'),
         closeInstallLogModal: _lazyAction(_loadAppsModule, 'closeInstallLogModal'),
-        saveAddonConfig: _lazyAction(_loadAppsModule, 'saveAddonConfig'),
-        openSceneEditor: _lazyAction(_loadScenesModule, 'openSceneEditor'),
         closeSceneEditor: _lazyAction(_loadScenesModule, 'closeSceneEditor'),
         addSceneEntry: _lazyAction(_loadScenesModule, 'addSceneEntry'),
         deleteSceneFromEditor: _lazyAction(_loadScenesModule, 'deleteSceneFromEditor'),
@@ -915,30 +949,29 @@ window.addEventListener('DOMContentLoaded', () => {
         filterSceneEntityPicker: _lazyAction(_loadScenesModule, 'filterSceneEntityPicker'),
         filterAreaEntityPicker: (value) => _lazyAction(_loadAreasModule, 'filterAreaEntityPicker')(value),
         onProfileProviderChange: () => onProfileProviderChange(),
-        onProfileSubProviderChange: (type) => onProfileSubProviderChange(type),
+        onProfileSubProviderChange: (type) => onProfileSubProviderChange(_str(type)),
         syncVisionCapabilityCheckbox: () => syncVisionCapabilityCheckbox(),
-        uploadComfyUIWorkflow: (input) => uploadComfyUIWorkflow(input),
-        syncConfiguredIntegration: (slug, btn) => syncConfiguredIntegration(slug, btn),
-        openIntegrationConfigModal: (slug) => openIntegrationConfigModal(slug),
-        syncIntegrationEntities: (slug) => syncIntegrationEntities(slug),
-        navigateToSmartHomeSource: (slug) => navigateToSmartHomeSource(slug),
+        uploadComfyUIWorkflow: (input) => uploadComfyUIWorkflow(input as HTMLInputElement | null),
+        syncConfiguredIntegration: (slug, btn) => syncConfiguredIntegration(_str(slug), btn as HTMLButtonElement),
+        openIntegrationConfigModal: (slug) => openIntegrationConfigModal(_str(slug)),
+        syncIntegrationEntities: (slug) => syncIntegrationEntities(_str(slug)),
+        navigateToSmartHomeSource: (slug) => navigateToSmartHomeSource(_str(slug)),
         openSmarthomeTab: () => switchTab('smarthome'),
-        unlinkUserPhone: (phone) => unlinkUserPhone(phone),
-        moveProfileOrder: (profileId, direction) => moveProfileOrder(profileId, direction),
-        openProfileCardMenu: (profileId, event) => openProfileCardMenu(profileId, event),
-        openAddonConfigModal: (slug) => openAddonConfigModal(slug),
-        toggleAddon: (slug, enabled) => toggleAddon(slug, enabled),
-        uninstallAddon: (slug) => uninstallAddon(slug),
-        installAddon: (slug) => installAddon(slug),
-        updateSingleAddon: (slug) => updateSingleAddon(slug),
-        deleteUser: (id) => deleteUser(id),
+        unlinkUserPhone: (phone) => unlinkUserPhone(_str(phone)),
+        moveProfileOrder: (profileId, direction) => moveProfileOrder(_str(profileId), _str(direction) as 'up' | 'down'),
+        openProfileCardMenu: (profileId, event) => openProfileCardMenu(_str(profileId), event as MouseEvent),
+        openAddonConfigModal: (slug) => openAddonConfigModal(_str(slug)),
+        toggleAddon: (slug, enabled) => toggleAddon(_str(slug), Boolean(enabled)),
+        uninstallAddon: (slug) => uninstallAddon(_str(slug)),
+        installAddon: (slug) => installAddon(_str(slug)),
+        updateSingleAddon: (slug) => updateSingleAddon(_str(slug)),
+        deleteUser: (id) => deleteUser(_str(id)),
         deleteArea: (id) => _lazyAction(_loadAreasModule, 'deleteArea')(id),
         editArea: (id) => _lazyAction(_loadAreasModule, 'editArea')(id),
         removeAreaEditorEntity: (entityId) => _lazyAction(_loadAreasModule, 'removeAreaEditorEntity')(entityId),
         toggleAreaPickerEntity: (entityId, checked) => _lazyAction(_loadAreasModule, 'toggleAreaPickerEntity')(entityId, checked),
         openSceneEntityPicker: (index) => _lazyAction(_loadScenesModule, 'openSceneEntityPicker')(index),
         removeSceneEntry: (index) => _lazyAction(_loadScenesModule, 'removeSceneEntry')(index),
-        openSceneEditor: (sceneId) => _lazyAction(_loadScenesModule, 'openSceneEditor')(sceneId),
         activateScene: (sceneId) => _lazyAction(_loadScenesModule, 'activateScene')(sceneId),
         deleteScene: (sceneId) => _lazyAction(_loadScenesModule, 'deleteScene')(sceneId),
         pickSceneEntity: (entityId) => _lazyAction(_loadScenesModule, 'pickSceneEntity')(entityId),
@@ -955,46 +988,44 @@ window.addEventListener('DOMContentLoaded', () => {
         openAddonWebUI: (slug) => _lazyAction(_loadAppsModule, 'openAddonWebUI')(slug),
         closeAddonWebUI: () => _lazyAction(_loadAppsModule, 'closeAddonWebUI')(),
         testAddonHealth: (slug) => _lazyAction(_loadAppsModule, 'testAddonHealth')(slug),
-        saveAddonConfig: (slug) => _lazyAction(_loadAppsModule, 'saveAddonConfig')(slug),
-        copyPreflightFix: (text) => { if (text) navigator.clipboard.writeText(text).catch(() => {}); },
+        copyPreflightFix: (text) => { const s = _str(text); if (s) navigator.clipboard.writeText(s).catch(() => {}); },
         toggleAddonWatchdog: (slug, enabled) => _lazyAction(_loadAppsModule, 'toggleAddonWatchdog')(slug, enabled),
     });
     const debouncedFilterMemory = debounce(() => filterMemory(), 200);
     initMemoryEventBindings({
-        switchIntelligenceTab: (tab) => switchIntelligenceTab(tab),
-        switchMemorySubtab: (tab) => switchMemorySubtab(tab),
+        switchIntelligenceTab: (tab) => switchIntelligenceTab(_str(tab)),
+        switchMemorySubtab: (tab) => switchMemorySubtab(_str(tab)),
         loadMemory: () => loadMemory(),
-        deleteMemBulk: () => deleteMemBulk(),
-        changeMemPage: (delta) => changeMemPage(delta),
-        loadMemoryEvents: (offset) => loadMemoryEvents(offset),
+        changeMemPage: (delta) => changeMemPage(_num(delta)),
+        loadMemoryEvents: (offset) => loadMemoryEvents(_num(offset)),
         memLogPrevPage: () => memLogPrevPage(),
         memLogNextPage: () => memLogNextPage(),
         clearMemoryLog: () => clearMemoryLog(),
-        openAutomationEditor: (defId) => openAutomationEditor(typeof defId === 'string' ? defId : undefined),
+        openAutomationEditor: (defId) => openAutomationEditor(defId == null ? null : _str(defId)),
         openBlueprintPicker: () => openBlueprintPicker(),
         loadAutomations: () => loadAutomations(),
         closeAutomationEditor: () => closeAutomationEditor(),
-        switchAutomationEditorMode: (mode) => switchAutomationEditorMode(mode),
-        addAutomationBuilderTrigger: (kind) => addAutomationBuilderTrigger(kind),
-        addAutomationBuilderCondition: (kind) => addAutomationBuilderCondition(kind),
-        addAutomationBuilderAction: (kind) => addAutomationBuilderAction(kind),
-        removeAutomationBuilderTrigger: (idx) => removeAutomationBuilderTrigger(idx),
-        removeAutomationBuilderCondition: (idx) => removeAutomationBuilderCondition(idx),
-        removeAutomationBuilderAction: (idx) => removeAutomationBuilderAction(idx),
-        updateAutomationStructuredServiceData: (idx) => updateAutomationStructuredServiceData(idx),
-        runAutomationDefinition: (defId) => runAutomationDefinition(defId),
-        toggleAutomationDefinition: (defId, enabled, revision) => toggleAutomationDefinition(defId, enabled, revision),
-        deleteAutomation: (defId) => deleteAutomation(defId),
-        toggleAutoMenu: (event, defId, el) => toggleAutoMenu(event, defId, el),
+        switchAutomationEditorMode: (mode) => switchAutomationEditorMode(_str(mode)),
+        addAutomationBuilderTrigger: (kind) => addAutomationBuilderTrigger(_str(kind)),
+        addAutomationBuilderCondition: (kind) => addAutomationBuilderCondition(_str(kind)),
+        addAutomationBuilderAction: (kind) => addAutomationBuilderAction(_str(kind)),
+        removeAutomationBuilderTrigger: (idx) => removeAutomationBuilderTrigger(_num(idx)),
+        removeAutomationBuilderCondition: (idx) => removeAutomationBuilderCondition(_num(idx)),
+        removeAutomationBuilderAction: (idx) => removeAutomationBuilderAction(_num(idx)),
+        updateAutomationStructuredServiceData: (idx) => updateAutomationStructuredServiceData(_num(idx)),
+        runAutomationDefinition: (defId) => runAutomationDefinition(_str(defId)),
+        toggleAutomationDefinition: (defId, enabled, revision) => toggleAutomationDefinition(_str(defId), Boolean(enabled), _str(revision)),
+        deleteAutomation: (defId) => deleteAutomation(_str(defId)),
+        toggleAutoMenu: (event, defId, el) => toggleAutoMenu(event as MouseEvent, _str(defId), el as HTMLElement),
         closeAutoMenu: () => closeAutoMenu(),
-        showAutoDotTooltip: (event, el) => showAutoDotTooltip(event, el),
+        showAutoDotTooltip: (event, el) => showAutoDotTooltip(event as MouseEvent, el as HTMLElement),
         hideAutoDotTooltip: () => hideAutoDotTooltip(),
-        toggleMemLogDetails: (id) => toggleMemLogDetails(id),
-        removeExtractionExample: (idx) => removeExtractionExample(idx),
+        toggleMemLogDetails: (id) => toggleMemLogDetails(_str(id)),
+        removeExtractionExample: (idx) => removeExtractionExample(_num(idx)),
         deleteMemBulk: (ids) => { if (Array.isArray(ids) && ids.length) return deleteMemBulk(ids); return deleteMemBulk(); },
-        removeBlueprintCreatorInput: (idx) => removeBlueprintCreatorInput(idx),
-        changeBlueprintCreatorInputType: (idx, type) => changeBlueprintCreatorInputType(idx, type),
-        insertBlueprintCreatorPlaceholder: (inputId, slugify) => insertBlueprintCreatorPlaceholder(inputId, slugify),
+        removeBlueprintCreatorInput: (idx) => removeBlueprintCreatorInput(_num(idx)),
+        changeBlueprintCreatorInputType: (idx, type) => changeBlueprintCreatorInputType(_num(idx), _str(type)),
+        insertBlueprintCreatorPlaceholder: (inputId, slugify) => insertBlueprintCreatorPlaceholder(_str(inputId), Boolean(slugify)),
         loadAutomationEditorHistory: () => loadAutomationEditorHistory(),
         validateAutomationEditor: () => validateAutomationEditor(),
         testAutomationEditor: () => testAutomationEditor(),
@@ -1011,16 +1042,16 @@ window.addEventListener('DOMContentLoaded', () => {
         instantiateCurrentBlueprint: () => instantiateCurrentBlueprint(),
         addBlueprintCreatorInput: () => addBlueprintCreatorInput(),
         filterMemory: () => debouncedFilterMemory(),
-        toggleAllMem: (checked) => toggleAllMem(checked),
+        toggleAllMem: (checked) => toggleAllMem(Boolean(checked)),
         autoSyncAutomationId: () => autoSyncAutomationId(),
         markAutomationIdManual: () => markAutomationIdManual(),
-        syncAutomationYamlFromBuilder: (opts) => syncAutomationYamlFromBuilder(opts || {}),
+        syncAutomationYamlFromBuilder: (opts) => syncAutomationYamlFromBuilder((opts || {}) as import('./types/features_automations.js').SyncAutomationOptions),
         updateBlueprintCreatorYaml: () => updateBlueprintCreatorYaml(),
         updateMemBulkCount: () => updateMemBulkCount(),
     });
     initShellEventBindings({
         toggleSidebar: () => toggleSidebar(),
-        switchTab: (tab) => switchTab(tab),
+        switchTab: (tab) => switchTab(_str(tab)),
         newChatSession: () => newChatSession(),
         clearSessionContext: () => clearSessionContext(),
     });
@@ -1034,19 +1065,26 @@ window.addEventListener('DOMContentLoaded', () => {
         openDerivedModal: (entityId) => _lazyAction(_loadDerivedModule, 'openDerivedModal')(entityId || undefined),
         toggleSmarthomeFilters: () => toggleSmarthomeFilters(),
         resetSmarthomeFilters: () => resetSmarthomeFilters(),
-        sortDevicesBy: (sortBy) => sortDevicesBy(sortBy),
-        handleHaRowClick: (event) => handleHaRowClick(event),
-        openAliasModal: (entityId) => openAliasModal(entityId),
-        setDevicesPage: (page) => setDevicesPage(page),
-        setDevicesPageSize: (value) => setDevicesPageSize(value),
-        toggleSmarthomePicker: (event) => toggleSmarthomePicker(event),
-        selectSmarthomePickerOption: (event) => selectSmarthomePickerOption(event),
-        toggleSelection: (entityId, checked) => toggleSelection(entityId, checked),
+        sortDevicesBy: (sortBy) => sortDevicesBy(_str(sortBy)),
+        handleHaRowClick: (event) => handleHaRowClick(event as MouseEvent),
+        openAliasModal: (entityId) => openAliasModal(_str(entityId)),
+        setDevicesPage: (page) => setDevicesPage(_num(page)),
+        setDevicesPageSize: (value) => setDevicesPageSize(_num(value)),
+        toggleSmarthomePicker: (event) => toggleSmarthomePicker(event as MouseEvent),
+        selectSmarthomePickerOption: (event) => selectSmarthomePickerOption(event as Event),
+        toggleSelection: (entityId, checked) => toggleSelection(_str(entityId), Boolean(checked)),
         toggleDerivedSelection: (entityId, checked) => _lazyAction(_loadDerivedModule, 'toggleDerivedSelection')(entityId, checked),
-        toggleAllAIVisible: (checked) => toggleAllAI(checked),
-        openAliasModalFromDetail: (entityId) => openAliasModalFromDetail(entityId),
-        controlDeviceEntity: (source, entityId, action, btn) => controlDeviceEntity(source, entityId, action, btn),
-        toggleAvailableDevice: (el, entityId) => toggleAvailableDevice(el.closest?.('.add-device-item') || el, entityId),
+        toggleAllAIVisible: (checked) => toggleAllAI(Boolean(checked)),
+        openAliasModalFromDetail: (entityId) => openAliasModalFromDetail(_str(entityId)),
+        controlDeviceEntity: (source, entityId, action, btn) => controlDeviceEntity(
+            _str(source), _str(entityId), _str(action), btn as HTMLElement,
+        ),
+        toggleAvailableDevice: (el, entityId) => {
+            const base = el instanceof HTMLElement ? el : null;
+            if (!base) return;
+            const node = (base.closest?.('.add-device-item') as HTMLElement | null) || base;
+            return toggleAvailableDevice(node, _str(entityId));
+        },
         closeAddDevicesModal: () => closeAddDevicesModal(),
         toggleAllAvailableDevices: () => toggleAllAvailableDevices(),
         confirmAddDevices: () => confirmAddDevices(),
@@ -1109,9 +1147,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const btnAttach = document.getElementById('btn-attach');
     const balloon = document.getElementById('chat-attach-balloon');
-    const imageInput = document.getElementById('chat-image-input');
-    const cameraInput = document.getElementById('chat-camera-input');
-    const documentInput = document.getElementById('chat-document-input');
+    const imageInput = document.getElementById('chat-image-input') as HTMLInputElement | null;
+    const cameraInput = document.getElementById('chat-camera-input') as HTMLInputElement | null;
+    const documentInput = document.getElementById('chat-document-input') as HTMLInputElement | null;
     if (btnAttach && balloon) {
         btnAttach.title = t('chat.attach_image');
         btnAttach.setAttribute('aria-label', t('chat.attach_image'));
@@ -1128,7 +1166,7 @@ window.addEventListener('DOMContentLoaded', () => {
             }
             const isOpen = !balloon.classList.contains('hidden');
             balloon.classList.toggle('hidden', isOpen);
-            btnAttach.setAttribute('aria-expanded', !isOpen);
+            btnAttach.setAttribute('aria-expanded', String(!isOpen));
             if (!isOpen) closeModelSelector();
         };
         document.addEventListener('click', () => {
@@ -1141,7 +1179,7 @@ window.addEventListener('DOMContentLoaded', () => {
         // Camera button starts hidden (HTML has .hidden class), shown only in native app
 
         balloon.querySelectorAll('.chat-attach-balloon-item[data-attach="image"]').forEach(btn => {
-            btn.onclick = (e) => {
+            (btn as HTMLElement).onclick = (e: MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('[ATTACH] Image button clicked');
@@ -1156,7 +1194,7 @@ window.addEventListener('DOMContentLoaded', () => {
             };
         });
         balloon.querySelectorAll('.chat-attach-balloon-item[data-attach="camera"]').forEach(btn => {
-            btn.onclick = (e) => {
+            (btn as HTMLElement).onclick = (e: MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('[ATTACH] Camera button clicked');
@@ -1171,7 +1209,7 @@ window.addEventListener('DOMContentLoaded', () => {
             };
         });
         balloon.querySelectorAll('.chat-attach-balloon-item[data-attach="document"]').forEach(btn => {
-            btn.onclick = (e) => {
+            (btn as HTMLElement).onclick = (e: MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('[ATTACH] Document button clicked');
@@ -1193,7 +1231,7 @@ window.addEventListener('DOMContentLoaded', () => {
             console.log('[ATTACH] File:', file?.name, file?.type);
             if (!file || !file.type.startsWith('image/')) return;
             const reader = new FileReader();
-            reader.onload = () => { addAttachedImage(reader.result); };
+            reader.onload = () => { if (typeof reader.result === 'string') addAttachedImage(reader.result); };
             reader.readAsDataURL(file);
             imageInput.value = '';
         };
@@ -1205,7 +1243,7 @@ window.addEventListener('DOMContentLoaded', () => {
             console.log('[ATTACH] File:', file?.name, file?.type);
             if (!file || !file.type.startsWith('image/')) return;
             const reader = new FileReader();
-            reader.onload = () => { addAttachedImage(reader.result); };
+            reader.onload = () => { if (typeof reader.result === 'string') addAttachedImage(reader.result); };
             reader.readAsDataURL(file);
             cameraInput.value = '';
         };
@@ -1236,13 +1274,13 @@ window.addEventListener('DOMContentLoaded', () => {
                     addAttachedDocument(data.text || '', file.name);
                 }
             } catch (err) {
-                showToast(err.message || t('chat.error_document') || 'Document error', 'error');
+                showToast(_errMsg(err) || t('chat.error_document') || 'Document error', 'error');
             }
             documentInput.value = '';
         };
     }
 
-    const input = document.getElementById('user-input');
+    const input = document.getElementById('user-input') as HTMLTextAreaElement | null;
     if (input) {
         input.onkeydown = (e) => {
             // Let slash autocomplete handle arrow/tab/enter/esc first
@@ -1267,7 +1305,7 @@ window.addEventListener('DOMContentLoaded', () => {
                     const blob = item.getAsFile();
                     if (!blob) continue;
                     const reader = new FileReader();
-                    reader.onload = () => { addAttachedImage(reader.result); };
+                    reader.onload = () => { const r = reader.result; if (typeof r === 'string') addAttachedImage(r); };
                     reader.readAsDataURL(blob);
                     return; // only first image
                 }
@@ -1285,18 +1323,18 @@ window.addEventListener('DOMContentLoaded', () => {
     // ── Drag & drop image onto chat area ──────────────────────────
     const chatWrapper = document.querySelector('.chat-messages-wrapper') || document.getElementById('chat-container');
     if (chatWrapper) {
-        chatWrapper.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
-        chatWrapper.addEventListener('drop', (e) => {
-            e.preventDefault();
-            const file = [...(e.dataTransfer.files || [])].find(f => f.type.startsWith('image/'));
+        chatWrapper.addEventListener('dragover', (e: Event) => { const de = e as DragEvent; de.preventDefault(); if (de.dataTransfer) de.dataTransfer.dropEffect = 'copy'; });
+        chatWrapper.addEventListener('drop', (e: Event) => { const de = e as DragEvent;
+            de.preventDefault();
+            const file = [...(de.dataTransfer?.files || [])].find(f => f.type.startsWith('image/'));
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = () => { addAttachedImage(reader.result); };
+            reader.onload = () => { if (typeof reader.result === 'string') addAttachedImage(reader.result); };
             reader.readAsDataURL(file);
         });
     }
 
-    const _onKeyboardChange = (kbHeight) => {
+    const _onKeyboardChange = (kbHeight: number) => {
         const isOpen = kbHeight > 80;
         // Hide bottom nav when keyboard is up
         const nav = document.getElementById('mobile-nav');
@@ -1336,6 +1374,7 @@ window.addEventListener('DOMContentLoaded', () => {
         let _lastVVHeight = window.visualViewport.height;
         window.visualViewport.addEventListener('resize', () => {
             const vv = window.visualViewport;
+            if (!vv) return;
             const delta = _lastVVHeight - vv.height;
             _lastVVHeight = vv.height;
             _onKeyboardChange(delta > 80 ? delta : 0);
@@ -1347,19 +1386,20 @@ window.addEventListener('DOMContentLoaded', () => {
     if (adminForm) {
         adminForm.onsubmit = async (e) => {
             e.preventDefault();
-            const username = document.getElementById('admin-username')?.value?.trim();
-            const password = document.getElementById('admin-password')?.value || '';
-            const fullName = document.getElementById('admin-full-name')?.value?.trim();
+            const username = _appEl('admin-username')?.value?.trim();
+            const password = _appEl('admin-password')?.value || '';
+            const fullName = _appEl('admin-full-name')?.value?.trim();
             if (!username || !password) return;
             try {
-                await createUser(username, password, fullName);
-                document.getElementById('admin-username').value = '';
-                document.getElementById('admin-password').value = '';
-                document.getElementById('admin-full-name').value = '';
+                await createUser(username, password, fullName || '');
+                const u = _appEl('admin-username'); const p = _appEl('admin-password'); const f = _appEl('admin-full-name');
+                if (u) u.value = '';
+                if (p) p.value = '';
+                if (f) f.value = '';
                 await loadAdminUsers();
                 showToast(t('admin.created'), 'success');
             } catch (err) {
-                showToast(err.message || t('admin.error_create'), 'error');
+                showToast(_errMsg(err) || t('admin.error_create'), 'error');
             }
         };
     }
@@ -1382,4 +1422,4 @@ registerNavBridge({
     loadScenes: _lazyAction(_loadScenesModule, 'loadScenes'),
     loadAreas: _lazyAction(_loadAreasModule, 'loadAreas'),
     closeAddonWebUI: () => _lazyAction(_loadAppsModule, 'closeAddonWebUI')(),
-});
+} as DelegatedEventHandlers);

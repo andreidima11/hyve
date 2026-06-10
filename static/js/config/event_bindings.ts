@@ -2,17 +2,16 @@
  * Config hub / settings event delegation.
  */
 
-type ConfigEventHandler = (...args: unknown[]) => unknown;
-type ConfigEventHandlers = Record<string, ConfigEventHandler>;
+import type { ConfigEventHandlers } from '../types/event_bindings.js';
 
 let _handlers: ConfigEventHandlers | null = null;
 let _bound = false;
 
-function _inConfigScope(el: Element | null | undefined) {
+function _inConfigScope(el: Element | null | undefined): boolean {
     return !!el?.closest('#view-config');
 }
 
-function _run(action: string, el: HTMLElement, event: Event) {
+function _run(action: string, el: HTMLElement, event: Event): void {
     if (!_handlers) return;
     if (action === 'closeAddonWebUI') {
         _handlers.closeAddonWebUI?.(event, el);
@@ -173,13 +172,13 @@ function _run(action: string, el: HTMLElement, event: Event) {
     }
 }
 
-function _onClick(event: MouseEvent) {
+function _onClick(event: MouseEvent): void {
     const el = (event.target as Element | null)?.closest('[data-config-action]') as HTMLElement | null;
     if (!el) return;
     _run(el.dataset.configAction || '', el, event);
 }
 
-function _onInput(event: Event) {
+function _onInput(event: Event): void {
     const el = (event.target as Element | null)?.closest('[data-config-input]') as HTMLInputElement | null;
     if (!el || !_inConfigScope(el)) return;
     const kind = el.dataset.configInput;
@@ -188,7 +187,7 @@ function _onInput(event: Event) {
     else if (kind === 'filterAreaEntityPicker') _handlers.filterAreaEntityPicker?.(el.value, event, el);
 }
 
-function _onChange(event: Event) {
+function _onChange(event: Event): void {
     const el = (event.target as Element | null)?.closest('[data-config-input]') as HTMLInputElement | null;
     if (!el || !_inConfigScope(el)) return;
     const kind = el.dataset.configInput;
@@ -211,7 +210,7 @@ function _onChange(event: Event) {
 /**
  * Register config hub delegated event handlers.
  */
-export function initConfigEventBindings(handlers: ConfigEventHandlers) {
+export function initConfigEventBindings(handlers: ConfigEventHandlers): void {
     _handlers = handlers || {};
     if (_bound) return;
     _bound = true;

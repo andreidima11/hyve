@@ -1,47 +1,75 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Dashboard drag, drop, resize, and Sortable.js grid layout.
  */
 
 import { loadScriptOnce } from '../utils.js';
 import { canEditDashboard, requireDashboardEditAccess } from './edit_access.js';
-import { SECTION_COLS, DASHBOARD_STANDALONE_PANEL_ID } from './constants.js';
+import { SECTION_COLS, DASHBOARD_GRID_COLS, DASHBOARD_STANDALONE_PANEL_ID } from './constants.js';
 import { dashApiError } from './helpers.js';
+import type { ApiCallOptions } from '../api.js';
+import type {
+    DashboardCache,
+    DashboardPanel,
+    DashboardWidget,
+    DashboardWidgetSpan,
+} from '../types/dashboard.js';
+import type {
+    DashboardDragResizeDeps,
+    DashboardLayoutRect,
+    DashboardCardPosition,
+    DashboardPanelDropBest,
+    DashboardDragRect,
+    DashboardSpanInput,
+    DashboardGridCell,
+    DashboardGridGeometry,
+    DashboardMoveState,
+    DashboardPanelDragState,
+    DashboardPanelLayoutItem,
+    DashboardRootLayoutItem,
+    DashboardRootSwapCandidate,
+    DashboardResizeState,
+    DashboardSortableState,
+    DashboardTouchHoldDelay,
+    SortableConstructor,
+    SortableEvent,
+    SortableInstance,
+    SortableOptions,
+} from '../types/drag_resize.js';
 
-/** @type {import('./drag_resize.js').DashboardDragResizeDeps | null} */
-let _deps = null;
-let _sortables = [];
-let _sortableState = null;
-let _moveState = null;
-let _panelDragState = null;
-let _panelLayoutPriorityId = null;
-let _resizeState = null;
-let _panelDelay = null;
-let _sortableLoadPromise = null;
+function _errMsg(err: unknown): string {
+    if (err instanceof Error) return err.message;
+    return String(err ?? '');
+}
 
-/** @typedef {{
- *   getCache: () => object,
- *   getCurrentPageId: () => string,
- *   getEditMode: () => boolean,
- *   findWidget: (id: string) => object | null,
- *   widgetSpan: (widget: object) => object,
- *   panelColSpan: (panel: object) => number,
- *   isStandalonePanel: (panel: object) => boolean,
- *   ensureStandalonePanelLocal: () => object,
- *   renderDashboard: () => void,
- *   loadDashboard: () => Promise<void>,
- *   readDashboardSectionFallback: () => Promise<object>,
- *   writeDashboardSectionFallback: (section: object) => Promise<void>,
- *   apiCall: Function,
- *   t: Function,
- *   showToast: Function,
- * }} DashboardDragResizeDeps */
+function _asPointerEvent(event: Event): PointerEvent {
+    return event as PointerEvent;
+}
 
-export function initDashboardDragResize(deps) {
+function _asHTMLElement(el: Element | null | undefined): HTMLElement | null {
+    return el instanceof HTMLElement ? el : null;
+}
+
+function _gridEl(el: Element | null | undefined): HTMLElement | null {
+    const node = el?.closest?.('[data-panel-grid]') ?? el;
+    return _asHTMLElement(node);
+}
+
+let _deps: DashboardDragResizeDeps | null = null;
+let _sortables: DashboardSortable[] = [];
+let _sortableState: DashboardSortableState | null = null;
+let _moveState: DashboardMoveState | null = null;
+let _panelDragState: DashboardPanelDragState | null = null;
+let _panelLayoutPriorityId: string | null = null;
+let _resizeState: DashboardResizeState | null = null;
+let _panelDelay: DashboardTouchHoldDelay | null = null;
+let _sortableLoadPromise: Promise<SortableConstructor | undefined> | null = null;
+
+
+export function initDashboardDragResize(deps: DashboardDragResizeDeps): void {
     _deps = deps;
 }
 
-function deps() {
+function deps(): DashboardDragResizeDeps {
     if (!_deps) throw new Error('Dashboard drag/resize not initialized');
     return _deps;
 }
@@ -49,19 +77,19 @@ function deps() {
 function getCache() { return deps().getCache(); }
 function getCurrentPageId() { return deps().getCurrentPageId(); }
 function getEditMode() { return deps().getEditMode(); }
-function findWidget(id) { return deps().findWidget(id); }
-function widgetSpan(w) { return deps().widgetSpan(w); }
-function panelColSpan(p) { return deps().panelColSpan(p); }
-function isStandalonePanel(p) { return deps().isStandalonePanel(p); }
+function findWidget(id: string) { return deps().findWidget(id); }
+function widgetSpan(w: DashboardWidget) { return deps().widgetSpan(w); }
+function panelColSpan(p: DashboardPanel) { return deps().panelColSpan(p); }
+function isStandalonePanel(p: DashboardPanel) { return deps().isStandalonePanel(p); }
 function ensureStandalonePanelLocal() { return deps().ensureStandalonePanelLocal(); }
 function renderDashboard() { return deps().renderDashboard(); }
 function loadDashboard() { return deps().loadDashboard(); }
 function readDashboardSectionFallback() { return deps().readDashboardSectionFallback(); }
-function writeDashboardSectionFallback(s) { return deps().writeDashboardSectionFallback(s); }
-function apiCall(...a) { return deps().apiCall(...a); }
-function t(...a) { return deps().t(...a); }
-function showToast(...a) { return deps().showToast(...a); }
-function dashApiErr(d, k) { return dashApiError(d, k); }
+function writeDashboardSectionFallback(s: Record<string, unknown>) { return deps().writeDashboardSectionFallback(s); }
+function apiCall(url: string, options?: ApiCallOptions) { return deps().apiCall(url, options); }
+function t(key: string, params?: Record<string, unknown>) { return deps().t(key, params); }
+function showToast(message: string, type?: string) { return deps().showToast(message, type); }
+function dashApiErr(d: unknown, k: string) { return dashApiError(d, k); }
 
 function _sortableAvailable() {
     return typeof window !== 'undefined' && !!window.Sortable;
@@ -80,10 +108,10 @@ function _ensureSortableLoaded() {
     return _sortableLoadPromise;
 }
 
-function _nestedInteractiveTarget(event) {
-    const target = event?.target;
+function _nestedInteractiveTarget(event: Event | undefined | null) {
+    const target = event?.target as Element | null;
     if (!target?.closest) return null;
-    const interactive = target.closest('button, a, input, select, textarea, label, [role="button"]');
+    const interactive = (target as Element).closest('button, a, input, select, textarea, label, [role="button"]');
     if (!interactive) return null;
     const current = event?.currentTarget;
     if (current && interactive === current) return null;
@@ -94,17 +122,17 @@ function _nestedInteractiveTarget(event) {
 export function syncDashboardPanelGridSpans() {
     const stack = document.querySelector('.dashboard-panels-stack');
     if (!stack) return;
-    const sectionEls = Array.from(stack.querySelectorAll('.dashboard-panel[data-panel-id]'));
+    const sectionEls = Array.from(stack.querySelectorAll('.dashboard-panel[data-panel-id]')) as HTMLElement[];
     if (!sectionEls.length) return;
 
     const geom = _readGridGeometry(stack);
-    const items = [];
+    const items: Array<{ el: HTMLElement; panel: DashboardPanel; id: string | null; colSpan: number; rowSpan: number }> = [];
     for (const el of sectionEls) {
-        const id = el.getAttribute('data-panel-id');
-        const panel = (getCache().panels || []).find(p => String(p?.id || '') === id);
+        const id = el.getAttribute('data-panel-id') ?? '';
+        const panel = (getCache().panels || []).find((p: DashboardPanel) => String(p?.id || '') === id);
         if (!panel) continue;
         const colSpan = panelColSpan(panel);
-        const rowSpan = _dashboardPanelRenderedRowSpan(el, geom, panel.row_span || 1);
+        const rowSpan = _dashboardPanelRenderedRowSpan(el, geom, Number(panel.row_span) || 1);
         panel.row_span = rowSpan;
         el.style.setProperty('--panel-row-span', String(rowSpan));
         items.push({ el, panel, id, colSpan, rowSpan });
@@ -114,8 +142,8 @@ export function syncDashboardPanelGridSpans() {
     if (!window.matchMedia('(min-width: 1024px)').matches) return;
 
     const cols = SECTION_COLS;
-    const occupied = [];
-    const isFree = (colStart, rowStart, colSpan, rowSpan) => {
+    const occupied: boolean[][] = [];
+    const isFree = (colStart: number, rowStart: number, colSpan: number, rowSpan: number) => {
         for (let r = rowStart; r < rowStart + rowSpan; r++) {
             for (let c = colStart; c < colStart + colSpan; c++) {
                 if (c < 1 || c > cols) return false;
@@ -124,7 +152,7 @@ export function syncDashboardPanelGridSpans() {
         }
         return true;
     };
-    const mark = (colStart, rowStart, colSpan, rowSpan) => {
+    const mark = (colStart: number, rowStart: number, colSpan: number, rowSpan: number) => {
         for (let r = rowStart; r < rowStart + rowSpan; r++) {
             if (!occupied[r]) occupied[r] = [];
             for (let c = colStart; c < colStart + colSpan; c++) occupied[r][c] = true;
@@ -145,13 +173,13 @@ export function syncDashboardPanelGridSpans() {
             const aP = a.id === _panelLayoutPriorityId ? 0 : 1;
             const bP = b.id === _panelLayoutPriorityId ? 0 : 1;
             if (aP !== bP) return aP - bP;
-            return (a.anchorRow - b.anchorRow) || (a.anchorCol - b.anchorCol) || (a.index - b.index);
+            return ((a.anchorRow ?? 0) - (b.anchorRow ?? 0)) || ((a.anchorCol ?? 0) - (b.anchorCol ?? 0)) || (a.index - b.index);
         });
     const floating = enriched.filter(it => it.anchorCol == null || it.anchorRow == null);
 
     let maxRow = 1;
     const MAX_ROWS = 5000;
-    const place = (item, preferredCol, startRow) => {
+    const place = (item: DashboardPanelLayoutItem, preferredCol: number | null, startRow: number) => {
         const colSpan = Math.max(1, Math.min(item.colSpan, cols));
         let placedCol = preferredCol || 1;
         let placedRow = Math.max(1, startRow);
@@ -176,17 +204,17 @@ export function syncDashboardPanelGridSpans() {
     };
 
     // Positioned: honor the dropped row literally (gaps allowed in a free grid).
-    for (const item of positioned) place(item, item.anchorCol, item.anchorRow);
+    for (const item of positioned) place(item, item.anchorCol ?? null, item.anchorRow ?? 1);
     // Floating: first free top-left slot.
     for (const item of floating) place(item, null, 1);
 
     // Keep the "add section" button parked below everything else.
     const addBtn = stack.querySelector('.dashboard-panel--add-section');
     if (addBtn) {
-        addBtn.style.setProperty('--panel-col-start', '1');
-        addBtn.style.setProperty('--panel-col-span', '1');
-        addBtn.style.setProperty('--panel-row-start', String(maxRow));
-        addBtn.style.setProperty('--panel-row-span', '2');
+        (addBtn as HTMLElement).style.setProperty('--panel-col-start', '1');
+        (addBtn as HTMLElement).style.setProperty('--panel-col-span', '1');
+        (addBtn as HTMLElement).style.setProperty('--panel-row-start', String(maxRow));
+        (addBtn as HTMLElement).style.setProperty('--panel-row-span', '2');
     }
 }
 // --- drag ---
@@ -195,9 +223,12 @@ export function syncDashboardPanelGridSpans() {
 
 
 class DashboardSortable {
-    constructor(element, options = {}) {
+    element: HTMLElement;
+    sortable: SortableInstance;
+
+    constructor(element: HTMLElement, options: SortableOptions = {}) {
         this.element = element;
-        this.sortable = new window.Sortable(element, {
+        this.sortable = new (window.Sortable as SortableConstructor)(element, {
             group: { name: 'dashboard-card', pull: true, put: true },
             draggable: '[data-dashboard-widget-id]',
             animation: 180,
@@ -243,23 +274,25 @@ export function setupDashboardSortables() {
     if (!_sortableAvailable()) {
         _ensureSortableLoaded()
             .then(() => setupDashboardSortables())
-            .catch((err) => console.warn('Sortable load failed', err));
+            .catch((err: unknown) => console.warn('Sortable load failed', err));
         return;
     }
     const grids = Array.from(document.querySelectorAll('[data-panel-grid]'));
-    _sortables = grids.map(grid => new DashboardSortable(grid, {
+    _sortables = grids.map(grid => new DashboardSortable(grid as HTMLElement, {
         onStart: _handleDashboardSortableStart,
         onMove: _handleDashboardSortableMove,
         onEnd: _handleDashboardSortableEnd,
     }));
 }
 
-function _eventPoint(event) {
+function _eventPoint(event: Event | undefined | null): { x: number; y: number } | null {
     if (!event) return null;
-    const touch = event.touches?.[0] || event.changedTouches?.[0];
+    const te = event as TouchEvent;
+    const touch = te.touches?.[0] || te.changedTouches?.[0];
     if (touch) return { x: touch.clientX, y: touch.clientY };
-    if (Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
-        return { x: event.clientX, y: event.clientY };
+    const pe = event as PointerEvent | MouseEvent;
+    if (Number.isFinite(pe.clientX) && Number.isFinite(pe.clientY)) {
+        return { x: pe.clientX, y: pe.clientY };
     }
     return null;
 }
@@ -276,11 +309,11 @@ function _unbindDashboardSortableTracking() {
     document.removeEventListener('touchmove', _handleDashboardSortablePointerMove);
 }
 
-function _handleDashboardSortablePointerMove(event) {
+function _handleDashboardSortablePointerMove(event: Event) {
     _updateDashboardSortableTarget(event);
 }
 
-function _gridAtPoint(clientX, clientY, fallbackGrid) {
+function _gridAtPoint(clientX: number, clientY: number, fallbackGrid: Element | null | undefined) {
     const elements = document.elementsFromPoint(clientX, clientY);
     for (const element of elements) {
         const grid = element.closest?.('[data-panel-grid]');
@@ -289,11 +322,11 @@ function _gridAtPoint(clientX, clientY, fallbackGrid) {
     return fallbackGrid;
 }
 
-function _handleDashboardSortableStart(evt) {
+function _handleDashboardSortableStart(evt: SortableEvent) {
     if (!getEditMode()) return;
     const card = evt.item;
-    const widgetId = card?.getAttribute('data-dashboard-widget-id');
-    const grid = evt.from?.closest?.('[data-panel-grid]') || card?.closest?.('[data-panel-grid]');
+    const widgetId = card?.getAttribute('data-dashboard-widget-id') || '';
+    const grid = _asHTMLElement(evt.from?.closest?.('[data-panel-grid]') || card?.closest?.('[data-panel-grid]') || null);
     const widget = widgetId ? findWidget(widgetId) : null;
     if (!card || !grid || !widget) return;
 
@@ -314,26 +347,26 @@ function _handleDashboardSortableStart(evt) {
     };
     const ghost = document.createElement('div');
     ghost.className = 'dashboard-panel__drop-ghost dashboard-panel__drop-ghost--sortable';
-    _positionDashboardDropGhost(ghost, geom, span.colStart, span.rowStart, span);
+    _positionDashboardDropGhost(ghost, geom, span.colStart ?? 1, span.rowStart ?? 1, span);
     grid.appendChild(ghost);
     card.setAttribute('data-drag-source', 'true');
     document.documentElement.setAttribute('data-dashboard-dragging', 'true');
     grid.closest('.dashboard-panel')?.setAttribute('data-drag-target', 'true');
 
     _sortableState = {
-        widgetId,
+        widgetId: String(widgetId),
         widget,
         card,
         ghost,
         span,
-        sourceGrid: grid,
-        sourcePanelId: grid.getAttribute('data-panel-grid') || null,
-        targetGrid: grid,
-        targetPanelId: grid.getAttribute('data-panel-grid') || null,
-        targetCol: span.colStart,
-        targetRow: span.rowStart,
-        startCol: span.colStart,
-        startRow: span.rowStart,
+        sourceGrid: _asHTMLElement(grid)!,
+        sourcePanelId: grid.getAttribute('data-panel-grid') ?? '',
+        targetGrid: _asHTMLElement(grid)!,
+        targetPanelId: grid.getAttribute('data-panel-grid') ?? '',
+        targetCol: span.colStart ?? 1,
+        targetRow: span.rowStart ?? 1,
+        startCol: span.colStart ?? 1,
+        startRow: span.rowStart ?? 1,
         pointerOffsetX: Math.max(0, Math.min(cardRect.width, point.x - cardRect.left)),
         pointerOffsetY: Math.max(0, Math.min(cardRect.height, point.y - cardRect.top)),
         moved: false,
@@ -342,20 +375,21 @@ function _handleDashboardSortableStart(evt) {
     _bindDashboardSortableTracking();
 }
 
-function _updateDashboardSortableTarget(event) {
+function _updateDashboardSortableTarget(event: Event | undefined | null) {
     const st = _sortableState;
     const point = _eventPoint(event);
     if (!st || !point) return;
 
     let grid = _gridAtPoint(point.x, point.y, st.targetGrid || st.sourceGrid);
     if (!grid) grid = st.sourceGrid;
+    if (!grid) grid = st.sourceGrid;
     if (grid !== st.targetGrid) {
         st.ghost.remove();
         grid.appendChild(st.ghost);
         document.querySelectorAll('.dashboard-panel[data-drag-target="true"]').forEach(panel => panel.removeAttribute('data-drag-target'));
         grid.closest('.dashboard-panel')?.setAttribute('data-drag-target', 'true');
-        st.targetGrid = grid;
-        st.targetPanelId = grid.getAttribute('data-panel-grid') || null;
+        st.targetGrid = _asHTMLElement(grid) ?? st.sourceGrid;
+        st.targetPanelId = grid.getAttribute('data-panel-grid') ?? '';
     }
 
     const geom = _readGridGeometry(st.targetGrid);
@@ -374,12 +408,12 @@ function _updateDashboardSortableTarget(event) {
     _positionDashboardDropGhost(st.ghost, geom, cell.col, cell.row, st.span);
 }
 
-function _handleDashboardSortableMove(evt) {
+function _handleDashboardSortableMove(evt: SortableEvent) {
     _updateDashboardSortableTarget(evt.originalEvent);
     return true;
 }
 
-async function _handleDashboardSortableEnd(evt) {
+async function _handleDashboardSortableEnd(evt: SortableEvent) {
     const st = _sortableState;
     if (!st) return;
     _updateDashboardSortableTarget(evt.originalEvent);
@@ -395,7 +429,7 @@ async function _handleDashboardSortableEnd(evt) {
     const samePanel = st.targetPanelId === st.sourcePanelId;
     if (!st.moved || (samePos && samePanel)) return;
 
-    await _commitDashboardWidgetMove(st);
+    await _commitDashboardWidgetMove(st as unknown as DashboardMoveState);
 }
 
 // ── HA Sections-style drag-to-move (pointer-events, snap-to-grid) ─────
@@ -407,7 +441,7 @@ async function _handleDashboardSortableEnd(evt) {
 // user just dropped). Consumed by _syncDashboardPanelGridSpans.
 
 
-function _readGridGeometry(gridEl) {
+function _readGridGeometry(gridEl: Element): DashboardGridGeometry {
     const styles = getComputedStyle(gridEl);
     const colGap = parseFloat(styles.columnGap || styles.gap || '0') || 0;
     const rowGap = parseFloat(styles.rowGap || styles.gap || '0') || 0;
@@ -424,28 +458,28 @@ function _readGridGeometry(gridEl) {
     return { rect, colCount, colGap, rowGap, colWidth, rowHeight, padLeft, padTop };
 }
 
-function _visualColSpanForGrid(colSpan, geom) {
-    const parsed = parseInt(colSpan, 10);
+function _visualColSpanForGrid(colSpan: number | string, geom: DashboardGridGeometry | null | undefined) {
+    const parsed = parseInt(String(colSpan), 10);
     const normalized = Number.isFinite(parsed) ? parsed : SECTION_COLS;
     return Math.max(1, Math.min(normalized, geom?.colCount || SECTION_COLS));
 }
 
-function _visualColStartForGrid(colStart, geom, spanCol = 1) {
-    const parsed = parseInt(colStart, 10);
+function _visualColStartForGrid(colStart: number | string, geom: DashboardGridGeometry | null | undefined, spanCol = 1) {
+    const parsed = parseInt(String(colStart), 10);
     const normalized = Number.isFinite(parsed) ? parsed : 1;
     const visualSpan = _visualColSpanForGrid(spanCol, geom);
     const maxCol = Math.max(1, (geom?.colCount || SECTION_COLS) - visualSpan + 1);
     return Math.max(1, Math.min(normalized, maxCol));
 }
 
-function _internalColStartForGrid(visualCol, _geom) {
-    const parsed = parseInt(visualCol, 10);
+function _internalColStartForGrid(visualCol: number | string, _geom: DashboardGridGeometry | null | undefined) {
+    const parsed = parseInt(String(visualCol), 10);
     const normalized = Number.isFinite(parsed) ? parsed : 1;
     return Math.max(1, Math.min(normalized, SECTION_COLS));
 }
 
 /** Compute the (1-indexed) col_start / row_start for the dragged card. */
-function _pointerToGridCell(gridEl, geom, clientX, clientY, span, offsetX = 0, offsetY = 0) {
+function _pointerToGridCell(gridEl: Element, geom: DashboardGridGeometry, clientX: number, clientY: number, span: DashboardWidgetSpan, offsetX = 0, offsetY = 0): DashboardGridCell {
     const visualColSpan = _visualColSpanForGrid(span?.col, geom);
     const cardLeft = clientX - offsetX;
     const cardTop = clientY - offsetY;
@@ -460,18 +494,18 @@ function _pointerToGridCell(gridEl, geom, clientX, clientY, span, offsetX = 0, o
     return { col: _internalColStartForGrid(visualCol, geom), visualCol, row };
 }
 
-function _positionDashboardDropGhost(ghost, geom, col, row, span) {
+function _positionDashboardDropGhost(ghost: HTMLElement | null, geom: DashboardGridGeometry | null | undefined, col: number | null, row: number | null, span: DashboardWidgetSpan | null | undefined) {
     if (!ghost || !geom || !span) return;
     // On phones every card/section is forced full-width and only the vertical
     // order matters; a column-spanned ghost would render as a thin sliver on
     // the left ("o linie laterala stanga"), so span the whole row instead.
     const mobile = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 767px)').matches;
     const visualColSpan = mobile ? geom.colCount : _visualColSpanForGrid(span.col, geom);
-    const visualColStart = mobile ? 1 : _visualColStartForGrid(col, geom, span.col);
+    const visualColStart = mobile ? 1 : _visualColStartForGrid(col ?? 1, geom, span.col);
     const width = geom.colWidth * visualColSpan + geom.colGap * Math.max(0, visualColSpan - 1);
     const height = geom.rowHeight * span.row + geom.rowGap * Math.max(0, span.row - 1);
     const left = geom.padLeft + (visualColStart - 1) * (geom.colWidth + geom.colGap);
-    const top = geom.padTop + (row - 1) * (geom.rowHeight + geom.rowGap);
+    const top = geom.padTop + ((row ?? 1) - 1) * (geom.rowHeight + geom.rowGap);
     ghost.dataset.size = `${visualColSpan}/${SECTION_COLS}`;
     ghost.dataset.rows = String(span.row || 1);
     ghost.style.width = `${width}px`;
@@ -479,7 +513,7 @@ function _positionDashboardDropGhost(ghost, geom, col, row, span) {
     ghost.style.transform = `translate3d(${left}px, ${top}px, 0)`;
 }
 
-function _scheduleDashboardCloneMove(st, clientX, clientY) {
+function _scheduleDashboardCloneMove(st: DashboardMoveState | DashboardPanelDragState | null | undefined, clientX: number, clientY: number) {
     if (!st) return;
     st.nextCloneX = clientX - st.pointerOffsetX - st.cloneBaseLeft;
     st.nextCloneY = clientY - st.pointerOffsetY - st.cloneBaseTop;
@@ -492,7 +526,7 @@ function _scheduleDashboardCloneMove(st, clientX, clientY) {
 }
 
 /** Compute current grid position of a card by reverse-mapping its rect onto the grid. */
-function _cardCurrentPosition(card, gridEl, geom, span) {
+function _cardCurrentPosition(card: Element, gridEl: Element, geom: DashboardGridGeometry, span: DashboardSpanInput): DashboardCardPosition {
     const cardRect = card.getBoundingClientRect();
     const x = cardRect.left - geom.rect.left - geom.padLeft;
     const y = cardRect.top - geom.rect.top - geom.padTop;
@@ -504,22 +538,23 @@ function _cardCurrentPosition(card, gridEl, geom, span) {
     return { col: _internalColStartForGrid(visualCol, geom), visualCol, row };
 }
 
-export function startDashboardDrag(event, widgetId) {
+export function startDashboardDrag(event: Event, widgetId: string) {
+    const pe = _asPointerEvent(event);
     if (!canEditDashboard()) return;
     if (!getEditMode()) return;
-    if (event.button !== undefined && event.button !== 0) return;
+    if (pe.button !== undefined && pe.button !== 0) return;
     // Don't start a drag from buttons / resize handles inside the card.
-    if (_nestedInteractiveTarget(event)) return;
-    if (event.target?.closest('.hyve-dashboard-card__resize')) return;
-    if (_touchHoldGate(event, (synthetic) => _beginDashboardCardDrag(synthetic, widgetId))) return;
-    _beginDashboardCardDrag(event, widgetId);
+    if (_nestedInteractiveTarget(pe)) return;
+    if ((pe.target as Element | null)?.closest?.('.hyve-dashboard-card__resize')) return;
+    if (_touchHoldGate(pe, (synthetic) => _beginDashboardCardDrag(synthetic, widgetId))) return;
+    _beginDashboardCardDrag(pe, widgetId);
 }
 
-function _beginDashboardCardDrag(event, widgetId) {
-    const card = event.currentTarget?.closest?.('[data-dashboard-widget-id]')
-        || document.querySelector(`[data-dashboard-widget-id="${CSS.escape(widgetId)}"]`);
+function _beginDashboardCardDrag(event: PointerEvent, widgetId: string) {
+    const card = ((event.currentTarget as Element | null)?.closest?.('[data-dashboard-widget-id]')
+        || document.querySelector(`[data-dashboard-widget-id="${CSS.escape(widgetId)}"]`)) as HTMLElement | null;
     if (!card) return;
-    const grid = card.closest('[data-panel-grid]') || card.parentElement;
+    const grid = _asHTMLElement(card.closest('[data-panel-grid]') || card.parentElement);
     if (!grid) return;
 
     event.preventDefault?.();
@@ -542,10 +577,10 @@ function _beginDashboardCardDrag(event, widgetId) {
 
     const cardRect = card.getBoundingClientRect();
 
-    const clone = card.cloneNode(true);
+    const clone = card.cloneNode(true) as HTMLElement;
     clone.classList.add('dashboard-card-clone');
     clone.removeAttribute('onpointerdown');
-    clone.querySelectorAll('button, .hyve-dashboard-card__resize').forEach(el => el.remove());
+    clone.querySelectorAll('button, .hyve-dashboard-card__resize').forEach((el: Element) => el.remove());
     clone.style.position = 'fixed';
     clone.style.width = `${cardRect.width}px`;
     clone.style.height = `${cardRect.height}px`;
@@ -556,7 +591,7 @@ function _beginDashboardCardDrag(event, widgetId) {
 
     const ghost = document.createElement('div');
     ghost.className = 'dashboard-panel__drop-ghost';
-    _positionDashboardDropGhost(ghost, geom, span.colStart, span.rowStart, span);
+    _positionDashboardDropGhost(ghost, geom, span.colStart ?? 1, span.rowStart ?? 1, span);
     grid.appendChild(ghost);
 
     card.setAttribute('data-drag-source', 'true');
@@ -565,18 +600,18 @@ function _beginDashboardCardDrag(event, widgetId) {
     _moveState = {
         widgetId,
         widget,
-        card,
+        card: card as HTMLElement,
         clone,
         ghost,
         span,
-        sourceGrid: grid,
-        sourcePanelId: grid.getAttribute('data-panel-grid') || null,
-        targetGrid: grid,
-        targetPanelId: grid.getAttribute('data-panel-grid') || null,
-        targetCol: span.colStart,
-        targetRow: span.rowStart,
-        startCol: span.colStart,
-        startRow: span.rowStart,
+        sourceGrid: _asHTMLElement(grid)!,
+        sourcePanelId: grid.getAttribute('data-panel-grid') ?? '',
+        targetGrid: _asHTMLElement(grid)!,
+        targetPanelId: grid.getAttribute('data-panel-grid') ?? '',
+        targetCol: span.colStart ?? 1,
+        targetRow: span.rowStart ?? 1,
+        startCol: span.colStart ?? 1,
+        startRow: span.rowStart ?? 1,
         pointerOffsetX: event.clientX - cardRect.left,
         pointerOffsetY: event.clientY - cardRect.top,
         cloneBaseLeft: cardRect.left,
@@ -594,12 +629,12 @@ function _beginDashboardCardDrag(event, widgetId) {
     document.addEventListener('pointercancel', _finishDashboardMoveDrag, { passive: false });
 }
 
-function _dashboardPanelCacheIndex(panelId) {
+function _dashboardPanelCacheIndex(panelId: string | null | undefined) {
     const panels = Array.isArray(getCache().panels) ? getCache().panels : [];
     return panels.findIndex(panel => String(panel?.id || '') === String(panelId || ''));
 }
 
-function _dashboardPanelRenderedRowSpan(panelEl, geom, fallbackRows = 1) {
+function _dashboardPanelRenderedRowSpan(panelEl: Element | null | undefined, geom: DashboardGridGeometry | null | undefined, fallbackRows = 1) {
     if (!panelEl || !geom) return Math.max(1, fallbackRows || 1);
     const rect = panelEl.getBoundingClientRect();
     const height = Math.max(rect.height, panelEl.scrollHeight || 0, 50);
@@ -607,17 +642,17 @@ function _dashboardPanelRenderedRowSpan(panelEl, geom, fallbackRows = 1) {
     return Math.max(1, Math.ceil((height + geom.rowGap) / rowUnit));
 }
 
-function _dashboardPanelRenderedColSpan(_panelEl, _geom, fallbackCols = 2) {
-    const parsed = parseInt(fallbackCols, 10);
+function _dashboardPanelRenderedColSpan(_panelEl: Element | null | undefined, _geom: DashboardGridGeometry | null | undefined, fallbackCols: number | string = 2) {
+    const parsed = parseInt(String(fallbackCols), 10);
     const span = Number.isFinite(parsed) ? parsed : 2;
     return Math.max(1, Math.min(span, SECTION_COLS));
 }
 
-function _dashboardPanelSpan(panel) {
+function _dashboardPanelSpan(panel: DashboardPanel) {
     const col = panelColSpan(panel);
-    const rawColStart = parseInt(panel?.col_start, 10);
-    const rawRowStart = parseInt(panel?.row_start, 10);
-    const rawRowSpan = parseInt(panel?.row_span, 10);
+    const rawColStart = parseInt(String(panel?.col_start ?? ''), 10);
+    const rawRowStart = parseInt(String(panel?.row_start ?? ''), 10);
+    const rawRowSpan = parseInt(String(panel?.row_span ?? ''), 10);
     let colStart = Number.isFinite(rawColStart) && rawColStart >= 1 ? rawColStart : null;
     if (colStart !== null) colStart = Math.max(1, Math.min(colStart, SECTION_COLS - col + 1));
     const rowStart = Number.isFinite(rawRowStart) && rawRowStart >= 1 ? rawRowStart : null;
@@ -625,18 +660,18 @@ function _dashboardPanelSpan(panel) {
     return { col, row, colStart, rowStart };
 }
 
-export function dashboardPanelSpan(panel) {
+export function dashboardPanelSpan(panel: DashboardPanel) {
     return _dashboardPanelSpan(panel);
 }
 
-function _dashboardPanelElement(rootGrid, panel) {
+function _dashboardPanelElement(rootGrid: Element | null | undefined, panel: DashboardPanel) {
     if (!rootGrid || !panel) return null;
     const panelId = String(panel.id || '');
     if (!panelId) return null;
     return Array.from(rootGrid.children || []).find(el => el.matches?.(`.dashboard-panel[data-panel-id="${CSS.escape(panelId)}"]`)) || null;
 }
 
-function _dashboardPanelRect(panel, rootGrid) {
+function _dashboardPanelRect(panel: DashboardPanel, rootGrid: Element | null | undefined) {
     const span = _dashboardPanelSpan(panel);
     let col = span.colStart;
     let row = span.rowStart;
@@ -669,21 +704,21 @@ function _dashboardStandalonePanel() {
     return (Array.isArray(getCache().panels) ? getCache().panels : []).find(isStandalonePanel) || null;
 }
 
-function _dashboardRootLayoutItems() {
-    const items = [];
+function _dashboardRootLayoutItems(): import('../types/drag_resize.js').DashboardRootLayoutItem[] {
+    const items: import('../types/drag_resize.js').DashboardRootLayoutItem[] = [];
     for (const panel of _dashboardRootLayoutPanels()) {
         const id = String(panel.id || '');
-        if (id) items.push({ kind: 'panel', id, key: `panel:${id}`, raw: panel });
+        if (id) items.push({ kind: 'panel' as const, id, key: `panel:${id}`, raw: panel });
     }
     const standalone = _dashboardStandalonePanel();
     for (const widget of (standalone?.widgets || [])) {
         const id = String(widget?.id || '');
-        if (id) items.push({ kind: 'widget', id, key: `widget:${id}`, raw: widget });
+        if (id) items.push({ kind: 'widget' as const, id, key: `widget:${id}`, raw: widget });
     }
     return items;
 }
 
-function _dashboardRootItemElement(rootGrid, item) {
+function _dashboardRootItemElement(rootGrid: Element | null | undefined, item: import('../types/drag_resize.js').DashboardRootLayoutItem) {
     if (!rootGrid || !item) return null;
     const children = Array.from(rootGrid.children || []);
     if (item.kind === 'panel') {
@@ -695,12 +730,12 @@ function _dashboardRootItemElement(rootGrid, item) {
     return null;
 }
 
-function _dashboardRootItemSpan(item) {
-    if (item?.kind === 'panel') return _dashboardPanelSpan(item.raw);
-    return widgetSpan(item?.raw || {});
+function _dashboardRootItemSpan(item: import('../types/drag_resize.js').DashboardRootLayoutItem) {
+    if (item.kind === 'panel') return _dashboardPanelSpan(item.raw as DashboardPanel);
+    return widgetSpan(item.raw as DashboardWidget);
 }
 
-function _dashboardRootItemRect(item, rootGrid) {
+function _dashboardRootItemRect(item: import('../types/drag_resize.js').DashboardRootLayoutItem, rootGrid: Element | null | undefined): DashboardDragRect {
     const span = _dashboardRootItemSpan(item);
     let col = span.colStart;
     let row = span.rowStart;
@@ -714,7 +749,7 @@ function _dashboardRootItemRect(item, rootGrid) {
             rowSpan = _dashboardPanelRenderedRowSpan(el, geom, rowSpan);
         }
         if (!col || !row) {
-            const pos = _cardCurrentPosition(el, rootGrid, geom, { col: colSpan, row: rowSpan });
+            const pos = _cardCurrentPosition(el, rootGrid, geom, { col: colSpan, row: rowSpan, colStart: col, rowStart: row });
             col = col || pos.col;
             row = row || pos.row;
         }
@@ -730,8 +765,8 @@ function _dashboardRootItemRect(item, rootGrid) {
     };
 }
 
-function _findDashboardRootSwapCandidate(movingRect, rootGrid) {
-    let best = null;
+function _findDashboardRootSwapCandidate(movingRect: DashboardDragRect, rootGrid: Element | null | undefined) {
+    let best: DashboardRootSwapCandidate | null = null;
     for (const item of _dashboardRootLayoutItems()) {
         if (item.key === movingRect.id) continue;
         const rect = _dashboardRootItemRect(item, rootGrid);
@@ -742,7 +777,7 @@ function _findDashboardRootSwapCandidate(movingRect, rootGrid) {
     return best;
 }
 
-function _resolveDashboardRootOverlaps(movingRect, rootGrid) {
+function _resolveDashboardRootOverlaps(movingRect: DashboardDragRect, rootGrid: Element | null | undefined) {
     const rects = new Map();
     for (const item of _dashboardRootLayoutItems()) {
         if (item.key === movingRect.id) continue;
@@ -780,12 +815,12 @@ function _resolveDashboardRootOverlaps(movingRect, rootGrid) {
     return changes;
 }
 
-function _normalizeDashboardRootLayout(rootGrid) {
+function _normalizeDashboardRootLayout(rootGrid: Element | null | undefined) {
     const items = _dashboardRootLayoutItems().map(item => ({ item, rect: _dashboardRootItemRect(item, rootGrid) }));
     if (items.length < 2) return new Map();
     items.sort((a, b) => a.rect.row - b.rect.row || a.rect.col - b.rect.col);
     const original = new Map(items.map(({ item, rect }) => [item.key, { col: rect.col, row: rect.row }]));
-    const placed = [];
+    const placed: Array<{ item: DashboardRootLayoutItem; rect: DashboardLayoutRect }> = [];
     for (const current of items) {
         let safety = 500;
         while (safety-- > 0) {
@@ -803,7 +838,7 @@ function _normalizeDashboardRootLayout(rootGrid) {
     return changes;
 }
 
-function _applyDashboardRootRect(rect) {
+function _applyDashboardRootRect(rect: DashboardLayoutRect) {
     if (!rect) return;
     if (rect.itemKind === 'panel') {
         const panel = (getCache().panels || []).find(item => String(item?.id || '') === String(rect.itemId));
@@ -814,7 +849,7 @@ function _applyDashboardRootRect(rect) {
         return;
     }
     if (rect.itemKind === 'widget') {
-        const widget = findWidget(rect.itemId);
+        const widget = findWidget(String(rect.itemId || ''));
         if (!widget) return;
         widget.col_start = rect.col;
         widget.row_start = rect.row;
@@ -823,10 +858,10 @@ function _applyDashboardRootRect(rect) {
     }
 }
 
-async function _persistDashboardRootRect(rect, pageQS = '') {
+async function _persistDashboardRootRect(rect: DashboardDragRect, pageQS = '') {
     if (!rect) return;
     if (rect.itemKind === 'panel') {
-        await _persistDashboardPanelLayout(rect.itemId, {
+        await _persistDashboardPanelLayout(String(rect.itemId || ''), {
             col_start: rect.col,
             row_start: rect.row,
             row_span: rect.rowSpan,
@@ -834,7 +869,7 @@ async function _persistDashboardRootRect(rect, pageQS = '') {
         return;
     }
     if (rect.itemKind === 'widget') {
-        const res = await apiCall(`/api/dashboard/widgets/${encodeURIComponent(rect.itemId)}${pageQS}`, {
+        const res = await apiCall(`/api/dashboard/widgets/${encodeURIComponent(String(rect.itemId || ''))}${pageQS}`, {
             method: 'PATCH',
             body: {
                 col_start: rect.col,
@@ -850,7 +885,7 @@ async function _persistDashboardRootRect(rect, pageQS = '') {
     }
 }
 
-function _resolveDashboardPanelOverlaps(movingRect, rootGrid) {
+function _resolveDashboardPanelOverlaps(movingRect: DashboardDragRect, rootGrid: Element | null | undefined) {
     const rects = new Map();
     for (const panel of _dashboardRootLayoutPanels()) {
         const id = String(panel.id || '');
@@ -888,20 +923,20 @@ function _resolveDashboardPanelOverlaps(movingRect, rootGrid) {
     return changes;
 }
 
-function _dashboardPanelOrderFromDragState(st) {
+function _dashboardPanelOrderFromDragState(st: DashboardPanelDragState) {
     if (!st?.stack || !st.placeholder) return [];
     return Array.from(st.stack.children)
-        .filter(el => el === st.placeholder || (el.matches?.('.dashboard-panel') && el !== st.sourceEl && el.dataset.panelId))
-        .map(el => el === st.placeholder ? st.panelId : String(el.dataset.panelId || ''))
+        .filter((el): el is HTMLElement => el === st.placeholder || (el instanceof HTMLElement && el.matches?.('.dashboard-panel') && el !== st.sourceEl && !!el.dataset.panelId))
+        .map(el => el === st.placeholder ? st.panelId : String((el as HTMLElement).dataset.panelId || ''))
         .filter(Boolean);
 }
 
-function _dashboardPanelDropIndexAtPoint(st, clientX, clientY) {
-    const panels = Array.from(st.stack.querySelectorAll('.dashboard-panel[data-panel-id]'))
+function _dashboardPanelDropIndexAtPoint(st: DashboardPanelDragState, clientX: number, clientY: number) {
+    const panels = Array.from(st.stack.querySelectorAll<HTMLElement>('.dashboard-panel[data-panel-id]'))
         .filter(panel => panel !== st.sourceEl && panel !== st.placeholder && panel.offsetParent !== null);
     if (!panels.length) return 0;
 
-    let best = null;
+    let best: import('../types/drag_resize.js').DashboardPanelDropBest | null = null;
     panels.forEach((panel, index) => {
         const rect = panel.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
@@ -911,6 +946,7 @@ function _dashboardPanelDropIndexAtPoint(st, clientX, clientY) {
     });
     if (!best) return panels.length;
 
+    const hit: import('../types/drag_resize.js').DashboardPanelDropBest = best;
     // In a single-column (vertical) stack every drop is within a panel's
     // vertical band, so decide before/after purely by the vertical midpoint.
     // The horizontal (sameVisualRow) heuristic only makes sense for a 2D
@@ -919,26 +955,26 @@ function _dashboardPanelDropIndexAtPoint(st, clientX, clientY) {
     // another one.
     let after;
     if (st?.singleColumn) {
-        after = clientY > best.centerY;
+        after = clientY > hit.centerY;
     } else {
-        const sameVisualRow = clientY >= best.rect.top - 24 && clientY <= best.rect.bottom + 24;
-        after = sameVisualRow ? clientX > best.centerX : clientY > best.centerY;
+        const sameVisualRow = clientY >= hit.rect.top - 24 && clientY <= hit.rect.bottom + 24;
+        after = sameVisualRow ? clientX > hit.centerX : clientY > hit.centerY;
     }
-    return best.index + (after ? 1 : 0);
+    return hit.index + (after ? 1 : 0);
 }
 
-function _moveDashboardPanelPlaceholder(st, clientX, clientY) {
-    const panels = Array.from(st.stack.querySelectorAll('.dashboard-panel[data-panel-id]'))
+function _moveDashboardPanelPlaceholder(st: DashboardPanelDragState, clientX: number, clientY: number) {
+    const panels = Array.from(st.stack.querySelectorAll<HTMLElement>('.dashboard-panel[data-panel-id]'))
         .filter(panel => panel !== st.sourceEl && panel !== st.placeholder && panel.offsetParent !== null);
     const dropIndex = Math.max(0, Math.min(_dashboardPanelDropIndexAtPoint(st, clientX, clientY), panels.length));
     const before = panels[dropIndex] || null;
-    if (before !== st.placeholder.nextElementSibling) {
-        st.stack.insertBefore(st.placeholder, before);
+    if (before !== st.placeholder?.nextElementSibling) {
+        if (st.placeholder) st.stack.insertBefore(st.placeholder, before);
     }
     st.targetIndex = _dashboardPanelOrderFromDragState(st).indexOf(st.panelId);
 }
 
-function _scheduleDashboardPanelCloneMove(st, clientX, clientY) {
+function _scheduleDashboardPanelCloneMove(st: DashboardPanelDragState, clientX: number, clientY: number) {
     if (!st) return;
     st.nextCloneX = clientX - st.pointerOffsetX - st.cloneBaseLeft;
     st.nextCloneY = clientY - st.pointerOffsetY - st.cloneBaseTop;
@@ -954,7 +990,7 @@ function _scheduleDashboardPanelCloneMove(st, clientX, clientY) {
 // CSS, so absolute grid coordinates (col_start/row_start) are ignored. In that
 // mode we reorder by array index instead — exactly how Home Assistant handles
 // section reordering. Detect it from the live grid geometry.
-function _dashboardStackIsSingleColumn(stack) {
+function _dashboardStackIsSingleColumn(stack: Element | null | undefined) {
     if (!stack) return false;
     if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) return true;
     const styles = getComputedStyle(stack);
@@ -981,7 +1017,7 @@ function _clearDashboardPanelDelay() {
 // swipe (movement >10px before the timer) keeps scrolling the page; only a
 // deliberate ~140ms hold starts the drag. Returns true when it has deferred the
 // start (caller should stop), false for non-touch input (caller starts now).
-function _touchHoldGate(event, begin) {
+function _touchHoldGate(event: PointerEvent, begin: (synthetic: PointerEvent) => void) {
     if (event.pointerType !== 'touch') return false;
     event.stopPropagation?.();
     const handle = event.currentTarget;
@@ -990,7 +1026,7 @@ function _touchHoldGate(event, begin) {
     const startY = event.clientY;
     _clearDashboardPanelDelay();
 
-    const cancel = (e) => {
+    const cancel = (e?: PointerEvent) => {
         if (e?.type === 'pointermove' && Math.hypot(e.clientX - startX, e.clientY - startY) <= 10) return;
         _clearDashboardPanelDelay();
     };
@@ -1014,7 +1050,7 @@ function _touchHoldGate(event, begin) {
                 target: handle,
                 preventDefault() {},
                 stopPropagation() {},
-            });
+            } as PointerEvent);
         }, 140),
     };
     document.addEventListener('pointermove', cancel, { passive: true });
@@ -1025,24 +1061,26 @@ function _touchHoldGate(event, begin) {
 
 // Public entry point bound on the drag handle. For touch we apply the
 // press-and-hold gate so a normal finger swipe still scrolls the page.
-export function startDashboardPanelDrag(event, panelId) {
+export function startDashboardPanelDrag(event: Event, panelId: string) {
+    const pe = _asPointerEvent(event);
+    if (pe.button !== undefined && pe.button !== 0) return;
     if (!canEditDashboard()) return;
     if (!getEditMode()) return;
-    if (event.button !== undefined && event.button !== 0) return;
-    if (_touchHoldGate(event, (synthetic) => _beginDashboardPanelDrag(synthetic, panelId))) return;
-    _beginDashboardPanelDrag(event, panelId);
+    if (pe.button !== undefined && pe.button !== 0) return;
+    if (_touchHoldGate(pe, (synthetic) => _beginDashboardPanelDrag(synthetic, panelId))) return;
+    _beginDashboardPanelDrag(pe, panelId);
 }
 
-function _beginDashboardPanelDrag(event, panelId) {
+function _beginDashboardPanelDrag(event: PointerEvent, panelId: string) {
     event.preventDefault?.();
     event.stopPropagation?.();
 
-    const sourceEl = event.currentTarget?.closest?.('.dashboard-panel[data-panel-id]')
-        || document.querySelector(`.dashboard-panel[data-panel-id="${CSS.escape(String(panelId || ''))}"]`);
-    const stack = sourceEl?.closest?.('.dashboard-panels-stack');
+    const sourceEl = (_asHTMLElement(event.currentTarget as Element | null)?.closest?.('.dashboard-panel[data-panel-id]')
+        || document.querySelector(`.dashboard-panel[data-panel-id="${CSS.escape(String(panelId || ''))}"]`)) as HTMLElement | null;
+    const stack = _asHTMLElement(sourceEl?.closest?.('.dashboard-panels-stack'));
     if (!sourceEl || !stack) return;
 
-    const panelKey = String(panelId || sourceEl.dataset.panelId || '');
+    const panelKey = String(panelId || (sourceEl as HTMLElement).dataset.panelId || '');
     const fromIndex = _dashboardPanelCacheIndex(panelKey);
     if (fromIndex < 0) return;
     const panel = getCache().panels[fromIndex];
@@ -1052,7 +1090,7 @@ function _beginDashboardPanelDrag(event, panelId) {
     const span = _dashboardPanelSpan(panel);
     span.col = _dashboardPanelRenderedColSpan(sourceEl, geom, span.col);
     span.row = _dashboardPanelRenderedRowSpan(sourceEl, geom, span.row);
-    const renderedPosition = _cardCurrentPosition(sourceEl, stack, geom, { col: span.col, row: span.row });
+    const renderedPosition = _cardCurrentPosition(sourceEl, stack, geom, { col: span.col, row: span.row, colStart: span.colStart, rowStart: span.rowStart });
     const startCol = span.colStart || renderedPosition.col;
     const startRow = span.rowStart || renderedPosition.row;
     span.colStart = startCol;
@@ -1061,10 +1099,10 @@ function _beginDashboardPanelDrag(event, panelId) {
     panel.row_start = startRow;
     panel.row_span = span.row;
 
-    const clone = sourceEl.cloneNode(true);
+    const clone = sourceEl.cloneNode(true) as HTMLElement;
     clone.classList.add('dashboard-panel-clone');
     clone.removeAttribute('onpointerdown');
-    clone.querySelectorAll('button').forEach(el => el.removeAttribute('onclick'));
+    clone.querySelectorAll('button').forEach((el: Element) => el.removeAttribute('onclick'));
     clone.style.position = 'fixed';
     clone.style.width = `${rect.width}px`;
     clone.style.height = `${rect.height}px`;
@@ -1121,13 +1159,13 @@ function _beginDashboardPanelDrag(event, panelId) {
         moved: false,
     };
 
-    try { event.currentTarget?.setPointerCapture?.(event.pointerId); } catch (_) {}
+    try { (event.currentTarget as Element | null)?.setPointerCapture?.(event.pointerId); } catch (_) {}
     document.addEventListener('pointermove', _handleDashboardPanelDragMove, { passive: false });
     document.addEventListener('pointerup', _finishDashboardPanelDrag, { passive: false });
     document.addEventListener('pointercancel', _finishDashboardPanelDrag, { passive: false });
 }
 
-function _handleDashboardPanelDragMove(event) {
+function _handleDashboardPanelDragMove(event: PointerEvent) {
     const st = _panelDragState;
     if (!st) return;
     event.preventDefault?.();
@@ -1154,7 +1192,7 @@ function _handleDashboardPanelDragMove(event) {
     _positionDashboardDropGhost(st.ghost, geom, cell.col, cell.row, st.span);
 }
 
-async function _finishDashboardPanelDrag(event) {
+async function _finishDashboardPanelDrag(event: PointerEvent) {
     const st = _panelDragState;
     if (!st) return;
     const cancelled = event?.type === 'pointercancel';
@@ -1188,7 +1226,7 @@ async function _finishDashboardPanelDrag(event) {
 
 // Mobile / single-column commit: reorder the panels array (HA-style) and persist
 // via adjacent moves, which the backend applies as a stable pop+insert.
-async function _commitSingleColumnPanelOrder(st) {
+async function _commitSingleColumnPanelOrder(st: DashboardPanelDragState) {
     const order = st.finalOrder || _dashboardPanelOrderFromDragState(st);
     const pos = order.indexOf(st.panelId);
     if (pos < 0) return;
@@ -1211,12 +1249,12 @@ async function _commitSingleColumnPanelOrder(st) {
         await _persistDashboardPanelMove(st.panelId, oldFullIndex, insertAt);
         showToast(t('dashboard.section_moved'), 'success');
     } catch (e) {
-        showToast(e.message || t('dashboard.section_move_error'), 'error');
+        showToast(_errMsg(e) || t('dashboard.section_move_error'), 'error');
         await loadDashboard();
     }
 }
 
-async function _commitDashboardPanelOrder(panelId, fromIndex, targetIndex) {
+async function _commitDashboardPanelOrder(panelId: string, fromIndex: number, targetIndex: number) {
     const panels = Array.isArray(getCache().panels) ? getCache().panels : [];
     const currentIndex = _dashboardPanelCacheIndex(panelId);
     if (currentIndex < 0) return;
@@ -1230,12 +1268,12 @@ async function _commitDashboardPanelOrder(panelId, fromIndex, targetIndex) {
         await _persistDashboardPanelMove(panelId, fromIndex, targetIndex);
         showToast(t('dashboard.section_moved'), 'success');
     } catch (e) {
-        showToast(e.message || t('dashboard.section_move_error'), 'error');
+        showToast(_errMsg(e) || t('dashboard.section_move_error'), 'error');
         await loadDashboard();
     }
 }
 
-async function _commitDashboardPanelLayout(st) {
+async function _commitDashboardPanelLayout(st: DashboardPanelDragState) {
     const panel = (getCache().panels || []).find(item => String(item?.id || '') === String(st.panelId));
     if (!panel) return;
 
@@ -1255,7 +1293,7 @@ async function _commitDashboardPanelLayout(st) {
         // whole page config, so parallel writes would clobber each other.
         const sections = (getCache().panels || []).filter(p => !isStandalonePanel(p));
         for (const p of sections) {
-            await _persistDashboardPanelLayout(p.id, {
+            await _persistDashboardPanelLayout(String(p.id || ''), {
                 col_start: p.col_start,
                 row_start: p.row_start,
                 row_span: p.row_span,
@@ -1263,12 +1301,12 @@ async function _commitDashboardPanelLayout(st) {
         }
         showToast(t('dashboard.section_moved'), 'success');
     } catch (e) {
-        showToast(e.message || t('dashboard.section_move_error'), 'error');
+        showToast(_errMsg(e) || t('dashboard.section_move_error'), 'error');
         await loadDashboard();
     }
 }
 
-async function _persistDashboardPanelLayout(panelId, layout) {
+async function _persistDashboardPanelLayout(panelId: string, layout: Record<string, unknown>) {
     const activePageId = getCurrentPageId() || getCache().current_page_id || getCache().page_id || '';
     const params = activePageId ? `?page_id=${encodeURIComponent(activePageId)}` : '';
     const res = await apiCall(`/api/dashboard/panels/${encodeURIComponent(panelId)}/layout${params}`, {
@@ -1285,7 +1323,7 @@ async function _persistDashboardPanelLayout(panelId, layout) {
     }
 }
 
-async function _persistDashboardPanelMove(panelId, fromIndex, targetIndex) {
+async function _persistDashboardPanelMove(panelId: string, fromIndex: number, targetIndex: number) {
     const direction = targetIndex < fromIndex ? 'left' : 'right';
     const steps = Math.abs(targetIndex - fromIndex);
     if (!steps) return;
@@ -1302,7 +1340,7 @@ async function _persistDashboardPanelMove(panelId, fromIndex, targetIndex) {
     }
 }
 
-function _handleDashboardMoveDrag(event) {
+function _handleDashboardMoveDrag(event: PointerEvent) {
     const st = _moveState;
     if (!st) return;
     event.preventDefault();
@@ -1318,15 +1356,16 @@ function _handleDashboardMoveDrag(event) {
         if (cand) { panelGrid = cand; break; }
     }
     if (!panelGrid) panelGrid = st.sourceGrid;
+    const targetGrid = _asHTMLElement(panelGrid) || st.sourceGrid;
 
-    if (panelGrid !== st.targetGrid) {
+    if (targetGrid !== st.targetGrid) {
         if (st.ghost.parentElement) st.ghost.parentElement.removeChild(st.ghost);
         panelGrid.appendChild(st.ghost);
         st.sourceGrid.closest('.dashboard-panel')?.removeAttribute('data-drag-target');
         st.targetGrid.closest('.dashboard-panel')?.removeAttribute('data-drag-target');
-        panelGrid.closest('.dashboard-panel')?.setAttribute('data-drag-target', 'true');
-        st.targetGrid = panelGrid;
-        st.targetPanelId = panelGrid.getAttribute('data-panel-grid') || null;
+        _asHTMLElement(panelGrid)?.closest('.dashboard-panel')?.setAttribute('data-drag-target', 'true');
+        st.targetGrid = targetGrid;
+        st.targetPanelId = panelGrid.getAttribute('data-panel-grid') ?? '';
     }
 
     const geom = _readGridGeometry(st.targetGrid);
@@ -1347,7 +1386,7 @@ function _handleDashboardMoveDrag(event) {
     }
 }
 
-async function _finishDashboardMoveDrag(event) {
+async function _finishDashboardMoveDrag(event: PointerEvent) {
     const st = _moveState;
     if (!st) return;
     const cancelled = event?.type === 'pointercancel';
@@ -1372,9 +1411,9 @@ async function _finishDashboardMoveDrag(event) {
     await _commitDashboardWidgetMove(st);
 }
 
-async function _commitDashboardWidgetMove(st) {
+async function _commitDashboardWidgetMove(st: DashboardMoveState | DashboardSortableState) {
     if (st.targetPanelId === DASHBOARD_STANDALONE_PANEL_ID && st.targetGrid?.classList?.contains('dashboard-panels-stack')) {
-        await _commitDashboardRootWidgetMove(st);
+        await _commitDashboardRootWidgetMove(st as DashboardMoveState);
         return;
     }
 
@@ -1497,12 +1536,12 @@ async function _commitDashboardWidgetMove(st) {
             }));
         }
     } catch (e) {
-        showToast(e.message || t('dashboard.move_error'), 'error');
+        showToast(_errMsg(e) || t('dashboard.move_error'), 'error');
         await loadDashboard();
     }
 }
 
-async function _commitDashboardRootWidgetMove(st) {
+async function _commitDashboardRootWidgetMove(st: DashboardMoveState | DashboardSortableState) {
     const samePanel = (st.targetPanelId === st.sourcePanelId);
     const activePageId = getCurrentPageId() || getCache().current_page_id || getCache().page_id || '';
     const pageQS = activePageId ? `?page_id=${encodeURIComponent(activePageId)}` : '';
@@ -1519,7 +1558,7 @@ async function _commitDashboardRootWidgetMove(st) {
     st.widget.col_span = st.span.col;
     st.widget.row_span = st.span.row;
 
-    const movingRect = {
+    const movingRect: DashboardDragRect = {
         id: `widget:${st.widgetId}`,
         itemKind: 'widget',
         itemId: st.widgetId,
@@ -1530,17 +1569,18 @@ async function _commitDashboardRootWidgetMove(st) {
     };
     _applyDashboardRootRect(movingRect);
 
-    const changed = new Map([[movingRect.id, movingRect]]);
+    const changed = new Map<string, DashboardDragRect>();
+    changed.set(String(movingRect.id ?? `widget:${st.widgetId}`), movingRect);
     const canSwapRoot = samePanel && st.sourcePanelId === DASHBOARD_STANDALONE_PANEL_ID;
     const swapCandidate = canSwapRoot ? _findDashboardRootSwapCandidate(movingRect, st.targetGrid) : null;
     if (swapCandidate) {
-        const swapRect = {
+        const swapRect: DashboardDragRect = {
             ...swapCandidate.rect,
             col: _clampColStartForSpan(st.startCol, swapCandidate.rect.colSpan),
             row: st.startRow,
         };
         _applyDashboardRootRect(swapRect);
-        changed.set(swapRect.id, swapRect);
+        changed.set(String(swapRect.id), swapRect);
     } else {
         const pushed = _resolveDashboardRootOverlaps(movingRect, st.targetGrid);
         for (const [id, rect] of pushed.entries()) {
@@ -1573,13 +1613,13 @@ async function _commitDashboardRootWidgetMove(st) {
         }
         await Promise.all(Array.from(changed.values()).map(rect => _persistDashboardRootRect(rect, pageQS)));
     } catch (e) {
-        showToast(e.message || t('dashboard.move_error'), 'error');
+        showToast(_errMsg(e) || t('dashboard.move_error'), 'error');
         await loadDashboard();
     }
 }
 
 /** Move a widget object between panel arrays in the local cache (no API). */
-function _moveWidgetBetweenPanelsLocal(widgetId, fromPanelId, toPanelId) {
+function _moveWidgetBetweenPanelsLocal(widgetId: string, fromPanelId: string | null, toPanelId: string | null) {
     if (!fromPanelId || !toPanelId || fromPanelId === toPanelId) return;
     const panels = getCache().panels || [];
     const from = panels.find(p => String(p.id) === String(fromPanelId));
@@ -1588,13 +1628,15 @@ function _moveWidgetBetweenPanelsLocal(widgetId, fromPanelId, toPanelId) {
         to = ensureStandalonePanelLocal();
     }
     if (!from || !to) return;
-    const idx = (from.widgets || []).findIndex(w => w.id === widgetId);
+    const fromWidgets = from.widgets || [];
+    const idx = fromWidgets.findIndex(w => w.id === widgetId);
     if (idx < 0) return;
-    const [moved] = from.widgets.splice(idx, 1);
+    const [moved] = fromWidgets.splice(idx, 1);
+    from.widgets = fromWidgets;
     to.widgets = to.widgets || [];
     // Inherit first-page id of target panel if it has tabs.
     if (Array.isArray(to.pages) && to.pages.length) {
-        moved.page_id = to.pages[0].id;
+        moved.page_id = String((to.pages[0] as { id?: string }).id || '');
     } else {
         moved.page_id = null;
     }
@@ -1604,7 +1646,7 @@ function _moveWidgetBetweenPanelsLocal(widgetId, fromPanelId, toPanelId) {
 // ── Collision resolution: push overlapping widgets downward ──────────
 
 /** Return a flat list of widget objects for a given panel id (cache lookup). */
-function _panelWidgets(panelId) {
+function _panelWidgets(panelId: string | null | undefined) {
     if (!panelId) {
         const panels = Array.isArray(getCache().panels) ? getCache().panels : [];
         if (panels.length === 1 && Array.isArray(panels[0].widgets)) return panels[0].widgets;
@@ -1615,14 +1657,14 @@ function _panelWidgets(panelId) {
 }
 
 /** True when two rectangles {col,row,colSpan,rowSpan} overlap (1-indexed). */
-function _rectsOverlap(a, b) {
+function _rectsOverlap(a: DashboardDragRect, b: DashboardDragRect) {
     if (!a || !b) return false;
     const ax2 = a.col + a.colSpan, ay2 = a.row + a.rowSpan;
     const bx2 = b.col + b.colSpan, by2 = b.row + b.rowSpan;
     return a.col < bx2 && b.col < ax2 && a.row < by2 && b.row < ay2;
 }
 
-function _rectOverlapArea(a, b) {
+function _rectOverlapArea(a: DashboardDragRect, b: DashboardDragRect) {
     if (!_rectsOverlap(a, b)) return 0;
     const left = Math.max(a.col, b.col);
     const right = Math.min(a.col + a.colSpan, b.col + b.colSpan);
@@ -1631,16 +1673,16 @@ function _rectOverlapArea(a, b) {
     return Math.max(0, right - left) * Math.max(0, bottom - top);
 }
 
-function _clampColStartForSpan(colStart, colSpan) {
-    const parsedStart = parseInt(colStart, 10);
-    const parsedSpan = parseInt(colSpan, 10);
+function _clampColStartForSpan(colStart: number | null | undefined, colSpan: number) {
+    const parsedStart = parseInt(String(colStart), 10);
+    const parsedSpan = parseInt(String(colSpan), 10);
     const start = Number.isFinite(parsedStart) ? parsedStart : 1;
     const span = Number.isFinite(parsedSpan) ? parsedSpan : 1;
     return Math.max(1, Math.min(start, DASHBOARD_GRID_COLS - Math.max(1, span) + 1));
 }
 
-function _findDashboardSwapCandidate(movingRect, panelWidgets, panelGridEl) {
-    let best = null;
+function _findDashboardSwapCandidate(movingRect: DashboardDragRect, panelWidgets: DashboardWidget[], panelGridEl: Element | null | undefined): import('../types/drag_resize.js').DashboardSwapCandidate | null {
+    let best: import('../types/drag_resize.js').DashboardSwapCandidate | null = null;
     for (const widget of panelWidgets || []) {
         if (!widget || widget.id === movingRect.id) continue;
         const rect = _widgetRect(widget, panelGridEl);
@@ -1655,13 +1697,13 @@ function _findDashboardSwapCandidate(movingRect, panelWidgets, panelGridEl) {
  * Build the placement rectangle for a widget. Falls back to the rendered grid
  * position for legacy widgets that don't have explicit col_start/row_start yet.
  */
-function _widgetRect(widget, panelGridEl) {
+function _widgetRect(widget: DashboardWidget, panelGridEl: Element | null | undefined): DashboardDragRect {
     const span = widgetSpan(widget);
     let col = span.colStart;
     let row = span.rowStart;
     if (!col || !row) {
         if (panelGridEl) {
-            const card = panelGridEl.querySelector(`[data-dashboard-widget-id="${CSS.escape(widget.id)}"]`);
+            const card = panelGridEl.querySelector(`[data-dashboard-widget-id="${CSS.escape(String(widget.id || ''))}"]`);
             if (card) {
                 const geom = _readGridGeometry(panelGridEl);
                 const pos = _cardCurrentPosition(card, panelGridEl, geom, span);
@@ -1671,7 +1713,7 @@ function _widgetRect(widget, panelGridEl) {
         }
     }
     return {
-        id: widget.id,
+        id: String(widget.id || ''),
         col: col || 1,
         row: row || 1,
         colSpan: span.col,
@@ -1685,7 +1727,7 @@ function _widgetRect(widget, panelGridEl) {
  * Returns Map<widgetId, {col,row,colSpan,rowSpan}> of NEW positions for any
  * widget whose row_start changed (the moving widget is not included).
  */
-function _resolveOverlaps(movingRect, panelWidgets, panelGridEl) {
+function _resolveOverlaps(movingRect: DashboardDragRect, panelWidgets: DashboardWidget[], panelGridEl: Element | null | undefined) {
     const rects = new Map();
     for (const w of panelWidgets) {
         if (w.id === movingRect.id) continue;
@@ -1733,12 +1775,12 @@ function _resolveOverlaps(movingRect, panelWidgets, panelGridEl) {
  * until it no longer overlaps any earlier-placed widget. Guarantees zero
  * overlap regardless of how it was reached. Returns Map of changes.
  */
-function _normalizePanelLayout(panelWidgets, panelGridEl) {
+function _normalizePanelLayout(panelWidgets: DashboardWidget[], panelGridEl: Element | null | undefined) {
     if (!panelWidgets || panelWidgets.length < 2) return new Map();
     const items = panelWidgets.map(w => ({ w, rect: _widgetRect(w, panelGridEl) }));
     items.sort((a, b) => a.rect.row - b.rect.row || a.rect.col - b.rect.col);
     const original = new Map(items.map(({ w, rect }) => [w.id, rect.row]));
-    const placed = [];
+    const placed: Array<{ w: DashboardWidget; rect: DashboardLayoutRect }> = [];
     for (const it of items) {
         // Push down while it overlaps anyone already placed.
         let safety = 500;
@@ -1764,16 +1806,16 @@ function renderDashboardWithFlip() {
     if (!grid) { renderDashboard(); return; }
     // Capture rects of all cards before the re-render (FIRST).
     const before = new Map();
-    grid.querySelectorAll('[data-dashboard-widget-id]').forEach(el => {
+    grid.querySelectorAll<HTMLElement>('[data-dashboard-widget-id]').forEach(el => {
         before.set(`widget:${el.getAttribute('data-dashboard-widget-id')}`, el.getBoundingClientRect());
     });
-    grid.querySelectorAll('.dashboard-panel[data-panel-id]').forEach(el => {
+    grid.querySelectorAll<HTMLElement>('.dashboard-panel[data-panel-id]').forEach(el => {
         before.set(`panel:${el.getAttribute('data-panel-id')}`, el.getBoundingClientRect());
     });
     renderDashboard();
     // After re-render, measure new positions (LAST), invert with transform, then play.
     requestAnimationFrame(() => {
-        grid.querySelectorAll('[data-dashboard-widget-id]').forEach(el => {
+        grid.querySelectorAll<HTMLElement>('[data-dashboard-widget-id]').forEach(el => {
             const id = `widget:${el.getAttribute('data-dashboard-widget-id')}`;
             const prev = before.get(id);
             if (!prev) return;
@@ -1788,7 +1830,7 @@ function renderDashboardWithFlip() {
             el.removeAttribute('data-flip-suppress');
             el.style.transform = '';
         });
-        grid.querySelectorAll('.dashboard-panel[data-panel-id]').forEach(el => {
+        grid.querySelectorAll<HTMLElement>('.dashboard-panel[data-panel-id]').forEach(el => {
             const id = `panel:${el.getAttribute('data-panel-id')}`;
             const prev = before.get(id);
             if (!prev) return;
@@ -1810,16 +1852,17 @@ function renderDashboardWithFlip() {
 // ── HA-style live resize (drag bottom-right handle) ──────────────────
 
 
-export function startDashboardResize(event, widgetId, direction = 'se') {
+export function startDashboardResize(event: Event, widgetId: string, direction: string = 'se') {
+    const pe = _asPointerEvent(event);
     if (!canEditDashboard()) return;
     if (!getEditMode()) return;
-    if (event.button !== undefined && event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
+    if (pe.button !== undefined && pe.button !== 0) return;
+    pe.preventDefault();
+    pe.stopPropagation();
 
-    const card = event.currentTarget?.closest('[data-dashboard-widget-id]');
+    const card = _asHTMLElement(pe.currentTarget as Element | null)?.closest?.('[data-dashboard-widget-id]') as HTMLElement | null;
     if (!card) return;
-    const grid = card.closest('[data-panel-grid]') || card.parentElement;
+    const grid = _asHTMLElement(card.closest('[data-panel-grid]') || card.parentElement);
     if (!grid) return;
 
     const styles = getComputedStyle(grid);
@@ -1837,7 +1880,7 @@ export function startDashboardResize(event, widgetId, direction = 'se') {
     const widget = findWidget(widgetId);
     const initial = widgetSpan(widget || {});
 
-    let tooltip = card.querySelector('.hyve-dashboard-card__resize-tooltip');
+    let tooltip = card.querySelector('.hyve-dashboard-card__resize-tooltip') as HTMLElement | null;
     if (!tooltip) {
         tooltip = document.createElement('div');
         tooltip.className = 'hyve-dashboard-card__resize-tooltip';
@@ -1864,10 +1907,10 @@ export function startDashboardResize(event, widgetId, direction = 'se') {
 
     _resizeState = {
         widgetId,
-        card,
+        card: card as HTMLElement,
         tooltip,
-        startX: event.clientX,
-        startY: event.clientY,
+        startX: pe.clientX,
+        startY: pe.clientY,
         colUnit: colWidth + gap,
         rowUnit: rowHeight + rowGap,
         startCol: initial.col,
@@ -1880,16 +1923,16 @@ export function startDashboardResize(event, widgetId, direction = 'se') {
         maxRows,
         lockCol,
         lockRow,
-        pointerId: event.pointerId,
+        pointerId: pe.pointerId,
     };
 
-    try { event.target.setPointerCapture?.(event.pointerId); } catch (_) {}
+    try { _asHTMLElement(pe.target as Element | null)?.setPointerCapture?.(pe.pointerId); } catch (_) {}
     document.addEventListener('pointermove', _handleDashboardResizeMove, { passive: false });
     document.addEventListener('pointerup', _finishDashboardResize, { passive: false });
     document.addEventListener('pointercancel', _finishDashboardResize, { passive: false });
 }
 
-function _handleDashboardResizeMove(event) {
+function _handleDashboardResizeMove(event: PointerEvent) {
     const st = _resizeState;
     if (!st) return;
     event.preventDefault();
@@ -1912,14 +1955,14 @@ function _handleDashboardResizeMove(event) {
     if (st.tooltip) st.tooltip.textContent = `${newCol} × ${newRow}`;
 }
 
-function _applyWeatherResizeTier(card, rowSpan) {
+function _applyWeatherResizeTier(card: HTMLElement | null | undefined, rowSpan: number | string) {
     if (!card?.classList?.contains('hyve-dashboard-card--weather-rich')) return;
-    const parsed = parseInt(rowSpan, 10);
+    const parsed = parseInt(String(rowSpan), 10);
     if (!Number.isFinite(parsed) || parsed < 1) return;
     card.setAttribute('data-weather-rows', String(Math.min(parsed, 8)));
 }
 
-async function _finishDashboardResize(event) {
+async function _finishDashboardResize(event: PointerEvent) {
     const st = _resizeState;
     if (!st) return;
     document.removeEventListener('pointermove', _handleDashboardResizeMove);
@@ -1966,11 +2009,11 @@ async function _finishDashboardResize(event) {
         st.card.setAttribute('data-dashboard-cols', String(st.startCol));
         st.card.setAttribute('data-dashboard-rows', String(st.startRow));
         _applyWeatherResizeTier(st.card, st.startRow);
-        showToast(e.message || t('dashboard.resize_error'), 'error');
+        showToast(_errMsg(e) || t('dashboard.resize_error'), 'error');
     }
 }
 
-export async function moveDashboardWidget(widgetId, direction = 'right') {
+export async function moveDashboardWidget(widgetId: string, direction = 'right') {
     if (!requireDashboardEditAccess()) return;
     try {
         const res = await apiCall(`/api/dashboard/widgets/${encodeURIComponent(widgetId)}/move`, {
@@ -1986,8 +2029,8 @@ export async function moveDashboardWidget(widgetId, direction = 'right') {
             throw new Error(dashApiErr(err.detail, 'dashboard.rearrange_widget_failed'));
         }
     } catch (e) {
-        if (String(e?.message || '').includes(t('dashboard.rearrange_widget_failed'))) {
-            showToast(e.message, 'error');
+        if (String(_errMsg(e) || '').includes(t('dashboard.rearrange_widget_failed'))) {
+            showToast(_errMsg(e), 'error');
             return;
         }
     }
@@ -2004,6 +2047,6 @@ export async function moveDashboardWidget(widgetId, direction = 'right') {
         await writeDashboardSectionFallback(section);
         await loadDashboard();
     } catch (e) {
-        showToast(e.message || t('dashboard.rearrange_error'), 'error');
+        showToast(_errMsg(e) || t('dashboard.rearrange_error'), 'error');
     }
 }
