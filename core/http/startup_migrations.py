@@ -51,6 +51,21 @@ def run_startup_migrations() -> None:
         raise
 
     try:
+        from addons.state_store import migrate_from_config_json
+
+        migrated = migrate_from_config_json()
+        if migrated:
+            log_line(
+                "success",
+                "📦",
+                "ADDONS",
+                f"Migrated {migrated} add-on state(s) from config.json to SQLite",
+            )
+    except Exception as e:
+        log_line("error", "⚠️", "ADDONS", f"Add-on state migration failed: {e}")
+        raise
+
+    try:
         db = next(database.get_db())
         try:
             automation_definitions.backfill_yaml_files_from_db(db)

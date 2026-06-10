@@ -9,8 +9,8 @@ Each add-on is a JSON manifest in  addons/available/<slug>.json  with:
   - health_check    : { type: "tcp"|"http", host_key, port_key }
   - integration_key : if set, maps to an existing integration in config.json
 
-Installed state is tracked in  config.json  under  addons.<slug>:
-  { installed: bool, enabled: bool, version: str, config: { ... } }
+Installed state is tracked in SQLite (``addon_state`` table) via ``addons.state_store``.
+Legacy ``config.json → addons`` is migrated once at startup.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import settings as settings_mod
+from addons import state_store
 
 log = logging.getLogger("addons")
 
@@ -49,19 +49,9 @@ _addon_dirs: dict[str, Path] = {}
 
 # ── helpers ────────────────────────────────────────────────────────────────
 
-def _addons_cfg() -> dict:
-    """Return the addons section of config.json (mutable)."""
-    cfg = settings_mod.CFG
-    if "addons" not in cfg:
-        cfg["addons"] = {}
-    return cfg["addons"]
-
-
-def _save_addon_state(slug: str, state: dict):
-    """Persist addon state to config.json."""
-    addons = _addons_cfg()
-    addons[slug] = state
-    settings_mod.save_config({"addons": addons})
+def _save_addon_state(slug: str, state: dict) -> dict:
+    """Persist addon state to SQLite."""
+    return state_store.save_state(slug, state)
 
 
 # ── registry ───────────────────────────────────────────────────────────────
@@ -152,13 +142,7 @@ def get_addon_dir(slug: str) -> Path | None:
 
 def get_state(slug: str) -> dict:
     """Return the installed state for an addon (or defaults)."""
-    return _addons_cfg().get(slug, {
-        "installed": False,
-        "enabled": False,
-        "version": None,
-        "config": {},
-        "watchdog": False,
-    })
+    return state_store.get_state(slug)
 
 
 def version_is_newer(latest: str, current: str) -> bool:
