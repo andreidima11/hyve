@@ -13,6 +13,7 @@ import settings
 import assist_keys
 import memory_context
 import brain
+from core.http.errors import error_detail
 from logger import log_conversation_start
 
 # Under /ollama for when user sets base URL to http://bridge:8082/ollama
@@ -123,7 +124,7 @@ async def chat_handle(
 
     messages = body.get("messages")
     if not messages or not isinstance(messages, list):
-        raise HTTPException(status_code=400, detail="messages array required")
+        raise HTTPException(status_code=400, detail=error_detail("assist.messages_required"))
 
     model = (body.get("model") or "").strip() or "bridge"
     stream = body.get("stream") is not False  # Ollama defaults to true
@@ -214,7 +215,7 @@ async def chat_handle(
     llm_cfg = settings.CFG.get("llm") or {}
     target_url = (llm_cfg.get("target_url") or "").strip()
     if not target_url:
-        raise HTTPException(status_code=503, detail="LLM target_url not configured (Settings → LLM)")
+        raise HTTPException(status_code=503, detail=error_detail("assist.llm_not_configured"))
     timeout = float(llm_cfg.get("timeout") or 120)
     openai_body = {
         "model": (llm_cfg.get("model_name") or model),
@@ -303,9 +304,12 @@ async def chat_handle(
         try:
             resp = await _client.post(target_url, json=openai_body)
         except httpx.TimeoutException:
-            raise HTTPException(status_code=504, detail="LLM request timed out")
+            raise HTTPException(status_code=504, detail=error_detail("assist.llm_timeout"))
         except httpx.RequestError as e:
-            raise HTTPException(status_code=502, detail=f"LLM request failed: {e!s}")
+            raise HTTPException(
+                status_code=502,
+                detail=error_detail("assist.llm_request_failed", {"message": str(e)}),
+            )
     finally:
         if own_client:
             await _client.aclose()
@@ -355,16 +359,16 @@ async def chat(request: Request):
     if assist_key:
         forced_user_id = assist_keys.get_user_id_by_token(assist_key)
         if forced_user_id is None:
-            raise HTTPException(status_code=401, detail="Invalid assist key")
+            raise HTTPException(status_code=401, detail=error_detail("assist.invalid_assist_key"))
     elif not allow_anonymous:
         raise HTTPException(
             status_code=401,
-            detail="Authentication required. Set X-Assist-Key header or enable proxy.allow_unauthenticated in config.",
+            detail=error_detail("assist.proxy_auth_required"),
         )
     try:
         body = await request.json()
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
+        raise HTTPException(status_code=400, detail=error_detail("common.invalid_json"))
     return await chat_handle(request, body, forced_user_id=forced_user_id, allow_anonymous=allow_anonymous)
 
 
@@ -372,10 +376,10 @@ async def chat(request: Request):
 async def list_models_by_key(key: str):
     """Ollama GET /ollama/user/<assist_key>/api/tags. Key in URL identifies the user (no separate API key needed)."""
     if not _validate_assist_key(key):
-        raise HTTPException(status_code=400, detail="Invalid assist key format")
+        raise HTTPException(status_code=400, detail=error_detail("assist.invalid_assist_key_format"))
     user_id = assist_keys.get_user_id_by_token(key)
     if user_id is None:
-        raise HTTPException(status_code=404, detail="Invalid or unknown assist key")
+        raise HTTPException(status_code=404, detail=error_detail("assist.unknown_assist_key"))
     return await list_models()
 
 
@@ -383,12 +387,12 @@ async def list_models_by_key(key: str):
 async def chat_by_key(request: Request, key: str):
     """Ollama POST /ollama/user/<assist_key>/api/chat. Key in URL identifies the user (no separate API key needed)."""
     if not _validate_assist_key(key):
-        raise HTTPException(status_code=400, detail="Invalid assist key format")
+        raise HTTPException(status_code=400, detail=error_detail("assist.invalid_assist_key_format"))
     user_id = assist_keys.get_user_id_by_token(key)
     if user_id is None:
-        raise HTTPException(status_code=404, detail="Invalid or unknown assist key")
+        raise HTTPException(status_code=404, detail=error_detail("assist.unknown_assist_key"))
     try:
         body = await request.json()
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
+        raise HTTPException(status_code=400, detail=error_detail("common.invalid_json"))
     return await chat_handle(request, body, forced_user_id=user_id)

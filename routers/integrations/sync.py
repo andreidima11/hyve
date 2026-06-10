@@ -6,6 +6,7 @@ import auth
 import models
 from addons.entity_store import SyncThrottledError, get_entity_store
 from fastapi import Depends, HTTPException
+from core.http.errors import error_detail
 from integrations.errors import integration_retry_after, integration_sync_detail
 
 from routers.integrations import helpers
@@ -17,12 +18,16 @@ log = logging.getLogger("integrations")
 def _raise_sync_http_error(exc: Exception) -> None:
     detail = integration_sync_detail(exc)
     if detail is not None or "rate limit" in str(exc).lower():
+        if isinstance(detail, dict) and detail.get("key"):
+            payload = detail
+        else:
+            payload = error_detail("common.error_with_message", {"message": str(detail or exc)})
         raise HTTPException(
             status_code=429,
-            detail=detail if detail is not None else str(exc),
+            detail=payload,
             headers={"Retry-After": str(integration_retry_after(exc))},
         )
-    raise HTTPException(status_code=500, detail=str(exc))
+    raise HTTPException(status_code=500, detail=error_detail("common.error_with_message", {"message": str(exc)}))
 
 
 @router.get("/status/sync")
@@ -71,7 +76,7 @@ async def trigger_sync(slug: str, user: models.User = Depends(auth.get_current_a
         if not store.get_fetcher(slug):
             registered = await helpers.ensure_fetcher(slug, store)
             if not registered:
-                raise HTTPException(status_code=404, detail=f"No entity sync available for '{slug}'")
+                raise HTTPException(status_code=404, detail=error_detail("integrations.no_entity_sync", {"slug": slug}))
         try:
             await store.do_sync(slug, force=True)
             stored = store.get_entities(slug) or {}
@@ -143,9 +148,14 @@ async def trigger_sync(slug: str, user: models.User = Depends(auth.get_current_a
             )
         raise HTTPException(
             status_code=500,
-            detail="; ".join(
-                e if isinstance(e, str) else str(e.get("key", e))
-                for e in errors
+            detail=error_detail(
+                "common.error_with_message",
+                {
+                    "message": "; ".join(
+                        e if isinstance(e, str) else str(e.get("key", e))
+                        for e in errors
+                    ),
+                },
             ),
         )
     helpers.invalidate_all_entities_cache()

@@ -6,6 +6,7 @@ import settings
 import models
 import auth
 import forge
+from core.http.errors import error_detail
 from core.log_stream import log_line
 
 router = APIRouter(prefix="/api/skills", tags=["skills"])
@@ -34,7 +35,7 @@ async def api_skills_list(current_user: models.User = Depends(auth.get_current_u
         ]
     except Exception as e:
         log_line("error", "❌", "SKILLS API", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=error_detail("common.error_with_message", {"message": str(e)}))
 
 
 @router.post("/generate-preview")
@@ -45,13 +46,13 @@ async def api_skills_generate_preview(
     """Generate skill code without saving (preview). Admin only."""
     desc = (body.description or "").strip()
     if len(desc) < 3:
-        raise HTTPException(status_code=400, detail="Description too short.")
+        raise HTTPException(status_code=400, detail=error_detail("skills.description_too_short"))
     ok, code_or_err, suggested = await forge.run_forge(
         desc, save=False,
         name_hint=body.name_hint, inputs_hint=body.inputs_hint, allow_network=body.allow_network,
     )
     if not ok:
-        raise HTTPException(status_code=400, detail=code_or_err)
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": code_or_err}))
     return {"code": code_or_err, "suggested_filename": suggested or "skill.py"}
 
 
@@ -63,7 +64,7 @@ async def api_skills_confirm_generated(
     """Save skill code after preview (validate + dry-run + version + save). Admin only."""
     ok, msg = forge.run_forge_confirm(body.code or "", body.suggested_filename or "")
     if not ok:
-        raise HTTPException(status_code=400, detail=msg)
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": msg}))
     return {"status": "ok", "message": msg}
 
 
@@ -71,7 +72,7 @@ async def api_skills_confirm_generated(
 async def api_skill_get(skill_name: str, current_user: models.User = Depends(auth.get_current_user)):
     src = skills.get_skill_source(skill_name)
     if src is None:
-        raise HTTPException(status_code=404, detail="Skill not found")
+        raise HTTPException(status_code=404, detail=error_detail("skills.not_found"))
     return {"name": skill_name, "source": src}
 
 
@@ -87,7 +88,7 @@ async def api_skill_update(
 ):
     ok, msg = skills.update_skill_source(skill_name, body.source or "")
     if not ok:
-        raise HTTPException(status_code=400, detail=msg)
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": msg}))
     log_line("sys", "✏️", "SKILL", f"Updated skill: {skill_name}")
     return {"status": "updated", "message": msg}
 
@@ -99,7 +100,7 @@ async def api_skill_delete(
 ):
     ok, msg = skills.delete_skill(skill_name)
     if not ok:
-        raise HTTPException(status_code=400, detail=msg)
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": msg}))
     log_line("sys", "🗑️", "SKILL", f"Deleted skill: {skill_name}")
     return {"status": "deleted", "message": msg}
 
@@ -123,7 +124,7 @@ async def api_skill_restore_version(
     """Restore a generated skill to a previous version. Admin only."""
     ok, msg = forge.restore_skill_version(skill_name, version_id)
     if not ok:
-        raise HTTPException(status_code=400, detail=msg)
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": msg}))
     return {"status": "ok", "message": msg}
 
 

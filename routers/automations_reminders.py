@@ -13,6 +13,7 @@ import automation_definitions
 import database
 import models
 import auth
+from core.http.errors import error_detail
 from core.automations_engine import blueprints as bp_engine
 
 router = APIRouter(tags=["automations"])
@@ -53,7 +54,7 @@ async def validate_automation_definition(
     try:
         normalized = automation_definitions.validate_source_yaml(data.source_yaml)
     except automation_definitions.AutomationValidationError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": str(exc)}))
     return {
         "valid": True,
         "normalized": normalized,
@@ -174,7 +175,7 @@ async def create_automation_definition(
             source_yaml=data.source_yaml,
         )
     except automation_definitions.AutomationValidationError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": str(exc)}))
     return {"status": "created", "item": automation_definitions.serialize_definition(definition)}
 
 
@@ -205,7 +206,7 @@ async def replace_automation_definition(
             expected_revision=data.expected_revision,
         )
     except automation_definitions.AutomationValidationError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": str(exc)}))
     return {"status": "updated", "item": automation_definitions.serialize_definition(definition)}
 
 
@@ -318,7 +319,7 @@ async def create_blueprint(
             db, _owner_id_for_user(current_user), _actor_for_user(current_user), data.source_yaml
         )
     except automation_definitions.AutomationValidationError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": str(exc)}))
     return {"status": "created", "item": bp_engine.serialize_blueprint(bp)}
 
 
@@ -331,7 +332,7 @@ async def get_blueprint(
     try:
         bp = bp_engine.get_blueprint_for_owner(db, blueprint_id, _owner_id_for_user(current_user))
     except automation_definitions.AutomationValidationError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=error_detail("common.error_with_message", {"message": str(exc)}))
     return {"item": bp_engine.serialize_blueprint(bp)}
 
 
@@ -344,7 +345,7 @@ async def delete_blueprint_endpoint(
     try:
         bp = bp_engine.get_blueprint_for_owner(db, blueprint_id, _owner_id_for_user(current_user))
     except automation_definitions.AutomationValidationError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=error_detail("common.error_with_message", {"message": str(exc)}))
     bp_engine.delete_blueprint(db, bp)
     return {"status": "deleted"}
 
@@ -368,5 +369,5 @@ async def instantiate_blueprint(
             source_yaml=result["automation_yaml"],
         )
     except automation_definitions.AutomationValidationError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": str(exc)}))
     return {"status": "created", "item": automation_definitions.serialize_definition(definition)}

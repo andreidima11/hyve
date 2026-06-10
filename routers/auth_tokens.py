@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 import auth
 import database
 import models
+from core.http.errors import error_detail
 from core.http.limiter import limiter
 from core.log_stream import log_line
 
@@ -21,13 +22,13 @@ async def login_for_access_token(request: Request, form_data: OAuth2PasswordRequ
     if not user or not auth.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail=error_detail("login.error"),
             headers={"WWW-Authenticate": "Bearer"},
         )
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is deactivated",
+            detail=error_detail("common.account_deactivated"),
         )
     access_token = auth.create_access_token(data={"sub": user.username})
     refresh_token = auth.create_refresh_token(data={"sub": user.username})
@@ -48,13 +49,13 @@ async def refresh_access_token(request: Request, db: Session = Depends(database.
     try:
         body = await request.json()
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
+        raise HTTPException(status_code=400, detail=error_detail("common.invalid_json"))
     token = (body.get("refresh_token") or "").strip()
     if not token:
-        raise HTTPException(status_code=400, detail="refresh_token required")
+        raise HTTPException(status_code=400, detail=error_detail("auth.refresh_token_required"))
     payload = auth.verify_refresh_token(token)
     if not payload:
-        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+        raise HTTPException(status_code=401, detail=error_detail("auth.refresh_token_invalid"))
     username = payload["sub"]
     # Atomic revocation: attempt to insert the jti first to prevent race conditions.
     # If two concurrent requests use the same refresh token, only one will succeed.
@@ -62,18 +63,18 @@ async def refresh_access_token(request: Request, db: Session = Depends(database.
     if jti:
         existing = db.query(models.RevokedToken).filter(models.RevokedToken.jti == jti).first()
         if existing:
-            raise HTTPException(status_code=401, detail="Token revoked")
+            raise HTTPException(status_code=401, detail=error_detail("auth.token_revoked"))
         # Atomically revoke — if a concurrent request already inserted, catch the conflict
         try:
             auth.revoke_token(token, db)
         except IntegrityError:
             db.rollback()
-            raise HTTPException(status_code=401, detail="Token already consumed")
+            raise HTTPException(status_code=401, detail=error_detail("auth.token_consumed"))
     user = db.query(models.User).filter(models.User.username == username).first()
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(status_code=401, detail=error_detail("user.user_not_found"))
     if not user.is_active:
-        raise HTTPException(status_code=403, detail="Account is deactivated")
+        raise HTTPException(status_code=403, detail=error_detail("common.account_deactivated"))
     new_access = auth.create_access_token(data={"sub": username})
     new_refresh = auth.create_refresh_token(data={"sub": username})
     return {

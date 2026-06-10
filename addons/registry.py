@@ -480,6 +480,112 @@ def list_all() -> list[dict]:
     return [addon_entry(manifest) for manifest in list_available()]
 
 
+def _config_section_key(manifest: dict) -> str | None:
+    raw = manifest.get("integration_key")
+    if raw is False:
+        return None
+    key = str(raw or manifest.get("slug") or "").strip()
+    return key or None
+
+
+def _detect_on_disk_install(manifest: dict) -> str | None:
+    """Return an installed version when local artifacts exist, else None."""
+    version = _resolve_installed_version(manifest)
+    if version:
+        return version
+    slug = manifest.get("slug", "")
+    if slug == "piper":
+        models_dir = _PROJECT_ROOT / "piper_models"
+        if models_dir.is_dir() and any(models_dir.glob("*.onnx")):
+            return manifest.get("version") or None
+    return None
+
+
+def _legacy_section_config(
+    manifest: dict,
+    section: dict,
+    *,
+    include_all: bool = False,
+) -> dict[str, Any]:
+    schema = manifest.get("config_schema") or []
+    schema_keys = {f.get("key") for f in schema if f.get("key")}
+    cfg: dict[str, Any] = {k: section[k] for k in schema_keys if k in section}
+    if include_all:
+        return cfg
+    defaults = {f["key"]: f.get("default") for f in schema if f.get("key")}
+    for key, val in cfg.items():
+        default = defaults.get(key)
+        if val != default and val not in (None, "", False):
+            return cfg
+    return {}
+
+
+def _reconcile_hints(manifest: dict, raw_config: dict, on_disk_version: str | None) -> dict[str, Any] | None:
+    hints: dict[str, Any] = {}
+    if on_disk_version:
+        hints["version"] = on_disk_version
+        hints["latest_version"] = on_disk_version
+
+    key = _config_section_key(manifest)
+    section = raw_config.get(key) if key else None
+    section_signal = False
+    if isinstance(section, dict):
+        if "enabled" in section:
+            hints["enabled"] = bool(section["enabled"])
+        cfg = _legacy_section_config(
+            manifest,
+            section,
+            include_all=bool(on_disk_version) or section.get("enabled") is True,
+        )
+        if cfg:
+            hints["config"] = cfg
+        if section.get("enabled") is True or cfg:
+            section_signal = True
+
+    if on_disk_version or section_signal:
+        return hints
+    return None
+
+
+def reconcile_addon_state() -> int:
+    """Backfill SQLite when install info lived only in integration sections or on disk.
+
+    Runs after ``migrate_from_config_json`` and never downgrades ``installed``.
+    """
+    import settings as settings_mod
+
+    raw = settings_mod._load_config_raw()
+    repaired = 0
+    for manifest in list_available():
+        slug = manifest["slug"]
+        state = get_state(slug)
+        if state.get("installed"):
+            continue
+
+        on_disk = _detect_on_disk_install(manifest)
+        hints = _reconcile_hints(manifest, raw, on_disk)
+        if not hints:
+            continue
+
+        new_state = dict(state)
+        new_state["installed"] = True
+        if hints.get("version"):
+            new_state["version"] = hints["version"]
+            new_state["latest_version"] = hints.get("latest_version") or hints["version"]
+        if "enabled" in hints:
+            new_state["enabled"] = hints["enabled"]
+        if hints.get("config"):
+            merged = dict(new_state.get("config") or {})
+            merged.update(hints["config"])
+            new_state["config"] = merged
+
+        _save_addon_state(slug, new_state)
+        integration_sync.sync_from_addon_state(slug, new_state)
+        log.info("Reconciled add-on state for %s", slug)
+        repaired += 1
+    return repaired
+
+
 # ── preflight checks ─────────────────────────────────────────────────────
 
 def _preflight_item(

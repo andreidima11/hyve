@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 import auth
+from core.http.errors import error_detail
 import database
 import models
 import area_resolver
@@ -129,7 +130,7 @@ def _serialize(area: models.Area) -> dict[str, Any]:
 
 def _require_admin(user: models.User) -> None:
     if not user.is_admin:
-        raise HTTPException(403, "Admin only")
+        raise HTTPException(status_code=403, detail=error_detail("common.admin_required"))
 
 
 @router.get("")
@@ -179,7 +180,7 @@ async def update_area(
     _require_admin(user)
     area = db.query(models.Area).filter(models.Area.id == area_id).first()
     if not area:
-        raise HTTPException(404, "Area not found")
+        raise HTTPException(status_code=404, detail=error_detail("areas.not_found"))
     if body.name is not None:
         area.name = body.name.strip()
     if body.icon is not None:
@@ -209,7 +210,7 @@ async def delete_area(
     _require_admin(user)
     area = db.query(models.Area).filter(models.Area.id == area_id).first()
     if not area:
-        raise HTTPException(404, "Area not found")
+        raise HTTPException(status_code=404, detail=error_detail("areas.not_found"))
     db.delete(area)
     db.commit()
     area_resolver.invalidate()
@@ -239,7 +240,7 @@ async def area_entities(
     """Resolve entities currently associated with this area."""
     area = db.query(models.Area).filter(models.Area.id == area_id).first()
     if not area:
-        raise HTTPException(404, "Area not found")
+        raise HTTPException(status_code=404, detail=error_detail("areas.not_found"))
 
     try:
         extras = json.loads(area.extra_entities_json or "[]")

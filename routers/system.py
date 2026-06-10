@@ -17,6 +17,7 @@ import scheduler_service
 import settings
 import storage
 import auth
+from core.http.errors import error_detail
 from core.json_fast import jdumps as _jdumps
 from core.log_stream import _MAX_LOG_STREAMS, log_buffer, log_line, log_queues
 from routers.ollama_proxy import list_models as ollama_list_models
@@ -145,21 +146,21 @@ def restart_server(_: models.User = Depends(auth.get_current_admin)):
 async def stream_logs(request: Request, token: Optional[str] = None, db: Session = Depends(database.get_db)):
     # SSE (EventSource) can't send headers, so only accept a short-lived exchange token in the URL.
     if not token:
-        raise HTTPException(status_code=401, detail="Token required")
+        raise HTTPException(status_code=401, detail=error_detail("auth.token_required"))
     try:
         sse_payload = auth.consume_sse_exchange_token(token, db)
         if not sse_payload:
-            raise HTTPException(status_code=401, detail="Invalid token")
+            raise HTTPException(status_code=401, detail=error_detail("auth.invalid_token"))
         username = sse_payload["sub"]
         user = db.query(models.User).filter(models.User.username == username).first()
         if not user or not user.is_admin:
-            raise HTTPException(status_code=403, detail="Admin access required for logs")
+            raise HTTPException(status_code=403, detail=error_detail("common.logs_admin_required"))
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail=error_detail("auth.invalid_token"))
     if len(log_queues) >= _MAX_LOG_STREAMS:
-        raise HTTPException(status_code=429, detail="Too many log streams open")
+        raise HTTPException(status_code=429, detail=error_detail("common.too_many_log_streams"))
     q: asyncio.Queue = asyncio.Queue(maxsize=500)
     log_queues.append(q)
 

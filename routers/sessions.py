@@ -1,5 +1,4 @@
-"""
-Session management API.
+"""Session management API.
 Handles multi-session chat support with context isolation and message history.
 """
 from fastapi import APIRouter, HTTPException, Depends
@@ -9,8 +8,21 @@ import storage
 import models
 import auth
 import brain
+from core.http.errors import error_detail
 
 router = APIRouter(tags=["sessions"])
+
+
+def _require_session(session_id: str, current_user: models.User) -> dict:
+    s = storage.get_session(session_id)
+    if not s:
+        raise HTTPException(status_code=404, detail=error_detail("sessions.not_found"))
+    session_owner = s.get("user_id")
+    if session_owner is None and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail=error_detail("common.forbidden"))
+    if session_owner is not None and session_owner != current_user.id:
+        raise HTTPException(status_code=403, detail=error_detail("common.forbidden"))
+    return s
 
 
 @router.get("/api/sessions")
@@ -32,28 +44,13 @@ async def create_sess(current_user: models.User = Depends(auth.get_current_user)
 @router.get("/api/sessions/{session_id}")
 async def get_sess(session_id: str, current_user: models.User = Depends(auth.get_current_user)):
     """Get a specific session. User can only access their own sessions."""
-    s = storage.get_session(session_id)
-    if not s:
-        raise HTTPException(404, detail="Session not found")
-    session_owner = s.get("user_id")
-    if session_owner is None and not current_user.is_admin:
-        raise HTTPException(403, detail="Access denied")
-    if session_owner is not None and session_owner != current_user.id:
-        raise HTTPException(403, detail="Access denied")
-    return s
+    return _require_session(session_id, current_user)
 
 
 @router.delete("/api/sessions/{session_id}")
 async def del_sess(session_id: str, current_user: models.User = Depends(auth.get_current_user)):
     """Delete a session and its context. User can only delete their own sessions."""
-    s = storage.get_session(session_id)
-    if not s:
-        raise HTTPException(404, detail="Session not found")
-    session_owner = s.get("user_id")
-    if session_owner is None and not current_user.is_admin:
-        raise HTTPException(403, detail="Access denied")
-    if session_owner is not None and session_owner != current_user.id:
-        raise HTTPException(403, detail="Access denied")
+    s = _require_session(session_id, current_user)
     # Delete context (e.g. last HA device) for this user's session
     uid = s.get("user_id")
     if uid is not None:
@@ -72,14 +69,7 @@ async def save_message_stats(
     current_user: models.User = Depends(auth.get_current_user),
 ):
     """Save response stats on the last assistant message in a session."""
-    s = storage.get_session(session_id)
-    if not s:
-        raise HTTPException(404, detail="Session not found")
-    session_owner = s.get("user_id")
-    if session_owner is None and not current_user.is_admin:
-        raise HTTPException(403, detail="Access denied")
-    if session_owner is not None and session_owner != current_user.id:
-        raise HTTPException(403, detail="Access denied")
+    s = _require_session(session_id, current_user)
     messages = s.get("messages", [])
     # Find the last assistant message (walking backwards)
     for i in range(len(messages) - 1, -1, -1):
@@ -101,14 +91,7 @@ async def save_message_stats(
 @router.post("/api/sessions/{session_id}/clear-context")
 async def clear_session_context(session_id: str, current_user: models.User = Depends(auth.get_current_user)):
     """Clear conversation context for a session: reset messages and summary. Memories are unchanged."""
-    s = storage.get_session(session_id)
-    if not s:
-        raise HTTPException(404, detail="Session not found")
-    session_owner = s.get("user_id")
-    if session_owner is None and not current_user.is_admin:
-        raise HTTPException(403, detail="Access denied")
-    if session_owner is not None and session_owner != current_user.id:
-        raise HTTPException(403, detail="Access denied")
+    s = _require_session(session_id, current_user)
     s["messages"] = []
     s["summary"] = ""
     s["title"] = "New Chat"

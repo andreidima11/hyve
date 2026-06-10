@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 import settings as settings_mod
 from auth import get_current_user
+from core.http.errors import error_detail
 
 log = logging.getLogger("piper")
 
@@ -262,4 +263,4 @@ async def synthesize(req: SynthesizeRequest, user=Depends(get_current_user)):
         return Response(content=wav_bytes, media_type="audio/wav")
     except Exception as e:
         log.error("Piper synthesize error: %s", e)
-        raise HTTPException(status_code=502, detail=str(e))
+        raise HTTPException(status_code=502, detail=error_detail("common.error_with_message", {"message": str(e)}))

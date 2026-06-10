@@ -52,7 +52,7 @@ async def test_provider_entry(
 
     cls = get_integration_manager().get_class(slug)
     if not cls:
-        raise HTTPException(status_code=404, detail=f"Provider '{slug}' not found")
+        raise HTTPException(status_code=404, detail=error_detail("integrations.provider_not_found", {"slug": slug}))
     schema = cls.get_config_schema()
     data = dict(body.data or {})
     if body.entry_id:

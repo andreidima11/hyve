@@ -477,17 +477,21 @@ body.derived-page-open {
 
 .hyve-logo {
     --hyve-logo-size: 1.82rem;
-    --hyve-logo-light: rgba(248, 250, 252, 0.96);
+    --hyve-logo-light: rgba(248, 250, 252, 0.98);
     --hyve-logo-muted: rgba(var(--text-muted-rgb, 148, 163, 184), 0.92);
+    --hyve-logo-glow: color-mix(in srgb, var(--accent) 28%, transparent);
     display: inline-flex;
     align-items: center;
     gap: 0;
     color: var(--hyve-logo-light);
-    font-family: "SF Pro Display", "Avenir Next", "Segoe UI", system-ui, sans-serif;
-    font-weight: 780;
+    font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 800;
+    font-synthesis: none;
     line-height: 1;
-    letter-spacing: 0;
-    text-rendering: geometricPrecision;
+    letter-spacing: -0.04em;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     isolation: isolate;
     position: relative;
     filter: none;
@@ -497,34 +501,80 @@ body.derived-page-open {
     position: relative;
     display: inline-flex;
     align-items: baseline;
-    gap: 0.01em;
+    gap: 0;
     font-size: 1em;
-    letter-spacing: 0;
+    letter-spacing: inherit;
     z-index: 1;
 }
 
 .hyve-logo__wordmark::after {
-    display: none;
+    content: '';
+    position: absolute;
+    inset: -0.42em -0.55em;
+    border-radius: 999px;
+    background:
+        radial-gradient(
+            ellipse 72% 58% at 50% 52%,
+            var(--hyve-logo-glow) 0%,
+            transparent 72%
+        );
+    filter: blur(12px);
+    opacity: 0.9;
+    z-index: -1;
+    pointer-events: none;
 }
 
 .hyve-logo .hyve-me {
     color: var(--hyve-logo-light);
+    text-shadow:
+        0 0 18px color-mix(in srgb, var(--hyve-logo-light) 22%, transparent),
+        0 1px 0 color-mix(in srgb, var(--hyve-logo-light) 12%, transparent);
 }
 
 .hyve-logo .hyve-mini {
-    color: var(--accent);
+    background: var(--logo-gradient);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    filter: var(--logo-shadow);
+    padding-right: 0.02em;
 }
 
 .hyve-logo--hero {
     --hyve-logo-size: clamp(2.65rem, 9vw, 3.4rem);
     flex-direction: row;
-    font-size: clamp(2.3rem, 8vw, 3.1rem);
+    font-size: clamp(2.35rem, 8vw, 3.15rem);
+    letter-spacing: -0.045em;
+}
+
+.hyve-logo--hero .hyve-logo__wordmark::after {
+    inset: -0.5em -0.72em;
+    filter: blur(16px);
+    opacity: 1;
+}
+
+.hyve-logo--hero .hyve-me {
+    text-shadow:
+        0 0 28px color-mix(in srgb, var(--hyve-logo-light) 28%, transparent),
+        0 2px 12px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.hyve-logo--hero .hyve-mini {
+    filter: var(--logo-shadow) drop-shadow(0 0 14px color-mix(in srgb, var(--accent) 35%, transparent));
 }
 
 .hyve-logo--sidebar {
     --hyve-logo-size: 1.72rem;
     font-size: 1.42rem;
+    letter-spacing: -0.03em;
     overflow: visible;
+}
+
+.hyve-logo--sidebar .hyve-logo__wordmark::after {
+    inset: -0.32em -0.42em;
+    filter: blur(8px);
+    opacity: 0.75;
 }
 
 @media (min-width: 640px) {
@@ -535,9 +585,10 @@ body.derived-page-open {
 }
 
 .hyve-wordmark {
-    font-family: "SF Pro Display", "Avenir Next", "Segoe UI", sans-serif;
+    font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
     font-weight: 800;
-    letter-spacing: -0.07em;
+    font-synthesis: none;
+    letter-spacing: -0.04em;
     line-height: 0.92;
     color: #f8fafc;
     white-space: nowrap;

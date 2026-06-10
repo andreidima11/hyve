@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 import settings as settings_mod
 from auth import get_current_user
+from core.http.errors import error_detail
 
 router = APIRouter(prefix="/api/whisper", tags=["whisper"])
 
@@ -236,7 +237,7 @@ async def whisper_transcribe(
     log.info("Received audio: filename=%s content_type=%s size=%d bytes",
              file.filename, file.content_type, len(audio_bytes))
     if not audio_bytes:
-        raise HTTPException(status_code=400, detail="Empty audio file")
+        raise HTTPException(status_code=400, detail=error_detail("integrations.whisper_empty_audio"))
 
     # Convert to WAV if needed (browser sends webm/ogg)
     content_type = file.content_type or ""
@@ -250,12 +251,15 @@ async def whisper_transcribe(
         log.info("Final transcription: '%s'", text)
         return TranscribeResponse(text=text, language=language)
     except asyncio.TimeoutError:
-        raise HTTPException(status_code=504, detail="Whisper server timeout")
+        raise HTTPException(status_code=504, detail=error_detail("integrations.whisper_timeout"))
     except ConnectionRefusedError:
-        raise HTTPException(status_code=502, detail="Cannot connect to Whisper server")
+        raise HTTPException(status_code=502, detail=error_detail("integrations.whisper_connect_failed"))
     except Exception as e:
         log.exception("Transcription failed")
-        raise HTTPException(status_code=500, detail=f"Transcription failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=error_detail("integrations.whisper_transcription_failed", {"message": str(e)}),
+        )
 
 
 async def _convert_to_wav(audio_bytes: bytes) -> bytes:

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from core import dashboard_store
 from core.entity_refs import build_entity_map
+from core.http.errors import error_detail
 from integrations.extractors import (
     extract_fusion_solar_candidates as _extract_fusion_solar_candidates,
     extract_pago_candidates as _extract_pago_candidates,
@@ -309,12 +310,12 @@ async def import_dashboard(
     """
     payload = data.payload or {}
     if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail="Invalid payload")
+        raise HTTPException(status_code=400, detail=error_detail("dashboard.api.invalid_payload"))
     if payload.get("kind") and payload.get("kind") != "hyve.dashboard":
-        raise HTTPException(status_code=400, detail="Unsupported export kind")
+        raise HTTPException(status_code=400, detail=error_detail("dashboard.api.unsupported_export_kind"))
     incoming_pages_raw = payload.get("pages")
     if not isinstance(incoming_pages_raw, list) or not incoming_pages_raw:
-        raise HTTPException(status_code=400, detail="No pages to import")
+        raise HTTPException(status_code=400, detail=error_detail("dashboard.api.no_pages_to_import"))
 
     cfg = settings.reload_config()
     existing_store = _normalize_dashboard_store(_read_dashboard_raw())
@@ -348,7 +349,7 @@ async def import_dashboard(
         if isinstance(page, dict)
     ]
     if not normalized_pages:
-        raise HTTPException(status_code=400, detail="Import produced no valid pages")
+        raise HTTPException(status_code=400, detail=error_detail("dashboard.api.import_no_valid_pages"))
 
     if not next_current or not any(p.get("id") == next_current for p in normalized_pages):
         next_current = normalized_pages[0].get("id") or _DEFAULT_PAGE_ID
@@ -564,9 +565,9 @@ async def update_dashboard_page_yaml(
     try:
         parsed = _yaml.safe_load(data.yaml)
     except _yaml.YAMLError as exc:
-        raise HTTPException(status_code=400, detail=f"YAML invalid: {exc}") from exc
+        raise HTTPException(status_code=400, detail=error_detail("dashboard.api.yaml_invalid", {"message": str(exc)})) from exc
     if not isinstance(parsed, dict):
-        raise HTTPException(status_code=400, detail="YAML root must be a mapping.")
+        raise HTTPException(status_code=400, detail=error_detail("dashboard.api.yaml_root_must_be_mapping"))
 
     section = _dashboard_section(page_id)
     if section.get("page_id") != page_id:

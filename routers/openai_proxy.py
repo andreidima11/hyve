@@ -11,6 +11,7 @@ import settings
 import assist_keys
 import memory_context
 import brain
+from core.http.errors import error_detail
 
 router = APIRouter(prefix="/api/openai", tags=["openai"])
 
@@ -73,11 +74,11 @@ async def chat_completions(request: Request):
     try:
         body = await request.json()
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
+        raise HTTPException(status_code=400, detail=error_detail("common.invalid_json"))
 
     messages = body.get("messages")
     if not messages or not isinstance(messages, list):
-        raise HTTPException(status_code=400, detail="messages array required")
+        raise HTTPException(status_code=400, detail=error_detail("assist.messages_required"))
 
     # Resolve user from Bearer token (Assist API key) or X-Assist-Key header
     auth_hdr = request.headers.get("Authorization") or ""
@@ -90,12 +91,12 @@ async def chat_completions(request: Request):
 
     # If token provided but invalid, reject
     if user_id is None and token:
-        raise HTTPException(status_code=401, detail="Invalid assist key or token")
+        raise HTTPException(status_code=401, detail=error_detail("assist.invalid_assist_key_or_token"))
     # If no token at all, require config opt-in for unauthenticated access
     if user_id is None:
         proxy_cfg = settings.CFG.get("proxy", {})
         if not proxy_cfg.get("allow_unauthenticated", False):
-            raise HTTPException(status_code=401, detail="Authentication required. Provide Bearer token or enable proxy.allow_unauthenticated in config.")
+            raise HTTPException(status_code=401, detail=error_detail("assist.proxy_auth_required"))
 
     if user_id is not None:
         memory_text = _get_memory_context_for_messages(messages, str(user_id))
@@ -106,10 +107,7 @@ async def chat_completions(request: Request):
     llm_cfg = settings.CFG.get("llm") or {}
     target_url = (llm_cfg.get("target_url") or "").strip()
     if not target_url:
-        raise HTTPException(
-            status_code=503,
-            detail="LLM target_url not configured (Settings → LLM)",
-        )
+        raise HTTPException(status_code=503, detail=error_detail("assist.llm_not_configured"))
     # Z.AI etc: base URL .../v4 or .../v1 must become .../v4/chat/completions
     if "chat/completions" not in target_url and "chat/" not in target_url:
         base = target_url.rstrip("/")
@@ -190,11 +188,11 @@ async def chat_completions(request: Request):
         try:
             resp = await client.post(target_url, json=body, headers=llm_headers)
         except httpx.TimeoutException:
-            raise HTTPException(status_code=504, detail="LLM request timed out")
+            raise HTTPException(status_code=504, detail=error_detail("assist.llm_timeout"))
         except httpx.RequestError as e:
             raise HTTPException(
                 status_code=502,
-                detail=f"LLM request failed: {e!s}",
+                detail=error_detail("assist.llm_request_failed", {"message": str(e)}),
             )
     finally:
         if own_client:

@@ -25,6 +25,7 @@ from core.chat_helpers import (
     build_session_history,
     select_profile_for_auto,
 )
+from core.http.errors import error_detail
 from core.http.limiter import limiter
 from core.json_fast import jdumps as _jdumps
 from core.log_stream import log_conversation_reply, log_conversation_start, log_detail, log_line
@@ -126,13 +127,13 @@ async def api_extract_document(request: Request, file: UploadFile = File(...), _
     try:
         data = await file.read()
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to read file: {e}")
+        raise HTTPException(status_code=400, detail=error_detail("chat.file_read_failed", {"message": str(e)}))
     if len(data) > 10 * 1024 * 1024:  # 10 MB
-        raise HTTPException(status_code=400, detail="File too large (max 10 MB)")
+        raise HTTPException(status_code=400, detail=error_detail("chat.file_too_large"))
     try:
         text = _extract_document_text(data, file.filename or "")
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": str(e)}))
     return JSONResponse(content={"text": text})
 
 
@@ -144,7 +145,7 @@ async def api_chat(request: Request, background_tasks: BackgroundTasks, db: Sess
     try:
         body = await request.json()
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
+        raise HTTPException(status_code=400, detail=error_detail("common.invalid_json"))
     # HA Ollama/Assist sends { model, messages, stream, tools, ... }
     if isinstance(body.get("messages"), list) and body.get("model") is not None:
         user_id = await auth.resolve_assist_user_id(request, db)
@@ -160,7 +161,7 @@ async def api_chat(request: Request, background_tasks: BackgroundTasks, db: Sess
             thinking_mode=body.get("thinking_mode") or "auto",
         )
     except Exception:
-        raise HTTPException(status_code=422, detail="Invalid chat request body")
+        raise HTTPException(status_code=422, detail=error_detail("chat.invalid_request_body"))
     return await chat_web_impl(request, req, background_tasks, db)
 
 
@@ -171,14 +172,14 @@ async def chat_web_impl(request: Request, req: ChatRequest, background_tasks: Ba
         if token:
             payload = auth.decode_access_token(token, db)
             if not payload:
-                raise HTTPException(status_code=401, detail="Invalid or expired token")
+                raise HTTPException(status_code=401, detail=error_detail("chat.invalid_expired_token"))
             username = payload.get("sub")
             user_obj = db.query(models.User).filter(models.User.username == username).first()
             if not user_obj:
-                raise HTTPException(status_code=401, detail="Invalid or expired token")
+                raise HTTPException(status_code=401, detail=error_detail("chat.invalid_expired_token"))
 
         if not user_obj:
-            raise HTTPException(status_code=401, detail="Authentication required")
+            raise HTTPException(status_code=401, detail=error_detail("common.auth_required"))
 
         session_user_id = user_obj.id
         session = storage.get_session(req.session_id) if req.session_id else None

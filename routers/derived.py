@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 import auth
 import derived_entities
 import models
+from core.http.errors import error_detail
 
 log = logging.getLogger("derived")
 
@@ -88,13 +89,13 @@ class SerializeBody(BaseModel):
 
 def _parse_yaml(text: str) -> dict[str, Any]:
     if not text or not text.strip():
-        raise HTTPException(status_code=400, detail="empty YAML")
+        raise HTTPException(status_code=400, detail=error_detail("derived.yaml_empty"))
     try:
         data = yaml.safe_load(text)
     except yaml.YAMLError as e:
-        raise HTTPException(status_code=400, detail=f"invalid YAML: {e}")
+        raise HTTPException(status_code=400, detail=error_detail("derived.yaml_invalid", {"message": str(e)}))
     if not isinstance(data, dict):
-        raise HTTPException(status_code=400, detail="YAML must be a mapping")
+        raise HTTPException(status_code=400, detail=error_detail("derived.yaml_root_must_be_mapping"))
     return data
 
 
@@ -102,7 +103,7 @@ def _yaml_to_entry_kwargs(data: dict[str, Any]) -> dict[str, Any]:
     """Coerce a parsed YAML mapping into kwargs accepted by create/update."""
     formula = data.get("formula")
     if not isinstance(formula, dict):
-        raise HTTPException(status_code=400, detail="missing formula mapping")
+        raise HTTPException(status_code=400, detail=error_detail("derived.missing_formula_mapping"))
     return {
         "name": str(data.get("name") or "").strip(),
         "value_type": str(data.get("value_type") or "number"),
@@ -161,7 +162,7 @@ async def create_derived(body: CreateBody, _: models.User = Depends(auth.get_cur
             selected=body.selected,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": str(e)}))
     state_map = await _build_state_map()
     return {"status": "ok", "entity": derived_entities.evaluate_entry(entry, state_map)}
 
@@ -178,9 +179,9 @@ async def update_derived(entity_id: str, body: UpdateBody,
     try:
         updated = derived_entities.update_entry(entity_id, **updates)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": str(e)}))
     if not updated:
-        raise HTTPException(status_code=404, detail="entity not found")
+        raise HTTPException(status_code=404, detail=error_detail("derived.entity_not_found"))
     state_map = await _build_state_map()
     return {"status": "ok", "entity": derived_entities.evaluate_entry(updated, state_map)}
 
@@ -188,7 +189,7 @@ async def update_derived(entity_id: str, body: UpdateBody,
 @router.delete("/{entity_id}")
 async def delete_derived(entity_id: str, _: models.User = Depends(auth.get_current_admin)):
     if not derived_entities.delete_entry(entity_id):
-        raise HTTPException(status_code=404, detail="entity not found")
+        raise HTTPException(status_code=404, detail=error_detail("derived.entity_not_found"))
     return {"status": "ok"}
 
 
@@ -196,7 +197,7 @@ async def delete_derived(entity_id: str, _: models.User = Depends(auth.get_curre
 async def set_derived_selection(entity_id: str, body: SelectionBody,
                                 _: models.User = Depends(auth.get_current_user)):
     if not derived_entities.set_selected(entity_id, body.selected):
-        raise HTTPException(status_code=404, detail="entity not found")
+        raise HTTPException(status_code=404, detail=error_detail("derived.entity_not_found"))
     try:
         from brain.cortex.prompt_cache import invalidate_prompt_cache
         invalidate_prompt_cache()
@@ -209,7 +210,7 @@ async def set_derived_selection(entity_id: str, body: SelectionBody,
 async def set_derived_aliases(entity_id: str, body: AliasBody,
                               _: models.User = Depends(auth.get_current_user)):
     if not derived_entities.set_aliases(entity_id, body.aliases):
-        raise HTTPException(status_code=404, detail="entity not found")
+        raise HTTPException(status_code=404, detail=error_detail("derived.entity_not_found"))
     return {"status": "ok"}
 
 
@@ -219,7 +220,7 @@ async def preview_derived(body: PreviewBody, _: models.User = Depends(auth.get_c
     try:
         formula = derived_entities._validate_formula(body.formula.as_dict())
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": str(e)}))
     state_map = await _build_state_map()
     fake_entry = {
         "entity_id": "derived.__preview__",
@@ -271,12 +272,12 @@ async def yaml_save(body: YamlBody, _: models.User = Depends(auth.get_current_ad
         if body.entity_id:
             updated = derived_entities.update_entry(body.entity_id, **kwargs)
             if not updated:
-                raise HTTPException(status_code=404, detail="entity not found")
+                raise HTTPException(status_code=404, detail=error_detail("derived.entity_not_found"))
             entry = updated
         else:
             entry = derived_entities.create_entry(**kwargs)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": str(e)}))
     state_map = await _build_state_map()
     return {"status": "ok", "entity": derived_entities.evaluate_entry(entry, state_map)}
 

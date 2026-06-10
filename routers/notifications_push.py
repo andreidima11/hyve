@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 import auth
 import database
 import models
+from core.http.errors import error_detail
 import push_fcm
 
 
@@ -53,9 +54,9 @@ async def register_push_device(body: PushRegisterBody, current_user: models.User
     token = body.token.strip()
     installation_id = body.installation_id.strip()
     if not token:
-        raise HTTPException(status_code=400, detail="token is required")
+        raise HTTPException(status_code=400, detail=error_detail("notifications.push_token_required"))
     if not installation_id:
-        raise HTTPException(status_code=400, detail="installation_id is required")
+        raise HTTPException(status_code=400, detail=error_detail("notifications.push_installation_id_required"))
 
     existing = db.query(models.PushDevice).filter(models.PushDevice.push_token == token).first()
     if existing is None:
@@ -91,7 +92,7 @@ async def register_push_device(body: PushRegisterBody, current_user: models.User
 async def unregister_push_device(body: PushUnregisterBody, current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(database.get_db)):
     installation_id = body.installation_id.strip()
     if not installation_id:
-        raise HTTPException(status_code=400, detail="installation_id is required")
+        raise HTTPException(status_code=400, detail=error_detail("notifications.push_installation_id_required"))
     updated = db.query(models.PushDevice).filter(
         models.PushDevice.user_id == current_user.id,
         models.PushDevice.installation_id == installation_id,

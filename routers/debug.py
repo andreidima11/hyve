@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 import models
 from auth import get_current_user
+from core.http.errors import error_detail
 from core.loop_watchdog import dump_all_stacks
 
 router = APIRouter(prefix="/api/debug", tags=["debug"])
@@ -22,7 +23,7 @@ router = APIRouter(prefix="/api/debug", tags=["debug"])
 
 def _require_admin(user: models.User) -> None:
     if not getattr(user, "is_admin", False):
-        raise HTTPException(status_code=403, detail="Admin only")
+        raise HTTPException(status_code=403, detail=error_detail("common.admin_required"))
 
 
 @router.get("/stacks")

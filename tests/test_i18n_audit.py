@@ -8,13 +8,22 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ADDON_ROUTER = ROOT / "routers" / "addons.py"
+MIGRATED_ROUTERS = sorted((ROOT / "routers").rglob("*.py"))
 ADDON_PKG = ROOT / "addons"
 DIACRITICS = re.compile(r"[ăâîșțĂÂÎȘȚ]")
 HTTPExc_STR = re.compile(
     r'HTTPException\s*\([^)]*detail\s*=\s*(["\'])(?:(?!\1).)+\1',
     re.DOTALL,
 )
+
+
+def _assert_structured_errors(path: Path) -> None:
+    text = path.read_text(encoding="utf-8")
+    for match in HTTPExc_STR.finditer(text):
+        snippet = match.group(0)
+        assert '{"key"' in snippet or "error_detail(" in snippet, (
+            f"{path.name}: unstructured HTTPException detail: {snippet[:120]}"
+        )
 
 
 def test_frontend_i18n_keys_complete():
@@ -27,12 +36,9 @@ def test_frontend_i18n_keys_complete():
     assert proc.returncode == 0, proc.stdout + proc.stderr
 
 
-def test_addons_router_uses_structured_api_errors():
-    text = ADDON_ROUTER.read_text(encoding="utf-8")
-    assert not DIACRITICS.search(text), "Romanian diacritics in routers/addons.py"
-    for match in HTTPExc_STR.finditer(text):
-        snippet = match.group(0)
-        assert '{"key"' in snippet or "error_detail(" in snippet, snippet[:120]
+def test_migrated_routers_use_structured_api_errors():
+    for router_path in MIGRATED_ROUTERS:
+        _assert_structured_errors(router_path)
 
 
 def test_addons_preflight_has_no_romanian_diacritics():

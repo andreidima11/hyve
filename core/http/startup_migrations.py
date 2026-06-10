@@ -9,6 +9,7 @@ import sys
 import automation_definitions
 import database
 import models
+from sqlalchemy import text
 from core.log_stream import log_line
 
 
@@ -63,6 +64,26 @@ def run_startup_migrations() -> None:
             )
     except Exception as e:
         log_line("error", "⚠️", "ADDONS", f"Add-on state migration failed: {e}")
+        raise
+
+    try:
+        from addons.registry import reconcile_addon_state
+
+        with database.engine.connect() as conn:
+            has_addon_state = conn.execute(
+                text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='addon_state'")
+            ).fetchone()
+        if has_addon_state:
+            repaired = reconcile_addon_state()
+            if repaired:
+                log_line(
+                    "success",
+                    "📦",
+                    "ADDONS",
+                    f"Reconciled {repaired} add-on state(s) from integration config / disk",
+                )
+    except Exception as e:
+        log_line("error", "⚠️", "ADDONS", f"Add-on state reconcile failed: {e}")
         raise
 
     try:

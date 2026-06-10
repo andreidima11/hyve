@@ -17,6 +17,7 @@ import brain
 import database
 import models
 import settings
+from core.http.errors import error_detail
 from core.http.limiter import limiter
 from core.log_stream import log_conversation_reply, log_conversation_start, log_line
 from core.media_utils import (
@@ -42,13 +43,13 @@ async def waha_hook(request: Request, background_tasks: BackgroundTasks, db: Ses
     waha_secret = os.environ.get("WAHA_WEBHOOK_SECRET", "").strip()
     if not waha_secret:
         log_line("error", "🔒", "WAHA_HMAC", "WAHA webhook rejected: WAHA_WEBHOOK_SECRET is missing")
-        raise HTTPException(status_code=503, detail="WAHA webhook secret is not configured")
+        raise HTTPException(status_code=503, detail=error_detail("webhook.waha_secret_not_configured"))
     sig_header = request.headers.get("x-webhook-hmac-sha256") or request.headers.get("x-hub-signature-256") or ""
     body_bytes = await request.body()
     expected = hmac.new(waha_secret.encode(), body_bytes, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(sig_header.replace("sha256=", ""), expected):
         log_line("error", "🔒", "WAHA_HMAC", "Invalid webhook signature")
-        raise HTTPException(status_code=403, detail="Invalid signature")
+        raise HTTPException(status_code=403, detail=error_detail("webhook.invalid_signature"))
     try:
         data = await request.json()
         payload = data.get("payload", {})

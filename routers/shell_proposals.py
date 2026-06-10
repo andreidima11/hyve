@@ -8,6 +8,7 @@ from pydantic import BaseModel
 import traceback
 import models
 import auth
+from core.http.errors import error_detail
 
 router = APIRouter(tags=["shell"])
 
@@ -56,7 +57,7 @@ async def api_shell_run(
         allow_shell_for_user(user_id)
         command = (data.command or "").strip()
         if not command:
-            raise HTTPException(status_code=400, detail="command required")
+            raise HTTPException(status_code=400, detail=error_detail("shell.command_required"))
         result = await brain_toolbox.execute_tool("run_shell", {"command": command}, user_id)
         return {"status": "ok", "result": result}
     except HTTPException:
@@ -72,14 +73,14 @@ async def api_proposal_apply(
 ):
     """Apply an AI-proposed patch or new file (from propose_patch / propose_file card)."""
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Only admin can apply proposals")
+        raise HTTPException(status_code=403, detail=error_detail("shell.admin_only_proposals"))
     try:
         from brain.tool_workspace import apply_proposal
 
         ok, msg = apply_proposal(proposal)
         if ok:
             return {"status": "ok", "message": msg}
-        raise HTTPException(status_code=400, detail=msg)
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": msg}))
     except HTTPException:
         raise
     except Exception as e:

@@ -5,6 +5,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from core.http.errors import error_detail
 from addons.entity_store import get_entity_store
 from core.entity_catalog import (
     build_entities_uncached,
@@ -209,7 +210,7 @@ def provider_meta(slug: str) -> dict[str, Any]:
 
     cls = get_integration_manager().get_class(slug)
     if not cls:
-        raise HTTPException(status_code=404, detail=f"Provider '{slug}' not found")
+        raise HTTPException(status_code=404, detail=error_detail("integrations.provider_not_found", {"slug": slug}))
     return {
         "slug": slug,
         "label": getattr(cls, "label", slug),

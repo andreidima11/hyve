@@ -13,6 +13,7 @@ import auth
 import database
 import models
 import settings
+from core.http.errors import error_detail
 import scheduler_service
 from llm_client import get_llm_client
 
@@ -156,7 +157,7 @@ def _require_owned_list(db: Session, list_id: int, user_id: int) -> models.TodoL
         models.TodoList.user_id == user_id,
     ).first()
     if not row:
-        raise HTTPException(status_code=404, detail="List not found")
+        raise HTTPException(status_code=404, detail=error_detail("planner.list_not_found"))
     return row
 
 
@@ -167,7 +168,7 @@ def _require_owned_entry(db: Session, entry_id: int, user_id: int) -> models.Ent
         models.Entry.user_id == user_id,
     ).first()
     if not row:
-        raise HTTPException(status_code=404, detail="Entry not found")
+        raise HTTPException(status_code=404, detail=error_detail("planner.entry_not_found"))
     return row
 
 
@@ -552,12 +553,12 @@ def list_entries(
 
     if entry_type:
         if entry_type not in _ALLOWED_ENTRY_TYPES:
-            raise HTTPException(status_code=422, detail="Invalid entry_type")
+            raise HTTPException(status_code=422, detail=error_detail("planner.invalid_entry_type"))
         query = query.filter(models.Entry.entry_type == entry_type)
 
     if task_status:
         if task_status not in _ALLOWED_TASK_STATUS:
-            raise HTTPException(status_code=422, detail="Invalid task_status")
+            raise HTTPException(status_code=422, detail=error_detail("planner.invalid_task_status"))
         query = query.filter(models.Entry.task_status == task_status)
 
     if due_before is not None:
@@ -639,7 +640,7 @@ def create_entry(
         body.due_at = body.due_at.replace(tzinfo=None)
 
     if body.end_at and body.start_at and body.end_at < body.start_at:
-        raise HTTPException(status_code=400, detail="end_at must be after start_at")
+        raise HTTPException(status_code=400, detail=error_detail("planner.end_before_start"))
 
     task_status = body.task_status
     if body.entry_type == "task" and task_status is None:
@@ -698,7 +699,7 @@ def update_entry(
         row.content = body.content.strip() or None
     if body.status is not None:
         if body.status not in _ALLOWED_STATUS:
-            raise HTTPException(status_code=422, detail="Invalid status")
+            raise HTTPException(status_code=422, detail=error_detail("planner.invalid_status"))
         row.status = body.status
 
     if row.entry_type == "task":
@@ -719,7 +720,7 @@ def update_entry(
             _end = row.end_at.replace(tzinfo=None) if hasattr(row.end_at, 'tzinfo') and row.end_at.tzinfo else row.end_at
             _start = row.start_at.replace(tzinfo=None) if hasattr(row.start_at, 'tzinfo') and row.start_at.tzinfo else row.start_at
             if _end < _start:
-                raise HTTPException(status_code=400, detail="end_at must be after start_at")
+                raise HTTPException(status_code=400, detail=error_detail("planner.end_before_start"))
         if body.all_day is not None:
             row.all_day = body.all_day
         if body.location is not None:
@@ -984,7 +985,7 @@ async def ai_suggest_entries(
         client = await get_llm_client()
         resp = await client.post(llm_url, json=payload, timeout=timeout, headers=_llm_headers(llm_api_key))
         if resp.status_code >= 300:
-            raise HTTPException(status_code=resp.status_code, detail="LLM unavailable")
+            raise HTTPException(status_code=resp.status_code, detail=error_detail("planner.llm_unavailable"))
         data = resp.json() or {}
         text = (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
         if not text:

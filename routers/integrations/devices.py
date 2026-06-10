@@ -6,6 +6,7 @@ from typing import Any
 import auth
 import database
 import models
+from core.http.errors import error_detail
 from fastapi import Depends, Header, HTTPException, Query, status
 from fastapi.responses import Response
 
@@ -57,10 +58,10 @@ async def z2m_device_image(
 
     slug = (model or "").strip()
     if not slug:
-        raise HTTPException(status_code=400, detail="model is required")
+        raise HTTPException(status_code=400, detail=error_detail("integrations.model_required"))
     item = await fetch_device_image_bytes(slug)
     if not item:
-        raise HTTPException(status_code=404, detail="image not found")
+        raise HTTPException(status_code=404, detail=error_detail("integrations.image_not_found"))
     body, content_type = item
     return Response(
         content=body,
@@ -75,7 +76,7 @@ async def list_device_registry(slug: str, user: models.User = Depends(auth.get_c
 
     slug = (slug or "").strip()
     if not slug:
-        raise HTTPException(status_code=400, detail="slug is required")
+        raise HTTPException(status_code=400, detail=error_detail("integrations.slug_required"))
     return {
         "slug": slug,
         "devices": device_registry.all_entries(source=slug),
@@ -94,7 +95,7 @@ async def list_integration_devices(slug: str, user: models.User = Depends(auth.g
 
     slug = (slug or "").strip()
     if not slug:
-        raise HTTPException(status_code=400, detail="slug is required")
+        raise HTTPException(status_code=400, detail=error_detail("integrations.slug_required"))
 
     entities = [e for e in await helpers.all_entities() if entity_matches_integration(str(e.get("source") or ""), slug)]
     applied: set[str] = set()
@@ -137,14 +138,14 @@ async def control_integration_entity(
             slug_hint=slug,
         )
     except ControlTargetNotFound:
-        raise HTTPException(status_code=404, detail=f"Integration '{slug}' not found")
+        raise HTTPException(status_code=404, detail=error_detail("integrations.integration_not_found", {"slug": slug}))
     except NotImplementedError as exc:
-        raise HTTPException(status_code=501, detail=str(exc))
+        raise HTTPException(status_code=501, detail=error_detail("common.error_with_message", {"message": str(exc)}))
     except (ValueError, KeyError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": str(exc)}))
     except Exception as exc:
         log.exception("Control failed for %s/%s", slug, body.entity_id)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=error_detail("common.error_with_message", {"message": str(exc)}))
 
     return {"status": "ok", "result": result}
 
@@ -169,6 +170,6 @@ async def rename_integration_device(
             ),
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": str(exc)}))
     except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=error_detail("common.error_with_message", {"message": str(exc)}))

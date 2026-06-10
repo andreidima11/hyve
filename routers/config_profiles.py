@@ -7,6 +7,7 @@ import models
 import scheduler_service
 import settings
 from core.auto_router_stats import get_auto_router_stats
+from core.http.errors import error_detail
 
 router = APIRouter()
 
@@ -164,7 +165,7 @@ async def list_model_profiles(current_user: models.User = Depends(auth.get_curre
 @router.post("/api/model-profiles")
 async def save_model_profile(data: dict, current_user: models.User = Depends(auth.get_current_user)):
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin only")
+        raise HTTPException(status_code=403, detail=error_detail("common.admin_required"))
     import uuid as _uuid
     profile_id = (data.get("id") or "").strip() or str(_uuid.uuid4())[:8]
     profile = {
@@ -249,7 +250,7 @@ async def save_model_profile(data: dict, current_user: models.User = Depends(aut
 @router.delete("/api/model-profiles/{profile_id}")
 async def delete_model_profile(profile_id: str, current_user: models.User = Depends(auth.get_current_user)):
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin only")
+        raise HTTPException(status_code=403, detail=error_detail("common.admin_required"))
     profiles = [p for p in (settings.CFG.get("model_profiles") or []) if p.get("id") != profile_id]
     update = {"model_profiles": profiles}
     if settings.CFG.get("active_profile_id") == profile_id:
@@ -262,7 +263,7 @@ async def delete_model_profile(profile_id: str, current_user: models.User = Depe
 @router.patch("/api/model-profiles/{profile_id}")
 async def patch_model_profile(profile_id: str, body: dict, current_user: models.User = Depends(auth.get_current_user)):
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin only")
+        raise HTTPException(status_code=403, detail=error_detail("common.admin_required"))
     if "visible_in_selector" not in body:
         return {"status": "ok"}
     profiles = list(settings.CFG.get("model_profiles") or [])
@@ -271,7 +272,7 @@ async def patch_model_profile(profile_id: str, body: dict, current_user: models.
             p["visible_in_selector"] = bool(body["visible_in_selector"])
             break
     else:
-        raise HTTPException(status_code=404, detail="Profile not found")
+        raise HTTPException(status_code=404, detail=error_detail("config.profile_not_found"))
     settings.save_config({"model_profiles": profiles})
     settings.reload_config()
     return {"status": "ok"}
@@ -280,10 +281,10 @@ async def patch_model_profile(profile_id: str, body: dict, current_user: models.
 @router.post("/api/model-profiles/reorder")
 async def reorder_model_profiles(body: dict, current_user: models.User = Depends(auth.get_current_user)):
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin only")
+        raise HTTPException(status_code=403, detail=error_detail("common.admin_required"))
     order = body.get("order")
     if not isinstance(order, list) or not order:
-        raise HTTPException(status_code=400, detail="order must be a non-empty list of profile ids")
+        raise HTTPException(status_code=400, detail=error_detail("config.profile_order_invalid"))
     profiles = list(settings.CFG.get("model_profiles") or [])
     by_id = {p.get("id"): p for p in profiles if p.get("id")}
     ordered = []
@@ -306,7 +307,7 @@ async def activate_model_profile(profile_id: str, current_user: models.User = De
     profiles = settings.CFG.get("model_profiles") or []
     profile = next((p for p in profiles if p.get("id") == profile_id), None)
     if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
+        raise HTTPException(status_code=404, detail=error_detail("config.profile_not_found"))
 
     current_user.default_profile_id = profile_id
     db.commit()

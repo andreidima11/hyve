@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 import auth
 import database
+from core.http.errors import error_detail
 
 log = logging.getLogger("dashboard")
 
@@ -198,12 +199,12 @@ async def toggle_dashboard_widget(
                 slug_hint=slug_hint,
             )
         except NotImplementedError as exc:
-            raise HTTPException(status_code=501, detail=str(exc))
+            raise HTTPException(status_code=501, detail=error_detail("common.error_with_message", {"message": str(exc)}))
         except (ValueError, TypeError) as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
+            raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": str(exc)}))
         except Exception as exc:
             log.error("Widget toggle via integration failed for %s: %s", entity_id, exc)
-            raise HTTPException(status_code=500, detail=str(exc))
+            raise HTTPException(status_code=500, detail=error_detail("common.error_with_message", {"message": str(exc)}))
         return {"status": "ok", "action": action, "desired_state": desired, "result": result}
 
     if _widget_renderer(widget) == "scene" or entity_id.startswith("scene."):

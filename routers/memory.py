@@ -10,6 +10,7 @@ import models
 import auth
 
 import brain
+from core.http.errors import error_detail
 from core.log_stream import log_line
 
 router = APIRouter(prefix="/api/memory", tags=["memory"])
@@ -63,7 +64,7 @@ async def update_mem(mem_id: str, data: MemoryUpdate, current_user: models.User 
         coll = storage.get_collection()
         existing = coll.get(ids=[mem_id], where={"user_id": f"user_{current_user.id}"})
         if not existing or not existing["ids"]:
-            raise HTTPException(status_code=404, detail="Memory not found")
+            raise HTTPException(status_code=404, detail=error_detail("memory.not_found"))
         coll.update(ids=[mem_id], documents=[data.text])
         log_line("mem", "✏️", "EDIT", f"Memory updated: {mem_id}")
         try:

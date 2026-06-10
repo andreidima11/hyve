@@ -6,6 +6,7 @@ import area_resolver
 import database
 import models
 from auth import get_current_user
+from core.http.errors import error_detail
 from addons.entity_store import get_entity_store
 from fastapi import Depends, HTTPException, Query
 from sqlalchemy import text
@@ -196,7 +197,7 @@ async def get_integration_entities(
         payloads.append(out)
 
     if not payloads:
-        raise HTTPException(status_code=404, detail=f"No entities found for integration '{slug}'")
+        raise HTTPException(status_code=404, detail=error_detail("integrations.no_entities_for_integration", {"slug": slug}))
     if len(payloads) == 1:
         return payloads[0]
     return {"slug": slug, "entries": payloads}
@@ -220,9 +221,9 @@ async def patch_entity_registry(
 
     uid = (unique_id or "").strip()
     if not uid:
-        raise HTTPException(status_code=400, detail="unique_id is required")
+        raise HTTPException(status_code=400, detail=error_detail("integrations.unique_id_required"))
     if body.entity_id is None and body.name is None and body.disabled is None:
-        raise HTTPException(status_code=400, detail="no fields to update")
+        raise HTTPException(status_code=400, detail=error_detail("integrations.no_fields_to_update"))
 
     try:
         entry = entity_registry.update_entry(
@@ -232,9 +233,9 @@ async def patch_entity_registry(
             disabled=body.disabled,
         )
     except KeyError:
-        raise HTTPException(status_code=404, detail="registry entry not found")
+        raise HTTPException(status_code=404, detail=error_detail("integrations.registry_entry_not_found"))
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": str(exc)}))
 
     entity_registry.reload()
     helpers.invalidate_all_entities_cache()
@@ -248,7 +249,7 @@ async def update_entity_selection(
 ):
     eid = (body.entity_id or "").strip()
     if not eid:
-        raise HTTPException(status_code=400, detail="entity_id is required")
+        raise HTTPException(status_code=400, detail=error_detail("integrations.entity_id_required"))
 
     uid = (body.unique_id or "").strip()
     storage_id = uid or eid
@@ -289,14 +290,14 @@ async def list_integration_entities(user: models.User = Depends(get_current_user
 async def rename_entity(body: dict, user: models.User = Depends(get_current_user)):
     entity_id = (body.get("entity_id") or "").strip()
     if not entity_id:
-        raise HTTPException(status_code=400, detail="entity_id is required")
+        raise HTTPException(status_code=400, detail=error_detail("integrations.entity_id_required"))
     custom_name = body.get("custom_name")
     aliases = body.get("aliases")
     if custom_name is not None:
         custom_name = str(custom_name).strip()
     if aliases is not None:
         if not isinstance(aliases, list):
-            raise HTTPException(status_code=400, detail="aliases must be a list")
+            raise HTTPException(status_code=400, detail=error_detail("integrations.aliases_must_be_list"))
         aliases = [str(a).strip() for a in aliases if str(a).strip()]
     store = get_entity_store()
     store.set_override(entity_id, custom_name=custom_name, aliases=aliases)
