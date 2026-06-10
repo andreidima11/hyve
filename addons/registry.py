@@ -27,6 +27,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from addons import integration_sync
 from addons import state_store
 
 log = logging.getLogger("addons")
@@ -908,6 +909,7 @@ def _finalize_install(slug: str, manifest: dict) -> dict:
         "watchdog": False,
     }
     _save_addon_state(slug, state)
+    integration_sync.sync_from_addon_state(slug, state)
     log.info("Addon %s installed successfully", slug)
     return state
 
@@ -916,6 +918,7 @@ def uninstall_addon(slug: str) -> dict:
     """Uninstall an addon. Returns updated state."""
     state = {"installed": False, "enabled": False, "version": None, "config": {}, "watchdog": False}
     _save_addon_state(slug, state)
+    integration_sync.sync_enabled(slug, False)
     log.info("Addon %s uninstalled", slug)
     return state
 
@@ -941,6 +944,7 @@ def update_addon_config(slug: str, config: dict) -> dict:
     state.setdefault("config", {})
     state["config"].update(config)
     _save_addon_state(slug, state)
+    integration_sync.sync_config_fields(slug, config)
     return state
 
 
@@ -951,6 +955,7 @@ def set_addon_enabled(slug: str, enabled: bool) -> dict:
         raise ValueError(f"Addon {slug} is not installed")
     state["enabled"] = enabled
     _save_addon_state(slug, state)
+    integration_sync.sync_enabled(slug, enabled)
     return state
 
 

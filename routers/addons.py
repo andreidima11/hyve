@@ -48,17 +48,6 @@ async def _authenticate_ingress_admin(request, slug: str) -> models.User:
         db.close()
 
 
-def _sync_integration_enabled(slug: str, enabled: bool):
-    """Sync addon enabled state to the top-level integration config."""
-    manifest = registry.get_manifest(slug)
-    integration_key = (manifest or {}).get("integration_key", slug)
-    if integration_key:
-        from settings import save_config, _load_config_raw
-        current = dict(_load_config_raw().get(integration_key) or {})
-        current["enabled"] = enabled
-        save_config({integration_key: current})
-
-
 @router.get("")
 async def list_addons(user: models.User = Depends(auth.get_current_user)):
     """List all available addons with their install state."""
@@ -179,7 +168,6 @@ async def enable_addon(slug: str, user: models.User = Depends(_require_admin)):
     """Enable an installed addon."""
     try:
         state = registry.set_addon_enabled(slug, True)
-        _sync_integration_enabled(slug, True)
         return {"slug": slug, "state": state}
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -190,7 +178,6 @@ async def disable_addon(slug: str, user: models.User = Depends(_require_admin)):
     """Disable an addon."""
     try:
         state = registry.set_addon_enabled(slug, False)
-        _sync_integration_enabled(slug, False)
         return {"slug": slug, "state": state}
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -220,15 +207,6 @@ async def update_config(slug: str, request: Request, user: models.User = Depends
         raise HTTPException(400, "Invalid JSON")
     try:
         state = registry.update_addon_config(slug, body)
-        # Sync addon config to top-level section so clients (TTS/STT/etc.) pick it up.
-        # Uses integration_key from the manifest (defaults to the slug itself).
-        manifest = registry.get_manifest(slug)
-        integration_key = (manifest or {}).get("integration_key", slug)
-        if integration_key:
-            from settings import save_config, _load_config_raw
-            current = dict(_load_config_raw().get(integration_key) or {})
-            current.update(body)
-            save_config({integration_key: current})
         return {"slug": slug, "state": state}
     except ValueError as e:
         raise HTTPException(400, str(e))
