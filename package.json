@@ -6,9 +6,9 @@
     "scripts": {
         "css:build": "tailwindcss -i static/css/tailwind.input.css -o static/css/tailwind.built.css --minify",
         "css:watch": "tailwindcss -i static/css/tailwind.input.css -o static/css/tailwind.built.css --watch",
-        "js:build": "tsc -p tsconfig.build.json",
+        "js:build": "tsc -p tsconfig.build.json && tsc -p tsconfig.hyveview.build.json",
         "js:watch": "tsc -p tsconfig.build.json --watch",
-        "js:check": "tsc --noEmit"
+        "js:check": "tsc --noEmit && tsc -p tsconfig.hyveview.json --noEmit"
     },
     "keywords": [],
     "author": "",

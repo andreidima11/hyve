@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.hyveview.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "allowJs": false,
+    "strict": true,
+    "rootDir": "./static",
+    "outDir": "./static",
+    "paths": {
+      "@hyve/*": ["static/js/*"],
+      "../../js/icon_utils.js": ["static/js/icon_utils.d.ts"],
+      "../../js/icon_picker.js": ["static/js/icon_picker.d.ts"],
+      "../../js/lang/index.js": ["static/js/lang/index.d.ts"],
+      "../../js/camera_live.js": ["static/js/camera_live.d.ts"],
+      "../../js/camera_auth.js": ["static/js/camera_auth.d.ts"],
+      "../../js/camera_loader.js": ["static/js/camera_loader.d.ts"],
+      "../../js/api.js": ["static/js/api.ts"]
+    }
+  },
+  "include": [
+    "static/hyveview/**/*.ts",
+    "static/hyveview/types/**/*.d.ts",
+    "static/js/types/global.d.ts"
+  ]
+}

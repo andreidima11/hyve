@@ -1,0 +1,32 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": false,
+    "baseUrl": ".",
+    "paths": {
+      "@hyve/*": ["static/js/*"],
+      "/static/hyveview/bridge.js": ["static/hyveview/bridge.ts"],
+      "/static/hyveview/host.js": ["static/hyveview/host.ts"],
+      "/static/hyveview/cards/loader.js": ["static/hyveview/cards/loader.ts"],
+      "/static/hyveview/cards/fusion_solar/card.js": ["static/hyveview/cards/fusion_solar/card.ts"],
+      "/static/hyveview/editor/modal.js": ["static/hyveview/editor/modal.ts"],
+      "/static/hyveview/elements/camera_stream.js": ["static/hyveview/elements/camera_stream.ts"],
+      "/static/hyveview/elements/camera_carousel.js": ["static/hyveview/elements/camera_carousel.ts"],
+      "/static/hyveview/core/store.js": ["static/hyveview/core/store.ts"],
+      "@hyve/icon_utils.js": ["static/js/icon_utils.ts"],
+      "@hyve/icon_picker.js": ["static/js/icon_picker.ts"],
+      "@hyve/lang/index.js": ["static/js/lang/index.d.ts"],
+      "../../js/camera_live.js": ["static/js/camera_live.d.ts"],
+      "../../js/camera_auth.js": ["static/js/camera_auth.d.ts"],
+      "../../js/camera_loader.js": ["static/js/camera_loader.d.ts"],
+      "../../js/api.js": ["static/js/api.ts"]
+    }
+  },
+  "include": [
+    "static/hyveview/**/*.ts",
+    "static/hyveview/types/**/*.d.ts",
+    "static/js/lang/index.d.ts",
+    "static/js/types/global.d.ts"
+  ],
+  "exclude": ["node_modules"]
+}

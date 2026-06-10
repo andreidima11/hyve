@@ -16,14 +16,14 @@
     "baseUrl": ".",
     "paths": {
       "@hyve/*": ["static/js/*"],
-      "/static/hyveview/bridge.js": ["static/hyveview/bridge.d.ts"],
-      "/static/hyveview/host.js": ["static/hyveview/host.d.ts"],
-      "/static/hyveview/cards/loader.js": ["static/hyveview/cards/loader.d.ts"],
-      "/static/hyveview/editor/modal.js": ["static/hyveview/editor/modal.d.ts"],
-      "/static/hyveview/elements/camera_stream.js": ["static/hyveview/elements/camera_stream.d.ts"],
-      "/static/hyveview/elements/camera_carousel.js": ["static/hyveview/elements/camera_carousel.d.ts"],
-      "/static/hyveview/cards/fusion_solar/card.js": ["static/hyveview/cards/fusion_solar/card.d.ts"],
-      "/static/hyveview/core/store.js": ["static/hyveview/core/store.d.ts"]
+      "/static/hyveview/bridge.js": ["static/hyveview/bridge.ts"],
+      "/static/hyveview/host.js": ["static/hyveview/host.ts"],
+      "/static/hyveview/cards/loader.js": ["static/hyveview/cards/loader.ts"],
+      "/static/hyveview/editor/modal.js": ["static/hyveview/editor/modal.ts"],
+      "/static/hyveview/elements/camera_stream.js": ["static/hyveview/elements/camera_stream.ts"],
+      "/static/hyveview/elements/camera_carousel.js": ["static/hyveview/elements/camera_carousel.ts"],
+      "/static/hyveview/cards/fusion_solar/card.js": ["static/hyveview/cards/fusion_solar/card.ts"],
+      "/static/hyveview/core/store.js": ["static/hyveview/core/store.ts"]
     }
   },
   "include": ["static/js/**/*.ts", "static/js/**/*.js", "static/js/types/**/*.d.ts"],

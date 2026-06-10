@@ -1,1 +1,3 @@
-export function openEditor(options: Record<string, unknown>): Promise<unknown>;
+import type { HyveviewEditorOpenOptions, HyveviewEditorResult } from '../types/editor.js';
+
+export function openEditor(options?: HyveviewEditorOpenOptions): Promise<HyveviewEditorResult>;

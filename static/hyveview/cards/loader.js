@@ -1,8 +1,6 @@
 /**
- * Load bundled Hyveview card packages (one folder per card) and optional
- * community drop-ins from custom_components/cards/.
+ * Load bundled Hyveview card packages and optional community drop-ins.
  */
-
 import { register as registerLabel } from './label/index.js';
 import { register as registerSensor } from './sensor/index.js';
 import { register as registerTile } from './tile/index.js';
@@ -18,73 +16,69 @@ import { register as registerVacuum } from './vacuum/index.js';
 import { register as registerFusionSolar } from './fusion_solar/index.js';
 import { apiCall } from '../../js/api.js';
 import { ensureCardStylesheet } from '../core/card-styles.js';
-
 const SHARED_SHELL = '/static/hyveview/cards/shared/shell.css';
-
 const _BUNDLED = [
-  registerLabel,
-  registerSensor,
-  registerTile,
-  registerLight,
-  registerGauge,
-  registerLock,
-  registerWeather,
-  registerWeatherRich,
-  registerClimate,
-  registerCamera,
-  registerPicture,
-  registerVacuum,
-  registerFusionSolar,
+    registerLabel,
+    registerSensor,
+    registerTile,
+    registerLight,
+    registerGauge,
+    registerLock,
+    registerWeather,
+    registerWeatherRich,
+    registerClimate,
+    registerCamera,
+    registerPicture,
+    registerVacuum,
+    registerFusionSolar,
 ];
-
 let _bundledLoaded = false;
 let _customPromise = null;
-
-/** Register all bundled card packages (sync — safe before first dashboard render). */
 export function loadBundledCardPackages() {
-  if (_bundledLoaded) return;
-  _bundledLoaded = true;
-  ensureCardStylesheet(SHARED_SHELL);
-  _BUNDLED.forEach((fn) => fn());
+    if (_bundledLoaded)
+        return;
+    _bundledLoaded = true;
+    ensureCardStylesheet(SHARED_SHELL);
+    _BUNDLED.forEach((fn) => fn());
 }
-
-/**
- * Fetch and register community card packages. Non-fatal if the API is unavailable.
- * @returns {Promise<void>}
- */
 export async function loadCustomCardPackages() {
-  if (_customPromise) return _customPromise;
-  _customPromise = (async () => {
-    let res;
-    try {
-      res = await apiCall('/api/dashboard/card-packages');
-    } catch (_) {
-      return;
-    }
-    if (!res?.ok) return;
-    let data;
-    try {
-      data = await res.json();
-    } catch (_) {
-      return;
-    }
-    const packages = Array.isArray(data?.custom) ? data.custom : [];
-    for (const pkg of packages) {
-      const entry = String(pkg?.entry || '').trim();
-      if (!entry) continue;
-      try {
-        const mod = await import(entry);
-        if (typeof mod.register === 'function') mod.register();
-      } catch (err) {
-        console.warn('[hyveview] custom card load failed:', pkg?.id || entry, err);
-      }
-    }
-  })();
-  return _customPromise;
+    if (_customPromise)
+        return _customPromise;
+    _customPromise = (async () => {
+        let res;
+        try {
+            res = await apiCall('/api/dashboard/card-packages');
+        }
+        catch {
+            return;
+        }
+        if (!res?.ok)
+            return;
+        let data;
+        try {
+            data = await res.json();
+        }
+        catch {
+            return;
+        }
+        const packages = Array.isArray(data?.custom) ? data.custom : [];
+        for (const pkg of packages) {
+            const entry = String(pkg?.entry || '').trim();
+            if (!entry)
+                continue;
+            try {
+                const mod = await import(entry);
+                if (typeof mod.register === 'function')
+                    mod.register();
+            }
+            catch (err) {
+                console.warn('[hyveview] custom card load failed:', pkg?.id || entry, err);
+            }
+        }
+    })();
+    return _customPromise;
 }
-
-/** Bundled + custom (await custom before editor/picker if needed). */
 export async function loadAllCardPackages() {
-  loadBundledCardPackages();
-  await loadCustomCardPackages();
+    loadBundledCardPackages();
+    await loadCustomCardPackages();
 }

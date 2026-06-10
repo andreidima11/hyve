@@ -1,23 +1,24 @@
 /** Type declarations for Hyveview ↔ dashboard bridge (runtime: bridge.js). */
 
-export function effectiveCardType(widget: unknown): string | undefined;
+import type { HyveviewCardClass, HyveviewCardSpecPublic, RegisterCardOptions } from './types/card.js';
+import type { HyveviewWidget, WidgetEntityIdsResolver } from './types/widget.js';
 
-export function setWidgetEntityIdsResolver(fn: (widget: unknown) => string[]): void;
+export function effectiveCardType(widget: HyveviewWidget | null | undefined): string;
+
+export function setWidgetEntityIdsResolver(fn: WidgetEntityIdsResolver | null): void;
 
 export function registerCard(
     type: string,
-    ElementClass: CustomElementConstructor,
-    options?: { tagName?: string; render?: unknown },
+    ElementClass: HyveviewCardClass,
+    options?: RegisterCardOptions,
 ): void;
 
 export function isRegistered(type: string): boolean;
 
-export function renderCardOuter(widget: unknown, outerHtmlParts: unknown): string;
-
-export function renderCardElement(widget: unknown): string;
+export function renderCardElement(widget: HyveviewWidget | null | undefined): string;
 
 export function configureMounted(
-    rootElement: Element,
+    root: ParentNode | null | undefined,
     widgetById: (id: string) => unknown,
     options?: { bootstrapStates?: (el: Element, widget: unknown) => void },
 ): void;
@@ -27,4 +28,8 @@ export function patchEntityStates(
     widgetById: (id: string) => unknown,
 ): Set<string>;
 
-export function getCardSpec(type: string): { shell?: Record<string, unknown> } | null | undefined;
+export function registeredTypes(): string[];
+
+export function getCardSpec(type: string): HyveviewCardSpecPublic | null;
+
+export function listCards(options?: { includeHidden?: boolean }): HyveviewCardSpecPublic[];
