@@ -1,31 +1,40 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 import { apiCall, getSSEToken } from './api.js';
 import { escapeHtml, showConfirm, showToast } from './utils.js';
 import { t } from './lang/index.js';
 import { switchTab, openConfigSection, switchUserProfileTab } from './nav_bridge.js';
 import { refreshUpdatesHeaderBadge } from './features_addons_settings.js';
 import { installHyveNativeBridge } from './native_bridge.js';
+import type {
+    HyveNotificationWebSocket,
+    NotificationCountResponse,
+    NotificationFilter,
+    NotificationItem,
+    NotificationListResponse,
+    NotificationMutationResponse,
+    NotificationsController,
+    NotificationWsPayload,
+} from './types/notifications.js';
 
-let _currentFilter = 'all';
+let _currentFilter: NotificationFilter = 'all';
 let _notificationPage = 1;
 let _notificationTotal = 0;
-let _ws = null;
+let _ws: HyveNotificationWebSocket | null = null;
 let _wsReconnectAttempts = 0;
-let _wsReconnectTimer = null;
+let _wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let _wsEnabled = true;
-let _connectInFlight = null;
-let _countPollTimer = null;
-let _wsWatchdogTimer = null;
+let _connectInFlight: Promise<void> | null = null;
+let _countPollTimer: ReturnType<typeof setInterval> | null = null;
+let _wsWatchdogTimer: ReturnType<typeof setInterval> | null = null;
 let _lastKnownUnread = 0;
 
-const _filters = ['all', 'unread', 'reminder', 'automation', 'system', 'archived'];
+const _filters: NotificationFilter[] = ['all', 'unread', 'reminder', 'automation', 'system', 'archived'];
 const _notificationPageSize = 10;
-function _filterLabel(filter) {
+function _filterLabel(filter: NotificationFilter) {
     const key = `notifications.filter_${filter}`;
     const val = t(key);
     return val === key ? t('notifications.filter_all') : val;
 }
-function _viewLabel(filter) {
+function _viewLabel(filter: NotificationFilter) {
     return filter === 'archived' ? t('notifications.view_archive') : t('notifications.view_inbox');
 }
 const _fallbackCountPollMs = 12000;
@@ -54,7 +63,7 @@ function _playNotificationCue() {
 
 window.__hyvePlayNotificationCue = _playNotificationCue;
 
-function _setText(id, value) {
+function _setText(id: string, value: string) {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
 }
@@ -65,37 +74,39 @@ function _isNotificationsPanelVisible() {
     return !!(userView && panel && !userView.classList.contains('hidden') && !panel.classList.contains('hidden'));
 }
 
-function _stateForFilter(filter) {
+function _stateForFilter(filter: NotificationFilter) {
     if (filter === 'archived') return 'archived';
     return filter === 'unread' ? 'unread' : 'all';
 }
 
-function _normalizeFilter(filter) {
-    return _filters.includes(filter) ? filter : 'all';
+function _normalizeFilter(filter: string): NotificationFilter {
+    return (_filters as string[]).includes(filter) ? filter as NotificationFilter : 'all';
 }
 
 function _pageCount(total = _notificationTotal) {
     return Math.max(1, Math.ceil(Number(total || 0) / _notificationPageSize));
 }
 
-function _clampPage(page, total = _notificationTotal) {
-    const value = Number.parseInt(page, 10);
+function _clampPage(page: number | string | undefined, total = _notificationTotal) {
+    const value = typeof page === 'number'
+        ? page
+        : Number.parseInt(String(page ?? ''), 10);
     const safePage = Number.isFinite(value) ? value : 1;
     return Math.min(Math.max(1, safePage), _pageCount(total));
 }
 
-function _categoryForFilter(filter) {
+function _categoryForFilter(filter: NotificationFilter) {
     return ['reminder', 'automation', 'system'].includes(filter) ? filter : '';
 }
 
-function _setFilterMenuOpen(open) {
+function _setFilterMenuOpen(open: boolean) {
     const menu = document.getElementById('user-notifications-filter-menu');
     const button = document.getElementById('user-notifications-filter-button');
     if (menu) menu.classList.toggle('hidden', !open);
     if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 
-export function toggleUserNotificationFilterMenu(open) {
+export function toggleUserNotificationFilterMenu(open?: boolean) {
     const menu = document.getElementById('user-notifications-filter-menu');
     const next = typeof open === 'boolean' ? open : !!menu?.classList.contains('hidden');
     _setFilterMenuOpen(next);
@@ -114,7 +125,7 @@ function _syncFilterButtons() {
     });
 }
 
-function _formatDate(value) {
+function _formatDate(value: string | undefined) {
     if (!value) return '—';
     try {
         return new Intl.DateTimeFormat('ro-RO', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
@@ -123,33 +134,33 @@ function _formatDate(value) {
     }
 }
 
-function _dayGroup(value) {
+function _dayGroup(value: string | undefined) {
     if (!value) return t('notifications.group_older');
     const date = new Date(value);
     const now = new Date();
     const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const days = Math.round((startToday - startDate) / 86400000);
+    const days = Math.round((startToday.getTime() - startDate.getTime()) / 86400000);
     if (days === 0) return t('notifications.group_today');
     if (days === 1) return t('notifications.group_yesterday');
     if (days < 7) return t('notifications.group_this_week');
     return t('notifications.group_older');
 }
 
-function _categoryLabel(category) {
+function _categoryLabel(category: string | undefined) {
     const key = `notifications.category_${String(category || '').trim().toLowerCase()}`;
     const val = t(key);
     return val !== key ? val : (category || t('notifications.category_default'));
 }
 
-function _severityClasses(severity) {
+function _severityClasses(severity: string | undefined) {
     if (severity === 'warning') return 'border-amber-500/20 text-amber-300 bg-amber-500/10';
     if (severity === 'critical' || severity === 'error') return 'border-red-500/20 text-red-300 bg-red-500/10';
     if (severity === 'success') return 'border-emerald-500/20 text-emerald-300 bg-emerald-500/10';
     return 'border-blue-500/20 text-blue-300 bg-blue-500/10';
 }
 
-export function updateNotificationBadge(count) {
+export function updateNotificationBadge(count: number | string) {
     const value = Number(count || 0);
     _lastKnownUnread = value;
     const badge = document.getElementById('nav-user-notification-badge');
@@ -173,12 +184,12 @@ export async function loadNotificationCounts() {
     try {
         const res = await apiCall('/api/notifications/counts');
         if (!res.ok) return;
-        const data = await res.json();
+        const data = await res.json() as NotificationCountResponse;
         updateNotificationBadge(data.unread_count || 0);
     } catch (_) {}
 }
 
-export function switchUserNotificationFilter(filter = 'all') {
+export function switchUserNotificationFilter(filter: NotificationFilter | string = 'all') {
     _currentFilter = _normalizeFilter(filter);
     _notificationPage = 1;
     _setFilterMenuOpen(false);
@@ -186,7 +197,14 @@ export function switchUserNotificationFilter(filter = 'all') {
     loadUserNotifications(_currentFilter, { page: 1 });
 }
 
-export async function loadUserNotifications(filter = _currentFilter, options = {}) {
+interface LoadUserNotificationsOptions {
+    page?: number | string;
+}
+
+export async function loadUserNotifications(
+    filter: NotificationFilter | string = _currentFilter,
+    options: LoadUserNotificationsOptions = {},
+) {
     const nextFilter = _normalizeFilter(filter);
     if (nextFilter !== _currentFilter) _notificationPage = 1;
     _currentFilter = nextFilter;
@@ -211,7 +229,7 @@ export async function loadUserNotifications(filter = _currentFilter, options = {
         if (category) params.set('category', category);
         const res = await apiCall(`/api/notifications?${params.toString()}`);
         if (!res.ok) throw new Error('load failed');
-        const data = await res.json();
+        const data = await res.json() as NotificationListResponse;
         const total = Number(data.total || 0);
         if (total > 0 && _notificationPage > _pageCount(total)) {
             _notificationPage = _pageCount(total);
@@ -236,15 +254,15 @@ export async function loadUserNotifications(filter = _currentFilter, options = {
     }
 }
 
-export async function changeUserNotificationsPage(delta) {
-    const step = Number.parseInt(delta, 10);
+export async function changeUserNotificationsPage(delta: number | string) {
+    const step = Number.parseInt(String(delta), 10);
     const nextPage = _clampPage(_notificationPage + (Number.isFinite(step) ? step : 0));
     if (nextPage === _notificationPage) return;
     _notificationPage = nextPage;
     await loadUserNotifications(_currentFilter);
 }
 
-function _renderNotifications(items, total = _notificationTotal) {
+function _renderNotifications(items: NotificationItem[], total = _notificationTotal) {
     const listEl = document.getElementById('user-notifications-list');
     const emptyEl = document.getElementById('user-notifications-empty');
     if (!listEl) return;
@@ -281,7 +299,7 @@ function _renderNotifications(items, total = _notificationTotal) {
     listEl.innerHTML = html.join('');
 }
 
-function _renderNotificationPagination(total) {
+function _renderNotificationPagination(total: number) {
     if (total <= _notificationPageSize) return '';
     const pageCount = _pageCount(total);
     const start = ((_notificationPage - 1) * _notificationPageSize) + 1;
@@ -299,7 +317,7 @@ function _renderNotificationPagination(total) {
         </nav>`;
 }
 
-function _renderNotificationItem(item) {
+function _renderNotificationItem(item: NotificationItem) {
     const unread = !item.read_at;
     const archived = !!item.archived_at;
     const category = escapeHtml(_categoryLabel(item.category));
@@ -318,7 +336,7 @@ function _renderNotificationItem(item) {
     if (!archived && navActions.length) {
         const btns = navActions.map(a => {
             const label = escapeHtml(a.label || t('notifications.apply'));
-            const url = escapeHtml(a.args.url);
+            const url = escapeHtml(a.args?.url || '');
             return `<button type="button" data-user-action="notifNavigate" data-user-stop-propagation="true" data-notif-url="${url}" data-notif-id="${id}" class="px-3 h-8 rounded-lg text-[12px] font-semibold bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 transition-colors"><i class="fas fa-arrow-right mr-1.5 text-[10px]"></i>${label}</button>`;
         }).join('');
         suggestedHtml = `<div class="flex flex-wrap items-center gap-2 pt-1">${btns}</div>`;
@@ -350,11 +368,11 @@ function _renderNotificationItem(item) {
         </article>`;
 }
 
-export async function markUserNotificationRead(id) {
+export async function markUserNotificationRead(id: string) {
     try {
         const res = await apiCall(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
         if (!res.ok) throw new Error();
-        const data = await res.json();
+        const data = await res.json() as NotificationMutationResponse;
         updateNotificationBadge(data.unread_count || 0);
         showToast(t('notifications.marked_read'), 'success', 2200);
         await loadUserNotifications(_currentFilter);
@@ -363,11 +381,11 @@ export async function markUserNotificationRead(id) {
     }
 }
 
-export async function archiveUserNotification(id) {
+export async function archiveUserNotification(id: string) {
     try {
         const res = await apiCall(`/api/notifications/${encodeURIComponent(id)}/archive`, { method: 'PATCH' });
         if (!res.ok) throw new Error();
-        const data = await res.json();
+        const data = await res.json() as NotificationMutationResponse;
         updateNotificationBadge(data.unread_count || 0);
         await loadUserNotifications(_currentFilter);
     } catch (_) {
@@ -375,12 +393,12 @@ export async function archiveUserNotification(id) {
     }
 }
 
-export async function deleteUserNotification(id) {
+export async function deleteUserNotification(id: string) {
     if (!(await showConfirm(t('notifications.confirm_delete')))) return;
     try {
         const res = await apiCall(`/api/notifications/${encodeURIComponent(id)}`, { method: 'DELETE' });
         if (!res.ok) throw new Error();
-        const data = await res.json();
+        const data = await res.json() as NotificationMutationResponse;
         updateNotificationBadge(data.unread_count || 0);
         showToast(t('notifications.deleted'), 'success', 2200);
         await loadUserNotifications(_currentFilter);
@@ -394,7 +412,7 @@ export async function clearAllUserNotifications() {
     try {
         const res = await apiCall('/api/notifications', { method: 'DELETE' });
         if (!res.ok) throw new Error();
-        const data = await res.json();
+        const data = await res.json() as NotificationMutationResponse;
         updateNotificationBadge(data.unread_count || 0);
         showToast(data.deleted ? t('notifications.cleared_count', { count: data.deleted }) : t('notifications.nothing_to_clear'), 'success', 2200);
         await loadUserNotifications(_currentFilter);
@@ -407,7 +425,7 @@ async function _loadWsEnabledFromConfig() {
     try {
         const res = await apiCall('/api/config');
         if (!res.ok) return true;
-        const cfg = await res.json();
+        const cfg = await res.json() as { fcm?: { transport_mode?: string; websocket_enabled?: boolean } };
         const fcm = cfg?.fcm || {};
         const mode = String(fcm.transport_mode || 'websocket').toLowerCase();
         return fcm.websocket_enabled !== false && mode !== 'firebase';
@@ -416,7 +434,7 @@ async function _loadWsEnabledFromConfig() {
     }
 }
 
-function _handleNotificationPayload(data) {
+function _handleNotificationPayload(data: NotificationWsPayload) {
     if (data.event === 'notification.created') {
         updateNotificationBadge(data.unread_count || 0);
         if (_isNotificationsPanelVisible()) {
@@ -445,12 +463,12 @@ function _handleNotificationPayload(data) {
     }
 }
 
-export async function navigateNotification(actionUrl, notifId) {
+export async function navigateNotification(actionUrl: string, notifId?: string) {
     if (notifId) {
         try { await apiCall(`/api/notifications/${encodeURIComponent(notifId)}/read`, { method: 'PATCH' }); } catch (_) {}
     }
     if (!actionUrl) return;
-    const _routeMap = {
+    const _routeMap: Record<string, () => void> = {
         '#updates/addons': () => {
             switchTab('config');
             openConfigSection('updates');
@@ -478,7 +496,7 @@ export async function navigateNotification(actionUrl, notifId) {
     }
 }
 
-export function initNotifications() {
+export function initNotifications(): NotificationsController {
     async function connectWebSocket() {
         if (_connectInFlight) return _connectInFlight;
         if (!_wsEnabled) {
@@ -504,16 +522,18 @@ export function initNotifications() {
             }
             try {
                 const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-                _ws = new WebSocket(`${proto}//${location.host}/ws/notifications?token=${encodeURIComponent(wsToken)}`);
+                _ws = new WebSocket(`${proto}//${location.host}/ws/notifications?token=${encodeURIComponent(wsToken)}`) as HyveNotificationWebSocket;
                 _ws.onopen = () => {
                     _wsReconnectAttempts = 0;
                     loadNotificationCounts();
-                    _ws._pingInterval = setInterval(() => {
-                        if (_ws?.readyState === WebSocket.OPEN) _ws.send('ping');
+                    const ws = _ws;
+                    if (!ws) return;
+                    ws._pingInterval = setInterval(() => {
+                        if (ws.readyState === WebSocket.OPEN) ws.send('ping');
                     }, 30000);
                 };
-                _ws.onmessage = (event) => {
-                    try { _handleNotificationPayload(JSON.parse(event.data)); } catch (_) {}
+                _ws.onmessage = (event: MessageEvent<string>) => {
+                    try { _handleNotificationPayload(JSON.parse(event.data) as NotificationWsPayload); } catch (_) {}
                 };
                 _ws.onerror = () => {
                     try { _ws?.close(); } catch (_) {}
@@ -574,7 +594,7 @@ export function initNotifications() {
         closeWebSocket();
     }
 
-    async function setEnabled(enabled) {
+    async function setEnabled(enabled: boolean) {
         const next = !!enabled;
         if (_wsEnabled === next) return;
         _wsEnabled = next;
@@ -617,7 +637,9 @@ export function initNotifications() {
         const menu = document.getElementById('user-notifications-filter-menu');
         const button = document.getElementById('user-notifications-filter-button');
         if (!menu || menu.classList.contains('hidden')) return;
-        if (menu.contains(event.target) || button?.contains(event.target)) return;
+        const target = event.target;
+        if (!(target instanceof Node)) return;
+        if (menu.contains(target) || button?.contains(target)) return;
         _setFilterMenuOpen(false);
     });
 

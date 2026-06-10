@@ -1,12 +1,41 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 import { apiCall, suppressLogout } from './api.js';
 import { t } from './lang/index.js';
 import { escapeHtml, escapeHtmlAttr, showToast, showConfirm, setCodeEditorValue, getCodeEditorValue, refreshCodeEditor, openSubPage, closeSubPage } from './utils.js';
 import { getIntegrationEntities } from './features_smarthome.js';
 import { initGenericCustomSelects, upgradeNativeSelects } from './features_custom_selects.js';
+import type {
+    AutomationBuilderRow,
+    AutomationBuilderState,
+    AutomationCapabilities,
+    AutomationCapabilityEntity,
+    AutomationEditorMode,
+    AutomationHistoryItem,
+    AutomationListItem,
+    AutomationPickerArea,
+    AutomationPickerEntity,
+    SyncAutomationOptions,
+} from './types/features_automations.js';
+import type { ConfigFormElement } from './types/features_config.js';
+import type { HyveEntity } from './types/entity.js';
+
+interface AutoAcInput extends HTMLInputElement { _acSelecting?: boolean; _acBound?: boolean }
+
+function _errMsg(err: unknown): string {
+    if (err instanceof Error) return err.message;
+    return String(err);
+}
+
+function _inputVal(el: Element | null | undefined): string {
+    return String((el as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)?.value ?? '');
+}
+
+function _autoEl(id: string): ConfigFormElement | null {
+    return document.getElementById(id) as ConfigFormElement | null;
+}
+
 
 // --- CONȘTIINȚĂ (tabs Memorii | Automatizări) ---
-export function switchIntelligenceTab(tabId) {
+export function switchIntelligenceTab(tabId: string) {
     document.querySelectorAll('.intelligence-panel').forEach(p => p.classList.add('hidden'));
     document.querySelectorAll('.intelligence-tab-btn').forEach(b => {
         b.classList.remove('border-accent', 'text-accent');
@@ -23,30 +52,30 @@ export function switchIntelligenceTab(tabId) {
 }
 
 // --- Automatizări (tab Conștiință) ---
-let _automationEditorRevision = null;
-let _automationEditorId = null;
+let _automationEditorRevision: string | null = null;
+let _automationEditorId: string | null = null;
 
-function _automationIdString(id) {
+function _automationIdString(id: unknown) {
     if (typeof id !== 'string') return null;
     const s = id.trim();
     return s || null;
 }
 
-function _editorAutomationId() {
+function _editorAutomationId(): string | null {
     return _automationIdString(_automationEditorId);
 }
-let _automationEditorMode = 'builder';
-let _automationBuilderTriggers = [];
-let _automationBuilderConditions = [];
-let _automationBuilderActions = [];
+let _automationEditorMode: AutomationEditorMode = 'builder';
+let _automationBuilderTriggers: AutomationBuilderRow[] = [];
+let _automationBuilderConditions: AutomationBuilderRow[] = [];
+let _automationBuilderActions: AutomationBuilderRow[] = [];
 
 // Cached snapshot of /api/automations/capabilities. Loaded lazily on first
 // editor open and refreshed when the editor opens again. Single source of
 // truth for the editor's pickers (entities, areas, schema constraints).
-let _automationCapabilities = null;
-let _automationCapabilitiesPromise = null;
+let _automationCapabilities: AutomationCapabilities | null = null;
+let _automationCapabilitiesPromise: Promise<AutomationCapabilities | null> | null = null;
 
-async function _automationLoadCapabilities({ force = false } = {}) {
+async function _automationLoadCapabilities({ force = false }: { force?: boolean } = {}) {
     if (!force && _automationCapabilities) return _automationCapabilities;
     if (!force && _automationCapabilitiesPromise) return _automationCapabilitiesPromise;
     _automationCapabilitiesPromise = (async () => {
@@ -68,11 +97,11 @@ async function _automationLoadCapabilities({ force = false } = {}) {
     return _automationCapabilitiesPromise;
 }
 
-function _automationCapabilityEntities() {
+function _automationCapabilityEntities(): AutomationCapabilityEntity[] {
     return Array.isArray(_automationCapabilities?.entities) ? _automationCapabilities.entities : [];
 }
 
-const _AUTOMATION_SERVICE_PRESETS = {
+const _AUTOMATION_SERVICE_PRESETS: Record<string, string[]> = {
     light: ['light.turn_on', 'light.turn_off', 'light.toggle'],
     switch: ['switch.turn_on', 'switch.turn_off', 'switch.toggle'],
     input_boolean: ['input_boolean.turn_on', 'input_boolean.turn_off', 'input_boolean.toggle'],
@@ -87,7 +116,7 @@ const _AUTOMATION_SERVICE_PRESETS = {
     automation: ['automation.trigger', 'automation.turn_on', 'automation.turn_off'],
 };
 
-const _AUTOMATION_SERVICE_DATA_FIELDS = {
+const _AUTOMATION_SERVICE_DATA_FIELDS: Record<string, Array<Record<string, unknown>>> = {
     'light.turn_on': [
         { key: 'brightness', labelKey: 'automations.service_field_brightness', fallback: 'Brightness', type: 'number', min: 0, max: 255, step: 1 },
         { key: 'color_temp', labelKey: 'automations.service_field_color_temp', fallback: 'Color temp', type: 'number', min: 153, max: 500, step: 1 },
@@ -107,7 +136,7 @@ const _AUTOMATION_SERVICE_DATA_FIELDS = {
     ],
 };
 
-function _automationDefaultBuilderState() {
+function _automationDefaultBuilderState(): AutomationBuilderState {
     return {
         id: 'new_automation',
         title: 'New automation',
@@ -117,7 +146,7 @@ function _automationDefaultBuilderState() {
     };
 }
 
-function _automationSetBuilderState(state) {
+function _automationSetBuilderState(state: Partial<AutomationBuilderState> | null | undefined) {
     const next = { ..._automationDefaultBuilderState(), ...(state || {}) };
     const fields = {
         id: 'automation-builder-id',
@@ -126,34 +155,34 @@ function _automationSetBuilderState(state) {
         mode: 'automation-builder-mode',
     };
     Object.entries(fields).forEach(([key, elementId]) => {
-        const element = document.getElementById(elementId);
-        if (element) element.value = next[key] ?? '';
+        const element = _autoEl(elementId);
+        if (element) element.value = String((next as Record<string, unknown>)[key] ?? '');
     });
-    const enabledEl = document.getElementById('automation-builder-enabled');
+    const enabledEl = _autoEl('automation-builder-enabled');
     if (enabledEl) enabledEl.checked = !!next.enabled;
     initGenericCustomSelects(document.getElementById('automation-editor-modal') || document);
 }
 
-function _automationGetBuilderState() {
+function _automationGetBuilderState(): AutomationBuilderState {
     return {
-        id: document.getElementById('automation-builder-id')?.value?.trim() || 'new_automation',
-        title: document.getElementById('automation-builder-title')?.value?.trim() || 'New automation',
-        description: document.getElementById('automation-builder-description')?.value?.trim() || '',
-        enabled: !!document.getElementById('automation-builder-enabled')?.checked,
-        mode: document.getElementById('automation-builder-mode')?.value || 'single',
+        id: _autoEl('automation-builder-id')?.value?.trim() || 'new_automation',
+        title: _autoEl('automation-builder-title')?.value?.trim() || 'New automation',
+        description: _autoEl('automation-builder-description')?.value?.trim() || '',
+        enabled: !!_autoEl('automation-builder-enabled')?.checked,
+        mode: _autoEl('automation-builder-mode')?.value || 'single',
     };
 }
 
-function _automationYamlScalar(value) {
+function _automationYamlScalar(value: unknown) {
     const text = String(value ?? '');
     return JSON.stringify(text);
 }
 
-function _automationYamlBoolean(value) {
+function _automationYamlBoolean(value: unknown) {
     return value ? 'true' : 'false';
 }
 
-function _automationSortHaEntities(items) {
+function _automationSortHaEntities(items: Array<AutomationCapabilityEntity | HyveEntity | Record<string, unknown>> | null | undefined) {
     return [...(items || [])].sort((left, right) => {
         const leftName = String(left?.name || left?.entity_id || '').toLowerCase();
         const rightName = String(right?.name || right?.entity_id || '').toLowerCase();
@@ -161,12 +190,12 @@ function _automationSortHaEntities(items) {
     });
 }
 
-function _automationInferServiceDomain(target) {
-    const current = String(target?.value || '').trim();
+function _automationInferServiceDomain(target: HTMLElement | null | undefined) {
+    const current = _inputVal(target ?? null);
     if (current.includes('.')) return current.split('.')[0];
     const card = target?.closest('.automation-builder-action-card');
     const entityInput = card?.querySelector('[data-action-field="entity_id"]');
-    const entityId = String(entityInput?.value || '').trim();
+    const entityId = _inputVal(entityInput);
     if (entityId.includes('.')) return entityId.split('.')[0];
     return '';
 }
@@ -175,18 +204,18 @@ function _automationInferServiceDomain(target) {
    in the same builder card. For service actions: derive from the `service`
    field (e.g. `switch.turn_on` → `switch`). For state triggers: an explicit
    `data-entity-domain` attribute can be set on the input. */
-function _automationInferEntityDomain(target) {
+function _automationInferEntityDomain(target: HTMLElement | null | undefined) {
     const explicit = String(target?.getAttribute('data-entity-domain') || '').trim();
     if (explicit) return explicit;
     const card = target?.closest('.automation-builder-action-card');
     if (!card) return '';
     const serviceInput = card.querySelector('[data-action-field="service"]');
-    const service = String(serviceInput?.value || '').trim();
+    const service = _inputVal(serviceInput);
     if (service.includes('.')) return service.split('.')[0];
     return '';
 }
 
-function _automationServicePresetList(domain = '') {
+function _automationServicePresetList(domain: string = '') {
     const normalized = String(domain || '').trim().toLowerCase();
     if (normalized && _AUTOMATION_SERVICE_PRESETS[normalized]) {
         return [..._AUTOMATION_SERVICE_PRESETS[normalized]];
@@ -195,7 +224,7 @@ function _automationServicePresetList(domain = '') {
     return [...new Set(flat)].sort();
 }
 
-function _automationRenderHaEntityOptions(items) {
+function _automationRenderHaEntityOptions(items: AutomationCapabilityEntity[]) {
     const listEl = document.getElementById('automation-ha-entity-options');
     if (!listEl) return;
     listEl.innerHTML = _automationSortHaEntities(items).map(item => {
@@ -210,10 +239,10 @@ function _automationRenderHaEntityOptions(items) {
 /* ═══════════════════════════════════════════════════════
    INLINE AUTOCOMPLETE — replaces standalone picker panels
    ═══════════════════════════════════════════════════════ */
-let _activeAutocomplete = null;   // current open dropdown element
+let _activeAutocomplete: HTMLElement | null = null;   // current open dropdown element
 let _acHighlightIndex = -1;       // keyboard-highlighted item index
 
-function _acClose() {
+function _acClose(): void {
     if (_activeAutocomplete) {
         _activeAutocomplete.classList.remove('open');
         _activeAutocomplete = null;
@@ -221,7 +250,7 @@ function _acClose() {
     _acHighlightIndex = -1;
 }
 
-function _acEntityItems(search, domain) {
+function _acEntityItems(search: string, domain: string) {
     // Prefer the dedicated automations capabilities snapshot when loaded —
     // it's owner-scoped, already filtered to valid HA-style entity_ids, and
     // doesn't drift with the device-list view. Fall back to the integration
@@ -252,14 +281,14 @@ function _acEntityItems(search, domain) {
     }).slice(0, 60);
 }
 
-function _acServiceItems(search, domain) {
+function _acServiceItems(search: string, domain: string) {
     const items = _automationServicePresetList(domain);
     if (!search) return items;
     const q = search.toLowerCase();
     return items.filter(s => s.toLowerCase().includes(q));
 }
 
-function _acRenderEntity(dropdown, search, domain) {
+function _acRenderEntity(dropdown: HTMLElement, search: string, domain: string) {
     const items = _acEntityItems(search, domain);
     if (!items.length) {
         dropdown.innerHTML = `<div class="ac-empty">${t('automations.entity_empty_filtered')}</div>`;
@@ -279,7 +308,7 @@ function _acRenderEntity(dropdown, search, domain) {
     }).join('');
 }
 
-function _acRenderService(dropdown, search, domain) {
+function _acRenderService(dropdown: HTMLElement, search: string, domain: string) {
     const items = _acServiceItems(search, domain);
     if (!items.length) {
         dropdown.innerHTML = `<div class="ac-empty">${t('automations.service_empty')}</div>`;
@@ -292,10 +321,10 @@ function _acRenderService(dropdown, search, domain) {
     }).join('');
 }
 
-function _acOpen(input, type, domain) {
+function _acOpen(input: AutoAcInput, type: string, domain: string) {
     const wrapper = input.closest('.automation-inline-ac');
     if (!wrapper) return;
-    const dropdown = wrapper.querySelector('.automation-inline-ac-dropdown');
+    const dropdown = wrapper.querySelector('.automation-inline-ac-dropdown') as HTMLElement | null;
     if (!dropdown) return;
     if (_activeAutocomplete && _activeAutocomplete !== dropdown) _acClose();
     _activeAutocomplete = dropdown;
@@ -309,7 +338,7 @@ function _acOpen(input, type, domain) {
     dropdown.classList.add('open');
 }
 
-function _acSelect(input, value, type) {
+function _acSelect(input: AutoAcInput, value: string, type: string) {
     input._acSelecting = true;
     input.value = value;
     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -323,7 +352,7 @@ function _acSelect(input, value, type) {
     }
 }
 
-function _acKeydown(e, input, type, domain) {
+function _acKeydown(e: KeyboardEvent, input: AutoAcInput, type: string, domain: string) {
     const wrapper = input.closest('.automation-inline-ac');
     const dropdown = wrapper?.querySelector('.automation-inline-ac-dropdown');
     if (!dropdown || !dropdown.classList.contains('open')) return;
@@ -340,7 +369,7 @@ function _acKeydown(e, input, type, domain) {
     } else if (e.key === 'Enter') {
         e.preventDefault();
         if (_acHighlightIndex >= 0 && items[_acHighlightIndex]) {
-            _acSelect(input, items[_acHighlightIndex].getAttribute('data-ac-value'), type);
+            _acSelect(input, items[_acHighlightIndex].getAttribute('data-ac-value') || '', type);
         }
     } else if (e.key === 'Escape') {
         e.preventDefault();
@@ -349,7 +378,7 @@ function _acKeydown(e, input, type, domain) {
     }
 }
 
-function _acUpdateHighlight(items) {
+function _acUpdateHighlight(items: NodeListOf<Element> | Element[]) {
     items.forEach((el, i) => {
         el.classList.toggle('ac-highlighted', i === _acHighlightIndex);
     });
@@ -360,25 +389,25 @@ function _acUpdateHighlight(items) {
 
 // Global click handler to close autocomplete when clicking outside
 document.addEventListener('mousedown', (e) => {
-    if (_activeAutocomplete && !e.target.closest('.automation-inline-ac')) {
+    if (_activeAutocomplete && !(e.target as HTMLElement | null)?.closest('.automation-inline-ac')) {
         _acClose();
     }
 });
 
 // Delegated click handler for autocomplete items
 document.addEventListener('click', (e) => {
-    const item = e.target.closest('.ac-item[data-ac-value]');
+    const item = (e.target as HTMLElement | null)?.closest('.ac-item[data-ac-value]');
     if (!item) return;
     const dropdown = item.closest('.automation-inline-ac-dropdown');
     const wrapper = dropdown?.closest('.automation-inline-ac');
     const input = wrapper?.querySelector('input');
     if (!input) return;
     const type = input.hasAttribute('data-automation-entity-input') ? 'entity' : 'service';
-    _acSelect(input, item.getAttribute('data-ac-value'), type);
+    _acSelect(input as AutoAcInput, item.getAttribute('data-ac-value') ?? '', type);
 });
 
 /* Helper: builds inline-ac wrapper HTML around an entity input */
-function _acEntityInputHtml(attrs) {
+function _acEntityInputHtml(attrs: string) {
     return `<div class="automation-inline-ac">
         <input type="text" ${attrs}
             class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none"
@@ -388,7 +417,7 @@ function _acEntityInputHtml(attrs) {
 }
 
 /* Helper: builds inline-ac wrapper HTML around a service input */
-function _acServiceInputHtml(attrs) {
+function _acServiceInputHtml(attrs: string) {
     return `<div class="automation-inline-ac">
         <input type="text" ${attrs}
             class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none"
@@ -398,22 +427,25 @@ function _acServiceInputHtml(attrs) {
 }
 
 /* Attach inline-ac event listeners to dynamically rendered inputs */
-function _acBindInputs(host) {
-    host.querySelectorAll('[data-automation-entity-input]').forEach(input => {
+function _acBindInputs(host: HTMLElement | null) {
+    if (!host) return;
+    host.querySelectorAll('[data-automation-entity-input]').forEach((node) => {
+        const input = node as AutoAcInput;
         if (input._acBound) return;
         input._acBound = true;
         const getEntityDomain = () => _automationInferEntityDomain(input);
         input.addEventListener('focus', () => { if (!input._acSelecting) _acOpen(input, 'entity', getEntityDomain()); });
         input.addEventListener('input', () => { if (!input._acSelecting) { _acHighlightIndex = -1; _acOpen(input, 'entity', getEntityDomain()); } });
-        input.addEventListener('keydown', (e) => _acKeydown(e, input, 'entity', getEntityDomain()));
+        input.addEventListener('keydown', (e) => _acKeydown(e as KeyboardEvent, input, 'entity', getEntityDomain()));
     });
-    host.querySelectorAll('[data-automation-service-input]').forEach(input => {
+    host.querySelectorAll('[data-automation-service-input]').forEach((node) => {
+        const input = node as AutoAcInput;
         if (input._acBound) return;
         input._acBound = true;
         const getDomain = () => _automationInferServiceDomain(input);
         input.addEventListener('focus', () => { if (!input._acSelecting) _acOpen(input, 'service', getDomain()); });
         input.addEventListener('input', () => { if (!input._acSelecting) { _acHighlightIndex = -1; _acOpen(input, 'service', getDomain()); } });
-        input.addEventListener('keydown', (e) => _acKeydown(e, input, 'service', getDomain()));
+        input.addEventListener('keydown', (e) => _acKeydown(e as KeyboardEvent, input, 'service', getDomain()));
     });
 }
 
@@ -421,7 +453,7 @@ function _acBindInputs(host) {
    the rest of the UI instead of rendering as raw OS selects. Delegates to the
    global upgrader; the native select stays in the DOM (hidden) so value/onchange
    and DOM readers keep working. */
-function _upgradeAutoBuilderSelects(host) {
+function _upgradeAutoBuilderSelects(host: ParentNode | null) {
     if (!host) return;
     upgradeNativeSelects(host);
 }
@@ -434,7 +466,7 @@ export function setAutomationServicePickerTarget() {}
 export function pickAutomationService() {}
 export function filterAutomationServicePicker() {}
 
-function _automationBuilderActionTemplate(kind = 'notify') {
+function _automationBuilderActionTemplate(kind: string = 'notify') {
     if (kind === 'service') {
         return { kind: 'service', service: 'light.turn_on', entity_id: '', data: '{}' };
     }
@@ -444,7 +476,7 @@ function _automationBuilderActionTemplate(kind = 'notify') {
     return { kind: 'notify', text: 'Automation created.' };
 }
 
-function _automationParseJsonObject(text) {
+function _automationParseJsonObject(text: string) {
     try {
         const value = text ? JSON.parse(text) : {};
         return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -453,24 +485,26 @@ function _automationParseJsonObject(text) {
     }
 }
 
-function _automationServiceDataFieldDefs(serviceName) {
+function _automationServiceDataFieldDefs(serviceName: string) {
     return _AUTOMATION_SERVICE_DATA_FIELDS[String(serviceName || '').trim()] || [];
 }
 
-function _automationRenderServiceStructuredFields(action, index) {
-    const fields = _automationServiceDataFieldDefs(action?.service);
+function _automationRenderServiceStructuredFields(action: AutomationBuilderRow, index: number) {
+    const fields = _automationServiceDataFieldDefs(String(action?.service || ''));
     if (!fields.length) return '';
-    const data = _automationParseJsonObject(action?.data || '{}');
-    const body = fields.map(field => {
-        const label = t(field.labelKey) || field.fallback;
-        const rawValue = data[field.key];
+    const data = _automationParseJsonObject(String(action?.data || '{}')) as Record<string, unknown>;
+    const body = fields.map((field) => {
+        const label = t(String(field.labelKey || '')) || String(field.fallback || '');
+        const key = String(field.key || '');
+        const rawValue = data[key];
         if (field.type === 'select') {
+            const options = Array.isArray(field.options) ? field.options as string[] : [];
             return `
                 <div class="space-y-1">
                     <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${label}</label>
-                    <select data-service-data-field="${field.key}" data-action-index="${index}" data-memory-input="updateAutomationServiceData" data-memory-index="${index}" class="auto-builder-select w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
+                    <select data-service-data-field="${key}" data-action-index="${index}" data-memory-input="updateAutomationServiceData" data-memory-index="${index}" class="auto-builder-select w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
                         <option value=""></option>
-                        ${field.options.map(option => `<option value="${escapeHtml(option)}" ${rawValue === option ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
+                        ${options.map((option: string) => `<option value="${escapeHtml(option)}" ${rawValue === option ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
                     </select>
                 </div>`;
         }
@@ -490,7 +524,7 @@ function _automationRenderServiceStructuredFields(action, index) {
         </div>`;
 }
 
-function _automationBuilderTriggerTemplate(platform = 'time') {
+function _automationBuilderTriggerTemplate(platform: string = 'time') {
     if (platform === 'datetime') {
         return { platform: 'datetime', at: '' };
     }
@@ -506,16 +540,16 @@ function _automationBuilderTriggerTemplate(platform = 'time') {
     return { platform: 'time', at: '09:00', weekdays: '' };
 }
 
-function _automationBuilderConditionTemplate(kind = 'time_window') {
+function _automationBuilderConditionTemplate(kind: string = 'time_window') {
     return { kind: 'time_window', after: '', before: '' };
 }
 
-function _automationNormalizeTrigger(trigger) {
-    const platform = trigger?.platform || 'time';
+function _automationNormalizeTrigger(trigger: AutomationBuilderRow) {
+    const platform = String(trigger?.platform || 'time');
     return { ..._automationBuilderTriggerTemplate(platform), ...trigger, platform };
 }
 
-function _automationStateOptions(currentValue, includeEmpty = false) {
+function _automationStateOptions(currentValue: string, includeEmpty = false) {
     const common = ['on', 'off', 'open', 'closed', 'home', 'not_home', 'unavailable', 'unknown'];
     const current = String(currentValue || '').trim();
     const values = includeEmpty ? [''].concat(common) : [...common];
@@ -527,12 +561,12 @@ function _automationStateOptions(currentValue, includeEmpty = false) {
     }).join('');
 }
 
-function _automationNormalizeCondition(condition) {
+function _automationNormalizeCondition(condition: AutomationBuilderRow) {
     const kind = condition?.kind || 'time_window';
-    return { ..._automationBuilderConditionTemplate(kind), ...condition, kind };
+    return { ..._automationBuilderConditionTemplate(String(kind)), ...condition, kind: String(kind) };
 }
 
-function _automationRenderBuilderTriggers() {
+function _automationRenderBuilderTriggers(): void {
     const host = document.getElementById('automation-builder-triggers');
     if (!host) return;
     host.innerHTML = _automationBuilderTriggers.map((trigger, index) => {
@@ -615,7 +649,7 @@ function _automationRenderBuilderTriggers() {
     _upgradeAutoBuilderSelects(host);
 }
 
-function _automationRenderBuilderConditions() {
+function _automationRenderBuilderConditions(): void {
     const host = document.getElementById('automation-builder-conditions');
     if (!host) return;
     if (!_automationBuilderConditions.length) {
@@ -652,12 +686,12 @@ function _automationRenderBuilderConditions() {
     _upgradeAutoBuilderSelects(host);
 }
 
-function _automationRenderBuilderActions() {
+function _automationRenderBuilderActions(): void {
     const host = document.getElementById('automation-builder-actions');
     if (!host) return;
     host.innerHTML = _automationBuilderActions.map((action, index) => {
-        const type = action?.kind || 'notify';
-        const labelMap = {
+        const type = String(action?.kind || 'notify');
+        const labelMap: Record<string, string> = {
             notify: t('automations.builder_action_notify'),
             service: t('automations.builder_action_service'),
             skill: t('automations.builder_action_skill'),
@@ -719,22 +753,23 @@ function _automationRenderBuilderActions() {
     _upgradeAutoBuilderSelects(host);
 }
 
-function _automationReadBuilderActionsFromDom() {
+function _automationReadBuilderActionsFromDom(): AutomationBuilderRow[] {
     const next = _automationBuilderActions.map(action => ({ ...action }));
     document.querySelectorAll('[data-action-index][data-action-field]').forEach(element => {
         const index = Number(element.getAttribute('data-action-index'));
         const field = element.getAttribute('data-action-field');
         if (!Number.isFinite(index) || !field) return;
         if (!next[index]) next[index] = _automationBuilderActionTemplate();
-        next[index][field] = element.value;
+        next[index][field] = _inputVal(element);
     });
     _automationBuilderActions = next.map(action => {
-        const kind = action?.kind || 'notify';
-        return { ..._automationBuilderActionTemplate(kind), ...action, kind };
+        const kind = String(action?.kind || 'notify');
+        return { ..._automationBuilderActionTemplate(String(kind)), ...action, kind: String(kind) };
     });
+    return _automationBuilderActions;
 }
 
-function _automationReadBuilderTriggersFromDom() {
+function _automationReadBuilderTriggersFromDom(): AutomationBuilderRow[] {
     const next = _automationBuilderTriggers.map(trigger => ({ ...trigger }));
     const elements = Array.from(document.querySelectorAll('[data-trigger-index][data-trigger-field]'));
 
@@ -743,7 +778,7 @@ function _automationReadBuilderTriggersFromDom() {
         const field = element.getAttribute('data-trigger-field');
         if (!Number.isFinite(index) || !field) return;
         if (!next[index]) next[index] = _automationBuilderTriggerTemplate();
-        if (field === 'platform') next[index][field] = element.value;
+        if (field === 'platform') next[index][field] = _inputVal(element);
     });
 
     elements.forEach(element => {
@@ -751,34 +786,36 @@ function _automationReadBuilderTriggersFromDom() {
         const field = element.getAttribute('data-trigger-field');
         if (!Number.isFinite(index) || !field || field === 'platform') return;
         if (!next[index]) next[index] = _automationBuilderTriggerTemplate();
-        const platform = next[index]?.platform || 'time';
+        const platform = String(next[index]?.platform || 'time');
         const platformWrap = element.closest('[data-trigger-kind-wrap]');
         if (platformWrap && platformWrap.getAttribute('data-trigger-kind-wrap') !== platform) return;
-        next[index][field] = element.value;
+        next[index][field] = _inputVal(element);
     });
     _automationBuilderTriggers = next.map(_automationNormalizeTrigger);
+    return _automationBuilderTriggers;
 }
 
-function _automationReadBuilderConditionsFromDom() {
+function _automationReadBuilderConditionsFromDom(): AutomationBuilderRow[] {
     const next = _automationBuilderConditions.map(condition => ({ ...condition }));
     document.querySelectorAll('[data-condition-index][data-condition-field]').forEach(element => {
         const index = Number(element.getAttribute('data-condition-index'));
         const field = element.getAttribute('data-condition-field');
         if (!Number.isFinite(index) || !field) return;
         if (!next[index]) next[index] = _automationBuilderConditionTemplate();
-        next[index][field] = element.value;
+        next[index][field] = _inputVal(element);
     });
     _automationBuilderConditions = next.map(_automationNormalizeCondition);
+    return _automationBuilderConditions;
 }
 
-function _automationBuilderWeekdaysList(raw) {
+function _automationBuilderWeekdaysList(raw: unknown) {
     return String(raw || '')
         .split(',')
         .map(item => item.trim().toLowerCase())
         .filter(Boolean);
 }
 
-function _automationBuildYamlFromBuilder() {
+function _automationBuildYamlFromBuilder(): string {
     _automationReadBuilderTriggersFromDom();
     _automationReadBuilderConditionsFromDom();
     _automationReadBuilderActionsFromDom();
@@ -836,7 +873,7 @@ function _automationBuildYamlFromBuilder() {
     }
     lines.push('action:');
     (_automationBuilderActions.length ? _automationBuilderActions : [_automationBuilderActionTemplate('notify')]).forEach(action => {
-        const kind = action?.kind || 'notify';
+        const kind = String(action?.kind || 'notify');
         if (kind === 'service') {
             lines.push(`  - service: ${action.service || ''}`);
             if (action.entity_id) {
@@ -846,7 +883,7 @@ function _automationBuildYamlFromBuilder() {
                 lines.push('    target: {}');
             }
             let parsedData = {};
-            try { parsedData = action.data ? JSON.parse(action.data) : {}; } catch (_) { parsedData = {}; }
+            try { parsedData = action.data ? JSON.parse(String(action.data)) : {}; } catch (_) { parsedData = {}; }
             const entries = Object.entries(parsedData || {});
             if (!entries.length) {
                 lines.push('    data: {}');
@@ -858,7 +895,7 @@ function _automationBuildYamlFromBuilder() {
             lines.push('  - skill:');
             lines.push(`      name: ${_automationYamlScalar(action.name || '')}`);
             let parsedInput = {};
-            try { parsedInput = action.input ? JSON.parse(action.input) : {}; } catch (_) { parsedInput = {}; }
+            try { parsedInput = action.input ? JSON.parse(String(action.input)) : {}; } catch (_) { parsedInput = {}; }
             const entries = Object.entries(parsedInput || {});
             if (!entries.length) {
                 lines.push('      input: {}');
@@ -874,14 +911,14 @@ function _automationBuildYamlFromBuilder() {
     return lines.join('\n') + '\n';
 }
 
-function _automationSetBuilderWarning(message = '') {
+function _automationSetBuilderWarning(message: string = '') {
     const element = document.getElementById('automation-builder-warning');
     if (!element) return;
     element.textContent = message;
     element.classList.toggle('hidden', !message);
 }
 
-async function _automationHydrateBuilderFromNormalized(normalized, warningMessage = '') {
+async function _automationHydrateBuilderFromNormalized(normalized: Record<string, unknown>, warningMessage = '') {
     const triggers = Array.isArray(normalized?.trigger) ? normalized.trigger : [];
     const conditions = Array.isArray(normalized?.condition) ? normalized.condition : [];
     const actions = Array.isArray(normalized?.action) ? normalized.action : [];
@@ -889,12 +926,12 @@ async function _automationHydrateBuilderFromNormalized(normalized, warningMessag
         _automationSetBuilderWarning(t('automations.builder_sync_error'));
         return false;
     }
-    const nextState = {
-        id: normalized.id || 'new_automation',
-        title: normalized.title || 'New automation',
-        description: normalized.description || '',
+    const nextState: Partial<AutomationBuilderState> = {
+        id: String(normalized.id || 'new_automation'),
+        title: String(normalized.title || 'New automation'),
+        description: String(normalized.description || ''),
         enabled: normalized.enabled !== false,
-        mode: normalized.mode || 'single',
+        mode: String(normalized.mode || 'single'),
     };
     _automationBuilderTriggers = triggers.map(trigger => _automationNormalizeTrigger({
         ...trigger,
@@ -944,7 +981,7 @@ async function _automationHydrateBuilderFromNormalized(normalized, warningMessag
     return true;
 }
 
-function _automationResetBuilder() {
+function _automationResetBuilder(): void {
     _automationBuilderTriggers = [_automationBuilderTriggerTemplate('time')];
     _automationBuilderConditions = [];
     _automationBuilderActions = [_automationBuilderActionTemplate('notify')];
@@ -956,7 +993,7 @@ function _automationResetBuilder() {
     _automationSetBuilderWarning('');
 }
 
-function _automationSetEditorMode(mode) {
+function _automationSetEditorMode(mode: AutomationEditorMode) {
     _automationEditorMode = ['builder', 'yaml', 'history'].includes(mode) ? mode : 'builder';
     document.querySelectorAll('[data-automation-editor-mode]').forEach(element => {
         const active = element.getAttribute('data-automation-editor-mode') === _automationEditorMode;
@@ -970,7 +1007,7 @@ function _automationSetEditorMode(mode) {
     });
 }
 
-function _formatAutomationNextRun(item) {
+function _formatAutomationNextRun(item: AutomationListItem) {
     const nextRuns = Array.isArray(item?.next_runs) ? item.next_runs : [];
     const nextRunAt = nextRuns[0]?.next_run_at;
     if (!nextRunAt) return '—';
@@ -981,7 +1018,7 @@ function _formatAutomationNextRun(item) {
     }
 }
 
-function _formatAutomationUpdatedAt(item) {
+function _formatAutomationUpdatedAt(item: AutomationListItem) {
     if (!item?.updated_at) return '—';
     try {
         return new Date(item.updated_at.replace('Z', '+00:00')).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
@@ -990,16 +1027,16 @@ function _formatAutomationUpdatedAt(item) {
     }
 }
 
-function _formatAutomationHistoryAt(value) {
+function _formatAutomationHistoryAt(value: unknown) {
     if (!value) return '—';
     try {
-        return new Date(value.replace('Z', '+00:00')).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+        return new Date(String(value).replace('Z', '+00:00')).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
     } catch (_) {
         return value;
     }
 }
 
-function _automationDot(item) {
+function _automationDot(item: AutomationListItem) {
     const defId = item?.id || '';
     const enabled = !!item?.enabled;
     const lastStatus = (item?.last_run_status || '').trim().toLowerCase();
@@ -1017,12 +1054,12 @@ function _automationDot(item) {
     return `<span class="auto-dot ${color} shrink-0" data-auto-dot="${escapeHtmlAttr(defId)}" data-auto-dot-label="${escapeHtmlAttr(label)}" data-memory-action="showAutoDotTooltip" data-memory-hover="showAutoDotTooltip"></span>`;
 }
 
-function _formatAutoTimestamp(isoStr) {
+function _formatAutoTimestamp(isoStr: string) {
     if (!isoStr) return '';
     try {
         const d = new Date(isoStr);
         const now = new Date();
-        const diffMs = now - d;
+        const diffMs = now.getTime() - d.getTime();
         if (diffMs < 60000) return 'acum';
         if (diffMs < 3600000) return `${Math.floor(diffMs / 60000)} min`;
         if (diffMs < 86400000) {
@@ -1032,14 +1069,14 @@ function _formatAutoTimestamp(isoStr) {
     } catch (_) { return ''; }
 }
 
-function _automationRunStatusBadge(status) {
+function _automationRunStatusBadge(status: string) {
     const normalized = String(status || '').trim().toLowerCase();
-    const map = {
+    const map: Record<string, string> = {
         ok: 'text-emerald-400/90 bg-emerald-500/15',
         skipped: 'text-amber-400/90 bg-amber-500/15',
         error: 'text-red-400/90 bg-red-500/15',
     };
-    const labelMap = {
+    const labelMap: Record<string, string> = {
         ok: t('automations.history_status_ok'),
         skipped: t('automations.history_status_skipped'),
         error: t('automations.history_status_error'),
@@ -1047,7 +1084,7 @@ function _automationRunStatusBadge(status) {
     return `<span class="text-[9px] font-bold uppercase tracking-wider ${map[normalized] || 'text-slate-400 bg-slate-500/10'} px-2 py-0.5 rounded">${labelMap[normalized] || escapeHtml(normalized || '—')}</span>`;
 }
 
-function _buildAutomationTemplate() {
+function _buildAutomationTemplate(): string {
     return [
         'version: 1',
         'id: new_automation',
@@ -1063,11 +1100,11 @@ function _buildAutomationTemplate() {
     ].join('\n');
 }
 
-let _autoHistoryItems = [];
+let _autoHistoryItems: AutomationHistoryItem[] = [];
 let _autoHistoryPage = 1;
 const _AUTO_HISTORY_PAGE_SIZE = 10;
 
-export async function loadAutomationEditorHistory(targetId) {
+export async function loadAutomationEditorHistory(targetId?: string | null) {
     const listEl = document.getElementById('automation-editor-history-list');
     const emptyEl = document.getElementById('automation-editor-history-empty');
     if (!listEl || !emptyEl) return;
@@ -1103,7 +1140,7 @@ export async function loadAutomationEditorHistory(targetId) {
     }
 }
 
-function _renderAutoHistoryPage() {
+function _renderAutoHistoryPage(): void {
     const listEl = document.getElementById('automation-editor-history-list');
     if (!listEl) return;
     const total = _autoHistoryItems.length;
@@ -1117,9 +1154,9 @@ function _renderAutoHistoryPage() {
 
     const rows = slice.map((item, i) => {
         const idx = start + i;
-        const details = item?.details && typeof item.details === 'object' ? item.details : null;
-        const trace = details && details.trace && typeof details.trace === 'object' ? details.trace : null;
-        const runId = (details && details.run_id) || (trace && trace.run_id) || '';
+        const details = item?.details && typeof item.details === 'object' ? item.details as Record<string, unknown> : null;
+        const trace = details && details.trace && typeof details.trace === 'object' ? details.trace as Record<string, unknown> : null;
+        const runId = String((details && details.run_id) || (trace && trace.run_id) || '');
         const runIdShort = runId ? String(runId).slice(0, 8) : '';
         const traceHtml = trace ? _automationRenderTraceBlock(trace, `auto-trace-${idx}`) : '';
         const runIdBadge = runIdShort
@@ -1132,7 +1169,7 @@ function _renderAutoHistoryPage() {
                         <div class="text-[11px] text-slate-300">${escapeHtml(_formatAutomationHistoryAt(item.started_at))}</div>
                         ${runIdBadge}
                     </div>
-                    ${_automationRunStatusBadge(item.status)}
+                    ${_automationRunStatusBadge(String(item.status || ''))}
                 </div>
                 <div class="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
                     <span><span class="text-slate-400">${t('automations.history_trigger')}:</span> ${escapeHtml(item.trigger_source || '—')}</span>
@@ -1160,25 +1197,26 @@ function _renderAutoHistoryPage() {
     listEl.innerHTML = rows + pager;
     listEl.querySelectorAll('[data-auto-hist-page]').forEach(btn => {
         btn.addEventListener('click', () => {
-            _autoHistoryPage = Number(btn.dataset.autoHistPage) || 1;
+            _autoHistoryPage = Number((btn as HTMLElement).dataset.autoHistPage) || 1;
             _renderAutoHistoryPage();
         });
     });
 }
 
-function _automationRenderTraceBlock(trace, id) {
-    const steps = Array.isArray(trace?.steps) ? trace.steps : [];
+function _automationRenderTraceBlock(trace: unknown, id: string) {
+    const tr = trace as Record<string, unknown>;
+    const steps = Array.isArray(tr?.steps) ? tr.steps as Record<string, unknown>[] : [];
     if (!steps.length) return '';
-    const truncated = !!trace.truncated;
+    const truncated = !!tr.truncated;
     const showLabel = escapeHtml(t('automations.trace_show'));
     const hideLabel = escapeHtml(t('automations.trace_hide'));
-    const stepRows = steps.map(step => {
+    const stepRows = steps.map((step: Record<string, unknown>) => {
         const status = String(step?.status || 'ok');
         const dot = status === 'error'
             ? 'bg-rose-400'
             : status === 'skipped' ? 'bg-amber-400' : 'bg-emerald-400';
-        const offset = Number.isFinite(step?.ts_offset_ms) ? `+${Math.round(step.ts_offset_ms)}ms` : '';
-        const dur = Number.isFinite(step?.duration_ms) ? `${Math.round(step.duration_ms)}ms` : '';
+        const offset = Number.isFinite(Number(step?.ts_offset_ms)) ? `+${Math.round(Number(step.ts_offset_ms))}ms` : '';
+        const dur = Number.isFinite(Number(step?.duration_ms)) ? `${Math.round(Number(step.duration_ms))}ms` : '';
         const detail = step?.error || step?.message || '';
         const params = step?.params && typeof step.params === 'object' && !Array.isArray(step.params)
             ? Object.entries(step.params)
@@ -1211,7 +1249,7 @@ function _automationRenderTraceBlock(trace, id) {
         </details>`;
 }
 
-export function switchAutomationEditorMode(mode) {
+export function switchAutomationEditorMode(mode: AutomationEditorMode) {
     _automationSetEditorMode(mode);
     if (mode === 'yaml') {
         refreshCodeEditor('automation-editor-yaml');
@@ -1222,7 +1260,7 @@ export function switchAutomationEditorMode(mode) {
 
 let _automationIdManuallyEdited = false;
 
-function _slugify(text) {
+function _slugify(text: string) {
     return text
         .toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -1231,19 +1269,19 @@ function _slugify(text) {
         .substring(0, 64);
 }
 
-export function autoSyncAutomationId() {
+export function autoSyncAutomationId(): void {
     if (_automationIdManuallyEdited) return;
-    const titleEl = document.getElementById('automation-builder-title');
-    const idEl = document.getElementById('automation-builder-id');
+    const titleEl = _autoEl('automation-builder-title');
+    const idEl = _autoEl('automation-builder-id');
     if (!titleEl || !idEl) return;
     idEl.value = _slugify(titleEl.value);
 }
 
-export function markAutomationIdManual() {
+export function markAutomationIdManual(): void {
     _automationIdManuallyEdited = true;
 }
 
-export async function syncAutomationYamlFromBuilder(options = {}) {
+export async function syncAutomationYamlFromBuilder(options: SyncAutomationOptions = {}) {
     if (options.rerenderTriggers) {
         _automationReadBuilderTriggersFromDom();
         _automationRenderBuilderTriggers();
@@ -1265,7 +1303,7 @@ export async function syncAutomationYamlFromBuilder(options = {}) {
     }
 }
 
-export async function syncAutomationBuilderFromYaml(options = {}) {
+export async function syncAutomationBuilderFromYaml(options: SyncAutomationOptions = {}) {
     const sourceYaml = getCodeEditorValue('automation-editor-yaml')?.trim();
     if (!sourceYaml) return false;
     try {
@@ -1283,20 +1321,20 @@ export async function syncAutomationBuilderFromYaml(options = {}) {
     }
 }
 
-let _autoStatusTimer = null;
+let _autoStatusTimer: ReturnType<typeof setInterval> | null = null;
 
-function _startAutoStatusPoll() {
+function _startAutoStatusPoll(): void {
     _stopAutoStatusPoll();
     _autoStatusTimer = setInterval(_pollAutoStatuses, 3000);
 }
 
-function _stopAutoStatusPoll() {
+function _stopAutoStatusPoll(): void {
     if (_autoStatusTimer) { clearInterval(_autoStatusTimer); _autoStatusTimer = null; }
 }
 
-let _autoMenuPortal = null;
+let _autoMenuPortal: HTMLElement | null = null;
 
-export function toggleAutoMenu(e, defId, btnEl) {
+export function toggleAutoMenu(e: MouseEvent, defId: string, btnEl: HTMLElement) {
     e?.stopPropagation?.();
     const wasOpen = _autoMenuPortal?.dataset.defId === defId;
     closeAutoMenu();
@@ -1305,10 +1343,10 @@ export function toggleAutoMenu(e, defId, btnEl) {
     const src = document.getElementById(`auto-menu-${defId}`);
     if (!src) return;
 
-    const btn = btnEl || e?.target?.closest?.('[data-memory-action="toggleAutoMenu"]');
+    const btn = (btnEl || (e?.target as HTMLElement | null)?.closest?.('[data-memory-action="toggleAutoMenu"]')) as HTMLElement | null;
     if (!btn?.getBoundingClientRect) return;
     const r = btn.getBoundingClientRect();
-    const portal = src.cloneNode(true);
+    const portal = src.cloneNode(true) as HTMLElement;
     portal.id = 'auto-menu-portal';
     portal.dataset.defId = defId;
     portal.classList.remove('hidden');
@@ -1325,14 +1363,14 @@ export function toggleAutoMenu(e, defId, btnEl) {
     });
 }
 
-export function closeAutoMenu() {
+export function closeAutoMenu(): void {
     if (_autoMenuPortal) { _autoMenuPortal.remove(); _autoMenuPortal = null; }
 }
 
-let _autoDotTip = null;
-export function showAutoDotTooltip(e, dotEl) {
+let _autoDotTip: HTMLElement | null = null;
+export function showAutoDotTooltip(e: MouseEvent, dotEl: HTMLElement) {
     e?.stopPropagation?.();
-    const dot = dotEl || e?.target?.closest?.('[data-memory-hover="showAutoDotTooltip"], [data-memory-action="showAutoDotTooltip"]');
+    const dot = (dotEl || (e?.target as HTMLElement | null)?.closest?.('[data-memory-hover="showAutoDotTooltip"], [data-memory-action="showAutoDotTooltip"]')) as HTMLElement | null;
     if (!dot) return;
     const label = dot.dataset.autoDotLabel || '';
     if (!label) return;
@@ -1348,13 +1386,13 @@ export function showAutoDotTooltip(e, dotEl) {
     requestAnimationFrame(() => tip.classList.add('is-visible'));
 }
 
-export function hideAutoDotTooltip() {
+export function hideAutoDotTooltip(): void {
     if (_autoDotTip) { _autoDotTip.remove(); _autoDotTip = null; }
 }
 
 document.addEventListener('click', () => { closeAutoMenu(); hideAutoDotTooltip(); });
 
-async function _pollAutoStatuses() {
+async function _pollAutoStatuses(): Promise<void> {
     const panel = document.getElementById('intelligence-panel-automations');
     if (!panel || panel.classList.contains('hidden')) { _stopAutoStatusPoll(); return; }
     try {
@@ -1378,7 +1416,7 @@ async function _pollAutoStatuses() {
                     label = t('automations.enabled_badge');
                 }
                 dot.className = `auto-dot ${cls} shrink-0`;
-                dot.dataset.autoDotLabel = label;
+                (dot as HTMLElement).dataset.autoDotLabel = label;
             }
             const ts = item.last_run_at ? _formatAutoTimestamp(item.last_run_at) : '—';
             if (timeEl) timeEl.textContent = ts;
@@ -1386,7 +1424,7 @@ async function _pollAutoStatuses() {
     } catch (_) {}
 }
 
-export async function loadAutomations() {
+export async function loadAutomations(): Promise<void> {
     const listEl = document.getElementById('automations-list');
     const emptyEl = document.getElementById('automations-empty');
     if (!listEl) return;
@@ -1401,10 +1439,10 @@ export async function loadAutomations() {
         } else {
             listEl.classList.remove('hidden');
             if (emptyEl) emptyEl.classList.add('hidden');
-            listEl.innerHTML = automations.map(a => {
+            listEl.innerHTML = automations.map((a: AutomationListItem) => {
                 const defId = escapeHtml(a.id).replace(/"/g, '&quot;');
                 const desc = escapeHtml(a.description || '');
-                const lastTime = a.last_run_at ? _formatAutoTimestamp(a.last_run_at) : '—';
+                const lastTime = a.last_run_at ? _formatAutoTimestamp(String(a.last_run_at)) : '—';
                 const nextTime = escapeHtml(_formatAutomationNextRun(a));
                 const toggleLabel = a.enabled ? (t('automations.disable')) : (t('automations.enable'));
                 const toggleIcon = a.enabled ? 'fa-pause' : 'fa-play-circle';
@@ -1443,7 +1481,7 @@ export async function loadAutomations() {
     if (panel && !panel.classList.contains('hidden')) _startAutoStatusPoll();
 }
 
-export async function loadAutomationEventLog() {
+export async function loadAutomationEventLog(): Promise<void> {
     const logEl = document.getElementById('automation-event-log');
     if (!logEl) return;
     try {
@@ -1455,11 +1493,11 @@ export async function loadAutomationEventLog() {
             logEl.innerHTML = `<p class="text-[11px] text-slate-500">${t('automations.event_log_empty')}</p>`;
             return;
         }
-        logEl.innerHTML = items.map(r => {
+        logEl.innerHTML = items.map((r: Record<string, unknown>) => {
             const statusColor = r.status === 'ok' ? 'text-emerald-400' : r.status === 'error' ? 'text-red-400' : 'text-amber-400';
             const statusIcon = r.status === 'ok' ? 'fa-check' : r.status === 'error' ? 'fa-xmark' : 'fa-forward';
             const triggerLabel = _formatTriggerSource(r.trigger_source);
-            const timeStr = r.started_at ? _formatAutoTimestamp(r.started_at) : '—';
+            const timeStr = r.started_at ? _formatAutoTimestamp(String(r.started_at)) : '—';
             return `<div class="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-white/[0.02] transition-colors">
                 <i class="fas ${statusIcon} ${statusColor} text-[9px] w-3 text-center shrink-0"></i>
                 <span class="text-[12px] text-slate-200 font-medium truncate">${escapeHtml(r.title || r.automation_id)}</span>
@@ -1472,14 +1510,14 @@ export async function loadAutomationEventLog() {
     }
 }
 
-function _formatTriggerSource(src) {
+function _formatTriggerSource(src: unknown) {
     if (!src) return '';
     if (src === 'manual') return t('automations.trigger_manual');
-    if (src.startsWith('trigger:')) return t('automations.trigger_auto');
-    return escapeHtml(src);
+    if (typeof src === 'string' && src.startsWith('trigger:')) return t('automations.trigger_auto');
+    return escapeHtml(String(src));
 }
 
-export async function deleteAutomation(jobId) {
+export async function deleteAutomation(jobId: string) {
     if (!(await showConfirm(t('automations.delete_confirm')))) return;
     try {
         const res = await apiCall('/api/automations/definitions/' + encodeURIComponent(jobId), { method: 'DELETE' });
@@ -1492,13 +1530,13 @@ export async function deleteAutomation(jobId) {
     }
 }
 
-export async function openAutomationEditor(automationId) {
-    automationId = _automationIdString(automationId) || undefined;
+export async function openAutomationEditor(automationId: string | null) {
+    automationId = _automationIdString(automationId);
     const validateEl = document.getElementById('automation-editor-validation');
     const infoEl = document.getElementById('automation-editor-info');
     const pathEl = document.getElementById('automation-editor-path');
-    const idEl = document.getElementById('automation-editor-id');
-    const revEl = document.getElementById('automation-editor-revision');
+    const idEl = _autoEl('automation-editor-id');
+    const revEl = _autoEl('automation-editor-revision');
     const idDisplayEl = document.getElementById('automation-editor-id-display');
     const titleEl = document.getElementById('automation-editor-title');
     _automationEditorId = automationId || null;
@@ -1551,7 +1589,7 @@ export async function openAutomationEditor(automationId) {
     }
 }
 
-export function closeAutomationEditor() {
+export function closeAutomationEditor(): void {
     const historyList = document.getElementById('automation-history-list');
     const historyEmpty = document.getElementById('automation-history-empty');
     if (historyList) historyList.innerHTML = '';
@@ -1562,7 +1600,7 @@ export function closeAutomationEditor() {
     closeSubPage('automation-editor-modal');
 }
 
-export async function validateAutomationEditor() {
+export async function validateAutomationEditor(): Promise<void> {
     const sourceYaml = getCodeEditorValue('automation-editor-yaml')?.trim();
     if (!sourceYaml) return;
     try {
@@ -1583,16 +1621,16 @@ export async function validateAutomationEditor() {
     } catch (e) {
         let detail = t('automations.validation_error');
         try {
-            const payload = JSON.parse(e?.message || '{}');
+            const payload = JSON.parse(_errMsg(e) || '{}');
             if (payload?.detail) detail = payload.detail;
         } catch (_) {}
-        if (e?.message && !e.message.startsWith('{')) detail = e.message;
+        if (_errMsg(e) && !_errMsg(e).startsWith('{')) detail = _errMsg(e);
         showToast(detail, 'error');
     }
 }
 
-export async function saveAutomationEditor() {
-    const revisionEl = document.getElementById('automation-editor-revision');
+export async function saveAutomationEditor(): Promise<void> {
+    const revisionEl = _autoEl('automation-editor-revision');
     const sourceYaml = getCodeEditorValue('automation-editor-yaml')?.trim();
     if (!sourceYaml) {
         showToast(t('automations.validation_error'), 'error');
@@ -1626,12 +1664,12 @@ export async function saveAutomationEditor() {
         }
         await loadAutomations();
     } catch (e) {
-        const msg = (e && e.message) ? e.message : (t('automations.save_error'));
+        const msg = (e && _errMsg(e)) ? _errMsg(e) : (t('automations.save_error'));
         showToast(msg, 'error');
     }
 }
 
-export async function toggleAutomationDefinition(automationId, enabled, revision) {
+export async function toggleAutomationDefinition(automationId: string, enabled: boolean, revision: string | null) {
     try {
         const res = await apiCall(`/api/automations/definitions/${encodeURIComponent(automationId)}/${enabled ? 'disable' : 'enable'}`, {
             method: 'POST',
@@ -1649,7 +1687,7 @@ export async function toggleAutomationDefinition(automationId, enabled, revision
     }
 }
 
-export async function runAutomationDefinition(automationId) {
+export async function runAutomationDefinition(automationId: string) {
     try {
         const res = await apiCall(`/api/automations/definitions/${encodeURIComponent(automationId)}/run`, { method: 'POST' });
         if (!res.ok) throw new Error();
@@ -1661,7 +1699,7 @@ export async function runAutomationDefinition(automationId) {
     }
 }
 
-export async function testAutomationEditor() {
+export async function testAutomationEditor(): Promise<void> {
     // Dry-run the currently-open automation. Requires the automation to
     // already be saved (we need an id on the server to walk).
     const editorId = _editorAutomationId();
@@ -1683,36 +1721,36 @@ export async function testAutomationEditor() {
     }
 }
 
-function _pathDepth(path) {
+function _pathDepth(path: string) {
     // Path depth = number of `[` chars (each array index = one nesting level).
     // E.g. "action[2]" = 1, "action[2].choices[0].actions[1]" = 3.
     if (!path) return 0;
     return (path.match(/\[/g) || []).length;
 }
 
-function _pathLeaf(path) {
+function _pathLeaf(path: string) {
     // Last segment, e.g. "action[2].choices[0].actions[1]" -> "actions[1]".
     if (!path) return '';
     const parts = path.split('.');
     return parts[parts.length - 1] || path;
 }
 
-function _renderAutomationDryRunTrace(result) {
+function _renderAutomationDryRunTrace(result: Record<string, unknown>) {
     // Render the trace as an indented tree so branching `choose` actions
     // (and nested `repeat` blocks) are visually obvious. Nesting is
     // derived from the step's `path` (each `[...]` segment adds a level).
     const listEl = document.getElementById('automation-editor-history-list');
     const emptyEl = document.getElementById('automation-editor-history-empty');
     if (!listEl) return;
-    const trace = result.trace || { steps: [] };
-    const steps = Array.isArray(trace.steps) ? trace.steps : [];
+    const trace = (result.trace || { steps: [] }) as Record<string, unknown>;
+    const steps = Array.isArray(trace.steps) ? trace.steps as Record<string, unknown>[] : [];
     const headerLabel = t('automations.test_header');
-    const statusLabel = (result.status || 'unknown').toUpperCase();
+    const statusLabel = String(result.status || 'unknown').toUpperCase();
     const statusColor = result.status === 'ok' ? 'text-emerald-300'
         : result.status === 'skipped' ? 'text-amber-300' : 'text-red-300';
     const stepsHtml = steps.length === 0
         ? `<p class="text-[11px] text-slate-500">${escapeHtml(t('automations.test_no_steps'))}</p>`
-        : steps.map(s => {
+        : steps.map((s: Record<string, unknown>) => {
             const tone = s.status === 'ok' ? 'text-emerald-300'
                 : s.status === 'dry_run' ? 'text-sky-300'
                 : s.status === 'skipped' ? 'text-amber-300'
@@ -1721,10 +1759,10 @@ function _renderAutomationDryRunTrace(result) {
                 : s.status === 'dry_run' ? 'bg-sky-400'
                 : s.status === 'skipped' ? 'bg-amber-400'
                 : s.status === 'error' ? 'bg-red-400' : 'bg-slate-500';
-            const depth = _pathDepth(s.path);
-            const leaf = _pathLeaf(s.path);
-            const ms = (s.ts_offset_ms != null) ? `+${Math.round(s.ts_offset_ms)}ms` : '';
-            const dur = (s.duration_ms != null) ? ` · ${Math.round(s.duration_ms)}ms` : '';
+            const depth = _pathDepth(String(s.path || ''));
+            const leaf = _pathLeaf(String(s.path || ''));
+            const ms = (s.ts_offset_ms != null) ? `+${Math.round(Number(s.ts_offset_ms))}ms` : '';
+            const dur = (s.duration_ms != null) ? ` · ${Math.round(Number(s.duration_ms))}ms` : '';
             const indentStyle = `padding-left: ${depth * 14}px;`;
             const branchHint = depth > 0
                 ? `<span class="text-slate-700 font-mono mr-1">${'│ '.repeat(Math.max(0, depth - 1))}└─</span>`
@@ -1732,9 +1770,9 @@ function _renderAutomationDryRunTrace(result) {
             return `<div class="text-[11px] flex gap-2 items-baseline border-l border-white/5" style="${indentStyle}">
                 <span class="inline-block w-1.5 h-1.5 rounded-full ${dotTone} flex-none mt-1"></span>
                 <span class="text-slate-600 font-mono text-[10px] flex-none">${escapeHtml(ms)}${escapeHtml(dur)}</span>
-                <span class="${tone} font-bold uppercase text-[10px] flex-none">${escapeHtml(s.status || '?')}</span>
+                <span class="${tone} font-bold uppercase text-[10px] flex-none">${escapeHtml(String(s.status || '?'))}</span>
                 <span class="text-slate-400 font-mono text-[10px] flex-none">${branchHint}${escapeHtml(leaf)}</span>
-                <span class="text-slate-300 flex-1">${escapeHtml(s.message || s.error || '')}</span>
+                <span class="text-slate-300 flex-1">${escapeHtml(String(s.message || s.error || ''))}</span>
             </div>`;
         }).join('');
     listEl.innerHTML = `
@@ -1749,7 +1787,7 @@ function _renderAutomationDryRunTrace(result) {
     if (emptyEl) emptyEl.classList.add('hidden');
 }
 
-function _renderAutomationLintWarnings(warnings) {
+function _renderAutomationLintWarnings(warnings: unknown[]) {
     // Render non-fatal lint warnings into the validation panel as a sub-list.
     // Each warning has {code, severity, message, path}. severity ∈ info|warning.
     const validateEl = document.getElementById('automation-editor-validation');
@@ -1767,22 +1805,22 @@ function _renderAutomationLintWarnings(warnings) {
         return;
     }
     panel.classList.remove('hidden');
-    panel.innerHTML = warnings.map(w => {
-        const tone = w.severity === 'warning'
+    panel.innerHTML = (warnings as Record<string, unknown>[]).map((w) => {
+        const tone = String(w.severity) === 'warning'
             ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
             : 'border-sky-500/30 bg-sky-500/10 text-sky-200';
-        const icon = w.severity === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-info';
+        const icon = String(w.severity) === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-info';
         return `<div class="rounded-lg border ${tone} px-3 py-2 text-[11px] flex items-start gap-2">
             <i class="fas ${icon} mt-0.5"></i>
             <div class="flex-1">
-                <div>${escapeHtml(w.message || '')}</div>
-                <div class="text-[10px] opacity-70 mt-0.5"><span class="font-mono">${escapeHtml(w.path || '')}</span> · <span class="uppercase">${escapeHtml(w.code || '')}</span></div>
+                <div>${escapeHtml(String(w.message || ''))}</div>
+                <div class="text-[10px] opacity-70 mt-0.5"><span class="font-mono">${escapeHtml(String(w.path || ''))}</span> · <span class="uppercase">${escapeHtml(String(w.code || ''))}</span></div>
             </div>
         </div>`;
     }).join('');
 }
 
-export function exportAutomationYaml() {
+export function exportAutomationYaml(): void {
     // Download the current editor YAML as a .yaml file. Filename is derived
     // from the automation id (or "automation" if unsaved).
     const yaml = getCodeEditorValue('automation-editor-yaml') || '';
@@ -1803,10 +1841,10 @@ export function exportAutomationYaml() {
     showToast(t('automations.export_done'), 'success');
 }
 
-export function importAutomationYaml() {
+export function importAutomationYaml(): void {
     // Open the hidden <input type="file"> and load its contents into the
     // editor. Does NOT save — the user still has to hit Save.
-    const input = document.getElementById('automation-yaml-import-input');
+    const input = document.getElementById('automation-yaml-import-input') as HTMLInputElement | null;
     if (!input) return;
     input.value = '';
     input.onchange = async () => {
@@ -1832,13 +1870,13 @@ export function importAutomationYaml() {
 // Blueprint picker — Sprint 5 slice 3                                         //
 // --------------------------------------------------------------------------- //
 
-let _blueprints = [];
-let _activeBlueprint = null;
-let _pickerEntityCache = null;
-let _pickerAreaCache = null;
-let _blueprintCreatorInputs = [];
+let _blueprints: Record<string, unknown>[] = [];
+let _activeBlueprint: Record<string, unknown> | null = null;
+let _pickerEntityCache: AutomationPickerEntity[] | null = null;
+let _pickerAreaCache: AutomationPickerArea[] | null = null;
+let _blueprintCreatorInputs: Record<string, unknown>[] = [];
 
-function _prepareBlueprintPickerModal() {
+function _prepareBlueprintPickerModal(): HTMLElement | null {
     const modal = document.getElementById('blueprint-picker-modal');
     if (!modal) return null;
     const host = document.getElementById('view-config') || document.querySelector('main') || document.body;
@@ -1851,7 +1889,7 @@ function _prepareBlueprintPickerModal() {
     return modal;
 }
 
-async function _blueprintApiCall(url, options = {}) {
+async function _blueprintApiCall(url: string, options: RequestInit = {}): Promise<Response> {
     suppressLogout(true);
     try {
         return await apiCall(url, options);
@@ -1860,19 +1898,19 @@ async function _blueprintApiCall(url, options = {}) {
     }
 }
 
-export async function openBlueprintPicker() {
+export async function openBlueprintPicker(): Promise<void> {
     _prepareBlueprintPickerModal();
     openSubPage('blueprint-picker-modal');
     backToBlueprintList();
     loadBlueprints();
 }
 
-export function closeBlueprintPicker() {
+export function closeBlueprintPicker(): void {
     closeSubPage('blueprint-picker-modal');
     _activeBlueprint = null;
 }
 
-export function backToBlueprintList() {
+export function backToBlueprintList(): void {
     _activeBlueprint = null;
     document.getElementById('blueprint-picker-list-pane')?.classList.remove('hidden');
     document.getElementById('blueprint-picker-form-pane')?.classList.add('hidden');
@@ -1891,7 +1929,7 @@ export function backToBlueprintList() {
     if (creatorErrEl) { creatorErrEl.classList.add('hidden'); creatorErrEl.textContent = ''; }
 }
 
-function _defaultBlueprintTemplate() {
+function _defaultBlueprintTemplate(): string {
     return `id: morning_notice
 title: "Morning notice"
 mode: single
@@ -1903,40 +1941,42 @@ action:
       text: "${t('blueprints.default_notify_text')}"`;
 }
 
-function _readBlueprintCreatorInputsFromDom() {
+function _readBlueprintCreatorInputsFromDom(): Record<string, unknown>[] {
     const rows = Array.from(document.querySelectorAll('#blueprint-creator-inputs [data-bp-creator-input-row]'));
     return rows.map((row, idx) => {
-        const read = selector => row.querySelector(selector)?.value || '';
+        const read = (selector: string) => _inputVal(row.querySelector(selector));
         return {
             id: read('[data-bp-creator-field="id"]').trim() || `input_${idx + 1}`,
             label: read('[data-bp-creator-field="label"]').trim(),
             type: read('[data-bp-creator-field="type"]').trim() || 'string',
-            required: !!row.querySelector('[data-bp-creator-field="required"]')?.checked,
+            required: !!(row.querySelector('[data-bp-creator-field="required"]') as HTMLInputElement | null)?.checked,
             default: read('[data-bp-creator-field="default"]'),
             choices: read('[data-bp-creator-field="choices"]'),
         };
     });
 }
 
-function _yamlScalar(value) {
+function _yamlScalar(value: unknown) {
     return JSON.stringify(String(value ?? ''));
 }
 
-function _indentBlock(text) {
+function _indentBlock(text: string) {
     return String(text || '').replace(/\s+$/g, '').split('\n').map(line => `  ${line}`).join('\n');
 }
 
-function _validateBlueprintCreatorDraft(draft) {
+function _validateBlueprintCreatorDraft(draft: Record<string, unknown>) {
     const title = String(draft.title || '').trim();
     if (!title) return t('blueprints.title_required');
     if (!String(draft.template || '').trim()) return t('blueprints.template_required');
     const seen = new Set();
-    for (const input of draft.inputs) {
-        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(input.id)) return t('blueprints.invalid_input_id', { id: input.id });
-        if (seen.has(input.id)) return t('blueprints.duplicate_input', { id: input.id });
-        seen.add(input.id);
+    const inputs = Array.isArray(draft.inputs) ? draft.inputs as Record<string, unknown>[] : [];
+    for (const input of inputs) {
+        const inputId = String(input.id || '');
+        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(inputId)) return t('blueprints.invalid_input_id', { id: inputId });
+        if (seen.has(inputId)) return t('blueprints.duplicate_input', { id: inputId });
+        seen.add(inputId);
         if (input.type === 'select' && !String(input.choices || '').split(',').map(v => v.trim()).filter(Boolean).length) {
-            return t('blueprints.select_needs_options', { id: input.id });
+            return t('blueprints.select_needs_options', { id: inputId });
         }
     }
     const refs = new Set();
@@ -1950,16 +1990,18 @@ function _validateBlueprintCreatorDraft(draft) {
     return '';
 }
 
-function _composeBlueprintSourceYaml(draft) {
+function _composeBlueprintSourceYaml(draft: Record<string, unknown>) {
     const lines = [
         `title: ${_yamlScalar(draft.title)}`,
         `description: ${_yamlScalar(draft.description)}`,
     ];
-    if (!draft.inputs.length) {
+    const draftInputs = Array.isArray(draft.inputs) ? draft.inputs as Record<string, unknown>[] : [];
+    if (!draftInputs.length) {
         lines.push('inputs: []');
     } else {
         lines.push('inputs:');
-        for (const input of draft.inputs) {
+        const inputs = Array.isArray(draft.inputs) ? draft.inputs as Record<string, unknown>[] : [];
+    for (const input of inputs) {
             lines.push(`  - id: ${input.id}`);
             lines.push(`    label: ${_yamlScalar(input.label || input.id)}`);
             lines.push(`    type: ${input.type}`);
@@ -1973,20 +2015,20 @@ function _composeBlueprintSourceYaml(draft) {
         }
     }
     lines.push('template: |');
-    lines.push(_indentBlock(draft.template));
+    lines.push(_indentBlock(String(draft.template || '')));
     return `${lines.join('\n')}\n`;
 }
 
-function _currentBlueprintCreatorDraft() {
+function _currentBlueprintCreatorDraft(): Record<string, unknown> {
     return {
-        title: document.getElementById('blueprint-creator-title')?.value || '',
-        description: document.getElementById('blueprint-creator-description')?.value || '',
+        title: _autoEl('blueprint-creator-title')?.value || '',
+        description: _autoEl('blueprint-creator-description')?.value || '',
         inputs: _readBlueprintCreatorInputsFromDom(),
-        template: document.getElementById('blueprint-creator-template')?.value || '',
+        template: _autoEl('blueprint-creator-template')?.value || '',
     };
 }
 
-function _renderBlueprintCreatorInputs() {
+function _renderBlueprintCreatorInputs(): void {
     const host = document.getElementById('blueprint-creator-inputs');
     if (!host) return;
     host.innerHTML = _blueprintCreatorInputs.map((input, idx) => {
@@ -2030,10 +2072,10 @@ function _renderBlueprintCreatorInputs() {
     _renderBlueprintCreatorPlaceholders();
 }
 
-function _renderBlueprintCreatorPlaceholders() {
+function _renderBlueprintCreatorPlaceholders(): void {
     const host = document.getElementById('blueprint-creator-placeholders');
     if (!host) return;
-    const inputs = _readBlueprintCreatorInputsFromDom().filter(input => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(input.id));
+    const inputs = _readBlueprintCreatorInputsFromDom().filter(input => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(String(input.id || '')));
     if (!inputs.length) {
         host.classList.add('hidden');
         host.innerHTML = '';
@@ -2046,7 +2088,7 @@ function _renderBlueprintCreatorPlaceholders() {
     ]).join('');
 }
 
-export function openBlueprintCreator() {
+export function openBlueprintCreator(): void {
     _prepareBlueprintPickerModal();
     openSubPage('blueprint-picker-modal');
     _activeBlueprint = null;
@@ -2059,15 +2101,15 @@ export function openBlueprintCreator() {
     document.getElementById('blueprint-picker-form-actions')?.classList.remove('flex');
     document.getElementById('blueprint-picker-creator-actions')?.classList.remove('hidden');
     document.getElementById('blueprint-picker-creator-actions')?.classList.add('flex');
-    document.getElementById('blueprint-creator-title').value = '';
-    document.getElementById('blueprint-creator-description').value = '';
-    document.getElementById('blueprint-creator-template').value = _defaultBlueprintTemplate();
+    _autoEl('blueprint-creator-title')!.value = '';
+    _autoEl('blueprint-creator-description')!.value = '';
+    _autoEl('blueprint-creator-template')!.value = _defaultBlueprintTemplate();
     _blueprintCreatorInputs = [];
     _renderBlueprintCreatorInputs();
     updateBlueprintCreatorYaml();
 }
 
-export function addBlueprintCreatorInput() {
+export function addBlueprintCreatorInput(): void {
     _blueprintCreatorInputs = _readBlueprintCreatorInputsFromDom();
     const next = _blueprintCreatorInputs.length + 1;
     _blueprintCreatorInputs.push({
@@ -2082,22 +2124,22 @@ export function addBlueprintCreatorInput() {
     updateBlueprintCreatorYaml();
 }
 
-export function removeBlueprintCreatorInput(index) {
+export function removeBlueprintCreatorInput(index: number) {
     _blueprintCreatorInputs = _readBlueprintCreatorInputsFromDom();
     _blueprintCreatorInputs.splice(Number(index), 1);
     _renderBlueprintCreatorInputs();
     updateBlueprintCreatorYaml();
 }
 
-export function changeBlueprintCreatorInputType(index, type) {
+export function changeBlueprintCreatorInputType(index: number, type: string) {
     _blueprintCreatorInputs = _readBlueprintCreatorInputsFromDom();
     if (_blueprintCreatorInputs[index]) _blueprintCreatorInputs[index].type = type;
     _renderBlueprintCreatorInputs();
     updateBlueprintCreatorYaml();
 }
 
-export function insertBlueprintCreatorPlaceholder(inputId, slug = false) {
-    const textarea = document.getElementById('blueprint-creator-template');
+export function insertBlueprintCreatorPlaceholder(inputId: string, slug = false) {
+    const textarea = document.getElementById('blueprint-creator-template') as HTMLTextAreaElement | null;
     if (!textarea) return;
     const placeholder = `{{ inputs.${inputId}${slug ? ' | slug' : ''} }}`;
     const start = textarea.selectionStart ?? textarea.value.length;
@@ -2108,15 +2150,15 @@ export function insertBlueprintCreatorPlaceholder(inputId, slug = false) {
     updateBlueprintCreatorYaml();
 }
 
-export function updateBlueprintCreatorYaml() {
+export function updateBlueprintCreatorYaml(): void {
     const draft = _currentBlueprintCreatorDraft();
     const source = _composeBlueprintSourceYaml(draft);
-    const preview = document.getElementById('blueprint-creator-source-yaml');
+    const preview = _autoEl('blueprint-creator-source-yaml');
     if (preview) preview.value = source;
     const errEl = document.getElementById('blueprint-creator-error');
     if (errEl) {
         const err = _validateBlueprintCreatorDraft(draft);
-        if (err && draft.title.trim()) {
+        if (err && String(draft.title || '').trim()) {
             errEl.classList.remove('hidden');
             errEl.textContent = err;
         } else {
@@ -2125,10 +2167,9 @@ export function updateBlueprintCreatorYaml() {
         }
     }
     _renderBlueprintCreatorPlaceholders();
-    return source;
 }
 
-export async function saveCreatedBlueprint() {
+export async function saveCreatedBlueprint(): Promise<void> {
     const draft = _currentBlueprintCreatorDraft();
     const err = _validateBlueprintCreatorDraft(draft);
     const errEl = document.getElementById('blueprint-creator-error');
@@ -2139,7 +2180,7 @@ export async function saveCreatedBlueprint() {
         }
         return;
     }
-    const saveBtn = document.getElementById('blueprint-creator-save-btn');
+    const saveBtn = _autoEl('blueprint-creator-save-btn');
     if (saveBtn) saveBtn.disabled = true;
     try {
         const sourceYaml = _composeBlueprintSourceYaml(draft);
@@ -2159,14 +2200,14 @@ export async function saveCreatedBlueprint() {
     } catch (e) {
         if (errEl) {
             errEl.classList.remove('hidden');
-            errEl.textContent = e.message || t('blueprints.save_failed');
+            errEl.textContent = _errMsg(e) || t('blueprints.save_failed');
         }
     } finally {
         if (saveBtn) saveBtn.disabled = false;
     }
 }
 
-export async function loadBlueprints() {
+export async function loadBlueprints(): Promise<void> {
     const listEl = document.getElementById('blueprint-picker-list');
     const emptyEl = document.getElementById('blueprint-picker-empty');
     if (!listEl) return;
@@ -2180,7 +2221,7 @@ export async function loadBlueprints() {
     } catch (e) {
         _blueprints = [];
         emptyEl?.classList.add('hidden');
-        listEl.innerHTML = `<p class="text-[11px] text-red-300">${escapeHtml(e.message || t('blueprints.load_error'))}</p>`;
+        listEl.innerHTML = `<p class="text-[11px] text-red-300">${escapeHtml(_errMsg(e) || t('blueprints.load_error'))}</p>`;
         return;
     }
     if (_blueprints.length === 0) {
@@ -2196,7 +2237,7 @@ export async function loadBlueprints() {
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-sm font-semibold text-white truncate">${escapeHtml(bp.title)}</span>
-                        <span class="inline-flex items-center gap-1 text-[10px] text-slate-400"><i class="fas fa-sliders text-[9px]"></i>${escapeHtml(t('blueprints.inputs_count', { count: (bp.inputs || []).length }))}</span>
+                        <span class="inline-flex items-center gap-1 text-[10px] text-slate-400"><i class="fas fa-sliders text-[9px]"></i>${escapeHtml(t('blueprints.inputs_count', { count: Array.isArray(bp.inputs) ? bp.inputs.length : 0 }))}</span>
                         <span class="text-[10px] text-slate-500">v${escapeHtml(bp.version || '1')}</span>
                     </div>
                     <div class="text-[11px] text-slate-500 truncate mt-0.5">${escapeHtml(bp.description || t('blueprints.no_description'))}</div>
@@ -2206,12 +2247,15 @@ export async function loadBlueprints() {
         </button>
     `).join('');
     listEl.querySelectorAll('.bp-pick-row').forEach(btn => {
-        btn.addEventListener('click', () => selectBlueprint(btn.dataset.bpId));
+        btn.addEventListener('click', () => {
+            const id = (btn as HTMLElement).dataset.bpId;
+            if (id) selectBlueprint(id);
+        });
     });
 }
 
-export function importBlueprintYaml() {
-    const input = document.getElementById('blueprint-yaml-import-input');
+export function importBlueprintYaml(): void {
+    const input = document.getElementById('blueprint-yaml-import-input') as HTMLInputElement | null;
     if (!input) return;
     input.value = '';
     input.onchange = async () => {
@@ -2230,13 +2274,13 @@ export function importBlueprintYaml() {
             showToast(t('blueprints.import_done', { name: file.name }), 'success');
             await loadBlueprints();
         } catch (e) {
-            showToast(t('blueprints.import_failed', { detail: e.message || t('common.unknown') }), 'error');
+            showToast(t('blueprints.import_failed', { detail: _errMsg(e) || t('common.unknown') }), 'error');
         }
     };
     input.click();
 }
 
-async function _loadPickerCaches() {
+async function _loadPickerCaches(): Promise<void> {
     if (_pickerEntityCache && _pickerAreaCache) return;
     try {
         const [entRes, areaRes] = await Promise.all([
@@ -2251,7 +2295,7 @@ async function _loadPickerCaches() {
     }
 }
 
-async function selectBlueprint(blueprintId) {
+async function selectBlueprint(blueprintId: string) {
     const bp = _blueprints.find(b => b.id === blueprintId);
     if (!bp) return;
     _activeBlueprint = bp;
@@ -2266,14 +2310,18 @@ async function selectBlueprint(blueprintId) {
     document.getElementById('blueprint-picker-form-actions')?.classList.add('flex');
     document.getElementById('blueprint-picker-create-btn')?.classList.remove('hidden');
     document.getElementById('blueprint-picker-delete-btn')?.classList.remove('hidden');
-    document.getElementById('blueprint-picker-form-title').textContent = bp.title;
-    document.getElementById('blueprint-picker-form-description').textContent = bp.description || '';
+    const formTitle = document.getElementById('blueprint-picker-form-title');
+    const formDesc = document.getElementById('blueprint-picker-form-description');
+    if (formTitle) formTitle.textContent = String(bp.title || '');
+    if (formDesc) formDesc.textContent = String(bp.description || '');
     await _loadPickerCaches();
     const formEl = document.getElementById('blueprint-picker-form-inputs');
-    formEl.innerHTML = (bp.inputs || []).map(spec => _renderBlueprintInputField(spec)).join('');
+    if (!formEl) return;
+    if (!formEl) return;
+    formEl.innerHTML = (Array.isArray(bp.inputs) ? bp.inputs : []).map((spec: Record<string, unknown>) => _renderBlueprintInputField(spec)).join('');
 }
 
-function _renderBlueprintInputField(spec) {
+function _renderBlueprintInputField(spec: Record<string, unknown>) {
     const id = `bp-input-${spec.id}`;
     const labelHtml = `<label for="${id}" class="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1">${escapeHtml(spec.label || spec.id)}${spec.required ? ' <span class="text-red-400">*</span>' : ''}</label>`;
     const baseCls = 'w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent outline-none';
@@ -2290,7 +2338,7 @@ function _renderBlueprintInputField(spec) {
         ).join('');
         field = `<select id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="area" class="${baseCls}"><option value="">${escapeHtml(t('blueprints.choose'))}</option>${opts}</select>`;
     } else if (spec.type === 'select') {
-        const opts = (spec.choices || []).map(c =>
+        const opts = (Array.isArray(spec.choices) ? spec.choices : []).map((c: string) =>
             `<option value="${escapeHtml(c)}" ${c === defaultVal ? 'selected' : ''}>${escapeHtml(c)}</option>`
         ).join('');
         field = `<select id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="select" class="${baseCls}">${opts}</select>`;
@@ -2305,26 +2353,28 @@ function _renderBlueprintInputField(spec) {
     return `<div>${labelHtml}${field}</div>`;
 }
 
-function _collectBlueprintInputs() {
-    const out = {};
+function _collectBlueprintInputs(): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
     document.querySelectorAll('#blueprint-picker-form-inputs [data-bp-input]').forEach(el => {
-        const key = el.dataset.bpInput;
-        const type = el.dataset.bpType;
+        const node = el as HTMLInputElement | HTMLSelectElement;
+        const key = node.dataset.bpInput;
+        const type = node.dataset.bpType;
+        if (!key) return;
         let val;
-        if (type === 'boolean') val = el.checked;
-        else val = el.value;
+        if (type === 'boolean') val = (node as HTMLInputElement).checked;
+        else val = node.value;
         out[key] = val;
     });
     return out;
 }
 
-export async function instantiateCurrentBlueprint() {
+export async function instantiateCurrentBlueprint(): Promise<void> {
     if (!_activeBlueprint) return;
     const errEl = document.getElementById('blueprint-picker-form-error');
     errEl?.classList.add('hidden');
     const inputs = _collectBlueprintInputs();
     try {
-        const res = await apiCall(`/api/automations/blueprints/${encodeURIComponent(_activeBlueprint.id)}/instantiate`, {
+        const res = await apiCall(`/api/automations/blueprints/${encodeURIComponent(String(_activeBlueprint.id ?? ''))}/instantiate`, {
             method: 'POST',
             body: { inputs },
         });
@@ -2342,17 +2392,17 @@ export async function instantiateCurrentBlueprint() {
     } catch (e) {
         if (errEl) {
             errEl.classList.remove('hidden');
-            errEl.textContent = e.message || t('blueprints.instantiate_error');
+            errEl.textContent = _errMsg(e) || t('blueprints.instantiate_error');
         }
     }
 }
 
-export async function deleteCurrentBlueprint() {
+export async function deleteCurrentBlueprint(): Promise<void> {
     if (!_activeBlueprint) return;
-    const ok = await showConfirm(t('blueprints.delete_confirm', { title: _activeBlueprint.title }));
+    const ok = await showConfirm(t('blueprints.delete_confirm', { title: String(_activeBlueprint.title ?? '') }));
     if (!ok) return;
     try {
-        const res = await apiCall(`/api/automations/blueprints/${encodeURIComponent(_activeBlueprint.id)}`, { method: 'DELETE' });
+        const res = await apiCall(`/api/automations/blueprints/${encodeURIComponent(String(_activeBlueprint.id ?? ''))}`, { method: 'DELETE' });
         if (!res.ok) throw new Error();
         showToast(t('hy.blueprint_deleted'), 'success');
         backToBlueprintList();
@@ -2362,7 +2412,7 @@ export async function deleteCurrentBlueprint() {
     }
 }
 
-export async function refreshAutomationEntityOptions() {
+export async function refreshAutomationEntityOptions(): Promise<void> {
     const selects = document.querySelectorAll('[data-automation-entity-select]');
     if (!selects.length) return;
     try {
@@ -2370,52 +2420,53 @@ export async function refreshAutomationEntityOptions() {
         const data = await res.json();
         const entities = Array.isArray(data.entities) ? data.entities : [];
         selects.forEach(sel => {
-            const current = sel.value;
-            sel.innerHTML = `<option value="">${t('automations.entity_placeholder')}</option>` +
-                entities.map(e => `<option value="${escapeHtml(e.entity_id)}"${e.entity_id === current ? ' selected' : ''}>${escapeHtml(e.entity_id)}${e.friendly_name ? ' — ' + escapeHtml(e.friendly_name) : ''}</option>`).join('');
+            const select = sel as HTMLSelectElement;
+            const current = select.value;
+            select.innerHTML = `<option value="">${t('automations.entity_placeholder')}</option>` +
+                entities.map((e: HyveEntity) => `<option value="${escapeHtml(e.entity_id)}"${e.entity_id === current ? ' selected' : ''}>${escapeHtml(e.entity_id)}${e.friendly_name ? ' — ' + escapeHtml(e.friendly_name) : ''}</option>`).join('');
         });
     } catch (_) {}
 }
 
-export function addAutomationBuilderTrigger(platform) {
+export function addAutomationBuilderTrigger(platform: string) {
     _automationBuilderTriggers.push(_automationBuilderTriggerTemplate(platform || 'time'));
     _automationRenderBuilderTriggers();
     syncAutomationYamlFromBuilder({ silent: true });
 }
 
-export function removeAutomationBuilderTrigger(idx) {
+export function removeAutomationBuilderTrigger(idx: number) {
     _automationBuilderTriggers.splice(Number(idx), 1);
     if (!_automationBuilderTriggers.length) _automationBuilderTriggers.push(_automationBuilderTriggerTemplate('time'));
     _automationRenderBuilderTriggers();
     syncAutomationYamlFromBuilder({ silent: true });
 }
 
-export function addAutomationBuilderCondition(kind) {
+export function addAutomationBuilderCondition(kind: string) {
     _automationBuilderConditions.push(_automationBuilderConditionTemplate(kind || 'time_range'));
     _automationRenderBuilderConditions();
     syncAutomationYamlFromBuilder({ silent: true });
 }
 
-export function removeAutomationBuilderCondition(idx) {
+export function removeAutomationBuilderCondition(idx: number) {
     _automationBuilderConditions.splice(Number(idx), 1);
     _automationRenderBuilderConditions();
     syncAutomationYamlFromBuilder({ silent: true });
 }
 
-export function addAutomationBuilderAction(kind) {
+export function addAutomationBuilderAction(kind: string) {
     _automationBuilderActions.push(_automationBuilderActionTemplate(kind || 'notify'));
     _automationRenderBuilderActions();
     syncAutomationYamlFromBuilder({ silent: true });
 }
 
-export function removeAutomationBuilderAction(idx) {
+export function removeAutomationBuilderAction(idx: number) {
     _automationBuilderActions.splice(Number(idx), 1);
     if (!_automationBuilderActions.length) _automationBuilderActions.push(_automationBuilderActionTemplate('notify'));
     _automationRenderBuilderActions();
     syncAutomationYamlFromBuilder({ silent: true });
 }
 
-export function updateAutomationStructuredServiceData(index) {
+export function updateAutomationStructuredServiceData(index: number) {
     _automationReadBuilderActionsFromDom();
     syncAutomationYamlFromBuilder({ silent: true });
 }

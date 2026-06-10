@@ -34,7 +34,7 @@ declare global {
         openHyveviewEditor?: (options: Record<string, unknown>) => Promise<unknown>;
         __hyveCameraTimer?: ReturnType<typeof setInterval> | null;
         __hyvePlayNotificationCue?: () => void;
-        __chatExports?: { sendMessage?: (...args: unknown[]) => unknown };
+        __chatExports?: { sendMessage?: (optionalMessage?: string) => void | Promise<void> };
         __onAndroidKeyboard?: (kbHeight: number) => void;
         webkitAudioContext?: typeof AudioContext;
         __HYVE_THEME_REGISTRY__?: {
@@ -45,10 +45,18 @@ declare global {
         };
         __hyveShowNotification?: (title: string, message: string, sessionId?: string) => void;
         __pendingHyveNotification?: { title: string; message: string; sessionId?: string };
+        __hyveCameraFrameReady?: (img: HTMLImageElement) => void;
+        __hyveCameraFrameFailed?: (img: HTMLImageElement, fallbackSrc?: string) => void;
+        saveAppConfig?: () => void;
+        __setNativeSystemBarColor?: (color: string) => void;
+        ace?: {
+            edit(el: HTMLElement): import('./utils.js').HyveAceEditor;
+        };
         __HYVE_NATIVE_APP?: boolean;
         __setNativeWsServiceEnabled?: (enabled: boolean) => void;
         __getNativeWsServiceStatus?: () => boolean | null | undefined;
         currentUser?: { is_admin?: boolean; [key: string]: unknown };
+        _authToken?: string;
         CodeMirror?: {
             fromTextArea: (
                 ta: HTMLTextAreaElement,

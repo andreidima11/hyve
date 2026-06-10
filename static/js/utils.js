@@ -1,4 +1,3 @@
-// @ts-nocheck — Phase 6 TS shell; tighten types incrementally.
 /**
  * Shared utility functions used across multiple JS modules.
  */
@@ -262,8 +261,9 @@ export async function refreshSourceFavicons(root = document) {
         await getCameraStreamToken();
     }
     catch (_) { }
-    const scope = root?.querySelectorAll ? root : document;
-    scope.querySelectorAll('img.chat-source-favicon:not(.chat-source-favicon-missing)').forEach((img) => {
+    const scope = root instanceof Document || root instanceof Element ? root : document;
+    scope.querySelectorAll('img.chat-source-favicon:not(.chat-source-favicon-missing)').forEach((imgEl) => {
+        const img = imgEl;
         const domain = img.dataset.domain || img.closest('.chat-source-card')?.getAttribute('title') || '';
         if (!domain)
             return;
@@ -611,12 +611,14 @@ export function showToast(message, type = 'info', duration = 3000) {
         info: 'border-accent/30 bg-accent/10 text-accent',
         success: 'border-green-500/30 bg-green-500/10 text-green-400',
         error: 'border-red-500/30 bg-red-500/10 text-red-400',
-        warn: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400'
+        warn: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400',
     };
     const icons = { info: 'fa-circle-info', success: 'fa-circle-check', error: 'fa-circle-exclamation', warn: 'fa-triangle-exclamation' };
+    const normalized = type === 'warning' ? 'warn' : type;
+    const toastType = normalized in colors ? normalized : 'info';
     const toast = document.createElement('div');
-    toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium shadow-lg backdrop-blur-lg animate-up ${colors[type] || colors.info}`;
-    toast.innerHTML = `<i class="fas ${icons[type] || icons.info} text-base flex-shrink-0"></i><span class="flex-1">${escapeHtml(message)}</span>`;
+    toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium shadow-lg backdrop-blur-lg animate-up ${colors[toastType]}`;
+    toast.innerHTML = `<i class="fas ${icons[toastType]} text-base flex-shrink-0"></i><span class="flex-1">${escapeHtml(message)}</span>`;
     area.appendChild(toast);
     setTimeout(() => {
         toast.style.opacity = '0';
@@ -651,7 +653,9 @@ export function showConfirm(message) {
             modal.querySelector('#confirm-cancel').onclick = () => _resolveConfirm(false);
             modal.querySelector('#confirm-ok').onclick = () => _resolveConfirm(true);
         }
-        modal.querySelector('#confirm-message').textContent = message;
+        const messageEl = modal.querySelector('#confirm-message');
+        if (messageEl)
+            messageEl.textContent = message;
         modal.classList.remove('hidden');
     });
 }

@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Chat bubble rendering — messages, code blocks, images, forge preview.
  */
@@ -26,7 +25,7 @@ export function appendMessage(role, text, options = {}) {
                 <div class="chat-bubble ai-bubble ${bubbleExtra}">
                     ${glowEl}
                     <div class="chat-bubble-content prose prose-invert prose-sm">
-                        ${DOMPurify.sanitize(marked.parse(text))}
+                        ${DOMPurify.sanitize(marked?.parse(text) || text)}
                     </div>
                 </div>
             </div>`;
@@ -75,7 +74,7 @@ export function appendMessage(role, text, options = {}) {
             img.alt = '';
             img.className = 'chat-user-uploaded-image';
             wrap.appendChild(img);
-            div.querySelector('.chat-bubble-content').appendChild(wrap);
+            div.querySelector('.chat-bubble-content')?.appendChild(wrap);
         }
     }
     container.appendChild(div);
@@ -90,7 +89,7 @@ export function appendMessage(role, text, options = {}) {
         const stamp = div.querySelector('.chat-user-stamp');
         if (userBubble && stamp) {
             userBubble.addEventListener('click', (e) => {
-                if (window.getSelection && window.getSelection().toString())
+                if (window.getSelection()?.toString())
                     return;
                 // Tap animation — PERF FIX: use class toggle instead of forced reflow
                 userBubble.classList.remove('user-bubble-tap');
@@ -122,7 +121,7 @@ export function appendMessage(role, text, options = {}) {
         if (editBtn) {
             editBtn.addEventListener('click', () => {
                 const bc = div.querySelector('.chat-bubble-content');
-                const txt = bc ? (bc.innerText || bc.textContent || '') : '';
+                const txt = bc ? (bc.textContent || '') : '';
                 const input = document.getElementById('user-input');
                 if (input) {
                     input.value = txt;
@@ -189,7 +188,7 @@ export function appendConsciousnessFeedbackBar(bubble, bubbleId, stats) {
             window.sendMessage(userText);
         else {
             const mod = window.__chatExports;
-            if (mod && mod.sendMessage)
+            if (mod?.sendMessage)
                 mod.sendMessage(userText);
         }
     });
@@ -265,11 +264,14 @@ export function decorateCodeBlocks(container) {
             const range = document.createRange();
             range.selectNodeContents(pre.querySelector('code') || pre);
             const sel = window.getSelection();
+            if (!sel)
+                return;
             sel.removeAllRanges();
             sel.addRange(range);
         });
         copyBtn?.addEventListener('click', () => {
-            const text = pre.dataset.rawSource || (pre.querySelector('code') || pre).textContent || pre.textContent || '';
+            const preEl = pre;
+            const text = preEl.dataset.rawSource || (pre.querySelector('code') || pre).textContent || pre.textContent || '';
             navigator.clipboard.writeText(text).then(() => {
                 copyBtn.textContent = t('chat.copied');
                 copyBtn.classList.add('copied');
@@ -280,7 +282,8 @@ export function decorateCodeBlocks(container) {
             }).catch(() => { });
         });
         wrap.appendChild(header);
-        pre.parentNode.insertBefore(wrap, pre);
+        if (pre.parentNode)
+            pre.parentNode.insertBefore(wrap, pre);
         wrap.appendChild(pre);
         enhanceCodeBlock(pre, lang, rawSource);
     });

@@ -34,6 +34,8 @@ export interface EntityAttributes {
     via?: string;
     state_topic?: string;
     command_topic?: string;
+    registry_unique_id?: string;
+    unique_id?: string;
     capabilities?: EntityCapabilities;
     [key: string]: unknown;
 }
@@ -73,4 +75,5 @@ export interface IntegrationDeviceGroup {
     area?: string;
     friendly_name?: string;
     entities: HyveEntity[];
+    image_url?: string;
 }

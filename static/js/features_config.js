@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 import { apiCall, suppressLogout } from './api.js';
 import { setLanguage, getLanguage, t, getAvailableLanguages, loadComponentTranslations } from './lang/index.js';
 import { escapeHtml, showToast, showConfirm, openSubPage, closeSubPage } from './utils.js';
@@ -9,6 +8,69 @@ import { initGenericCustomSelects } from './features_custom_selects.js';
 import { syncIntegrationToggles, bindIntegrationToggleButtonsOnce, loadIntegrationCatalog, getIntegrationCatalog, } from './features_integrations_settings.js';
 import { getTts } from './chat.js';
 import { setIsAdmin, isExplicitNonAdmin } from './user_context.js';
+import { saveNotificationSettings } from './features_notifications_config.js';
+import { syncUpdatesIntervalDropdown } from './features_addons_settings.js';
+/** Most config DOM ids are form controls; keeps load/save terse. */
+function cfgField(id) {
+    return document.getElementById(id);
+}
+function cfgNode(id) {
+    return document.getElementById(id);
+}
+function _cfgVal(id) {
+    return cfgField(id)?.value ?? '';
+}
+function _errMsg(err) {
+    if (err instanceof Error)
+        return err.message;
+    return String(err);
+}
+function _integrationSlugCandidates(slug) {
+    const raw = String(slug || '').trim();
+    if (!raw)
+        return [];
+    const dash = raw.replace(/_/g, '-');
+    const under = raw.replace(/-/g, '_');
+    return Array.from(new Set([raw, dash, under]));
+}
+function _findIntegrationCheckbox(slug) {
+    for (const candidate of _integrationSlugCandidates(slug)) {
+        const ids = [`${candidate}_enabled`, `integrations-${candidate}-enabled`, `${candidate}Enabled`];
+        for (const id of ids) {
+            const el = cfgField(id);
+            if (el && el.type === 'checkbox')
+                return el;
+        }
+    }
+    return null;
+}
+function formatHealthError(detail) {
+    const raw = String(detail || '').trim();
+    const low = raw.toLowerCase();
+    if (!raw)
+        return t('hy.addon_health_no_response');
+    if (low === 'not_running')
+        return t('hy.addon_health_not_running');
+    if (low === 'no_port_configured')
+        return t('hy.addon_health_no_port');
+    if (low.includes('connection refused') || low.includes('errno 61'))
+        return t('hy.addon_health_connection_refused');
+    if (low.includes('timed out') || low.includes('timeout'))
+        return t('hy.addon_health_timeout');
+    return raw;
+}
+async function _savePiperAddonConfig() {
+    const body = {};
+    const host = cfgField('piper_host')?.value?.trim();
+    const portRaw = cfgField('piper_port')?.value?.trim();
+    if (host)
+        body.host = host;
+    if (portRaw)
+        body.port = parseInt(portRaw, 10) || undefined;
+    if (!Object.keys(body).length)
+        return;
+    await apiCall('/api/addons/piper/config', { method: 'PATCH', body });
+}
 const _SEARCH_TENDENCY_HINTS = {
     1: 'Minimal — almost never searches. Only when you explicitly ask it to.',
     2: 'Conservative — prefers own knowledge, searches only for today\'s news/weather.',
@@ -17,14 +79,14 @@ const _SEARCH_TENDENCY_HINTS = {
     5: 'Aggressive — actively searches to provide the freshest information.',
 };
 function _updateSearchTendencyHint(val) {
-    const hint = document.getElementById('search_tendency_hint');
+    const hint = cfgField('search_tendency_hint');
     if (hint)
         hint.textContent = _SEARCH_TENDENCY_HINTS[val] || _SEARCH_TENDENCY_HINTS[3];
 }
 let _uiLanguageSaveSeq = 0;
 function _refreshUiLanguageSelect(language) {
-    const uiLangSelect = document.getElementById('ui_language');
-    const dd = document.getElementById('ui_language_dropdown');
+    const uiLangSelect = cfgField('ui_language');
+    const dd = cfgField('ui_language_dropdown');
     if (!uiLangSelect)
         return;
     const value = language || uiLangSelect.value || getLanguage();
@@ -48,30 +110,33 @@ let _uiLanguageDropdownBound = false;
 if (typeof document !== 'undefined' && !_uiLanguageDropdownBound) {
     _uiLanguageDropdownBound = true;
     document.addEventListener('click', (e) => {
-        const dd = document.getElementById('ui_language_dropdown');
+        const dd = cfgField('ui_language_dropdown');
         if (!dd)
             return;
-        const toggleBtn = e.target.closest('[data-action="toggle-ui-language"]');
+        const tgt = e.target;
+        if (!tgt)
+            return;
+        const toggleBtn = tgt.closest('[data-action="toggle-ui-language"]');
         if (toggleBtn && dd.contains(toggleBtn)) {
             e.preventDefault();
             e.stopPropagation();
             dd.dataset.open = dd.dataset.open === 'true' ? 'false' : 'true';
             return;
         }
-        const opt = e.target.closest('.dashboard-custom-select__option');
+        const opt = tgt.closest('.dashboard-custom-select__option');
         if (opt && dd.contains(opt)) {
             e.preventDefault();
             e.stopPropagation();
             const value = opt.dataset.value;
             dd.dataset.open = 'false';
-            const hidden = document.getElementById('ui_language');
+            const hidden = cfgField('ui_language');
             if (hidden && value && hidden.value !== value) {
                 hidden.value = value;
                 _applyAndSaveUiLanguage(value);
             }
             return;
         }
-        if (!dd.contains(e.target))
+        if (!dd.contains(tgt))
             dd.dataset.open = 'false';
     });
 }
@@ -80,7 +145,7 @@ async function _applyAndSaveUiLanguage(language) {
         return;
     const previousLanguage = getLanguage();
     const saveSeq = ++_uiLanguageSaveSeq;
-    const dd = document.getElementById('ui_language_dropdown');
+    const dd = cfgField('ui_language_dropdown');
     try {
         setLanguage(language);
         await loadComponentTranslations(language);
@@ -135,7 +200,7 @@ export async function loadConfig() {
         catch (_) { }
     }
     const updateLoggingModeBadge = (isVerbose) => {
-        const badge = document.getElementById('header-log-mode-badge');
+        const badge = cfgField('header-log-mode-badge');
         if (!badge)
             return;
         const verbose = !!isVerbose;
@@ -150,24 +215,24 @@ export async function loadConfig() {
     };
     updateLoggingModeBadge(!!cfg.verbose_logging);
     // Limbă UI
-    const uiLangSelect = document.getElementById('ui_language');
+    const uiLangSelect = cfgField('ui_language');
     if (uiLangSelect) {
         _refreshUiLanguageSelect((cfg.ui && cfg.ui.language) || getLanguage());
     }
     if (cfg.security) {
-        const wlNum = document.getElementById('wl_numbers');
+        const wlNum = cfgField('wl_numbers');
         if (wlNum)
             wlNum.value = (cfg.security.allowed_numbers || []).join('\n');
-        const secAntiInj = document.getElementById('security_anti_injection');
+        const secAntiInj = cfgField('security_anti_injection');
         if (secAntiInj)
             secAntiInj.checked = cfg.security.anti_injection !== false;
-        const secAntiInjPrompt = document.getElementById('security_anti_injection_prompt');
+        const secAntiInjPrompt = cfgField('security_anti_injection_prompt');
         if (secAntiInjPrompt)
             secAntiInjPrompt.value = cfg.security.anti_injection_prompt_template || '';
-        const secGuardrails = document.getElementById('security_tool_guardrails');
+        const secGuardrails = cfgField('security_tool_guardrails');
         if (secGuardrails)
             secGuardrails.checked = cfg.security.tool_guardrails !== false;
-        const secRestrictUntrustedTools = document.getElementById('security_restrict_untrusted_tools');
+        const secRestrictUntrustedTools = cfgField('security_restrict_untrusted_tools');
         if (secRestrictUntrustedTools)
             secRestrictUntrustedTools.checked = cfg.security.restrict_mutating_tools_on_untrusted_content !== false;
     }
@@ -213,7 +278,7 @@ export async function loadConfig() {
         'aux_llm_provider': (cfg.intelligence?.aux_llm?.source ?? cfg.intelligence?.aux_llm?.provider ?? 'local')
     };
     for (const [id, val] of Object.entries(map)) {
-        const el = document.getElementById(id);
+        const el = cfgField(id);
         if (!el)
             continue;
         if (el.type === 'checkbox')
@@ -225,7 +290,7 @@ export async function loadConfig() {
         syncUpdatesIntervalDropdown();
     // Normalize old "custom" to "local" (Custom option removed)
     ['llm_provider', 'coder_provider', 'aux_llm_provider', 'vision_llm_provider'].forEach(id => {
-        const el = document.getElementById(id);
+        const el = cfgField(id);
         if (el && el.value === 'custom')
             el.value = 'local';
     });
@@ -246,28 +311,28 @@ export async function loadConfig() {
             return 'openai';
         return 'local';
     }
-    const llmProv = document.getElementById('llm_provider');
+    const llmProv = cfgField('llm_provider');
     if (llmProv && !cfg.llm?.source && !cfg.llm?.provider)
         llmProv.value = inferSource(cfg.llm?.target_url);
-    const coderProv = document.getElementById('coder_provider');
+    const coderProv = cfgField('coder_provider');
     if (coderProv && !cfg.coder?.source && !cfg.coder?.provider)
         coderProv.value = inferSource(cfg.coder?.target_url);
-    const auxProv = document.getElementById('aux_llm_provider');
+    const auxProv = cfgField('aux_llm_provider');
     if (auxProv && !(cfg.intelligence?.aux_llm?.source || cfg.intelligence?.aux_llm?.provider))
         auxProv.value = inferSource(cfg.intelligence?.aux_llm?.target_url);
-    const visionProv = document.getElementById('vision_llm_provider');
+    const visionProv = cfgField('vision_llm_provider');
     if (visionProv && !(cfg.vision_llm?.source || cfg.vision_llm?.provider))
         visionProv.value = inferSource(cfg.vision_llm?.target_url);
     // Prefill when dropdown changes
     function applyProvider(providerId, urlId, modelId, keyRowId, isCoder) {
-        const sel = document.getElementById(providerId);
+        const sel = cfgField(providerId);
         if (!sel)
             return;
-        const urlEl = document.getElementById(urlId);
-        const modelEl = document.getElementById(modelId);
-        const keyRow = keyRowId ? document.getElementById(keyRowId) : null;
+        const urlEl = cfgField(urlId);
+        const modelEl = cfgField(modelId);
+        const keyRow = keyRowId ? cfgField(keyRowId) : null;
         // Billing link (only for main LLM provider)
-        const billingLink = (providerId === 'llm_provider') ? document.getElementById('zai_billing_link') : null;
+        const billingLink = (providerId === 'llm_provider') ? cfgField('zai_billing_link') : null;
         function syncBillingLink(v) {
             if (billingLink)
                 billingLink.classList.toggle('hidden', v !== 'z_ai');
@@ -323,19 +388,19 @@ export async function loadConfig() {
     applyProvider('vision_llm_provider', 'vision_llm_target_url', 'vision_llm_model_name', 'vision_llm_api_key_row', false);
     const m = cfg.memory || {};
     const parseListToText = (arr) => Array.isArray(arr) ? arr.join('\n') : '';
-    const intelMw = document.getElementById('intel_working_window');
-    const intelMs = document.getElementById('intel_summarize_every');
+    const intelMw = cfgField('intel_working_window');
+    const intelMs = cfgField('intel_summarize_every');
     if (intelMw)
         intelMw.value = m.working_window ?? 12;
     if (intelMs)
         intelMs.value = m.summarize_every ?? 8;
-    const mFactSim = document.getElementById('memory_fact_similarity');
+    const mFactSim = cfgField('memory_fact_similarity');
     if (mFactSim)
         mFactSim.value = m.fact_similarity_threshold ?? 0.45;
-    const mExtractionTimeout = document.getElementById('memory_extraction_timeout');
-    const mExtractionInputMaxChars = document.getElementById('memory_extraction_input_max_chars');
-    const mExtractionMaxTokensFull = document.getElementById('memory_extraction_max_tokens_full');
-    const mExtractionMaxLines = document.getElementById('memory_extraction_max_lines');
+    const mExtractionTimeout = cfgField('memory_extraction_timeout');
+    const mExtractionInputMaxChars = cfgField('memory_extraction_input_max_chars');
+    const mExtractionMaxTokensFull = cfgField('memory_extraction_max_tokens_full');
+    const mExtractionMaxLines = cfgField('memory_extraction_max_lines');
     if (mExtractionTimeout)
         mExtractionTimeout.value = m.extraction_timeout ?? (cfg.llm?.timeout ?? 120);
     if (mExtractionInputMaxChars)
@@ -345,28 +410,28 @@ export async function loadConfig() {
     if (mExtractionMaxLines)
         mExtractionMaxLines.value = m.extraction_max_lines ?? 2;
     // Logging mode (live toggle)
-    const loggingModeEl = document.getElementById('logging_mode');
+    const loggingModeEl = cfgField('logging_mode');
     if (loggingModeEl && !loggingModeEl.dataset.bound) {
         loggingModeEl.dataset.bound = '1';
         loggingModeEl.addEventListener('change', async () => {
             updateLoggingModeBadge(loggingModeEl.value === 'verbose');
             try {
-                await saveConfig();
+                await saveConfig({});
             }
             catch (e) { /* handled in saveConfig via toast/error path */ }
         });
     }
-    const mExtractionRules = document.getElementById('memory_extraction_rules');
+    const mExtractionRules = cfgField('memory_extraction_rules');
     if (mExtractionRules)
         mExtractionRules.value = m.extraction_rules || '';
     // Memory: extraction examples (few-shot)
     renderExtractionExamples(m.extraction_examples || []);
     // Intelligence: consolidation
     const consolidation = (cfg.intelligence || {}).consolidation || {};
-    const cEn = document.getElementById('consolidation_enabled');
-    const cTime = document.getElementById('consolidation_time');
-    const cInterval = document.getElementById('consolidation_interval');
-    const cThr = document.getElementById('consolidation_threshold');
+    const cEn = cfgField('consolidation_enabled');
+    const cTime = cfgField('consolidation_time');
+    const cInterval = cfgField('consolidation_interval');
+    const cThr = cfgField('consolidation_threshold');
     if (cEn)
         cEn.checked = !!consolidation.enabled;
     if (cTime)
@@ -375,9 +440,9 @@ export async function loadConfig() {
         cInterval.value = consolidation.interval || 'daily';
     if (cThr)
         cThr.value = consolidation.similarity_threshold ?? 0.92;
-    const cSessionTrig = document.getElementById('consolidation_session_trigger_messages');
-    const cCompression = document.getElementById('consolidation_compression_ratio');
-    const cHistoryPath = document.getElementById('consolidation_history_log_path');
+    const cSessionTrig = cfgField('consolidation_session_trigger_messages');
+    const cCompression = cfgField('consolidation_compression_ratio');
+    const cHistoryPath = cfgField('consolidation_history_log_path');
     if (cSessionTrig)
         cSessionTrig.value = consolidation.session_trigger_messages ?? 80;
     if (cCompression)
@@ -388,23 +453,23 @@ export async function loadConfig() {
     // Daily news config removed — now handled by skills/daily_news.py
     // Intelligence: Agent config
     const intel = cfg.intelligence || {};
-    const maxAgentTurnsEl = document.getElementById('max_agent_turns');
+    const maxAgentTurnsEl = cfgField('max_agent_turns');
     if (maxAgentTurnsEl)
         maxAgentTurnsEl.value = intel.max_agent_turns ?? 10;
-    const postRespConcEl = document.getElementById('post_response_concurrency');
+    const postRespConcEl = cfgField('post_response_concurrency');
     if (postRespConcEl)
         postRespConcEl.value = intel.post_response_concurrency ?? 1;
-    const injectFactsEl = document.getElementById('inject_relevant_facts');
-    const richerResultsEl = document.getElementById('richer_tool_results');
+    const injectFactsEl = cfgField('inject_relevant_facts');
+    const richerResultsEl = cfgField('richer_tool_results');
     if (injectFactsEl)
         injectFactsEl.checked = intel.inject_relevant_facts !== false;
     if (richerResultsEl)
         richerResultsEl.checked = !!intel.richer_tool_results;
-    const lazyHistEl = document.getElementById('intel_lazy_history');
+    const lazyHistEl = cfgField('intel_lazy_history');
     if (lazyHistEl)
         lazyHistEl.checked = intel.lazy_history !== false; // default true
     // Intent Router
-    const _setChk = (id, val) => { const el = document.getElementById(id); if (el)
+    const _setChk = (id, val) => { const el = cfgField(id); if (el)
         el.checked = !!val; };
     const routerCfg = intel.intent_router || {};
     _setChk('intent_router_enabled', routerCfg.enabled);
@@ -412,11 +477,11 @@ export async function loadConfig() {
     const hintsCfg = intel.proactive_hints || {};
     _setChk('proactive_hints_enabled', hintsCfg.enabled);
     // Intelligence: Knowledge cutoff
-    const iFreshCut = document.getElementById('intel_knowledge_cutoff');
+    const iFreshCut = cfgField('intel_knowledge_cutoff');
     if (iFreshCut)
         iFreshCut.value = intel.knowledge_cutoff ?? '2024-01';
     // Intelligence: Search tendency slider
-    const searchTendencyEl = document.getElementById('intel_search_tendency');
+    const searchTendencyEl = cfgField('intel_search_tendency');
     if (searchTendencyEl) {
         searchTendencyEl.value = intel.search_tendency ?? 3;
         _updateSearchTendencyHint(parseInt(searchTendencyEl.value, 10));
@@ -425,20 +490,20 @@ export async function loadConfig() {
         });
     }
     // Intelligence: Search context (use previous message in web search query)
-    const searchUseCtx = document.getElementById('search_use_conversation_context');
-    const searchCtxThreshold = document.getElementById('search_context_similarity_threshold');
+    const searchUseCtx = cfgField('search_use_conversation_context');
+    const searchCtxThreshold = cfgField('search_context_similarity_threshold');
     if (searchUseCtx)
         searchUseCtx.checked = !!intel.search_use_conversation_context;
     if (searchCtxThreshold)
         searchCtxThreshold.value = intel.search_context_similarity_threshold ?? 0.55;
     // Intelligence: Shell & Tool calling
     const shell = intel.shell || {};
-    const shellEn = document.getElementById('shell_enabled');
-    const shellAllowed = document.getElementById('shell_allowed_commands');
-    const shellBlocked = document.getElementById('shell_blocked_patterns');
-    const shellMaxOut = document.getElementById('shell_max_output_chars');
-    const shellTimeout = document.getElementById('shell_timeout_seconds');
-    const shellRate = document.getElementById('shell_rate_limit');
+    const shellEn = cfgField('shell_enabled');
+    const shellAllowed = cfgField('shell_allowed_commands');
+    const shellBlocked = cfgField('shell_blocked_patterns');
+    const shellMaxOut = cfgField('shell_max_output_chars');
+    const shellTimeout = cfgField('shell_timeout_seconds');
+    const shellRate = cfgField('shell_rate_limit');
     if (shellEn)
         shellEn.checked = shell.enabled !== false;
     if (shellAllowed)
@@ -452,9 +517,9 @@ export async function loadConfig() {
     if (shellRate)
         shellRate.value = shell.rate_limit_per_minute ?? 5;
     const fileRead = intel.file_read || {};
-    const frEn = document.getElementById('file_read_enabled');
-    const frMaxBytes = document.getElementById('file_read_max_bytes');
-    const frRate = document.getElementById('file_read_rate_limit');
+    const frEn = cfgField('file_read_enabled');
+    const frMaxBytes = cfgField('file_read_max_bytes');
+    const frRate = cfgField('file_read_rate_limit');
     if (frEn)
         frEn.checked = fileRead.enabled !== false;
     if (frMaxBytes)
@@ -462,10 +527,10 @@ export async function loadConfig() {
     if (frRate)
         frRate.value = fileRead.rate_limit_per_minute ?? 10;
     const runScript = intel.run_script || {};
-    const rsEn = document.getElementById('run_script_enabled');
-    const rsTimeout = document.getElementById('run_script_timeout');
-    const rsMaxOut = document.getElementById('run_script_max_output');
-    const rsRate = document.getElementById('run_script_rate_limit');
+    const rsEn = cfgField('run_script_enabled');
+    const rsTimeout = cfgField('run_script_timeout');
+    const rsMaxOut = cfgField('run_script_max_output');
+    const rsRate = cfgField('run_script_rate_limit');
     if (rsEn)
         rsEn.checked = runScript.enabled !== false;
     if (rsTimeout)
@@ -475,16 +540,16 @@ export async function loadConfig() {
     if (rsRate)
         rsRate.value = runScript.rate_limit_per_minute ?? 3;
     const proposePatch = intel.propose_patch || {};
-    const ppEn = document.getElementById('propose_patch_enabled');
-    const ppDirs = document.getElementById('propose_patch_allowed_dirs');
+    const ppEn = cfgField('propose_patch_enabled');
+    const ppDirs = cfgField('propose_patch_allowed_dirs');
     if (ppEn)
         ppEn.checked = proposePatch.enabled !== false;
     if (ppDirs)
         ppDirs.value = Array.isArray(proposePatch.allowed_dirs) ? proposePatch.allowed_dirs.join(', ') : 'scripts, docs, ai_suggestions';
     // Librarian (memory recall) – loaded from cfg.librarian
     const lib = cfg.librarian || {};
-    const iRetLimit = document.getElementById('intel_retrieval_limit');
-    const iMemDist = document.getElementById('intel_memory_relevance_max_distance');
+    const iRetLimit = cfgField('intel_retrieval_limit');
+    const iMemDist = cfgField('intel_memory_relevance_max_distance');
     if (iRetLimit)
         iRetLimit.value = lib.retrieval_limit ?? 5;
     if (iMemDist)
@@ -511,16 +576,16 @@ export async function loadConfig() {
                 return;
             el.classList.toggle('hidden', !isAdmin);
         });
-        const personaUser = document.getElementById('cfg-general-persona-user');
-        const userPersona = document.getElementById('user_persona');
+        const personaUser = cfgField('cfg-general-persona-user');
+        const userPersona = cfgField('user_persona');
         if (personaUser && userPersona) {
             personaUser.classList.toggle('hidden', isAdmin);
             userPersona.value = profile.persona || '';
         }
-        const adminBlock = document.getElementById('integrations-whitelist-admin');
-        const userBlock = document.getElementById('integrations-whitelist-user');
-        const addInput = document.getElementById('user-phone-add');
-        const addBtn = document.getElementById('user-phone-add-btn');
+        const adminBlock = cfgField('integrations-whitelist-admin');
+        const userBlock = cfgField('integrations-whitelist-user');
+        const addInput = cfgField('user-phone-add');
+        const addBtn = cfgField('user-phone-add-btn');
         if (adminBlock && userBlock) {
             if (isAdmin) {
                 adminBlock.classList.remove('hidden');
@@ -563,7 +628,7 @@ export async function loadConfig() {
     _configAutoSavePauseUntil = Date.now() + 350;
 }
 function renderUserPhonesList(phones) {
-    const listEl = document.getElementById('user-phones-list');
+    const listEl = cfgField('user-phones-list');
     if (!listEl)
         return;
     if (!phones.length) {
@@ -641,7 +706,7 @@ export async function loadModelProfiles() {
     }
 }
 function renderAutoRouterStats(stats) {
-    const el = document.getElementById('auto-router-stats');
+    const el = cfgField('auto-router-stats');
     if (!el)
         return;
     if (!stats || typeof stats.local !== 'number' || typeof stats.api !== 'number') {
@@ -653,7 +718,7 @@ function renderAutoRouterStats(stats) {
     el.innerHTML = `${label} <span class="text-slate-400">${stats.local} local</span>, <span class="text-slate-400">${stats.api} API</span>`;
 }
 function renderProfilesList() {
-    const container = document.getElementById('model-profiles-list');
+    const container = cfgField('model-profiles-list');
     if (!container)
         return;
     if (!_modelProfiles.length) {
@@ -662,7 +727,8 @@ function renderProfilesList() {
     }
     container.innerHTML = _modelProfiles.map((p, index) => {
         const visible = p.visible_in_selector !== false;
-        const providerLabel = { local: 'Local', z_ai: 'Z.AI', openai: 'OpenAI', grok: 'Grok', deepseek: 'DeepSeek' }[p.provider] || p.provider;
+        const providerLabels = { local: 'Local', z_ai: 'Z.AI', openai: 'OpenAI', grok: 'Grok', deepseek: 'DeepSeek' };
+        const providerLabel = providerLabels[p.provider || ''] || p.provider || '';
         const auxBadge = p.aux_llm_enabled ? '<span class="inline-flex items-center text-[9px] bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded-full ml-1">AUX</span>' : '';
         const coderBadge = p.coder_enabled ? '<span class="inline-flex items-center text-[9px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded-full ml-0.5">COD</span>' : '';
         const visionBadge = p.vision_enabled ? '<span class="inline-flex items-center text-[9px] bg-violet-500/10 text-violet-400 px-1.5 py-0.5 rounded-full ml-0.5">VIS</span>' : '';
@@ -723,40 +789,55 @@ function bindProfileCardDragDrop(container) {
     container.dataset.dragBound = '1';
     let draggedId = null;
     container.addEventListener('dragstart', (e) => {
-        const handle = e.target.closest('.profile-card-drag-handle');
+        const tgt = e.target;
+        if (!tgt)
+            return;
+        const handle = tgt.closest('.profile-card-drag-handle');
         if (!handle)
             return;
         const id = handle.getAttribute('data-profile-id');
         if (!id)
             return;
         draggedId = id;
-        e.dataTransfer.setData('text/plain', id);
-        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer?.setData('text/plain', id);
+        if (e.dataTransfer)
+            e.dataTransfer.effectAllowed = 'move';
         const card = handle.closest('.profile-card');
         if (card)
             card.classList.add('dragging');
     });
     container.addEventListener('dragend', (e) => {
-        if (e.target.closest('.profile-card-drag-handle')) {
+        const tgt = e.target;
+        if (tgt?.closest('.profile-card-drag-handle')) {
             container.querySelectorAll('.profile-card').forEach(el => el.classList.remove('dragging', 'drag-over'));
         }
         draggedId = null;
     });
     container.addEventListener('dragover', (e) => {
-        const card = e.target.closest('.profile-card');
+        const tgt = e.target;
+        if (!tgt)
+            return;
+        const card = tgt.closest('.profile-card');
         if (!card || !draggedId)
             return;
         e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
+        if (e.dataTransfer)
+            e.dataTransfer.dropEffect = 'move';
         card.classList.add('drag-over');
     });
     container.addEventListener('dragleave', (e) => {
-        const card = e.target.closest('.profile-card');
+        const tgt = e.target;
+        if (!tgt)
+            return;
+        const card = tgt.closest('.profile-card');
         if (card && !card.contains(e.relatedTarget))
             card.classList.remove('drag-over');
     });
     container.addEventListener('drop', async (e) => {
-        const card = e.target.closest('.profile-card');
+        const tgt = e.target;
+        if (!tgt)
+            return;
+        const card = tgt.closest('.profile-card');
         if (!card || !draggedId)
             return;
         e.preventDefault();
@@ -785,8 +866,8 @@ function bindProfileCardDragDrop(container) {
         }
     });
 }
-function renderModelSelector(data) {
-    const listEl = document.getElementById('model-selector-profiles');
+function renderModelSelector(_data) {
+    const listEl = cfgField('model-selector-profiles');
     const wrapEl = document.querySelector('.model-selector-wrap');
     if (!listEl)
         return;
@@ -844,7 +925,7 @@ function updateChatAttachVisibility() {
         imageItem.style.display = hasVision ? '' : 'none';
     if (cameraItem)
         cameraItem.style.display = hasVision ? '' : 'none';
-    const btnAttach = document.getElementById('btn-attach');
+    const btnAttach = cfgField('btn-attach');
     if (!btnAttach)
         return;
     const iconEl = btnAttach.querySelector('i.fas');
@@ -868,10 +949,10 @@ function updateChatAttachVisibility() {
     }
 }
 export function syncVisionCapabilityCheckbox() {
-    const visionEnabledEl = document.getElementById('profile-vision-enabled');
-    const visionUrlEl = document.getElementById('profile-vision-url');
-    const visionModelEl = document.getElementById('profile-vision-model');
-    const capVision = document.getElementById('profile-capability-vision');
+    const visionEnabledEl = cfgField('profile-vision-enabled');
+    const visionUrlEl = cfgField('profile-vision-url');
+    const visionModelEl = cfgField('profile-vision-model');
+    const capVision = cfgField('profile-capability-vision');
     if (!capVision)
         return;
     const visionConfigured = visionEnabledEl?.checked && ((visionUrlEl?.value || '').trim() || (visionModelEl?.value || '').trim());
@@ -885,28 +966,39 @@ export function syncVisionCapabilityCheckbox() {
 }
 ;
 export function showProfileEditor(profileId) {
-    const overlay = document.getElementById('profile-editor-overlay');
+    const overlay = cfgField('profile-editor-overlay');
     if (!overlay)
         return;
-    const titleEl = document.getElementById('profile-editor-title');
-    const idEl = document.getElementById('profile-edit-id');
-    const nameEl = document.getElementById('profile-name');
-    const provEl = document.getElementById('profile-provider');
-    const urlEl = document.getElementById('profile-url');
-    const modelEl = document.getElementById('profile-model');
-    const keyEl = document.getElementById('profile-api-key');
-    const tempEl = document.getElementById('profile-temperature');
-    const timeoutEl = document.getElementById('profile-timeout');
-    const ctxEl = document.getElementById('profile-context');
-    const colorEl = document.getElementById('profile-color');
-    const _colorSwatches = document.getElementById('profile-color-swatches');
-    const _colorHex = document.getElementById('profile-color-hex');
-    const _colorPreview = document.getElementById('profile-color-preview');
+    const titleEl = cfgField('profile-editor-title');
+    const idEl = cfgField('profile-edit-id');
+    const nameEl = cfgField('profile-name');
+    const provEl = cfgField('profile-provider');
+    const urlEl = cfgField('profile-url');
+    const modelEl = cfgField('profile-model');
+    const keyEl = cfgField('profile-api-key');
+    const tempEl = cfgField('profile-temperature');
+    const timeoutEl = cfgField('profile-timeout');
+    const ctxEl = cfgField('profile-context');
+    const colorEl = cfgField('profile-color');
+    const _colorSwatches = cfgField('profile-color-swatches');
+    const _colorHex = cfgField('profile-color-hex');
+    const _colorPreview = cfgField('profile-color-preview');
+    const auxEnabledEl = cfgField('profile-aux-enabled');
+    const auxUrlEl = cfgField('profile-aux-url');
+    const auxModelEl = cfgField('profile-aux-model');
+    const auxKeyEl = cfgField('profile-aux-key');
+    const auxFields = cfgField('profile-aux-fields');
+    const keyRow = cfgField('profile-api-key-row');
+    if (!titleEl || !idEl || !nameEl || !provEl || !urlEl || !modelEl || !keyEl || !tempEl || !timeoutEl || !ctxEl || !colorEl)
+        return;
+    if (!auxEnabledEl || !auxUrlEl || !auxModelEl || !auxKeyEl || !auxFields || !keyRow)
+        return;
+    const colorInput = colorEl;
     function _syncColor(hex) {
         if (!_colorSwatches)
             return;
         const norm = (hex || '').toLowerCase();
-        colorEl.value = norm;
+        colorInput.value = norm;
         _colorSwatches.querySelectorAll('.color-swatch').forEach(s => {
             s.classList.toggle('active', s.dataset.color === norm);
         });
@@ -916,10 +1008,11 @@ export function showProfileEditor(profileId) {
             _colorHex.value = norm;
     }
     if (_colorSwatches) {
-        _colorSwatches.addEventListener('click', e => {
-            const sw = e.target.closest('.color-swatch');
+        _colorSwatches.addEventListener('click', (e) => {
+            const tgt = e.target;
+            const sw = tgt?.closest('.color-swatch');
             if (sw) {
-                _syncColor(sw.dataset.color);
+                _syncColor(sw.dataset.color || '');
             }
         });
     }
@@ -935,33 +1028,27 @@ export function showProfileEditor(profileId) {
             _colorHex.value = colorEl.value;
         });
     }
-    const auxEnabledEl = document.getElementById('profile-aux-enabled');
-    const auxUrlEl = document.getElementById('profile-aux-url');
-    const auxModelEl = document.getElementById('profile-aux-model');
-    const auxKeyEl = document.getElementById('profile-aux-key');
-    const auxFields = document.getElementById('profile-aux-fields');
-    const keyRow = document.getElementById('profile-api-key-row');
     // Coder fields
-    const coderEnabledEl = document.getElementById('profile-coder-enabled');
-    const coderProvEl = document.getElementById('profile-coder-provider');
-    const coderUrlEl = document.getElementById('profile-coder-url');
-    const coderModelEl = document.getElementById('profile-coder-model');
-    const coderKeyEl = document.getElementById('profile-coder-key');
-    const coderTimeoutEl = document.getElementById('profile-coder-timeout');
-    const coderFields = document.getElementById('profile-coder-fields');
+    const coderEnabledEl = cfgField('profile-coder-enabled');
+    const coderProvEl = cfgField('profile-coder-provider');
+    const coderUrlEl = cfgField('profile-coder-url');
+    const coderModelEl = cfgField('profile-coder-model');
+    const coderKeyEl = cfgField('profile-coder-key');
+    const coderTimeoutEl = cfgField('profile-coder-timeout');
+    const coderFields = cfgField('profile-coder-fields');
     // Vision fields
-    const visionEnabledEl = document.getElementById('profile-vision-enabled');
-    const visionProvEl = document.getElementById('profile-vision-provider');
-    const visionUrlEl = document.getElementById('profile-vision-url');
-    const visionModelEl = document.getElementById('profile-vision-model');
-    const visionKeyEl = document.getElementById('profile-vision-key');
-    const visionTimeoutEl = document.getElementById('profile-vision-timeout');
-    const visionRespondEl = document.getElementById('profile-vision-respond-directly');
-    const visionFields = document.getElementById('profile-vision-fields');
+    const visionEnabledEl = cfgField('profile-vision-enabled');
+    const visionProvEl = cfgField('profile-vision-provider');
+    const visionUrlEl = cfgField('profile-vision-url');
+    const visionModelEl = cfgField('profile-vision-model');
+    const visionKeyEl = cfgField('profile-vision-key');
+    const visionTimeoutEl = cfgField('profile-vision-timeout');
+    const visionRespondEl = cfgField('profile-vision-respond-directly');
+    const visionFields = cfgField('profile-vision-fields');
     // Embedding fields
-    const embedEnabledEl = document.getElementById('profile-embed-enabled');
-    const embedModelEl = document.getElementById('profile-embed-model');
-    const embedFields = document.getElementById('profile-embed-fields');
+    const embedEnabledEl = cfgField('profile-embed-enabled');
+    const embedModelEl = cfgField('profile-embed-model');
+    const embedFields = cfgField('profile-embed-fields');
     if (profileId) {
         const p = _modelProfiles.find(x => x.id === profileId);
         if (!p)
@@ -973,17 +1060,17 @@ export function showProfileEditor(profileId) {
         urlEl.value = p.target_url || '';
         modelEl.value = p.model_name || '';
         keyEl.value = p.api_key || '';
-        tempEl.value = p.temperature ?? 0.7;
-        timeoutEl.value = p.timeout ?? 120;
-        ctxEl.value = p.context_length ?? 24000;
+        tempEl.value = String(p.temperature ?? 0.7);
+        timeoutEl.value = String(p.timeout ?? 120);
+        ctxEl.value = String(p.context_length ?? 24000);
         colorEl.value = p.color || '#6366f1';
         _syncColor(colorEl.value);
-        const personaOverrideEl = document.getElementById('profile-persona-override');
+        const personaOverrideEl = cfgField('profile-persona-override');
         if (personaOverrideEl)
             personaOverrideEl.value = p.persona_override || '';
-        const capReason = document.getElementById('profile-capability-reasoning');
-        const capTools = document.getElementById('profile-capability-tools');
-        const capVision = document.getElementById('profile-capability-vision');
+        const capReason = cfgField('profile-capability-reasoning');
+        const capTools = cfgField('profile-capability-tools');
+        const capVision = cfgField('profile-capability-vision');
         if (capReason)
             capReason.checked = p.capability_reasoning !== false;
         if (capTools)
@@ -1008,7 +1095,7 @@ export function showProfileEditor(profileId) {
         if (coderKeyEl)
             coderKeyEl.value = coder.api_key || '';
         if (coderTimeoutEl)
-            coderTimeoutEl.value = coder.timeout ?? 180;
+            coderTimeoutEl.value = String(coder.timeout ?? 180);
         if (coderFields)
             coderFields.classList.toggle('hidden', !p.coder_enabled);
         // Vision
@@ -1024,7 +1111,7 @@ export function showProfileEditor(profileId) {
         if (visionKeyEl)
             visionKeyEl.value = vision.api_key || '';
         if (visionTimeoutEl)
-            visionTimeoutEl.value = vision.timeout ?? 60;
+            visionTimeoutEl.value = String(vision.timeout ?? 60);
         if (visionRespondEl)
             visionRespondEl.checked = !!vision.respond_directly;
         if (visionFields)
@@ -1052,12 +1139,12 @@ export function showProfileEditor(profileId) {
         ctxEl.value = '24000';
         colorEl.value = '#6366f1';
         _syncColor('#6366f1');
-        const personaOverrideEl = document.getElementById('profile-persona-override');
+        const personaOverrideEl = cfgField('profile-persona-override');
         if (personaOverrideEl)
             personaOverrideEl.value = '';
-        const capReason = document.getElementById('profile-capability-reasoning');
-        const capTools = document.getElementById('profile-capability-tools');
-        const capVision = document.getElementById('profile-capability-vision');
+        const capReason = cfgField('profile-capability-reasoning');
+        const capTools = cfgField('profile-capability-tools');
+        const capVision = cfgField('profile-capability-vision');
         if (capReason)
             capReason.checked = true;
         if (capTools)
@@ -1119,10 +1206,10 @@ export function closeProfileEditor() {
 }
 ;
 export function onProfileProviderChange() {
-    const prov = document.getElementById('profile-provider');
-    const url = document.getElementById('profile-url');
-    const model = document.getElementById('profile-model');
-    const keyRow = document.getElementById('profile-api-key-row');
+    const prov = cfgField('profile-provider');
+    const url = cfgField('profile-url');
+    const model = cfgField('profile-model');
+    const keyRow = cfgField('profile-api-key-row');
     if (!prov)
         return;
     const v = prov.value;
@@ -1161,9 +1248,9 @@ export function onProfileProviderChange() {
 }
 ;
 export function onProfileSubProviderChange(type) {
-    const prov = document.getElementById(`profile-${type}-provider`);
-    const url = document.getElementById(`profile-${type}-url`);
-    const model = document.getElementById(`profile-${type}-model`);
+    const prov = cfgField(`profile-${type}-provider`);
+    const url = cfgField(`profile-${type}-url`);
+    const model = cfgField(`profile-${type}-model`);
     if (!prov)
         return;
     const v = prov.value;
@@ -1204,54 +1291,54 @@ export async function saveProfile(e) {
     if (e)
         e.preventDefault();
     const payload = {
-        id: document.getElementById('profile-edit-id')?.value || '',
-        name: document.getElementById('profile-name')?.value || '',
-        provider: document.getElementById('profile-provider')?.value || 'local',
-        target_url: document.getElementById('profile-url')?.value || '',
-        model_name: document.getElementById('profile-model')?.value || '',
-        api_key: document.getElementById('profile-api-key')?.value || '',
-        temperature: parseFloat(document.getElementById('profile-temperature')?.value) || 0.7,
-        timeout: parseInt(document.getElementById('profile-timeout')?.value, 10) || 120,
-        context_length: parseInt(document.getElementById('profile-context')?.value, 10) || 24000,
+        id: cfgField('profile-edit-id')?.value || '',
+        name: cfgField('profile-name')?.value || '',
+        provider: cfgField('profile-provider')?.value || 'local',
+        target_url: cfgField('profile-url')?.value || '',
+        model_name: cfgField('profile-model')?.value || '',
+        api_key: cfgField('profile-api-key')?.value || '',
+        temperature: parseFloat(_cfgVal('profile-temperature')) || 0.7,
+        timeout: parseInt(_cfgVal('profile-timeout'), 10) || 120,
+        context_length: parseInt(_cfgVal('profile-context'), 10) || 24000,
         max_tokens: 2048,
-        color: document.getElementById('profile-color')?.value || '#6366f1',
-        persona_override: (document.getElementById('profile-persona-override')?.value || '').trim() || null,
-        capability_reasoning: document.getElementById('profile-capability-reasoning')?.checked !== false,
-        capability_tool_calling: document.getElementById('profile-capability-tools')?.checked !== false,
+        color: cfgField('profile-color')?.value || '#6366f1',
+        persona_override: (cfgField('profile-persona-override')?.value || '').trim() || null,
+        capability_reasoning: cfgField('profile-capability-reasoning')?.checked !== false,
+        capability_tool_calling: cfgField('profile-capability-tools')?.checked !== false,
         capability_vision: (function () {
-            const visionEnabled = document.getElementById('profile-vision-enabled')?.checked;
-            const visionUrl = (document.getElementById('profile-vision-url')?.value || '').trim();
-            const visionModel = (document.getElementById('profile-vision-model')?.value || '').trim();
+            const visionEnabled = cfgField('profile-vision-enabled')?.checked;
+            const visionUrl = (cfgField('profile-vision-url')?.value || '').trim();
+            const visionModel = (cfgField('profile-vision-model')?.value || '').trim();
             if (visionEnabled && (visionUrl || visionModel))
                 return true;
-            return document.getElementById('profile-capability-vision')?.checked !== false;
+            return cfgField('profile-capability-vision')?.checked !== false;
         })(),
-        aux_llm_enabled: document.getElementById('profile-aux-enabled')?.checked || false,
+        aux_llm_enabled: cfgField('profile-aux-enabled')?.checked || false,
         aux_llm: {
-            target_url: document.getElementById('profile-aux-url')?.value || '',
-            model_name: document.getElementById('profile-aux-model')?.value || '',
-            api_key: document.getElementById('profile-aux-key')?.value || '',
+            target_url: cfgField('profile-aux-url')?.value || '',
+            model_name: cfgField('profile-aux-model')?.value || '',
+            api_key: cfgField('profile-aux-key')?.value || '',
         },
-        coder_enabled: document.getElementById('profile-coder-enabled')?.checked || false,
+        coder_enabled: cfgField('profile-coder-enabled')?.checked || false,
         coder: {
-            provider: document.getElementById('profile-coder-provider')?.value || 'local',
-            target_url: document.getElementById('profile-coder-url')?.value || '',
-            model_name: document.getElementById('profile-coder-model')?.value || '',
-            api_key: document.getElementById('profile-coder-key')?.value || '',
-            timeout: parseInt(document.getElementById('profile-coder-timeout')?.value, 10) || 180,
+            provider: cfgField('profile-coder-provider')?.value || 'local',
+            target_url: cfgField('profile-coder-url')?.value || '',
+            model_name: cfgField('profile-coder-model')?.value || '',
+            api_key: cfgField('profile-coder-key')?.value || '',
+            timeout: parseInt(_cfgVal('profile-coder-timeout'), 10) || 180,
         },
-        vision_enabled: document.getElementById('profile-vision-enabled')?.checked || false,
+        vision_enabled: cfgField('profile-vision-enabled')?.checked || false,
         vision_llm: {
-            provider: document.getElementById('profile-vision-provider')?.value || 'local',
-            target_url: document.getElementById('profile-vision-url')?.value || '',
-            model_name: document.getElementById('profile-vision-model')?.value || '',
-            api_key: document.getElementById('profile-vision-key')?.value || '',
-            timeout: parseInt(document.getElementById('profile-vision-timeout')?.value, 10) || 60,
-            respond_directly: document.getElementById('profile-vision-respond-directly')?.checked || false,
+            provider: cfgField('profile-vision-provider')?.value || 'local',
+            target_url: cfgField('profile-vision-url')?.value || '',
+            model_name: cfgField('profile-vision-model')?.value || '',
+            api_key: cfgField('profile-vision-key')?.value || '',
+            timeout: parseInt(_cfgVal('profile-vision-timeout'), 10) || 60,
+            respond_directly: cfgField('profile-vision-respond-directly')?.checked || false,
         },
-        embed_enabled: document.getElementById('profile-embed-enabled')?.checked || false,
+        embed_enabled: cfgField('profile-embed-enabled')?.checked || false,
         librarian: {
-            model_name: document.getElementById('profile-embed-model')?.value || '',
+            model_name: cfgField('profile-embed-model')?.value || '',
         },
     };
     try {
@@ -1286,14 +1373,14 @@ export async function deleteProfile(profileId) {
 export function openProfileCardMenu(profileId, ev) {
     if (ev)
         ev.stopPropagation();
-    const modal = document.getElementById('profile-card-menu-modal');
+    const modal = cfgField('profile-card-menu-modal');
     if (!modal)
         return;
     modal.dataset.profileId = profileId;
     const p = _modelProfiles.find(x => x.id === profileId);
     const visible = p && p.visible_in_selector !== false;
-    const visibilityBtn = document.getElementById('profile-card-menu-visibility-btn');
-    const visibilityText = document.getElementById('profile-card-menu-visibility-text');
+    const visibilityBtn = cfgField('profile-card-menu-visibility-btn');
+    const visibilityText = cfgField('profile-card-menu-visibility-text');
     if (visibilityBtn) {
         visibilityBtn.dataset.visible = String(visible);
         visibilityBtn.classList.toggle('is-in-selector', visible);
@@ -1310,7 +1397,7 @@ export function openProfileCardMenu(profileId, ev) {
 }
 ;
 export function closeProfileCardMenu() {
-    const modal = document.getElementById('profile-card-menu-modal');
+    const modal = cfgField('profile-card-menu-modal');
     if (modal) {
         modal.classList.add('hidden');
         modal.setAttribute('aria-hidden', 'true');
@@ -1331,10 +1418,11 @@ export async function setProfileVisibility(profileId, visible) {
 }
 ;
 {
-    const menuModal = document.getElementById('profile-card-menu-modal');
+    const menuModal = cfgField('profile-card-menu-modal');
     if (menuModal) {
         menuModal.addEventListener('click', (e) => {
-            const btn = e.target.closest('button[data-action]');
+            const tgt = e.target;
+            const btn = tgt?.closest('button[data-action]');
             if (!btn)
                 return;
             const profileId = menuModal.dataset.profileId;
@@ -1427,13 +1515,15 @@ export async function activateProfile(profileId) {
 }
 ;
 export async function saveConfig(eOrOptions) {
-    const isEventLike = !!(eOrOptions && typeof eOrOptions.preventDefault === 'function');
-    const options = (!isEventLike && eOrOptions && typeof eOrOptions === 'object') ? eOrOptions : {};
+    const arg = eOrOptions ?? {};
+    const isEventLike = typeof arg.preventDefault === 'function';
+    const options = isEventLike ? {} : arg;
+    const ev = isEventLike ? arg : null;
     const silent = !!options.silent;
-    if (isEventLike)
-        eOrOptions.preventDefault();
+    if (ev)
+        ev.preventDefault();
     // Find the clicked save button (if any) and put it into a loading state
-    const saveBtn = isEventLike ? (eOrOptions.currentTarget || eOrOptions.target?.closest('button')) : null;
+    const saveBtn = ev ? (ev.currentTarget || ev.target?.closest('button')) : null;
     let originalBtnHtml = null;
     if (saveBtn) {
         originalBtnHtml = saveBtn.innerHTML;
@@ -1450,7 +1540,7 @@ export async function saveConfig(eOrOptions) {
         }
     };
     try {
-        const langEl = document.getElementById('ui_language');
+        const langEl = cfgField('ui_language');
         const language = langEl ? langEl.value : 'en';
         if (isExplicitNonAdmin()) {
             try {
@@ -1459,10 +1549,10 @@ export async function saveConfig(eOrOptions) {
                     throw new Error(`HTTP ${resp.status}`);
             }
             catch (err) {
-                showToast(t('updates.save_error') + (err.message || err), 'error');
+                showToast(t('updates.save_error') + (_errMsg(err)), 'error');
                 return;
             }
-            const userPersona = document.getElementById('user_persona');
+            const userPersona = cfgField('user_persona');
             if (userPersona) {
                 try {
                     await apiCall('/api/users/me', { method: 'PATCH', body: { persona: userPersona.value } });
@@ -1478,16 +1568,16 @@ export async function saveConfig(eOrOptions) {
                 showToast(t('config.save_success'), 'success');
             return;
         }
-        const parseList = (s) => (s || '').split(/[\n,]+/).map(x => x.trim()).filter(Boolean);
+        const parseList = (s) => (s || '').split(/[\n,]+/).map((x) => x.trim()).filter(Boolean);
         const wsTransportRadio = document.querySelector('input[name="notif_transport"][value="websocket"]');
         const transportMode = wsTransportRadio && wsTransportRadio.checked ? 'websocket' : 'firebase';
         const config = {
-            verbose_logging: (document.getElementById('logging_mode')?.value || 'compact') === 'verbose',
+            verbose_logging: (cfgField('logging_mode')?.value || 'compact') === 'verbose',
             librarian: {
-                retrieval_limit: Math.min(20, Math.max(1, parseInt(document.getElementById('intel_retrieval_limit')?.value, 10) || 5)),
+                retrieval_limit: Math.min(20, Math.max(1, parseInt(_cfgVal('intel_retrieval_limit'), 10) || 5)),
                 memory_relevance_max_distance: (() => {
-                    const v = document.getElementById('intel_memory_relevance_max_distance')?.value?.trim();
-                    if (v === '')
+                    const v = cfgField('intel_memory_relevance_max_distance')?.value?.trim();
+                    if (!v || v === '')
                         return null;
                     const n = parseFloat(v);
                     if (Number.isNaN(n))
@@ -1496,106 +1586,106 @@ export async function saveConfig(eOrOptions) {
                 })()
             },
             security: {
-                whitelist_enabled: (document.getElementById('wl_numbers')?.value || '').split('\n').map(n => n.trim()).filter(n => n).length > 0,
-                allowed_numbers: (document.getElementById('wl_numbers')?.value || '').split('\n').map(n => n.trim()).filter(n => n),
-                anti_injection: document.getElementById('security_anti_injection')?.checked !== false,
-                anti_injection_prompt_template: document.getElementById('security_anti_injection_prompt')?.value || '',
-                tool_guardrails: document.getElementById('security_tool_guardrails')?.checked !== false,
-                restrict_mutating_tools_on_untrusted_content: document.getElementById('security_restrict_untrusted_tools')?.checked !== false
+                whitelist_enabled: (cfgField('wl_numbers')?.value || '').split('\n').map(n => n.trim()).filter(n => n).length > 0,
+                allowed_numbers: (cfgField('wl_numbers')?.value || '').split('\n').map(n => n.trim()).filter(n => n),
+                anti_injection: cfgField('security_anti_injection')?.checked !== false,
+                anti_injection_prompt_template: cfgField('security_anti_injection_prompt')?.value || '',
+                tool_guardrails: cfgField('security_tool_guardrails')?.checked !== false,
+                restrict_mutating_tools_on_untrusted_content: cfgField('security_restrict_untrusted_tools')?.checked !== false
             },
             fcm: {
                 enabled: transportMode === 'firebase',
                 transport_mode: transportMode,
                 websocket_enabled: transportMode === 'websocket',
                 send_when_ws_disconnected: true,
-                project_id: (document.getElementById('fcm_project_id')?.value || '').trim(),
-                service_account_path: (document.getElementById('fcm_service_account_path')?.value || '').trim(),
+                project_id: (cfgField('fcm_project_id')?.value || '').trim(),
+                service_account_path: (cfgField('fcm_service_account_path')?.value || '').trim(),
             },
             prompts: (() => {
-                const nlList = (s) => (s || '').split(/\n/).map(x => x.trim()).filter(Boolean);
+                const nlList = (s) => (s || '').split(/\n/).map((x) => x.trim()).filter(Boolean);
                 return {
-                    system_persona: document.getElementById('p_persona')?.value ?? '',
-                    agent_instructions: document.getElementById('p_agent_instructions')?.value ?? '',
-                    agent_instructions_fallback: (document.getElementById('p_agent_instructions_fallback')?.value ?? '').trim(),
-                    agent_instruction_overrides: nlList(document.getElementById('p_agent_instruction_overrides')?.value),
-                    search_web_single_message_instruction: (document.getElementById('p_search_web_single_message_instruction')?.value ?? '').trim(),
-                    web_content_reply_instruction: (document.getElementById('p_web_content_reply_instruction')?.value ?? '').trim(),
-                    image_placeholder: (document.getElementById('p_image_placeholder')?.value ?? '').trim(),
-                    summarize: (document.getElementById('p_summarize')?.value ?? '').trim()
+                    system_persona: cfgField('p_persona')?.value ?? '',
+                    agent_instructions: cfgField('p_agent_instructions')?.value ?? '',
+                    agent_instructions_fallback: (cfgField('p_agent_instructions_fallback')?.value ?? '').trim(),
+                    agent_instruction_overrides: nlList(cfgField('p_agent_instruction_overrides')?.value ?? ''),
+                    search_web_single_message_instruction: (cfgField('p_search_web_single_message_instruction')?.value ?? '').trim(),
+                    web_content_reply_instruction: (cfgField('p_web_content_reply_instruction')?.value ?? '').trim(),
+                    image_placeholder: (cfgField('p_image_placeholder')?.value ?? '').trim(),
+                    summarize: (cfgField('p_summarize')?.value ?? '').trim()
                 };
             })(),
             memory: {
-                working_window: Math.min(50, Math.max(4, parseInt(document.getElementById('intel_working_window')?.value, 10) || 12)),
-                summarize_every: Math.min(30, Math.max(4, parseInt(document.getElementById('intel_summarize_every')?.value, 10) || 8)),
-                fact_similarity_threshold: Math.min(0.9, Math.max(0.1, parseFloat(document.getElementById('memory_fact_similarity')?.value) || 0.45)),
-                extraction_timeout: Math.min(600, Math.max(10, parseInt(document.getElementById('memory_extraction_timeout')?.value, 10) || 120)),
-                extraction_input_max_chars: Math.min(4000, Math.max(300, parseInt(document.getElementById('memory_extraction_input_max_chars')?.value, 10) || 900)),
-                extraction_max_tokens_full: Math.min(2400, Math.max(128, parseInt(document.getElementById('memory_extraction_max_tokens_full')?.value, 10) || 800)),
-                extraction_max_lines: Math.min(10, Math.max(1, parseInt(document.getElementById('memory_extraction_max_lines')?.value, 10) || 2)),
-                extraction_rules: (document.getElementById('memory_extraction_rules')?.value ?? '').trim() || undefined,
+                working_window: Math.min(50, Math.max(4, parseInt(_cfgVal('intel_working_window'), 10) || 12)),
+                summarize_every: Math.min(30, Math.max(4, parseInt(_cfgVal('intel_summarize_every'), 10) || 8)),
+                fact_similarity_threshold: Math.min(0.9, Math.max(0.1, parseFloat(_cfgVal('memory_fact_similarity')) || 0.45)),
+                extraction_timeout: Math.min(600, Math.max(10, parseInt(_cfgVal('memory_extraction_timeout'), 10) || 120)),
+                extraction_input_max_chars: Math.min(4000, Math.max(300, parseInt(_cfgVal('memory_extraction_input_max_chars'), 10) || 900)),
+                extraction_max_tokens_full: Math.min(2400, Math.max(128, parseInt(_cfgVal('memory_extraction_max_tokens_full'), 10) || 800)),
+                extraction_max_lines: Math.min(10, Math.max(1, parseInt(_cfgVal('memory_extraction_max_lines'), 10) || 2)),
+                extraction_rules: (cfgField('memory_extraction_rules')?.value ?? '').trim() || undefined,
                 extraction_examples: getExtractionExamples().filter(ex => ex.input && ex.input.trim()),
             },
             intelligence: {
-                max_agent_turns: Math.min(30, Math.max(1, parseInt(document.getElementById('max_agent_turns')?.value, 10) || 10)),
-                post_response_concurrency: Math.min(5, Math.max(1, parseInt(document.getElementById('post_response_concurrency')?.value, 10) || 1)),
-                inject_relevant_facts: document.getElementById('inject_relevant_facts')?.checked || false,
-                lazy_history: document.getElementById('intel_lazy_history')?.checked !== false,
-                richer_tool_results: document.getElementById('richer_tool_results')?.checked || false,
-                knowledge_cutoff: (document.getElementById('intel_knowledge_cutoff')?.value || '2024-01').trim(),
-                search_tendency: Math.min(5, Math.max(1, parseInt(document.getElementById('intel_search_tendency')?.value, 10) || 3)),
-                search_use_conversation_context: document.getElementById('search_use_conversation_context')?.checked || false,
-                search_context_similarity_threshold: Math.min(0.99, Math.max(0.2, parseFloat(document.getElementById('search_context_similarity_threshold')?.value) || 0.55)),
+                max_agent_turns: Math.min(30, Math.max(1, parseInt(_cfgVal('max_agent_turns'), 10) || 10)),
+                post_response_concurrency: Math.min(5, Math.max(1, parseInt(_cfgVal('post_response_concurrency'), 10) || 1)),
+                inject_relevant_facts: cfgField('inject_relevant_facts')?.checked || false,
+                lazy_history: cfgField('intel_lazy_history')?.checked !== false,
+                richer_tool_results: cfgField('richer_tool_results')?.checked || false,
+                knowledge_cutoff: (cfgField('intel_knowledge_cutoff')?.value || '2024-01').trim(),
+                search_tendency: Math.min(5, Math.max(1, parseInt(_cfgVal('intel_search_tendency'), 10) || 3)),
+                search_use_conversation_context: cfgField('search_use_conversation_context')?.checked || false,
+                search_context_similarity_threshold: Math.min(0.99, Math.max(0.2, parseFloat(_cfgVal('search_context_similarity_threshold')) || 0.55)),
                 intent_router: {
-                    enabled: document.getElementById('intent_router_enabled')?.checked || false,
+                    enabled: cfgField('intent_router_enabled')?.checked || false,
                 },
                 proactive_hints: {
-                    enabled: document.getElementById('proactive_hints_enabled')?.checked || false,
+                    enabled: cfgField('proactive_hints_enabled')?.checked || false,
                 },
                 shell: (() => {
-                    const rawAllowed = (document.getElementById('shell_allowed_commands')?.value || '').trim();
-                    const rawBlocked = (document.getElementById('shell_blocked_patterns')?.value || '').trim();
-                    const parseList = (s) => s.split(/[\n,]+/).map(x => x.trim()).filter(Boolean);
+                    const rawAllowed = (cfgField('shell_allowed_commands')?.value || '').trim();
+                    const rawBlocked = (cfgField('shell_blocked_patterns')?.value || '').trim();
+                    const parseList = (s) => s.split(/[\n,]+/).map((x) => x.trim()).filter(Boolean);
                     const allowedList = parseList(rawAllowed);
                     const blockedList = parseList(rawBlocked);
                     return {
-                        enabled: document.getElementById('shell_enabled')?.checked !== false,
+                        enabled: cfgField('shell_enabled')?.checked !== false,
                         allowed_commands: allowedList.length ? allowedList : ['curl', 'wget', 'ping', 'date', 'uname', 'cat', 'echo', 'head', 'tail', 'df', 'free', 'uptime'],
                         blocked_patterns: blockedList,
-                        max_output_chars: Math.min(100000, Math.max(500, parseInt(document.getElementById('shell_max_output_chars')?.value, 10) || 8000)),
-                        timeout_seconds: Math.min(120, Math.max(5, parseInt(document.getElementById('shell_timeout_seconds')?.value, 10) || 15)),
-                        rate_limit_per_minute: Math.min(30, Math.max(1, parseInt(document.getElementById('shell_rate_limit')?.value, 10) || 5))
+                        max_output_chars: Math.min(100000, Math.max(500, parseInt(_cfgVal('shell_max_output_chars'), 10) || 8000)),
+                        timeout_seconds: Math.min(120, Math.max(5, parseInt(_cfgVal('shell_timeout_seconds'), 10) || 15)),
+                        rate_limit_per_minute: Math.min(30, Math.max(1, parseInt(_cfgVal('shell_rate_limit'), 10) || 5))
                     };
                 })(),
                 file_read: {
-                    enabled: document.getElementById('file_read_enabled')?.checked !== false,
-                    max_bytes: Math.min(500000, Math.max(1024, parseInt(document.getElementById('file_read_max_bytes')?.value, 10) || 51200)),
-                    rate_limit_per_minute: Math.min(60, Math.max(1, parseInt(document.getElementById('file_read_rate_limit')?.value, 10) || 10))
+                    enabled: cfgField('file_read_enabled')?.checked !== false,
+                    max_bytes: Math.min(500000, Math.max(1024, parseInt(_cfgVal('file_read_max_bytes'), 10) || 51200)),
+                    rate_limit_per_minute: Math.min(60, Math.max(1, parseInt(_cfgVal('file_read_rate_limit'), 10) || 10))
                 },
                 run_script: {
-                    enabled: document.getElementById('run_script_enabled')?.checked !== false,
-                    timeout_seconds: Math.min(30, Math.max(5, parseInt(document.getElementById('run_script_timeout')?.value, 10) || 15)),
-                    max_output_chars: Math.min(100000, Math.max(1000, parseInt(document.getElementById('run_script_max_output')?.value, 10) || 20000)),
-                    rate_limit_per_minute: Math.min(15, Math.max(1, parseInt(document.getElementById('run_script_rate_limit')?.value, 10) || 3))
+                    enabled: cfgField('run_script_enabled')?.checked !== false,
+                    timeout_seconds: Math.min(30, Math.max(5, parseInt(_cfgVal('run_script_timeout'), 10) || 15)),
+                    max_output_chars: Math.min(100000, Math.max(1000, parseInt(_cfgVal('run_script_max_output'), 10) || 20000)),
+                    rate_limit_per_minute: Math.min(15, Math.max(1, parseInt(_cfgVal('run_script_rate_limit'), 10) || 3))
                 },
                 propose_patch: {
-                    enabled: document.getElementById('propose_patch_enabled')?.checked !== false,
-                    allowed_dirs: (document.getElementById('propose_patch_allowed_dirs')?.value || 'scripts, docs, ai_suggestions').split(',').map(s => s.trim()).filter(Boolean)
+                    enabled: cfgField('propose_patch_enabled')?.checked !== false,
+                    allowed_dirs: (cfgField('propose_patch_allowed_dirs')?.value || 'scripts, docs, ai_suggestions').split(',').map((s) => s.trim()).filter(Boolean)
                 },
                 consolidation: {
-                    enabled: document.getElementById('consolidation_enabled')?.checked || false,
-                    time: (document.getElementById('consolidation_time')?.value || '03:00').trim().slice(0, 5),
-                    interval: document.getElementById('consolidation_interval')?.value || 'daily',
-                    similarity_threshold: Math.min(0.99, Math.max(0.8, parseFloat(document.getElementById('consolidation_threshold')?.value) || 0.92)),
-                    session_trigger_messages: Math.min(500, Math.max(20, parseInt(document.getElementById('consolidation_session_trigger_messages')?.value, 10) || 80)),
-                    compression_ratio: Math.min(0.5, Math.max(0.05, parseFloat(document.getElementById('consolidation_compression_ratio')?.value) || 0.15)),
-                    history_log_path: (document.getElementById('consolidation_history_log_path')?.value || 'history_log.md').trim()
+                    enabled: cfgField('consolidation_enabled')?.checked || false,
+                    time: (cfgField('consolidation_time')?.value || '03:00').trim().slice(0, 5),
+                    interval: cfgField('consolidation_interval')?.value || 'daily',
+                    similarity_threshold: Math.min(0.99, Math.max(0.8, parseFloat(_cfgVal('consolidation_threshold')) || 0.92)),
+                    session_trigger_messages: Math.min(500, Math.max(20, parseInt(_cfgVal('consolidation_session_trigger_messages'), 10) || 80)),
+                    compression_ratio: Math.min(0.5, Math.max(0.05, parseFloat(_cfgVal('consolidation_compression_ratio')) || 0.15)),
+                    history_log_path: (cfgField('consolidation_history_log_path')?.value || 'history_log.md').trim()
                 },
             },
-            timezone: (document.getElementById('config_timezone')?.value || '').trim(),
+            timezone: (cfgField('config_timezone')?.value || '').trim(),
             updates: {
                 addons: {
-                    check_interval: document.getElementById('updates_addons_check_interval')?.value || 'never',
-                    auto_update: !!document.getElementById('updates_addons_auto_update')?.checked,
+                    check_interval: cfgField('updates_addons_check_interval')?.value || 'never',
+                    auto_update: !!cfgField('updates_addons_auto_update')?.checked,
                 }
             },
             ui: { language }
@@ -1606,7 +1696,7 @@ export async function saveConfig(eOrOptions) {
                 throw new Error(`HTTP ${resp.status}`);
         }
         catch (err) {
-            showToast((t('config.save_error')) + ' ' + (err.message || err), 'error');
+            showToast((t('config.save_error')) + ' ' + (_errMsg(err)), 'error');
             return;
         }
         const wsServiceShouldRun = (() => {
@@ -1620,7 +1710,7 @@ export async function saveConfig(eOrOptions) {
             }
             catch (_) { }
         }
-        const badge = document.getElementById('header-log-mode-badge');
+        const badge = cfgField('header-log-mode-badge');
         if (badge) {
             const verbose = !!config.verbose_logging;
             badge.textContent = verbose ? 'LOG: VERBOSE' : 'LOG: COMPACT';
@@ -1645,7 +1735,7 @@ export async function saveConfig(eOrOptions) {
             catch (_) { }
         }
         // Save notification preferences if on the notifications tab
-        const notifTab = document.getElementById('cfg-tab-notifications');
+        const notifTab = cfgField('cfg-tab-notifications');
         if (notifTab && !notifTab.classList.contains('hidden')) {
             try {
                 await saveNotificationSettings({ silent: true });
@@ -1657,7 +1747,7 @@ export async function saveConfig(eOrOptions) {
     }
     catch (err) {
         console.error('saveConfig failed', err);
-        showToast((t('config.save_error')) + ' ' + (err?.message || err), 'error');
+        showToast((t('config.save_error')) + ' ' + _errMsg(err), 'error');
     }
     finally {
         restoreBtn();
@@ -1665,7 +1755,7 @@ export async function saveConfig(eOrOptions) {
 }
 /** Generate AI welcome greetings on demand (button click). */
 /** Copy text to clipboard; works on HTTP and with password fields. Shows toast on success. */
-function copyToClipboard(text, successMessage) {
+export function copyToClipboard(text, successMessage) {
     const msg = successMessage || (t('common.copied'));
     if (!text || typeof text !== 'string')
         return false;
@@ -1700,7 +1790,7 @@ function copyToClipboard(text, successMessage) {
     return true;
 }
 export function copyWebhook() {
-    const el = document.getElementById('waha_webhook');
+    const el = cfgField('waha_webhook');
     if (!el || !el.value)
         return;
     copyToClipboard(el.value, t('config.webhook_copied'));
@@ -1729,7 +1819,7 @@ export async function restartServer() {
     }
     catch (e) {
         // Network error after restart starts is expected; keep polling
-        if (e?.message === 'Session expired.') {
+        if (_errMsg(e) === 'Session expired.') {
             suppressLogout(false);
             return;
         }
@@ -1762,13 +1852,13 @@ function startReconnectPolling() {
 }
 // --- WHISPER / VOICE INPUT ---
 export async function testWhisperConnection() {
-    const btn = document.getElementById('whisper-test-btn');
-    const resultDiv = document.getElementById('whisper-test-result');
+    const btn = cfgField('whisper-test-btn');
+    const resultDiv = cfgField('whisper-test-result');
     if (btn)
         btn.disabled = true;
     try {
-        const host = (document.getElementById('whisper_host')?.value || 'localhost').trim();
-        const port = parseInt(document.getElementById('whisper_port')?.value, 10) || 10300;
+        const host = (cfgField('whisper_host')?.value || 'localhost').trim();
+        const port = parseInt(_cfgVal('whisper_port'), 10) || 10300;
         const res = await apiCall(`/api/whisper/status?host=${encodeURIComponent(host)}&port=${port}`);
         const data = await res.json();
         if (resultDiv) {
@@ -1787,7 +1877,7 @@ export async function testWhisperConnection() {
         if (resultDiv) {
             resultDiv.classList.remove('hidden', 'bg-emerald-500/15', 'text-emerald-300', 'bg-red-500/15', 'text-red-300');
             resultDiv.classList.add('bg-red-500/15', 'text-red-300');
-            resultDiv.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> ' + (e.message || t('common.error'));
+            resultDiv.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> ' + (_errMsg(e) || t('common.error'));
         }
     }
     finally {
@@ -1797,7 +1887,7 @@ export async function testWhisperConnection() {
 }
 ;
 export async function testPiperConnection() {
-    const btn = document.getElementById('piper-test-btn');
+    const btn = cfgField('piper-test-btn');
     if (!btn)
         return;
     btn.disabled = true;
@@ -1841,7 +1931,7 @@ export async function testPiperConnection() {
         }
     }
     catch (e) {
-        setBtnState('fail', e.message || t('common.error'));
+        setBtnState('fail', _errMsg(e) || t('common.error'));
     }
     finally {
         setTimeout(() => {

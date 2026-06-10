@@ -1,4 +1,3 @@
-// @ts-nocheck — Phase 2 TS shell; tighten types incrementally.
 // Per-domain renderers for integration entity controls.
 //
 // Each renderer receives the entity object (as returned by
@@ -15,12 +14,15 @@ import { t, tState } from './lang/index.js';
 import { cameraLiveTransport } from './camera_live.js';
 import { getCameraStreamToken, cameraProxyUrlSync, cameraGo2rtcWsUrlSync } from './camera_auth.js';
 import { selectOptionsFromCaps } from './entity_constants.js';
+import type { HyveEntity, IntegrationDeviceGroup, EntityAttributes } from './types/entity.js';
+import type { CameraMediaKind } from './types/camera.js';
+import type { EntityRegistryEditorOptions, EntityRendererFn } from './types/entity_renderers.js';
 
-function _er(key, params) {
+function _er(key: string, params?: Record<string, unknown>) {
     return t('entity.render.' + key, params);
 }
 
-const DEVICE_CLASS_ICONS = {
+const DEVICE_CLASS_ICONS: Record<string, string> = {
     temperature: 'fa-temperature-half',
     humidity: 'fa-droplet',
     battery: 'fa-battery-three-quarters',
@@ -43,7 +45,7 @@ const DEVICE_CLASS_ICONS = {
     duration: 'fa-stopwatch',
 };
 
-const DOMAIN_ICONS = {
+const DOMAIN_ICONS: Record<string, string> = {
     switch: 'fa-toggle-on',
     light: 'fa-lightbulb',
     sensor: 'fa-gauge-high',
@@ -62,11 +64,11 @@ const DOMAIN_ICONS = {
     update: 'fa-cloud-arrow-up',
 };
 
-export function getDomainIcon(domain, deviceClass = '') {
+export function getDomainIcon(domain: string, deviceClass = '') {
     return DEVICE_CLASS_ICONS[deviceClass] || DOMAIN_ICONS[domain] || 'fa-circle-nodes';
 }
 
-function _attr(s) {
+function _attr(s: unknown) {
     return String(s ?? '')
         .replace(/&/g, '&amp;')
         .replace(/"/g, '&quot;')
@@ -74,27 +76,33 @@ function _attr(s) {
         .replace(/</g, '&lt;');
 }
 
-function _ctrlAttrs(slug, eid, action, payload = null, { stop = false } = {}) {
+function _ctrlAttrs(
+    slug: string,
+    eid: string,
+    action: string,
+    payload: Record<string, unknown> | null = null,
+    { stop = false }: { stop?: boolean } = {},
+) {
     const payloadAttr = payload != null ? ` data-int-payload="${_attr(JSON.stringify(payload))}"` : '';
     const stopAttr = stop ? ' data-entity-stop="1"' : '';
     return `data-entity-action="control" data-int-slug="${_attr(slug)}" data-int-entity-id="${_attr(eid)}" data-int-cmd="${_attr(action)}"${payloadAttr}${stopAttr}`;
 }
 
-function _stateLabel(state, unit = '') {
+function _stateLabel(state: unknown, unit = '') {
     const text = tState(state == null || state === '' ? 'unknown' : state);
     if (!unit) return escapeHtml(text);
     return `${escapeHtml(text)}<span class="text-slate-400 text-base ml-1">${escapeHtml(unit)}</span>`;
 }
 
-function _cameraProxyUrl(entityId, kind) {
+function _cameraProxyUrl(entityId: string, kind: CameraMediaKind) {
     return cameraProxyUrlSync(entityId, kind, Date.now());
 }
 
-function _cameraGo2rtcWsUrl(entityId) {
+function _cameraGo2rtcWsUrl(entityId: string) {
     return cameraGo2rtcWsUrlSync(entityId);
 }
 
-function _cameraLoaderMarkup(message) {
+function _cameraLoaderMarkup(message?: string) {
     const msg = message || _er('loading_image');
     return `
         <div class="absolute inset-0 flex flex-col items-center justify-center gap-3.5 hv-cam-loading is-visible" data-camera-loader>
@@ -109,6 +117,22 @@ function _cameraLoaderMarkup(message) {
 
 if (typeof window !== 'undefined' && !customElements.get('hyve-camera-live-player')) {
     customElements.define('hyve-camera-live-player', class HyveCameraLivePlayer extends HTMLElement {
+        _started = false;
+        _paused = false;
+        _entityId = '';
+        _streamSrc = '';
+        _snapshotSrc = '';
+        _playSrc = '';
+        _hasAudio = false;
+        _go2rtc = false;
+        _usingFallback = false;
+        _fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+        _ws: WebSocket | null = null;
+        _objectUrl = '';
+        _sourceBuffer: SourceBuffer | null = null;
+        _queue: ArrayBuffer[] = [];
+        _requested = false;
+
         connectedCallback() {
             if (this._started) return;
             this._started = true;
@@ -136,12 +160,12 @@ if (typeof window !== 'undefined' && !customElements.get('hyve-camera-live-playe
         pauseStream() {
             if (this._paused) return;
             this._paused = true;
-            const img = this.querySelector('img[data-camera-live-frame]');
+            const img = this.querySelector('img[data-camera-live-frame]') as HTMLImageElement | null;
             if (img) {
                 try { img.src = ''; } catch (_) {}
                 img.removeAttribute('src');
             }
-            const video = this.querySelector('video[data-camera-live-frame]');
+            const video = this.querySelector('video[data-camera-live-frame]') as HTMLVideoElement | null;
             if (video) {
                 try { video.pause(); } catch (_) {}
                 try { video.removeAttribute('src'); video.load?.(); } catch (_) {}
@@ -176,12 +200,12 @@ if (typeof window !== 'undefined' && !customElements.get('hyve-camera-live-playe
             this._queue = [];
         }
 
-        _render(mediaMarkup) {
+        _render(mediaMarkup: string) {
             this.dataset.loading = 'true';
             this.innerHTML = `${mediaMarkup}${_cameraLoaderMarkup()}`;
         }
 
-        _ready(media) {
+        _ready(media: HTMLElement | null | undefined) {
             this.dataset.loading = 'false';
             media?.classList?.remove('opacity-0');
             media?.classList?.add('opacity-100');
@@ -223,9 +247,10 @@ if (typeof window !== 'undefined' && !customElements.get('hyve-camera-live-playe
                         class="absolute left-2 bottom-2 z-10 px-2.5 py-1.5 rounded-lg bg-black/60 text-white text-sm border-0 cursor-pointer"
                         title="${escapeHtml(_er('sound'))}" aria-label="${escapeHtml(_er('sound'))}">${muted ? '🔇' : '🔊'}</button>
                 </div>`);
-            const video = this.querySelector('video');
+            const video = this.querySelector('video') as HTMLVideoElement | null;
             const muteBtn = this.querySelector('[data-camera-mute-toggle]');
-            if (muteBtn && video) {
+            if (!video) return;
+            if (muteBtn) {
                 muteBtn.addEventListener('click', (ev) => {
                     ev.stopPropagation();
                     video.muted = !video.muted;
@@ -248,7 +273,8 @@ if (typeof window !== 'undefined' && !customElements.get('hyve-camera-live-playe
                 return;
             }
             this._render(`<img src="${escapeHtml(src)}" alt="${escapeHtml(title)}" class="w-full h-full object-contain bg-black opacity-0 transition-opacity duration-300" data-camera-live-frame>`);
-            const img = this.querySelector('img');
+            const img = this.querySelector('img') as HTMLImageElement | null;
+            if (!img) return;
             img.onload = () => this._ready(img);
             img.onerror = () => {
                 if (this._snapshotSrc && !img.dataset.fallbackTried) {
@@ -274,7 +300,8 @@ if (typeof window !== 'undefined' && !customElements.get('hyve-camera-live-playe
         _startMse() {
             const title = this.getAttribute('aria-label') || this._entityId;
             this._render(`<video class="w-full h-full object-contain bg-black opacity-0 transition-opacity duration-300" muted playsinline autoplay data-camera-live-frame></video>`);
-            const video = this.querySelector('video');
+            const video = this.querySelector('video') as HTMLVideoElement | null;
+            if (!video) return;
             const mediaSource = new MediaSource();
             this._objectUrl = URL.createObjectURL(mediaSource);
             video.src = this._objectUrl;
@@ -285,7 +312,7 @@ if (typeof window !== 'undefined' && !customElements.get('hyve-camera-live-playe
             const flush = () => {
                 if (!this._sourceBuffer || this._sourceBuffer.updating || !this._queue.length) return;
                 try {
-                    this._sourceBuffer.appendBuffer(this._queue.shift());
+                    this._sourceBuffer.appendBuffer(this._queue.shift()!);
                 } catch (_) {
                     this._fallbackToMjpeg();
                 }
@@ -316,7 +343,7 @@ if (typeof window !== 'undefined' && !customElements.get('hyve-camera-live-playe
             this._ws.onclose = () => {
                 if (this.dataset.loading === 'true') this._fallbackToMjpeg();
             };
-            this._ws.onmessage = (event) => {
+            this._ws.onmessage = (event: MessageEvent) => {
                 if (typeof event.data === 'string') {
                     let message = null;
                     try { message = JSON.parse(event.data); } catch (_) {}
@@ -363,8 +390,8 @@ if (typeof window !== 'undefined' && !window.__previewIntegrationNumberValue) {
 }
 
 if (typeof window !== 'undefined' && !window.__hyveCameraFrameReady) {
-    window.__hyveCameraFrameReady = function(img) {
-        const frame = img?.closest?.('[data-camera-live-shell]');
+    window.__hyveCameraFrameReady = function(img: HTMLImageElement) {
+        const frame = img?.closest?.('[data-camera-live-shell]') as HTMLElement | null;
         if (!frame) return;
         frame.dataset.loading = 'false';
         img.classList.remove('opacity-0');
@@ -374,8 +401,8 @@ if (typeof window !== 'undefined' && !window.__hyveCameraFrameReady) {
 }
 
 if (typeof window !== 'undefined' && !window.__hyveCameraFrameFailed) {
-    window.__hyveCameraFrameFailed = function(img, fallbackSrc = '') {
-        const frame = img?.closest?.('[data-camera-live-shell]');
+    window.__hyveCameraFrameFailed = function(img: HTMLImageElement, fallbackSrc = '') {
+        const frame = img?.closest?.('[data-camera-live-shell]') as HTMLElement | null;
         if (fallbackSrc && !img.dataset.fallbackTried) {
             img.dataset.fallbackTried = '1';
             img.src = fallbackSrc;
@@ -394,7 +421,7 @@ if (typeof window !== 'undefined' && !window.__hyveCameraFrameFailed) {
     };
 }
 
-function _mediaStateBadge(state) {
+function _mediaStateBadge(state: unknown) {
     const lower = String(state || '').toLowerCase();
     if (lower === 'streaming' || lower === 'on') {
         return { label: _er('live'), className: 'is-live' };
@@ -408,8 +435,8 @@ function _mediaStateBadge(state) {
     return { label: tState(state || 'unknown'), className: '' };
 }
 
-function renderHeroMedia(entity, domain) {
-    const dc = (entity.attributes || {}).device_class || '';
+function renderHeroMedia(entity: HyveEntity, domain: string) {
+    const dc = String((entity.attributes as EntityAttributes | undefined)?.device_class || '');
     const icon = getDomainIcon(domain, dc);
     const title = entity.name || entity.entity_id || (domain === 'image' ? _er('image') : _er('camera'));
     const eid = entity.entity_id || '';
@@ -427,15 +454,15 @@ function renderHeroMedia(entity, domain) {
     </div>`;
 }
 
-function renderHero(entity) {
+function renderHero(entity: HyveEntity) {
     const domain = String(entity.domain || '').toLowerCase();
     if (domain === 'camera' || domain === 'image') {
         return renderHeroMedia(entity, domain);
     }
 
-    const caps = (entity.attributes || {}).capabilities || {};
+    const caps = ((entity.attributes || {}) as EntityAttributes).capabilities || {};
     const unit = entity.unit || caps.unit || '';
-    const dc = caps.device_class || (entity.attributes || {}).device_class || '';
+    const dc = String(caps.device_class || (entity.attributes as EntityAttributes | undefined)?.device_class || '');
     const icon = getDomainIcon(domain, dc);
     const state = entity.state;
     const lower = String(state || '').toLowerCase();
@@ -459,13 +486,15 @@ function renderHero(entity) {
     </div>`;
 }
 
-export function entityUniqueId(entity) {
+export function entityUniqueId(entity: HyveEntity | Record<string, unknown> | null | undefined) {
     if (!entity || typeof entity !== 'object') return '';
-    const attrs = entity.attributes && typeof entity.attributes === 'object' ? entity.attributes : {};
+    const attrs = entity.attributes && typeof entity.attributes === 'object'
+        ? entity.attributes as EntityAttributes
+        : {};
     return String(entity.unique_id || attrs.registry_unique_id || attrs.unique_id || '').trim();
 }
 
-function splitEntityId(entityId) {
+function splitEntityId(entityId: string) {
     const raw = String(entityId || '').trim().toLowerCase();
     if (!raw || !raw.includes('.')) {
         return { domain: 'sensor', objectId: raw.replace(/\./g, '_') };
@@ -474,14 +503,14 @@ function splitEntityId(entityId) {
     return { domain: domain || 'sensor', objectId: rest.join('.') };
 }
 
-function slugifyObjectId(value) {
+function slugifyObjectId(value: unknown) {
     return String(value || '').trim().toLowerCase()
         .replace(/[^a-z0-9_]+/g, '_')
         .replace(/_+/g, '_')
         .replace(/^_|_$/g, '') || 'unknown';
 }
 
-export function renderEntityRegistrySection(entity) {
+export function renderEntityRegistrySection(entity: HyveEntity) {
     const uid = entityUniqueId(entity);
     const eid = String(entity?.entity_id || '').trim();
     const { domain, objectId } = splitEntityId(eid);
@@ -515,7 +544,7 @@ export function renderEntityRegistrySection(entity) {
     </div>`;
 }
 
-export async function saveEntityRegistryId(entity, objectIdInput) {
+export async function saveEntityRegistryId(entity: HyveEntity, objectIdInput: string) {
     const uid = entityUniqueId(entity);
     if (!uid) throw new Error('missing unique_id');
     const { domain } = splitEntityId(entity.entity_id);
@@ -527,7 +556,7 @@ export async function saveEntityRegistryId(entity, objectIdInput) {
         `/api/integrations/entities/registry/${encodeURIComponent(uid)}`,
         { method: 'PATCH', body: { entity_id: nextEntityId } },
     );
-    const out = await res.json().catch(() => ({}));
+    const out = await res.json().catch(() => ({})) as { detail?: string; message?: string; entry?: { entity_id?: string } };
     if (!res.ok) {
         throw new Error(out.detail || out.message || _er('entity_id_save_failed'));
     }
@@ -538,7 +567,11 @@ export async function saveEntityRegistryId(entity, objectIdInput) {
     };
 }
 
-export function wireEntityRegistryEditor(container, entity, options = {}) {
+export function wireEntityRegistryEditor(
+    container: ParentNode | null | undefined,
+    entity: HyveEntity,
+    options: EntityRegistryEditorOptions = {},
+) {
     if (!container || !entity) return;
     const root = container.querySelector('[data-entity-registry-root]');
     if (!root) return;
@@ -549,10 +582,10 @@ export function wireEntityRegistryEditor(container, entity, options = {}) {
     const view = root.querySelector('[data-entity-registry-view]');
     const panel = root.querySelector('[data-entity-registry-edit-panel]');
     const display = root.querySelector('[data-entity-registry-display]');
-    const input = root.querySelector('[data-entity-registry-object-id]');
-    const editBtn = root.querySelector('[data-entity-registry-edit]');
-    const saveBtn = root.querySelector('[data-entity-registry-save]');
-    const cancelBtn = root.querySelector('[data-entity-registry-cancel]');
+    const input = root.querySelector('[data-entity-registry-object-id]') as HTMLInputElement | null;
+    const editBtn = root.querySelector('[data-entity-registry-edit]') as HTMLButtonElement | null;
+    const saveBtn = root.querySelector('[data-entity-registry-save]') as HTMLButtonElement | null;
+    const cancelBtn = root.querySelector('[data-entity-registry-cancel]') as HTMLButtonElement | null;
 
     const showView = () => {
         view?.classList.remove('hidden');
@@ -573,7 +606,7 @@ export function wireEntityRegistryEditor(container, entity, options = {}) {
         const oldEntityId = entity.entity_id;
         if (saveBtn) saveBtn.disabled = true;
         try {
-            const result = await saveEntityRegistryId(entity, input.value || '');
+            const result = await saveEntityRegistryId(entity, input?.value || '');
             if (result.unchanged) {
                 showView();
                 return;
@@ -590,28 +623,28 @@ export function wireEntityRegistryEditor(container, entity, options = {}) {
                 uniqueId: uid,
                 entry: result.entry,
             });
-            if (typeof options.toast !== 'false') {
+            if (options.toast !== false && options.toast !== 'false') {
                 const { showToast } = await import('./utils.js');
                 showToast(_er('entity_id_updated'), 'success', 2200);
             }
         } catch (err) {
             const { showToast } = await import('./utils.js');
-            showToast(err?.message || _er('entity_id_save_failed'), 'error', 3200);
+            showToast(err instanceof Error ? err.message : _er('entity_id_save_failed'), 'error', 3200);
         } finally {
-            if (saveBtn) saveBtn.disabled = false;
+            if (saveBtn) (saveBtn as HTMLButtonElement).disabled = false;
         }
     };
 
     if (saveBtn) saveBtn.onclick = submit;
     if (input) {
-        input.onkeydown = (ev) => {
+        input.onkeydown = (ev: KeyboardEvent) => {
             if (ev.key === 'Enter') { ev.preventDefault(); submit(); }
             else if (ev.key === 'Escape') { ev.preventDefault(); showView(); }
         };
     }
 }
 
-function renderSwitch(entity, slug) {
+function renderSwitch(entity: HyveEntity, slug: string) {
     const eid = entity.entity_id;
     const isOn = String(entity.state || '').toLowerCase() === 'on';
     return `
@@ -631,13 +664,13 @@ function renderSwitch(entity, slug) {
     </div>`;
 }
 
-function renderLight(entity, slug) {
+function renderLight(entity: HyveEntity, slug: string) {
     const eid = entity.entity_id;
     const isOn = String(entity.state || '').toLowerCase() === 'on';
-    const caps = (entity.attributes || {}).capabilities || {};
+    const caps = ((entity.attributes || {}) as EntityAttributes).capabilities || {};
     let bright = '';
     if (caps.brightness_command_topic) {
-        const scale = caps.brightness_scale || 255;
+        const scale = Number(caps.brightness_scale) || 255;
         const current = Number((entity.attributes || {}).brightness) || 0;
         bright = `
         <div class="mt-3 pt-3 border-t border-white/5">
@@ -667,9 +700,9 @@ function renderLight(entity, slug) {
     </div>`;
 }
 
-function renderNumber(entity, slug) {
+function renderNumber(entity: HyveEntity, slug: string) {
     const eid = entity.entity_id;
-    const caps = (entity.attributes || {}).capabilities || {};
+    const caps = ((entity.attributes || {}) as EntityAttributes).capabilities || {};
     const min = caps.min ?? 0;
     const max = caps.max ?? 100;
     const step = caps.step ?? 1;
@@ -693,9 +726,9 @@ function renderNumber(entity, slug) {
     </div>`;
 }
 
-function renderSelect(entity, slug) {
+function renderSelect(entity: HyveEntity, slug: string) {
     const eid = entity.entity_id;
-    const caps = (entity.attributes || {}).capabilities || {};
+    const caps = ((entity.attributes || {}) as EntityAttributes).capabilities || {};
     const options = Array.isArray(caps.options) ? caps.options : [];
     const current = String(entity.state || '').toLowerCase();
     if (!options.length) return '';
@@ -718,16 +751,16 @@ function renderSelect(entity, slug) {
     </div>`;
 }
 
-function renderButton(entity, slug) {
+function renderButton(entity: HyveEntity, slug: string) {
     const eid = entity.entity_id;
     const attrs = entity.attributes || {};
     const ptzAction = attrs.tapo_feature || '';
-    const ptzUi = {
+    const ptzUi = ({
         ptz_up: { icon: 'fa-chevron-up', label: _er('up') },
         ptz_down: { icon: 'fa-chevron-down', label: _er('down') },
         ptz_left: { icon: 'fa-chevron-left', label: _er('left') },
         ptz_right: { icon: 'fa-chevron-right', label: _er('right') },
-    }[ptzAction];
+    } as Record<string, { icon: string; label: string }>)[String(ptzAction)];
     if (attrs.tapo_button_kind === 'ptz' && ptzUi) {
         return `
         <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3 flex items-center justify-between gap-3">
@@ -752,7 +785,7 @@ function renderButton(entity, slug) {
     </div>`;
 }
 
-function renderLock(entity, slug) {
+function renderLock(entity: HyveEntity, slug: string) {
     const eid = entity.entity_id;
     const isLocked = String(entity.state || '').toLowerCase() === 'locked' || String(entity.state || '').toLowerCase() === 'off';
     return `
@@ -768,7 +801,7 @@ function renderLock(entity, slug) {
     </div>`;
 }
 
-function renderCover(entity, slug) {
+function renderCover(entity: HyveEntity, slug: string) {
     const eid = entity.entity_id;
     return `
     <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
@@ -784,7 +817,7 @@ function renderCover(entity, slug) {
     </div>`;
 }
 
-function renderSensor(entity /*, slug */) {
+function renderSensor(entity: HyveEntity /*, slug */) {
     // Sensors are read-only — the hero already shows the value. No control card.
     const attrs = entity.attributes || {};
     const raw = attrs.raw_state;
@@ -807,17 +840,17 @@ function renderSensor(entity /*, slug */) {
     </div>`;
 }
 
-function _cameraHasPtz(attrs) {
+function _cameraHasPtz(attrs: Record<string, unknown>) {
     if (!attrs || typeof attrs !== 'object') return false;
-    const caps = attrs.capabilities || {};
+    const caps = (attrs.capabilities && typeof attrs.capabilities === 'object' ? attrs.capabilities : {}) as Record<string, unknown>;
     return !!(attrs.ptz_supported || caps.ptz);
 }
 
-function _renderCameraPtzPad(entity, slug) {
+function _renderCameraPtzPad(entity: HyveEntity, slug: string) {
     const attrs = entity.attributes || {};
     if (!_cameraHasPtz(attrs)) return '';
     const eid = entity.entity_id || '';
-    const btn = (action, icon, title) => `<button type="button" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"
+    const btn = (action: string, icon: string, title: string) => `<button type="button" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"
         class="hy-ptz-btn"
         ${_ctrlAttrs(slug, eid, action, null, { stop: true })}>
         <i class="fas ${icon}"></i>
@@ -839,7 +872,7 @@ function _renderCameraPtzPad(entity, slug) {
     </div>`;
 }
 
-function renderCamera(entity, slug) {
+function renderCamera(entity: HyveEntity, slug: string) {
     const eid = entity.entity_id || '';
     if (!eid) return '';
     const title = entity.name || eid;
@@ -867,7 +900,7 @@ function renderCamera(entity, slug) {
     ${_renderCameraPtzPad(entity, slug)}`;
 }
 
-const RENDERERS = {
+const RENDERERS: Record<string, EntityRendererFn> = {
     switch: renderSwitch,
     outlet: renderSwitch,
     plug: renderSwitch,
@@ -883,7 +916,7 @@ const RENDERERS = {
     camera: renderCamera,
 };
 
-export function renderEntityModal(entity, slug) {
+export function renderEntityModal(entity: HyveEntity, slug: string) {
     if (!entity || typeof entity !== 'object') return '';
     const domain = String(entity.domain || '').toLowerCase();
     const renderer = RENDERERS[domain];
@@ -923,8 +956,8 @@ export function renderEntityModal(entity, slug) {
     return body;
 }
 
-export function renderEntityCard(entity, slug) {
-    const caps = (entity.attributes || {}).capabilities || {};
+export function renderEntityCard(entity: HyveEntity, slug: string) {
+    const caps = ((entity.attributes || {}) as EntityAttributes).capabilities || {};
     const dc = caps.device_class || '';
     const icon = getDomainIcon(entity.domain || '', dc);
     const title = entity.name || entity.entity_id || 'Entity';
@@ -966,8 +999,8 @@ export function renderEntityCard(entity, slug) {
     </div>`;
 }
 
-export function groupEntitiesByDevice(entities) {
-    const groups = new Map();
+export function groupEntitiesByDevice(entities: HyveEntity[]): IntegrationDeviceGroup[] {
+    const groups = new Map<string, IntegrationDeviceGroup>();
     for (const ent of entities) {
         const key = (ent.attributes || {}).device_id
             || (ent.attributes || {}).device_name
@@ -982,7 +1015,7 @@ export function groupEntitiesByDevice(entities) {
                 entities: [],
             });
         }
-        groups.get(key).entities.push(ent);
+        groups.get(key)!.entities.push(ent);
     }
     return Array.from(groups.values()).sort((a, b) => {
         const an = (a.device_name || a.device_id || '').toLowerCase();
@@ -993,7 +1026,7 @@ export function groupEntitiesByDevice(entities) {
 
 // One card per physical device. Summarizes entity count and primary state
 // (number of switches that are on, etc). Click → opens the device modal.
-export function renderDeviceCard(group, slug) {
+export function renderDeviceCard(group: IntegrationDeviceGroup, slug: string) {
     const name = group.device_name || group.device_id || 'Device';
     const model = group.device_model || '';
     const manuf = group.device_manufacturer || '';
@@ -1007,7 +1040,11 @@ export function renderDeviceCard(group, slug) {
     const battery = ents.find(e => ((e.attributes || {}).capabilities || {}).device_class === 'battery');
 
     // Domain-tally chips
-    const tally = ents.reduce((acc, e) => { acc[e.domain || 'other'] = (acc[e.domain || 'other'] || 0) + 1; return acc; }, {});
+    const tally = ents.reduce((acc: Record<string, number>, e) => {
+        const d = e.domain || 'other';
+        acc[d] = (acc[d] || 0) + 1;
+        return acc;
+    }, {} as Record<string, number>);
     const chips = Object.entries(tally).slice(0, 4).map(([d, n]) =>
         `<span class="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/5 text-slate-400 uppercase tracking-wider">${escapeHtml(d)} ${n}</span>`
     ).join('');
@@ -1055,8 +1092,8 @@ export function renderDeviceCard(group, slug) {
 }
 
 // One row inside the device modal — entity icon + title + state + inline control.
-function renderDeviceEntityRow(entity, slug) {
-    const caps = (entity.attributes || {}).capabilities || {};
+function renderDeviceEntityRow(entity: HyveEntity, slug: string) {
+    const caps = ((entity.attributes || {}) as EntityAttributes).capabilities || {};
     const dc = caps.device_class || '';
     const icon = getDomainIcon(entity.domain || '', dc);
     const title = entity.name || entity.entity_id || 'Entity';
@@ -1122,15 +1159,15 @@ function renderDeviceEntityRow(entity, slug) {
     </div>`;
 }
 
-export function renderDeviceModal(group, slug) {
+export function renderDeviceModal(group: IntegrationDeviceGroup, slug: string) {
     if (!group || !Array.isArray(group.entities)) return '';
     const name = group.device_name || group.device_id || 'Device';
     const subtitle = [group.device_model, group.device_manufacturer].filter(Boolean).join(' · ');
     const ents = group.entities.slice().sort((a, b) => {
         // Sort by domain priority, then by name
-        const order = { switch: 0, light: 1, fan: 2, cover: 3, lock: 4, climate: 5, number: 6, select: 7, button: 8, binary_sensor: 9, sensor: 10 };
-        const oa = order[a.domain] ?? 99;
-        const ob = order[b.domain] ?? 99;
+        const order: Record<string, number> = { switch: 0, light: 1, fan: 2, cover: 3, lock: 4, climate: 5, number: 6, select: 7, button: 8, binary_sensor: 9, sensor: 10 };
+        const oa = order[String(a.domain)] ?? 99;
+        const ob = order[String(b.domain)] ?? 99;
         if (oa !== ob) return oa - ob;
         return String(a.name || '').localeCompare(String(b.name || ''));
     });

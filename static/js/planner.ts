@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Planner — dedicated module.
  *   To-Do  : lists + checkable tasks
@@ -7,36 +6,49 @@
 import { apiCall } from './api.js';
 import { escapeHtml, showToast, showConfirm } from './utils.js';
 import { t } from './lang/index.js';
+import type {
+    PlannerActionEntity,
+    PlannerActionOption,
+    PlannerAllEntitiesResponse,
+    PlannerCalView,
+    PlannerCreateEntryBody,
+    PlannerEntriesResponse,
+    PlannerEntry,
+    PlannerFilterStatus,
+    PlannerList,
+    PlannerListsResponse,
+    PlannerTab,
+} from './types/planner.js';
 
 // ── State ──────────────────────────────────────────────────────────────
-let listsCache = [];
-let entriesCache = [];          // tasks for the selected list
-let eventsCache = [];           // ALL events (cross-list)
-let selectedListId = null;
-let activeTab = 'tasks';        // 'tasks' | 'events'
-let filterStatus = 'open';      // 'open' | 'done' | 'all'
-let calView = 'month';          // 'month' | 'week' | 'day'
-let calDate = new Date();       // reference date for calendar navigation
-let dragEntryId = null;
-let dragEventId = null;
+let listsCache: PlannerList[] = [];
+let entriesCache: PlannerEntry[] = [];
+let eventsCache: PlannerEntry[] = [];
+let selectedListId: number | null = null;
+let activeTab: PlannerTab = 'tasks';
+let filterStatus: PlannerFilterStatus = 'open';
+let calView: PlannerCalView = 'month';
+let calDate = new Date();
+let dragEntryId: number | null = null;
+let dragEventId: number | null = null;
 
 // Persist calendar view selection across visits
 try {
     const _sv = localStorage.getItem('plannerCalView');
-    if (_sv && ['month', 'week', 'day'].includes(_sv)) calView = _sv;
-} catch {}
+    if (_sv && (['month', 'week', 'day'] as PlannerCalView[]).includes(_sv as PlannerCalView)) calView = _sv as PlannerCalView;
+} catch { /* ignore */ }
 
 // ── Helpers ────────────────────────────────────────────────────────────
-function selectedList() {
+function selectedList(): PlannerList | null {
     return listsCache.find(l => l.id === selectedListId) || null;
 }
 
-function todayDate() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
-function sameDay(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
-function isToday(d) { return sameDay(d, new Date()); }
-function dateKey(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function todayDate(): Date { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
+function sameDay(a: Date, b: Date): boolean { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+function isToday(d: Date): boolean { return sameDay(d, new Date()); }
+function dateKey(d: Date): string { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
-function weekDaysFor(refDate) {
+function weekDaysFor(refDate: Date): Date[] {
     const d = new Date(refDate);
     const day = d.getDay();
     const delta = day === 0 ? -6 : 1 - day;
@@ -46,7 +58,7 @@ function weekDaysFor(refDate) {
     return Array.from({ length: 7 }, (_, i) => { const x = new Date(mon); x.setDate(mon.getDate() + i); return x; });
 }
 
-function monthGrid(refDate) {
+function monthGrid(refDate: Date): Date[] {
     const y = refDate.getFullYear(), m = refDate.getMonth();
     const first = new Date(y, m, 1);
     const startDay = (first.getDay() + 6) % 7; // Mon=0
@@ -57,33 +69,33 @@ function monthGrid(refDate) {
     return cells;
 }
 
-function shortDay(d) { return d.toLocaleDateString(undefined, { weekday: 'short' }); }
-function shortDayNarrow(d) { return d.toLocaleDateString(undefined, { weekday: 'narrow' }); }
+function shortDay(d: Date): string { return d.toLocaleDateString(undefined, { weekday: 'short' }); }
+function shortDayNarrow(d: Date): string { return d.toLocaleDateString(undefined, { weekday: 'narrow' }); }
 
-function formatTime(isoStr) {
+function formatTime(isoStr: string | undefined): string {
     if (!isoStr) return '';
     const d = new Date(isoStr);
     if (isNaN(d.getTime())) return '';
     return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatDate(isoStr) {
+function formatDate(isoStr: string | undefined): string {
     if (!isoStr) return '';
     const d = new Date(isoStr);
     if (isNaN(d.getTime())) return '';
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function localISOString(d) {
-    const pad = n => String(n).padStart(2, '0');
+function localISOString(d: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function addMinutes(dt, minutes) {
+function addMinutes(dt: Date, minutes: number): Date {
     return new Date(dt.getTime() + (minutes * 60000));
 }
 
-function eventDurationMs(ev) {
+function eventDurationMs(ev: PlannerEntry | null | undefined): number {
     const s = ev?.start_at ? new Date(ev.start_at) : null;
     const e = ev?.end_at ? new Date(ev.end_at) : null;
     if (s && e && !isNaN(s.getTime()) && !isNaN(e.getTime()) && e > s) {
@@ -92,20 +104,20 @@ function eventDurationMs(ev) {
     return 60 * 60 * 1000;
 }
 
-function entryWhen(e) {
+function entryWhen(e: PlannerEntry): string | undefined {
     return e.entry_type === 'event' ? (e.start_at || e.end_at) : e.due_at;
 }
 
-function sortEntries(list) {
+function sortEntries(list: PlannerEntry[]): PlannerEntry[] {
     return [...list].sort((a, b) => {
         if ((a.position ?? 0) !== (b.position ?? 0)) return (a.position ?? 0) - (b.position ?? 0);
-        const ta = Date.parse(a.updated_at || a.created_at || 0) || 0;
-        const tb = Date.parse(b.updated_at || b.created_at || 0) || 0;
+        const ta = Date.parse(a.updated_at || a.created_at || '') || 0;
+        const tb = Date.parse(b.updated_at || b.created_at || '') || 0;
         return tb - ta;
     });
 }
 
-function priorityColor(p) {
+function priorityColor(p: number | undefined): string {
     if (p === 1) return '#ef4444';
     if (p === 2) return '#f97316';
     if (p === 3) return '#eab308';
@@ -114,24 +126,24 @@ function priorityColor(p) {
 }
 
 // ── API helpers ────────────────────────────────────────────────────────
-async function fetchLists() {
+async function fetchLists(): Promise<PlannerList[]> {
     const res = await apiCall('/api/lists?include_archived=false');
     if (!res.ok) return [];
-    const data = await res.json();
+    const data = await res.json() as PlannerListsResponse;
     return data.lists || [];
 }
 
-async function fetchEntries(listId) {
+async function fetchEntries(listId: number): Promise<PlannerEntry[]> {
     const res = await apiCall(`/api/entries?list_id=${listId}&entry_type=task&include_archived=false&limit=500`);
     if (!res.ok) return [];
-    const data = await res.json();
+    const data = await res.json() as PlannerEntriesResponse;
     return data.entries || [];
 }
 
-async function fetchAllEvents() {
+async function fetchAllEvents(): Promise<PlannerEntry[]> {
     const res = await apiCall('/api/entries?entry_type=event&include_archived=false&limit=500');
     if (!res.ok) return [];
-    const data = await res.json();
+    const data = await res.json() as PlannerEntriesResponse;
     return data.entries || [];
 }
 
@@ -154,24 +166,24 @@ function renderLists() {
     }).join('');
 }
 
-function _listDeleteButtonHtml(id) {
+function _listDeleteButtonHtml(id: number | string): string {
     return `<button type="button" class="p-list-delete" title="${escapeHtml(t('common.delete'))}" data-planner-action="requestDeleteList" data-planner-list-id="${id}" data-planner-stop-propagation="true"><i class="fas fa-xmark"></i></button>`;
 }
 
-function _listDeleteConfirmHtml(id) {
+function _listDeleteConfirmHtml(id: number | string): string {
     return `
         <button type="button" class="p-list-delete p-list-delete--confirm" title="${escapeHtml(t('common.confirm'))}" data-planner-action="deleteList" data-planner-list-id="${id}" data-planner-stop-propagation="true"><i class="fas fa-check"></i></button>
         <button type="button" class="p-list-delete p-list-delete--cancel" title="${escapeHtml(t('common.cancel'))}" data-planner-action="cancelDeleteList" data-planner-list-id="${id}" data-planner-stop-propagation="true"><i class="fas fa-xmark"></i></button>
     `;
 }
 
-export function plannerRequestDeleteList(listId) {
+export function plannerRequestDeleteList(listId: number | string) {
     const wrap = document.querySelector(`.p-list-delete-wrap[data-list-id="${listId}"]`);
     if (!wrap) return;
     wrap.innerHTML = _listDeleteConfirmHtml(listId);
 }
 
-export function plannerCancelDeleteList(listId) {
+export function plannerCancelDeleteList(listId: number | string) {
     const wrap = document.querySelector(`.p-list-delete-wrap[data-list-id="${listId}"]`);
     if (!wrap) return;
     wrap.innerHTML = _listDeleteButtonHtml(listId);
@@ -214,7 +226,7 @@ function renderTodoEntries() {
 // ── Events: Calendar views (month / week / day) ──────────────────────
 // ══════════════════════════════════════════════════════════════════════
 
-function eventsForDate(d) {
+function eventsForDate(d: Date): PlannerEntry[] {
     const k = dateKey(d);
     return eventsCache.filter(ev => (ev.start_at || ev.due_at || '').slice(0, 10) === k);
 }
@@ -363,7 +375,7 @@ function renderActivePanel() {
     if (!todoPanel || !eventsPanel) return;
 
     // Show/hide drawer burger based on tab (mobile)
-    const burger = document.querySelector('.p-header-menu');
+    const burger = document.querySelector('.p-header-menu') as HTMLElement | null;
     if (burger) burger.style.display = activeTab === 'tasks' ? '' : 'none';
 
     // Toggle sidebar visibility — only show on To-Do tab
@@ -405,7 +417,8 @@ export async function loadPlanner() {
         renderActivePanel();
     } catch (e) {
         const wrap = document.getElementById('planner-entries');
-        if (wrap) wrap.innerHTML = `<div class="p-empty">${escapeHtml(t('planner.load_error', { message: String(e.message || e) }))}</div>`;
+        const message = e instanceof Error ? e.message : String(e);
+        if (wrap) wrap.innerHTML = `<div class="p-empty">${escapeHtml(t('planner.load_error', { message }))}</div>`;
     }
 }
 
@@ -417,7 +430,7 @@ function updateHeader() {
 }
 
 export async function plannerCreateList() {
-    const input = document.getElementById('planner-new-list-input');
+    const input = document.getElementById('planner-new-list-input') as HTMLInputElement | null;
     const title = input?.value?.trim();
     if (!title) return;
     const res = await apiCall('/api/lists', { method: 'POST', body: { title } });
@@ -426,7 +439,7 @@ export async function plannerCreateList() {
     await loadPlanner();
 }
 
-export async function plannerDeleteList(listId) {
+export async function plannerDeleteList(listId: number | string) {
     const res = await apiCall(`/api/lists/${listId}?hard_delete=true`, { method: 'DELETE' });
     if (res.ok) {
         if (selectedListId === listId) selectedListId = null;
@@ -437,7 +450,7 @@ export async function plannerDeleteList(listId) {
     }
 }
 
-export async function plannerSelectList(listId) {
+export async function plannerSelectList(listId: number | string) {
     selectedListId = Number(listId);
     renderLists();
     updateHeader();
@@ -455,19 +468,21 @@ export function plannerCloseDrawer() {
     document.getElementById('planner-drawer-backdrop')?.classList.remove('visible');
 }
 
-export function plannerSetTab(tab) {
+export function plannerSetTab(tab: PlannerTab) {
     activeTab = tab;
-    document.querySelectorAll('.pw-tab').forEach(el => el.classList.toggle('pw-tab--active', el.dataset.tab === tab));
+    document.querySelectorAll('.pw-tab').forEach(el => {
+        (el as HTMLElement).classList.toggle('pw-tab--active', (el as HTMLElement).dataset.tab === tab);
+    });
     updateHeader();
     renderActivePanel();
     // Reload data for the tab
     if (tab === 'events') loadEvents().then(() => renderActivePanel());
 }
 
-export function plannerSetFilter(value) {
+export function plannerSetFilter(value: PlannerFilterStatus) {
     filterStatus = value;
     document.querySelectorAll('.p-filter-chip').forEach(el => {
-        el.classList.toggle('p-filter-chip--active', el.dataset.filter === value);
+        (el as HTMLElement).classList.toggle('p-filter-chip--active', (el as HTMLElement).dataset.filter === value);
     });
     renderActivePanel();
 }
@@ -486,15 +501,15 @@ export function plannerCalNext() {
     renderActivePanel();
 }
 export function plannerCalToday() { calDate = new Date(); renderActivePanel(); }
-export function plannerSetCalView(v) {
+export function plannerSetCalView(v: PlannerCalView) {
     calView = v;
     try { localStorage.setItem('plannerCalView', v); } catch {}
     renderActivePanel();
 }
-export function plannerSelectDay(_dateStr) { }
+export function plannerSelectDay(_dateStr: string) { }
 
 // Click on a calendar day → open add with that date
-export function plannerCalClickDay(dk) {
+export function plannerCalClickDay(dk: string) {
     calDate = new Date(dk + 'T12:00:00');
     if (calView === 'month') {
         // Switch to day view for that date
@@ -504,29 +519,29 @@ export function plannerCalClickDay(dk) {
 }
 
 // Click on an hour cell → open add with date+hour pre-filled
-export function plannerCalClickHour(dk, hour) {
+export function plannerCalClickHour(dk: string, hour: number) {
     const dt = new Date(dk + 'T00:00:00');
     dt.setHours(hour, 0, 0, 0);
     plannerOpenAdd(localISOString(dt));
 }
 
-export function plannerEventDragStart(event, entryId) {
+export function plannerEventDragStart(event: DragEvent, entryId: number | string) {
     dragEventId = Number(entryId);
-    event.dataTransfer.effectAllowed = 'move';
-    event.currentTarget.classList.add('p-evt--dragging');
+    event.dataTransfer!.effectAllowed = 'move';
+    (event.currentTarget as HTMLElement).classList.add('p-evt--dragging');
 }
 
-export function plannerEventDragOver(event) {
+export function plannerEventDragOver(event: DragEvent) {
     event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
+    event.dataTransfer!.dropEffect = 'move';
 }
 
-export function plannerEventDragEnd(event) {
+export function plannerEventDragEnd(event: DragEvent) {
     dragEventId = null;
-    event.currentTarget.classList.remove('p-evt--dragging');
+    (event.currentTarget as HTMLElement).classList.remove('p-evt--dragging');
 }
 
-async function plannerMoveEventTo(entryId, newStart) {
+async function plannerMoveEventTo(entryId: number | string, newStart: Date) {
     const ev = eventsCache.find(x => x.id === Number(entryId));
     if (!ev) return;
     const duration = eventDurationMs(ev);
@@ -546,7 +561,7 @@ async function plannerMoveEventTo(entryId, newStart) {
     renderActivePanel();
 }
 
-export async function plannerEventDropDay(event, dk) {
+export async function plannerEventDropDay(event: DragEvent, dk: string) {
     event.preventDefault();
     if (!dragEventId) return;
     const ev = eventsCache.find(x => x.id === dragEventId);
@@ -558,7 +573,7 @@ export async function plannerEventDropDay(event, dk) {
     await plannerMoveEventTo(eventId, start);
 }
 
-export async function plannerEventDropHour(event, dk, hour) {
+export async function plannerEventDropHour(event: DragEvent, dk: string, hour: number) {
     event.preventDefault();
     if (!dragEventId) return;
     const ev = eventsCache.find(x => x.id === dragEventId);
@@ -572,18 +587,18 @@ export async function plannerEventDropHour(event, dk, hour) {
 
 // Create entry — auto-determines type from active tab
 export async function plannerCreateEntry() {
-    const titleInput = document.getElementById('planner-add-title');
-    const dtInput = document.getElementById('planner-add-datetime');
-    const eventStartInput = document.getElementById('planner-add-event-start');
-    const eventEndInput = document.getElementById('planner-add-event-end');
-    const eventColorInput = document.getElementById('planner-add-event-color');
-    const eventNotifyInput = document.getElementById('planner-add-event-notify');
-    const eventNotifyMinutesInput = document.getElementById('planner-add-event-notify-minutes');
-    const actionEnabledInput = document.getElementById('planner-add-event-action-enabled');
-    const actionEntityInput = document.getElementById('planner-add-event-action-entity');
-    const actionServiceInput = document.getElementById('planner-add-event-action-service');
-    const actionOffsetInput = document.getElementById('planner-add-event-action-offset');
-    const contentInput = document.getElementById('planner-add-content');
+    const titleInput = document.getElementById('planner-add-title') as HTMLInputElement | null;
+    const dtInput = document.getElementById('planner-add-datetime') as HTMLInputElement | null;
+    const eventStartInput = document.getElementById('planner-add-event-start') as HTMLInputElement | null;
+    const eventEndInput = document.getElementById('planner-add-event-end') as HTMLInputElement | null;
+    const eventColorInput = document.getElementById('planner-add-event-color') as HTMLInputElement | null;
+    const eventNotifyInput = document.getElementById('planner-add-event-notify') as HTMLInputElement | null;
+    const eventNotifyMinutesInput = document.getElementById('planner-add-event-notify-minutes') as HTMLInputElement | null;
+    const actionEnabledInput = document.getElementById('planner-add-event-action-enabled') as HTMLInputElement | null;
+    const actionEntityInput = document.getElementById('planner-add-event-action-entity') as HTMLInputElement | null;
+    const actionServiceInput = document.getElementById('planner-add-event-action-service') as HTMLInputElement | null;
+    const actionOffsetInput = document.getElementById('planner-add-event-action-offset') as HTMLInputElement | null;
+    const contentInput = document.getElementById('planner-add-content') as HTMLTextAreaElement | null;
     const title = titleInput?.value?.trim();
     if (!title) return;
     const dateValue = dtInput?.value || '';
@@ -598,7 +613,7 @@ export async function plannerCreateEntry() {
     let listId = selectedListId || (listsCache[0]?.id);
     if (!listId) { showToast(t('planner.create_list_first'), 'error'); return; }
 
-    const body = { list_id: listId, entry_type: entryType, title };
+    const body: PlannerCreateEntryBody = { list_id: listId, entry_type: entryType, title };
     if (content) body.content = content;
 
     if (entryType === 'task' && dateValue) {
@@ -633,7 +648,7 @@ export async function plannerCreateEntry() {
         body.event_action_offset_minutes = parseInt(actionOffsetInput?.value || '0', 10) || 0;
     }
 
-    const res = await apiCall('/api/entries', { method: 'POST', body });
+    const res = await apiCall('/api/entries', { method: 'POST', body: body as unknown as Record<string, unknown> });
     if (!res.ok) { showToast(t('planner.create_entry_error'), 'error'); return; }
     if (titleInput) titleInput.value = '';
     if (dtInput) dtInput.value = '';
@@ -647,14 +662,14 @@ export async function plannerCreateEntry() {
     renderActivePanel();
 }
 
-let _plannerActionEntities = [];
+let _plannerActionEntities: PlannerActionEntity[] = [];
 let _plannerActionEntitiesLoaded = false;
-let _plannerActionEntitiesLoading = null;
+let _plannerActionEntitiesLoading: Promise<void> | null = null;
 let _plannerEntityActiveIdx = -1;
 
 function _plannerSyncActionSection() {
     const section = document.getElementById('planner-add-action-section');
-    const enabled = !!document.getElementById('planner-add-event-action-enabled')?.checked;
+    const enabled = !!(document.getElementById('planner-add-event-action-enabled') as HTMLInputElement | null)?.checked;
     if (section) section.dataset.disabled = enabled ? 'false' : 'true';
     if (!enabled) _plannerCloseEntityMenu();
 }
@@ -663,7 +678,7 @@ export function plannerToggleActionSection() {
     _plannerSyncActionSection();
 }
 
-const _PLANNER_DOMAIN_ICONS = {
+const _PLANNER_DOMAIN_ICONS: Record<string, string> = {
     switch: 'fa-toggle-on', light: 'fa-lightbulb', fan: 'fa-fan',
     automation: 'fa-robot', script: 'fa-code', siren: 'fa-bell',
     media_player: 'fa-music', climate: 'fa-temperature-half',
@@ -671,7 +686,7 @@ const _PLANNER_DOMAIN_ICONS = {
     input_boolean: 'fa-toggle-on'
 };
 
-function _plannerEntityIcon(eid) {
+function _plannerEntityIcon(eid: string): string {
     const dom = (eid || '').split('.')[0];
     return _PLANNER_DOMAIN_ICONS[dom] || 'fa-circle-dot';
 }
@@ -683,14 +698,14 @@ async function _plannerLoadActionEntities(force = false) {
         try {
             const res = await apiCall('/api/integrations/all-entities');
             if (!res.ok) return;
-            const data = await res.json();
+            const data = await res.json() as PlannerAllEntitiesResponse;
             const entities = Array.isArray(data?.entities) ? data.entities : [];
             const allowedDomains = new Set(['switch', 'light', 'fan', 'input_boolean', 'automation', 'script', 'siren', 'media_player', 'climate', 'cover', 'humidifier']);
             _plannerActionEntities = entities
                 .filter(e => allowedDomains.has((e.entity_id || '').split('.')[0]))
                 .map(e => ({
-                    entity_id: e.entity_id,
-                    name: e.name || e.friendly_name || e.entity_id,
+                    entity_id: String(e.entity_id || ''),
+                    name: String(e.name || e.friendly_name || e.entity_id || ''),
                 }))
                 .sort((a, b) => a.name.localeCompare(b.name));
             _plannerActionEntitiesLoaded = true;
@@ -704,8 +719,8 @@ async function _plannerLoadActionEntities(force = false) {
     return _plannerActionEntitiesLoading;
 }
 
-function _plannerFilteredEntities() {
-    const input = document.getElementById('planner-add-event-action-entity');
+function _plannerFilteredEntities(): PlannerActionEntity[] {
+    const input = document.getElementById('planner-add-event-action-entity') as HTMLInputElement | null;
     const q = (input?.value || '').trim().toLowerCase();
     if (!q) return _plannerActionEntities.slice(0, 50);
     return _plannerActionEntities.filter(e =>
@@ -728,8 +743,8 @@ function _plannerRenderEntityMenu() {
         </div>
     `).join('');
     if (!menu.dataset.delegated) {
-        menu.addEventListener('mousedown', (ev) => {
-            const opt = ev.target.closest('.p-entity-option');
+        menu.addEventListener('mousedown', (ev: MouseEvent) => {
+            const opt = (ev.target as Element | null)?.closest('.p-entity-option') as HTMLElement | null;
             if (!opt) return;
             ev.preventDefault();
             const eid = opt.getAttribute('data-entity-id');
@@ -776,25 +791,25 @@ function _plannerCloseEntityMenu() {
 
 function _plannerSyncEntityClearBtn() {
     const wrap = document.getElementById('planner-entity-picker');
-    const input = document.getElementById('planner-add-event-action-entity');
+    const input = document.getElementById('planner-add-event-action-entity') as HTMLInputElement | null;
     if (wrap) wrap.dataset.hasValue = (input?.value || '').trim() ? 'true' : 'false';
 }
 
-export function plannerSelectActionEntity(eid) {
-    const input = document.getElementById('planner-add-event-action-entity');
+export function plannerSelectActionEntity(eid: string) {
+    const input = document.getElementById('planner-add-event-action-entity') as HTMLInputElement | null;
     if (input) input.value = eid;
     _plannerSyncEntityClearBtn();
     _plannerCloseEntityMenu();
 }
 
 export function plannerClearActionEntity() {
-    const input = document.getElementById('planner-add-event-action-entity');
+    const input = document.getElementById('planner-add-event-action-entity') as HTMLInputElement | null;
     if (input) { input.value = ''; input.focus(); }
     _plannerSyncEntityClearBtn();
     _plannerOpenEntityMenu();
 }
 
-function _plannerHandleEntityKey(ev) {
+function _plannerHandleEntityKey(ev: KeyboardEvent) {
     const menu = document.getElementById('planner-entity-picker-menu');
     if (!menu?.classList.contains('open')) return;
     const items = _plannerFilteredEntities();
@@ -816,18 +831,18 @@ function _plannerHandleEntityKey(ev) {
     }
 }
 
-export function plannerOpenAdd(prefillDatetime) {
+export function plannerOpenAdd(prefillDatetime?: string) {
     const sheet = document.getElementById('planner-add-sheet');
     const backdrop = document.getElementById('planner-add-backdrop');
     sheet?.classList.add('open');
     backdrop?.classList.add('visible');
 
-    const actionEnabled = document.getElementById('planner-add-event-action-enabled');
+    const actionEnabled = document.getElementById('planner-add-event-action-enabled') as HTMLInputElement | null;
     if (actionEnabled && !actionEnabled.dataset.bound) {
         actionEnabled.addEventListener('change', _plannerSyncActionSection);
         actionEnabled.dataset.bound = '1';
     }
-    const entityInput = document.getElementById('planner-add-event-action-entity');
+    const entityInput = document.getElementById('planner-add-event-action-entity') as HTMLInputElement | null;
     if (entityInput && !entityInput.dataset.bound) {
         entityInput.addEventListener('focus', () => { _plannerOpenEntityMenu(); });
         entityInput.addEventListener('input', () => {
@@ -864,10 +879,10 @@ export function plannerOpenAdd(prefillDatetime) {
     }
 
     // Pre-fill datetime
-    const dtInput = document.getElementById('planner-add-datetime');
+    const dtInput = document.getElementById('planner-add-datetime') as HTMLInputElement | null;
     if (dtInput && prefillDatetime) dtInput.value = prefillDatetime;
-    const eventStartInput = document.getElementById('planner-add-event-start');
-    const eventEndInput = document.getElementById('planner-add-event-end');
+    const eventStartInput = document.getElementById('planner-add-event-start') as HTMLInputElement | null;
+    const eventEndInput = document.getElementById('planner-add-event-end') as HTMLInputElement | null;
     if (activeTab === 'events') {
         const startVal = prefillDatetime || localISOString(new Date());
         if (eventStartInput) eventStartInput.value = startVal;
@@ -878,7 +893,7 @@ export function plannerOpenAdd(prefillDatetime) {
     }
 
     // Update placeholder
-    const titleInput = document.getElementById('planner-add-title');
+    const titleInput = document.getElementById('planner-add-title') as HTMLInputElement | null;
     if (titleInput) {
         titleInput.placeholder = activeTab === 'events'
             ? (t('planner.event_title_placeholder') || 'Event title...')
@@ -893,15 +908,16 @@ export function plannerCloseAdd() {
     _plannerCloseEntityMenu();
 }
 
-export async function plannerToggleDone(entryId) {
-    const entry = entriesCache.find(e => e.id === entryId);
+export async function plannerToggleDone(entryId: number | string) {
+    const id = Number(entryId);
+    const entry = entriesCache.find(e => e.id === id);
     if (!entry || entry.entry_type !== 'task') return;
     const status = entry.task_status === 'done' ? 'todo' : 'done';
     const res = await apiCall(`/api/entries/${entryId}`, { method: 'PATCH', body: { task_status: status } });
     if (res.ok) { await loadTodoEntries(); renderActivePanel(); }
 }
 
-export async function plannerDeleteEntry(entryId) {
+export async function plannerDeleteEntry(entryId: number | string) {
     if (!(await showConfirm(t('planner.delete_entry_confirm') || 'Delete this entry?'))) return;
     const res = await apiCall(`/api/entries/${entryId}?hard_delete=true`, { method: 'DELETE' });
     if (res.ok) {
@@ -910,8 +926,9 @@ export async function plannerDeleteEntry(entryId) {
     }
 }
 
-export async function plannerCycleType(entryId) {
-    const entry = entriesCache.find(e => e.id === entryId) || eventsCache.find(e => e.id === entryId);
+export async function plannerCycleType(entryId: number | string) {
+    const id = Number(entryId);
+    const entry = entriesCache.find(e => e.id === id) || eventsCache.find(e => e.id === id);
     if (!entry) return;
     const next = entry.entry_type === 'task' ? 'event' : 'task';
     const res = await apiCall(`/api/entries/${entryId}/convert`, { method: 'POST', body: { target_type: next } });
@@ -921,10 +938,11 @@ export async function plannerCycleType(entryId) {
     }
 }
 
-export async function plannerEntryActions(entryId) {
-    const entry = entriesCache.find(e => e.id === entryId) || eventsCache.find(e => e.id === entryId);
+export async function plannerEntryActions(entryId: number | string) {
+    const id = Number(entryId);
+    const entry = entriesCache.find(e => e.id === id) || eventsCache.find(e => e.id === id);
     if (!entry) return;
-    const actions = [];
+    const actions: PlannerActionOption[] = [];
     if (entry.entry_type === 'task') {
         actions.push({
             id: entry.task_status === 'done' ? 'reopen' : 'complete',
@@ -937,11 +955,11 @@ export async function plannerEntryActions(entryId) {
 
     const choice = await _simpleActionMenu(entry.title, actions);
     if (!choice) return;
-    if ((choice.id === 'reopen' || choice.id === 'complete') && entry.entry_type === 'task') await plannerToggleDone(entryId);
-    else if (choice.id === 'delete') await plannerDeleteEntry(entryId);
+    if ((choice.id === 'reopen' || choice.id === 'complete') && entry.entry_type === 'task') await plannerToggleDone(id);
+    else if (choice.id === 'delete') await plannerDeleteEntry(id);
 }
 
-async function _simpleActionMenu(title, options) {
+async function _simpleActionMenu(title: string, options: Array<PlannerActionOption | string>): Promise<PlannerActionOption | null> {
     const normalized = (options || []).map((opt) => {
         if (typeof opt === 'string') {
             return { id: opt.toLowerCase(), label: opt, danger: /^delete$/i.test(opt) };
@@ -952,7 +970,7 @@ async function _simpleActionMenu(title, options) {
             danger: !!opt?.danger,
         };
     });
-    return new Promise(resolve => {
+    return new Promise<PlannerActionOption | null>(resolve => {
         const overlay = document.createElement('div');
         overlay.className = 'p-action-overlay';
         overlay.innerHTML = `
@@ -961,28 +979,28 @@ async function _simpleActionMenu(title, options) {
                 ${normalized.map((opt, i) => `<button class="p-action-sheet-btn ${opt.danger ? 'p-action-sheet-btn--danger' : ''}" data-idx="${i}">${escapeHtml(opt.label)}</button>`).join('')}
                 <button class="p-action-sheet-btn p-action-sheet-cancel">${escapeHtml(t('common.cancel') || 'Cancel')}</button>
             </div>`;
-        overlay.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-idx]');
+        overlay.addEventListener('click', (e: MouseEvent) => {
+            const btn = (e.target as Element | null)?.closest('[data-idx]') as HTMLElement | null;
             if (btn) {
                 const idx = Number(btn.dataset.idx);
                 overlay.remove();
                 resolve(normalized[idx] || null);
                 return;
             }
-            if (e.target.closest('.p-action-sheet-cancel') || e.target === overlay) { overlay.remove(); resolve(null); }
+            if ((e.target as Element | null)?.closest('.p-action-sheet-cancel') || e.target === overlay) { overlay.remove(); resolve(null); }
         });
         document.body.appendChild(overlay);
     });
 }
 
 // Drag & drop (To-Do only)
-export function plannerDragStart(event, entryId) {
+export function plannerDragStart(event: DragEvent, entryId: number | string) {
     dragEntryId = Number(entryId);
-    event.dataTransfer.effectAllowed = 'move';
-    event.currentTarget.classList.add('p-entry--dragging');
+    event.dataTransfer!.effectAllowed = 'move';
+    (event.currentTarget as HTMLElement).classList.add('p-entry--dragging');
 }
-export function plannerDragOver(event) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }
-export async function plannerDrop(event, targetId) {
+export function plannerDragOver(event: DragEvent) { event.preventDefault(); event.dataTransfer!.dropEffect = 'move'; }
+export async function plannerDrop(event: DragEvent, targetId: number | string) {
     event.preventDefault();
     const target = Number(targetId);
     if (!dragEntryId || dragEntryId === target) { dragEntryId = null; return; }
@@ -997,27 +1015,29 @@ export async function plannerDrop(event, targetId) {
     await apiCall('/api/entries/reorder', { method: 'POST', body: { list_id: selectedListId, ordered_entry_ids: entriesCache.map(e => e.id) } });
     dragEntryId = null;
 }
-export function plannerDragEnd(event) { dragEntryId = null; event.currentTarget.classList.remove('p-entry--dragging'); }
+export function plannerDragEnd(event: DragEvent) { dragEntryId = null; (event.currentTarget as HTMLElement).classList.remove('p-entry--dragging'); }
 
 // ── Planner color swatch picker ─────────────────────────────────────────
 (function _initPlannerColorSwatches() {
-    const container = document.getElementById('planner-color-swatches');
-    const hidden = document.getElementById('planner-add-event-color');
-    const hexInput = document.getElementById('planner-color-hex');
-    const preview = document.getElementById('planner-color-preview');
-    if (!container || !hidden) return;
-    function sync(hex) {
+    const containerEl = document.getElementById('planner-color-swatches');
+    const hiddenEl = document.getElementById('planner-add-event-color') as HTMLInputElement | null;
+    const hexInput = document.getElementById('planner-color-hex') as HTMLInputElement | null;
+    const preview = document.getElementById('planner-color-preview') as HTMLElement | null;
+    if (!containerEl || !hiddenEl) return;
+    const container: HTMLElement = containerEl;
+    const hidden: HTMLInputElement = hiddenEl;
+    function sync(hex: string) {
         const norm = (hex || '').toLowerCase();
         hidden.value = norm;
         container.querySelectorAll('.color-swatch').forEach(s => {
-            s.classList.toggle('active', s.dataset.color === norm);
+            s.classList.toggle('active', (s as HTMLElement).dataset.color === norm);
         });
         if (preview) preview.style.background = norm;
         if (hexInput && document.activeElement !== hexInput) hexInput.value = norm;
     }
     container.addEventListener('click', e => {
-        const sw = e.target.closest('.color-swatch');
-        if (sw) sync(sw.dataset.color);
+        const sw = (e.target as Element | null)?.closest('.color-swatch') as HTMLElement | null;
+        if (sw) sync(sw.dataset.color || '');
     });
     if (hexInput) {
         hexInput.addEventListener('input', () => {

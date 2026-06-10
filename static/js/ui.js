@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive, refreshIntegrationsSettingsView, loadNotificationPrefs, loadAutomations, checkAddonUpdates, toggleVoiceRecording } from './features.js';
 import { loadUserProfilePage } from './user_profile.js';
 import { loadPlanner, loadApps, loadScenes, loadAreas, populateAppTab, closeAddonWebUI } from './nav_bridge.js';
@@ -113,7 +112,7 @@ export function setTheme(themeName) {
             const metaColor = getComputedStyle(document.documentElement)
                 .getPropertyValue('--meta-theme-color').trim();
             const color = metaColor || '#030712';
-            window.__setNativeSystemBarColor(color);
+            window.__setNativeSystemBarColor?.(color);
             try {
                 localStorage.setItem('hyve_theme_color', color);
             }
@@ -597,7 +596,9 @@ export async function startLogStream() {
             }
             // Păstrăm ultimele 200 de linii ca să nu omorâm browserul
             if (container && container.childElementCount > 200) {
-                container.removeChild(container.firstChild);
+                const first = container.firstChild;
+                if (first)
+                    container.removeChild(first);
             }
         }
         catch (err) {

@@ -1,4 +1,3 @@
-// @ts-nocheck — Phase 3 TS shell; tighten types incrementally.
 import { apiCall } from './api.js';
 import { getCameraStreamToken, cameraProxyUrlSync, startCameraPreviewRefresh, stopCameraPreviewRefresh } from './camera_auth.js';
 import { cameraLoaderMarkup, bindCameraPreviewLoaders } from './camera_loader.js';
@@ -8,6 +7,14 @@ import { cameraPreferWebmPlayer } from './camera_live.js';
 import { renderEntityRegistrySection, wireEntityRegistryEditor } from './entity_renderers.js';
 import { entityMatchesIntegration } from './integration_sources.js';
 import { ACTIVE_STATES, CONTROLLABLE } from './entity_constants.js';
+function _errMsg(err) {
+    if (err instanceof Error)
+        return err.message;
+    return String(err);
+}
+function _isActiveState(state) {
+    return ACTIVE_STATES.includes(state);
+}
 export { ACTIVE_STATES, CONTROLLABLE };
 // --- SMART HOME (IoT) ---
 let _haCurrentFilter = 'all';
@@ -615,7 +622,7 @@ function _removeSmarthomeLiveItems(entityIds) {
 function _patchRowInPlace(d) {
     const eid = d.entity_id;
     const stateLower = String(d.state).toLowerCase();
-    const isOn = ACTIVE_STATES.includes(stateLower);
+    const isOn = _isActiveState(stateLower);
     const isOff = ['off', 'closed', 'locked', 'idle', 'docked', 'paused'].includes(stateLower);
     const isUnavail = ['unavailable', 'unknown', 'offline'].includes(stateLower);
     const stateDisplay = isUnavail ? 'Offline' : `${d.state}${d.unit ? ' ' + d.unit : ''}`;
@@ -665,7 +672,7 @@ function _optimisticStateForAction(action, currentState) {
         turn_off: 'off', close_cover: 'closed', lock: 'locked', stop: 'off', media_pause: 'paused',
     };
     if (action === 'toggle')
-        return ACTIVE_STATES.includes(state) || state === 'on' ? 'off' : 'on';
+        return _isActiveState(state) || state === 'on' ? 'off' : 'on';
     if (Object.prototype.hasOwnProperty.call(onActions, action))
         return onActions[action];
     if (Object.prototype.hasOwnProperty.call(offActions, action))
@@ -684,10 +691,10 @@ function _markDeviceControlPending(entityId, pending) {
 function _updateStats() {
     const allDevices = _getAllDevices();
     const total = allDevices.length;
-    const active = allDevices.filter(d => ACTIVE_STATES.includes(String(d.state).toLowerCase())).length;
+    const active = allDevices.filter(d => _isActiveState(String(d.state).toLowerCase())).length;
     const aiSel = allDevices.filter(d => d.selected).length;
     const el = (id, val) => { const e = document.getElementById(id); if (e)
-        e.innerText = val; };
+        e.innerText = String(val); };
     el('hy-count', total);
     el('hy-active-count', active);
     el('hy-ai-count', `${aiSel}/${total}`);
@@ -708,7 +715,7 @@ function _getFilteredDevices() {
             return false;
         // Source filter
         if (sourceFilter !== 'all') {
-            if (!entityMatchesIntegration(entity.source, sourceFilter))
+            if (!entityMatchesIntegration(entity.source || '', sourceFilter))
                 return false;
         }
         // Area filter
@@ -722,7 +729,7 @@ function _getFilteredDevices() {
             }
         }
         if (domainFilter === 'active') {
-            if (!ACTIVE_STATES.includes(_norm(entity.state)))
+            if (!_isActiveState(_norm(entity.state)))
                 return false;
         }
         else if (domainFilter === 'ai') {
@@ -834,7 +841,7 @@ function renderDeviceCards() {
         const entityId = _entityId(entity);
         const domain = _entityDomain(entity);
         const stateLower = _norm(entity.state);
-        const isOn = ACTIVE_STATES.includes(stateLower);
+        const isOn = _isActiveState(stateLower);
         const isUnavail = ['unavailable', 'unknown', 'offline'].includes(stateLower);
         // Prefer entity-supplied icon (mdi:* or fa-*) over the domain default.
         const customIconCls = _iconClass(entity.icon);
@@ -849,7 +856,7 @@ function renderDeviceCards() {
         const name = escapeHtml(entity.name || entityId);
         const escapedId = escapeHtml(entityId);
         const escapedIdAttr = escapeHtmlAttr(entityId);
-        const srcMeta = SOURCE_ICONS[entity.source] || null;
+        const srcMeta = SOURCE_ICONS[source] || null;
         const sourceLabel = srcMeta?.label || entity.entry_title || entity.source || 'Unknown';
         const sourceBadge = `<span class="hy-source-badge ${srcMeta?.color || 'text-slate-400'}"><i class="fas ${srcMeta?.icon || 'fa-puzzle-piece'}"></i>${escapeHtml(sourceLabel)}</span>`;
         const rowAction = isDerived
@@ -998,32 +1005,35 @@ function _syncSmarthomeFilterPicker(id, value) {
     const currentLabel = picker.querySelector('.hy-picker-current');
     let selectedLabel = '';
     picker.querySelectorAll('.hy-picker-option').forEach(option => {
-        const selected = option.dataset.value === current;
-        option.dataset.selected = selected ? 'true' : 'false';
-        option.setAttribute('aria-selected', selected ? 'true' : 'false');
+        const opt = option;
+        const selected = opt.dataset.value === current;
+        opt.dataset.selected = selected ? 'true' : 'false';
+        opt.setAttribute('aria-selected', selected ? 'true' : 'false');
         if (selected)
-            selectedLabel = option.dataset.label || option.textContent.trim();
+            selectedLabel = opt.dataset.label || opt.textContent?.trim() || '';
     });
     if (currentLabel && selectedLabel)
         currentLabel.textContent = selectedLabel;
 }
 function _closeSmarthomeFilterPickers(except = null) {
     document.querySelectorAll('.hy-picker[data-open="true"]').forEach(picker => {
-        if (except && picker === except)
+        const pickerEl = picker;
+        if (except && pickerEl === except)
             return;
-        picker.dataset.open = 'false';
-        picker.querySelector('[data-hy-picker-toggle]')?.setAttribute('aria-expanded', 'false');
+        pickerEl.dataset.open = 'false';
+        pickerEl.querySelector('[data-hy-picker-toggle]')?.setAttribute('aria-expanded', 'false');
     });
 }
 export function toggleSmarthomePicker(event) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
-    const current = event?.currentTarget;
+    const current = event.currentTarget;
+    const tgt = event.target;
     const toggle = current?.matches?.('[data-hy-picker-toggle]')
         ? current
-        : event?.target?.closest?.('[data-hy-picker-toggle]');
+        : tgt?.closest?.('[data-hy-picker-toggle]');
     const picker = toggle?.closest?.('.hy-picker');
-    if (!picker)
+    if (!picker || !toggle)
         return;
     const open = picker.dataset.open === 'true';
     _closeSmarthomeFilterPickers(picker);
@@ -1033,10 +1043,11 @@ export function toggleSmarthomePicker(event) {
 export function selectSmarthomePickerOption(event) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
-    const current = event?.currentTarget;
+    const current = event.currentTarget;
+    const tgt = event.target;
     const option = current?.matches?.('.hy-picker-option[data-filter-kind]')
         ? current
-        : event?.target?.closest?.('.hy-picker-option[data-filter-kind]');
+        : tgt?.closest?.('.hy-picker-option[data-filter-kind]');
     if (!option)
         return;
     const kind = option.dataset.filterKind;
@@ -1054,18 +1065,21 @@ function _wireSmarthomeFilterPickerEvents() {
     if (_smarthomeFilterPickerEventsWired || typeof document === 'undefined')
         return;
     _smarthomeFilterPickerEventsWired = true;
-    document.addEventListener('click', event => {
-        const toggle = event.target.closest('[data-hy-picker-toggle]');
+    document.addEventListener('click', (event) => {
+        const tgt = event.target;
+        if (!tgt)
+            return;
+        const toggle = tgt.closest('[data-hy-picker-toggle]');
         if (toggle) {
             toggleSmarthomePicker(event);
             return;
         }
-        const option = event.target.closest('.hy-picker-option[data-filter-kind]');
+        const option = tgt.closest('.hy-picker-option[data-filter-kind]');
         if (option) {
             selectSmarthomePickerOption(event);
             return;
         }
-        if (!event.target.closest('.hy-picker'))
+        if (!tgt.closest('.hy-picker'))
             _closeSmarthomeFilterPickers();
     });
     document.addEventListener('keydown', event => {
@@ -1112,7 +1126,7 @@ function _buildDomainFilters() {
     if (!nav)
         return;
     const total = _getAllDevices().length;
-    const active = _getAllDevices().filter(d => ACTIVE_STATES.includes(String(d.state).toLowerCase())).length;
+    const active = _getAllDevices().filter(d => _isActiveState(String(d.state).toLowerCase())).length;
     const aiSelected = _getAllDevices().filter(d => d.selected).length;
     const domains = [...new Set(_integrationEntitiesCache.map(entity => entity.domain || String(entity.entity_id || '').split('.')[0]).filter(Boolean))]
         .sort((a, b) => {
@@ -1187,7 +1201,7 @@ export async function copyEntityIdFromRowActions() {
     }
 }
 export function toggleAllHA(checked) {
-    document.querySelectorAll('.hy-bulk-check').forEach(cb => cb.checked = checked);
+    document.querySelectorAll('.hy-bulk-check').forEach(cb => { cb.checked = checked; });
     updateHABulkCount();
 }
 export function updateHABulkCount() {
@@ -1354,7 +1368,8 @@ export function handleHaRowClick(event) {
     const row = event.currentTarget;
     if (!row || row.getAttribute('data-entity') == null)
         return;
-    if (event.target.closest('button, input, a, label'))
+    const tgt = event.target;
+    if (tgt?.closest('button, input, a, label'))
         return;
     const eid = row.getAttribute('data-entity');
     if (eid)
@@ -1386,7 +1401,7 @@ export async function openRowActionsModal(entityId) {
     const rawState = entity.state ?? 'unknown';
     const stateDisplay = `${tState(rawState)}${entity.unit ? ' ' + entity.unit : ''}`;
     const iconClass = _iconClass(entity.icon) || `fas ${DOMAIN_ICONS[domain] || 'fa-microchip'}`;
-    const sourceMeta = SOURCE_ICONS[entity.source] || { icon: 'fa-puzzle-piece', label: entity.source || 'Unknown', color: 'text-slate-400' };
+    const sourceMeta = SOURCE_ICONS[entity.source ?? ''] || { icon: 'fa-puzzle-piece', label: entity.source || 'Unknown', color: 'text-slate-400' };
     const attrs = entity.attributes && typeof entity.attributes === 'object' ? entity.attributes : {};
     const cameraPreview = _cameraPreviewMarkup(entity, attrs);
     const attrsRows = Object.entries(attrs).slice(0, 24).map(([key, value]) => `
@@ -1408,7 +1423,7 @@ export async function openRowActionsModal(entityId) {
         </div>
         ${renderEntityRegistrySection(entity)}
         <div class="hy-detail-status-row">
-            <div class="hy-detail-status ${['unavailable', 'unknown', 'offline'].includes(stateLower) ? 'is-offline' : ACTIVE_STATES.includes(stateLower) ? 'is-active' : ''}">
+            <div class="hy-detail-status ${['unavailable', 'unknown', 'offline'].includes(stateLower) ? 'is-offline' : _isActiveState(stateLower) ? 'is-active' : ''}">
                 <span>${escapeHtml(t('hy.detail_state'))}</span>
                 <strong>${escapeHtml(stateDisplay)}</strong>
             </div>
@@ -1533,7 +1548,7 @@ function _deviceControlButtons(entity) {
     const source = escapeHtmlAttr(entity.source || '');
     const domain = _entityDomain(entity);
     const stateLower = _norm(entity.state);
-    const isActive = ACTIVE_STATES.includes(stateLower) || stateLower === 'on';
+    const isActive = _isActiveState(stateLower) || stateLower === 'on';
     const pending = _deviceControlPending.has(entity.entity_id || '');
     const _er = (key) => t('entity.render.' + key);
     const button = (action, icon, label, tone = '') => {
@@ -1608,7 +1623,7 @@ export async function controlDeviceEntity(source, entityId, action, buttonEl = n
         _deviceOptimisticGuards.delete(entityId);
         entity.state = previousState;
         renderDeviceCards();
-        showToast(error.message || t('hy.control_error'), 'error');
+        showToast(_errMsg(error) || t('hy.control_error'), 'error');
     }
     finally {
         _deviceControlPending.delete(entityId);
@@ -1695,7 +1710,7 @@ function _renderAvailableDevices() {
         }
         const icon = DOMAIN_ICONS[domain] || 'fa-microchip';
         const color = DOMAIN_COLORS[domain] || 'bg-slate-500/15 text-slate-400';
-        const isActive = ACTIVE_STATES.includes(String(d.state).toLowerCase());
+        const isActive = _isActiveState(String(d.state).toLowerCase());
         html += `<div class="add-device-item" data-smarthome-action="toggleAvailableDevice" data-smarthome-entity-id="${escapeHtmlAttr(d.entity_id)}">
             <input type="checkbox" class="add-device-check accent-accent cursor-pointer w-3.5 h-3.5 flex-shrink-0" value="${d.entity_id}" data-smarthome-action="toggleAvailableDevice" data-smarthome-entity-id="${escapeHtmlAttr(d.entity_id)}" data-smarthome-stop-propagation="true">
             <div class="ha-card-icon ${color} w-8 h-8 text-xs"><i class="fas ${icon}"></i></div>

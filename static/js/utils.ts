@@ -1,16 +1,22 @@
-// @ts-nocheck — Phase 6 TS shell; tighten types incrementally.
 /**
  * Shared utility functions used across multiple JS modules.
  */
 import { t } from './lang/index.js';
 import { withCacheBust } from './asset_version.js';
 import { faviconProxyUrlSync, getCameraStreamToken } from './camera_auth.js';
+import type {
+    ChatSourceInput,
+    CodeEditorSetupOptions,
+    HyveAceEditor,
+    NormalizedSource,
+    ToastType,
+} from './types/utils.js';
 
 const _SOURCE_FAVICON_ONERROR = 'window.__hyveSourceFaviconError?.(this)';
 
 function _bindSourceFaviconError() {
     if (typeof window === 'undefined' || window.__hyveSourceFaviconError) return;
-    window.__hyveSourceFaviconError = async (img) => {
+    window.__hyveSourceFaviconError = async (img: HTMLImageElement) => {
         if (!img || img.dataset.faviconRetry === '1') {
             img?.classList?.add('chat-source-favicon-missing');
             img?.removeAttribute?.('src');
@@ -29,15 +35,15 @@ function _bindSourceFaviconError() {
 }
 _bindSourceFaviconError();
 
-const _loadedScripts = new Map();
-const _loadedStyles = new Map();
+const _loadedScripts = new Map<string, Promise<HTMLScriptElement>>();
+const _loadedStyles = new Map<string, Promise<HTMLLinkElement>>();
 
-export function loadScriptOnce(src) {
+export function loadScriptOnce(src: string) {
     if (!src || typeof document === 'undefined') return Promise.reject(new Error('Missing script src'));
     const resolvedSrc = String(src).startsWith('/static/') ? withCacheBust(src) : src;
-    if (_loadedScripts.has(resolvedSrc)) return _loadedScripts.get(resolvedSrc);
-    const promise = new Promise((resolve, reject) => {
-        const existing = document.querySelector(`script[src="${resolvedSrc}"]`);
+    if (_loadedScripts.has(resolvedSrc)) return _loadedScripts.get(resolvedSrc)!;
+    const promise = new Promise<HTMLScriptElement>((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${resolvedSrc}"]`) as HTMLScriptElement | null;
         if (existing?.dataset.loaded === '1') {
             resolve(existing);
             return;
@@ -59,12 +65,12 @@ export function loadScriptOnce(src) {
     return promise;
 }
 
-export function loadStyleOnce(href) {
+export function loadStyleOnce(href: string) {
     if (!href || typeof document === 'undefined') return Promise.reject(new Error('Missing stylesheet href'));
     const resolvedHref = String(href).startsWith('/static/') ? withCacheBust(href) : href;
-    if (_loadedStyles.has(resolvedHref)) return _loadedStyles.get(resolvedHref);
-    const promise = new Promise((resolve, reject) => {
-        const existing = document.querySelector(`link[rel="stylesheet"][href="${resolvedHref}"]`);
+    if (_loadedStyles.has(resolvedHref)) return _loadedStyles.get(resolvedHref)!;
+    const promise = new Promise<HTMLLinkElement>((resolve, reject) => {
+        const existing = document.querySelector(`link[rel="stylesheet"][href="${resolvedHref}"]`) as HTMLLinkElement | null;
         if (existing?.dataset.loaded === '1') {
             resolve(existing);
             return;
@@ -87,7 +93,7 @@ export function loadStyleOnce(href) {
 }
 
 // ─── Shared tool icon map (used by chat) ───
-export const TOOL_ICONS = {
+export const TOOL_ICONS: Record<string, string> = {
     web_search: "fa-magnifying-glass",
     ha_command: "fa-bolt",
     skill: "fa-wand-magic-sparkles",
@@ -124,16 +130,16 @@ export const TOOL_ICONS = {
 export const TOOL_ICON_FALLBACK = "fa-gear";
 
 /** Return the Font Awesome icon class for a tool name. */
-export function toolIcon(name) {
+export function toolIcon(name: string) {
     return TOOL_ICONS[name] || TOOL_ICON_FALLBACK;
 }
 
 // ─── Shared sources renderer (used by chat) ───
 
-const _sourceGroups = new Map();
+const _sourceGroups = new Map<string, NormalizedSource[]>();
 let _sourceGroupSeq = 0;
 
-function _normalizeSource(src) {
+function _normalizeSource(src: ChatSourceInput | null | undefined): NormalizedSource | null {
     try {
         const rawUrl = String(src?.url || src?.link || '').trim();
         if (!rawUrl) return null;
@@ -154,11 +160,11 @@ function _normalizeSource(src) {
     }
 }
 
-function _dedupeSources(sources) {
-    const seen = new Set();
-    const out = [];
+function _dedupeSources(sources: ChatSourceInput[] | unknown[] | null | undefined): NormalizedSource[] {
+    const seen = new Set<string>();
+    const out: NormalizedSource[] = [];
     for (const src of sources || []) {
-        const normalized = _normalizeSource(src);
+        const normalized = _normalizeSource(src as ChatSourceInput);
         if (!normalized) continue;
         const key = `${normalized.domain}|${normalized.url}`;
         if (seen.has(key)) continue;
@@ -168,11 +174,11 @@ function _dedupeSources(sources) {
     return out;
 }
 
-function _faviconUrl(domainText) {
+function _faviconUrl(domainText: string) {
     return faviconProxyUrlSync(domainText);
 }
 
-function _sourceChipHtml(src) {
+function _sourceChipHtml(src: NormalizedSource) {
     const domain = escapeHtml(src.domain);
     const url = escapeHtml(src.url);
     const favicon = _faviconUrl(src.domain);
@@ -213,7 +219,7 @@ function _ensureSourcesModal() {
     return modal;
 }
 
-export function showSourcesModal(groupId) {
+export function showSourcesModal(groupId: string) {
     const sources = _sourceGroups.get(String(groupId)) || [];
     if (!sources.length) return;
     const modal = _ensureSourcesModal();
@@ -241,7 +247,7 @@ export function showSourcesModal(groupId) {
         }).join('');
     }
     modal.classList.remove('hidden');
-    void refreshSourceFavicons(modal);
+    void refreshSourceFavicons(modal as unknown as Document);
 }
 
 export function hideSourcesModal() {
@@ -250,12 +256,13 @@ export function hideSourcesModal() {
 }
 
 /** Refresh proxied favicon URLs after media auth token is available. */
-export async function refreshSourceFavicons(root = document) {
+export async function refreshSourceFavicons(root: Document | Element = document) {
     try {
         await getCameraStreamToken();
     } catch (_) {}
-    const scope = root?.querySelectorAll ? root : document;
-    scope.querySelectorAll('img.chat-source-favicon:not(.chat-source-favicon-missing)').forEach((img) => {
+    const scope = root instanceof Document || root instanceof Element ? root : document;
+    scope.querySelectorAll('img.chat-source-favicon:not(.chat-source-favicon-missing)').forEach((imgEl) => {
+        const img = imgEl as HTMLImageElement;
         const domain = img.dataset.domain || img.closest('.chat-source-card')?.getAttribute('title') || '';
         if (!domain) return;
         const next = faviconProxyUrlSync(domain);
@@ -269,7 +276,7 @@ export async function refreshSourceFavicons(root = document) {
  * @param {string} [label] – optional label override (defaults to i18n 'chat.sources_label' → "Surse")
  * @returns {string} HTML string
  */
-export function buildSourcesHtml(sources, label) {
+export function buildSourcesHtml(sources: ChatSourceInput[] | unknown[] | null | undefined, label?: string) {
     const normalized = _dedupeSources(sources);
     if (!normalized.length) return '';
     const labelText = label || t('chat.sources_label') || 'Surse';
@@ -292,7 +299,7 @@ export function buildSourcesHtml(sources, label) {
 // ─── Shared Markdown renderer (non-streaming) ───
 
 /** Parse markdown & sanitize. Used for finalized content in chat. */
-export function formatMarkdown(text) {
+export function formatMarkdown(text: string | null | undefined) {
     if (!text) return '';
     if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
         return DOMPurify.sanitize(marked.parse(text));
@@ -304,22 +311,22 @@ export function formatMarkdown(text) {
  * Creates a debounced version of a function that delays execution until
  * `delay` ms have passed since the last call.
  */
-export function debounce(fn, delay = 250) {
-    let timer;
-    return function (...args) {
+export function debounce<T extends (...args: never[]) => unknown>(fn: T, delay = 250) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    return function (this: unknown, ...args: Parameters<T>) {
         clearTimeout(timer);
         timer = setTimeout(() => fn.apply(this, args), delay);
     };
 }
 
-export function escapeHtml(text) {
+export function escapeHtml(text: unknown) {
     if (text == null) return '';
     const div = document.createElement('div');
     div.textContent = String(text);
     return div.innerHTML;
 }
 
-export function escapeHtmlAttr(s) {
+export function escapeHtmlAttr(s: unknown) {
     if (s == null) return '';
     return String(s)
         .replace(/&/g, '&amp;')
@@ -335,7 +342,7 @@ export function getSessionId() {
 
 /* ─── Sub-page helpers ─── */
 
-export function openSubPage(id) {
+export function openSubPage(id: string) {
     const el = document.getElementById(id);
     if (!el) return;
     /* Scroll any overflow-auto ancestor to top so the absolute-positioned
@@ -349,7 +356,7 @@ export function openSubPage(id) {
     el.setAttribute('aria-hidden', 'false');
 }
 
-export function closeSubPage(id) {
+export function closeSubPage(id: string) {
     const el = document.getElementById(id);
     if (!el) return;
     el.classList.remove('open');
@@ -421,8 +428,8 @@ if (typeof document !== 'undefined') {
 
 /* ─── Code editor helpers ─── */
 
-const _codeEditors = new Map();
-let _aceLoadPromise = null;
+const _codeEditors = new Map<string, HyveAceEditor>();
+let _aceLoadPromise: Promise<typeof window.ace> | null = null;
 
 function _ensureAceEditor() {
     if (typeof window === 'undefined') return Promise.reject(new Error('No window'));
@@ -430,7 +437,7 @@ function _ensureAceEditor() {
     if (!_aceLoadPromise) {
         _aceLoadPromise = loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/ace.js')
             .then(() => loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/ext-language_tools.min.js'))
-            .then(() => window.ace);
+            .then(() => window.ace!);
     }
     return _aceLoadPromise;
 }
@@ -450,20 +457,20 @@ function _initAceThemeObserver() {
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 }
 
-export function setupCodeEditor({ textareaId, mode = 'text' }) {
-    const textarea = document.getElementById(textareaId);
+export function setupCodeEditor({ textareaId, mode = 'text' }: CodeEditorSetupOptions): HyveAceEditor | null {
+    const textarea = document.getElementById(textareaId) as HTMLTextAreaElement | null;
     if (!textarea || typeof window === 'undefined') return null;
     if (typeof window.ace === 'undefined') {
         _ensureAceEditor()
             .then(() => setupCodeEditor({ textareaId, mode }))
-            .catch((err) => console.warn('Ace editor load failed', err));
+            .catch((err: unknown) => console.warn('Ace editor load failed', err));
         return null;
     }
 
     _initAceThemeObserver();
 
     if (_codeEditors.has(textareaId)) {
-        const existing = _codeEditors.get(textareaId);
+        const existing = _codeEditors.get(textareaId)!;
         existing.getSession().setMode(`ace/mode/${mode}`);
         existing.getSession().setUseWorker(false);
         existing.setTheme(_aceThemeForApp());
@@ -504,20 +511,20 @@ export function setupCodeEditor({ textareaId, mode = 'text' }) {
     return editor;
 }
 
-export function setCodeEditorValue(textareaId, value) {
-    const textarea = document.getElementById(textareaId);
+export function setCodeEditorValue(textareaId: string, value: string | null | undefined) {
+    const textarea = document.getElementById(textareaId) as HTMLTextAreaElement | null;
     if (textarea) textarea.value = value ?? '';
     const editor = _codeEditors.get(textareaId);
     if (editor) editor.setValue(value ?? '', -1);
 }
 
-export function getCodeEditorValue(textareaId) {
+export function getCodeEditorValue(textareaId: string) {
     const editor = _codeEditors.get(textareaId);
     if (editor) return editor.getValue();
-    return document.getElementById(textareaId)?.value || '';
+    return (document.getElementById(textareaId) as HTMLTextAreaElement | null)?.value || '';
 }
 
-export function refreshCodeEditor(textareaId) {
+export function refreshCodeEditor(textareaId: string) {
     const editor = _codeEditors.get(textareaId);
     if (!editor) return;
     requestAnimationFrame(() => editor.resize(true));
@@ -539,13 +546,13 @@ document.addEventListener('keydown', (e) => {
 // --- Global modal scroll lock ---
 let _modalScrollLockInitialized = false;
 
-function _modalScrollLockTargets() {
-    const targets = [document.documentElement, document.body];
-    document.querySelectorAll('[id^="view-"]').forEach(el => targets.push(el));
+function _modalScrollLockTargets(): HTMLElement[] {
+    const targets: HTMLElement[] = [document.documentElement, document.body];
+    document.querySelectorAll('[id^="view-"]').forEach(el => targets.push(el as HTMLElement));
     return targets;
 }
 
-function _setModalScrollLocked(locked) {
+function _setModalScrollLocked(locked: boolean) {
     _modalScrollLockTargets().forEach(el => {
         if (!el) return;
         if (locked) {
@@ -611,19 +618,21 @@ function _initModalScrollLockObserver() {
 _initModalScrollLockObserver();
 
 // --- Toast notifications (replaces alert) ---
-export function showToast(message, type = 'info', duration = 3000) {
+export function showToast(message: string, type: string = 'info', duration = 3000) {
     const area = document.getElementById('notification-area');
     if (!area) return;
-    const colors = {
+    const colors: Record<ToastType, string> = {
         info: 'border-accent/30 bg-accent/10 text-accent',
         success: 'border-green-500/30 bg-green-500/10 text-green-400',
         error: 'border-red-500/30 bg-red-500/10 text-red-400',
-        warn: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400'
+        warn: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400',
     };
-    const icons = { info: 'fa-circle-info', success: 'fa-circle-check', error: 'fa-circle-exclamation', warn: 'fa-triangle-exclamation' };
+    const icons: Record<ToastType, string> = { info: 'fa-circle-info', success: 'fa-circle-check', error: 'fa-circle-exclamation', warn: 'fa-triangle-exclamation' };
+    const normalized = type === 'warning' ? 'warn' : type;
+    const toastType: ToastType = normalized in colors ? normalized as ToastType : 'info';
     const toast = document.createElement('div');
-    toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium shadow-lg backdrop-blur-lg animate-up ${colors[type] || colors.info}`;
-    toast.innerHTML = `<i class="fas ${icons[type] || icons.info} text-base flex-shrink-0"></i><span class="flex-1">${escapeHtml(message)}</span>`;
+    toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium shadow-lg backdrop-blur-lg animate-up ${colors[toastType]}`;
+    toast.innerHTML = `<i class="fas ${icons[toastType]} text-base flex-shrink-0"></i><span class="flex-1">${escapeHtml(message)}</span>`;
     area.appendChild(toast);
     setTimeout(() => {
         toast.style.opacity = '0';
@@ -634,10 +643,10 @@ export function showToast(message, type = 'info', duration = 3000) {
 }
 
 // --- Custom confirm dialog (replaces window.confirm) ---
-let _confirmResolve = null;
+let _confirmResolve: ((result: boolean) => void) | null = null;
 
-export function showConfirm(message) {
-    return new Promise(resolve => {
+export function showConfirm(message: string) {
+    return new Promise<boolean>(resolve => {
         _confirmResolve = resolve;
         let modal = document.getElementById('confirm-modal');
         if (!modal) {
@@ -657,15 +666,16 @@ export function showConfirm(message) {
                     </div>
                 </div>`;
             document.body.appendChild(modal);
-            modal.querySelector('#confirm-cancel').onclick = () => _resolveConfirm(false);
-            modal.querySelector('#confirm-ok').onclick = () => _resolveConfirm(true);
+            (modal.querySelector('#confirm-cancel') as HTMLButtonElement).onclick = () => _resolveConfirm(false);
+            (modal.querySelector('#confirm-ok') as HTMLButtonElement).onclick = () => _resolveConfirm(true);
         }
-        modal.querySelector('#confirm-message').textContent = message;
+        const messageEl = modal.querySelector('#confirm-message');
+        if (messageEl) messageEl.textContent = message;
         modal.classList.remove('hidden');
     });
 }
 
-function _resolveConfirm(result) {
+function _resolveConfirm(result: boolean) {
     const modal = document.getElementById('confirm-modal');
     if (modal) modal.classList.add('hidden');
     if (_confirmResolve) { _confirmResolve(result); _confirmResolve = null; }

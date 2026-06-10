@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * features_apps.js — Apps page: addon process management + lifecycle.
  */
@@ -7,14 +6,30 @@ import { showToast, escapeHtml, showConfirm } from './utils.js';
 import { t } from './lang/index.js';
 import { switchTab, openConfigSection } from './nav_bridge.js';
 import { isAdmin } from './user_context.js';
+import type {
+    AddonCatalogEntry,
+    AddonColorKey,
+    AddonConfigField,
+    AddonPreflightCheck,
+    AddonProcessStatus,
+    AddonProcessStatusMap,
+    AddonSerialPort,
+} from './types/features_apps.js';
 
-let _currentLogSlug = null;
-let _pollTimer = null;
-let _openSlug = null;          // which addon detail is expanded
-let _addonUiSlug = null;       // embedded Web UI viewer
+function _errMsg(err: unknown): string {
+    if (err instanceof Error) return err.message;
+    return String(err);
+}
+type AddonColorClasses = { bg: string; text: string };
+
+
+let _currentLogSlug: string | null = null;
+let _pollTimer: ReturnType<typeof setInterval> | null = null;
+let _openSlug: string | null = null;          // which addon detail is expanded
+let _addonUiSlug: string | null = null;       // embedded Web UI viewer
 
 // Tailwind can't detect dynamic class names — use static map.
-const _colorMap = {
+const _colorMap: Record<AddonColorKey, AddonColorClasses> = {
     cyan:    { bg: 'bg-cyan-500/10',    text: 'text-cyan-400'    },
     blue:    { bg: 'bg-blue-500/10',    text: 'text-blue-400'    },
     purple:  { bg: 'bg-purple-500/10',  text: 'text-purple-400'  },
@@ -30,13 +45,13 @@ const _colorMap = {
 
 // ── helpers ─────────────────────────────────────────────────────────────
 
-function _statusBadge(s) {
+function _statusBadge(s: string) {
     if (s === 'running') return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400"><i class="fas fa-circle text-[6px] animate-pulse"></i>${escapeHtml(t('apps.process_status_running'))}</span>`;
     if (s === 'exited')  return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/15 text-red-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('apps.process_status_exited'))}</span>`;
     return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('apps.process_status_stopped'))}</span>`;
 }
 
-function _uptime(sec) {
+function _uptime(sec: number | undefined | null) {
     if (!sec) return '';
     if (sec < 60) return `${sec}s`;
     if (sec < 3600) return `${Math.floor(sec / 60)}m ${sec % 60}s`;
@@ -45,7 +60,7 @@ function _uptime(sec) {
     return `${h}h ${m}m`;
 }
 
-function _canUseIngressWebUi(addon) {
+function _canUseIngressWebUi(addon: AddonCatalogEntry) {
     const webUi = addon?.web_ui || {};
     if (!Object.keys(webUi).length || webUi.ingress === false) return false;
 
@@ -65,7 +80,7 @@ function _canUseIngressWebUi(addon) {
     return ['localhost', '127.0.0.1', '::1'].includes(rawHost);
 }
 
-function _buildAddonWebUrl(addon) {
+function _buildAddonWebUrl(addon: AddonCatalogEntry) {
     const webUi = addon?.web_ui || {};
     const cfg = addon?.state?.config || {};
     if (!Object.keys(webUi).length) return '';
@@ -89,7 +104,7 @@ function _buildAddonWebUrl(addon) {
     return `${protocol}://${rawHost}${port}${path}`;
 }
 
-function _renderConfigField(field, value, isAdmin) {
+function _renderConfigField(field: AddonConfigField, value: unknown, isAdmin: boolean) {
     const key = field.key || '';
     const label = field.label || key;
     const desc = field.description || '';
@@ -112,7 +127,7 @@ function _renderConfigField(field, value, isAdmin) {
     }
 
     if (type === 'select' && Array.isArray(field.options)) {
-        const options = field.options.map(opt => {
+        const options = field.options.map((opt: string | { value?: string; label?: string }) => {
             const option = typeof opt === 'object' ? opt : { value: opt, label: opt };
             const val = `${option.value ?? option.label ?? ''}`;
             const selected = `${safeValue}` === val ? 'selected' : '';
@@ -166,7 +181,7 @@ function _renderConfigField(field, value, isAdmin) {
     </label>`;
 }
 
-function _renderConfigSection(addon, isAdmin) {
+function _renderConfigSection(addon: AddonCatalogEntry, isAdmin: boolean) {
     const schema = addon.config_schema || [];
     if (!schema.length) return '';
 
@@ -183,7 +198,7 @@ function _renderConfigSection(addon, isAdmin) {
             <p class="text-xs text-slate-500">${escapeHtml(intro)}</p>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            ${schema.map(field => _renderConfigField(field, cfg[field.key], isAdmin)).join('')}
+            ${schema.map((field: AddonConfigField) => _renderConfigField(field, cfg[field.key ?? ''], isAdmin)).join('')}
         </div>
         <div class="flex flex-wrap gap-2">
             ${isAdmin ? `<button type="button" data-config-action="saveAddonConfig" data-config-slug="${escapeHtml(addon.slug)}" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent text-bg-main hover:bg-accent-hover transition-all shadow-lg shadow-accent/20"><i class="fas fa-save mr-1.5"></i>${escapeHtml(t('apps.save_config'))}</button>` : ''}
@@ -196,7 +211,7 @@ function _renderConfigSection(addon, isAdmin) {
 
 // ── render: summary card (list view) ────────────────────────────────────
 
-function _addonStatusBadge(addon, processStatus) {
+function _addonStatusBadge(addon: AddonCatalogEntry, processStatus: AddonProcessStatus | undefined) {
     const installed = addon.state?.installed;
     const enabled = addon.state?.enabled;
     if (!installed) return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400">${escapeHtml(t('toast.addon_status_available'))}</span>`;
@@ -205,15 +220,15 @@ function _addonStatusBadge(addon, processStatus) {
     return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('toast.addon_status_installed'))}</span>`;
 }
 
-function _updateIndicator(addon) {
+function _updateIndicator(addon: AddonCatalogEntry | null | undefined) {
     if (!addon || !addon.update_available) return '';
     return `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500/15 text-amber-300 flex-shrink-0" title="${escapeHtml(t('updates.update_available'))}"><i class="fas fa-arrow-up text-[9px]"></i></span>`;
 }
 
-function _renderSummaryCard(addon, status) {
+function _renderSummaryCard(addon: AddonCatalogEntry, status: AddonProcessStatus | undefined) {
     const slug = addon.slug;
     const icon = addon.icon || 'fas fa-puzzle-piece';
-    const cm = _colorMap[addon.color] || _colorMap.slate;
+    const cm = _colorMap[(addon.color as AddonColorKey) || 'slate'] || _colorMap.slate;
     const installed = addon.state?.installed;
     const iconHtml = addon.image
         ? `<img src="${escapeHtml(addon.image)}" alt="" class="w-10 h-10 rounded-xl object-contain flex-shrink-0" loading="lazy">`
@@ -242,10 +257,10 @@ function _renderSummaryCard(addon, status) {
 
 // ── render: detail view ─────────────────────────────────────────────────
 
-function _renderDetail(addon, status) {
+function _renderDetail(addon: AddonCatalogEntry, status: AddonProcessStatus | undefined) {
     const slug = addon.slug;
     const icon = addon.icon || 'fas fa-puzzle-piece';
-    const cm = _colorMap[addon.color] || _colorMap.slate;
+    const cm = _colorMap[(addon.color as AddonColorKey) || 'slate'] || _colorMap.slate;
     const st = status?.status || 'stopped';
     const isRunning = st === 'running';
     const pid = status?.pid || '—';
@@ -378,7 +393,7 @@ function _renderDetail(addon, status) {
 
 // ── load ────────────────────────────────────────────────────────────────
 
-let _addonsCache = [];
+let _addonsCache: AddonCatalogEntry[] = [];
 
 export async function loadApps() {
     const container = document.getElementById('apps-list');
@@ -389,8 +404,8 @@ export async function loadApps() {
             apiCall('/api/addons'),
             apiCall('/api/addons/process/status'),
         ]);
-        const addons = await addonsRes.json();
-        const statuses = await statusRes.json();
+        const addons = await addonsRes.json() as AddonCatalogEntry[];
+        const statuses = await statusRes.json() as AddonProcessStatusMap;
 
         _addonsCache = addons;
 
@@ -419,7 +434,7 @@ export async function loadApps() {
 
 // ── detail open/close ───────────────────────────────────────────────────
 
-export async function openAppDetail(slug) {
+export async function openAppDetail(slug: string) {
     _openSlug = slug;
     const container = document.getElementById('apps-list');
     if (!container) return;
@@ -429,15 +444,15 @@ export async function openAppDetail(slug) {
             apiCall(`/api/addons/${encodeURIComponent(slug)}`),
             apiCall(`/api/addons/${encodeURIComponent(slug)}/status`),
         ]);
-        const addon = await addonRes.json();
-        const status = await statusRes.json();
+        const addon = await addonRes.json() as AddonCatalogEntry;
+        const status = await statusRes.json() as AddonProcessStatus;
         const idx = _addonsCache.findIndex(a => a.slug === addon.slug);
         if (idx >= 0) _addonsCache[idx] = addon;
         else _addonsCache.push(addon);
 
         container.innerHTML = _renderDetail(addon, status);
     } catch (e) {
-        showToast(t('apps.error_detail', { message: e.message }), 'error');
+        showToast(t('apps.error_detail', { message: _errMsg(e) }), 'error');
     }
 }
 
@@ -448,8 +463,9 @@ export function closeAppDetail() {
 
 // ── actions ─────────────────────────────────────────────────────────────
 
-export async function appAction(slug, action) {
-    const btn = event?.target?.closest?.('button');
+export async function appAction(slug: string, action: string) {
+    const ev = window.event as MouseEvent | undefined;
+    const btn = (ev?.target as HTMLElement | null)?.closest?.('button') as HTMLButtonElement | null;
     if (btn) { btn.disabled = true; btn.classList.add('opacity-50'); }
 
     try {
@@ -462,13 +478,13 @@ export async function appAction(slug, action) {
         // Re-fetch status to update buttons
         await _refreshDetailStatus(slug);
     } catch (e) {
-        showToast(t('apps.process_action_error', { slug, message: e.message }), 'error');
+        showToast(t('apps.process_action_error', { slug, message: _errMsg(e) }), 'error');
     } finally {
         if (btn) { btn.disabled = false; btn.classList.remove('opacity-50'); }
     }
 }
 
-async function _refreshDetailStatus(slug) {
+async function _refreshDetailStatus(slug: string) {
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/status`);
         const s = await res.json();
@@ -476,7 +492,7 @@ async function _refreshDetailStatus(slug) {
     } catch (_) {}
 }
 
-function _updateDetailUI(s) {
+function _updateDetailUI(s: AddonProcessStatus) {
     const st = s?.status || 'stopped';
     const isRunning = st === 'running';
 
@@ -484,16 +500,16 @@ function _updateDetailUI(s) {
     if (badge) badge.innerHTML = _statusBadge(st);
 
     const pidEl = document.getElementById('app-detail-pid');
-    if (pidEl) pidEl.textContent = s?.pid || '—';
+    if (pidEl) pidEl.textContent = String(s?.pid ?? '—');
 
     const upWrap = document.getElementById('app-detail-uptime-wrap');
     const upEl = document.getElementById('app-detail-uptime');
     if (upWrap) upWrap.classList.toggle('hidden', !s?.uptime);
     if (upEl) upEl.textContent = _uptime(s?.uptime);
 
-    const startBtn = document.getElementById('app-detail-start');
-    const stopBtn = document.getElementById('app-detail-stop');
-    const restartBtn = document.getElementById('app-detail-restart');
+    const startBtn = document.getElementById('app-detail-start') as HTMLButtonElement | null;
+    const stopBtn = document.getElementById('app-detail-stop') as HTMLButtonElement | null;
+    const restartBtn = document.getElementById('app-detail-restart') as HTMLButtonElement | null;
     if (startBtn) { startBtn.disabled = isRunning; startBtn.classList.toggle('opacity-40', isRunning); }
     if (stopBtn) { stopBtn.disabled = !isRunning; stopBtn.classList.toggle('opacity-40', !isRunning); }
     if (restartBtn) { restartBtn.disabled = !isRunning; restartBtn.classList.toggle('opacity-40', !isRunning); }
@@ -501,9 +517,9 @@ function _updateDetailUI(s) {
 
 // ── logs ────────────────────────────────────────────────────────────────
 
-let _logPollTimer = null;
+let _logPollTimer: ReturnType<typeof setInterval> | null = null;
 
-export function openAppLogModal(slug, name) {
+export function openAppLogModal(slug: string, name: string) {
     _currentLogSlug = slug;
     const modal = document.getElementById('app-log-modal');
     const title = document.getElementById('app-log-title');
@@ -537,15 +553,15 @@ export async function refreshAppLogs() {
         pre.textContent = lines.length ? lines.join('\n') : t('apps.logs_empty');
         pre.scrollTop = pre.scrollHeight;
     } catch (e) {
-        pre.textContent = t('apps.logs_error', { message: e.message });
+        pre.textContent = t('apps.logs_error', { message: _errMsg(e) });
     }
 }
 
 // ── lifecycle (install / uninstall / enable / disable) ──────────────────
 
-export async function runPreflight(slug) {
+export async function runPreflight(slug: string) {
     const area = document.getElementById('preflight-area');
-    const btn  = document.getElementById('preflight-btn');
+    const btn  = document.getElementById('preflight-btn') as HTMLButtonElement | null;
     if (!area) return;
 
     if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('apps.preflight_checking_btn'))}`; }
@@ -560,7 +576,7 @@ export async function runPreflight(slug) {
             return;
         }
         const data = await res.json();
-        const checks = data.checks || [];
+        const checks = (data.checks || []) as AddonPreflightCheck[];
 
         if (!checks.length) {
             area.innerHTML = `<p class="text-xs text-emerald-400"><i class="fas fa-check-circle mr-1.5"></i>${escapeHtml(t('apps.preflight_no_checks'))}</p>`;
@@ -586,15 +602,15 @@ export async function runPreflight(slug) {
             area.innerHTML += `<p class="text-xs text-emerald-400 mt-1"><i class="fas fa-check-circle mr-1.5"></i>${escapeHtml(t('apps.preflight_all_ok'))}</p>`;
         }
     } catch (e) {
-        area.innerHTML = `<p class="text-xs text-red-400"><i class="fas fa-exclamation-triangle mr-1.5"></i>${escapeHtml(t('common.error'))}: ${escapeHtml(e.message)}</p>`;
+        area.innerHTML = `<p class="text-xs text-red-400"><i class="fas fa-exclamation-triangle mr-1.5"></i>${escapeHtml(t('common.error'))}: ${escapeHtml(_errMsg(e))}</p>`;
     } finally {
         if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fas fa-stethoscope mr-1.5"></i>${escapeHtml(t('apps.check_requirements'))}`; }
     }
 }
 
-let _installEventSource = null;
+let _installEventSource: EventSource | null = null;
 
-export async function installApp(slug) {
+export async function installApp(slug: string) {
     // Open install-log modal and stream progress via SSE
     const modal   = document.getElementById('app-install-modal');
     const title   = document.getElementById('app-install-title');
@@ -679,7 +695,7 @@ export function goToAddonUpdates() {
     openConfigSection('updates');
 }
 
-export async function uninstallApp(slug) {
+export async function uninstallApp(slug: string) {
     if (!(await showConfirm(t('hy.addon_uninstall_confirm', { slug })))) return;
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/uninstall`, { method: 'POST' });
@@ -695,7 +711,7 @@ export async function uninstallApp(slug) {
     }
 }
 
-export async function toggleApp(slug, enabled) {
+export async function toggleApp(slug: string, enabled: boolean) {
     const ep = enabled ? 'enable' : 'disable';
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/${ep}`, { method: 'POST' });
@@ -711,7 +727,7 @@ export async function toggleApp(slug, enabled) {
     }
 }
 
-export async function toggleAddonWatchdog(slug, enabled) {
+export async function toggleAddonWatchdog(slug: string, enabled: boolean) {
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/watchdog`, {
             method: 'POST',
@@ -726,20 +742,20 @@ export async function toggleAddonWatchdog(slug, enabled) {
         } else {
             const data = await res.json().catch(() => ({}));
             showToast(data.detail || t('apps.watchdog_save_error'), 'error');
-            const cb = document.getElementById(`addon-watchdog-${slug}`);
+            const cb = document.getElementById(`addon-watchdog-${slug}`) as HTMLInputElement | null;
             if (cb) cb.checked = !enabled;
         }
     } catch (e) {
         showToast(t('hy.network_error'), 'error');
-        const cb = document.getElementById(`addon-watchdog-${slug}`);
+        const cb = document.getElementById(`addon-watchdog-${slug}`) as HTMLInputElement | null;
         if (cb) cb.checked = !enabled;
     }
 }
 
-export async function detectAddonSerialPorts(fieldKey) {
+export async function detectAddonSerialPorts(fieldKey: string) {
     const safeKey = String(fieldKey || '');
     const root = document.getElementById('app-detail') || document;
-    const input = root.querySelector(`[data-addon-config="${CSS.escape(safeKey)}"]`);
+    const input = root.querySelector(`[data-addon-config="${CSS.escape(safeKey)}"]`) as HTMLInputElement | null;
     const results = root.querySelector(`[data-addon-detect-results="${CSS.escape(safeKey)}"]`);
     if (!input || !results) return;
     results.classList.remove('hidden');
@@ -751,7 +767,7 @@ export async function detectAddonSerialPorts(fieldKey) {
             return;
         }
         const data = await res.json();
-        const ports = data.ports || [];
+        const ports = (data.ports || []) as AddonSerialPort[];
         if (!ports.length) {
             results.innerHTML = `<div class="text-[11px] text-amber-300"><i class="fas fa-circle-info mr-1"></i>${escapeHtml(t('apps.no_usb_adapters'))}</div>`;
             return;
@@ -768,7 +784,7 @@ export async function detectAddonSerialPorts(fieldKey) {
         `;
         results.querySelectorAll('[data-detect-pick]').forEach(btn => {
             btn.addEventListener('click', () => {
-                input.value = btn.dataset.detectPick;
+                input.value = (btn as HTMLElement).dataset.detectPick || '';
                 input.dispatchEvent(new Event('change', { bubbles: true }));
                 results.classList.add('hidden');
                 showToast(t('apps.port_selected_hint'), 'success');
@@ -779,29 +795,30 @@ export async function detectAddonSerialPorts(fieldKey) {
     }
 }
 
-export async function saveAddonConfig(slug) {
+export async function saveAddonConfig(slug: string) {
     const detail = document.getElementById('app-detail');
     if (!detail) return;
 
     const fields = detail.querySelectorAll('[data-addon-config]');
-    const body = {};
-    fields.forEach(field => {
-        const key = field.dataset.addonConfig;
+    const body: Record<string, unknown> = {};
+    fields.forEach((field) => {
+        const el = field as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+        const key = el.dataset.addonConfig;
         if (!key) return;
-        if (field.type === 'checkbox') {
-            body[key] = !!field.checked;
+        if (el.type === 'checkbox') {
+            body[key] = !!(el as HTMLInputElement).checked;
             return;
         }
-        if (field.type === 'number') {
-            const raw = `${field.value || ''}`.trim();
+        if (el.type === 'number') {
+            const raw = `${el.value || ''}`.trim();
             body[key] = raw === '' ? '' : Number(raw);
             return;
         }
-        body[key] = `${field.value || ''}`.trim();
+        body[key] = `${el.value || ''}`.trim();
     });
 
     // Persist watchdog state alongside config so a save can't desync it.
-    const watchdogCb = document.getElementById(`addon-watchdog-${slug}`);
+    const watchdogCb = document.getElementById(`addon-watchdog-${slug}`) as HTMLInputElement | null;
     if (watchdogCb) {
         try {
             await apiCall(`/api/addons/${encodeURIComponent(slug)}/watchdog`, {
@@ -825,11 +842,11 @@ export async function saveAddonConfig(slug) {
         _openSlug = slug;
         await openAppDetail(slug);
     } catch (e) {
-        showToast(e.message || t('toast.addon_config_save_error'), 'error');
+        showToast(_errMsg(e) || t('toast.addon_config_save_error'), 'error');
     }
 }
 
-export async function testAddonHealth(slug) {
+export async function testAddonHealth(slug: string) {
     try {
         if (isAdmin()) {
             await saveAddonConfig(slug);
@@ -843,11 +860,11 @@ export async function testAddonHealth(slug) {
         }
         await _refreshDetailStatus(slug);
     } catch (e) {
-        showToast(e.message || t('apps.health_check_failed'), 'error');
+        showToast(_errMsg(e) || t('apps.health_check_failed'), 'error');
     }
 }
 
-function _buildAddonUiEmbedUrl(slug) {
+function _buildAddonUiEmbedUrl(slug: string) {
     const encoded = encodeURIComponent(slug || '');
     const base = `/api/addons/${encoded}/ui/`;
     const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('hyve_token') || '') : '';
@@ -865,7 +882,7 @@ function _restoreConfigHeader() {
     titleEl.textContent = t('nav.config');
 }
 
-function _setAddonUiHeader(addon) {
+function _setAddonUiHeader(addon: AddonCatalogEntry | null | undefined) {
     const titleEl = document.getElementById('current-view-title');
     if (!titleEl) return;
     titleEl.dataset.addonUiActive = '1';
@@ -886,7 +903,7 @@ export function closeAddonWebUI() {
     _addonUiSlug = null;
     document.body.classList.remove('addon-ui-sidebar-active');
     const viewer = document.getElementById('addon-ui-viewer');
-    const frame = document.getElementById('addon-ui-frame');
+    const frame = document.getElementById('addon-ui-frame') as HTMLIFrameElement | null;
     const viewConfig = document.getElementById('view-config');
     if (viewer) {
         viewer.classList.remove('open');
@@ -912,7 +929,7 @@ function _prepareAddonUiOverlay() {
     document.querySelector('#app-main-wrap .flex-1')?.scrollTo?.(0, 0);
 }
 
-export async function openAddonWebUI(slug) {
+export async function openAddonWebUI(slug: string) {
     let addon = _addonsCache.find(a => a.slug === slug);
     if (!addon) {
         try {
@@ -932,7 +949,7 @@ export async function openAddonWebUI(slug) {
     }
 
     const viewer = document.getElementById('addon-ui-viewer');
-    const frame = document.getElementById('addon-ui-frame');
+    const frame = document.getElementById('addon-ui-frame') as HTMLIFrameElement | null;
     if (!viewer || !frame) {
         window.open(_buildAddonUiEmbedUrl(slug), '_blank', 'noopener,noreferrer');
         return;
@@ -958,24 +975,26 @@ function _startPoll() {
 
         try {
             // If detail view is open, update that
-            const detail = document.getElementById('app-detail');
+            const detail = document.getElementById('app-detail') as HTMLElement | null;
             if (detail) {
                 const slug = detail.dataset.slug;
-                await _refreshDetailStatus(slug);
+                if (slug) await _refreshDetailStatus(slug);
                 return;
             }
 
             // Otherwise update summary list badges
             const res = await apiCall('/api/addons/process/status');
-            const statuses = await res.json();
+            const statuses = await res.json() as AddonProcessStatusMap;
             document.querySelectorAll('.app-summary').forEach(card => {
-                const slug = card.dataset.slug;
+                const cardEl = card as HTMLElement;
+                const slug = cardEl.dataset.slug;
+                if (!slug) return;
                 const s = statuses[slug];
                 if (!s) return;
                 const badgeWrap = card.querySelector('.app-summary-badge');
                 if (badgeWrap) {
                     const cached = _addonsCache.find(a => a.slug === slug);
-                    badgeWrap.innerHTML = _updateIndicator(cached) + _statusBadge(s.status) + '<i class="fas fa-chevron-right text-slate-600 text-xs ml-3"></i>';
+                    badgeWrap.innerHTML = _updateIndicator(cached) + _statusBadge(s.status || 'stopped') + '<i class="fas fa-chevron-right text-slate-600 text-xs ml-3"></i>';
                 }
             });
         } catch (_) {}

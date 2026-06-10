@@ -1,4 +1,3 @@
-// @ts-nocheck — Phase 2 TS shell; tighten types incrementally.
 /**
  * Settings → Integrations: catalog, config entries, entity browser, modals.
  */
@@ -13,8 +12,38 @@ import { appendMediaQueryToken, getCameraStreamToken, startCameraPreviewRefresh,
 import { closeEntityDetailModal, filterHABySource } from './features_smarthome.js';
 import { integrationSlugsMatch } from './integration_sources.js';
 import { toggleVoiceRecording, isVoiceLoopActive } from './voice.js';
+import { loadConfig, copyToClipboard } from './features_config.js';
+import type { ConfigFormElement } from './types/features_config.js';
+import type {
+    EntityMetaDef,
+    EntityMetaInfo,
+    ExposedDevicesState,
+    IntegrationCatalogEntry,
+    IntegrationConfigEntriesState,
+    IntegrationDeviceSection,
+    IntegrationEntitiesMap,
+    SyncIntegrationEntitiesOptions,
+} from './types/features_integrations_settings.js';
+import type { IntegrationDeviceGroup, HyveEntity } from './types/entity.js';
 
-function _integrationSlugCandidates(slug) {
+function _errMsg(err: unknown): string {
+    if (err instanceof Error) return err.message;
+    return String(err);
+}
+
+function _inputVal(el: Element | null | undefined): string {
+    return String((el as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)?.value ?? '');
+}
+
+function _intEl(id: string): ConfigFormElement | null {
+    return document.getElementById(id) as ConfigFormElement | null;
+}
+
+function _isActiveState(state: string): boolean {
+    return (ACTIVE_STATES as readonly string[]).includes(state);
+}
+
+function _integrationSlugCandidates(slug: string) {
     const raw = String(slug || '').trim();
     if (!raw) return [];
     const dash = raw.replace(/_/g, '-');
@@ -22,11 +51,11 @@ function _integrationSlugCandidates(slug) {
     return Array.from(new Set([raw, dash, under]));
 }
 
-function _findIntegrationCheckbox(slug) {
+function _findIntegrationCheckbox(slug: string): ConfigFormElement | null {
     for (const candidate of _integrationSlugCandidates(slug)) {
         const ids = [`${candidate}_enabled`, `integrations-${candidate}-enabled`, `${candidate}Enabled`];
         for (const id of ids) {
-            const el = document.getElementById(id);
+            const el = _intEl(id);
             if (el && el.type === 'checkbox') return el;
         }
     }
@@ -35,19 +64,19 @@ function _findIntegrationCheckbox(slug) {
 
 /** Integration enable toggles live in the dynamic catalog — omit `enabled` on save when
  *  the checkbox is not mounted yet, so unrelated saves cannot flip integrations off. */
-export function integrationEnabledForSave(slug) {
+export function integrationEnabledForSave(slug: string) {
     const cb = _findIntegrationCheckbox(slug);
     if (!cb) return undefined;
     return !!cb.checked;
 }
 
-export function withOptionalIntegrationEnabled(section, slug) {
+export function withOptionalIntegrationEnabled(section: Record<string, unknown>, slug: string) {
     const enabled = integrationEnabledForSave(slug);
     if (enabled !== undefined) section.enabled = enabled;
     return section;
 }
 
-function _findIntegrationButton(slug, mode) {
+function _findIntegrationButton(slug: string, mode: string) {
     for (const candidate of _integrationSlugCandidates(slug)) {
         const btn = document.getElementById(`${candidate}-btn-${mode}`);
         if (btn) return btn;
@@ -55,9 +84,9 @@ function _findIntegrationButton(slug, mode) {
     return null;
 }
 
-export function syncIntegrationToggles() {
+export function syncIntegrationToggles(): void {
     document.querySelectorAll('[data-integration-row]').forEach(row => {
-        const slug = row.dataset.integrationRow;
+        const slug = (row as HTMLElement).dataset.integrationRow;
         if (!slug) return;
         const input = _findIntegrationCheckbox(slug);
         const disableBtn = _findIntegrationButton(slug, 'disable');
@@ -77,7 +106,7 @@ export function syncIntegrationToggles() {
     const alwaysSpeakBtn = document.getElementById('btn-always-speak');
     if (alwaysSpeakBtn) alwaysSpeakBtn.classList.toggle('hidden', !anyTtsOn);
     // Show/hide voice button depending on whisper enabled
-    const voiceBtn = document.getElementById('btn-voice');
+    const voiceBtn = document.getElementById('btn-voice') as HTMLButtonElement | null;
     if (voiceBtn) {
         const whisperCheckbox = _findIntegrationCheckbox('whisper');
         const whisperEnabled = !!(whisperCheckbox && whisperCheckbox.checked);
@@ -101,7 +130,7 @@ export function syncIntegrationToggles() {
 // ---------------------------------------------------------------------------
 let _activeIntegrationSubtab = 'active';
 
-export function switchIntegrationSubtab(tab) {
+export function switchIntegrationSubtab(tab: string) {
     _activeIntegrationSubtab = tab;
     const btnActive = document.getElementById('int-subtab-active');
     const btnAvail  = document.getElementById('int-subtab-available');
@@ -124,19 +153,19 @@ export function switchIntegrationSubtab(tab) {
     updateIntegrationSubtab();
 };
 
-function updateIntegrationSubtab() {
+function updateIntegrationSubtab(): void {
     const tab = _activeIntegrationSubtab;
-    const enabledMap = {};
+    const enabledMap: Record<string, boolean> = {};
     document.querySelectorAll('[data-integration-row]').forEach(row => {
-        const slug = row.dataset.integrationRow;
+        const slug = (row as HTMLElement).dataset.integrationRow;
         if (!slug) return;
         enabledMap[slug] = !!_findIntegrationCheckbox(slug)?.checked;
     });
 
     let visibleCount = 0;
     document.querySelectorAll('[data-integration-row]').forEach(row => {
-        const slug = row.dataset.integrationRow;
-        const isEnabled = enabledMap[slug] ?? false;
+        const slug = (row as HTMLElement).dataset.integrationRow;
+        const isEnabled = slug ? (enabledMap[slug] ?? false) : false;
         const show = tab === 'active' ? isEnabled : !isEnabled;
         row.classList.toggle('hidden', !show);
         if (show) visibleCount++;
@@ -155,14 +184,14 @@ function updateIntegrationSubtab() {
 
 // --- ComfyUI helpers ---
 
-export async function testComfyUIConnection() {
+export async function testComfyUIConnection(): Promise<void> {
     const resultEl = document.getElementById('comfyui-test-result');
     if (!resultEl) return;
     resultEl.className = 'text-xs rounded-xl p-3 bg-slate-800 text-slate-400';
     resultEl.textContent = t('common.connecting');
     resultEl.classList.remove('hidden');
     try {
-        const urlVal = (document.getElementById('comfyui_url')?.value || '').trim();
+        const urlVal = (_intEl('comfyui_url')?.value || '').trim();
         const qs = urlVal ? `?url=${encodeURIComponent(urlVal)}` : '';
         const res = await apiCall(`/api/comfyui/test${qs}`);
         const data = await res.json();
@@ -178,16 +207,16 @@ export async function testComfyUIConnection() {
         }
     } catch (e) {
         resultEl.className = 'text-xs rounded-lg p-3 mt-2 bg-red-500/10 text-red-400 border border-red-500/20';
-        resultEl.textContent = `✗ ${e.message || t('config.comfyui_request_failed')}`;
+        resultEl.textContent = `✗ ${_errMsg(e) || t('config.comfyui_request_failed')}`;
     }
 };
 
-export async function refreshComfyUICheckpoints() {
-    const select = document.getElementById('comfyui_checkpoint');
+export async function refreshComfyUICheckpoints(): Promise<void> {
+    const select = document.getElementById('comfyui_checkpoint') as HTMLSelectElement | null;
     if (!select) return;
     const current = select.value;
     try {
-        const urlVal = (document.getElementById('comfyui_url')?.value || '').trim();
+        const urlVal = (_intEl('comfyui_url')?.value || '').trim();
         const qs = urlVal ? `?url=${encodeURIComponent(urlVal)}` : '';
         const res = await apiCall(`/api/comfyui/checkpoints${qs}`);
         const data = await res.json();
@@ -203,12 +232,12 @@ export async function refreshComfyUICheckpoints() {
         if (checkpoints.length) showToast(t('config.comfyui_checkpoints_found', { count: checkpoints.length }), 'success');
         else showToast(t('config.comfyui_no_checkpoints'), 'warning');
     } catch (e) {
-        showToast(t('config.comfyui_checkpoints_fetch_failed', { detail: e.message || e }), 'error');
+        showToast(t('config.comfyui_checkpoints_fetch_failed', { detail: _errMsg(e) || e }), 'error');
     }
 };
 
-export async function refreshComfyUIWorkflows() {
-    const select = document.getElementById('comfyui_workflow_file');
+export async function refreshComfyUIWorkflows(): Promise<void> {
+    const select = document.getElementById('comfyui_workflow_file') as HTMLSelectElement | null;
     if (!select) return;
     const current = select.value;
     try {
@@ -226,11 +255,12 @@ export async function refreshComfyUIWorkflows() {
         if (workflows.length) showToast(t('config.comfyui_workflows_found', { count: workflows.length }), 'success');
         else showToast(t('config.comfyui_no_workflows'), 'info');
     } catch (e) {
-        showToast(t('config.comfyui_workflows_fetch_failed', { detail: e.message || e }), 'error');
+        showToast(t('config.comfyui_workflows_fetch_failed', { detail: _errMsg(e) || e }), 'error');
     }
 };
 
-export async function uploadComfyUIWorkflow(input) {
+export async function uploadComfyUIWorkflow(input: HTMLInputElement | null) {
+    if (!input) return;
     const file = input.files?.[0];
     if (!file) return;
     try {
@@ -246,29 +276,29 @@ export async function uploadComfyUIWorkflow(input) {
             showToast(t('config.comfyui_workflow_uploaded', { file: data.file }), 'success');
             await refreshComfyUIWorkflows();
             // Auto-select the uploaded workflow
-            const select = document.getElementById('comfyui_workflow_file');
+            const select = document.getElementById('comfyui_workflow_file') as HTMLSelectElement | null;
             if (select) select.value = `comfyui_workflows/${data.file}`;
         } else {
             showToast(t('config.comfyui_upload_failed', { detail: data.error || t('common.unknown') }), 'error');
         }
     } catch (e) {
-        showToast(t('config.comfyui_upload_failed', { detail: e.message || e }), 'error');
+        showToast(t('config.comfyui_upload_failed', { detail: _errMsg(e) || e }), 'error');
     }
     input.value = ''; // reset file input
 };
 
-async function _persistIntegrationEnabled(slug, configKey, enabled) {
+async function _persistIntegrationEnabled(slug: string, configKey: string, enabled: boolean) {
     const enc = encodeURIComponent(slug);
     try {
         const res = await apiCall(`/api/integrations/${enc}/entries`);
         const data = await res.json().catch(() => ({}));
         const entries = Array.isArray(data.entries) ? data.entries : [];
         if (entries.length) {
-            await Promise.all(entries.map((ent) => apiCall(
-                `/api/integrations/${enc}/entries/${encodeURIComponent(ent.entry_id)}`,
+            await Promise.all(entries.map((ent: Record<string, unknown>) => apiCall(
+                `/api/integrations/${enc}/entries/${encodeURIComponent(String(ent.entry_id ?? ''))}`,
                 { method: 'PATCH', body: { enabled: !!enabled } },
             )));
-            const row = _integrationCatalog.find((e) => String(e.slug || '') === slug);
+            const row = _integrationCatalog.find((entry) => String(entry.slug || '') === slug);
             if (row) row.enabled = !!enabled;
             return;
         }
@@ -278,7 +308,7 @@ async function _persistIntegrationEnabled(slug, configKey, enabled) {
     }
 }
 
-function _applyCatalogEnabledToCheckboxes() {
+function _applyCatalogEnabledToCheckboxes(): void {
     for (const entry of _integrationCatalog) {
         const slug = String(entry.slug || '').trim();
         if (!slug) continue;
@@ -288,15 +318,15 @@ function _applyCatalogEnabledToCheckboxes() {
 }
 
 let _integrationToggleButtonsBound = false;
-export function bindIntegrationToggleButtonsOnce() {
+export function bindIntegrationToggleButtonsOnce(): void {
     if (_integrationToggleButtonsBound) return;
     _integrationToggleButtonsBound = true;
 
-    document.addEventListener('click', (e) => {
-        const btn = e.target?.closest?.('.integration-toggle-btn');
+    document.addEventListener('click', (e: Event) => {
+        const btn = (e.target as HTMLElement | null)?.closest?.('.integration-toggle-btn') as HTMLElement | null;
         if (!btn) return;
         const wrap = btn.parentElement;
-        const checkbox = wrap?.querySelector('input[type="checkbox"]');
+        const checkbox = wrap?.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
         if (!checkbox) return;
 
         if (btn.id.includes('-btn-enable')) checkbox.checked = true;
@@ -321,9 +351,9 @@ export function bindIntegrationToggleButtonsOnce() {
 // drives the shared "emitted entities" section. See docs/CARDS_AND_INTEGRATIONS.md.
 // ─────────────────────────────────────────────────────────────────────────────
 
-let _integrationCatalog = [];
+let _integrationCatalog: IntegrationCatalogEntry[] = [];
 
-function _normalizeIntegrationIcon(icon) {
+function _normalizeIntegrationIcon(icon: unknown): string {
     const raw = String(icon || '').trim();
     if (!raw) return 'fa-plug';
     if (raw.includes(' ')) return raw; // already a full FontAwesome class string
@@ -331,16 +361,16 @@ function _normalizeIntegrationIcon(icon) {
     return `fa-${raw}`;
 }
 
-function _integrationCatalogSlug(integrationId) {
+function _integrationCatalogSlug(integrationId: string) {
     const def = _integrationDefinition(integrationId);
     return String(def?.slug || integrationId || '').trim();
 }
 
-function _integrationEntitySourceSlug(integrationId) {
+function _integrationEntitySourceSlug(integrationId: string) {
     return _integrationCatalogSlug(integrationId);
 }
 
-function _integrationIdForSourceSlug(sourceSlug) {
+function _integrationIdForSourceSlug(sourceSlug: string) {
     const target = String(sourceSlug || '').trim();
     if (!target) return '';
     const hit = _integrationCatalog.find((entry) => {
@@ -351,7 +381,7 @@ function _integrationIdForSourceSlug(sourceSlug) {
     return String(hit?.slug || hit?.config_key || target).trim();
 }
 
-function _integrationDefinition(integrationId) {
+function _integrationDefinition(integrationId: string): IntegrationCatalogEntry | null {
     const target = String(integrationId || '').trim();
     if (!target) return null;
     return _integrationCatalog.find((entry) => {
@@ -364,12 +394,12 @@ function _integrationDefinition(integrationId) {
     }) || null;
 }
 
-function _supportsIntegrationEntitySync(sourceSlug) {
+function _supportsIntegrationEntitySync(sourceSlug: string) {
     const def = _integrationDefinition(sourceSlug);
     return !!def?.supports_sync;
 }
 
-function _integrationLabel(entry) {
+function _integrationLabel(entry: IntegrationCatalogEntry | null | undefined) {
     if (!entry) return '';
     const titleKey = String(entry.title_key || '').trim();
     if (titleKey) {
@@ -379,9 +409,9 @@ function _integrationLabel(entry) {
     return entry.label || entry.slug || '';
 }
 
-export async function syncConfiguredIntegration(integrationId, button = null) {
+export async function syncConfiguredIntegration(integrationId: string, button: HTMLButtonElement | null = null) {
     const sourceSlug = _integrationEntitySourceSlug(integrationId);
-    const btn = button || document.getElementById(`${sourceSlug}-sync-btn`) || document.getElementById(`${integrationId}-sync-btn`);
+    const btn = (button || document.getElementById(`${sourceSlug}-sync-btn`) || document.getElementById(`${integrationId}-sync-btn`)) as HTMLButtonElement | null;
     const originalHtml = btn?.innerHTML || '';
     if (btn) {
         btn.disabled = true;
@@ -397,7 +427,7 @@ export async function syncConfiguredIntegration(integrationId, button = null) {
     }
 };
 
-function _renderIntegrationCatalogRows() {
+function _renderIntegrationCatalogRows(): void {
     const list = document.getElementById('integrations-list');
     if (!list) return;
     // Preserve the empty-state paragraph if it exists.
@@ -463,7 +493,7 @@ export async function loadIntegrationCatalog(force = false) {
 }
 
 let _activeIntegrationSubtabPreferred = 'auto';
-export async function refreshIntegrationsSettingsView(preferredTab = 'auto') {
+export async function refreshIntegrationsSettingsView(preferredTab: string = 'auto') {
     _activeIntegrationSubtabPreferred = preferredTab;
     await loadIntegrationCatalog(true);
     // The catalog renderer creates fresh checkbox/inputs for each integration,
@@ -476,7 +506,10 @@ export async function refreshIntegrationsSettingsView(preferredTab = 'auto') {
     let nextTab = preferredTab;
     if (preferredTab === 'auto') {
         const hasActive = Array.from(document.querySelectorAll('[data-integration-row]'))
-            .some((row) => !!_findIntegrationCheckbox(row.dataset.integrationRow)?.checked);
+            .some((row) => {
+                const slug = (row as HTMLElement).dataset.integrationRow;
+                return slug ? !!_findIntegrationCheckbox(slug)?.checked : false;
+            });
         nextTab = hasActive ? 'active' : 'available';
     }
     if (nextTab !== 'active' && nextTab !== 'available') nextTab = 'active';
@@ -487,16 +520,16 @@ export async function refreshIntegrationsSettingsView(preferredTab = 'auto') {
 // is opened. Groups exposed entities by device and renders clickable device
 // cards; clicking a card opens a modal with controls + rename, à la
 // Home Assistant.
-let _exposedDevicesState = { slug: null, devices: [] };
+let _exposedDevicesState: ExposedDevicesState = { slug: null, devices: [] };
 
 // Live entity updates for the integration device browser (same hub as Smarthome).
-let _integrationExposedLiveWS = null;
-let _integrationExposedLiveReconnectTimer = null;
-let _integrationExposedLivePingTimer = null;
+let _integrationExposedLiveWS: WebSocket | null = null;
+let _integrationExposedLiveReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let _integrationExposedLivePingTimer: ReturnType<typeof setInterval> | null = null;
 let _integrationExposedLiveBackoff = 1000;
-let _integrationExposedLiveSlug = null;
+let _integrationExposedLiveSlug: string | null = null;
 
-function _disconnectIntegrationExposedLive() {
+function _disconnectIntegrationExposedLive(): void {
     if (_integrationExposedLiveReconnectTimer) {
         clearTimeout(_integrationExposedLiveReconnectTimer);
         _integrationExposedLiveReconnectTimer = null;
@@ -513,7 +546,7 @@ function _disconnectIntegrationExposedLive() {
     _integrationExposedLiveSlug = null;
 }
 
-async function _fetchIntegrationExposedWsToken() {
+async function _fetchIntegrationExposedWsToken(): Promise<string | null> {
     try {
         const res = await apiCall('/api/token/sse', { method: 'POST' });
         if (!res || !res.ok) return null;
@@ -522,13 +555,13 @@ async function _fetchIntegrationExposedWsToken() {
     } catch (_) { return null; }
 }
 
-function _patchIntegrationExposedEntityState(item) {
+function _patchIntegrationExposedEntityState(item: Record<string, unknown>): void {
     if (!item || !item.entity_id) return;
     const eid = item.entity_id;
     const state = item.state == null || item.state === '' ? 'unknown' : String(item.state);
     const unit = item.unit ? ` ${item.unit}` : '';
     const stateLower = state.toLowerCase();
-    const isOn = ACTIVE_STATES.includes(stateLower);
+    const isOn = _isActiveState(stateLower);
     const isOff = ['off', 'closed', 'locked', 'idle', 'docked', 'paused'].includes(stateLower);
     const tone = isOn ? 'text-accent' : (isOff ? 'text-slate-400' : 'text-slate-200');
 
@@ -537,18 +570,18 @@ function _patchIntegrationExposedEntityState(item) {
             const ent = (dev.entities || []).find(e => e.entity_id === eid);
             if (ent) {
                 ent.state = state;
-                if (item.unit) ent.unit = item.unit;
+                if (item.unit) ent.unit = String(item.unit);
                 break;
             }
         }
     }
 
-    const modalStates = document.querySelectorAll(`[data-entity-state="${CSS.escape(eid)}"]`);
+    const modalStates = document.querySelectorAll(`[data-entity-state="${CSS.escape(String(eid))}"]`);
     for (const el of modalStates) {
         el.textContent = `${state}${unit}`;
         el.classList.remove('text-accent', 'text-slate-400', 'text-slate-200');
         el.classList.add(tone);
-        const row = el.closest('[data-entity-list] > div');
+        const row = el.closest('[data-entity-list] > div') as HTMLElement | null;
         if (row) {
             row.classList.remove('hy-row-flash');
             void row.offsetWidth;
@@ -557,7 +590,7 @@ function _patchIntegrationExposedEntityState(item) {
     }
 }
 
-function _applyIntegrationExposedLiveItems(items) {
+function _applyIntegrationExposedLiveItems(items: Record<string, unknown>[]): void {
     if (!Array.isArray(items)) return;
     for (const item of items) {
         if (!item || !item.entity_id) continue;
@@ -565,7 +598,7 @@ function _applyIntegrationExposedLiveItems(items) {
     }
 }
 
-function _scheduleIntegrationExposedLiveReconnect() {
+function _scheduleIntegrationExposedLiveReconnect(): void {
     const section = document.getElementById('integration-exposed-entities-section');
     if (!section || section.classList.contains('hidden') || !_integrationExposedLiveSlug) return;
     if (_integrationExposedLiveReconnectTimer) return;
@@ -573,11 +606,11 @@ function _scheduleIntegrationExposedLiveReconnect() {
     _integrationExposedLiveBackoff = Math.min(_integrationExposedLiveBackoff * 2, 15000);
     _integrationExposedLiveReconnectTimer = setTimeout(() => {
         _integrationExposedLiveReconnectTimer = null;
-        _connectIntegrationExposedLive(_integrationExposedLiveSlug);
+        if (_integrationExposedLiveSlug) _connectIntegrationExposedLive(_integrationExposedLiveSlug);
     }, delay);
 }
 
-async function _connectIntegrationExposedLive(slug) {
+async function _connectIntegrationExposedLive(slug: string): Promise<void> {
     const section = document.getElementById('integration-exposed-entities-section');
     if (!section || section.classList.contains('hidden')) {
         _disconnectIntegrationExposedLive();
@@ -628,9 +661,9 @@ async function _connectIntegrationExposedLive(slug) {
 }
 // Page index per slug for the device grid.
 const _DEVICE_PAGE_SIZE = 6;
-const _devicePageState = new Map();
+const _devicePageState = new Map<string, number>();
 
-function _renderDevicesSection(section, group, slug, baseOffset, opts) {
+function _renderDevicesSection(section: HTMLElement, group: IntegrationDeviceSection, slug: string, baseOffset: number, opts: Record<string, unknown>) {
     const pageSize = _DEVICE_PAGE_SIZE;
     const showEntryLabel = !!(opts && opts.showEntryLabel);
     const pages = Math.max(1, Math.ceil(group.devices.length / pageSize));
@@ -643,7 +676,7 @@ function _renderDevicesSection(section, group, slug, baseOffset, opts) {
     const start = page * pageSize;
     const slice = group.devices.slice(start, start + pageSize);
     const cardsHtml = slice
-        .map((d, j) => _devCardHtml(d, baseOffset + start + j, slug, showEntryLabel))
+        .map((d: IntegrationDeviceGroup, j: number) => _devCardHtml(d, baseOffset + start + j, slug, showEntryLabel))
         .join('');
 
     const pagerHtml = pages > 1
@@ -666,17 +699,17 @@ function _renderDevicesSection(section, group, slug, baseOffset, opts) {
 
     const prev = section.querySelector('[data-device-page-prev]');
     const next = section.querySelector('[data-device-page-next]');
-    if (prev) prev.onclick = () => {
+    if (prev) (prev as HTMLElement).onclick = () => {
         _devicePageState.set(stateKey, Math.max(0, (_devicePageState.get(stateKey) || 0) - 1));
         _renderDevicesSection(section, group, slug, baseOffset, opts);
     };
-    if (next) next.onclick = () => {
+    if (next) (next as HTMLElement).onclick = () => {
         _devicePageState.set(stateKey, Math.min(pages - 1, (_devicePageState.get(stateKey) || 0) + 1));
         _renderDevicesSection(section, group, slug, baseOffset, opts);
     };
 }
 
-function _z2mDeviceVisualHtml(d, { size = 'card' } = {}) {
+function _z2mDeviceVisualHtml(d: IntegrationDeviceGroup, { size = 'card' }: { size?: string } = {}) {
     const url = String(d?.image_url || '').trim();
     const box = size === 'modal' ? 'w-10 h-10 rounded-xl' : 'w-8 h-8 rounded-lg';
     const iconSize = size === 'modal' ? 'text-base' : 'text-sm';
@@ -690,16 +723,16 @@ function _z2mDeviceVisualHtml(d, { size = 'card' } = {}) {
     </span>`;
 }
 
-function _devCardHtml(d, idx, slug, showEntryLabel) {
+function _devCardHtml(d: IntegrationDeviceGroup, idx: number, slug: string, showEntryLabel = true) {
     const name = escapeHtml(d.name || d.device_id || t('integrations.device'));
     const ents = Array.isArray(d.entities) ? d.entities : [];
     const total = ents.length;
     const sub = [d.model, d.manufacturer].filter(Boolean).join(' · ');
     // Domain tally chips
-    const tally = {};
-    const _domOf = (e) => String(e.domain || String(e.entity_id || '').split('.')[0] || 'other').toLowerCase();
-    for (const e of ents) {
-        const dom = _domOf(e) || 'other';
+    const tally: Record<string, number> = {};
+    const _domOf = (ent: HyveEntity) => String(ent.domain || String(ent.entity_id || '').split('.')[0] || 'other').toLowerCase();
+    for (const ent of ents) {
+        const dom = _domOf(ent) || 'other';
         tally[dom] = (tally[dom] || 0) + 1;
     }
     const chips = Object.entries(tally).slice(0, 4).map(([dom, n]) => {
@@ -736,7 +769,7 @@ function _devCardHtml(d, idx, slug, showEntryLabel) {
     </div>`;
 }
 
-async function loadIntegrationExposedEntities(integrationId) {
+async function loadIntegrationExposedEntities(integrationId: string) {
     const section = document.getElementById('integration-exposed-entities-section');
     const caption = document.getElementById('integration-exposed-entities-caption');
     const grid    = document.getElementById('integration-exposed-entities-grid');
@@ -744,7 +777,7 @@ async function loadIntegrationExposedEntities(integrationId) {
     const error   = document.getElementById('integration-exposed-entities-error');
     const openBtn = document.getElementById('integration-exposed-entities-open');
     const syncBtn = document.getElementById('integration-exposed-entities-sync');
-    if (!section || !grid || !empty || !openBtn) return null;
+    if (!section || !grid || !empty || !openBtn || !error) return null;
 
     const sourceSlug = _integrationEntitySourceSlug(integrationId);
     if (!_supportsIntegrationEntitySync(sourceSlug)) {
@@ -767,7 +800,7 @@ async function loadIntegrationExposedEntities(integrationId) {
         syncBtn.classList.toggle('hidden', !supportsSync);
         syncBtn.classList.toggle('inline-flex', supportsSync);
         syncBtn.onclick = supportsSync ? async () => {
-            await syncConfiguredIntegration(integrationId, syncBtn);
+            await syncConfiguredIntegration(integrationId, syncBtn as HTMLButtonElement);
             await loadIntegrationExposedEntities(integrationId);
         } : null;
     }
@@ -778,7 +811,7 @@ async function loadIntegrationExposedEntities(integrationId) {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(translateApiDetail(data.detail) || translateApiDetail(data.message) || t('integrations.devices_load_error'));
         const devices = Array.isArray(data.devices) ? data.devices : [];
-        const totalEnts = devices.reduce((s, d) => s + ((d.entities && d.entities.length) || 0), 0);
+        const totalEnts = devices.reduce((s: number, d: IntegrationDeviceGroup) => s + ((d.entities && d.entities.length) || 0), 0);
         const meta = _integrationDefinition(integrationId);
         const label = _integrationLabel(meta) || integrationId;
         if (caption) caption.textContent = t('integrations.devices_caption', { label, devices: devices.length, entities: totalEnts });
@@ -792,9 +825,9 @@ async function loadIntegrationExposedEntities(integrationId) {
         // entry. When more than one entry is in play, each card shows its
         // own entry title as a small caption below it. Sort so devices from
         // the same entry stay adjacent.
-        const entryKeys = new Set(devices.map(d => d.entry_id || ''));
+        const entryKeys = new Set(devices.map((d: IntegrationDeviceGroup) => d.entry_id || ''));
         const showEntryLabel = entryKeys.size > 1;
-        const sorted = devices.slice().sort((a, b) => {
+        const sorted = devices.slice().sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
             const ta = String(a.entry_title || '');
             const tb = String(b.entry_title || '');
             if (ta !== tb) return ta.localeCompare(tb);
@@ -819,22 +852,22 @@ async function loadIntegrationExposedEntities(integrationId) {
         return devices.length;
     } catch (err) {
         if (caption) caption.textContent = '';
-        error.textContent = err.message || t('integrations.devices_load_error');
+        error.textContent = _errMsg(err) || t('integrations.devices_load_error');
         error.classList.remove('hidden');
         return null;
     }
 }
 
 // ── HA-style config entries (multi-instance, declarative) ──────────────
-let _entriesCurrent = { slug: null, schema: [], entries: [], supportsMultiple: false, label: '' };
-const _syncingEntryIds = new Set();
+let _entriesCurrent: IntegrationConfigEntriesState = { slug: null, schema: [], entries: [], supportsMultiple: false, label: '' };
+const _syncingEntryIds = new Set<string>();
 
-function _integrationHasConfigSchema(integrationId) {
+function _integrationHasConfigSchema(integrationId: string): boolean {
     const def = _integrationDefinition(integrationId);
     return !!def?.has_config_schema;
 }
 
-function _showIntegrationSchemaLoadError(slug, message) {
+function _showIntegrationSchemaLoadError(slug: string, message: string): void {
     const generic = document.getElementById('integration-panel-generic');
     const desc = document.getElementById('integration-generic-description');
     if (generic) generic.classList.remove('hidden');
@@ -848,7 +881,7 @@ function _showIntegrationSchemaLoadError(slug, message) {
     console.warn(`[integrations] schema load failed for ${slug}:`, message);
 }
 
-async function loadIntegrationConfigEntries(slug) {
+async function loadIntegrationConfigEntries(slug: string) {
     const section = document.getElementById('integration-entries-section');
     if (!section) return;
     if (!_integrationHasConfigSchema(slug)) {
@@ -877,7 +910,7 @@ async function loadIntegrationConfigEntries(slug) {
         payload = await res.json();
     } catch (err) {
         section.classList.add('hidden');
-        _showIntegrationSchemaLoadError(slug, err?.message || t('integrations.schema_load_network'));
+        _showIntegrationSchemaLoadError(slug, _errMsg(err) || t('integrations.schema_load_network'));
         return;
     }
     if (!payload || !Array.isArray(payload.schema) || payload.schema.length === 0) {
@@ -903,13 +936,13 @@ async function loadIntegrationConfigEntries(slug) {
     document.querySelectorAll('[id^="integration-panel-"]').forEach(p => {
         if (p.id !== 'integration-panel-generic') p.classList.add('hidden');
     });
-    const addBtn = document.getElementById('integration-entries-add-btn');
+    const addBtn = document.getElementById('integration-entries-add-btn') as HTMLButtonElement | null;
     if (addBtn) {
         const disable = !_entriesCurrent.supportsMultiple && _entriesCurrent.entries.length > 0;
         addBtn.disabled = disable;
         addBtn.classList.toggle('opacity-40', disable);
         addBtn.title = disable ? t('integrations.single_entry_only') : '';
-        addBtn.onclick = () => openEntryEditor(null);
+        addBtn.onclick = () => openEntryEditor({});
     }
     // Hide the generic "no settings" hint — the entries section IS the settings UI.
     const hint = document.getElementById('integration-generic-empty-hint');
@@ -917,14 +950,15 @@ async function loadIntegrationConfigEntries(slug) {
     _renderEntriesList();
 }
 
-function _entryRefreshBadge(refresh) {
+function _entryRefreshBadge(refresh: unknown): string {
     if (!refresh || typeof refresh !== 'object') return '';
-    if (refresh.reachable === false) {
-        const err = String(refresh.last_error || '').trim();
+    const r = refresh as Record<string, unknown>;
+    if (r.reachable === false) {
+        const err = String(r.last_error || '').trim();
         const title = err ? t('integrations.refresh_last_error', { error: err }) : t('integrations.refresh_unreachable');
         return `<span class="inline-flex items-center gap-1 text-[10px] text-red-400/90" title="${escapeHtml(title)}"><i class="fas fa-plug-circle-xmark text-[8px]"></i>${escapeHtml(t('integrations.refresh_unreachable'))}</span>`;
     }
-    const mode = String(refresh.last_mode || '').trim();
+    const mode = String(r.last_mode || '').trim();
     if (mode === 'probe') {
         return `<span class="text-[10px] text-sky-400/80">${escapeHtml(t('integrations.refresh_mode_probe'))}</span>`;
     }
@@ -937,7 +971,7 @@ function _entryRefreshBadge(refresh) {
     return '';
 }
 
-function _renderEntriesList() {
+function _renderEntriesList(): void {
     const list = document.getElementById('integration-entries-list');
     const empty = document.getElementById('integration-entries-empty');
     if (!list) return;
@@ -950,9 +984,10 @@ function _renderEntriesList() {
     _entriesCurrent.entries.forEach(entry => {
         const row = document.createElement('div');
         row.className = 'flex items-center justify-between gap-2 bg-white/[0.03] border border-white/5 rounded-lg p-2.5';
-        row.dataset.entryId = entry.entry_id;
+        row.dataset.entryId = String(entry.entry_id ?? '');
         const enabled = entry.enabled !== false;
-        const isSyncing = _syncingEntryIds.has(entry.entry_id);
+        const entryId = String(entry.entry_id ?? '');
+        const isSyncing = _syncingEntryIds.has(entryId);
         const syncBadge = isSyncing
             ? `<span class="inline-flex items-center gap-1 text-[10px] text-amber-400/80 animate-pulse"><i class="fas fa-spinner fa-spin text-[8px]"></i> ${escapeHtml(t('integrations.syncing_badge'))}</span>`
             : '';
@@ -961,31 +996,33 @@ function _renderEntriesList() {
         row.innerHTML = `
             <div class="min-w-0 flex-1">
                 <div class="text-[12px] font-semibold text-slate-100 truncate">${escapeHtml(entry.title || _entriesCurrent.label)}</div>
-                <div class="text-[10px] text-slate-500 mono truncate flex items-center gap-2 flex-wrap">${escapeHtml(entry.entry_id.slice(0,8))} ${statusText} ${syncBadge} ${refreshBadge}</div>
+                <div class="text-[10px] text-slate-500 mono truncate flex items-center gap-2 flex-wrap">${escapeHtml(entryId.slice(0,8))} ${statusText} ${syncBadge} ${refreshBadge}</div>
             </div>
             <div class="flex items-center gap-1 shrink-0">
                 <button type="button" data-act="edit" class="px-2 py-1 rounded text-[10px] bg-white/5 hover:bg-white/10 text-slate-300" title="${escapeHtml(t('common.edit'))}"><i class="fas fa-pen"></i></button>
                 <button type="button" data-act="delete" class="px-2 py-1 rounded text-[10px] bg-red-500/10 hover:bg-red-500/20 text-red-300" title="${escapeHtml(t('common.delete'))}"><i class="fas fa-trash"></i></button>
             </div>`;
-        row.querySelector('[data-act="edit"]').onclick = () => openEntryEditor(entry);
-        row.querySelector('[data-act="delete"]').onclick = async () => {
+        const editBtn = row.querySelector('[data-act="edit"]') as HTMLButtonElement | null;
+        const deleteBtn = row.querySelector('[data-act="delete"]') as HTMLButtonElement | null;
+        if (editBtn) editBtn.onclick = () => openEntryEditor(entry);
+        if (deleteBtn) deleteBtn.onclick = async () => {
             if (!await showConfirm(t('integrations.entry_delete_config_confirm', { title: entry.title }))) return;
             try {
                 const slug = _entriesCurrent.slug;
-                const r = await apiCall(`/api/integrations/${encodeURIComponent(slug)}/entries/${encodeURIComponent(entry.entry_id)}`, { method: 'DELETE' });
+                const r = await apiCall(`/api/integrations/${encodeURIComponent(slug || '')}/entries/${encodeURIComponent(entryId)}`, { method: 'DELETE' });
                 if (!r.ok) { const o = await r.json().catch(() => ({})); throw new Error(translateApiDetail(o.detail) || t('integrations.delete_error')); }
-                await loadIntegrationConfigEntries(slug);
-                try { await loadIntegrationExposedEntities(slug); } catch (_) {}
+                await loadIntegrationConfigEntries(slug || '');
+                try { await loadIntegrationExposedEntities(slug || ''); } catch (_) {}
                 if (typeof showToast === 'function') showToast(t('hy.deleted'), 'success', 1800);
             } catch (e) {
-                if (typeof showToast === 'function') showToast(e.message || t('common.error'), 'error', 2500);
+                if (typeof showToast === 'function') showToast(_errMsg(e) || t('common.error'), 'error', 2500);
             }
         };
         list.appendChild(row);
     });
 }
 
-function _pollForEntities(slug, attempts = 0, syncingEntryId = null) {
+function _pollForEntities(slug: string, attempts = 0, syncingEntryId: string | null = null) {
     const maxAttempts = 8;
     const delays = [1500, 2500, 3000, 4000, 5000, 7000, 10000, 15000];
     const grid = document.getElementById('integration-exposed-entities-grid');
@@ -996,7 +1033,7 @@ function _pollForEntities(slug, attempts = 0, syncingEntryId = null) {
         </div>`;
     }
     loadIntegrationExposedEntities(slug).then(count => {
-        if (count > 0) {
+        if (count != null && count > 0) {
             _clearSyncingState(syncingEntryId);
             return;
         }
@@ -1017,7 +1054,7 @@ function _pollForEntities(slug, attempts = 0, syncingEntryId = null) {
     });
 }
 
-function _clearSyncingState(entryId) {
+function _clearSyncingState(entryId: string | null): void {
     if (!entryId) return;
     _syncingEntryIds.delete(entryId);
     const row = document.querySelector(`[data-entry-id="${CSS.escape(entryId)}"]`);
@@ -1027,25 +1064,26 @@ function _clearSyncingState(entryId) {
     }
 }
 
-function openEntryEditor(entry) {
+function openEntryEditor(entry: Record<string, unknown> | null): void {
     const modal = document.getElementById('integration-entry-modal');
     const titleEl = document.getElementById('integration-entry-modal-title');
     const fieldsEl = document.getElementById('integration-entry-fields');
     const errEl = document.getElementById('integration-entry-error');
     const titleInput = document.querySelector('#integration-entry-form input[name="__title__"]');
-    if (!modal || !fieldsEl || !titleInput) return;
+    if (!modal || !fieldsEl || !titleInput || !errEl || !titleEl) return;
     errEl.classList.add('hidden'); errEl.textContent = '';
-    titleEl.textContent = entry ? t('integrations.entry_edit_title', { title: entry.title }) : t('integrations.entry_add_title', { label: _entriesCurrent.label });
-    titleInput.value = entry?.title || '';
+    titleEl.textContent = entry && entry.title ? t('integrations.entry_edit_title', { title: String(entry.title) }) : t('integrations.entry_add_title', { label: _entriesCurrent.label });
+    (titleInput as HTMLInputElement).value = entry?.title ? String(entry.title) : '';
     fieldsEl.innerHTML = '';
-    const data = entry?.data || {};
+    const data = (entry?.data || {}) as Record<string, unknown>;
     _entriesCurrent.schema.forEach(field => {
         const wrap = document.createElement('div');
-        const id = `entry_field_${field.key}`;
+        const fkey = String(field.key || '');
+        const id = `entry_field_${fkey}`;
         const required = field.required ? '<span class="text-red-400">*</span>' : '';
         const help = field.help ? `<div class="text-[10px] text-slate-500 mt-1">${escapeHtml(field.help)}</div>` : '';
         let input = '';
-        const value = data[field.key] !== undefined ? data[field.key] : (field.default !== undefined ? field.default : '');
+        const value = data[fkey] !== undefined ? data[fkey] : (field.default !== undefined ? field.default : '');
         const placeholder = field.placeholder ? `placeholder="${escapeHtml(field.placeholder)}"` : '';
         if (field.type === 'link') {
             const href = escapeHtmlAttr(field.url || '#');
@@ -1055,47 +1093,50 @@ function openEntryEditor(entry) {
             </a>`;
         } else if (field.type === 'select' && Array.isArray(field.options)) {
             const opts = field.options.map(o => `<option value="${escapeHtml(o.value)}" ${String(o.value)===String(value)?'selected':''}>${escapeHtml(o.label)}</option>`).join('');
-            input = `<select id="${id}" name="${field.key}" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-accent outline-none">${opts}</select>`;
+            input = `<select id="${id}" name="${fkey}" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-accent outline-none">${opts}</select>`;
         } else if (field.type === 'bool') {
-            input = `<label class="flex items-center gap-2 text-sm text-slate-200"><input type="checkbox" id="${id}" name="${field.key}" ${value?'checked':''} class="accent-accent"> <span>${escapeHtml(field.label || field.key)}</span></label>`;
+            input = `<label class="flex items-center gap-2 text-sm text-slate-200"><input type="checkbox" id="${id}" name="${fkey}" ${value?'checked':''} class="accent-accent"> <span>${escapeHtml(field.label || fkey)}</span></label>`;
         } else {
             const t = field.type === 'number' ? 'number' : (field.type === 'password' ? 'password' : (field.type === 'url' ? 'url' : 'text'));
             const minAttr = field.min != null ? ` min="${escapeHtmlAttr(field.min)}"` : '';
             const maxAttr = field.max != null ? ` max="${escapeHtmlAttr(field.max)}"` : '';
-            input = `<input type="${t}" id="${id}" name="${field.key}"${minAttr}${maxAttr} ${placeholder} value="${escapeHtml(value)}" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-accent outline-none">`;
+            input = `<input type="${t}" id="${id}" name="${fkey}"${minAttr}${maxAttr} ${placeholder} value="${escapeHtml(String(value ?? ''))}" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-accent outline-none">`;
         }
         if (field.type === 'bool') {
             wrap.innerHTML = input;
         } else {
-            wrap.innerHTML = `<label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">${escapeHtml(field.label || field.key)} ${required}</label>${input}${help}`;
+            wrap.innerHTML = `<label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">${escapeHtml(field.label || fkey)} ${required}</label>${input}${help}`;
         }
         fieldsEl.appendChild(wrap);
     });
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     const close = () => { modal.classList.add('hidden'); modal.classList.remove('flex'); };
-    document.getElementById('integration-entry-modal-close').onclick = close;
-    document.getElementById('integration-entry-cancel').onclick = close;
+    const closeBtn = document.getElementById('integration-entry-modal-close') as HTMLButtonElement | null;
+    const cancelBtn = document.getElementById('integration-entry-cancel') as HTMLButtonElement | null;
+    if (closeBtn) closeBtn.onclick = close;
+    if (cancelBtn) cancelBtn.onclick = close;
     // Helper: collect form data, skipping masked secrets when editing.
     const collectData = () => {
-        const out = {};
+        const out: Record<string, unknown> = {};
         for (const field of _entriesCurrent.schema) {
             if (field.type === 'oauth' || field.type === 'link') continue;
-            const el = document.getElementById(`entry_field_${field.key}`);
+            const fkey = String(field.key || '');
+            const el = _intEl(`entry_field_${fkey}`);
             if (!el) continue;
             let v;
             if (field.type === 'bool') v = !!el.checked;
             else if (field.type === 'number') v = el.value === '' ? null : Number(el.value);
             else v = el.value;
             if (entry && field.secret && typeof v === 'string' && /^[•*]+$/.test(v)) continue;
-            out[field.key] = v;
+            out[fkey] = v;
         }
         return out;
     };
 
     // Test connection — runs the provider's ``async_test_connection`` against
     // the unsaved form data. Does NOT persist the entry.
-    const testBtn = document.getElementById('integration-entry-test');
+    const testBtn = document.getElementById('integration-entry-test') as HTMLButtonElement | null;
     if (testBtn) {
         testBtn.onclick = async () => {
             errEl.classList.add('hidden'); errEl.textContent = '';
@@ -1105,9 +1146,9 @@ function openEntryEditor(entry) {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 45000);
             try {
-                const r = await apiCall(`/api/integrations/${encodeURIComponent(_entriesCurrent.slug)}/entries/test`, {
+                const r = await apiCall(`/api/integrations/${encodeURIComponent(_entriesCurrent.slug || '')}/entries/test`, {
                     method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ data: collectData(), entry_id: entry?.entry_id || null }),
+                    body: JSON.stringify({ data: collectData(), entry_id: entry?.entry_id ? String(entry.entry_id) : null }),
                     signal: controller.signal,
                 });
                 const o = await r.json().catch(() => ({}));
@@ -1118,9 +1159,9 @@ function openEntryEditor(entry) {
                     errEl.classList.remove('hidden');
                 }
             } catch (e) {
-                errEl.textContent = e.name === 'AbortError'
+                errEl.textContent = (e as Error).name === 'AbortError'
                     ? t('integrations.test_timeout')
-                    : (e.message || t('common.error'));
+                    : (_errMsg(e) || t('common.error'));
                 errEl.classList.remove('hidden');
             } finally {
                 clearTimeout(timeoutId);
@@ -1130,17 +1171,18 @@ function openEntryEditor(entry) {
         };
     }
 
-    document.getElementById('integration-entry-save').onclick = async () => {
-        const saveBtn = document.getElementById('integration-entry-save');
-        const payload = { title: (titleInput.value || '').trim() || _entriesCurrent.label, data: collectData() };
+    const saveBtnEl = document.getElementById('integration-entry-save') as HTMLButtonElement | null;
+    if (saveBtnEl) saveBtnEl.onclick = async () => {
+        const saveBtn = saveBtnEl;
+        const payload = { title: ((titleInput as HTMLInputElement).value || '').trim() || _entriesCurrent.label, data: collectData() };
         const isCreate = !entry;
         const slug = _entriesCurrent.slug;
         // Disable save button to prevent double-clicks
         if (saveBtn) { saveBtn.disabled = true; saveBtn.classList.add('opacity-50'); }
         try {
             const url = entry
-                ? `/api/integrations/${encodeURIComponent(slug)}/entries/${encodeURIComponent(entry.entry_id)}`
-                : `/api/integrations/${encodeURIComponent(slug)}/entries`;
+                ? `/api/integrations/${encodeURIComponent(slug || '')}/entries/${encodeURIComponent(String(entry.entry_id ?? ''))}`
+                : `/api/integrations/${encodeURIComponent(slug || '')}/entries`;
             const r = await apiCall(url, { method: entry ? 'PATCH' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
             const o = await r.json().catch(() => ({}));
             if (!r.ok) {
@@ -1152,14 +1194,14 @@ function openEntryEditor(entry) {
             close();
             if (typeof showToast === 'function') showToast(t('hy.saved'), 'success', 1800);
             // Mark entry as syncing so the row shows a loading indicator
-            const savedEntryId = o.entry?.entry_id;
+            const savedEntryId = o.entry?.entry_id ? String(o.entry.entry_id) : null;
             if (savedEntryId) _syncingEntryIds.add(savedEntryId);
             // Refresh the entries list right away (entry already persisted, shows syncing badge)
-            await loadIntegrationConfigEntries(slug);
+            await loadIntegrationConfigEntries(slug || '');
             // Poll for entities — clears syncing state when done
-            _pollForEntities(slug, 0, savedEntryId);
+            _pollForEntities(slug || '', 0, savedEntryId);
         } catch (e) {
-            errEl.textContent = e.message || t('common.error'); errEl.classList.remove('hidden');
+            errEl.textContent = _errMsg(e) || t('common.error'); errEl.classList.remove('hidden');
         } finally {
             if (saveBtn) { saveBtn.disabled = false; saveBtn.classList.remove('opacity-50'); }
         }
@@ -1170,20 +1212,20 @@ function openEntryEditor(entry) {
 // Opens the provider's auth page in a popup, then polls the provider's status
 // endpoint until the server-side redirect callback has captured the code and
 // created the config entry. No copy/paste, no homeassistant.local.
-async function _runOAuthConnect(field, btn, errEl, closeModal) {
+async function _runOAuthConnect(field: Record<string, unknown>, btn: HTMLButtonElement, errEl: HTMLElement, closeModal: () => void) {
     const slug = _entriesCurrent.slug;
     const labelEl = btn.querySelector('[data-oauth-label]');
-    const statusEl = btn.parentElement.querySelector('[data-oauth-status]');
+    const statusEl = btn.parentElement?.querySelector('[data-oauth-status]') as HTMLElement | null;
     const origLabel = labelEl ? labelEl.textContent : '';
-    const setBusy = (txt) => { if (labelEl) labelEl.textContent = txt; btn.disabled = true; };
+    const setBusy = (txt: string) => { if (labelEl) labelEl.textContent = txt; btn.disabled = true; };
     const reset = () => { if (labelEl) labelEl.textContent = origLabel; btn.disabled = false; };
     if (errEl) { errEl.classList.add('hidden'); errEl.textContent = ''; }
 
     // Build the start URL with declared form params (e.g. cloud_server).
     const qs = new URLSearchParams();
-    (field.params || []).forEach(key => {
-        const el = document.getElementById(`entry_field_${key}`);
-        if (el && el.value !== undefined) qs.set(key, el.value);
+    (Array.isArray(field.params) ? field.params : []).forEach((key: string) => {
+        const el = _intEl(`entry_field_${key}`);
+        if (el) qs.set(key, el.value);
     });
     setBusy(t('integrations.oauth_opening'));
     let state;
@@ -1202,7 +1244,7 @@ async function _runOAuthConnect(field, btn, errEl, closeModal) {
         else window.open(o.auth_url, '_blank');
     } catch (e) {
         reset();
-        if (errEl) { errEl.textContent = e.message || t('common.error'); errEl.classList.remove('hidden'); }
+        if (errEl) { errEl.textContent = _errMsg(e) || t('common.error'); errEl.classList.remove('hidden'); }
         return;
     }
 
@@ -1223,8 +1265,8 @@ async function _runOAuthConnect(field, btn, errEl, closeModal) {
                 try { if (popup && !popup.closed) popup.close(); } catch (_) {}
                 if (typeof closeModal === 'function') closeModal();
                 if (o.entry_id) _syncingEntryIds.add(o.entry_id);
-                await loadIntegrationConfigEntries(slug);
-                _pollForEntities(slug, 0, o.entry_id);
+                await loadIntegrationConfigEntries(slug || '');
+                _pollForEntities(slug || '', 0, o.entry_id ? String(o.entry_id) : null);
                 return;
             }
             if (o.status === 'error' || o.status === 'expired') {
@@ -1239,25 +1281,25 @@ async function _runOAuthConnect(field, btn, errEl, closeModal) {
 }
 
 // ── Device modal (shared across integrations) ──────────────────────────
-function _entityIcon(eid, domain) {
+function _entityIcon(eid: string, domain: string): string {
     const dom = String(domain || String(eid || '').split('.')[0] || '').toLowerCase();
     return getDomainIcon(dom);
 }
 
-function _intCtrlAttrs(slug, eid, action, payload = null, { stop = false } = {}) {
+function _intCtrlAttrs(slug: string, eid: string, action: string, payload: Record<string, unknown> | null = null, { stop = false }: { stop?: boolean } = {}) {
     const payloadAttr = payload != null ? ` data-int-payload="${escapeHtmlAttr(JSON.stringify(payload))}"` : '';
     const stopAttr = stop ? ' data-entity-stop="1"' : '';
     return `data-entity-action="control" data-int-slug="${escapeHtmlAttr(slug)}" data-int-entity-id="${escapeHtmlAttr(eid)}" data-int-cmd="${escapeHtmlAttr(action)}"${payloadAttr}${stopAttr}`;
 }
 
-function _renderEntityControlRow(ent, slug) {
-    const eid = ent.entity_id || '';
-    const name = escapeHtml(ent.name || ent.friendly_name || eid);
+function _renderEntityControlRow(ent: HyveEntity, slug: string): string {
+    const eid = String(ent.entity_id || '');
+    const name = escapeHtml(String(ent.name || ent.friendly_name || eid));
     const dom = String(ent.domain || String(eid).split('.')[0] || '').toLowerCase();
     const state = ent.state == null || ent.state === '' ? 'unknown' : String(ent.state);
     const unit = ent.unit ? ` ${escapeHtml(String(ent.unit))}` : '';
     const lower = state.toLowerCase();
-    const isOn = ACTIVE_STATES.includes(lower);
+    const isOn = _isActiveState(lower);
     const isOff = ['off', 'closed', 'locked', 'idle', 'docked', 'paused'].includes(lower);
     const tone = isOn ? 'text-accent' : (isOff ? 'text-slate-400' : 'text-slate-200');
     const icon = _entityIcon(eid, dom);
@@ -1265,8 +1307,9 @@ function _renderEntityControlRow(ent, slug) {
     const sA = escapeHtmlAttr(slug);
 
     let control = '';
-    const caps = ((ent.attributes || {}).capabilities) || {};
-    const controllable = ent.controllable !== false && CONTROLLABLE.includes(dom);
+    const attrs = (ent.attributes || {}) as Record<string, unknown>;
+    const caps = (attrs.capabilities || {}) as Record<string, unknown>;
+    const controllable = ent.controllable !== false && (CONTROLLABLE as readonly string[]).includes(dom);
     if (controllable && (dom === 'switch' || dom === 'light' || dom === 'input_boolean' || dom === 'fan' || dom === 'humidifier' || dom === 'water_heater' || dom === 'climate')) {
         const action = isOn ? 'turn_off' : 'turn_on';
         control = `<button type="button" role="switch" aria-checked="${isOn}"
@@ -1283,7 +1326,7 @@ function _renderEntityControlRow(ent, slug) {
         </button>`;
     } else if (controllable && dom === 'vacuum') {
         const stateLbl = tState(lower);
-        const vBtn = (vacAction, ic, title) => `<button type="button" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"
+        const vBtn = (vacAction: string, ic: string, title: string) => `<button type="button" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"
             class="w-8 h-8 rounded-full border bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-accent shrink-0 flex items-center justify-center transition-colors"
             ${_intCtrlAttrs(slug, eid, vacAction, null, { stop: true })}>
             <i class="fas ${ic} text-[11px]"></i>
@@ -1332,11 +1375,11 @@ function _renderEntityControlRow(ent, slug) {
 
 // Pagination for the entity list inside the device-detail modal.
 const _ENTITY_PAGE_SIZE = 5;
-const _entityPageState = new Map(); // key: `${slug}::${deviceId}` -> page index (0-based)
+const _entityPageState = new Map<string, number>(); // key: `${slug}::${deviceId}` -> page index (0-based)
 
-function _entityPageKey(slug, deviceId) { return `${slug}::${deviceId}`; }
+function _entityPageKey(slug: string, deviceId: string): string { return `${slug}::${deviceId}`; }
 
-function _renderPaginatedEntityList(ents, slug, deviceId) {
+function _renderPaginatedEntityList(ents: HyveEntity[], slug: string, deviceId: string): string {
     const total = ents.length;
     const pageSize = _ENTITY_PAGE_SIZE;
     const pages = Math.max(1, Math.ceil(total / pageSize));
@@ -1374,7 +1417,7 @@ function _renderPaginatedEntityList(ents, slug, deviceId) {
     return rows + pager;
 }
 
-function _wireEntityListPagination(body, ents, slug, deviceId) {
+function _wireEntityListPagination(body: HTMLElement, ents: HyveEntity[], slug: string, deviceId: string): void {
     const key = _entityPageKey(slug, deviceId);
     const pages = Math.max(1, Math.ceil(ents.length / _ENTITY_PAGE_SIZE));
     const rerender = () => {
@@ -1391,19 +1434,19 @@ function _wireEntityListPagination(body, ents, slug, deviceId) {
     };
     const prev = body.querySelector('[data-entity-page-prev]');
     const next = body.querySelector('[data-entity-page-next]');
-    if (prev) prev.onclick = () => {
+    if (prev) (prev as HTMLButtonElement).onclick = () => {
         const p = (_entityPageState.get(key) || 0) - 1;
         _entityPageState.set(key, Math.max(0, p));
         rerender();
     };
-    if (next) next.onclick = () => {
+    if (next) (next as HTMLButtonElement).onclick = () => {
         const p = (_entityPageState.get(key) || 0) + 1;
         _entityPageState.set(key, Math.min(pages - 1, p));
         rerender();
     };
 }
 
-function _patchExposedEntityId(oldEntityId, newEntityId, uniqueId) {
+function _patchExposedEntityId(oldEntityId: string, newEntityId: string, uniqueId: string): void {
     const state = _exposedDevicesState;
     if (!state?.devices) return;
     for (const dev of state.devices) {
@@ -1415,7 +1458,7 @@ function _patchExposedEntityId(oldEntityId, newEntityId, uniqueId) {
     }
 }
 
-function _openIntegrationEntityDetailModal(entity, slug) {
+function _openIntegrationEntityDetailModal(entity: HyveEntity, slug: string): void {
     const modal = document.getElementById('entity-detail-modal');
     const iconEl = document.getElementById('entity-detail-modal-icon');
     const labelEl = document.getElementById('entity-detail-modal-label');
@@ -1424,20 +1467,23 @@ function _openIntegrationEntityDetailModal(entity, slug) {
 
     stopCameraPreviewRefresh();
     modal.querySelectorAll('hyve-camera-live-player').forEach(el => {
-        try { el.pauseStream?.(); } catch (_) {}
+        try { (el as HTMLElement & { pauseStream?: () => void }).pauseStream?.(); } catch (_) {}
     });
 
     const dom = String(entity.domain || String(entity.entity_id || '').split('.')[0] || '').toLowerCase();
-    const dc = ((entity.attributes || {}).capabilities || {}).device_class || (entity.attributes || {}).device_class || '';
+    const entAttrs = (entity.attributes || {}) as Record<string, unknown>;
+    const entCaps = (entAttrs.capabilities || {}) as Record<string, unknown>;
+    const dc = String(entCaps.device_class || entAttrs.device_class || '');
     const icon = getDomainIcon(dom, dc);
     if (iconEl) iconEl.className = `fas ${icon}`;
-    if (labelEl) labelEl.textContent = entity.name || entity.entity_id || 'Entity';
+    if (labelEl) labelEl.textContent = String(entity.name || entity.entity_id || 'Entity');
 
-    body.innerHTML = renderEntityModal(entity, slug || _exposedDevicesState?.slug || entity.source || '');
+    const entitySlug = slug || _exposedDevicesState?.slug || String(entity.source || '');
+    body.innerHTML = renderEntityModal(entity, entitySlug);
     wireEntityRegistryEditor(body, entity, {
         onUpdated: ({ oldEntityId, newEntityId, uniqueId }) => {
             _patchExposedEntityId(oldEntityId, newEntityId, uniqueId);
-            _openIntegrationEntityDetailModal(entity, slug || _exposedDevicesState?.slug || entity.source || '');
+            _openIntegrationEntityDetailModal(entity, entitySlug);
         },
     });
     if (modal.parentNode !== document.body) document.body.appendChild(modal);
@@ -1446,20 +1492,20 @@ function _openIntegrationEntityDetailModal(entity, slug) {
     startCameraPreviewRefresh();
 }
 
-export function openIntegrationEntityCard(encoded) {
-    let entity;
+export function openIntegrationEntityCard(encoded: string) {
+    let entity: HyveEntity | null = null;
     try {
-        entity = JSON.parse(decodeURIComponent(encoded));
+        entity = JSON.parse(decodeURIComponent(encoded)) as HyveEntity;
     } catch (_) {
         return;
     }
     if (!entity || !entity.entity_id) return;
-    _openIntegrationEntityDetailModal(entity, _exposedDevicesState?.slug || entity.source || '');
+    _openIntegrationEntityDetailModal(entity, _exposedDevicesState?.slug || String(entity.source || ''));
 };
 
-export function openIntegrationDeviceModal(idx, slug) {
+export function openIntegrationDeviceModal(idx: number, slug: string) {
     const state = _exposedDevicesState;
-    if (!state || !integrationSlugsMatch(state.slug, slug)) return;
+    if (!state || !integrationSlugsMatch(state.slug || '', slug)) return;
     const dev = state.devices[idx];
     if (!dev) return;
     const modal = document.getElementById('entity-detail-modal');
@@ -1473,7 +1519,7 @@ export function openIntegrationDeviceModal(idx, slug) {
     const name = escapeHtml(dev.name || dev.device_id || (t('common.device')));
     const sub = [dev.model, dev.manufacturer].filter(Boolean).join(' · ');
     const ents = (dev.entities || []).slice().sort((a, b) => {
-        const order = { switch: 0, light: 1, cover: 2, lock: 3, climate: 4, number: 5, select: 6, button: 7, event: 8, binary_sensor: 9, sensor: 10 };
+        const order: Record<string, number> = { switch: 0, light: 1, cover: 2, lock: 3, climate: 4, number: 5, select: 6, button: 7, event: 8, binary_sensor: 9, sensor: 10 };
         const da = String(a.entity_id || '').split('.')[0];
         const db = String(b.entity_id || '').split('.')[0];
         const oa = order[da] ?? 99, ob = order[db] ?? 99;
@@ -1535,16 +1581,16 @@ export function openIntegrationDeviceModal(idx, slug) {
     // Wire inline rename UI
     const view = body.querySelector('#entity-detail-name-view');
     const edit = body.querySelector('#entity-detail-name-edit');
-    const input = body.querySelector('#entity-detail-name-input');
-    const renameBtn = body.querySelector('#entity-detail-rename-btn');
-    const saveBtn = body.querySelector('#entity-detail-name-save');
-    const cancelBtn = body.querySelector('#entity-detail-name-cancel');
+    const input = body.querySelector('#entity-detail-name-input') as HTMLInputElement | null;
+    const renameBtn = body.querySelector('#entity-detail-rename-btn') as HTMLButtonElement | null;
+    const saveBtn = body.querySelector('#entity-detail-name-save') as HTMLButtonElement | null;
+    const cancelBtn = body.querySelector('#entity-detail-name-cancel') as HTMLButtonElement | null;
     const showEdit = () => { view?.classList.add('hidden'); edit?.classList.remove('hidden'); input?.focus(); input?.select(); };
     const hideEdit = () => { edit?.classList.add('hidden'); view?.classList.remove('hidden'); };
     if (renameBtn) renameBtn.onclick = showEdit;
     if (cancelBtn) cancelBtn.onclick = hideEdit;
     const submit = () => {
-        const haRename = body.querySelector('#entity-detail-ha-rename');
+        const haRename = body.querySelector('#entity-detail-ha-rename') as HTMLInputElement | null;
         const updateIds = haRename ? haRename.checked : true;
         renameIntegrationDevice(
             slug,
@@ -1555,14 +1601,14 @@ export function openIntegrationDeviceModal(idx, slug) {
         );
     };
     if (saveBtn) saveBtn.onclick = submit;
-    if (input) input.onkeydown = (ev) => {
+    if (input) input.onkeydown = (ev: KeyboardEvent) => {
         if (ev.key === 'Enter') { ev.preventDefault(); submit(); }
         else if (ev.key === 'Escape') { ev.preventDefault(); hideEdit(); }
     };
 };
 
-export async function controlIntegrationEntity(slug, entityId, action, btn, data) {
-    if (btn) { btn.disabled = true; btn.dataset._prev = btn.innerHTML || ''; }
+export async function controlIntegrationEntity(slug: string, entityId: string, action: string, btn: HTMLElement | null, data: Record<string, unknown> | null) {
+    if (btn) { (btn as HTMLButtonElement).disabled = true; btn.dataset._prev = btn.innerHTML || ''; }
     // Optimistic local update so the UI reacts instantly without waiting for
     // the server to round-trip a full re-fetch.
     let prevState = null;
@@ -1601,16 +1647,16 @@ export async function controlIntegrationEntity(slug, entityId, action, btn, data
                 openIntegrationDeviceModal(touchedIdx, slug);
             }
         }
-        if (typeof showToast === 'function') showToast(err.message || t('common.error'), 'error', 2500);
+        if (typeof showToast === 'function') showToast(_errMsg(err) || t('common.error'), 'error', 2500);
     } finally {
-        if (btn) { btn.disabled = false; }
+        if (btn) { (btn as HTMLButtonElement).disabled = false; }
     }
 };
 
-export async function renameIntegrationDevice(slug, deviceId, currentName, providedName, homeassistantRename = true) {
+export async function renameIntegrationDevice(slug: string, deviceId: string, currentName: string, providedName?: string, homeassistantRename = true) {
     let next = providedName;
     if (next == null) {
-        next = window.prompt(t('integrations.device_rename_prompt'), currentName || '');
+        next = window.prompt(t('integrations.device_rename_prompt'), currentName || '') ?? undefined;
         if (next == null) return;
     }
     const trimmed = String(next).trim();
@@ -1651,17 +1697,17 @@ export async function renameIntegrationDevice(slug, deviceId, currentName, provi
             showToast(t('integrations.device_rename_synced') || t('integrations.device_rename_ok'), 'success', 2200);
         }
     } catch (err) {
-        if (typeof showToast === 'function') showToast(err.message || t('common.error'), 'error', 3000);
+        if (typeof showToast === 'function') showToast(_errMsg(err) || t('common.error'), 'error', 3000);
     }
 };
 
-export function slugForId(s) {
+export function slugForId(s: string) {
     if (!s || typeof s !== 'string') return '';
     return s.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') || '';
 }
 
 
-function addCctvCameraRow(camera) {
+function addCctvCameraRow(camera: Record<string, unknown>) {
     const list = document.getElementById('cctv-cameras-list');
     if (!list) return;
     const name = (camera && camera.name) || '';
@@ -1677,21 +1723,21 @@ function addCctvCameraRow(camera) {
         <input type="text" class="cctv-cam-context w-full min-w-0 bg-slate-900 border border-white/5 rounded-lg p-2 text-xs text-slate-400 focus:border-violet-400 outline-none" placeholder="${escapeHtmlAttr(ctxPlaceholder)}" value="${escapeHtmlAttr(context)}" title="${escapeHtmlAttr(t('config.cctv_camera_context_hint'))}">
         <button type="button" class="cctv-cam-remove px-2 py-1.5 rounded-lg text-[10px] text-red-400 hover:bg-red-500/20 border border-red-500/20 shrink-0" data-i18n="common.delete">Delete</button>
     `;
-    if (id) row.dataset.cctvId = id;
+    if (id) row.dataset.cctvId = String(id);
     list.appendChild(row);
     const removeBtn = row.querySelector('.cctv-cam-remove');
     if (removeBtn) removeBtn.addEventListener('click', () => row.remove());
 }
 
-export function renderCctvCameras(cameras) {
+export function renderCctvCameras(cameras: unknown[]) {
     const list = document.getElementById('cctv-cameras-list');
     if (!list) return;
     list.innerHTML = '';
-    (cameras || []).forEach(cam => addCctvCameraRow(cam));
+    (cameras as Record<string, unknown>[] || []).forEach((cam) => addCctvCameraRow(cam));
 }
-const INTEGRATION_MODAL_TITLES = { ha: 'config.ha_section', searxng: 'config.searxng_section', waha: 'config.waha_section', cctv: 'config.cctv_section', whisper: 'config.whisper_section', comfyui: 'config.comfyui_section', piper: 'config.piper_section', pago: 'config.pago_section', fusion_solar: 'config.fusion_solar_section' };
-const INTEGRATION_MODAL_ICONS  = { ha: 'fa-house-signal', searxng: 'fa-magnifying-glass', waha: 'fa-brands fa-whatsapp', cctv: 'fa-video', whisper: 'fa-microphone', comfyui: 'fa-palette', piper: 'fa-volume-up', pago: 'fa-file-invoice-dollar', fusion_solar: 'fa-solar-panel' };
-const INTEGRATION_MODAL_IMAGES = {
+const INTEGRATION_MODAL_TITLES: Record<string, string> = { ha: 'config.ha_section', searxng: 'config.searxng_section', waha: 'config.waha_section', cctv: 'config.cctv_section', whisper: 'config.whisper_section', comfyui: 'config.comfyui_section', piper: 'config.piper_section', pago: 'config.pago_section', fusion_solar: 'config.fusion_solar_section' };
+const INTEGRATION_MODAL_ICONS: Record<string, string> = { ha: 'fa-house-signal', searxng: 'fa-magnifying-glass', waha: 'fa-brands fa-whatsapp', cctv: 'fa-video', whisper: 'fa-microphone', comfyui: 'fa-palette', piper: 'fa-volume-up', pago: 'fa-file-invoice-dollar', fusion_solar: 'fa-solar-panel' };
+const INTEGRATION_MODAL_IMAGES: Record<string, string> = {
     waha: '/static/icons/integrations/waha.png',
     searxng: '/static/icons/integrations/searxng.png',
     comfyui: '/static/icons/integrations/comfyui.avif',
@@ -1709,11 +1755,11 @@ const INTEGRATION_MODAL_IMAGES = {
     mosquitto: '/static/icons/integrations/mosquitto.png',
 };
 
-export async function openIntegrationConfigModal(integrationId) {
+export async function openIntegrationConfigModal(integrationId: string) {
     const modal = document.getElementById('integration-config-modal');
     const titleEl = document.getElementById('integration-config-modal-title');
     const iconEl = document.getElementById('integration-config-modal-icon');
-    const logoEl = document.getElementById('integration-config-modal-logo');
+    const logoEl = document.getElementById('integration-config-modal-logo') as HTMLImageElement | null;
     if (!modal || !titleEl) return;
     document.querySelectorAll('[id^="integration-panel-"]').forEach(panel => {
         panel.classList.add('hidden');
@@ -1756,7 +1802,7 @@ export async function openIntegrationConfigModal(integrationId) {
                 if (supportsSync) {
                     syncBtn.classList.add('flex');
                     syncBtn.onclick = async () => {
-                        await syncConfiguredIntegration(catalogSlug, syncBtn);
+                        await syncConfiguredIntegration(catalogSlug, syncBtn as HTMLButtonElement);
                         try { await loadIntegrationExposedEntities(catalogSlug); } catch (_) {}
                     };
                 } else {
@@ -1800,18 +1846,18 @@ export async function openIntegrationConfigModal(integrationId) {
 
     if (integrationId === 'ha') {
         const origin = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : '';
-        const keyEl = document.getElementById('assist_api_key');
+        const keyEl = _intEl('assist_api_key');
         if (keyEl) keyEl.value = '';
         try {
             const res = await apiCall('/api/assist-key');
             if (res.ok) {
                 const data = await res.json();
                 if (keyEl && data.assist_api_key) keyEl.value = data.assist_api_key;
-                const ollamaUserUrlEl = document.getElementById('assist_ollama_user_url');
+                const ollamaUserUrlEl = _intEl('assist_ollama_user_url');
                 if (ollamaUserUrlEl && data.assist_api_key && origin) ollamaUserUrlEl.value = origin + '/ollama/user/' + data.assist_api_key;
             }
         } catch (_) {}
-        const ollamaUserUrlEl = document.getElementById('assist_ollama_user_url');
+        const ollamaUserUrlEl = _intEl('assist_ollama_user_url');
         if (ollamaUserUrlEl && !ollamaUserUrlEl.value && origin) ollamaUserUrlEl.value = '';
         // Load exposed entities summary
         _loadExposedEntitiesSummary();
@@ -1826,28 +1872,28 @@ export async function openIntegrationConfigModal(integrationId) {
     }
 }
 
-export function copyAssistOllamaUserUrl() {
-    const el = document.getElementById('assist_ollama_user_url');
+export function copyAssistOllamaUserUrl(): void {
+    const el = _intEl('assist_ollama_user_url');
     if (!el || !el.value) return;
     copyToClipboard(el.value);
 }
 
-export function copyAssistKey() {
-    const el = document.getElementById('assist_api_key');
+export function copyAssistKey(): void {
+    const el = _intEl('assist_api_key');
     if (!el || !el.value) return;
     copyToClipboard(el.value);
 }
 
-export async function regenerateAssistKey() {
+export async function regenerateAssistKey(): Promise<void> {
     if (!(await showConfirm(t('config.assist_regenerate_confirm')))) return;
     try {
         const res = await apiCall('/api/assist-key/regenerate', { method: 'POST' });
         if (!res.ok) throw new Error();
         const data = await res.json();
-        const keyEl = document.getElementById('assist_api_key');
+        const keyEl = _intEl('assist_api_key');
         if (keyEl && data.assist_api_key) keyEl.value = data.assist_api_key;
         const origin = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : '';
-        const ollamaUserUrlEl = document.getElementById('assist_ollama_user_url');
+        const ollamaUserUrlEl = _intEl('assist_ollama_user_url');
         if (ollamaUserUrlEl && data.assist_api_key && origin) ollamaUserUrlEl.value = origin + '/ollama/user/' + data.assist_api_key;
         showToast(t('config.assist_regenerate_done'), 'success');
     } catch (e) {
@@ -1855,14 +1901,14 @@ export async function regenerateAssistKey() {
     }
 }
 
-export function closeIntegrationConfigModal() {
+export function closeIntegrationConfigModal(): void {
     closeSubPage('integration-config-modal');
 }
 // ---------------------------------------------------------------------------
 // Integration entity sync & display
 // ---------------------------------------------------------------------------
 
-const _ENTITY_META = {
+const _ENTITY_META: Record<string, EntityMetaDef> = {
     profil:          { icon: 'fa-user',                labelKey: 'profil' },
     abonament:       { icon: 'fa-id-badge',            labelKey: 'abonament' },
     carduri:         { icon: 'fa-credit-card',         labelKey: 'carduri' },
@@ -1879,58 +1925,58 @@ const _ENTITY_META = {
     devices:         { icon: 'fa-microchip',           labelKey: 'devices' },
 };
 
-function _detailLocale() {
+function _detailLocale(): string {
     return getLanguage() === 'ro' ? 'ro-RO' : 'en-US';
 }
 
-function _ed(key, params) {
+function _ed(key: string, params?: Record<string, unknown>) {
     return t('integrations.entity_detail.' + key, params);
 }
 
-function _entityMeta(key) {
+function _entityMeta(key: string): EntityMetaInfo {
     const meta = _ENTITY_META[key];
     if (meta) return { icon: meta.icon, label: _ed(meta.labelKey) };
     return { icon: 'fa-database', label: key };
 }
 
-function _detailRow(labelKey, value) {
+function _detailRow(labelKey: string, value: unknown) {
     if (value == null || value === '') return '';
     return `<div class="flex justify-between gap-2"><span class="text-slate-500">${escapeHtml(_ed(labelKey))}</span><span class="text-slate-300 text-right">${value}</span></div>`;
 }
 
 // ---- detail renderers per entity key ------------------------------------
 
-function _fmtDateStr(s) {
+function _fmtDateStr(s: string) {
     if (!s || s.length < 10) return s || '—';
     const d = new Date(s.slice(0, 10) + 'T00:00:00');
-    if (isNaN(d)) return s;
+    if (isNaN(d.getTime())) return s;
     return d.toLocaleDateString(_detailLocale(), { day: '2-digit', month: 'short', year: 'numeric' });
 }
-function _fmtTs(ms) {
+function _fmtTs(ms: number) {
     if (!ms) return '—';
     const d = new Date(ms);
     return d.toLocaleDateString(_detailLocale(), { day: '2-digit', month: 'short', year: 'numeric' });
 }
-function _daysUntil(dateStr) {
+function _daysUntil(dateStr: string) {
     if (!dateStr || dateStr.length < 10) return null;
     const d = new Date(dateStr.slice(0, 10) + 'T00:00:00');
-    if (isNaN(d)) return null;
+    if (isNaN(d.getTime())) return null;
     const now = new Date(); now.setHours(0, 0, 0, 0);
-    return Math.floor((d - now) / 86400000);
+    return Math.floor((d.getTime() - now.getTime()) / 86400000);
 }
 
-function _renderDetailProfil(data) {
+function _renderDetailProfil(data: Record<string, unknown>) {
     if (!data || data.error) return `<span class="text-red-400 text-[10px]">${escapeHtml(_ed('error'))}</span>`;
     return [
         _detailRow('field_name', `${data.nume || ''} ${data.prenume || ''}`.trim()),
         _detailRow('field_email', data.email),
         _detailRow('field_phone', data.telefon ? `+${data.telefon}` : null),
         _detailRow('field_id', data.pos_user_id),
-        _detailRow('field_member_since', data.creat_la ? _fmtTs(data.creat_la) : null),
+        _detailRow('field_member_since', data.creat_la ? _fmtTs(Number(data.creat_la)) : null),
     ].join('');
 }
 
-function _renderDetailAbonament(data) {
+function _renderDetailAbonament(data: Record<string, unknown>) {
     if (!data || data.error) return `<span class="text-red-400 text-[10px]">${escapeHtml(_ed('error'))}</span>`;
     const active = data.activ
         ? `<span class="text-emerald-400">${escapeHtml(_ed('active'))}</span>`
@@ -1940,13 +1986,13 @@ function _renderDetailAbonament(data) {
         _detailRow('field_period', data.inceput && data.sfarsit ? `${data.inceput} → ${data.sfarsit}` : null),
         _detailRow('field_period_days', data.perioada_zile),
         _detailRow('field_bills_per_month', data.facturi_lunare != null ? `${data.plati_folosite ?? 0} / ${data.facturi_lunare}` : null),
-        _detailRow('field_payments_remaining', data.plati_ramase != null ? `<span class="${data.plati_ramase > 0 ? 'text-emerald-400' : 'text-amber-400'}">${data.plati_ramase}</span>` : null),
+        _detailRow('field_payments_remaining', data.plati_ramase != null ? `<span class="${Number(data.plati_ramase) > 0 ? 'text-emerald-400' : 'text-amber-400'}">${data.plati_ramase}</span>` : null),
     ].join('');
 }
 
-function _renderDetailCarduri(data) {
+function _renderDetailCarduri(data: unknown[]) {
     if (!Array.isArray(data) || !data.length) return `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_cards'))}</span>`;
-    return data.map(c => {
+    return (data as Record<string, unknown>[]).map((c) => {
         const last4 = c.last4 || '????';
         const type = c.tip_card || '';
         const alias = c.alias || '';
@@ -1961,7 +2007,7 @@ function _renderDetailCarduri(data) {
     }).join('');
 }
 
-function _renderDetailVehicule(data) {
+function _renderDetailVehicule(data: Record<string, unknown>): string {
     if (!Array.isArray(data) || !data.length) return `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_vehicles'))}</span>`;
     const alertLabels = {
         rca_expira: 'alert_rca', itp_expira: 'alert_itp',
@@ -2002,7 +2048,7 @@ function _renderDetailVehicule(data) {
     }).join('');
 }
 
-function _renderDetailFacturi(data) {
+function _renderDetailFacturi(data: Record<string, unknown>): string {
     if (!Array.isArray(data) || !data.length) return `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_bills'))}</span>`;
     const total = data.reduce((s, b) => s + (b.suma_datorata || 0), 0);
     const today = new Date().toISOString().slice(0, 10);
@@ -2022,17 +2068,17 @@ function _renderDetailFacturi(data) {
     }).join('');
 }
 
-function _renderDetailConturiFurnizori(data) {
+function _renderDetailConturiFurnizori(data: Record<string, unknown>): string {
     if (!Array.isArray(data) || !data.length) return `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_providers'))}</span>`;
-    return data.map(c => {
+    return data.map((c: Record<string, unknown>) => {
         const name = c.furnizor_nume || c.furnizor || '?';
         const loc = c.locatie || '';
         const suma = c.ultima_plata_suma;
-        const dataPlata = c.ultima_plata_data ? _fmtDateStr(c.ultima_plata_data) : '';
+        const dataPlata = c.ultima_plata_data ? _fmtDateStr(String(c.ultima_plata_data)) : '';
         const auto = c.auto_plata ? `<span class="text-blue-400 text-[9px] ml-1">${escapeHtml(_ed('auto_pay'))}</span>` : '';
         const when = dataPlata ? _ed('last_payment_on', { date: dataPlata }) : '';
         const paymentLine = suma != null
-            ? `<div class="text-[10px] text-slate-400">${escapeHtml(_ed('last_payment', { amount: `${suma.toFixed(2)} RON`, when }))}</div>`
+            ? `<div class="text-[10px] text-slate-400">${escapeHtml(_ed('last_payment', { amount: `${Number(suma).toFixed(2)} RON`, when }))}</div>`
             : '';
         return `<div class="space-y-0.5 pb-1 ${data.indexOf(c) < data.length - 1 ? 'border-b border-white/5 mb-1' : ''}">`
             + `<div class="flex items-center justify-between gap-2"><span class="text-slate-300 font-semibold">${name}</span>${auto}</div>`
@@ -2042,14 +2088,15 @@ function _renderDetailConturiFurnizori(data) {
     }).join('');
 }
 
-function _renderDetailPlati(data) {
+function _renderDetailPlati(data: Record<string, unknown>): string {
     if (!Array.isArray(data) || !data.length) return `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_payments'))}</span>`;
-    const typeKeys = { provider: 'payment_type_bill', rca: 'payment_type_rca', recharge: 'payment_type_recharge', vignette: 'payment_type_vignette' };
+    const typeKeys: Record<string, string> = { provider: 'payment_type_bill', rca: 'payment_type_rca', recharge: 'payment_type_recharge', vignette: 'payment_type_vignette' };
     const recent = data.slice(0, 12);
-    return recent.map(p => {
+    return recent.map((p: Record<string, unknown>) => {
         const amt = p.suma != null ? `${Number(p.suma).toFixed(2)} RON` : (p.suma_platita != null ? `${Number(p.suma_platita).toFixed(2)} RON` : '—');
-        const date = p.data ? _fmtDateStr(p.data) : '—';
-        const type = typeKeys[p.tip] ? _ed(typeKeys[p.tip]) : (p.tip || '');
+        const date = p.data ? _fmtDateStr(String(p.data)) : '—';
+        const tipKey = String(p.tip || '');
+        const type = typeKeys[tipKey] ? _ed(typeKeys[tipKey]) : tipKey;
         const furn = p.furnizor_nume || '';
         const loc = p.locatie || '';
         const ok = p.status === 'finalized';
@@ -2064,7 +2111,9 @@ function _renderDetailPlati(data) {
         + (data.length > 12 ? `<div class="text-[10px] text-slate-600 text-center mt-1">${escapeHtml(_ed('older_payments', { count: data.length - 12 }))}</div>` : '');
 }
 
-function _fusionSummaryRows(item) {
+type FusionDetailRow = [string, string | number | unknown];
+
+function _fusionSummaryRows(item: Record<string, unknown>): FusionDetailRow[] {
     return [
         item.station_address ? ['field_address', item.station_address] : null,
         item.capacity_kw != null ? ['field_capacity', `${Number(item.capacity_kw).toFixed(2)} kW`] : null,
@@ -2076,10 +2125,10 @@ function _fusionSummaryRows(item) {
         item.feed_in_energy_kwh != null ? ['field_feed_in', `${Number(item.feed_in_energy_kwh).toFixed(2)} kWh`] : null,
         item.consumption_kwh != null ? ['field_consumption', `${Number(item.consumption_kwh).toFixed(2)} kWh`] : null,
         item.revenue != null ? ['field_revenue', `${Number(item.revenue).toFixed(2)} RON`] : null,
-    ].filter(Boolean);
+    ].filter(Boolean) as FusionDetailRow[];
 }
 
-function _fusionYearlyKpiRows(kpi) {
+function _fusionYearlyKpiRows(kpi: Record<string, unknown>): FusionDetailRow[] {
     return [
         kpi.installed_capacity != null ? ['field_installed_capacity', `${Number(kpi.installed_capacity).toFixed(2)} kW`] : null,
         kpi.radiation_intensity != null ? ['field_global_radiation', `${(Number(kpi.radiation_intensity) * 1000).toFixed(1)} Wh/m²`] : null,
@@ -2093,10 +2142,10 @@ function _fusionYearlyKpiRows(kpi) {
         kpi.reduction_total_co2 != null ? ['field_co2_reduction', `${(Number(kpi.reduction_total_co2) * 1000).toFixed(1)} kg`] : null,
         kpi.reduction_total_coal != null ? ['field_coal_saved', `${(Number(kpi.reduction_total_coal) * 1000).toFixed(1)} kg`] : null,
         kpi.reduction_total_tree != null ? ['field_tree_equivalent', `${Number(kpi.reduction_total_tree).toFixed(0)}`] : null,
-    ].filter(Boolean);
+    ].filter(Boolean) as FusionDetailRow[];
 }
 
-const _FUSION_KPI_KEYS = {
+const _FUSION_KPI_KEYS: Record<string, [string, string]> = {
     active_power: ['kpi_active_power', 'kW'], day_cap: ['kpi_day_cap', 'kWh'],
     total_cap: ['kpi_total_cap', 'kWh'], efficiency: ['kpi_efficiency', '%'],
     temperature: ['kpi_temperature', '°C'], elec_freq: ['kpi_elec_freq', 'Hz'],
@@ -2110,7 +2159,7 @@ const _FUSION_KPI_KEYS = {
     run_state: ['kpi_run_state', ''],
 };
 
-function _renderDetailFusionSummary(data) {
+function _renderDetailFusionSummary(data: Record<string, unknown>): string {
     if (!data || typeof data !== 'object') return `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_data'))}</span>`;
     const rows = [
         ['field_stations', data.station_count],
@@ -2120,13 +2169,13 @@ function _renderDetailFusionSummary(data) {
         ['field_total_production', data.lifetime_energy_kwh != null ? `${Number(data.lifetime_energy_kwh).toFixed(2)} kWh` : null],
         ['field_status', data.status || null],
     ].filter(([, v]) => v !== null && v !== undefined && v !== '');
-    return rows.map(([lk, v]) => _detailRow(lk, v)).join('');
+    return rows.map(([lk, v]) => _detailRow(String(lk), v)).join('');
 }
 
-function _renderDetailFusionStations(data) {
+function _renderDetailFusionStations(data: Record<string, unknown>): string {
     if (!Array.isArray(data) || !data.length) return `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_stations'))}</span>`;
     return data.map((item, i) => {
-        const rows = _fusionSummaryRows(item);
+        const rows = _fusionSummaryRows(item as Record<string, unknown>);
         return `<div class="space-y-0.5 pb-1.5 ${i < data.length - 1 ? 'border-b border-white/5 mb-1.5' : ''}">`
             + `<div class="text-slate-300 font-semibold">${escapeHtml(item.station_name || item.station_code || _ed('default_station'))}</div>`
             + rows.map(([lk, v]) => _detailRow(lk, v)).join('')
@@ -2134,7 +2183,7 @@ function _renderDetailFusionStations(data) {
     }).join('');
 }
 
-function _renderDetailFusionRealtime(data) {
+function _renderDetailFusionRealtime(data: Record<string, unknown>): string {
     if (!Array.isArray(data) || !data.length) return `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_live_data'))}</span>`;
     return data.map((item, i) => {
         const rows = [
@@ -2142,23 +2191,23 @@ function _renderDetailFusionRealtime(data) {
             ['field_today', `${Number(item.daily_energy_kwh || 0).toFixed(2)} kWh`],
             item.month_energy_kwh != null ? ['field_month', `${Number(item.month_energy_kwh).toFixed(2)} kWh`] : null,
             item.lifetime_energy_kwh != null ? ['field_total', `${Number(item.lifetime_energy_kwh).toFixed(2)} kWh`] : null,
-        ].filter(Boolean);
+        ].filter(Boolean) as FusionDetailRow[];
         return `<div class="space-y-0.5 pb-1.5 ${i < data.length - 1 ? 'border-b border-white/5 mb-1.5' : ''}">`
-            + `<div class="text-slate-300 font-semibold">${escapeHtml(item.station_name || item.station_code || _ed('default_station'))}</div>`
+            + `<div class="text-slate-300 font-semibold">${escapeHtml(String(item.station_name || item.station_code || _ed('default_station')))}</div>`
             + rows.map(([lk, v]) => _detailRow(lk, v)).join('')
             + `</div>`;
     }).join('');
 }
 
-function _renderDetailFusionYearly(data) {
+function _renderDetailFusionYearly(data: Record<string, unknown>): string {
     if (!Array.isArray(data) || !data.length) return `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_yearly_data'))}</span>`;
     return data.map((item, i) => {
         if (!item || typeof item !== 'object') return '';
-        const code = item.stationCode || '?';
-        const kpi = item.dataItemMap || {};
-        const ct = item.collectTime;
+        const code = String(item.stationCode || '?');
+        const kpi = (item.dataItemMap || {}) as Record<string, unknown>;
+        const ct = item.collectTime as string | number | undefined;
         const yearLabel = ct ? new Date(ct).getFullYear() : '?';
-        const rows = _fusionYearlyKpiRows(kpi);
+        const rows = _fusionYearlyKpiRows(kpi as Record<string, unknown>);
         if (!rows.length) return '';
         return `<div class="space-y-0.5 pb-1.5 ${i < data.length - 1 ? 'border-b border-white/5 mb-1.5' : ''}">`
             + `<div class="text-slate-300 font-semibold">${escapeHtml(code)} <span class="text-amber-400 text-xs ml-1">${escapeHtml(_ed('year_label', { year: yearLabel }))}</span></div>`
@@ -2167,13 +2216,14 @@ function _renderDetailFusionYearly(data) {
     }).filter(Boolean).join('') || `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_data'))}</span>`;
 }
 
-function _renderDetailFusionYearlyCurrent(data) {
+function _renderDetailFusionYearlyCurrent(data: Record<string, unknown>): string {
     if (!data || typeof data !== 'object' || !Object.keys(data).length) return `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_current_year_data'))}</span>`;
-    return Object.entries(data).map(([code, kpi], i, arr) => {
+    return Object.entries(data).map(([code, rawKpi], i, arr) => {
+        const kpi = rawKpi as Record<string, unknown>;
         if (!kpi || typeof kpi !== 'object') return '';
-        const ct = kpi.collect_time;
+        const ct = kpi.collect_time as string | number | undefined;
         const yearLabel = ct ? new Date(ct).getFullYear() : new Date().getFullYear();
-        const rows = _fusionYearlyKpiRows(kpi);
+        const rows = _fusionYearlyKpiRows(kpi as Record<string, unknown>);
         if (!rows.length) return '';
         return `<div class="space-y-0.5 pb-1.5 ${i < arr.length - 1 ? 'border-b border-white/5 mb-1.5' : ''}">`
             + `<div class="text-slate-300 font-semibold">${escapeHtml(code)} <span class="text-amber-400 text-xs ml-1">${escapeHtml(_ed('year_label', { year: yearLabel }))}</span></div>`
@@ -2182,12 +2232,13 @@ function _renderDetailFusionYearlyCurrent(data) {
     }).filter(Boolean).join('') || `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_data'))}</span>`;
 }
 
-function _renderDetailFusionYearlyLifetime(data) {
+function _renderDetailFusionYearlyLifetime(data: Record<string, unknown>): string {
     if (!data || typeof data !== 'object' || !Object.keys(data).length) return `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_lifetime_data'))}</span>`;
-    return Object.entries(data).map(([code, kpi], i, arr) => {
+    return Object.entries(data).map(([code, rawKpi], i, arr) => {
+        const kpi = rawKpi as Record<string, unknown>;
         if (!kpi || typeof kpi !== 'object') return '';
         const rows = [
-            kpi.inverter_power != null ? ['field_inverter_production', `${Number(kpi.inverter_power).toFixed(2)} kWh`] : null,
+            (kpi as Record<string, unknown>).inverter_power != null ? ['field_inverter_production', `${Number((kpi as Record<string, unknown>).inverter_power).toFixed(2)} kWh`] : null,
             kpi.ongrid_power != null ? ['field_feed_in', `${Number(kpi.ongrid_power).toFixed(2)} kWh`] : null,
             kpi.use_power != null ? ['field_consumption', `${Number(kpi.use_power).toFixed(2)} kWh`] : null,
             kpi.power_profit != null ? ['field_revenue', `${Number(kpi.power_profit).toFixed(2)} RON`] : null,
@@ -2195,7 +2246,7 @@ function _renderDetailFusionYearlyLifetime(data) {
             kpi.reduction_total_co2 != null ? ['field_co2_reduction', `${(Number(kpi.reduction_total_co2) * 1000).toFixed(1)} kg`] : null,
             kpi.reduction_total_coal != null ? ['field_coal_saved', `${(Number(kpi.reduction_total_coal) * 1000).toFixed(1)} kg`] : null,
             kpi.reduction_total_tree != null ? ['field_tree_equivalent', `${Number(kpi.reduction_total_tree).toFixed(0)}`] : null,
-        ].filter(Boolean);
+        ].filter(Boolean) as FusionDetailRow[];
         if (!rows.length) return '';
         return `<div class="space-y-0.5 pb-1.5 ${i < arr.length - 1 ? 'border-b border-white/5 mb-1.5' : ''}">`
             + `<div class="text-slate-300 font-semibold">${escapeHtml(code)} <span class="text-purple-400 text-xs ml-1">${escapeHtml(_ed('lifetime_tag'))}</span></div>`
@@ -2204,33 +2255,36 @@ function _renderDetailFusionYearlyLifetime(data) {
     }).filter(Boolean).join('') || `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_data'))}</span>`;
 }
 
-function _renderDetailFusionDevices(data) {
+function _renderDetailFusionDevices(data: Record<string, unknown>): string {
     if (!Array.isArray(data) || !data.length) return `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_devices'))}</span>`;
     return data.map((dev, i) => {
         if (!dev || typeof dev !== 'object') return '';
-        const kpi = dev.realtime_kpi || {};
+        const devRec = dev as Record<string, unknown>;
+        const kpi = (devRec.realtime_kpi || {}) as Record<string, unknown>;
         const infoRows = [
-            dev.device_type ? ['field_type', dev.device_type] : null,
-            dev.esn_code ? ['field_serial', dev.esn_code] : null,
-            dev.inverter_type ? ['field_inverter_model', dev.inverter_type] : null,
-            dev.software_version ? ['field_software', dev.software_version] : null,
-            dev.station_code ? ['field_station', dev.station_code] : null,
-        ].filter(Boolean);
+            devRec.device_type ? ['field_type', devRec.device_type] : null,
+            devRec.esn_code ? ['field_serial', devRec.esn_code] : null,
+            devRec.inverter_type ? ['field_inverter_model', devRec.inverter_type] : null,
+            devRec.software_version ? ['field_software', devRec.software_version] : null,
+            devRec.station_code ? ['field_station', devRec.station_code] : null,
+        ].filter(Boolean) as FusionDetailRow[];
         const kpiRows = Object.entries(kpi).map(([k, v]) => {
             if (v == null) return null;
             const cfg = _FUSION_KPI_KEYS[k];
             const formatted = cfg && cfg[1] ? `${Number(v).toFixed(2)} ${cfg[1]}` : String(v);
             return { labelKey: cfg ? cfg[0] : null, rawKey: k, value: formatted };
-        }).filter(Boolean);
-        const allRows = [...infoRows, ...kpiRows];
+        }).filter((row): row is { labelKey: string | null; rawKey: string; value: string } => row != null);
+        type KpiRow = { labelKey: string | null; rawKey: string; value: string };
+        const allRows: Array<FusionDetailRow | KpiRow> = [...infoRows, ...kpiRows];
         if (!allRows.length) return '';
-        const rowHtml = (row) => {
+        const rowHtml = (row: FusionDetailRow | KpiRow) => {
             if (Array.isArray(row)) return _detailRow(row[0], row[1]);
-            if (row.labelKey) return _detailRow(row.labelKey, row.value);
-            return `<div class="flex justify-between gap-2"><span class="text-slate-500">${escapeHtml(row.rawKey)}</span><span class="text-slate-300 text-right">${escapeHtml(row.value)}</span></div>`;
+            if ('labelKey' in row && row.labelKey) return _detailRow(row.labelKey, row.value);
+            if ('rawKey' in row) return `<div class="flex justify-between gap-2"><span class="text-slate-500">${escapeHtml(row.rawKey)}</span><span class="text-slate-300 text-right">${escapeHtml(row.value)}</span></div>`;
+            return '';
         };
         return `<div class="space-y-0.5 pb-1.5 ${i < data.length - 1 ? 'border-b border-white/5 mb-1.5' : ''}">`
-            + `<div class="text-slate-300 font-semibold">${escapeHtml(dev.device_name || dev.device_id || _ed('default_device'))} <span class="text-sky-400 text-xs ml-1">${escapeHtml(dev.device_type || '')}</span></div>`
+            + `<div class="text-slate-300 font-semibold">${escapeHtml(String(devRec.device_name || devRec.device_id || _ed('default_device')))} <span class="text-sky-400 text-xs ml-1">${escapeHtml(String(devRec.device_type || ''))}</span></div>`
             + allRows.map(rowHtml).join('')
             + `</div>`;
     }).filter(Boolean).join('') || `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_data'))}</span>`;
@@ -2251,20 +2305,20 @@ const _DETAIL_RENDERERS = {
     yearly_current: _renderDetailFusionYearlyCurrent,
     yearly_lifetime: _renderDetailFusionYearlyLifetime,
     devices: _renderDetailFusionDevices,
-};
+} as Record<string, (data: unknown) => string>;
 
 // ---- sync & load --------------------------------------------------------
 
-export function navigateToSmartHomeSource(slug) {
+export function navigateToSmartHomeSource(slug: string) {
     switchTab('smarthome');
     const catalogSlug = _integrationCatalogSlug(slug);
     setTimeout(() => filterHABySource(catalogSlug), 200);
 };
 
-export async function syncIntegrationEntities(slug, options = {}) {
+export async function syncIntegrationEntities(slug: string, options: SyncIntegrationEntitiesOptions = {}) {
     const catalogSlug = _integrationCatalogSlug(slug);
     const showUserToast = options.toast !== false;
-    const btn = document.getElementById(`${catalogSlug}-sync-btn`);
+    const btn = document.getElementById(`${catalogSlug}-sync-btn`) as HTMLButtonElement | null;
     if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i>${escapeHtml(_ed('sync_btn'))}`; }
     try {
         const res = await apiCall(`/api/integrations/sync/${encodeURIComponent(catalogSlug)}`, { method: 'POST' });
@@ -2286,7 +2340,7 @@ export async function syncIntegrationEntities(slug, options = {}) {
             if (showUserToast && typeof showToast === 'function') showToast(msg, 'error', 3500);
         }
     } catch (e) {
-        const msg = e.message || t('integrations.sync_failed');
+        const msg = _errMsg(e) || t('integrations.sync_failed');
         const errEl = document.getElementById(`${catalogSlug}-entities-error`);
         if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); }
         if (showUserToast && typeof showToast === 'function') showToast(msg, 'error', 3500);
@@ -2296,9 +2350,9 @@ export async function syncIntegrationEntities(slug, options = {}) {
 };
 
 // store current entities for toggling detail
-let _currentEntities = {};
+let _currentEntities: IntegrationEntitiesMap = {};
 
-async function _loadExposedEntitiesSummary() {
+async function _loadExposedEntitiesSummary(): Promise<void> {
     const grid = document.getElementById('ha-exposed-entities-grid');
     const empty = document.getElementById('ha-exposed-entities-empty');
     if (!grid) return;
@@ -2309,7 +2363,7 @@ async function _loadExposedEntitiesSummary() {
         const sources = data.sources || [];
         if (!sources.length) { grid.innerHTML = ''; if (empty) empty.classList.remove('hidden'); return; }
         if (empty) empty.classList.add('hidden');
-        grid.innerHTML = sources.map(src => {
+        grid.innerHTML = sources.map((src: Record<string, unknown>) => {
             return `<div class="bg-white/[0.03] border border-white/5 rounded-lg p-2.5 text-center cursor-pointer hover:bg-white/[0.06] hover:border-orange-500/20 transition-all" data-config-action="openSmarthomeTab">
                 <i class="fas ${escapeHtml(src.icon)} ${escapeHtml(src.color)} text-sm mb-1"></i>
                 <div class="text-[10px] font-bold text-slate-400">${escapeHtml(src.label)}</div>
@@ -2325,11 +2379,12 @@ async function _loadExposedEntitiesSummary() {
     }
 }
 
-function _ensureEntitySection(slug) {
-    if (document.getElementById(`${slug}-entities-section`)) return;
+function _ensureEntitySection(slug: string): HTMLElement | null {
+    const existing = document.getElementById(`${slug}-entities-section`);
+    if (existing) return existing;
     // Try built-in integration panel first, then addon container
     const panel = document.getElementById(`integration-panel-${slug}`) || document.getElementById('addon-entities-container');
-    if (!panel) return;
+    if (!panel) return null;
     const html = `<div id="${slug}-entities-section" class="mt-4 border-t border-white/5 pt-4 hidden">
         <div class="flex items-center justify-between mb-2">
             <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${escapeHtml(t('integrations.synced_entities'))}</span>
@@ -2347,9 +2402,10 @@ function _ensureEntitySection(slug) {
         <div id="${slug}-entities-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
     </div>`;
     panel.insertAdjacentHTML('beforeend', html);
+    return document.getElementById(`${slug}-entities-section`);
 }
 
-export async function loadIntegrationEntities(slug) {
+export async function loadIntegrationEntities(slug: string) {
     _ensureEntitySection(slug);
     const section = document.getElementById(`${slug}-entities-section`);
     const grid = document.getElementById(`${slug}-entities-grid`);
@@ -2385,10 +2441,10 @@ export async function loadIntegrationEntities(slug) {
         grid.innerHTML = '';
 
         // Check if all entities are empty or errored
-        const hasErrors = Object.values(entities).some(v => (typeof v === 'object' && !Array.isArray(v) && v?.error));
+        const hasErrors = Object.values(entities).some(v => (typeof v === 'object' && !Array.isArray(v) && (v as Record<string, unknown>)?.error));
         const allEmpty = Object.values(entities).every(v => {
             if (Array.isArray(v)) return v.length === 0;
-            if (typeof v === 'object' && v) return !!v.error || Object.keys(v).length === 0;
+            if (typeof v === 'object' && v) return !!(v as Record<string, unknown>).error || Object.keys(v).length === 0;
             return true;
         });
         if (allEmpty && errEl) {
@@ -2399,9 +2455,9 @@ export async function loadIntegrationEntities(slug) {
         for (const [key, value] of Object.entries(entities)) {
             const meta = _entityMeta(key);
             let count = '';
-            if (Array.isArray(value)) count = value.length;
-            else if (typeof value === 'object' && value && !value.error) count = _ed('fields_count', { count: Object.keys(value).length });
-            else if (value?.error) count = _ed('error_badge');
+            if (Array.isArray(value)) count = String(value.length);
+            else if (typeof value === 'object' && value && !(value as Record<string, unknown>).error) count = _ed('fields_count', { count: Object.keys(value).length });
+            else if ((value as Record<string, unknown>)?.error) count = _ed('error_badge');
 
             const card = document.createElement('div');
             card.className = 'entity-card bg-white/[0.03] border border-white/5 rounded-lg p-2.5 text-center cursor-pointer hover:bg-white/[0.06] hover:border-orange-500/20 transition-all';
@@ -2421,7 +2477,7 @@ export async function loadIntegrationEntities(slug) {
     }
 }
 
-function _openEntityDetailModal(key, value, meta) {
+function _openEntityDetailModal(key: string, value: unknown, meta: EntityMetaInfo) {
     const modal = document.getElementById('entity-detail-modal');
     const iconEl = document.getElementById('entity-detail-modal-icon');
     const labelEl = document.getElementById('entity-detail-modal-label');
@@ -2440,6 +2496,6 @@ function _openEntityDetailModal(key, value, meta) {
 }
 
 /** @returns {Array<object>} */
-export function getIntegrationCatalog() {
+export function getIntegrationCatalog(): IntegrationCatalogEntry[] {
     return _integrationCatalog;
 }

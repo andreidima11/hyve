@@ -558,3 +558,82 @@ export interface CodeMirrorStatic {
         opts: Record<string, unknown>,
     ): CodeMirrorEditor;
 }
+
+export interface ClimateEntityRecord {
+    entity_id: string;
+    title?: string;
+    subtitle?: string;
+    [key: string]: unknown;
+}
+
+export interface ClimateHvacOption {
+    value: string;
+    label: string;
+}
+
+export interface ClimateEntityView extends DashboardWidget {
+    entity_id: string;
+    slide_title?: string;
+    slide_subtitle?: string;
+    entity_name?: string;
+    current_state?: string | number | null;
+    unit?: string;
+    available?: boolean;
+    controllable?: boolean;
+}
+
+export interface ClimateTrackElement extends HTMLElement {
+    _hyveClimateAnimTimer?: ReturnType<typeof setTimeout> | null;
+}
+
+export interface ClimateCardMountElement extends HTMLElement {
+    setActiveSlide?: (index: number, entity: ClimateEntityView | null) => void;
+}
+
+export interface ClimateSwipeState {
+    widgetId: string;
+    pointerId: number;
+    x: number;
+    y: number;
+    index: number;
+    total: number;
+    width: number;
+    track: ClimateTrackElement;
+    moved: boolean;
+}
+
+export interface DashboardEntitySnapshotEntry {
+    item: DashboardWidget;
+    state?: string | number | null;
+    attributes?: Record<string, unknown>;
+    available?: boolean;
+    availableEntity?: boolean;
+}
+
+export interface DashboardClimateDeps {
+    getCache: () => DashboardCache;
+    findWidget: (id: string) => DashboardWidget | null;
+    renderDashboard: () => void;
+    renderDashboardAddPreview: () => void;
+    getEditMode: () => boolean;
+    widgetDragAttrs: (widget: DashboardWidget) => string;
+    widgetEditControls: (widget: DashboardWidget) => string;
+    widgetSizeClass: (widget: DashboardWidget) => string;
+    resolveEntityMatch: (input: HTMLInputElement | null, type?: string) => import('./entity.js').HyveEntity | null;
+    apiCall: (url: string, options?: ApiCallOptions) => Promise<Response>;
+    t: (key: string, params?: Record<string, unknown>) => string;
+    showToast: (message: string, type?: string, duration?: number) => void;
+    dashApiError: (detail: unknown, fallbackKey: string) => string;
+    escapeHtml: (value: unknown) => string;
+    stateOn: (state: string) => boolean;
+    widgetTitle: (widget: unknown, fallbacks?: { entityId?: string; entityName?: string }) => string;
+    HVBridge: { renderCardElement: (widget: DashboardWidget) => string };
+    controlPending: (widgetId: string) => boolean;
+    setPendingControl: (widgetId: string, data: PendingControlEntry) => void;
+    deletePendingControl: (widgetId: string) => void;
+    snapshotEntityState: (entityId: string) => DashboardEntitySnapshotEntry[];
+    restoreEntitySnapshot: (snapshot: DashboardEntitySnapshotEntry[] | null | undefined) => void;
+    patchEntityState: (entityId: string, state: string | number | null, attrsPatch?: Record<string, unknown> | null) => void;
+    tryFastPathForEntities: (entityIds: string[]) => boolean;
+    getCurrentPageId: () => string;
+}

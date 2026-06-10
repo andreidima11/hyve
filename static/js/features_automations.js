@@ -1,9 +1,19 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 import { apiCall, suppressLogout } from './api.js';
 import { t } from './lang/index.js';
 import { escapeHtml, escapeHtmlAttr, showToast, showConfirm, setCodeEditorValue, getCodeEditorValue, refreshCodeEditor, openSubPage, closeSubPage } from './utils.js';
 import { getIntegrationEntities } from './features_smarthome.js';
 import { initGenericCustomSelects, upgradeNativeSelects } from './features_custom_selects.js';
+function _errMsg(err) {
+    if (err instanceof Error)
+        return err.message;
+    return String(err);
+}
+function _inputVal(el) {
+    return String(el?.value ?? '');
+}
+function _autoEl(id) {
+    return document.getElementById(id);
+}
 // --- CONȘTIINȚĂ (tabs Memorii | Automatizări) ---
 export function switchIntelligenceTab(tabId) {
     document.querySelectorAll('.intelligence-panel').forEach(p => p.classList.add('hidden'));
@@ -126,22 +136,22 @@ function _automationSetBuilderState(state) {
         mode: 'automation-builder-mode',
     };
     Object.entries(fields).forEach(([key, elementId]) => {
-        const element = document.getElementById(elementId);
+        const element = _autoEl(elementId);
         if (element)
-            element.value = next[key] ?? '';
+            element.value = String(next[key] ?? '');
     });
-    const enabledEl = document.getElementById('automation-builder-enabled');
+    const enabledEl = _autoEl('automation-builder-enabled');
     if (enabledEl)
         enabledEl.checked = !!next.enabled;
     initGenericCustomSelects(document.getElementById('automation-editor-modal') || document);
 }
 function _automationGetBuilderState() {
     return {
-        id: document.getElementById('automation-builder-id')?.value?.trim() || 'new_automation',
-        title: document.getElementById('automation-builder-title')?.value?.trim() || 'New automation',
-        description: document.getElementById('automation-builder-description')?.value?.trim() || '',
-        enabled: !!document.getElementById('automation-builder-enabled')?.checked,
-        mode: document.getElementById('automation-builder-mode')?.value || 'single',
+        id: _autoEl('automation-builder-id')?.value?.trim() || 'new_automation',
+        title: _autoEl('automation-builder-title')?.value?.trim() || 'New automation',
+        description: _autoEl('automation-builder-description')?.value?.trim() || '',
+        enabled: !!_autoEl('automation-builder-enabled')?.checked,
+        mode: _autoEl('automation-builder-mode')?.value || 'single',
     };
 }
 function _automationYamlScalar(value) {
@@ -159,12 +169,12 @@ function _automationSortHaEntities(items) {
     });
 }
 function _automationInferServiceDomain(target) {
-    const current = String(target?.value || '').trim();
+    const current = _inputVal(target ?? null);
     if (current.includes('.'))
         return current.split('.')[0];
     const card = target?.closest('.automation-builder-action-card');
     const entityInput = card?.querySelector('[data-action-field="entity_id"]');
-    const entityId = String(entityInput?.value || '').trim();
+    const entityId = _inputVal(entityInput);
     if (entityId.includes('.'))
         return entityId.split('.')[0];
     return '';
@@ -181,7 +191,7 @@ function _automationInferEntityDomain(target) {
     if (!card)
         return '';
     const serviceInput = card.querySelector('[data-action-field="service"]');
-    const service = String(serviceInput?.value || '').trim();
+    const service = _inputVal(serviceInput);
     if (service.includes('.'))
         return service.split('.')[0];
     return '';
@@ -342,7 +352,7 @@ function _acKeydown(e, input, type, domain) {
     else if (e.key === 'Enter') {
         e.preventDefault();
         if (_acHighlightIndex >= 0 && items[_acHighlightIndex]) {
-            _acSelect(input, items[_acHighlightIndex].getAttribute('data-ac-value'), type);
+            _acSelect(input, items[_acHighlightIndex].getAttribute('data-ac-value') || '', type);
         }
     }
     else if (e.key === 'Escape') {
@@ -361,13 +371,13 @@ function _acUpdateHighlight(items) {
 }
 // Global click handler to close autocomplete when clicking outside
 document.addEventListener('mousedown', (e) => {
-    if (_activeAutocomplete && !e.target.closest('.automation-inline-ac')) {
+    if (_activeAutocomplete && !e.target?.closest('.automation-inline-ac')) {
         _acClose();
     }
 });
 // Delegated click handler for autocomplete items
 document.addEventListener('click', (e) => {
-    const item = e.target.closest('.ac-item[data-ac-value]');
+    const item = e.target?.closest('.ac-item[data-ac-value]');
     if (!item)
         return;
     const dropdown = item.closest('.automation-inline-ac-dropdown');
@@ -376,7 +386,7 @@ document.addEventListener('click', (e) => {
     if (!input)
         return;
     const type = input.hasAttribute('data-automation-entity-input') ? 'entity' : 'service';
-    _acSelect(input, item.getAttribute('data-ac-value'), type);
+    _acSelect(input, item.getAttribute('data-ac-value') ?? '', type);
 });
 /* Helper: builds inline-ac wrapper HTML around an entity input */
 function _acEntityInputHtml(attrs) {
@@ -398,7 +408,10 @@ function _acServiceInputHtml(attrs) {
 }
 /* Attach inline-ac event listeners to dynamically rendered inputs */
 function _acBindInputs(host) {
-    host.querySelectorAll('[data-automation-entity-input]').forEach(input => {
+    if (!host)
+        return;
+    host.querySelectorAll('[data-automation-entity-input]').forEach((node) => {
+        const input = node;
         if (input._acBound)
             return;
         input._acBound = true;
@@ -411,7 +424,8 @@ function _acBindInputs(host) {
         } });
         input.addEventListener('keydown', (e) => _acKeydown(e, input, 'entity', getEntityDomain()));
     });
-    host.querySelectorAll('[data-automation-service-input]').forEach(input => {
+    host.querySelectorAll('[data-automation-service-input]').forEach((node) => {
+        const input = node;
         if (input._acBound)
             return;
         input._acBound = true;
@@ -463,20 +477,22 @@ function _automationServiceDataFieldDefs(serviceName) {
     return _AUTOMATION_SERVICE_DATA_FIELDS[String(serviceName || '').trim()] || [];
 }
 function _automationRenderServiceStructuredFields(action, index) {
-    const fields = _automationServiceDataFieldDefs(action?.service);
+    const fields = _automationServiceDataFieldDefs(String(action?.service || ''));
     if (!fields.length)
         return '';
-    const data = _automationParseJsonObject(action?.data || '{}');
-    const body = fields.map(field => {
-        const label = t(field.labelKey) || field.fallback;
-        const rawValue = data[field.key];
+    const data = _automationParseJsonObject(String(action?.data || '{}'));
+    const body = fields.map((field) => {
+        const label = t(String(field.labelKey || '')) || String(field.fallback || '');
+        const key = String(field.key || '');
+        const rawValue = data[key];
         if (field.type === 'select') {
+            const options = Array.isArray(field.options) ? field.options : [];
             return `
                 <div class="space-y-1">
                     <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${label}</label>
-                    <select data-service-data-field="${field.key}" data-action-index="${index}" data-memory-input="updateAutomationServiceData" data-memory-index="${index}" class="auto-builder-select w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
+                    <select data-service-data-field="${key}" data-action-index="${index}" data-memory-input="updateAutomationServiceData" data-memory-index="${index}" class="auto-builder-select w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
                         <option value=""></option>
-                        ${field.options.map(option => `<option value="${escapeHtml(option)}" ${rawValue === option ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
+                        ${options.map((option) => `<option value="${escapeHtml(option)}" ${rawValue === option ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
                     </select>
                 </div>`;
         }
@@ -514,7 +530,7 @@ function _automationBuilderConditionTemplate(kind = 'time_window') {
     return { kind: 'time_window', after: '', before: '' };
 }
 function _automationNormalizeTrigger(trigger) {
-    const platform = trigger?.platform || 'time';
+    const platform = String(trigger?.platform || 'time');
     return { ..._automationBuilderTriggerTemplate(platform), ...trigger, platform };
 }
 function _automationStateOptions(currentValue, includeEmpty = false) {
@@ -531,7 +547,7 @@ function _automationStateOptions(currentValue, includeEmpty = false) {
 }
 function _automationNormalizeCondition(condition) {
     const kind = condition?.kind || 'time_window';
-    return { ..._automationBuilderConditionTemplate(kind), ...condition, kind };
+    return { ..._automationBuilderConditionTemplate(String(kind)), ...condition, kind: String(kind) };
 }
 function _automationRenderBuilderTriggers() {
     const host = document.getElementById('automation-builder-triggers');
@@ -658,7 +674,7 @@ function _automationRenderBuilderActions() {
     if (!host)
         return;
     host.innerHTML = _automationBuilderActions.map((action, index) => {
-        const type = action?.kind || 'notify';
+        const type = String(action?.kind || 'notify');
         const labelMap = {
             notify: t('automations.builder_action_notify'),
             service: t('automations.builder_action_service'),
@@ -729,12 +745,13 @@ function _automationReadBuilderActionsFromDom() {
             return;
         if (!next[index])
             next[index] = _automationBuilderActionTemplate();
-        next[index][field] = element.value;
+        next[index][field] = _inputVal(element);
     });
     _automationBuilderActions = next.map(action => {
-        const kind = action?.kind || 'notify';
-        return { ..._automationBuilderActionTemplate(kind), ...action, kind };
+        const kind = String(action?.kind || 'notify');
+        return { ..._automationBuilderActionTemplate(String(kind)), ...action, kind: String(kind) };
     });
+    return _automationBuilderActions;
 }
 function _automationReadBuilderTriggersFromDom() {
     const next = _automationBuilderTriggers.map(trigger => ({ ...trigger }));
@@ -747,7 +764,7 @@ function _automationReadBuilderTriggersFromDom() {
         if (!next[index])
             next[index] = _automationBuilderTriggerTemplate();
         if (field === 'platform')
-            next[index][field] = element.value;
+            next[index][field] = _inputVal(element);
     });
     elements.forEach(element => {
         const index = Number(element.getAttribute('data-trigger-index'));
@@ -756,13 +773,14 @@ function _automationReadBuilderTriggersFromDom() {
             return;
         if (!next[index])
             next[index] = _automationBuilderTriggerTemplate();
-        const platform = next[index]?.platform || 'time';
+        const platform = String(next[index]?.platform || 'time');
         const platformWrap = element.closest('[data-trigger-kind-wrap]');
         if (platformWrap && platformWrap.getAttribute('data-trigger-kind-wrap') !== platform)
             return;
-        next[index][field] = element.value;
+        next[index][field] = _inputVal(element);
     });
     _automationBuilderTriggers = next.map(_automationNormalizeTrigger);
+    return _automationBuilderTriggers;
 }
 function _automationReadBuilderConditionsFromDom() {
     const next = _automationBuilderConditions.map(condition => ({ ...condition }));
@@ -773,9 +791,10 @@ function _automationReadBuilderConditionsFromDom() {
             return;
         if (!next[index])
             next[index] = _automationBuilderConditionTemplate();
-        next[index][field] = element.value;
+        next[index][field] = _inputVal(element);
     });
     _automationBuilderConditions = next.map(_automationNormalizeCondition);
+    return _automationBuilderConditions;
 }
 function _automationBuilderWeekdaysList(raw) {
     return String(raw || '')
@@ -854,7 +873,7 @@ function _automationBuildYamlFromBuilder() {
     }
     lines.push('action:');
     (_automationBuilderActions.length ? _automationBuilderActions : [_automationBuilderActionTemplate('notify')]).forEach(action => {
-        const kind = action?.kind || 'notify';
+        const kind = String(action?.kind || 'notify');
         if (kind === 'service') {
             lines.push(`  - service: ${action.service || ''}`);
             if (action.entity_id) {
@@ -866,7 +885,7 @@ function _automationBuildYamlFromBuilder() {
             }
             let parsedData = {};
             try {
-                parsedData = action.data ? JSON.parse(action.data) : {};
+                parsedData = action.data ? JSON.parse(String(action.data)) : {};
             }
             catch (_) {
                 parsedData = {};
@@ -885,7 +904,7 @@ function _automationBuildYamlFromBuilder() {
             lines.push(`      name: ${_automationYamlScalar(action.name || '')}`);
             let parsedInput = {};
             try {
-                parsedInput = action.input ? JSON.parse(action.input) : {};
+                parsedInput = action.input ? JSON.parse(String(action.input)) : {};
             }
             catch (_) {
                 parsedInput = {};
@@ -922,11 +941,11 @@ async function _automationHydrateBuilderFromNormalized(normalized, warningMessag
         return false;
     }
     const nextState = {
-        id: normalized.id || 'new_automation',
-        title: normalized.title || 'New automation',
-        description: normalized.description || '',
+        id: String(normalized.id || 'new_automation'),
+        title: String(normalized.title || 'New automation'),
+        description: String(normalized.description || ''),
         enabled: normalized.enabled !== false,
-        mode: normalized.mode || 'single',
+        mode: String(normalized.mode || 'single'),
     };
     _automationBuilderTriggers = triggers.map(trigger => _automationNormalizeTrigger({
         ...trigger,
@@ -1025,7 +1044,7 @@ function _formatAutomationHistoryAt(value) {
     if (!value)
         return '—';
     try {
-        return new Date(value.replace('Z', '+00:00')).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+        return new Date(String(value).replace('Z', '+00:00')).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
     }
     catch (_) {
         return value;
@@ -1056,7 +1075,7 @@ function _formatAutoTimestamp(isoStr) {
     try {
         const d = new Date(isoStr);
         const now = new Date();
-        const diffMs = now - d;
+        const diffMs = now.getTime() - d.getTime();
         if (diffMs < 60000)
             return 'acum';
         if (diffMs < 3600000)
@@ -1157,7 +1176,7 @@ function _renderAutoHistoryPage() {
         const idx = start + i;
         const details = item?.details && typeof item.details === 'object' ? item.details : null;
         const trace = details && details.trace && typeof details.trace === 'object' ? details.trace : null;
-        const runId = (details && details.run_id) || (trace && trace.run_id) || '';
+        const runId = String((details && details.run_id) || (trace && trace.run_id) || '');
         const runIdShort = runId ? String(runId).slice(0, 8) : '';
         const traceHtml = trace ? _automationRenderTraceBlock(trace, `auto-trace-${idx}`) : '';
         const runIdBadge = runIdShort
@@ -1170,7 +1189,7 @@ function _renderAutoHistoryPage() {
                         <div class="text-[11px] text-slate-300">${escapeHtml(_formatAutomationHistoryAt(item.started_at))}</div>
                         ${runIdBadge}
                     </div>
-                    ${_automationRunStatusBadge(item.status)}
+                    ${_automationRunStatusBadge(String(item.status || ''))}
                 </div>
                 <div class="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
                     <span><span class="text-slate-400">${t('automations.history_trigger')}:</span> ${escapeHtml(item.trigger_source || '—')}</span>
@@ -1202,19 +1221,20 @@ function _renderAutoHistoryPage() {
     });
 }
 function _automationRenderTraceBlock(trace, id) {
-    const steps = Array.isArray(trace?.steps) ? trace.steps : [];
+    const tr = trace;
+    const steps = Array.isArray(tr?.steps) ? tr.steps : [];
     if (!steps.length)
         return '';
-    const truncated = !!trace.truncated;
+    const truncated = !!tr.truncated;
     const showLabel = escapeHtml(t('automations.trace_show'));
     const hideLabel = escapeHtml(t('automations.trace_hide'));
-    const stepRows = steps.map(step => {
+    const stepRows = steps.map((step) => {
         const status = String(step?.status || 'ok');
         const dot = status === 'error'
             ? 'bg-rose-400'
             : status === 'skipped' ? 'bg-amber-400' : 'bg-emerald-400';
-        const offset = Number.isFinite(step?.ts_offset_ms) ? `+${Math.round(step.ts_offset_ms)}ms` : '';
-        const dur = Number.isFinite(step?.duration_ms) ? `${Math.round(step.duration_ms)}ms` : '';
+        const offset = Number.isFinite(Number(step?.ts_offset_ms)) ? `+${Math.round(Number(step.ts_offset_ms))}ms` : '';
+        const dur = Number.isFinite(Number(step?.duration_ms)) ? `${Math.round(Number(step.duration_ms))}ms` : '';
         const detail = step?.error || step?.message || '';
         const params = step?.params && typeof step.params === 'object' && !Array.isArray(step.params)
             ? Object.entries(step.params)
@@ -1267,8 +1287,8 @@ function _slugify(text) {
 export function autoSyncAutomationId() {
     if (_automationIdManuallyEdited)
         return;
-    const titleEl = document.getElementById('automation-builder-title');
-    const idEl = document.getElementById('automation-builder-id');
+    const titleEl = _autoEl('automation-builder-title');
+    const idEl = _autoEl('automation-builder-id');
     if (!titleEl || !idEl)
         return;
     idEl.value = _slugify(titleEl.value);
@@ -1340,7 +1360,7 @@ export function toggleAutoMenu(e, defId, btnEl) {
     const src = document.getElementById(`auto-menu-${defId}`);
     if (!src)
         return;
-    const btn = btnEl || e?.target?.closest?.('[data-memory-action="toggleAutoMenu"]');
+    const btn = (btnEl || e?.target?.closest?.('[data-memory-action="toggleAutoMenu"]'));
     if (!btn?.getBoundingClientRect)
         return;
     const r = btn.getBoundingClientRect();
@@ -1370,7 +1390,7 @@ export function closeAutoMenu() {
 let _autoDotTip = null;
 export function showAutoDotTooltip(e, dotEl) {
     e?.stopPropagation?.();
-    const dot = dotEl || e?.target?.closest?.('[data-memory-hover="showAutoDotTooltip"], [data-memory-action="showAutoDotTooltip"]');
+    const dot = (dotEl || e?.target?.closest?.('[data-memory-hover="showAutoDotTooltip"], [data-memory-action="showAutoDotTooltip"]'));
     if (!dot)
         return;
     const label = dot.dataset.autoDotLabel || '';
@@ -1452,10 +1472,10 @@ export async function loadAutomations() {
             listEl.classList.remove('hidden');
             if (emptyEl)
                 emptyEl.classList.add('hidden');
-            listEl.innerHTML = automations.map(a => {
+            listEl.innerHTML = automations.map((a) => {
                 const defId = escapeHtml(a.id).replace(/"/g, '&quot;');
                 const desc = escapeHtml(a.description || '');
-                const lastTime = a.last_run_at ? _formatAutoTimestamp(a.last_run_at) : '—';
+                const lastTime = a.last_run_at ? _formatAutoTimestamp(String(a.last_run_at)) : '—';
                 const nextTime = escapeHtml(_formatAutomationNextRun(a));
                 const toggleLabel = a.enabled ? (t('automations.disable')) : (t('automations.enable'));
                 const toggleIcon = a.enabled ? 'fa-pause' : 'fa-play-circle';
@@ -1510,11 +1530,11 @@ export async function loadAutomationEventLog() {
             logEl.innerHTML = `<p class="text-[11px] text-slate-500">${t('automations.event_log_empty')}</p>`;
             return;
         }
-        logEl.innerHTML = items.map(r => {
+        logEl.innerHTML = items.map((r) => {
             const statusColor = r.status === 'ok' ? 'text-emerald-400' : r.status === 'error' ? 'text-red-400' : 'text-amber-400';
             const statusIcon = r.status === 'ok' ? 'fa-check' : r.status === 'error' ? 'fa-xmark' : 'fa-forward';
             const triggerLabel = _formatTriggerSource(r.trigger_source);
-            const timeStr = r.started_at ? _formatAutoTimestamp(r.started_at) : '—';
+            const timeStr = r.started_at ? _formatAutoTimestamp(String(r.started_at)) : '—';
             return `<div class="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-white/[0.02] transition-colors">
                 <i class="fas ${statusIcon} ${statusColor} text-[9px] w-3 text-center shrink-0"></i>
                 <span class="text-[12px] text-slate-200 font-medium truncate">${escapeHtml(r.title || r.automation_id)}</span>
@@ -1532,9 +1552,9 @@ function _formatTriggerSource(src) {
         return '';
     if (src === 'manual')
         return t('automations.trigger_manual');
-    if (src.startsWith('trigger:'))
+    if (typeof src === 'string' && src.startsWith('trigger:'))
         return t('automations.trigger_auto');
-    return escapeHtml(src);
+    return escapeHtml(String(src));
 }
 export async function deleteAutomation(jobId) {
     if (!(await showConfirm(t('automations.delete_confirm'))))
@@ -1553,12 +1573,12 @@ export async function deleteAutomation(jobId) {
     }
 }
 export async function openAutomationEditor(automationId) {
-    automationId = _automationIdString(automationId) || undefined;
+    automationId = _automationIdString(automationId);
     const validateEl = document.getElementById('automation-editor-validation');
     const infoEl = document.getElementById('automation-editor-info');
     const pathEl = document.getElementById('automation-editor-path');
-    const idEl = document.getElementById('automation-editor-id');
-    const revEl = document.getElementById('automation-editor-revision');
+    const idEl = _autoEl('automation-editor-id');
+    const revEl = _autoEl('automation-editor-revision');
     const idDisplayEl = document.getElementById('automation-editor-id-display');
     const titleEl = document.getElementById('automation-editor-title');
     _automationEditorId = automationId || null;
@@ -1659,18 +1679,18 @@ export async function validateAutomationEditor() {
     catch (e) {
         let detail = t('automations.validation_error');
         try {
-            const payload = JSON.parse(e?.message || '{}');
+            const payload = JSON.parse(_errMsg(e) || '{}');
             if (payload?.detail)
                 detail = payload.detail;
         }
         catch (_) { }
-        if (e?.message && !e.message.startsWith('{'))
-            detail = e.message;
+        if (_errMsg(e) && !_errMsg(e).startsWith('{'))
+            detail = _errMsg(e);
         showToast(detail, 'error');
     }
 }
 export async function saveAutomationEditor() {
-    const revisionEl = document.getElementById('automation-editor-revision');
+    const revisionEl = _autoEl('automation-editor-revision');
     const sourceYaml = getCodeEditorValue('automation-editor-yaml')?.trim();
     if (!sourceYaml) {
         showToast(t('automations.validation_error'), 'error');
@@ -1706,7 +1726,7 @@ export async function saveAutomationEditor() {
         await loadAutomations();
     }
     catch (e) {
-        const msg = (e && e.message) ? e.message : (t('automations.save_error'));
+        const msg = (e && _errMsg(e)) ? _errMsg(e) : (t('automations.save_error'));
         showToast(msg, 'error');
     }
 }
@@ -1789,15 +1809,15 @@ function _renderAutomationDryRunTrace(result) {
     const emptyEl = document.getElementById('automation-editor-history-empty');
     if (!listEl)
         return;
-    const trace = result.trace || { steps: [] };
+    const trace = (result.trace || { steps: [] });
     const steps = Array.isArray(trace.steps) ? trace.steps : [];
     const headerLabel = t('automations.test_header');
-    const statusLabel = (result.status || 'unknown').toUpperCase();
+    const statusLabel = String(result.status || 'unknown').toUpperCase();
     const statusColor = result.status === 'ok' ? 'text-emerald-300'
         : result.status === 'skipped' ? 'text-amber-300' : 'text-red-300';
     const stepsHtml = steps.length === 0
         ? `<p class="text-[11px] text-slate-500">${escapeHtml(t('automations.test_no_steps'))}</p>`
-        : steps.map(s => {
+        : steps.map((s) => {
             const tone = s.status === 'ok' ? 'text-emerald-300'
                 : s.status === 'dry_run' ? 'text-sky-300'
                     : s.status === 'skipped' ? 'text-amber-300'
@@ -1806,10 +1826,10 @@ function _renderAutomationDryRunTrace(result) {
                 : s.status === 'dry_run' ? 'bg-sky-400'
                     : s.status === 'skipped' ? 'bg-amber-400'
                         : s.status === 'error' ? 'bg-red-400' : 'bg-slate-500';
-            const depth = _pathDepth(s.path);
-            const leaf = _pathLeaf(s.path);
-            const ms = (s.ts_offset_ms != null) ? `+${Math.round(s.ts_offset_ms)}ms` : '';
-            const dur = (s.duration_ms != null) ? ` · ${Math.round(s.duration_ms)}ms` : '';
+            const depth = _pathDepth(String(s.path || ''));
+            const leaf = _pathLeaf(String(s.path || ''));
+            const ms = (s.ts_offset_ms != null) ? `+${Math.round(Number(s.ts_offset_ms))}ms` : '';
+            const dur = (s.duration_ms != null) ? ` · ${Math.round(Number(s.duration_ms))}ms` : '';
             const indentStyle = `padding-left: ${depth * 14}px;`;
             const branchHint = depth > 0
                 ? `<span class="text-slate-700 font-mono mr-1">${'│ '.repeat(Math.max(0, depth - 1))}└─</span>`
@@ -1817,9 +1837,9 @@ function _renderAutomationDryRunTrace(result) {
             return `<div class="text-[11px] flex gap-2 items-baseline border-l border-white/5" style="${indentStyle}">
                 <span class="inline-block w-1.5 h-1.5 rounded-full ${dotTone} flex-none mt-1"></span>
                 <span class="text-slate-600 font-mono text-[10px] flex-none">${escapeHtml(ms)}${escapeHtml(dur)}</span>
-                <span class="${tone} font-bold uppercase text-[10px] flex-none">${escapeHtml(s.status || '?')}</span>
+                <span class="${tone} font-bold uppercase text-[10px] flex-none">${escapeHtml(String(s.status || '?'))}</span>
                 <span class="text-slate-400 font-mono text-[10px] flex-none">${branchHint}${escapeHtml(leaf)}</span>
-                <span class="text-slate-300 flex-1">${escapeHtml(s.message || s.error || '')}</span>
+                <span class="text-slate-300 flex-1">${escapeHtml(String(s.message || s.error || ''))}</span>
             </div>`;
         }).join('');
     listEl.innerHTML = `
@@ -1853,16 +1873,16 @@ function _renderAutomationLintWarnings(warnings) {
         return;
     }
     panel.classList.remove('hidden');
-    panel.innerHTML = warnings.map(w => {
-        const tone = w.severity === 'warning'
+    panel.innerHTML = warnings.map((w) => {
+        const tone = String(w.severity) === 'warning'
             ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
             : 'border-sky-500/30 bg-sky-500/10 text-sky-200';
-        const icon = w.severity === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-info';
+        const icon = String(w.severity) === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-info';
         return `<div class="rounded-lg border ${tone} px-3 py-2 text-[11px] flex items-start gap-2">
             <i class="fas ${icon} mt-0.5"></i>
             <div class="flex-1">
-                <div>${escapeHtml(w.message || '')}</div>
-                <div class="text-[10px] opacity-70 mt-0.5"><span class="font-mono">${escapeHtml(w.path || '')}</span> · <span class="uppercase">${escapeHtml(w.code || '')}</span></div>
+                <div>${escapeHtml(String(w.message || ''))}</div>
+                <div class="text-[10px] opacity-70 mt-0.5"><span class="font-mono">${escapeHtml(String(w.path || ''))}</span> · <span class="uppercase">${escapeHtml(String(w.code || ''))}</span></div>
             </div>
         </div>`;
     }).join('');
@@ -1992,7 +2012,7 @@ action:
 function _readBlueprintCreatorInputsFromDom() {
     const rows = Array.from(document.querySelectorAll('#blueprint-creator-inputs [data-bp-creator-input-row]'));
     return rows.map((row, idx) => {
-        const read = selector => row.querySelector(selector)?.value || '';
+        const read = (selector) => _inputVal(row.querySelector(selector));
         return {
             id: read('[data-bp-creator-field="id"]').trim() || `input_${idx + 1}`,
             label: read('[data-bp-creator-field="label"]').trim(),
@@ -2016,14 +2036,16 @@ function _validateBlueprintCreatorDraft(draft) {
     if (!String(draft.template || '').trim())
         return t('blueprints.template_required');
     const seen = new Set();
-    for (const input of draft.inputs) {
-        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(input.id))
-            return t('blueprints.invalid_input_id', { id: input.id });
-        if (seen.has(input.id))
-            return t('blueprints.duplicate_input', { id: input.id });
-        seen.add(input.id);
+    const inputs = Array.isArray(draft.inputs) ? draft.inputs : [];
+    for (const input of inputs) {
+        const inputId = String(input.id || '');
+        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(inputId))
+            return t('blueprints.invalid_input_id', { id: inputId });
+        if (seen.has(inputId))
+            return t('blueprints.duplicate_input', { id: inputId });
+        seen.add(inputId);
         if (input.type === 'select' && !String(input.choices || '').split(',').map(v => v.trim()).filter(Boolean).length) {
-            return t('blueprints.select_needs_options', { id: input.id });
+            return t('blueprints.select_needs_options', { id: inputId });
         }
     }
     const refs = new Set();
@@ -2042,12 +2064,14 @@ function _composeBlueprintSourceYaml(draft) {
         `title: ${_yamlScalar(draft.title)}`,
         `description: ${_yamlScalar(draft.description)}`,
     ];
-    if (!draft.inputs.length) {
+    const draftInputs = Array.isArray(draft.inputs) ? draft.inputs : [];
+    if (!draftInputs.length) {
         lines.push('inputs: []');
     }
     else {
         lines.push('inputs:');
-        for (const input of draft.inputs) {
+        const inputs = Array.isArray(draft.inputs) ? draft.inputs : [];
+        for (const input of inputs) {
             lines.push(`  - id: ${input.id}`);
             lines.push(`    label: ${_yamlScalar(input.label || input.id)}`);
             lines.push(`    type: ${input.type}`);
@@ -2064,15 +2088,15 @@ function _composeBlueprintSourceYaml(draft) {
         }
     }
     lines.push('template: |');
-    lines.push(_indentBlock(draft.template));
+    lines.push(_indentBlock(String(draft.template || '')));
     return `${lines.join('\n')}\n`;
 }
 function _currentBlueprintCreatorDraft() {
     return {
-        title: document.getElementById('blueprint-creator-title')?.value || '',
-        description: document.getElementById('blueprint-creator-description')?.value || '',
+        title: _autoEl('blueprint-creator-title')?.value || '',
+        description: _autoEl('blueprint-creator-description')?.value || '',
         inputs: _readBlueprintCreatorInputsFromDom(),
-        template: document.getElementById('blueprint-creator-template')?.value || '',
+        template: _autoEl('blueprint-creator-template')?.value || '',
     };
 }
 function _renderBlueprintCreatorInputs() {
@@ -2123,7 +2147,7 @@ function _renderBlueprintCreatorPlaceholders() {
     const host = document.getElementById('blueprint-creator-placeholders');
     if (!host)
         return;
-    const inputs = _readBlueprintCreatorInputsFromDom().filter(input => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(input.id));
+    const inputs = _readBlueprintCreatorInputsFromDom().filter(input => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(String(input.id || '')));
     if (!inputs.length) {
         host.classList.add('hidden');
         host.innerHTML = '';
@@ -2148,9 +2172,9 @@ export function openBlueprintCreator() {
     document.getElementById('blueprint-picker-form-actions')?.classList.remove('flex');
     document.getElementById('blueprint-picker-creator-actions')?.classList.remove('hidden');
     document.getElementById('blueprint-picker-creator-actions')?.classList.add('flex');
-    document.getElementById('blueprint-creator-title').value = '';
-    document.getElementById('blueprint-creator-description').value = '';
-    document.getElementById('blueprint-creator-template').value = _defaultBlueprintTemplate();
+    _autoEl('blueprint-creator-title').value = '';
+    _autoEl('blueprint-creator-description').value = '';
+    _autoEl('blueprint-creator-template').value = _defaultBlueprintTemplate();
     _blueprintCreatorInputs = [];
     _renderBlueprintCreatorInputs();
     updateBlueprintCreatorYaml();
@@ -2197,13 +2221,13 @@ export function insertBlueprintCreatorPlaceholder(inputId, slug = false) {
 export function updateBlueprintCreatorYaml() {
     const draft = _currentBlueprintCreatorDraft();
     const source = _composeBlueprintSourceYaml(draft);
-    const preview = document.getElementById('blueprint-creator-source-yaml');
+    const preview = _autoEl('blueprint-creator-source-yaml');
     if (preview)
         preview.value = source;
     const errEl = document.getElementById('blueprint-creator-error');
     if (errEl) {
         const err = _validateBlueprintCreatorDraft(draft);
-        if (err && draft.title.trim()) {
+        if (err && String(draft.title || '').trim()) {
             errEl.classList.remove('hidden');
             errEl.textContent = err;
         }
@@ -2213,7 +2237,6 @@ export function updateBlueprintCreatorYaml() {
         }
     }
     _renderBlueprintCreatorPlaceholders();
-    return source;
 }
 export async function saveCreatedBlueprint() {
     const draft = _currentBlueprintCreatorDraft();
@@ -2226,7 +2249,7 @@ export async function saveCreatedBlueprint() {
         }
         return;
     }
-    const saveBtn = document.getElementById('blueprint-creator-save-btn');
+    const saveBtn = _autoEl('blueprint-creator-save-btn');
     if (saveBtn)
         saveBtn.disabled = true;
     try {
@@ -2249,7 +2272,7 @@ export async function saveCreatedBlueprint() {
     catch (e) {
         if (errEl) {
             errEl.classList.remove('hidden');
-            errEl.textContent = e.message || t('blueprints.save_failed');
+            errEl.textContent = _errMsg(e) || t('blueprints.save_failed');
         }
     }
     finally {
@@ -2274,7 +2297,7 @@ export async function loadBlueprints() {
     catch (e) {
         _blueprints = [];
         emptyEl?.classList.add('hidden');
-        listEl.innerHTML = `<p class="text-[11px] text-red-300">${escapeHtml(e.message || t('blueprints.load_error'))}</p>`;
+        listEl.innerHTML = `<p class="text-[11px] text-red-300">${escapeHtml(_errMsg(e) || t('blueprints.load_error'))}</p>`;
         return;
     }
     if (_blueprints.length === 0) {
@@ -2290,7 +2313,7 @@ export async function loadBlueprints() {
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-sm font-semibold text-white truncate">${escapeHtml(bp.title)}</span>
-                        <span class="inline-flex items-center gap-1 text-[10px] text-slate-400"><i class="fas fa-sliders text-[9px]"></i>${escapeHtml(t('blueprints.inputs_count', { count: (bp.inputs || []).length }))}</span>
+                        <span class="inline-flex items-center gap-1 text-[10px] text-slate-400"><i class="fas fa-sliders text-[9px]"></i>${escapeHtml(t('blueprints.inputs_count', { count: Array.isArray(bp.inputs) ? bp.inputs.length : 0 }))}</span>
                         <span class="text-[10px] text-slate-500">v${escapeHtml(bp.version || '1')}</span>
                     </div>
                     <div class="text-[11px] text-slate-500 truncate mt-0.5">${escapeHtml(bp.description || t('blueprints.no_description'))}</div>
@@ -2300,7 +2323,11 @@ export async function loadBlueprints() {
         </button>
     `).join('');
     listEl.querySelectorAll('.bp-pick-row').forEach(btn => {
-        btn.addEventListener('click', () => selectBlueprint(btn.dataset.bpId));
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.bpId;
+            if (id)
+                selectBlueprint(id);
+        });
     });
 }
 export function importBlueprintYaml() {
@@ -2326,7 +2353,7 @@ export function importBlueprintYaml() {
             await loadBlueprints();
         }
         catch (e) {
-            showToast(t('blueprints.import_failed', { detail: e.message || t('common.unknown') }), 'error');
+            showToast(t('blueprints.import_failed', { detail: _errMsg(e) || t('common.unknown') }), 'error');
         }
     };
     input.click();
@@ -2363,11 +2390,19 @@ async function selectBlueprint(blueprintId) {
     document.getElementById('blueprint-picker-form-actions')?.classList.add('flex');
     document.getElementById('blueprint-picker-create-btn')?.classList.remove('hidden');
     document.getElementById('blueprint-picker-delete-btn')?.classList.remove('hidden');
-    document.getElementById('blueprint-picker-form-title').textContent = bp.title;
-    document.getElementById('blueprint-picker-form-description').textContent = bp.description || '';
+    const formTitle = document.getElementById('blueprint-picker-form-title');
+    const formDesc = document.getElementById('blueprint-picker-form-description');
+    if (formTitle)
+        formTitle.textContent = String(bp.title || '');
+    if (formDesc)
+        formDesc.textContent = String(bp.description || '');
     await _loadPickerCaches();
     const formEl = document.getElementById('blueprint-picker-form-inputs');
-    formEl.innerHTML = (bp.inputs || []).map(spec => _renderBlueprintInputField(spec)).join('');
+    if (!formEl)
+        return;
+    if (!formEl)
+        return;
+    formEl.innerHTML = (Array.isArray(bp.inputs) ? bp.inputs : []).map((spec) => _renderBlueprintInputField(spec)).join('');
 }
 function _renderBlueprintInputField(spec) {
     const id = `bp-input-${spec.id}`;
@@ -2384,7 +2419,7 @@ function _renderBlueprintInputField(spec) {
         field = `<select id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="area" class="${baseCls}"><option value="">${escapeHtml(t('blueprints.choose'))}</option>${opts}</select>`;
     }
     else if (spec.type === 'select') {
-        const opts = (spec.choices || []).map(c => `<option value="${escapeHtml(c)}" ${c === defaultVal ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('');
+        const opts = (Array.isArray(spec.choices) ? spec.choices : []).map((c) => `<option value="${escapeHtml(c)}" ${c === defaultVal ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('');
         field = `<select id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="select" class="${baseCls}">${opts}</select>`;
     }
     else if (spec.type === 'boolean') {
@@ -2403,13 +2438,16 @@ function _renderBlueprintInputField(spec) {
 function _collectBlueprintInputs() {
     const out = {};
     document.querySelectorAll('#blueprint-picker-form-inputs [data-bp-input]').forEach(el => {
-        const key = el.dataset.bpInput;
-        const type = el.dataset.bpType;
+        const node = el;
+        const key = node.dataset.bpInput;
+        const type = node.dataset.bpType;
+        if (!key)
+            return;
         let val;
         if (type === 'boolean')
-            val = el.checked;
+            val = node.checked;
         else
-            val = el.value;
+            val = node.value;
         out[key] = val;
     });
     return out;
@@ -2421,7 +2459,7 @@ export async function instantiateCurrentBlueprint() {
     errEl?.classList.add('hidden');
     const inputs = _collectBlueprintInputs();
     try {
-        const res = await apiCall(`/api/automations/blueprints/${encodeURIComponent(_activeBlueprint.id)}/instantiate`, {
+        const res = await apiCall(`/api/automations/blueprints/${encodeURIComponent(String(_activeBlueprint.id ?? ''))}/instantiate`, {
             method: 'POST',
             body: { inputs },
         });
@@ -2440,18 +2478,18 @@ export async function instantiateCurrentBlueprint() {
     catch (e) {
         if (errEl) {
             errEl.classList.remove('hidden');
-            errEl.textContent = e.message || t('blueprints.instantiate_error');
+            errEl.textContent = _errMsg(e) || t('blueprints.instantiate_error');
         }
     }
 }
 export async function deleteCurrentBlueprint() {
     if (!_activeBlueprint)
         return;
-    const ok = await showConfirm(t('blueprints.delete_confirm', { title: _activeBlueprint.title }));
+    const ok = await showConfirm(t('blueprints.delete_confirm', { title: String(_activeBlueprint.title ?? '') }));
     if (!ok)
         return;
     try {
-        const res = await apiCall(`/api/automations/blueprints/${encodeURIComponent(_activeBlueprint.id)}`, { method: 'DELETE' });
+        const res = await apiCall(`/api/automations/blueprints/${encodeURIComponent(String(_activeBlueprint.id ?? ''))}`, { method: 'DELETE' });
         if (!res.ok)
             throw new Error();
         showToast(t('hy.blueprint_deleted'), 'success');
@@ -2471,9 +2509,10 @@ export async function refreshAutomationEntityOptions() {
         const data = await res.json();
         const entities = Array.isArray(data.entities) ? data.entities : [];
         selects.forEach(sel => {
-            const current = sel.value;
-            sel.innerHTML = `<option value="">${t('automations.entity_placeholder')}</option>` +
-                entities.map(e => `<option value="${escapeHtml(e.entity_id)}"${e.entity_id === current ? ' selected' : ''}>${escapeHtml(e.entity_id)}${e.friendly_name ? ' — ' + escapeHtml(e.friendly_name) : ''}</option>`).join('');
+            const select = sel;
+            const current = select.value;
+            select.innerHTML = `<option value="">${t('automations.entity_placeholder')}</option>` +
+                entities.map((e) => `<option value="${escapeHtml(e.entity_id)}"${e.entity_id === current ? ' selected' : ''}>${escapeHtml(e.entity_id)}${e.friendly_name ? ' — ' + escapeHtml(e.friendly_name) : ''}</option>`).join('');
         });
     }
     catch (_) { }

@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Chat bubble rendering — messages, code blocks, images, forge preview.
  */
@@ -10,8 +9,9 @@ import { enhanceCodeBlock, applyHighlightingWithLineNumbers } from './code_highl
 import { decorateImages } from './image_cards.js';
 import { hideChatEmptyState } from './empty_state.js';
 import { scrollChatToBottom } from './scroll.js';
+import type { AppendMessageOptions, ChatMessageRole, ChatResponseStats } from '../types/chat.js';
 
-export function appendMessage(role, text, options = {}) {
+export function appendMessage(role: ChatMessageRole, text: string, options: AppendMessageOptions = {}) {
     const container = document.getElementById('chat-container');
     if (!container) return;
     hideChatEmptyState();
@@ -29,7 +29,7 @@ export function appendMessage(role, text, options = {}) {
                 <div class="chat-bubble ai-bubble ${bubbleExtra}">
                     ${glowEl}
                     <div class="chat-bubble-content prose prose-invert prose-sm">
-                        ${DOMPurify.sanitize(marked.parse(text))}
+                        ${DOMPurify.sanitize(marked?.parse(text) || text)}
                     </div>
                 </div>
             </div>`;
@@ -75,7 +75,7 @@ export function appendMessage(role, text, options = {}) {
             img.alt = '';
             img.className = 'chat-user-uploaded-image';
             wrap.appendChild(img);
-            div.querySelector('.chat-bubble-content').appendChild(wrap);
+            div.querySelector('.chat-bubble-content')?.appendChild(wrap);
         }
     }
 
@@ -84,11 +84,11 @@ export function appendMessage(role, text, options = {}) {
     // Wire user action buttons
     if (role === 'user') {
         // Toggle stamp + tap animation on click/tap
-        const userBubble = div.querySelector('.user-bubble');
-        const stamp = div.querySelector('.chat-user-stamp');
+        const userBubble = div.querySelector('.user-bubble') as HTMLElement | null;
+        const stamp = div.querySelector('.chat-user-stamp') as HTMLElement | null;
         if (userBubble && stamp) {
             userBubble.addEventListener('click', (e) => {
-                if (window.getSelection && window.getSelection().toString()) return;
+                if (window.getSelection()?.toString()) return;
                 // Tap animation — PERF FIX: use class toggle instead of forced reflow
                 userBubble.classList.remove('user-bubble-tap');
                 // requestAnimationFrame to restart animation without forced reflow
@@ -101,10 +101,10 @@ export function appendMessage(role, text, options = {}) {
                 userBubble.classList.remove('user-bubble-tap');
             });
         }
-        const copyBtn = div.querySelector('.chat-user-copy-btn');
+        const copyBtn = div.querySelector('.chat-user-copy-btn') as HTMLButtonElement | null;
         if (copyBtn) {
             copyBtn.addEventListener('click', () => {
-                const bc = div.querySelector('.chat-bubble-content');
+                const bc = div.querySelector('.chat-bubble-content') as HTMLElement | null;
                 const txt = bc ? (bc.innerText || bc.textContent || '') : '';
                 navigator.clipboard.writeText(txt).then(() => {
                     const icon = copyBtn.querySelector('i');
@@ -113,12 +113,12 @@ export function appendMessage(role, text, options = {}) {
                 }).catch(() => {});
             });
         }
-        const editBtn = div.querySelector('.chat-user-edit-btn');
+        const editBtn = div.querySelector('.chat-user-edit-btn') as HTMLButtonElement | null;
         if (editBtn) {
             editBtn.addEventListener('click', () => {
                 const bc = div.querySelector('.chat-bubble-content');
-                const txt = bc ? (bc.innerText || bc.textContent || '') : '';
-                const input = document.getElementById('user-input');
+                const txt = bc ? (bc.textContent || '') : '';
+                const input = document.getElementById('user-input') as HTMLTextAreaElement | null;
                 if (input) { input.value = txt; input.focus(); input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 160) + 'px'; }
             });
         }
@@ -127,7 +127,11 @@ export function appendMessage(role, text, options = {}) {
 }
 
 /** Action bar under AI responses: copy, regenerate, thumbs up/down + performance stats */
-export function appendConsciousnessFeedbackBar(bubble, bubbleId, stats) {
+export function appendConsciousnessFeedbackBar(
+    bubble: Element,
+    bubbleId: string | null,
+    stats: ChatResponseStats | null,
+) {
     if (!bubble || bubble.querySelector('.chat-intelligence-bar')) return;
 
     const bar = document.createElement('div');
@@ -143,7 +147,7 @@ export function appendConsciousnessFeedbackBar(bubble, bubbleId, stats) {
     copyBtn.type = 'button';
     copyBtn.innerHTML = '<i class="fas fa-copy"></i><span class="action-tooltip">' + escapeHtml(t('common.copy') || 'Copy') + '</span>';
     copyBtn.addEventListener('click', () => {
-        const content = bubble.querySelector('.chat-bubble-content');
+        const content = bubble.querySelector('.chat-bubble-content') as HTMLElement | null;
         const text = content ? (content.innerText || content.textContent || '') : '';
         navigator.clipboard.writeText(text).then(() => {
             const icon = copyBtn.querySelector('i');
@@ -169,14 +173,14 @@ export function appendConsciousnessFeedbackBar(bubble, bubbleId, stats) {
         let prev = row.previousElementSibling;
         while (prev && !prev.classList.contains('chat-row-user')) prev = prev.previousElementSibling;
         if (!prev) return;
-        const userContent = prev.querySelector('.chat-bubble-content');
+        const userContent = prev.querySelector('.chat-bubble-content') as HTMLElement | null;
         if (!userContent) return;
         const userText = userContent.innerText || userContent.textContent || '';
         row.remove();
         if (typeof window.sendMessage === 'function') window.sendMessage(userText);
         else {
             const mod = window.__chatExports;
-            if (mod && mod.sendMessage) mod.sendMessage(userText);
+            if (mod?.sendMessage) mod.sendMessage(userText);
         }
     });
     actions.appendChild(regenBtn);
@@ -225,7 +229,7 @@ export function appendConsciousnessFeedbackBar(bubble, bubbleId, stats) {
 }
 
 /** Înfășoară blocurile pre/code în ferestre cu header (limbaj + Select all / Copy) */
-export function decorateCodeBlocks(container) {
+export function decorateCodeBlocks(container: Element | null) {
     if (!container) return;
     const content = container.classList?.contains('chat-bubble-content')
         ? container
@@ -238,7 +242,7 @@ export function decorateCodeBlocks(container) {
         const langMatch = (code.className || '').match(/\blanguage-(\w+)/);
         const lang = langMatch ? langMatch[1] : t('chat.code_label');
         const rawSource = code.textContent || pre.textContent || '';
-        pre.dataset.rawSource = rawSource;
+        (pre as HTMLElement).dataset.rawSource = rawSource;
 
         const wrap = document.createElement('div');
         wrap.className = 'chat-code-block';
@@ -252,19 +256,21 @@ export function decorateCodeBlocks(container) {
                 <button type="button" class="chat-code-copy">${escapeHtml(t('common.copy'))}</button>
             </div>`;
 
-        const selectBtn = header.querySelector('.chat-code-select-all');
-        const copyBtn = header.querySelector('.chat-code-copy');
+        const selectBtn = header.querySelector('.chat-code-select-all') as HTMLButtonElement | null;
+        const copyBtn = header.querySelector('.chat-code-copy') as HTMLButtonElement | null;
 
         selectBtn?.addEventListener('click', () => {
             const range = document.createRange();
                         range.selectNodeContents(pre.querySelector('code') || pre);
             const sel = window.getSelection();
+            if (!sel) return;
             sel.removeAllRanges();
             sel.addRange(range);
           });
 
         copyBtn?.addEventListener('click', () => {
-                        const text = pre.dataset.rawSource || (pre.querySelector('code') || pre).textContent || pre.textContent || '';
+            const preEl = pre as HTMLElement;
+            const text = preEl.dataset.rawSource || (pre.querySelector('code') || pre).textContent || pre.textContent || '';
             navigator.clipboard.writeText(text).then(() => {
                 copyBtn.textContent = t('chat.copied');
                 copyBtn.classList.add('copied');
@@ -276,7 +282,7 @@ export function decorateCodeBlocks(container) {
           });
 
         wrap.appendChild(header);
-        pre.parentNode.insertBefore(wrap, pre);
+        if (pre.parentNode) pre.parentNode.insertBefore(wrap, pre);
         wrap.appendChild(pre);
         enhanceCodeBlock(pre, lang, rawSource);
     });
@@ -284,7 +290,7 @@ export function decorateCodeBlocks(container) {
 
 export { decorateImages } from './image_cards.js';
 
-export function enhanceForgePreview(container, streaming) {
+export function enhanceForgePreview(container: Element | null, streaming: boolean) {
     if (!container) return;
     const preview = container.querySelector('.chat-forge-preview');
     if (!preview) return;
@@ -301,7 +307,7 @@ export function enhanceForgePreview(container, streaming) {
     });
 }
 
-export function buildForgePreviewHtml(content, language = 'python', streaming = false) {
+export function buildForgePreviewHtml(content: string, language = 'python', streaming = false) {
     if (!content) return '';
     const lang = language || 'python';
     return `

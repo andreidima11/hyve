@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Live chat stream session — SSE reader, bubble renderer, and finalization.
  */
@@ -28,18 +27,23 @@ import {
     stripThinkFromContent,
 } from './stream_thinking.js';
 import { getTts, speakBubble } from './tts.js';
+import type {
+    ChatStreamSessionOpts,
+    ForgePreviewState,
+    ProposalCard,
+    ShellCard,
+    SseQueueItem,
+    StreamMetrics,
+} from '../types/chat.js';
 
-/**
- * Consume an SSE chat response body and render the live AI bubble.
- * @param {object} opts
- * @param {string} opts.aiBubbleId
- * @param {string|null} opts.newSessionId
- * @param {boolean} opts.hasImage
- * @param {(color: string) => void} opts.applyBubbleGlow
- * @param {(msg: string) => void} opts.onResendMessage
- * @param {Response} response
- */
-export async function runChatStreamSession(opts, response) {
+type PendingPhase = 'vision' | 'preparing' | 'thinking' | 'generating' | 'done';
+
+interface StatusLineEntry {
+    type: string;
+    label: string;
+}
+
+export async function runChatStreamSession(opts: ChatStreamSessionOpts, response: Response) {
     const {
         aiBubbleId,
         newSessionId,
@@ -50,23 +54,24 @@ export async function runChatStreamSession(opts, response) {
 
     let fullText = "";
     let sseBuffer = "";
-    const statusLines = [];
-    let streamMetrics = { completion_tokens: null, prompt_tokens: null, total_tokens: null };
+    const statusLines: StatusLineEntry[] = [];
+    let streamMetrics: StreamMetrics = { completion_tokens: null, prompt_tokens: null, total_tokens: null };
     let thinkingContent = "";
-    let finalMessageContent = null;
+    let finalMessageContent: string | null = null;
     let finalModelName = "";
     let finalModelId = "";
-    let thinkingStartTime = null;
-    let pendingPhase = hasImage ? 'vision' : 'preparing';
+    let thinkingStartTime: number | null = null;
+    let pendingPhase: PendingPhase = hasImage ? 'vision' : 'preparing';
     let pendingPhaseLabel = hasImage ? 'Analizez imaginea' : 'Se gândește';
     const responseStartTime = Date.now();
-    let firstChunkTime = null;
-    const shellCards = [];
-    const searchSources = [];
-    const bubble = document.getElementById(aiBubbleId);
-    if (!bubble) {
+    let firstChunkTime: number | null = null;
+    const shellCards: ShellCard[] = [];
+    const searchSources: unknown[] = [];
+    const bubbleMaybe = document.getElementById(aiBubbleId);
+    if (!bubbleMaybe) {
         throw new Error(`Chat bubble #${aiBubbleId} not found`);
     }
+    const streamBubble: HTMLElement = bubbleMaybe;
     if (!response.body) {
         throw new Error('Chat response has no body');
     }
@@ -78,12 +83,12 @@ export async function runChatStreamSession(opts, response) {
     let lastChunkRenderTime = 0;
     const CHUNK_RENDER_THROTTLE_MS = 72;
 
-    const proposalCards = [];
-    const forgePreview = { content: '', language: 'python', done: false };
+    const proposalCards: ProposalCard[] = [];
+    const forgePreview: ForgePreviewState = { content: '', language: 'python', done: false };
 
     // Streaming TTS: accumulate text and push complete sentences
     let _ttsAccum = '';
-    getTts().streamReset(bubble);
+    getTts().streamReset(streamBubble);
     function scheduleRender() {
         if (scheduledRenderRAF) return;
         scheduledRenderRAF = requestAnimationFrame(() => {
@@ -108,21 +113,21 @@ export async function runChatStreamSession(opts, response) {
         }
     }
 
-    function attachBubbleListeners(bubble) {
-        const thinkingBlock = bubble.querySelector(".chat-thinking-block");
-        const thinkingToggle = bubble.querySelector(".chat-thinking-toggle");
+    function attachBubbleListeners(root: HTMLElement) {
+        const thinkingBlock = root.querySelector(".chat-thinking-block");
+        const thinkingToggle = root.querySelector(".chat-thinking-toggle");
         if (thinkingBlock && thinkingToggle) {
             thinkingToggle.addEventListener("click", () => {
                 const open = thinkingBlock.classList.toggle("chat-thinking-open");
-                thinkingToggle.setAttribute("aria-expanded", open);
+                thinkingToggle.setAttribute("aria-expanded", open ? 'true' : 'false');
                 if (open) {
                     const contentBox = thinkingBlock.querySelector(".chat-thinking-content");
                     if (contentBox) contentBox.scrollTop = contentBox.scrollHeight;
                 }
             });
         }
-        const timelineWrap = bubble.querySelector(".chat-agent-timeline-collapsible");
-        const timelineSummary = timelineWrap?.querySelector(".chat-agent-timeline-summary");
+        const timelineWrap = root.querySelector(".chat-agent-timeline-collapsible");
+        const timelineSummary = timelineWrap?.querySelector(".chat-agent-timeline-summary") as HTMLElement | null;
         if (timelineWrap && timelineSummary && !timelineSummary.dataset.bound) {
             timelineSummary.dataset.bound = "1";
             timelineSummary.addEventListener("click", () => {
@@ -130,38 +135,38 @@ export async function runChatStreamSession(opts, response) {
                 timelineSummary.setAttribute("aria-expanded", open ? "true" : "false");
             });
         }
-        bubble.querySelectorAll(".chat-shell-allow-btn").forEach(btn => {
+        root.querySelectorAll(".chat-shell-allow-btn").forEach(btn => {
             btn.addEventListener("click", async () => {
                 try {
                     const res = await fetch("/api/shell/allow", { method: "POST", headers: { Authorization: `Bearer ${localStorage.getItem("hyve_token") || ""}` } });
                     if (res.ok) {
-                        btn.textContent = t("chat.shell_allowed") || "Permisiune acordată";
-                        btn.disabled = true;
+                        (btn as HTMLButtonElement).textContent = t("chat.shell_allowed") || "Permisiune acordată";
+                        (btn as HTMLButtonElement).disabled = true;
                         onResendMessage("da");
                     }
                 } catch (e) { console.warn("Shell allow failed", e); }
             });
         });
-        bubble.querySelectorAll(".chat-shell-run-btn").forEach(btn => {
+        root.querySelectorAll(".chat-shell-run-btn").forEach(btn => {
             const card = btn.closest(".chat-shell-suggest");
             if (!card) return;
             btn.addEventListener("click", async () => {
                 const command = card.getAttribute("data-command") || "";
                 if (!command) return;
-                btn.disabled = true;
+                (btn as HTMLButtonElement).disabled = true;
                 try {
                     const res = await fetch("/api/shell/run", {
                         method: "POST",
                         headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("hyve_token") || ""}` },
                         body: JSON.stringify({ command })
                     });
-                    const data = await res.json().catch(() => ({}));
+                    const data = await res.json().catch(() => ({})) as { result?: string; error?: string };
                     if (res.ok && data.result) {
-                        const idx = shellCards.findIndex(c => c.suggest && c.command === command);
+                        const idx = shellCards.findIndex(c => 'suggest' in c && c.command === command);
                         if (idx !== -1) {
                             const exitCode = (data.result.match(/Exit code:\s*(-?\d+)/) || [])[1];
                             const outputMatch = data.result.match(/(?:Output|Stdout):\s*([\s\S]*)/);
-                            shellCards[idx] = { command, exit_code: parseInt(exitCode, 10) || 0, output_preview: (outputMatch && outputMatch[1]) ? outputMatch[1].trim() : data.result };
+                            shellCards[idx] = { command, exit_code: parseInt(exitCode || '0', 10) || 0, output_preview: (outputMatch && outputMatch[1]) ? outputMatch[1].trim() : data.result };
                             renderBubble(isStreaming);
                         }
                     } else {
@@ -169,77 +174,78 @@ export async function runChatStreamSession(opts, response) {
                         renderBubble(isStreaming);
                     }
                 } catch (e) {
-                    shellCards.push({ command, exit_code: 1, output_preview: (e && e.message) || "Error" });
+                    shellCards.push({ command, exit_code: 1, output_preview: (e instanceof Error ? e.message : 'Error') });
                     renderBubble(isStreaming);
                 }
             });
         });
-        bubble.querySelectorAll(".chat-shell-cancel-btn").forEach(btn => {
+        root.querySelectorAll(".chat-shell-cancel-btn").forEach(btn => {
             const card = btn.closest(".chat-shell-suggest");
             if (!card) return;
             btn.addEventListener("click", () => {
                 const command = card.getAttribute("data-command") || "";
-                const idx = shellCards.findIndex(c => c.suggest && c.command === command);
+                const idx = shellCards.findIndex(c => 'suggest' in c && c.command === command);
                 if (idx !== -1) shellCards.splice(idx, 1);
                 renderBubble(isStreaming);
             });
         });
-        bubble.querySelectorAll('.chat-forge-preview-copy').forEach(btn => {
+        root.querySelectorAll('.chat-forge-preview-copy').forEach(btn => {
             btn.addEventListener('click', () => {
                 const pre = btn.closest('.chat-forge-preview')?.querySelector('pre');
-                const text = pre?.innerText || pre?.textContent || '';
+                const text = pre?.textContent || '';
                 navigator.clipboard.writeText(text).then(() => {
-                    btn.textContent = t('chat.copied');
+                    (btn as HTMLButtonElement).textContent = t('chat.copied');
                     btn.classList.add('copied');
                     setTimeout(() => {
-                        btn.textContent = t('common.copy');
+                        (btn as HTMLButtonElement).textContent = t('common.copy');
                         btn.classList.remove('copied');
                     }, 2000);
                 }).catch(() => {});
             });
         });
-        bubble.querySelectorAll('.chat-forge-preview-select').forEach(btn => {
+        root.querySelectorAll('.chat-forge-preview-select').forEach(btn => {
             btn.addEventListener('click', () => {
                 const pre = btn.closest('.chat-forge-preview')?.querySelector('pre');
                 if (!pre) return;
                 const range = document.createRange();
                 range.selectNodeContents(pre);
                 const sel = window.getSelection();
+                if (!sel) return;
                 sel.removeAllRanges();
                 sel.addRange(range);
             });
         });
-        bubble.querySelectorAll(".chat-proposal-apply-btn").forEach(btn => {
+        root.querySelectorAll(".chat-proposal-apply-btn").forEach(btn => {
             const card = btn.closest(".chat-proposal-card");
             if (!card) return;
             btn.addEventListener("click", async () => {
                 const raw = card.getAttribute("data-proposal");
                 if (!raw) return;
                 try {
-                    const proposal = JSON.parse(raw.replace(/&quot;/g, '"'));
+                    const proposal = JSON.parse(raw.replace(/&quot;/g, '"')) as ProposalCard;
                     const res = await fetch("/api/proposal/apply", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("hyve_token") || ""}` }, body: JSON.stringify(proposal) });
-                    const data = await res.json().catch(() => ({}));
-                    if (res.ok) { btn.textContent = t("chat.proposal_applied") || "Aplicat"; btn.disabled = true; card.querySelector(".chat-proposal-refuse-btn")?.remove(); }
+                    const data = await res.json().catch(() => ({})) as { detail?: string; error?: string };
+                    if (res.ok) { (btn as HTMLButtonElement).textContent = t("chat.proposal_applied") || "Aplicat"; (btn as HTMLButtonElement).disabled = true; card.querySelector(".chat-proposal-refuse-btn")?.remove(); }
                     else { showToast(data.detail || data.error || "Error", 'error'); }
-                } catch (e) { showToast(e && e.message || "Error", 'error'); }
+                } catch (e) { showToast(e instanceof Error ? e.message : "Error", 'error'); }
             });
         });
-        bubble.querySelectorAll(".chat-proposal-refuse-btn").forEach(btn => {
+        root.querySelectorAll(".chat-proposal-refuse-btn").forEach(btn => {
             const card = btn.closest(".chat-proposal-card");
             if (!card) return;
             btn.addEventListener("click", () => {
-                const idx = parseInt(card.getAttribute("data-proposal-index"), 10);
+                const idx = parseInt(card.getAttribute("data-proposal-index") || '', 10);
                 if (!Number.isNaN(idx) && idx >= 0 && idx < proposalCards.length) proposalCards.splice(idx, 1);
                 renderBubble(isStreaming);
             });
         });
-        decorateCodeBlocks(bubble);
-        enhanceForgePreview(bubble, bubble.querySelector('.chat-forge-preview')?.classList.contains('chat-forge-preview-streaming'));
-        decorateImages(bubble);
-        void refreshSourceFavicons(bubble);
+        decorateCodeBlocks(root);
+        enhanceForgePreview(root, !!root.querySelector('.chat-forge-preview')?.classList.contains('chat-forge-preview-streaming'));
+        decorateImages(root);
+        void refreshSourceFavicons(root as unknown as Document);
     }
 
-    function renderBubble(streaming) {
+    function renderBubble(streaming: boolean) {
         const showFinalStructure = !streaming;
         const hasThinking = thinkingContent.length > 0;
         let displayContent;
@@ -251,8 +257,8 @@ export async function runChatStreamSession(opts, response) {
         } else {
             displayContent = stripThinkFromContent(fullText);
         }
-        const thinkingDurationSec = (thinkingStartTime && (firstChunkTime || !streaming))
-            ? (((firstChunkTime || Date.now()) - thinkingStartTime) / 1000).toFixed(1)
+        const thinkingDurationSec: number | null = (thinkingStartTime && (firstChunkTime || !streaming))
+            ? Number((((firstChunkTime || Date.now()) - thinkingStartTime) / 1000).toFixed(1))
             : null;
         let displayThinking = showFinalStructure ? thinkingContent : "";
         if (showFinalStructure && !displayThinking && fullText) {
@@ -269,7 +275,7 @@ export async function runChatStreamSession(opts, response) {
             }
         }
 
-        const thinkingWasOpen = !!bubble.querySelector(".chat-thinking-block.chat-thinking-open");
+        const thinkingWasOpen = !!streamBubble.querySelector(".chat-thinking-block.chat-thinking-open");
         const stepsCount = statusLines.length;
         // Thinking is now integrated into the unified timeline (no separate dropdown).
         const thinkingHtml = "";
@@ -334,7 +340,7 @@ export async function runChatStreamSession(opts, response) {
                     const before = renderContent.slice(0, lastOpen);
                     let markedPart = '';
                     try {
-                        markedPart = DOMPurify.sanitize(marked.parse(before));
+                        markedPart = DOMPurify.sanitize(marked?.parse(before) || before);
                     } catch (_e) {
                         markedPart = escapeHtml(before);
                     }
@@ -343,7 +349,7 @@ export async function runChatStreamSession(opts, response) {
                 }
                 let parsedHtml = '';
                 try {
-                    parsedHtml = DOMPurify.sanitize(marked.parse(renderContent));
+                    parsedHtml = DOMPurify.sanitize(marked?.parse(renderContent) || renderContent);
                 } catch (_e) {
                     parsedHtml = escapeHtml(renderContent).replace(/\n/g, '<br>');
                 }
@@ -353,7 +359,7 @@ export async function runChatStreamSession(opts, response) {
                 ? `<div class="chat-bubble-content">${buildPendingStateHtml(pendingLabel, pendingIcon)}</div>`
                 : `<div class="chat-bubble-content"></div>`;
         const shellCardsHtml = shellCards.map(c => {
-            if (c.suggest) {
+            if ('suggest' in c && c.suggest) {
                 return `<div class="chat-shell-card chat-shell-suggest" data-command="${escapeHtml(c.command || '').replace(/"/g, '&quot;')}">
                     <div class="chat-shell-card-header"><i class="fas fa-lightbulb"></i> <span>${escapeHtml(t('chat.shell_suggest_title') || 'Comandă sugerată')}</span></div>
                     ${c.reason ? `<p class="chat-shell-reason text-slate-400 text-xs">${escapeHtml(c.reason)}</p>` : ''}
@@ -364,7 +370,7 @@ export async function runChatStreamSession(opts, response) {
                     </div>
                 </div>`;
             }
-            if (c.requested_but_denied) {
+            if ('requested_but_denied' in c && c.requested_but_denied) {
                 return `<div class="chat-shell-card chat-shell-request" data-command="${escapeHtml(c.command || '').replace(/"/g, '&quot;')}">
                     <div class="chat-shell-card-header"><i class="fas fa-terminal"></i> <span>${escapeHtml(t('chat.shell_request_title') || 'AI vrea să ruleze o comandă')}</span></div>
                     <pre class="chat-shell-command">${escapeHtml(c.command || '')}</pre>
@@ -374,11 +380,11 @@ export async function runChatStreamSession(opts, response) {
                     </div>
                 </div>`;
             }
-            const exitOk = c.exit_code === 0;
+            const exitOk = 'exit_code' in c && c.exit_code === 0;
             return `<div class="chat-shell-card chat-shell-done">
-                <div class="chat-shell-card-header"><i class="fas fa-check-circle ${exitOk ? 'text-emerald-400' : 'text-amber-400'}"></i> <span>${escapeHtml(t('chat.shell_done_title') || 'Comandă rulată')}</span> <span class="chat-shell-exit">exit ${c.exit_code}</span></div>
+                <div class="chat-shell-card-header"><i class="fas fa-check-circle ${exitOk ? 'text-emerald-400' : 'text-amber-400'}"></i> <span>${escapeHtml(t('chat.shell_done_title') || 'Comandă rulată')}</span> <span class="chat-shell-exit">exit ${'exit_code' in c ? c.exit_code : '?'}</span></div>
                 <pre class="chat-shell-command">${escapeHtml(c.command || '')}</pre>
-                <details class="chat-shell-output"><summary>${escapeHtml(t('chat.shell_output') || 'Output')}</summary><pre>${escapeHtml(c.output_preview || '')}</pre></details>
+                <details class="chat-shell-output"><summary>${escapeHtml(t('chat.shell_output') || 'Output')}</summary><pre>${escapeHtml(('output_preview' in c ? c.output_preview : '') || '')}</pre></details>
             </div>`;
         }).join('');
         const proposalCardsHtml = proposalCards.map((p, idx) => {
@@ -395,29 +401,30 @@ export async function runChatStreamSession(opts, response) {
             </div>`;
         }).join('');
         // Search sources cards (citation cards)
-        const sourcesHtml = streaming ? '' : buildSourcesHtml(searchSources);
+        const sourcesHtml = streaming ? '' : buildSourcesHtml(searchSources, '');
         const cardsHtml = (shellCardsHtml ? `<div class="chat-shell-cards">${shellCardsHtml}</div>` : "") + (proposalCardsHtml ? `<div class="chat-proposal-cards">${proposalCardsHtml}</div>` : "") + sourcesHtml;
 
-        bubble.classList.remove("chat-bubble-typing");
+        streamBubble.classList.remove("chat-bubble-typing");
 
-        const existingThinkingBlock = bubble.querySelector(".chat-thinking-block");
-        const bubbleAlreadyBuilt = !!bubble.querySelector(".chat-bubble-part.chat-bubble-main");
-        const doPartialUpdate = streaming && (existingThinkingBlock || bubbleAlreadyBuilt);
+        const existingThinkingBlock = streamBubble.querySelector(".chat-thinking-block");
+        const streamBubbleAlreadyBuilt = !!streamBubble.querySelector(".chat-bubble-part.chat-bubble-main");
+        const doPartialUpdate = streaming && (existingThinkingBlock || streamBubbleAlreadyBuilt);
 
         if (doPartialUpdate) {
-            const agentPart = bubble.querySelector('.chat-bubble-part.chat-bubble-agent');
-            const stepsPart = bubble.querySelector(".chat-bubble-part.chat-bubble-steps");
-            const thinkingPart = bubble.querySelector(".chat-bubble-part.chat-bubble-thinking");
-            const previewPart = bubble.querySelector(".chat-bubble-part.chat-bubble-preview");
-            const mainPart = bubble.querySelector(".chat-bubble-part.chat-bubble-main");
-            const cardsPart = bubble.querySelector(".chat-bubble-part.chat-bubble-cards");
+            const agentPart = streamBubble.querySelector('.chat-bubble-part.chat-bubble-agent');
+            const stepsPart = streamBubble.querySelector(".chat-bubble-part.chat-bubble-steps");
+            const thinkingPart = streamBubble.querySelector(".chat-bubble-part.chat-bubble-thinking");
+            const previewPart = streamBubble.querySelector(".chat-bubble-part.chat-bubble-preview");
+            const mainPart = streamBubble.querySelector(".chat-bubble-part.chat-bubble-main");
+            const cardsPart = streamBubble.querySelector(".chat-bubble-part.chat-bubble-cards");
             if (agentPart) agentPart.innerHTML = agentActivityHtml;
             // Rewrite timeline only when step structure changes; reasoning text
             // is patched incrementally so spinners don't restart every token.
             if (stepsPart) {
-                if (stepsPart.dataset.timelineStructure !== timelineStructureKey) {
+                const stepsEl = stepsPart as HTMLElement;
+                if (stepsEl.dataset.timelineStructure !== timelineStructureKey) {
                     stepsPart.innerHTML = stepsHtml;
-                    stepsPart.dataset.timelineStructure = timelineStructureKey;
+                    stepsEl.dataset.timelineStructure = timelineStructureKey;
                 } else if (timelineThinkingContent) {
                     const streamEl = stepsPart.querySelector('.chat-agent-timeline__detail-stream');
                     if (streamEl) {
@@ -431,24 +438,24 @@ export async function runChatStreamSession(opts, response) {
             if (previewPart) previewPart.innerHTML = forgePreviewHtml;
             if (mainPart) mainPart.innerHTML = contentHtml;
             if (cardsPart) cardsPart.innerHTML = cardsHtml;
-            attachBubbleListeners(bubble);
+            attachBubbleListeners(streamBubble);
             if (thinkingWasOpen) {
-                const thinkingContentBox = bubble.querySelector(".chat-thinking-block.chat-thinking-open .chat-thinking-content");
+                const thinkingContentBox = streamBubble.querySelector(".chat-thinking-block.chat-thinking-open .chat-thinking-content");
                 if (thinkingContentBox) thinkingContentBox.scrollTop = thinkingContentBox.scrollHeight;
             }
         } else {
-            bubble.innerHTML =
+            streamBubble.innerHTML =
                 '<div class="chat-bubble-part chat-bubble-agent">' + agentActivityHtml + '</div>' +
                 '<div class="chat-bubble-part chat-bubble-steps">' + stepsHtml + '</div>' +
                 '<div class="chat-bubble-part chat-bubble-thinking">' + thinkingHtml + '</div>' +
                 '<div class="chat-bubble-part chat-bubble-preview">' + forgePreviewHtml + '</div>' +
                 '<div class="chat-bubble-part chat-bubble-main">' + contentHtml + '</div>' +
                 '<div class="chat-bubble-part chat-bubble-cards">' + cardsHtml + '</div>';
-            const stepsPartInit = bubble.querySelector(".chat-bubble-part.chat-bubble-steps");
+            const stepsPartInit = streamBubble.querySelector(".chat-bubble-part.chat-bubble-steps") as HTMLElement | null;
             if (stepsPartInit) stepsPartInit.dataset.timelineStructure = timelineStructureKey;
-            attachBubbleListeners(bubble);
+            attachBubbleListeners(streamBubble);
             if (thinkingWasOpen) {
-                const thinkingContentBox = bubble.querySelector(".chat-thinking-block.chat-thinking-open .chat-thinking-content");
+                const thinkingContentBox = streamBubble.querySelector(".chat-thinking-block.chat-thinking-open .chat-thinking-content");
                 if (thinkingContentBox) thinkingContentBox.scrollTop = thinkingContentBox.scrollHeight;
             }
         }
@@ -456,7 +463,7 @@ export async function runChatStreamSession(opts, response) {
         scrollChatToBottom({ behavior: 'auto' });
     }
 
-    function processOneSSEEvent(eventType, data) {
+    function processOneSSEEvent(eventType: string, data: string) {
         if (!data && eventType !== 'clear_content') return;
         if (eventType === "thinking") {
             try {
@@ -465,8 +472,8 @@ export async function runChatStreamSession(opts, response) {
                 pendingPhase = 'thinking';
                 pendingPhaseLabel = 'Se gândește';
                 thinkingContent += p.content || "";
-                const streamEl = bubble.querySelector(".chat-agent-timeline__detail-stream")
-                    || bubble.querySelector(".chat-thinking-stream");
+                const streamEl = streamBubble.querySelector(".chat-agent-timeline__detail-stream")
+                    || streamBubble.querySelector(".chat-thinking-stream");
                 if (streamEl) {
                     streamEl.innerHTML = escapeHtml(thinkingContent).replace(/\n/g, "<br>");
                     const detailBox = streamEl.closest(".chat-agent-timeline__detail, .chat-thinking-content");
@@ -556,7 +563,7 @@ export async function runChatStreamSession(opts, response) {
                     for (const src of p.sources) searchSources.push(src);
                 }
             } catch (e) { /* ignore */ }
-            // Avoid re-rendering the whole bubble mid-stream just because
+            // Avoid re-rendering the whole root mid-stream just because
             // sources arrived; this caused visible "blinking" near the end
             // of streaming due to repeated autoscroll/layout changes.
         } else if (eventType === "metrics") {
@@ -589,14 +596,15 @@ export async function runChatStreamSession(opts, response) {
         }
     }
 
-    const sseEventQueue = [];
+    const sseEventQueue: SseQueueItem[] = [];
     function drainSSEQueue() {
         while (sseEventQueue.length > 0) {
-            const { eventType, data } = sseEventQueue.shift();
-            processOneSSEEvent(eventType, data);
+            const item = sseEventQueue.shift();
+            if (!item) break;
+            processOneSSEEvent(item.eventType, item.data);
         }
     }
-    function parseSSEEvents(chunk) {
+    function parseSSEEvents(chunk: string | undefined) {
         if (!chunk) return;
         sseBuffer += String(chunk).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
         const events = sseBuffer.split("\n\n");
@@ -645,12 +653,12 @@ export async function runChatStreamSession(opts, response) {
         if (chunkThrottleTimer) { clearTimeout(chunkThrottleTimer); chunkThrottleTimer = 0; }
         if (scheduledRenderRAF) { cancelAnimationFrame(scheduledRenderRAF); scheduledRenderRAF = 0; }
         renderBubble(false);
-        decorateCodeBlocks(bubble);
-        decorateImages(bubble);
+        decorateCodeBlocks(streamBubble);
+        decorateImages(streamBubble);
 
         const visibleText = (fullText || '').trim();
-        const errPart = bubble.querySelector('.chat-bubble-main .chat-bubble-content')
-            || bubble.querySelector('.chat-bubble-content');
+        const errPart = streamBubble.querySelector('.chat-bubble-main .chat-bubble-content')
+            || streamBubble.querySelector('.chat-bubble-content');
         if (errPart) {
             if (/^Error:/i.test(visibleText)) {
                 errPart.innerHTML = `<span class="chat-error"><i class="fas fa-exclamation-triangle"></i> ${escapeHtml(visibleText)}</span>`;
@@ -679,14 +687,14 @@ export async function runChatStreamSession(opts, response) {
             modelId: finalModelId || '',
             tools: statusLines.slice()
         };
-        appendConsciousnessFeedbackBar(bubble, aiBubbleId, responseStats);
+        appendConsciousnessFeedbackBar(streamBubble, aiBubbleId, responseStats);
 
         // Auto-speak response if triggered by voice input or always-speak
         const shouldAutoSpeak = isVoiceInputPending() || getTts().alwaysSpeak;
         if (isVoiceInputPending()) setVoiceInputPending(false);
 
         if (shouldAutoSpeak && !getTts().streamWasActive()) {
-            speakBubble(bubble);
+            speakBubble(streamBubble);
         }
 
         const activeSessionId = newSessionId || currentSessionId;

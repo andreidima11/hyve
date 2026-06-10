@@ -1,4 +1,3 @@
-// @ts-nocheck — Phase 2 TS shell; tighten types incrementally.
 // Per-domain renderers for integration entity controls.
 //
 // Each renderer receives the entity object (as returned by
@@ -98,6 +97,24 @@ function _cameraLoaderMarkup(message) {
 }
 if (typeof window !== 'undefined' && !customElements.get('hyve-camera-live-player')) {
     customElements.define('hyve-camera-live-player', class HyveCameraLivePlayer extends HTMLElement {
+        constructor() {
+            super(...arguments);
+            this._started = false;
+            this._paused = false;
+            this._entityId = '';
+            this._streamSrc = '';
+            this._snapshotSrc = '';
+            this._playSrc = '';
+            this._hasAudio = false;
+            this._go2rtc = false;
+            this._usingFallback = false;
+            this._fallbackTimer = null;
+            this._ws = null;
+            this._objectUrl = '';
+            this._sourceBuffer = null;
+            this._queue = [];
+            this._requested = false;
+        }
         connectedCallback() {
             if (this._started)
                 return;
@@ -226,7 +243,9 @@ if (typeof window !== 'undefined' && !customElements.get('hyve-camera-live-playe
                 </div>`);
             const video = this.querySelector('video');
             const muteBtn = this.querySelector('[data-camera-mute-toggle]');
-            if (muteBtn && video) {
+            if (!video)
+                return;
+            if (muteBtn) {
                 muteBtn.addEventListener('click', (ev) => {
                     ev.stopPropagation();
                     video.muted = !video.muted;
@@ -249,6 +268,8 @@ if (typeof window !== 'undefined' && !customElements.get('hyve-camera-live-playe
             }
             this._render(`<img src="${escapeHtml(src)}" alt="${escapeHtml(title)}" class="w-full h-full object-contain bg-black opacity-0 transition-opacity duration-300" data-camera-live-frame>`);
             const img = this.querySelector('img');
+            if (!img)
+                return;
             img.onload = () => this._ready(img);
             img.onerror = () => {
                 if (this._snapshotSrc && !img.dataset.fallbackTried) {
@@ -273,6 +294,8 @@ if (typeof window !== 'undefined' && !customElements.get('hyve-camera-live-playe
             const title = this.getAttribute('aria-label') || this._entityId;
             this._render(`<video class="w-full h-full object-contain bg-black opacity-0 transition-opacity duration-300" muted playsinline autoplay data-camera-live-frame></video>`);
             const video = this.querySelector('video');
+            if (!video)
+                return;
             const mediaSource = new MediaSource();
             this._objectUrl = URL.createObjectURL(mediaSource);
             video.src = this._objectUrl;
@@ -418,7 +441,7 @@ function _mediaStateBadge(state) {
     return { label: tState(state || 'unknown'), className: '' };
 }
 function renderHeroMedia(entity, domain) {
-    const dc = (entity.attributes || {}).device_class || '';
+    const dc = String(entity.attributes?.device_class || '');
     const icon = getDomainIcon(domain, dc);
     const title = entity.name || entity.entity_id || (domain === 'image' ? _er('image') : _er('camera'));
     const eid = entity.entity_id || '';
@@ -442,7 +465,7 @@ function renderHero(entity) {
     }
     const caps = (entity.attributes || {}).capabilities || {};
     const unit = entity.unit || caps.unit || '';
-    const dc = caps.device_class || (entity.attributes || {}).device_class || '';
+    const dc = String(caps.device_class || entity.attributes?.device_class || '');
     const icon = getDomainIcon(domain, dc);
     const state = entity.state;
     const lower = String(state || '').toLowerCase();
@@ -470,7 +493,9 @@ function renderHero(entity) {
 export function entityUniqueId(entity) {
     if (!entity || typeof entity !== 'object')
         return '';
-    const attrs = entity.attributes && typeof entity.attributes === 'object' ? entity.attributes : {};
+    const attrs = entity.attributes && typeof entity.attributes === 'object'
+        ? entity.attributes
+        : {};
     return String(entity.unique_id || attrs.registry_unique_id || attrs.unique_id || '').trim();
 }
 function splitEntityId(entityId) {
@@ -577,7 +602,7 @@ export function wireEntityRegistryEditor(container, entity, options = {}) {
         if (saveBtn)
             saveBtn.disabled = true;
         try {
-            const result = await saveEntityRegistryId(entity, input.value || '');
+            const result = await saveEntityRegistryId(entity, input?.value || '');
             if (result.unchanged) {
                 showView();
                 return;
@@ -596,14 +621,14 @@ export function wireEntityRegistryEditor(container, entity, options = {}) {
                 uniqueId: uid,
                 entry: result.entry,
             });
-            if (typeof options.toast !== 'false') {
+            if (options.toast !== false && options.toast !== 'false') {
                 const { showToast } = await import('./utils.js');
                 showToast(_er('entity_id_updated'), 'success', 2200);
             }
         }
         catch (err) {
             const { showToast } = await import('./utils.js');
-            showToast(err?.message || _er('entity_id_save_failed'), 'error', 3200);
+            showToast(err instanceof Error ? err.message : _er('entity_id_save_failed'), 'error', 3200);
         }
         finally {
             if (saveBtn)
@@ -650,7 +675,7 @@ function renderLight(entity, slug) {
     const caps = (entity.attributes || {}).capabilities || {};
     let bright = '';
     if (caps.brightness_command_topic) {
-        const scale = caps.brightness_scale || 255;
+        const scale = Number(caps.brightness_scale) || 255;
         const current = Number((entity.attributes || {}).brightness) || 0;
         bright = `
         <div class="mt-3 pt-3 border-t border-white/5">
@@ -738,7 +763,7 @@ function renderButton(entity, slug) {
         ptz_down: { icon: 'fa-chevron-down', label: _er('down') },
         ptz_left: { icon: 'fa-chevron-left', label: _er('left') },
         ptz_right: { icon: 'fa-chevron-right', label: _er('right') },
-    }[ptzAction];
+    }[String(ptzAction)];
     if (attrs.tapo_button_kind === 'ptz' && ptzUi) {
         return `
         <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3 flex items-center justify-between gap-3">
@@ -819,7 +844,7 @@ function renderSensor(entity /*, slug */) {
 function _cameraHasPtz(attrs) {
     if (!attrs || typeof attrs !== 'object')
         return false;
-    const caps = attrs.capabilities || {};
+    const caps = (attrs.capabilities && typeof attrs.capabilities === 'object' ? attrs.capabilities : {});
     return !!(attrs.ptz_supported || caps.ptz);
 }
 function _renderCameraPtzPad(entity, slug) {
@@ -1011,7 +1036,11 @@ export function renderDeviceCard(group, slug) {
     const linkSensor = ents.find(e => /linkquality|signal/i.test(e.entity_id || '') || ((e.attributes || {}).capabilities || {}).device_class === 'signal_strength');
     const battery = ents.find(e => ((e.attributes || {}).capabilities || {}).device_class === 'battery');
     // Domain-tally chips
-    const tally = ents.reduce((acc, e) => { acc[e.domain || 'other'] = (acc[e.domain || 'other'] || 0) + 1; return acc; }, {});
+    const tally = ents.reduce((acc, e) => {
+        const d = e.domain || 'other';
+        acc[d] = (acc[d] || 0) + 1;
+        return acc;
+    }, {});
     const chips = Object.entries(tally).slice(0, 4).map(([d, n]) => `<span class="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/5 text-slate-400 uppercase tracking-wider">${escapeHtml(d)} ${n}</span>`).join('');
     let primaryReadout = '';
     if (switches.length) {
@@ -1130,8 +1159,8 @@ export function renderDeviceModal(group, slug) {
     const ents = group.entities.slice().sort((a, b) => {
         // Sort by domain priority, then by name
         const order = { switch: 0, light: 1, fan: 2, cover: 3, lock: 4, climate: 5, number: 6, select: 7, button: 8, binary_sensor: 9, sensor: 10 };
-        const oa = order[a.domain] ?? 99;
-        const ob = order[b.domain] ?? 99;
+        const oa = order[String(a.domain)] ?? 99;
+        const ob = order[String(b.domain)] ?? 99;
         if (oa !== ob)
             return oa - ob;
         return String(a.name || '').localeCompare(String(b.name || ''));

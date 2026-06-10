@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Chat SSE streaming — sendMessage and live bubble rendering.
  */
@@ -46,6 +45,8 @@ export async function sendMessage(optionalMessage) {
     });
     const aiBubbleId = 'ai-' + Date.now();
     const container = document.getElementById('chat-container');
+    if (!container)
+        return;
     const div = document.createElement('div');
     div.className = 'chat-row chat-row-ai animate-up';
     div.innerHTML = `
@@ -123,12 +124,12 @@ export async function sendMessage(optionalMessage) {
     }
     catch (e) {
         const bubble = document.getElementById(aiBubbleId);
-        if (e.name === 'AbortError') {
+        if (e instanceof DOMException && e.name === 'AbortError') {
             finalizeStoppedStreamingBubble();
             if (bubble) {
                 bubble.classList.remove('chat-bubble-typing');
                 const mainPart = bubble.querySelector('.chat-bubble-main');
-                if (mainPart && mainPart.textContent.trim()) {
+                if (mainPart && mainPart.textContent?.trim()) {
                     // keep partial content already rendered
                 }
                 else {
@@ -137,15 +138,15 @@ export async function sendMessage(optionalMessage) {
             }
         }
         else {
-            let msg = t('chat.error_connection');
-            // Show more detail when possible (e.g. 413 = payload too large, 422 = validation)
-            if (e.message && e.message !== 'Failed to fetch') {
-                msg += ` (${e.message})`;
+            let errMsg = t('chat.error_connection');
+            const detail = e instanceof Error ? e.message : '';
+            if (detail && detail !== 'Failed to fetch') {
+                errMsg += ` (${detail})`;
             }
             console.error('[CHAT] Send error:', e);
             if (bubble) {
                 bubble.classList.remove('chat-bubble-typing');
-                bubble.innerHTML = `<div class="chat-bubble-content"><span class="chat-error"><i class="fas fa-exclamation-triangle"></i> ${msg}</span></div>`;
+                bubble.innerHTML = `<div class="chat-bubble-content"><span class="chat-error"><i class="fas fa-exclamation-triangle"></i> ${errMsg}</span></div>`;
             }
         }
     }

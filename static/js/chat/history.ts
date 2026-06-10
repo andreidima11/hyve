@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Session history loader and notification bubble helper.
  */
@@ -18,14 +17,21 @@ import { showChatEmptyState } from './empty_state.js';
 import { scrollChatToBottom } from './scroll.js';
 import { setCurrentSessionId, setSessionDisplay } from './session_state.js';
 import { buildAgentTimelineHtml } from './timeline.js';
+import type { ChatResponseStats, ChatSessionMessage, ChatSessionResponse } from '../types/chat.js';
+
+interface HistoryTurn {
+    user?: ChatSessionMessage;
+    chain: ChatSessionMessage[];
+    notification?: ChatSessionMessage & { notification_id?: string; automation?: boolean; content?: string };
+}
 
 // Încarcă istoricul unei sesiuni existente în UI
-export async function loadSessionHistory(sessionId) {
+export async function loadSessionHistory(sessionId: string) {
     if (!sessionId) return;
     try {
         const res = await apiCall(`/api/sessions/${sessionId}`);
         if (!res.ok) return;
-        const data = await res.json();
+        const data = await res.json() as ChatSessionResponse;
         const container = document.getElementById('chat-container');
         if (!container) return;
         container.innerHTML = '';
@@ -34,16 +40,15 @@ export async function loadSessionHistory(sessionId) {
         if (messages.length === 0) { showChatEmptyState(); }
         else {
             // Extract thinking content from an assistant message
-            function _extractThinking(s) {
+            function _extractThinking(s: string) {
                 if (!s) return "";
-                const parts = [];
+                const parts: string[] = [];
                 const re = /<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/gi;
-                let m;
+                let m: RegExpExecArray | null;
                 while ((m = re.exec(s)) !== null) parts.push(m[1].trim());
                 return parts.join("\n\n");
             }
-            // Strip <think>/<thinking> blocks from saved assistant messages
-            function _stripThinkTags(s) {
+            function _stripThinkTags(s: string) {
                 if (!s) return s || "";
                 return s
                     .replace(/<think>[\s\S]*?<\/think>/gi, "")
@@ -58,7 +63,7 @@ export async function loadSessionHistory(sessionId) {
             // followed by 0+ assistant/tool messages that form the AI response.
             // Legacy notification messages are intentionally skipped; notifications
             // now live in User > Notificări, not in chat history.
-            const turns = [];
+            const turns: HistoryTurn[] = [];
             for (const m of messages) {
                 if (m.notification) {
                     continue;
@@ -83,7 +88,7 @@ export async function loadSessionHistory(sessionId) {
                             <div class="chat-bubble ai-bubble ${bubbleCls}">
                                 <div class="chat-bubble-glow"></div>
                                 <div class="chat-bubble-content prose prose-invert prose-sm">
-                                    ${DOMPurify.sanitize(marked.parse(turn.notification.content || ''))}
+                                    ${DOMPurify.sanitize(marked?.parse(turn.notification.content || '') || '')}
                                 </div>
                             </div>
                         </div>`;
@@ -95,17 +100,17 @@ export async function loadSessionHistory(sessionId) {
                 // Render user message
                 // For history, get the profile name from the next AI response
                 const aiProfileName = turn.chain.reduce((name, m) => m.model_name || name, '');
-                appendMessage('user', turn.user.content || '', { profileName: aiProfileName, timestamp: turn.user.timestamp || data.created_at });
+                appendMessage('user', turn.user?.content || '', { profileName: aiProfileName, timestamp: turn.user?.timestamp || data.created_at });
 
                 // Collect thinking, tool steps, and final content from the AI chain
                 let allThinking = "";
-                const toolSteps = [];
+                const toolSteps: Array<{ type: string; label: string }> = [];
                 let finalContent = "";
-                let finalAssistantColor = null;
-                let persistedSources = [];
+                let finalAssistantColor: string | null = null;
+                let persistedSources: unknown[] = [];
                 let persistedModelName = "";
                 let persistedModelId = "";
-                let persistedResponseStats = null;
+                let persistedResponseStats: ChatSessionMessage['response_stats'] | null = null;
                 let persistedForgePreview = "";
                 let persistedForgePreviewLanguage = "python";
 
@@ -155,8 +160,8 @@ export async function loadSessionHistory(sessionId) {
 
                 // Build rich AI bubble with a unified, collapsible activity timeline
                 // (thinking + tool steps integrated together).
-                const thinkingDurationSec = (persistedResponseStats && persistedResponseStats.thinkingTime > 0)
-                    ? (persistedResponseStats.thinkingTime / 1000).toFixed(1)
+                const thinkingDurationSec: number | null = (persistedResponseStats?.thinkingTime && persistedResponseStats.thinkingTime > 0)
+                    ? Number((persistedResponseStats.thinkingTime / 1000).toFixed(1))
                     : null;
                 const thinkingHtml = "";
                 const stepsCount = toolSteps.length;
@@ -172,13 +177,13 @@ export async function loadSessionHistory(sessionId) {
                 });
 
                 const contentHtml = finalContent
-                    ? `<div class="chat-bubble-content prose prose-invert prose-sm">${DOMPurify.sanitize(marked.parse(finalContent))}</div>`
+                    ? `<div class="chat-bubble-content prose prose-invert prose-sm">${DOMPurify.sanitize(marked?.parse(finalContent) || '')}</div>`
                     : '<div class="chat-bubble-content"></div>';
                 const forgePreviewHtml = persistedForgePreview
                     ? buildForgePreviewHtml(persistedForgePreview, persistedForgePreviewLanguage, false)
                     : '';
 
-                const sourcesHtml = buildSourcesHtml(persistedSources);
+                const sourcesHtml = buildSourcesHtml(persistedSources, '');
 
                 const div = document.createElement('div');
                 div.className = 'chat-row chat-row-ai animate-up';
@@ -197,7 +202,7 @@ export async function loadSessionHistory(sessionId) {
                 container.appendChild(div);
 
                 // Apply saved profile color (glow + avatar) so it persists after refresh
-                const bubble = div.querySelector('.ai-bubble');
+                const bubble = div.querySelector('.ai-bubble') as HTMLElement | null;
                 if (bubble && finalAssistantColor) {
                     const c = finalAssistantColor.trim();
                     div.style.setProperty('--bubble-glow-color', c);
@@ -209,7 +214,7 @@ export async function loadSessionHistory(sessionId) {
                     if (thinkingBlock && thinkingToggle) {
                         thinkingToggle.addEventListener("click", () => {
                             const open = thinkingBlock.classList.toggle("chat-thinking-open");
-                            thinkingToggle.setAttribute("aria-expanded", open);
+                            thinkingToggle.setAttribute("aria-expanded", open ? 'true' : 'false');
                             if (open) {
                                 const contentBox = thinkingBlock.querySelector(".chat-thinking-content");
                                 if (contentBox) contentBox.scrollTop = contentBox.scrollHeight;
@@ -217,7 +222,7 @@ export async function loadSessionHistory(sessionId) {
                         });
                     }
                     const timelineWrap = bubble.querySelector(".chat-agent-timeline-collapsible");
-                    const timelineSummary = timelineWrap?.querySelector(".chat-agent-timeline-summary");
+                    const timelineSummary = timelineWrap?.querySelector('.chat-agent-timeline-summary') as HTMLElement | null;
                     if (timelineWrap && timelineSummary && !timelineSummary.dataset.bound) {
                         timelineSummary.dataset.bound = "1";
                         timelineSummary.addEventListener("click", () => {
@@ -227,9 +232,9 @@ export async function loadSessionHistory(sessionId) {
                     }
                     decorateCodeBlocks(bubble);
                     decorateImages(bubble);
-                    void refreshSourceFavicons(bubble);
+                    void refreshSourceFavicons(bubble as unknown as Document);
                     // Add action bar for history-loaded messages with persisted stats
-                    const historyStats = {};
+                    const historyStats: ChatResponseStats = {};
                     if (persistedModelName) historyStats.model = persistedModelName;
                     if (persistedModelId) historyStats.modelId = persistedModelId;
                     if (toolSteps.length > 0) historyStats.tools = toolSteps;
@@ -247,7 +252,7 @@ export async function loadSessionHistory(sessionId) {
             }
         }
 
-        setCurrentSessionId(data.id);
+        setCurrentSessionId(data.id || sessionId);
         setSessionDisplay(data.title || t('sessions.new_chat'));
 
         // Scroll la ultimul mesaj (de obicei răspunsul AI), nu la ultimul mesaj user
@@ -266,7 +271,7 @@ const _shownNotificationIds = new Set();
  * @param {string} message - The message content (markdown)
  * @param {string} type - 'reminder' or 'automation'
  */
-function _showNotificationBubble(message, type) {
+function _showNotificationBubble(message: string, type: string) {
     if (!message) return;
     playNotificationCue();
     const role = (type === 'automation') ? 'automation' : 'reminder';

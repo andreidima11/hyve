@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 import { apiCall, getSSEToken } from './api.js';
 import { escapeHtml, showConfirm, showToast } from './utils.js';
 import { t } from './lang/index.js';
@@ -76,7 +75,9 @@ function _pageCount(total = _notificationTotal) {
     return Math.max(1, Math.ceil(Number(total || 0) / _notificationPageSize));
 }
 function _clampPage(page, total = _notificationTotal) {
-    const value = Number.parseInt(page, 10);
+    const value = typeof page === 'number'
+        ? page
+        : Number.parseInt(String(page ?? ''), 10);
     const safePage = Number.isFinite(value) ? value : 1;
     return Math.min(Math.max(1, safePage), _pageCount(total));
 }
@@ -125,7 +126,7 @@ function _dayGroup(value) {
     const now = new Date();
     const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const days = Math.round((startToday - startDate) / 86400000);
+    const days = Math.round((startToday.getTime() - startDate.getTime()) / 86400000);
     if (days === 0)
         return t('notifications.group_today');
     if (days === 1)
@@ -244,7 +245,7 @@ export async function loadUserNotifications(filter = _currentFilter, options = {
     }
 }
 export async function changeUserNotificationsPage(delta) {
-    const step = Number.parseInt(delta, 10);
+    const step = Number.parseInt(String(delta), 10);
     const nextPage = _clampPage(_notificationPage + (Number.isFinite(step) ? step : 0));
     if (nextPage === _notificationPage)
         return;
@@ -326,7 +327,7 @@ function _renderNotificationItem(item) {
     if (!archived && navActions.length) {
         const btns = navActions.map(a => {
             const label = escapeHtml(a.label || t('notifications.apply'));
-            const url = escapeHtml(a.args.url);
+            const url = escapeHtml(a.args?.url || '');
             return `<button type="button" data-user-action="notifNavigate" data-user-stop-propagation="true" data-notif-url="${url}" data-notif-id="${id}" class="px-3 h-8 rounded-lg text-[12px] font-semibold bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 transition-colors"><i class="fas fa-arrow-right mr-1.5 text-[10px]"></i>${label}</button>`;
         }).join('');
         suggestedHtml = `<div class="flex flex-wrap items-center gap-2 pt-1">${btns}</div>`;
@@ -540,9 +541,12 @@ export function initNotifications() {
                 _ws.onopen = () => {
                     _wsReconnectAttempts = 0;
                     loadNotificationCounts();
-                    _ws._pingInterval = setInterval(() => {
-                        if (_ws?.readyState === WebSocket.OPEN)
-                            _ws.send('ping');
+                    const ws = _ws;
+                    if (!ws)
+                        return;
+                    ws._pingInterval = setInterval(() => {
+                        if (ws.readyState === WebSocket.OPEN)
+                            ws.send('ping');
                     }, 30000);
                 };
                 _ws.onmessage = (event) => {
@@ -669,7 +673,10 @@ export function initNotifications() {
         const button = document.getElementById('user-notifications-filter-button');
         if (!menu || menu.classList.contains('hidden'))
             return;
-        if (menu.contains(event.target) || button?.contains(event.target))
+        const target = event.target;
+        if (!(target instanceof Node))
+            return;
+        if (menu.contains(target) || button?.contains(target))
             return;
         _setFilterMenuOpen(false);
     });

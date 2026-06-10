@@ -2,6 +2,8 @@
 
 export type CameraLiveProvider = 'webm' | 'mjpeg' | 'go2rtc' | 'snapshot';
 
+export type CameraMediaKind = 'snapshot' | 'image' | 'stream' | 'play';
+
 export interface CameraEntityAttrs {
     rtsp_url?: string;
     stream_url?: string;

@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive, refreshIntegrationsSettingsView, loadNotificationPrefs, loadAutomations, checkAddonUpdates, toggleVoiceRecording } from './features.js';
 import { loadUserProfilePage } from './user_profile.js';
 import { loadPlanner, loadApps, loadScenes, loadAreas, populateAppTab, closeAddonWebUI } from './nav_bridge.js';
@@ -6,12 +5,13 @@ import { loadDashboard, dashboardHasRenderedContent, resetDashboardEditingState,
 import { applyDashboardEditAccess } from './dashboard/edit_access.js';
 import { closeAllSubPages } from './utils.js';
 import { t } from './lang/index.js';
+import type { SidebarGestureMode, StandaloneActivePanel, SwitchTabOptions } from './types/ui.js';
 
-let logEventSource = null;
-let _logReconnectTimer = null;
-let _dashboardReturnRetryTimer = null;
+let logEventSource: EventSource | null = null;
+let _logReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let _dashboardReturnRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
-function _tabHash(tabId) {
+function _tabHash(tabId: string) {
     const allowed = new Set(['dashboard', 'chat', 'config', 'memory', 'planner', 'smarthome', 'skills', 'user']);
     if (!allowed.has(tabId)) return '';
     if (tabId === 'dashboard') {
@@ -31,7 +31,7 @@ const FALLBACK_THEME_OPTIONS = [
 const THEME_REGISTRY = window.__HYVE_THEME_REGISTRY__ || null;
 const THEME_OPTIONS = Array.isArray(THEME_REGISTRY?.themeOptions) ? THEME_REGISTRY.themeOptions : FALLBACK_THEME_OPTIONS;
 
-function resolveTheme(themeName) {
+function resolveTheme(themeName: string) {
     if (typeof THEME_REGISTRY?.resolveTheme === 'function') {
         return THEME_REGISTRY.resolveTheme(themeName);
     }
@@ -66,7 +66,7 @@ export function isSidebarOpen() {
     return !!(sb && !sb.classList.contains('-translate-x-full'));
 }
 
-function _syncAddonUiSidebarState(open) {
+function _syncAddonUiSidebarState(open: boolean) {
     const viewer = document.getElementById('addon-ui-viewer');
     if (viewer) {
         viewer.classList.toggle('sidebar-open', open);
@@ -103,14 +103,14 @@ export function closeSidebar() {
     }, 250);
 }
 
-export function setTheme(themeName) {
+export function setTheme(themeName: string) {
     const theme = resolveTheme(themeName);
     document.documentElement.setAttribute('data-theme', theme.selector);
     localStorage.setItem('hyve_theme', theme.id);
     localStorage.setItem('hyve_theme_selector', theme.selector);
 
     document.querySelectorAll('.theme-option').forEach(option => {
-        option.classList.toggle('theme-option-active', option.dataset.themeId === theme.id);
+        (option as HTMLElement).classList.toggle('theme-option-active', (option as HTMLElement).dataset.themeId === theme.id);
     });
     
     // Update Android system bar + background color to match active theme.
@@ -120,7 +120,7 @@ export function setTheme(themeName) {
             const metaColor = getComputedStyle(document.documentElement)
                 .getPropertyValue('--meta-theme-color').trim();
             const color = metaColor || '#030712';
-            window.__setNativeSystemBarColor(color);
+            window.__setNativeSystemBarColor?.(color);
             try { localStorage.setItem('hyve_theme_color', color); } catch(_) {}
         });
     }
@@ -160,7 +160,7 @@ export function initSidebarGestures() {
 
     let startX = 0;
     let startY = 0;
-    let mode = null;
+    let mode: SidebarGestureMode = null;
 
     const EDGE_OPEN_ZONE = 28;
     const MIN_X_DISTANCE = 70;
@@ -217,7 +217,7 @@ export function initSidebarGestures() {
     }, { passive: true });
 }
 
-export function switchTab(tabId, options = {}) {
+export function switchTab(tabId: string, options: SwitchTabOptions = {}) {
     try { initDashboardSidebarNav(); } catch (_) {}
     const shouldSyncHash = options.syncHash !== false;
 
@@ -269,9 +269,9 @@ export function switchTab(tabId, options = {}) {
     });
 
     const titleEl = document.getElementById('current-view-title');
-    const titleKeys = { chat: 'nav.chat', memory: 'nav.intelligence', smarthome: 'nav.smarthome', skills: 'nav.skills', config: 'nav.config' };
+    const titleKeys: Record<string, string> = { chat: 'nav.chat', memory: 'nav.intelligence', smarthome: 'nav.smarthome', skills: 'nav.skills', config: 'nav.config' };
     const userLabel = document.getElementById('nav-user-label')?.textContent?.trim() || 'Utilizator';
-    const plainTitles = { planner: t('nav.planner'), user: userLabel };
+    const plainTitles: Record<string, string> = { planner: t('nav.planner'), user: userLabel };
     if (titleEl) {
         if (tabId === 'dashboard') {
             // For the dashboard tab, the title is the *active page* name (not
@@ -378,7 +378,7 @@ export function switchTab(tabId, options = {}) {
     }
 }
 
-export function switchConfigTab(tabName) {
+export function switchConfigTab(tabName: string) {
     // Auto-detect: ascundem TOATE panourile și dezactivăm TOATE butoanele
     document.querySelectorAll('.cfg-tab-panel').forEach(panel => {
         panel.classList.add('hidden');
@@ -411,7 +411,7 @@ const _configSectionTabs = {
     settings: ['general', 'prompts', 'intelligence', 'memory', 'notifications', 'security'],
 };
 
-const _configSectionTitles = {
+const _configSectionTitles: Record<string, string> = {
     settings: 'config.hub_settings_title',
     integrations: 'config.hub_integrations_title',
     automations: 'config.hub_automations_title',
@@ -426,7 +426,7 @@ const _configSectionTitles = {
     updates: 'config.hub_updates_title',
 };
 
-const _configSectionSubtitles = {
+const _configSectionSubtitles: Record<string, string> = {
     settings: 'config.subtitle',
     integrations: 'config.section_integrations_subtitle',
     automations: 'config.section_automations_subtitle',
@@ -444,15 +444,15 @@ const _configSectionSubtitles = {
 const _standaloneSections = ['integrations', 'automations', 'memories', 'appearance', 'users', 'logs', 'app', 'addons', 'scenes', 'areas', 'updates'];
 
 // Map config sections to their DOM panel IDs (for panels that live outside config)
-const _sectionPanelIds = {
+const _sectionPanelIds: Record<string, string> = {
     automations: 'intelligence-panel-automations',
     memories: 'intelligence-panel-memories',
 };
 
 // Track where we moved the panel from so we can return it
-let _standaloneActivePanel = null;
+let _standaloneActivePanel: StandaloneActivePanel | null = null;
 
-export function openConfigSection(section) {
+export function openConfigSection(section: string) {
     // External views — navigate away from config
     if (section === 'smarthome') { switchTab('smarthome'); return; }
     if (section === 'devices') { switchTab('smarthome'); return; }
@@ -575,7 +575,8 @@ export async function startLogStream() {
 
             // Păstrăm ultimele 200 de linii ca să nu omorâm browserul
             if (container && container.childElementCount > 200) {
-                container.removeChild(container.firstChild);
+                const first = container.firstChild;
+                if (first) container.removeChild(first);
             }
         } catch (err) {
             console.error("Log parse error", err);

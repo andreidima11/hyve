@@ -1,4 +1,3 @@
-// @ts-nocheck — tighten types in a follow-up pass.
 /**
  * Session history loader and notification bubble helper.
  */
@@ -40,7 +39,6 @@ export async function loadSessionHistory(sessionId) {
                     parts.push(m[1].trim());
                 return parts.join("\n\n");
             }
-            // Strip <think>/<thinking> blocks from saved assistant messages
             function _stripThinkTags(s) {
                 if (!s)
                     return s || "";
@@ -83,7 +81,7 @@ export async function loadSessionHistory(sessionId) {
                             <div class="chat-bubble ai-bubble ${bubbleCls}">
                                 <div class="chat-bubble-glow"></div>
                                 <div class="chat-bubble-content prose prose-invert prose-sm">
-                                    ${DOMPurify.sanitize(marked.parse(turn.notification.content || ''))}
+                                    ${DOMPurify.sanitize(marked?.parse(turn.notification.content || '') || '')}
                                 </div>
                             </div>
                         </div>`;
@@ -95,7 +93,7 @@ export async function loadSessionHistory(sessionId) {
                 // Render user message
                 // For history, get the profile name from the next AI response
                 const aiProfileName = turn.chain.reduce((name, m) => m.model_name || name, '');
-                appendMessage('user', turn.user.content || '', { profileName: aiProfileName, timestamp: turn.user.timestamp || data.created_at });
+                appendMessage('user', turn.user?.content || '', { profileName: aiProfileName, timestamp: turn.user?.timestamp || data.created_at });
                 // Collect thinking, tool steps, and final content from the AI chain
                 let allThinking = "";
                 const toolSteps = [];
@@ -158,8 +156,8 @@ export async function loadSessionHistory(sessionId) {
                     continue;
                 // Build rich AI bubble with a unified, collapsible activity timeline
                 // (thinking + tool steps integrated together).
-                const thinkingDurationSec = (persistedResponseStats && persistedResponseStats.thinkingTime > 0)
-                    ? (persistedResponseStats.thinkingTime / 1000).toFixed(1)
+                const thinkingDurationSec = (persistedResponseStats?.thinkingTime && persistedResponseStats.thinkingTime > 0)
+                    ? Number((persistedResponseStats.thinkingTime / 1000).toFixed(1))
                     : null;
                 const thinkingHtml = "";
                 const stepsCount = toolSteps.length;
@@ -174,12 +172,12 @@ export async function loadSessionHistory(sessionId) {
                     streaming: false,
                 });
                 const contentHtml = finalContent
-                    ? `<div class="chat-bubble-content prose prose-invert prose-sm">${DOMPurify.sanitize(marked.parse(finalContent))}</div>`
+                    ? `<div class="chat-bubble-content prose prose-invert prose-sm">${DOMPurify.sanitize(marked?.parse(finalContent) || '')}</div>`
                     : '<div class="chat-bubble-content"></div>';
                 const forgePreviewHtml = persistedForgePreview
                     ? buildForgePreviewHtml(persistedForgePreview, persistedForgePreviewLanguage, false)
                     : '';
-                const sourcesHtml = buildSourcesHtml(persistedSources);
+                const sourcesHtml = buildSourcesHtml(persistedSources, '');
                 const div = document.createElement('div');
                 div.className = 'chat-row chat-row-ai animate-up';
                 div.innerHTML = `
@@ -207,7 +205,7 @@ export async function loadSessionHistory(sessionId) {
                     if (thinkingBlock && thinkingToggle) {
                         thinkingToggle.addEventListener("click", () => {
                             const open = thinkingBlock.classList.toggle("chat-thinking-open");
-                            thinkingToggle.setAttribute("aria-expanded", open);
+                            thinkingToggle.setAttribute("aria-expanded", open ? 'true' : 'false');
                             if (open) {
                                 const contentBox = thinkingBlock.querySelector(".chat-thinking-content");
                                 if (contentBox)
@@ -216,7 +214,7 @@ export async function loadSessionHistory(sessionId) {
                         });
                     }
                     const timelineWrap = bubble.querySelector(".chat-agent-timeline-collapsible");
-                    const timelineSummary = timelineWrap?.querySelector(".chat-agent-timeline-summary");
+                    const timelineSummary = timelineWrap?.querySelector('.chat-agent-timeline-summary');
                     if (timelineWrap && timelineSummary && !timelineSummary.dataset.bound) {
                         timelineSummary.dataset.bound = "1";
                         timelineSummary.addEventListener("click", () => {
@@ -254,7 +252,7 @@ export async function loadSessionHistory(sessionId) {
                 }
             }
         }
-        setCurrentSessionId(data.id);
+        setCurrentSessionId(data.id || sessionId);
         setSessionDisplay(data.title || t('sessions.new_chat'));
         // Scroll la ultimul mesaj (de obicei răspunsul AI), nu la ultimul mesaj user
         scrollChatToBottom({ behavior: 'auto', force: true });
