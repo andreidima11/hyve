@@ -54,7 +54,7 @@ export function cameraPreferHttpLive(attrs: unknown): boolean {
     return mjpeg.startsWith('http://') || mjpeg.startsWith('https://');
 }
 
-/** Pick the live transport for hyve-camera-live-player. */
+/** Pick the live transport for `<hv-camera-stream>` / dashboard camera cards. */
 export function cameraLiveTransport(attrs: unknown): CameraLiveTransport {
     if (cameraSupportsGo2rtc(attrs)) return 'go2rtc';
     if (cameraPreferWebmPlayer(attrs)) return 'webm';

@@ -88,6 +88,20 @@
     /* Camera audio popover controls on white menu surface */
     --camera-menu-control-bg: var(--surface-2);
 
+    /* Camera stage — soft letterbox on light dashboards (no harsh black bars) */
+    --camera-stage-bg: #eef2f7;
+    --camera-stage-bg-gradient:
+        radial-gradient(ellipse 110% 90% at 50% -10%, rgba(37, 99, 235, 0.07), transparent 52%),
+        linear-gradient(168deg, #f8fafc 0%, #eef2f7 46%, #e8edf4 100%);
+    --camera-loader-bg: rgba(255, 255, 255, 0.92);
+    --camera-placeholder-fg: var(--text-tertiary);
+    --camera-placeholder-bg:
+        repeating-linear-gradient(
+            45deg,
+            rgba(15, 23, 42, 0.028) 0 10px,
+            rgba(15, 23, 42, 0.014) 10px 20px
+        );
+
     /* ── Shadows (cool-tinted, layered) ── */
     --shadow-color: rgba(15, 23, 42, 0.08);
     --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);

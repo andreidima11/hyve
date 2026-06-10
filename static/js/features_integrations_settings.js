@@ -2,6 +2,7 @@
  * Settings → Integrations: catalog, config entries, entity browser, modals.
  */
 import { apiCall } from './api.js';
+import { initIntegrationsLiveWs, refreshIntegrationsLiveConnection, subscribeIntegrationsLive, } from './integrations_live_ws.js';
 import { t, translateApiDetail, integrationApiMessage, getLanguage, tState } from './lang/index.js';
 import { escapeHtml, escapeHtmlAttr, showToast, showConfirm, openSubPage, closeSubPage } from './utils.js';
 export { escapeHtmlAttr };
@@ -520,50 +521,27 @@ export async function refreshIntegrationsSettingsView(preferredTab = 'auto') {
         nextTab = 'active';
     switchIntegrationSubtab(nextTab);
 }
-// Shared "emitted devices" section — populated when the integration modal
-// is opened. Groups exposed entities by device and renders clickable device
-// cards; clicking a card opens a modal with controls + rename, à la
-// Home Assistant.
+// Live entity updates for the integration device browser (shared integrations WS hub).
 let _exposedDevicesState = { slug: null, devices: [] };
-// Live entity updates for the integration device browser (same hub as Smarthome).
-let _integrationExposedLiveWS = null;
-let _integrationExposedLiveReconnectTimer = null;
-let _integrationExposedLivePingTimer = null;
-let _integrationExposedLiveBackoff = 1000;
 let _integrationExposedLiveSlug = null;
-function _disconnectIntegrationExposedLive() {
-    if (_integrationExposedLiveReconnectTimer) {
-        clearTimeout(_integrationExposedLiveReconnectTimer);
-        _integrationExposedLiveReconnectTimer = null;
-    }
-    if (_integrationExposedLivePingTimer) {
-        clearInterval(_integrationExposedLivePingTimer);
-        _integrationExposedLivePingTimer = null;
-    }
-    if (_integrationExposedLiveWS) {
-        try {
-            _integrationExposedLiveWS.onclose = null;
-        }
-        catch (_) { }
-        try {
-            _integrationExposedLiveWS.close();
-        }
-        catch (_) { }
-        _integrationExposedLiveWS = null;
-    }
-    _integrationExposedLiveSlug = null;
+let _integrationExposedLiveUnsub = null;
+function _ensureIntegrationExposedLiveSubscription() {
+    if (_integrationExposedLiveUnsub)
+        return;
+    initIntegrationsLiveWs({ apiCall });
+    _integrationExposedLiveUnsub = subscribeIntegrationsLive({
+        id: 'integration-exposed',
+        isActive: () => {
+            const section = document.getElementById('integration-exposed-entities-section');
+            return !!(section && !section.classList.contains('hidden') && _integrationExposedLiveSlug);
+        },
+        onItems: (items) => _applyIntegrationExposedLiveItems(items),
+        onRemoved: () => { },
+    });
 }
-async function _fetchIntegrationExposedWsToken() {
-    try {
-        const res = await apiCall('/api/token/sse', { method: 'POST' });
-        if (!res || !res.ok)
-            return null;
-        const data = await res.json().catch(() => ({}));
-        return data?.sse_token || null;
-    }
-    catch (_) {
-        return null;
-    }
+function _disconnectIntegrationExposedLive() {
+    _integrationExposedLiveSlug = null;
+    refreshIntegrationsLiveConnection();
 }
 function _patchIntegrationExposedEntityState(item) {
     if (!item || !item.entity_id)
@@ -608,90 +586,15 @@ function _applyIntegrationExposedLiveItems(items) {
         _patchIntegrationExposedEntityState(item);
     }
 }
-function _scheduleIntegrationExposedLiveReconnect() {
-    const section = document.getElementById('integration-exposed-entities-section');
-    if (!section || section.classList.contains('hidden') || !_integrationExposedLiveSlug)
-        return;
-    if (_integrationExposedLiveReconnectTimer)
-        return;
-    const delay = Math.min(_integrationExposedLiveBackoff, 15000);
-    _integrationExposedLiveBackoff = Math.min(_integrationExposedLiveBackoff * 2, 15000);
-    _integrationExposedLiveReconnectTimer = setTimeout(() => {
-        _integrationExposedLiveReconnectTimer = null;
-        if (_integrationExposedLiveSlug)
-            _connectIntegrationExposedLive(_integrationExposedLiveSlug);
-    }, delay);
-}
-async function _connectIntegrationExposedLive(slug) {
+function _connectIntegrationExposedLive(slug) {
     const section = document.getElementById('integration-exposed-entities-section');
     if (!section || section.classList.contains('hidden')) {
         _disconnectIntegrationExposedLive();
         return;
     }
     _integrationExposedLiveSlug = slug;
-    if (_integrationExposedLiveWS
-        && (_integrationExposedLiveWS.readyState === WebSocket.OPEN
-            || _integrationExposedLiveWS.readyState === WebSocket.CONNECTING)) {
-        return;
-    }
-    const token = await _fetchIntegrationExposedWsToken();
-    if (!token) {
-        _scheduleIntegrationExposedLiveReconnect();
-        return;
-    }
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const url = `${proto}://${window.location.host}/api/integrations/ws/live?token=${encodeURIComponent(token)}`;
-    let ws;
-    try {
-        ws = new WebSocket(url);
-    }
-    catch (_) {
-        _scheduleIntegrationExposedLiveReconnect();
-        return;
-    }
-    _integrationExposedLiveWS = ws;
-    ws.onopen = () => {
-        _integrationExposedLiveBackoff = 1000;
-        if (_integrationExposedLivePingTimer)
-            clearInterval(_integrationExposedLivePingTimer);
-        _integrationExposedLivePingTimer = setInterval(() => {
-            const sec = document.getElementById('integration-exposed-entities-section');
-            if (!sec || sec.classList.contains('hidden')) {
-                _disconnectIntegrationExposedLive();
-                return;
-            }
-            try {
-                ws.send('ping');
-            }
-            catch (_) { }
-        }, 25000);
-    };
-    ws.onmessage = (ev) => {
-        let payload = null;
-        try {
-            payload = JSON.parse(ev.data);
-        }
-        catch (_) {
-            return;
-        }
-        if (!payload || !payload.type)
-            return;
-        if (payload.type === 'snapshot' || payload.type === 'diff') {
-            _applyIntegrationExposedLiveItems(Array.isArray(payload.items) ? payload.items : []);
-        }
-    };
-    ws.onclose = () => {
-        if (_integrationExposedLivePingTimer) {
-            clearInterval(_integrationExposedLivePingTimer);
-            _integrationExposedLivePingTimer = null;
-        }
-        _integrationExposedLiveWS = null;
-        _scheduleIntegrationExposedLiveReconnect();
-    };
-    ws.onerror = () => { try {
-        ws.close();
-    }
-    catch (_) { } };
+    _ensureIntegrationExposedLiveSubscription();
+    refreshIntegrationsLiveConnection();
 }
 // Page index per slug for the device grid.
 const _DEVICE_PAGE_SIZE = 6;
@@ -1565,7 +1468,7 @@ function _openIntegrationEntityDetailModal(entity, slug) {
     if (!modal || !body || !entity)
         return;
     stopCameraPreviewRefresh();
-    modal.querySelectorAll('hyve-camera-live-player').forEach(el => {
+    modal.querySelectorAll('hv-camera-stream').forEach(el => {
         try {
             el.pauseStream?.();
         }

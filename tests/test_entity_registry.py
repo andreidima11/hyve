@@ -112,6 +112,26 @@ def test_dedupe_on_collision():
     assert row["entity_id"] == "sensor.room_temp_2"
 
 
+def test_sync_registers_many_entities_in_one_commit():
+    entities = [
+        {
+            "unique_id": f"z2m:0xabc:{prop}",
+            "entity_id": f"sensor.lamp_{prop}",
+            "domain": "sensor",
+            "name": f"Lamp {prop}",
+            "source": "mosquitto",
+            "attributes": {"device_id": "0xabc"},
+        }
+        for prop in ("temp", "humidity", "battery", "state")
+    ]
+    entity_registry.sync_entities(entities)
+    entity_registry.reload()
+    for ent in entities:
+        stored = entity_registry.get_by_unique_id(ent["unique_id"])
+        assert stored is not None
+        assert stored["entity_id"] == ent["entity_id"]
+
+
 def test_sync_registers_new_entities():
     entities = [{
         "unique_id": "z2m:0xabc:state",

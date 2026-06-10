@@ -6,16 +6,14 @@ poller (see ``core.live_entity_hub``) so N browser tabs do not spawn N polls.
 """
 from __future__ import annotations
 
-import contextlib
-
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, WebSocket
 
 import auth
 import database
 import models
 from core.live_entity_hub import LiveEntityWsHub, diff_snapshot, entity_signature
-from logger import log_line
-from routers.dashboard import _available_entities, _scene_synthetic_entities
+from core.ws_live_session import run_entity_live_ws
+from routers.dashboard import _available_entities
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard-ws"])
 
@@ -25,11 +23,9 @@ _hub: LiveEntityWsHub | None = None
 
 async def _enrich_dashboard_items(items: list, user: models.User) -> list:
     try:
-        db = next(database.get_db())
-        try:
-            return items + _scene_synthetic_entities(db, user)
-        finally:
-            db.close()
+        from routers.dashboard.entities import get_scene_synthetic_entities
+
+        return list(items) + get_scene_synthetic_entities(user)
     except Exception:
         return items
 
@@ -72,22 +68,11 @@ async def dashboard_live_ws(websocket: WebSocket, token: str = Query(default=Non
         return
 
     await websocket.accept()
-    log_line("websocket", "📊", "DASH_WS_OPEN", f"user={user.username}")
-
-    hub = _get_hub()
-    hub.attach(websocket, user)
-
-    try:
-        while True:
-            msg = await websocket.receive_text()
-            if msg == "ping" or msg.startswith("ping:"):
-                await websocket.send_json({"type": "pong"})
-    except WebSocketDisconnect:
-        pass
-    except Exception as exc:
-        log_line("websocket", "⚠️", "DASH_WS_ERR", f"{exc}")
-    finally:
-        await hub.detach(websocket)
-        with contextlib.suppress(Exception):
-            await websocket.close()
-        log_line("websocket", "📊", "DASH_WS_CLOSE", f"user={user.username}")
+    await run_entity_live_ws(
+        websocket,
+        _get_hub(),
+        user,
+        open_tag="DASH_WS_OPEN",
+        close_tag="DASH_WS_CLOSE",
+        err_tag="DASH_WS_ERR",
+    )

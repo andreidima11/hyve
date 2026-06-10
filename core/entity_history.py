@@ -130,6 +130,20 @@ def prune_old(retention_days: int = RETENTION_DAYS) -> int:
         return 0
 
 
+def _downsample_points(pts: list[dict[str, Any]], max_points: int) -> list[dict[str, Any]]:
+    if len(pts) <= max_points:
+        return pts
+    step = len(pts) / max_points
+    sampled: list[dict[str, Any]] = []
+    idx = 0.0
+    while int(idx) < len(pts):
+        sampled.append(pts[int(idx)])
+        idx += step
+    if sampled and sampled[-1] is not pts[-1]:
+        sampled.append(pts[-1])
+    return sampled
+
+
 def get_history(entity_id: str, hours: float = 24.0, max_points: int = 240) -> list[dict[str, Any]]:
     """Return [{ts, value}] for `entity_id` over the last `hours`.
 
@@ -153,28 +167,52 @@ def get_history(entity_id: str, hours: float = 24.0, max_points: int = 240) -> l
         log_line("error", "⚠️", "HISTORY", f"query failed: {exc}")
         return []
     pts = [{"ts": int(r[0]), "value": float(r[1])} for r in rows]
-    if len(pts) > max_points:
-        step = len(pts) / max_points
-        sampled: list[dict[str, Any]] = []
-        idx = 0.0
-        while int(idx) < len(pts):
-            sampled.append(pts[int(idx)])
-            idx += step
-        # Always keep the latest point
-        if sampled and sampled[-1] is not pts[-1]:
-            sampled.append(pts[-1])
-        pts = sampled
-    return pts
+    return _downsample_points(pts, max_points)
+
+
+def get_history_many(
+    entity_ids: list[str],
+    hours: float = 24.0,
+    max_points: int = 240,
+) -> dict[str, list[dict[str, Any]]]:
+    """Batch history fetch for dashboard sparklines (one SQL round-trip)."""
+    ids = list(dict.fromkeys(str(eid or "").strip() for eid in entity_ids if str(eid or "").strip()))
+    if not ids:
+        return {}
+    hours = max(0.25, min(float(hours), 24.0 * 7))
+    since = int(time.time() - hours * 3600)
+    placeholders = ", ".join(f":e{i}" for i in range(len(ids)))
+    params: dict[str, Any] = {f"e{i}": eid for i, eid in enumerate(ids)}
+    params["since"] = since
+    grouped: dict[str, list[dict[str, Any]]] = {eid: [] for eid in ids}
+    try:
+        with database.engine.begin() as conn:
+            rows = conn.execute(
+                text(
+                    "SELECT entity_id, ts, value FROM entity_state_history "
+                    f"WHERE entity_id IN ({placeholders}) AND ts >= :since "
+                    "ORDER BY entity_id, ts ASC"
+                ),
+                params,
+            ).fetchall()
+    except Exception as exc:
+        log_line("error", "⚠️", "HISTORY", f"batch query failed: {exc}")
+        return grouped
+    for eid, ts, value in rows:
+        key = str(eid or "").strip()
+        if not key:
+            continue
+        grouped.setdefault(key, []).append({"ts": int(ts), "value": float(value)})
+    return {eid: _downsample_points(pts, max_points) for eid, pts in grouped.items()}
 
 
 async def _recorder_loop():
-    # Lazy-import to avoid circular dependency (routers.dashboard imports many things).
-    from routers.dashboard import _available_entities
+    from core.entity_catalog import get_entities
 
     last_prune = 0.0
     while _stop_event is not None and not _stop_event.is_set():
         try:
-            items = await _available_entities()
+            items = await get_entities(include_derived=False, sort_mode="dashboard")
             count = record_snapshot(items)
             if count:
                 log_line("sys", "📈", "HISTORY", f"recorded {count} samples")

@@ -48,6 +48,7 @@ _Z2M_RENAME_REQUEST = "zigbee2mqtt/bridge/request/device/rename"
 _Z2M_RENAME_RESPONSE = "zigbee2mqtt/bridge/response/device/rename"
 _MQTT311_CLIENT_ID_MAX_BYTES = 23
 _HANDLE_CONCURRENCY = 48
+_MSG_QUEUE_MAX = 10_000
 
 _IEEE_RE = re.compile(r"^0x[0-9a-fA-F]{16}$")
 
@@ -225,7 +226,8 @@ class MosquittoBridge:
         self._task: Optional[asyncio.Task] = None
         self._stop = asyncio.Event()
         self._client = None  # aiomqtt.Client when running
-        self._handle_sem = asyncio.Semaphore(_HANDLE_CONCURRENCY)
+        self._msg_queue: asyncio.Queue | None = None
+        self._worker_tasks: list[asyncio.Task] = []
         self._z2m_refresh_task: Optional[asyncio.Task] = None
         self._z2m_reconcile_task: Optional[asyncio.Task] = None
         self._z2m_reconciled: set[str] = set()
@@ -261,6 +263,7 @@ class MosquittoBridge:
 
     async def stop(self) -> None:
         self._stop.set()
+        await self._stop_workers()
         task = self._task
         self._task = None
         if task:
@@ -456,6 +459,50 @@ class MosquittoBridge:
 
     # ── internals ─────────────────────────────────────────────────────────
 
+    async def _start_workers(self) -> None:
+        await self._stop_workers()
+        self._msg_queue = asyncio.Queue(maxsize=_MSG_QUEUE_MAX)
+        self._worker_tasks = [
+            asyncio.create_task(self._msg_worker(i), name=f"mqtt-worker-{i}")
+            for i in range(_HANDLE_CONCURRENCY)
+        ]
+
+    async def _stop_workers(self) -> None:
+        tasks = self._worker_tasks
+        self._worker_tasks = []
+        self._msg_queue = None
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _msg_worker(self, worker_id: int) -> None:
+        del worker_id
+        while not self._stop.is_set():
+            queue = self._msg_queue
+            if queue is None:
+                return
+            try:
+                msg = await asyncio.wait_for(queue.get(), timeout=1.0)
+            except asyncio.TimeoutError:
+                continue
+            try:
+                await self._handle(msg)
+            except Exception as exc:
+                log.debug("MQTT handle failed for %s: %s", getattr(msg, "topic", "?"), exc)
+            finally:
+                queue.task_done()
+
+    def _enqueue_message(self, msg: Any) -> None:
+        queue = self._msg_queue
+        if queue is None:
+            return
+        try:
+            queue.put_nowait(msg)
+        except asyncio.QueueFull:
+            topic = getattr(msg, "topic", "?")
+            log.warning("MQTT message queue full (%s); dropping message on %s", _MSG_QUEUE_MAX, topic)
+
     async def _run(self) -> None:
         import aiomqtt
 
@@ -503,10 +550,14 @@ class MosquittoBridge:
                     await self._dispatch({"type": "bridge", "status": "connected"})
                     if self._z2m_devices:
                         self._schedule_z2m_refresh(self._z2m_devices)
-                    async for msg in client.messages:
-                        if self._stop.is_set():
-                            break
-                        asyncio.create_task(self._handle_safe(msg))
+                    await self._start_workers()
+                    try:
+                        async for msg in client.messages:
+                            if self._stop.is_set():
+                                break
+                            self._enqueue_message(msg)
+                    finally:
+                        await self._stop_workers()
                     # Reaching here means message loop ended without raising.
                     # If it stayed up for a while, clear reconnect penalties.
                     if connected_at is not None and (time.monotonic() - connected_at) >= stable_reset_seconds:
@@ -547,13 +598,6 @@ class MosquittoBridge:
                 self._z2m_refresh_task = None
                 if refresh is not None and not refresh.done():
                     refresh.cancel()
-
-    async def _handle_safe(self, msg: Any) -> None:
-        async with self._handle_sem:
-            try:
-                await self._handle(msg)
-            except Exception as exc:
-                log.debug("MQTT handle failed for %s: %s", getattr(msg, "topic", "?"), exc)
 
     def _schedule_z2m_refresh(self, devices: list[Any]) -> None:
         """Debounce Z2M /get refresh so reconnect retained bursts don't flood the link."""
@@ -951,9 +995,9 @@ class MosquittoBridge:
             except Exception as exc:
                 log.debug("post-rename discovery purge failed: %s", exc)
             try:
-                from routers.integrations import helpers
+                from core.entity_catalog import invalidate_entity_cache
 
-                helpers.invalidate_all_entities_cache()
+                invalidate_entity_cache()
             except Exception as exc:
                 log.debug("rename cache invalidate failed: %s", exc)
             try:

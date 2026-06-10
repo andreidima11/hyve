@@ -4,7 +4,7 @@
 
 import { apiCall } from '../api.js';
 import { showToast } from '../utils.js';
-import { fusionSolarWidgetEntityIds } from '/static/hyveview/cards/fusion_solar/card.js';
+import * as HVBridge from '/static/hyveview/bridge.js';
 import { hvOpenEditor } from './hyveview_setup.js';
 import {
     DEFAULT_CAMERA_INTERVAL,
@@ -316,7 +316,12 @@ function editorResultToWidgetBody(
         };
         body.config = {
             ...(body.config as Record<string, unknown>),
-            entity_ids: fusionSolarWidgetEntityIds({ entity_id: powerId, config: body.config as Record<string, unknown> }),
+            entity_ids: HVBridge.cardTypeEntityIds({
+                entity_id: powerId,
+                config: body.config as Record<string, unknown>,
+                type: 'fusion_solar',
+                renderer: 'fusion_solar',
+            }),
         };
         if (!body.source || body.source === 'zigbee2mqtt') {
             const ent = (cache.available_entities || []).find(e => e.entity_id === powerId);

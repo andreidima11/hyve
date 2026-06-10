@@ -53,6 +53,7 @@ export interface RegisterCardOptions {
     meta?: HyveviewCardMeta;
     schema?: HyveviewCardSchema;
     getStubConfig?: HyveviewStubConfigFn;
+    widgetEntityIds?: import('./widget.js').WidgetEntityIdsResolver;
     hidden?: boolean;
     shell?: HyveviewCardShell | null;
 }
@@ -90,6 +91,7 @@ export interface HyveviewCardPackage {
     meta?: HyveviewCardMeta;
     schema?: HyveviewCardSchema;
     getStubConfig?: HyveviewStubConfigFn;
+    widgetEntityIds?: import('./widget.js').WidgetEntityIdsResolver;
     hidden?: boolean;
     tagName?: string;
 }

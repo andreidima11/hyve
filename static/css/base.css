@@ -78,6 +78,18 @@
     --overlay-10: rgba(255, 255, 255, 0.10);
     --overlay-15: rgba(255, 255, 255, 0.15);
 
+    /* Camera stage — letterbox / loading area behind snapshot & video */
+    --camera-stage-bg: #050505;
+    --camera-stage-bg-gradient: linear-gradient(165deg, #0c0c0e 0%, #050505 48%, #0a0a0c 100%);
+    --camera-loader-bg: var(--bg-main);
+    --camera-placeholder-fg: rgba(255, 255, 255, 0.35);
+    --camera-placeholder-bg:
+        repeating-linear-gradient(
+            45deg,
+            rgba(255, 255, 255, 0.04) 0 8px,
+            rgba(255, 255, 255, 0.02) 8px 16px
+        );
+
     /* Camera card — on-video chips (nav, menu btn): dark frosted, all themes */
     --camera-chip-bg: rgba(0, 0, 0, 0.55);
     --camera-chip-bg-hover: rgba(0, 0, 0, 0.72);

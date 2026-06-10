@@ -157,7 +157,9 @@ export async function readDashboardSectionFallback() {
             return result;
         }
     }
-    catch (_) { }
+    catch (err) {
+        console.warn('[dashboard] readDashboardSectionFallback: /api/config failed', err);
+    }
     try {
         const localRaw = localStorage.getItem(DASHBOARD_LOCAL_KEY);
         if (localRaw) {
@@ -174,7 +176,9 @@ export async function readDashboardSectionFallback() {
             };
         }
     }
-    catch (_) { }
+    catch (err) {
+        console.warn('[dashboard] readDashboardSectionFallback: local cache parse failed', err);
+    }
     return {
         widgets: [],
         panels: [],
@@ -401,7 +405,9 @@ async function loadDashboardImpl(signal = null, { soft = false } = {}) {
         grid.innerHTML = `<div class="col-span-full p-6 text-sm" style="color:var(--text-tertiary,#94a3b8);">${d.escapeHtml(d.t('dashboard.loading_dashboard'))}</div>`;
     }
     try {
-        getCameraStreamToken().catch(() => { });
+        getCameraStreamToken().catch((err) => {
+            console.warn('[dashboard] camera stream token prefetch failed', err);
+        });
         await refreshAvailableEntities({ includeEntities: false, signal });
         if (d.getCurrentPageId()) {
             const pageId = d.getCurrentPageId();

@@ -75,14 +75,16 @@ def build_entities_uncached(
     try:
         store = get_entity_store()
         manager = get_integration_manager()
+        eligible = [
+            integration
+            for integration in manager.all_instances()
+            if integration.supports_sync and manager.is_bootstrap_eligible(integration)
+        ]
+        stored_by_key = store.get_entities_many([i.store_key for i in eligible])
         provider_items: list[dict[str, Any]] = []
-        for integration in manager.all_instances():
-            if integration.supports_sync and not manager.is_bootstrap_eligible(integration):
-                continue
-            if not integration.supports_sync:
-                continue
+        for integration in eligible:
             try:
-                stored = store.get_entities(integration.store_key) or {}
+                stored = stored_by_key.get(integration.store_key) or {}
                 payload = stored.get("entities") or {}
                 if hasattr(integration, "live_payload"):
                     try:

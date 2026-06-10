@@ -78,7 +78,7 @@ def test_bridge_rename_response_nudges_mirror():
         invalidated: list[bool] = []
 
         with patch("core.device_registry.get_device", return_value=None):
-            with patch("routers.integrations.helpers.invalidate_all_entities_cache", lambda: invalidated.append(True)):
+            with patch("core.entity_catalog.invalidate_entity_cache", lambda: invalidated.append(True)):
                 with patch("core.mirror_nudge.nudge_entity_mirror", lambda key=None: nudged.append(key)):
                     await bridge._after_device_rename(
                         {

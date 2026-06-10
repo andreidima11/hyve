@@ -132,6 +132,11 @@ class DashboardWidgetUpdateBody(BaseModel):
     visibility: dict[str, Any] | None = None
 
 
+class DashboardHistoryBatchBody(BaseModel):
+    entity_ids: list[str]
+    hours: float = 24.0
+
+
 class DashboardDefaultPageBody(BaseModel):
     page_id: str | None = None
 

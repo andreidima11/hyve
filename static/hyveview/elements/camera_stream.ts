@@ -304,11 +304,11 @@ class HyveCameraStream extends HTMLElement {
 
   _build() {
     this.dataset.state = 'idle';
+    this.classList.add('hv-camera-stream');
     this.style.display = 'block';
     this.style.width = '100%';
     this.style.height = '100%';
     this.style.position = 'relative';
-    this.style.background = 'var(--bg-main, #09090b)';
 
     const loaderWrap = document.createElement('div');
     loaderWrap.innerHTML = cameraLoaderMarkup();

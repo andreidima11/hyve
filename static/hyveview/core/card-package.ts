@@ -16,6 +16,7 @@ export function registerCardPackage(pkg: HyveviewCardPackage): void {
         meta: pkg.meta,
         schema: pkg.schema,
         getStubConfig: pkg.getStubConfig,
+        widgetEntityIds: pkg.widgetEntityIds,
         hidden: pkg.hidden,
         shell: pkg.shell || pkg.element.shell || null,
     });

@@ -1,5 +1,6 @@
 /**
- * HyveviewStore — single source of entity state for all cards.
+ * HyveviewStore — in-memory entity state for Hyveview cards.
+ * Live updates are fed by the dashboard live bridge (not a second WebSocket).
  */
 
 /// <reference path="../types/global.d.ts" />
@@ -8,7 +9,6 @@ import type {
     EntityChangeCallback,
     EntityStateCallback,
     HyveviewStoreApi,
-    HyveviewWsMessage,
     UnsubscribeFn,
 } from '../types/store.js';
 import type { HyveviewEntityState } from '../types/card.js';
@@ -16,11 +16,6 @@ import type { HyveviewEntityState } from '../types/card.js';
 const _state = new Map<string, HyveviewEntityState>();
 const _subs = new Map<string, Set<EntityStateCallback>>();
 const _allSubs = new Set<EntityChangeCallback>();
-let _ws: WebSocket | null = null;
-let _wsReady = false;
-let _reconnectDelay = 1000;
-let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-let _connectingPromise: Promise<boolean> | null = null;
 
 function _emit(entityId: string, state: HyveviewEntityState | null): void {
     const subs = _subs.get(entityId);
@@ -28,7 +23,7 @@ function _emit(entityId: string, state: HyveviewEntityState | null): void {
     for (const cb of _allSubs) { try { cb(entityId, state); } catch (e) { console.error(e); } }
 }
 
-function _applySnapshot(items: HyveviewEntityState[] | null | undefined): void {
+export function applySnapshot(items: HyveviewEntityState[] | null | undefined): void {
     _state.clear();
     for (const e of items || []) {
         if (e && e.entity_id) _state.set(e.entity_id, e);
@@ -36,7 +31,7 @@ function _applySnapshot(items: HyveviewEntityState[] | null | undefined): void {
     for (const [eid, st] of _state) _emit(eid, st);
 }
 
-function _applyDiff(items: HyveviewEntityState[] | null | undefined): void {
+export function applyDiff(items: HyveviewEntityState[] | null | undefined): void {
     for (const e of items || []) {
         if (!e || !e.entity_id) continue;
         _state.set(e.entity_id, e);
@@ -44,71 +39,11 @@ function _applyDiff(items: HyveviewEntityState[] | null | undefined): void {
     }
 }
 
-function _applyRemoved(ids: string[] | null | undefined): void {
+export function applyRemoved(ids: string[] | null | undefined): void {
     for (const id of ids || []) {
         _state.delete(id);
         _emit(id, null);
     }
-}
-
-function _scheduleReconnect(): void {
-    if (_reconnectTimer) return;
-    _reconnectTimer = setTimeout(() => {
-        _reconnectTimer = null;
-        _reconnectDelay = Math.min(_reconnectDelay * 1.6, 15000);
-        void connect();
-    }, _reconnectDelay);
-}
-
-function _wsUrl(token: string): string {
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${proto}//${location.host}/api/dashboard/ws/live?token=${encodeURIComponent(token || '')}`;
-}
-
-async function _fetchSseToken(): Promise<string> {
-    const jwt = localStorage.getItem('hyve_token');
-    if (!jwt) return '';
-    try {
-        const res = await fetch('/api/token/sse', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${jwt}` },
-        });
-        if (!res.ok) return '';
-        const data = await res.json() as { sse_token?: string };
-        return data.sse_token || '';
-    } catch { return ''; }
-}
-
-export async function connect(): Promise<boolean> {
-    if (_wsReady) return true;
-    if (_connectingPromise) return _connectingPromise;
-    _connectingPromise = (async () => {
-        const token = await _fetchSseToken();
-        if (!token) {
-            console.warn('[hyveview] no auth token; redirecting to /');
-            location.href = '/';
-            return false;
-        }
-        return new Promise<boolean>((resolve) => {
-            try { _ws = new WebSocket(_wsUrl(token)); }
-            catch (e) { console.error('[hyveview] ws open failed', e); _scheduleReconnect(); resolve(false); return; }
-            _ws.addEventListener('open', () => { _wsReady = true; _reconnectDelay = 1000; resolve(true); });
-            _ws.addEventListener('message', (ev) => {
-                let msg: HyveviewWsMessage;
-                try { msg = JSON.parse(String(ev.data)) as HyveviewWsMessage; } catch { return; }
-                if (!msg || typeof msg !== 'object') return;
-                const t = msg.type;
-                if (t === 'snapshot') _applySnapshot(msg.items);
-                else if (t === 'diff') _applyDiff(msg.items);
-                else if (t === 'removed') _applyRemoved(msg.entity_ids);
-            });
-            _ws.addEventListener('close', () => { _wsReady = false; _ws = null; _scheduleReconnect(); });
-            _ws.addEventListener('error', () => { try { _ws && _ws.close(); } catch { /* ignore */ } });
-        });
-    })();
-    const result = await _connectingPromise;
-    _connectingPromise = null;
-    return result;
 }
 
 export function getState(entityId: string): HyveviewEntityState | null {
@@ -151,7 +86,8 @@ export function seedEntities(items: HyveviewEntityState[] | null | undefined): v
 }
 
 export const HyveviewStore: HyveviewStoreApi = {
-    connect, getState, subscribe, subscribeAll, listEntities, seedEntities,
+    getState, subscribe, subscribeAll, listEntities, seedEntities,
+    applySnapshot, applyDiff, applyRemoved,
 };
 
 window.HyveviewStore = HyveviewStore;

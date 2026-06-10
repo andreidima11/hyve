@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import threading
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Callable, Dict, Optional
@@ -87,6 +88,16 @@ class IntegrationEntityStore:
         self._fetch_timeouts: Dict[str, float] = {}
         self._descriptions: Dict[str, str] = {}
         self._unreachable_sources: set[str] = set()
+        self._sync_locks: Dict[str, asyncio.Lock] = {}
+        self._sync_locks_mu = threading.Lock()
+
+    def _sync_lock(self, slug: str) -> asyncio.Lock:
+        with self._sync_locks_mu:
+            lock = self._sync_locks.get(slug)
+            if lock is None:
+                lock = asyncio.Lock()
+                self._sync_locks[slug] = lock
+            return lock
 
     async def initialize_schema(self):
         """Verify Alembic created integration entity tables (see migrations/003)."""
@@ -147,24 +158,36 @@ class IntegrationEntityStore:
 
     def get_entities(self, slug: str) -> Optional[Dict[str, Any]]:
         """Get stored entities for an integration."""
+        return self.get_entities_many([slug]).get(slug)
+
+    def get_entities_many(self, slugs: list[str]) -> dict[str, dict[str, Any] | None]:
+        """Batch-read stored entity payloads for multiple store keys."""
+        keys = [str(s or "").strip() for s in slugs if str(s or "").strip()]
+        if not keys:
+            return {}
+        placeholders = ", ".join(f":s{i}" for i in range(len(keys)))
+        params = {f"s{i}": key for i, key in enumerate(keys)}
         with _db() as db:
-            row = db.execute(
-                text("SELECT entity_data, timestamp, last_error "
-                     "FROM integration_entities WHERE integration_slug = :slug"),
-                {"slug": slug}
-            ).fetchone()
-        if not row:
-            return None
-        try:
-            data = json.loads(row[0])
-            return {
-                "entities": data,
-                "timestamp": row[1],
-                "updated_at": datetime.fromtimestamp(row[1]).isoformat(),
-                "last_error": row[2],
-            }
-        except json.JSONDecodeError:
-            return None
+            rows = db.execute(
+                text(
+                    "SELECT integration_slug, entity_data, timestamp, last_error "
+                    f"FROM integration_entities WHERE integration_slug IN ({placeholders})"
+                ),
+                params,
+            ).fetchall()
+        out: dict[str, dict[str, Any] | None] = {key: None for key in keys}
+        for slug, entity_data, timestamp, last_error in rows:
+            try:
+                data = json.loads(entity_data)
+                out[str(slug)] = {
+                    "entities": data,
+                    "timestamp": timestamp,
+                    "updated_at": datetime.fromtimestamp(timestamp).isoformat(),
+                    "last_error": last_error,
+                }
+            except json.JSONDecodeError:
+                out[str(slug)] = None
+        return out
 
     def set_entities(self, slug: str, entities: Dict[str, Any],
                      error: Optional[str] = None):
@@ -296,49 +319,50 @@ class IntegrationEntityStore:
         than configured. Manual sync, startup bootstrap, and post-config
         refresh pass ``force=True`` and always run immediately.
         """
-        wait = self.seconds_until_next_sync(slug)
-        if not force and wait > 0:
-            interval = self.configured_interval(slug)
-            secs = max(1, int(wait + 0.5))
-            raise SyncThrottledError(
-                retry_after=secs,
-                interval=interval,
-            )
+        async with self._sync_lock(slug):
+            wait = self.seconds_until_next_sync(slug)
+            if not force and wait > 0:
+                interval = self.configured_interval(slug)
+                secs = max(1, int(wait + 0.5))
+                raise SyncThrottledError(
+                    retry_after=secs,
+                    interval=interval,
+                )
 
-        fn = self._fetchers.get(slug)
-        if not fn:
-            raise ValueError(f"No fetcher registered for '{slug}'")
-        timeout = self._fetch_timeouts.get(slug, FETCH_TIMEOUT_SECONDS)
-        started = datetime.now().timestamp()
-        self.touch_last_fetch(slug)
-        try:
-            import inspect
-
-            kwargs: dict[str, Any] = {}
+            fn = self._fetchers.get(slug)
+            if not fn:
+                raise ValueError(f"No fetcher registered for '{slug}'")
+            timeout = self._fetch_timeouts.get(slug, FETCH_TIMEOUT_SECONDS)
+            started = datetime.now().timestamp()
             try:
-                if "force" in inspect.signature(fn).parameters:
-                    kwargs["force"] = force
-            except (TypeError, ValueError):
-                pass
-            entities = await asyncio.wait_for(fn(**kwargs), timeout=timeout)
-        except asyncio.TimeoutError:
-            elapsed = datetime.now().timestamp() - started
-            self.set_error(slug, f"timeout after {elapsed:.1f}s")
-            self._mark_source_reachable(slug, False)
+                import inspect
+
+                kwargs: dict[str, Any] = {}
+                try:
+                    if "force" in inspect.signature(fn).parameters:
+                        kwargs["force"] = force
+                except (TypeError, ValueError):
+                    pass
+                entities = await asyncio.wait_for(fn(**kwargs), timeout=timeout)
+            except asyncio.TimeoutError:
+                elapsed = datetime.now().timestamp() - started
+                self.set_error(slug, f"timeout after {elapsed:.1f}s")
+                self._mark_source_reachable(slug, False)
+                self._signal_mirror_refresh(slug)
+                schedule = self.get_schedule(slug)
+                interval = (schedule or {}).get("interval_seconds", 3600)
+                self.update_schedule(slug, datetime.now().timestamp() + interval)
+                log_line("error", "⏱️", "SYNC", f"{slug} — timeout after {elapsed:.1f}s (cap {timeout:.0f}s)")
+                raise
+            self.touch_last_fetch(slug)
+            self.set_entities(slug, entities, error=None)
+            self._mark_source_reachable(slug, True)
             self._signal_mirror_refresh(slug)
             schedule = self.get_schedule(slug)
             interval = (schedule or {}).get("interval_seconds", 3600)
             self.update_schedule(slug, datetime.now().timestamp() + interval)
-            log_line("error", "⏱️", "SYNC", f"{slug} — timeout after {elapsed:.1f}s (cap {timeout:.0f}s)")
-            raise
-        self.set_entities(slug, entities, error=None)
-        self._mark_source_reachable(slug, True)
-        self._signal_mirror_refresh(slug)
-        schedule = self.get_schedule(slug)
-        interval = (schedule or {}).get("interval_seconds", 3600)
-        self.update_schedule(slug, datetime.now().timestamp() + interval)
-        log_line("sys", "🔄", "SYNC", f"{slug} — {len(entities)} keys")
-        return entities
+            log_line("sys", "🔄", "SYNC", f"{slug} — {len(entities)} keys")
+            return entities
 
     def _signal_mirror_refresh(self, store_key: str) -> None:
         try:

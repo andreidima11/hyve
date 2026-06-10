@@ -53,3 +53,38 @@ def test_hub_single_poller_serves_multiple_clients():
         assert b.messages[0]["type"] == "snapshot"
 
     asyncio.run(run())
+
+
+def test_mirror_ingest_enriches_once_per_user():
+    enrich_calls = {"n": 0}
+
+    async def enrich(items, user):
+        enrich_calls["n"] += 1
+        return list(items) + [{"entity_id": f"scene.{user.username}", "state": "ready"}]
+
+    class FakeSocket:
+        def __init__(self):
+            self.messages: list[dict] = []
+
+        async def send_json(self, payload):
+            self.messages.append(payload)
+
+    async def run():
+        hub = LiveEntityWsHub(
+            name="test",
+            poll_interval_sec=60,
+            fetch_items=lambda: [],
+            enrich_items=enrich,
+            mirror_driven=True,
+        )
+        user = type("U", (), {"username": "alice"})()
+        a = FakeSocket()
+        b = FakeSocket()
+        hub.attach(a, user)
+        hub.attach(b, user)
+        await hub.ingest_snapshot([{"entity_id": "light.a", "state": "on", "unit": ""}])
+        await hub.detach(a)
+        await hub.detach(b)
+        return enrich_calls["n"]
+
+    assert asyncio.run(run()) == 1

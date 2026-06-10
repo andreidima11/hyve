@@ -26,6 +26,8 @@ SnapshotKey = tuple[bool, SortMode]
 
 DEFAULT_TICK_SEC = 2.0
 _BUILD_TIMEOUT_SEC = 8.0
+# Coalesce bursty integration sync signals into one rebuild per loop turn.
+_KICK_DEBOUNCE_SEC = 0.15
 
 PushHandler = Callable[[list[dict[str, Any]]], Awaitable[None]]
 
@@ -65,6 +67,7 @@ class EntityMirror:
         self._stop = asyncio.Event()
         self._refresh_lock = asyncio.Lock()
         self._kick = asyncio.Event()
+        self._kick_armed_at = 0.0
         self._last_trigger = "boot"
         self._last_store_key: str | None = None
 
@@ -131,7 +134,11 @@ class EntityMirror:
 
     def signal_source_refresh(self, store_key: str | None = None) -> None:
         """Request an immediate mirror rebuild (e.g. after integration sync)."""
-        self._last_store_key = str(store_key or "").strip() or None
+        sk = str(store_key or "").strip()
+        if sk:
+            self._last_store_key = sk
+        if not self._kick.is_set():
+            self._kick_armed_at = _time.monotonic()
         self._kick.set()
 
     async def refresh_now(self, *, trigger: str = "manual", store_key: str | None = None) -> int:
@@ -206,23 +213,49 @@ class EntityMirror:
 
         return self._revision
 
+    async def _await_next_wake(self) -> bool:
+        """Wait for kick or tick. Returns True when woken by a source kick."""
+        if self._kick.is_set():
+            await self._debounce_kick()
+            return True
+        try:
+            await asyncio.wait_for(self._kick.wait(), timeout=self._tick_sec)
+            await self._debounce_kick()
+            return True
+        except asyncio.TimeoutError:
+            return False
+
+    async def _debounce_kick(self) -> None:
+        """Let bursty sync signals settle before rebuilding."""
+        if not self._kick.is_set():
+            return
+        while True:
+            armed = self._kick_armed_at
+            elapsed = _time.monotonic() - armed
+            if elapsed >= _KICK_DEBOUNCE_SEC:
+                return
+            try:
+                await asyncio.wait_for(self._kick.wait(), timeout=_KICK_DEBOUNCE_SEC - elapsed)
+            except asyncio.TimeoutError:
+                return
+
     async def _loop(self) -> None:
         log.info("EntityMirror started (tick=%.1fs)", self._tick_sec)
         try:
             await self.refresh_now(trigger="boot")
             while not self._stop.is_set():
-                source_refresh = False
-                try:
-                    await asyncio.wait_for(self._kick.wait(), timeout=self._tick_sec)
-                    source_refresh = True
-                except asyncio.TimeoutError:
-                    pass
+                source_refresh = await self._await_next_wake()
                 if self._stop.is_set():
                     break
-                trigger = "source" if source_refresh else "tick"
-                await self.refresh_now(trigger=trigger, store_key=self._last_store_key)
-                self._last_store_key = None
-                self._kick.clear()
+                while True:
+                    trigger = "source" if source_refresh or self._kick.is_set() else "tick"
+                    store_key = self._last_store_key
+                    self._kick.clear()
+                    await self.refresh_now(trigger=trigger, store_key=store_key)
+                    self._last_store_key = None
+                    if not self._kick.is_set():
+                        break
+                    source_refresh = True
         except asyncio.CancelledError:
             log.info("EntityMirror stopped")
         finally:

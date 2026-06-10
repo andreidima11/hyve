@@ -46,6 +46,7 @@ from routers.dashboard.entities import (
 )
 from routers.dashboard.models import (
     DashboardDefaultPageBody,
+    DashboardHistoryBatchBody,
     DashboardImportBody,
     DashboardMoveBody,
     DashboardPageBody,
@@ -122,6 +123,20 @@ async def get_entity_history(
 
     points = get_history(entity_id, hours=hours)
     return {"entity_id": entity_id, "hours": hours, "points": points}
+
+
+@router.post("/history/batch")
+async def get_entity_history_batch(
+    body: DashboardHistoryBatchBody,
+    _: models.User = Depends(auth.get_current_user),
+):
+    """Return sparkline history for many entities in one request."""
+    from core.entity_history import get_history_many
+
+    entity_ids = [str(eid).strip() for eid in (body.entity_ids or []) if str(eid).strip()][:64]
+    hours = body.hours
+    histories = get_history_many(entity_ids, hours=hours)
+    return {"hours": hours, "histories": histories}
 
 
 @router.get("/pages")

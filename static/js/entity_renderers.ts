@@ -11,11 +11,10 @@
 import { escapeHtml } from './utils.js';
 import { apiCall } from './api.js';
 import { t, tState } from './lang/index.js';
+import '/static/hyveview/elements/camera_stream.js';
 import { cameraLiveTransport } from './camera_live.js';
-import { getCameraStreamToken, cameraProxyUrlSync, cameraGo2rtcWsUrlSync } from './camera_auth.js';
 import { selectOptionsFromCaps } from './entity_constants.js';
 import type { HyveEntity, IntegrationDeviceGroup, EntityAttributes } from './types/entity.js';
-import type { CameraMediaKind } from './types/camera.js';
 import type { EntityRegistryEditorOptions, EntityRendererFn } from './types/entity_renderers.js';
 
 function _er(key: string, params?: Record<string, unknown>) {
@@ -92,285 +91,6 @@ function _stateLabel(state: unknown, unit = '') {
     const text = tState(state == null || state === '' ? 'unknown' : state);
     if (!unit) return escapeHtml(text);
     return `${escapeHtml(text)}<span class="text-slate-400 text-base ml-1">${escapeHtml(unit)}</span>`;
-}
-
-function _cameraProxyUrl(entityId: string, kind: CameraMediaKind) {
-    return cameraProxyUrlSync(entityId, kind, Date.now());
-}
-
-function _cameraGo2rtcWsUrl(entityId: string) {
-    return cameraGo2rtcWsUrlSync(entityId);
-}
-
-function _cameraLoaderMarkup(message?: string) {
-    const msg = message || _er('loading_image');
-    return `
-        <div class="absolute inset-0 flex flex-col items-center justify-center gap-3.5 hv-cam-loading is-visible" data-camera-loader>
-            <div class="hv-cam-loader" aria-hidden="true">
-                <span class="hv-cam-loader__dot"></span>
-                <span class="hv-cam-loader__dot"></span>
-                <span class="hv-cam-loader__dot"></span>
-            </div>
-            <div class="hv-cam-loading__label text-[11px]">${escapeHtml(msg)}</div>
-        </div>`;
-}
-
-if (typeof window !== 'undefined' && !customElements.get('hyve-camera-live-player')) {
-    customElements.define('hyve-camera-live-player', class HyveCameraLivePlayer extends HTMLElement {
-        _started = false;
-        _paused = false;
-        _entityId = '';
-        _streamSrc = '';
-        _snapshotSrc = '';
-        _playSrc = '';
-        _hasAudio = false;
-        _go2rtc = false;
-        _usingFallback = false;
-        _fallbackTimer: ReturnType<typeof setTimeout> | null = null;
-        _ws: WebSocket | null = null;
-        _objectUrl = '';
-        _sourceBuffer: SourceBuffer | null = null;
-        _queue: ArrayBuffer[] = [];
-        _requested = false;
-
-        connectedCallback() {
-            if (this._started) return;
-            this._started = true;
-            this._entityId = this.dataset.entityId || '';
-            this._streamSrc = this.dataset.streamSrc || '';
-            this._snapshotSrc = this.dataset.snapshotSrc || '';
-            this._playSrc = this.dataset.playSrc || '';
-            this._hasAudio = this.dataset.hasAudio === 'true';
-            this._go2rtc = this.dataset.go2rtc === 'true';
-            if (this._go2rtc && 'MediaSource' in window && 'WebSocket' in window) {
-                this._startMse();
-            } else if (this._playSrc) {
-                this._showWebm();
-            } else {
-                this._showMjpeg();
-            }
-        }
-
-        disconnectedCallback() {
-            this._cleanup();
-        }
-
-        // Public: stop the stream without removing the element (frees
-        // browser HTTP connection slots eaten by long-lived MJPEG streams).
-        pauseStream() {
-            if (this._paused) return;
-            this._paused = true;
-            const img = this.querySelector('img[data-camera-live-frame]') as HTMLImageElement | null;
-            if (img) {
-                try { img.src = ''; } catch (_) {}
-                img.removeAttribute('src');
-            }
-            const video = this.querySelector('video[data-camera-live-frame]') as HTMLVideoElement | null;
-            if (video) {
-                try { video.pause(); } catch (_) {}
-                try { video.removeAttribute('src'); video.load?.(); } catch (_) {}
-            }
-            this._cleanup();
-            // Allow connectedCallback's re-entry guard to be reset on resume.
-            this._started = false;
-            this._usingFallback = false;
-        }
-
-        resumeStream() {
-            if (!this._paused) return;
-            this._paused = false;
-            // Re-run init path.
-            this.connectedCallback();
-        }
-
-        _cleanup() {
-            if (this._fallbackTimer) {
-                clearTimeout(this._fallbackTimer);
-                this._fallbackTimer = null;
-            }
-            if (this._ws) {
-                try { this._ws.close(); } catch (_) {}
-                this._ws = null;
-            }
-            if (this._objectUrl) {
-                URL.revokeObjectURL(this._objectUrl);
-                this._objectUrl = '';
-            }
-            this._sourceBuffer = null;
-            this._queue = [];
-        }
-
-        _render(mediaMarkup: string) {
-            this.dataset.loading = 'true';
-            this.innerHTML = `${mediaMarkup}${_cameraLoaderMarkup()}`;
-        }
-
-        _ready(media: HTMLElement | null | undefined) {
-            this.dataset.loading = 'false';
-            media?.classList?.remove('opacity-0');
-            media?.classList?.add('opacity-100');
-            const loader = this.querySelector('[data-camera-loader]');
-            if (loader) loader.classList.remove('is-visible', 'is-error');
-        }
-
-        _unavailable() {
-            this.dataset.loading = 'failed';
-            const loader = this.querySelector('[data-camera-loader]');
-            if (loader) {
-                loader.classList.add('is-visible', 'is-error');
-                loader.querySelector('.hv-cam-loader')?.classList.add('hidden');
-                const label = loader.querySelector('.hv-cam-loading__label');
-                if (label) label.textContent = _er('camera_unavailable');
-            }
-        }
-
-        _fallbackToMjpeg() {
-            if (this._usingFallback) return;
-            this._usingFallback = true;
-            this._cleanup();
-            this._showMjpeg();
-        }
-
-        _showWebm() {
-            const title = this.getAttribute('aria-label') || this._entityId;
-            const src = this._playSrc;
-            if (!src) {
-                this._showMjpeg();
-                return;
-            }
-            const muted = !this._hasAudio;
-            this._render(`
-                <div class="relative w-full h-full">
-                    <video src="${escapeHtml(src)}" class="w-full h-full object-contain bg-black opacity-0 transition-opacity duration-300"
-                        ${muted ? 'muted' : ''} playsinline autoplay controls data-camera-live-frame></video>
-                    <button type="button" data-camera-mute-toggle
-                        class="absolute left-2 bottom-2 z-10 px-2.5 py-1.5 rounded-lg bg-black/60 text-white text-sm border-0 cursor-pointer"
-                        title="${escapeHtml(_er('sound'))}" aria-label="${escapeHtml(_er('sound'))}">${muted ? '🔇' : '🔊'}</button>
-                </div>`);
-            const video = this.querySelector('video') as HTMLVideoElement | null;
-            const muteBtn = this.querySelector('[data-camera-mute-toggle]');
-            if (!video) return;
-            if (muteBtn) {
-                muteBtn.addEventListener('click', (ev) => {
-                    ev.stopPropagation();
-                    video.muted = !video.muted;
-                    muteBtn.textContent = video.muted ? '🔇' : '🔊';
-                });
-            }
-            video.addEventListener('loadeddata', () => this._ready(video), { once: true });
-            video.addEventListener('playing', () => this._ready(video), { once: true });
-            video.addEventListener('error', () => this._fallbackToMjpeg(), { once: true });
-            video.play().catch(() => {});
-        }
-
-        _showMjpeg() {
-            const title = this.getAttribute('aria-label') || this._entityId;
-            const streamIsHttp = /^https?:\/\//i.test(this._streamSrc || '');
-            const src = streamIsHttp ? (this._streamSrc || this._snapshotSrc) : (this._snapshotSrc || this._streamSrc);
-            if (!src) {
-                this._render('');
-                this._unavailable();
-                return;
-            }
-            this._render(`<img src="${escapeHtml(src)}" alt="${escapeHtml(title)}" class="w-full h-full object-contain bg-black opacity-0 transition-opacity duration-300" data-camera-live-frame>`);
-            const img = this.querySelector('img') as HTMLImageElement | null;
-            if (!img) return;
-            img.onload = () => this._ready(img);
-            img.onerror = () => {
-                if (this._snapshotSrc && !img.dataset.fallbackTried) {
-                    img.dataset.fallbackTried = '1';
-                    img.src = this._snapshotSrc;
-                    return;
-                }
-                this._unavailable();
-            };
-        }
-
-        _mseCodecs() {
-            return [
-                'avc1.640029',
-                'avc1.64002A',
-                'avc1.640033',
-                'mp4a.40.2',
-                'mp4a.40.5',
-                'opus',
-            ].join(',');
-        }
-
-        _startMse() {
-            const title = this.getAttribute('aria-label') || this._entityId;
-            this._render(`<video class="w-full h-full object-contain bg-black opacity-0 transition-opacity duration-300" muted playsinline autoplay data-camera-live-frame></video>`);
-            const video = this.querySelector('video') as HTMLVideoElement | null;
-            if (!video) return;
-            const mediaSource = new MediaSource();
-            this._objectUrl = URL.createObjectURL(mediaSource);
-            video.src = this._objectUrl;
-            video.setAttribute('aria-label', title);
-            this._queue = [];
-            this._requested = false;
-
-            const flush = () => {
-                if (!this._sourceBuffer || this._sourceBuffer.updating || !this._queue.length) return;
-                try {
-                    this._sourceBuffer.appendBuffer(this._queue.shift()!);
-                } catch (_) {
-                    this._fallbackToMjpeg();
-                }
-            };
-            const requestStream = () => {
-                if (this._ws?.readyState === WebSocket.OPEN && mediaSource.readyState === 'open' && !this._requested) {
-                    this._requested = true;
-                    this._ws.send(JSON.stringify({ type: 'mse', value: this._mseCodecs() }));
-                }
-            };
-
-            mediaSource.addEventListener('sourceopen', requestStream, { once: true });
-            video.addEventListener('loadeddata', () => {
-                if (this._fallbackTimer) {
-                    clearTimeout(this._fallbackTimer);
-                    this._fallbackTimer = null;
-                }
-                this._ready(video);
-                video.play().catch(() => {});
-            }, { once: true });
-            video.addEventListener('error', () => this._fallbackToMjpeg(), { once: true });
-
-            this._fallbackTimer = setTimeout(() => this._fallbackToMjpeg(), 9000);
-            this._ws = new WebSocket(_cameraGo2rtcWsUrl(this._entityId));
-            this._ws.binaryType = 'arraybuffer';
-            this._ws.onopen = requestStream;
-            this._ws.onerror = () => this._fallbackToMjpeg();
-            this._ws.onclose = () => {
-                if (this.dataset.loading === 'true') this._fallbackToMjpeg();
-            };
-            this._ws.onmessage = (event: MessageEvent) => {
-                if (typeof event.data === 'string') {
-                    let message = null;
-                    try { message = JSON.parse(event.data); } catch (_) {}
-                    if (message?.type === 'mse' && message.value && !this._sourceBuffer) {
-                        try {
-                            this._sourceBuffer = mediaSource.addSourceBuffer(message.value);
-                            this._sourceBuffer.mode = 'segments';
-                            this._sourceBuffer.addEventListener('updateend', flush);
-                            flush();
-                        } catch (_) {
-                            this._fallbackToMjpeg();
-                        }
-                    } else if (message?.type === 'error') {
-                        this._fallbackToMjpeg();
-                    }
-                    return;
-                }
-                const chunk = event.data instanceof ArrayBuffer ? event.data : null;
-                if (!chunk) return;
-                if (!this._sourceBuffer || this._sourceBuffer.updating) {
-                    this._queue.push(chunk);
-                } else {
-                    try { this._sourceBuffer.appendBuffer(chunk); } catch (_) { this._fallbackToMjpeg(); }
-                }
-            };
-        }
-    });
 }
 
 if (typeof window !== 'undefined' && !window.__previewIntegrationNumberValue) {
@@ -880,22 +600,21 @@ function renderCamera(entity: HyveEntity, slug: string) {
     const transport = cameraLiveTransport(attrs);
     const useGo2rtc = transport === 'go2rtc';
     const hasAudio = !!attrs.has_audio;
-    const playSrc = transport === 'webm' ? _cameraProxyUrl(eid, 'play') : '';
-    const streamSrc = _cameraProxyUrl(eid, 'stream');
-    const snapshotSrc = _cameraProxyUrl(eid, 'snapshot');
     const safeTitle = escapeHtml(title);
+    const streamAttrs = [
+        'class="relative block aspect-video hy-card-camera__stage"',
+        `entity="${escapeHtml(eid)}"`,
+        'mode="live"',
+        `alt="${safeTitle}"`,
+        'force-active',
+    ];
+    if (useGo2rtc) streamAttrs.push('go2rtc');
+    if (transport === 'webm') streamAttrs.push('webm');
+    if (hasAudio) streamAttrs.push('show-mute');
+    else streamAttrs.push('muted');
     return `
     <div class="hy-entity-camera-shell mb-3">
-        <hyve-camera-live-player class="relative block aspect-video bg-black"
-            data-camera-live-shell
-            data-loading="true"
-            data-entity-id="${escapeHtml(eid)}"
-            data-stream-src="${escapeHtml(streamSrc)}"
-            data-snapshot-src="${escapeHtml(snapshotSrc)}"
-            data-play-src="${escapeHtml(playSrc)}"
-            data-has-audio="${hasAudio ? 'true' : 'false'}"
-            data-go2rtc="${useGo2rtc ? 'true' : 'false'}"
-            aria-label="${safeTitle}"></hyve-camera-live-player>
+        <hv-camera-stream ${streamAttrs.join(' ')}></hv-camera-stream>
     </div>
     ${_renderCameraPtzPad(entity, slug)}`;
 }

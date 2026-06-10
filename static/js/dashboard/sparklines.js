@@ -7,6 +7,8 @@ const _sparklineCache = new Map();
 const _SPARKLINE_TTL_MS = 60000;
 const _SPARKLINE_HOURS = 24;
 const _sparklineFetching = new Set();
+let _batchPromise = null;
+const _batchPending = new Set();
 function renderSparklineSVG(points) {
     if (!Array.isArray(points) || points.length < 2)
         return '';
@@ -44,25 +46,59 @@ function renderSparklineSVG(points) {
             <path d="${linePath}" fill="none" stroke="var(--accent, #60a5fa)" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
         </svg>`;
 }
-async function fetchSparklineHistory(entityId) {
-    if (_sparklineFetching.has(entityId))
-        return null;
-    _sparklineFetching.add(entityId);
+function paintSparklineSlot(root, entityId, points) {
+    const fresh = root.querySelector(`[data-sparkline-entity="${CSS.escape(entityId)}"]`);
+    if (!fresh)
+        return;
+    const svg = renderSparklineSVG(points);
+    if (svg)
+        fresh.innerHTML = svg;
+}
+async function fetchSparklineHistoryBatch(entityIds) {
+    const pending = entityIds.filter((id) => id && !_sparklineFetching.has(id));
+    if (!pending.length)
+        return;
+    pending.forEach((id) => _sparklineFetching.add(id));
     try {
-        const res = await apiCall(`/api/dashboard/history?entity_id=${encodeURIComponent(entityId)}&hours=${_SPARKLINE_HOURS}`);
+        const res = await apiCall('/api/dashboard/history/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entity_ids: pending, hours: _SPARKLINE_HOURS }),
+        });
         if (!res?.ok)
-            return null;
+            return;
         const data = await res.json();
-        const points = Array.isArray(data?.points) ? data.points : [];
-        _sparklineCache.set(entityId, { ts: Date.now(), points });
-        return points;
+        const histories = data?.histories || {};
+        const now = Date.now();
+        for (const entityId of pending) {
+            const points = Array.isArray(histories[entityId]) ? histories[entityId] : [];
+            _sparklineCache.set(entityId, { ts: now, points });
+        }
     }
     catch {
-        return null;
+        // keep stale cache if any
     }
     finally {
-        _sparklineFetching.delete(entityId);
+        pending.forEach((id) => _sparklineFetching.delete(id));
     }
+}
+function scheduleSparklineBatchFlush() {
+    if (_batchPromise)
+        return;
+    _batchPromise = Promise.resolve().then(async () => {
+        await new Promise((resolve) => { setTimeout(resolve, 0); });
+        const ids = [..._batchPending];
+        _batchPending.clear();
+        _batchPromise = null;
+        if (ids.length)
+            await fetchSparklineHistoryBatch(ids);
+        if (_batchPending.size)
+            scheduleSparklineBatchFlush();
+    });
+}
+function queueSparklineBatch(entityId) {
+    _batchPending.add(entityId);
+    scheduleSparklineBatchFlush();
 }
 export function enhanceSparklines() {
     const grid = document.getElementById('dashboard-grid');
@@ -78,6 +114,7 @@ export function enhanceSparklinesIn(root) {
     if (!root)
         return;
     const slots = root.querySelectorAll('[data-sparkline-entity]');
+    const toFetch = [];
     slots.forEach((slot) => {
         if (slot instanceof HTMLElement && (slot.hidden || slot.hasAttribute('hidden')))
             return;
@@ -96,15 +133,17 @@ export function enhanceSparklinesIn(root) {
             if (svg)
                 slot.innerHTML = svg;
         }
-        void fetchSparklineHistory(entityId).then((points) => {
-            if (!points)
-                return;
-            const fresh = root.querySelector(`[data-sparkline-entity="${CSS.escape(entityId)}"]`);
-            if (!fresh)
-                return;
-            const svg = renderSparklineSVG(points);
-            if (svg)
-                fresh.innerHTML = svg;
+        if (!_sparklineFetching.has(entityId))
+            toFetch.push(entityId);
+    });
+    if (!toFetch.length)
+        return;
+    toFetch.forEach((entityId) => queueSparklineBatch(entityId));
+    void (_batchPromise || Promise.resolve()).then(() => {
+        toFetch.forEach((entityId) => {
+            const cached = _sparklineCache.get(entityId);
+            if (cached)
+                paintSparklineSlot(root, entityId, cached.points);
         });
     });
 }

@@ -113,9 +113,13 @@ class LiveEntityWsHub:
         """Apply a mirror-built entity list to all connected clients."""
         if not self._clients:
             return
+        enriched_by_user: dict[str, list[dict[str, Any]]] = {}
         dead: list[int] = []
         for cid, client in list(self._clients.items()):
-            enriched = await self._items_for_client(items, client)
+            user_key = str(getattr(client.user, "username", "") or cid)
+            if user_key not in enriched_by_user:
+                enriched_by_user[user_key] = await self._items_for_client(items, client)
+            enriched = enriched_by_user[user_key]
             if not await self._deliver(client, enriched):
                 dead.append(cid)
         for cid in dead:

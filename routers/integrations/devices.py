@@ -156,172 +156,19 @@ async def rename_integration_device(
     body: DeviceRenameBody,
     user: models.User = Depends(auth.get_current_admin),
 ):
-    from integrations import device_aliases, get_integration_manager
-
-    slug = (slug or "").strip()
-    device_id = (device_id or "").strip()
-    new_name = (body.name or "").strip()
-    if not slug or not device_id or not new_name:
-        raise HTTPException(status_code=400, detail="slug, device_id and name are required")
-
-    canonical_id = device_aliases.canonical_device_id(device_id) or device_id
-    previous_alias = device_aliases.get_alias(slug, canonical_id)
+    from integrations.device_rename import DeviceRenameRequest, get_device_rename_service
 
     try:
-        from core import device_registry
-
-        previous_device = device_registry.get_device(canonical_id)
-    except Exception:
-        previous_device = None
-
-    try:
-        device_aliases.set_alias(slug, canonical_id, new_name)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to save alias: {exc}")
-
-    try:
-        from core import device_registry
-
-        device_registry.set_device_name(
-            canonical_id,
-            new_name,
-            source=slug,
-            z2m_friendly_name=new_name,
-        )
-    except Exception as exc:
-        log.warning("device registry rename failed for %s/%s: %s", slug, canonical_id, exc)
-
-    supplied = (body.current_name or "").strip()
-    old_name_candidates = [
-        supplied,
-        previous_alias,
-        (previous_device or {}).get("z2m_friendly_name"),
-        (previous_device or {}).get("name") if (previous_device or {}).get("name_by_user") else None,
-    ]
-
-    def _refresh_registry_entities() -> dict[str, Any]:
-        from core import entity_registry
-
-        return entity_registry.refresh_entity_ids_for_device_rename(
-            canonical_id,
-            old_friendly=supplied or str(old_name_candidates[0] or ""),
-            old_friendly_names=[str(v) for v in old_name_candidates if v],
-            new_friendly=new_name,
-        )
-
-    registry_refresh: dict[str, Any] | None = None
-    try:
-        registry_refresh = _refresh_registry_entities()
-        helpers.invalidate_all_entities_cache()
-    except Exception as exc:
-        log.warning("entity registry refresh after rename failed: %s", exc)
-
-    old_names_for_purge = [
-        str(v).strip()
-        for v in old_name_candidates
-        if v and str(v).strip() and str(v).strip().lower() != new_name.lower()
-    ]
-
-    def _purge_bridge_discovery() -> int:
-        if slug != "mosquitto":
-            return 0
-        try:
-            from components.mosquitto import bridge as mosquitto_bridge
-            from integrations import get_integration_manager
-
-            removed = 0
-            for inst in get_integration_manager().entries_for(slug):
-                br = mosquitto_bridge.get_bridge(inst.entry_id)
-                if br is not None:
-                    removed += br.purge_discovery_for_device(
-                        canonical_id,
-                        old_friendly_names=old_names_for_purge,
-                    )
-            return removed
-        except Exception as exc:
-            log.debug("bridge discovery purge failed: %s", exc)
-            return 0
-
-    async def _resync_after_rename() -> None:
-        try:
-            from addons.entity_store import get_entity_store
-
-            store = get_entity_store()
-            for inst in get_integration_manager().entries_for(slug):
-                if not inst.supports_sync:
-                    continue
-                key = inst.store_key
-                if not store.get_fetcher(key):
-                    helpers.register_instance_fetcher(store, inst)
-                await store.do_sync(key, force=True)
-        except Exception as exc:
-            log.warning("post-rename sync failed for %s: %s", slug, exc)
-        try:
-            helpers.invalidate_all_entities_cache()
-            from core.mirror_nudge import nudge_entity_mirror
-
-            nudge_entity_mirror(slug)
-        except Exception as exc:
-            log.debug("post-rename mirror nudge failed: %s", exc)
-
-    upstream = {"attempted": False, "ok": False, "detail": None}
-    integration = get_integration_manager().get(slug)
-    rename_fn = getattr(integration, "rename_zigbee_device", None) if integration else None
-    if callable(rename_fn):
-        upstream["attempted"] = True
-        supplied = (body.current_name or "").strip()
-        current = supplied or canonical_id
-        try:
-            result = await rename_fn(
-                current,
-                new_name,
-                device_id=canonical_id,
+        return await get_device_rename_service().rename(
+            slug,
+            device_id,
+            DeviceRenameRequest(
+                name=body.name,
+                current_name=body.current_name,
                 homeassistant_rename=body.homeassistant_rename,
-            )
-            upstream["ok"] = True
-            upstream["detail"] = result if isinstance(result, dict) else None
-            log.info("Upstream rename ok for %s: %s -> %s", slug, current, new_name)
-            if body.homeassistant_rename:
-                try:
-                    registry_refresh = _refresh_registry_entities()
-                    helpers.invalidate_all_entities_cache()
-                    upstream["entity_ids"] = registry_refresh
-                except Exception as exc:
-                    log.warning("entity_id refresh after rename failed: %s", exc)
-        except Exception as exc:
-            log.warning("Upstream rename failed for %s/%s: %s", slug, current, exc)
-            upstream["detail"] = str(exc)
-            if supplied and supplied != canonical_id:
-                try:
-                    result = await rename_fn(
-                        canonical_id,
-                        new_name,
-                        device_id=canonical_id,
-                        homeassistant_rename=body.homeassistant_rename,
-                    )
-                    upstream["ok"] = True
-                    upstream["detail"] = result if isinstance(result, dict) else None
-                    log.info("Upstream rename ok on retry for %s: %s -> %s", slug, canonical_id, new_name)
-                    if body.homeassistant_rename:
-                        try:
-                            registry_refresh = _refresh_registry_entities()
-                            helpers.invalidate_all_entities_cache()
-                            upstream["entity_ids"] = registry_refresh
-                        except Exception as exc:
-                            log.warning("entity_id refresh after rename retry failed: %s", exc)
-                except Exception as exc2:
-                    log.warning("Upstream rename retry failed for %s/%s: %s", slug, canonical_id, exc2)
-
-    purged_discovery = _purge_bridge_discovery()
-    await _resync_after_rename()
-
-    return {
-        "status": "ok",
-        "slug": slug,
-        "device_id": canonical_id,
-        "name": new_name,
-        "registry_refresh": registry_refresh,
-        "upstream": upstream,
-        "purged_discovery": purged_discovery,
-        "resynced": True,
-    }
+            ),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))

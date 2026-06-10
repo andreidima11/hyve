@@ -186,11 +186,22 @@ def register_entity(entity: dict[str, Any]) -> dict[str, Any]:
         return _register_entity_unlocked(entity, by_uid, by_eid)
 
 
-def _register_entity_unlocked(
+_INSERT_ENTITY_SQL = text("""
+    INSERT INTO entity_registry
+    (unique_id, entity_id, domain, name, device_id, source,
+     config_entry_id, disabled, created_at, updated_at, entity_id_user_set)
+    VALUES
+    (:uid, :eid, :domain, :name, :device_id, :source,
+     :entry_id, 0, :created, :updated, 0)
+""")
+
+
+def _stage_register_entity_unlocked(
     entity: dict[str, Any],
     by_uid: dict[str, dict[str, Any]],
     by_eid: dict[str, str],
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Prepare a new registry row in memory; return (row, db_params) or (existing, None)."""
     uid = str(entity.get("unique_id") or "").strip()
     eid = str(entity.get("entity_id") or "").strip()
     if not uid or not eid:
@@ -198,7 +209,7 @@ def _register_entity_unlocked(
 
     existing = by_uid.get(uid)
     if existing:
-        return dict(existing)
+        return dict(existing), None
 
     domain = str(entity.get("domain") or entity_domain(eid) or "sensor").strip().lower()
     if domain not in KNOWN_DOMAINS:
@@ -212,27 +223,6 @@ def _register_entity_unlocked(
 
     normalized = normalize_entity_id(eid, domain)
     final_eid = _dedupe_entity_id(normalized, uid, by_eid)
-
-    with _db() as db:
-        db.execute(text("""
-            INSERT INTO entity_registry
-            (unique_id, entity_id, domain, name, device_id, source,
-             config_entry_id, disabled, created_at, updated_at, entity_id_user_set)
-            VALUES
-            (:uid, :eid, :domain, :name, :device_id, :source,
-             :entry_id, 0, :created, :updated, 0)
-        """), {
-            "uid": uid,
-            "eid": final_eid,
-            "domain": domain,
-            "name": name,
-            "device_id": device_id,
-            "source": source,
-            "entry_id": config_entry_id,
-            "created": now,
-            "updated": now,
-        })
-        db.commit()
 
     row = {
         "unique_id": uid,
@@ -249,7 +239,38 @@ def _register_entity_unlocked(
     }
     by_uid[uid] = row
     by_eid[final_eid] = uid
-    return dict(row)
+    params = {
+        "uid": uid,
+        "eid": final_eid,
+        "domain": domain,
+        "name": name,
+        "device_id": device_id,
+        "source": source,
+        "entry_id": config_entry_id,
+        "created": now,
+        "updated": now,
+    }
+    return dict(row), params
+
+
+def _commit_entity_inserts(params_list: list[dict[str, Any]]) -> None:
+    if not params_list:
+        return
+    with _db() as db:
+        for params in params_list:
+            db.execute(_INSERT_ENTITY_SQL, params)
+        db.commit()
+
+
+def _register_entity_unlocked(
+    entity: dict[str, Any],
+    by_uid: dict[str, dict[str, Any]],
+    by_eid: dict[str, str],
+) -> dict[str, Any]:
+    row, params = _stage_register_entity_unlocked(entity, by_uid, by_eid)
+    if params is not None:
+        _commit_entity_inserts([params])
+    return row or {}
 
 
 def _migrate_override_entity_id(old_eid: str, new_eid: str) -> None:
@@ -692,6 +713,7 @@ def sync_entities(entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if not entities:
         return entities
 
+    pending_inserts: list[dict[str, Any]] = []
     with _lock:
         by_uid, by_eid = _load_unlocked()
         for entity in entities:
@@ -703,7 +725,9 @@ def sync_entities(entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
             row = by_uid.get(uid)
             if row is None:
                 try:
-                    row = _register_entity_unlocked(entity, by_uid, by_eid)
+                    row, params = _stage_register_entity_unlocked(entity, by_uid, by_eid)
+                    if params is not None:
+                        pending_inserts.append(params)
                 except Exception as exc:
                     log.debug("registry register failed for %s: %s", uid, exc)
                     continue
@@ -716,5 +740,7 @@ def sync_entities(entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
             attrs = entity.setdefault("attributes", {})
             if isinstance(attrs, dict):
                 attrs["registry_unique_id"] = uid
+
+        _commit_entity_inserts(pending_inserts)
 
     return entities

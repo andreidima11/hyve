@@ -35,8 +35,12 @@ _MAX_ENTRIES = 64
 
 
 def _invalidate_device_list_cache() -> None:
-    """No-op: legacy HA device-list cache was removed along with the integration."""
-    return
+    try:
+        from routers.dashboard.entities import invalidate_scene_synthetic_cache
+
+        invalidate_scene_synthetic_cache()
+    except Exception:
+        pass
 _MAX_NAME_LEN = 120
 _MAX_DESC_LEN = 500
 

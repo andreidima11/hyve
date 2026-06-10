@@ -3,7 +3,7 @@
     padding: 0;
     overflow: hidden;
     position: relative;
-    background: #050505;
+    background: var(--camera-stage-bg-gradient, var(--camera-stage-bg));
 }
 .hyve-dashboard-card--camera {
     cursor: default;
@@ -24,7 +24,7 @@
     min-height: 0;
     object-fit: contain;
     display: block;
-    background: #050505;
+    background: var(--camera-stage-bg-gradient, var(--camera-stage-bg));
 }
 .hyve-dashboard-card__camera-player {
     display: block;
@@ -32,7 +32,7 @@
     height: 100%;
     min-width: 0;
     min-height: 0;
-    background: #050505;
+    background: var(--camera-stage-bg-gradient, var(--camera-stage-bg));
 }
 .hyve-dashboard-card__camera-player video,
 .hyve-dashboard-card__camera-player img {
@@ -42,14 +42,14 @@
     min-height: 0;
     object-fit: contain;
     display: block;
-    background: #050505;
+    background: transparent;
 }
 .hyve-dashboard-card__camera-img[data-failed="1"] {
     opacity: 0.25;
     filter: grayscale(1);
 }
 .hyve-dashboard-card__camera-frame [data-camera-loader] {
-    background: rgba(5, 5, 5, 0.82);
+    background: var(--camera-loader-bg, var(--surface-1));
     gap: 0.5rem;
 }
 .hyve-dashboard-card__camera-frame [data-camera-loader] .w-9 {
@@ -64,14 +64,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: rgba(255, 255, 255, 0.35);
+    color: var(--camera-placeholder-fg, rgba(255, 255, 255, 0.35));
     font-size: 2.5rem;
-    background:
-        repeating-linear-gradient(
-            45deg,
-            rgba(255, 255, 255, 0.04) 0 8px,
-            rgba(255, 255, 255, 0.02) 8px 16px
-        );
+    background: var(--camera-placeholder-bg);
 }
 .hyve-dashboard-card__camera-overlay {
     position: absolute;
@@ -392,6 +387,11 @@
 /* ============================================================
  * Camera card — loading overlay
  * ============================================================ */
+.hv-camera-stream,
+.hv-card-camera__stage {
+    background: var(--camera-stage-bg-gradient, var(--camera-stage-bg));
+}
+
 .hv-cam-loading {
     position: absolute;
     inset: 0;
@@ -400,8 +400,10 @@
     align-items: center;
     justify-content: center;
     gap: 14px;
-    background: var(--bg-main, #09090b);
+    background: var(--camera-loader-bg, var(--surface-1, #09090b));
     color: var(--text-secondary, rgba(255, 255, 255, 0.55));
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     opacity: 0;
     pointer-events: none;
     transition: opacity 260ms ease;
@@ -464,5 +466,13 @@
         opacity: 0.95;
         transform: translateY(-1px) scale(1);
     }
+}
+
+[data-theme="light"] .hv-cam-loader__dot {
+    background: var(--accent);
+    opacity: 0.38;
+}
+[data-theme="light"] .hv-cam-loading.is-visible .hv-cam-loader__dot {
+    opacity: 0.55;
 }
 

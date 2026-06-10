@@ -290,10 +290,17 @@ def migrate_from_cfg(cfg: dict[str, Any], known_slugs: Iterable[str]) -> int:
         dirty = True
         created += 1
     if dirty:
-        try:
-            import settings as _settings_mod
+        import logging
 
+        import settings as _settings_mod
+
+        try:
             _settings_mod.save_config(cfg)
-        except Exception:
-            pass
+        except Exception as exc:
+            logging.getLogger("integrations.config_entries").error(
+                "legacy config migration created %s entries but failed to persist config.json",
+                created,
+                exc_info=exc,
+            )
+            raise
     return created

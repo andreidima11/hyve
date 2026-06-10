@@ -1,6 +1,5 @@
 from sqlalchemy import create_engine, event
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 # Folosim SQLite pentru simplitate și portabilitate
 SQLALCHEMY_DATABASE_URL = "sqlite:///./users.db"

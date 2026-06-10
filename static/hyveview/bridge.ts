@@ -20,31 +20,55 @@ export function setWidgetEntityIdsResolver(fn: WidgetEntityIdsResolver | null): 
     _widgetEntityIdsResolver = typeof fn === 'function' ? fn : null;
 }
 
+function _cardTypeEntityIds(widget: HyveviewWidget | null | undefined): string[] {
+    const type = effectiveCardType(widget);
+    const entry = _registry.get(type);
+    const resolver = entry?.opts?.widgetEntityIds;
+    if (typeof resolver !== 'function') return [];
+    try {
+        const ids = resolver(widget);
+        return Array.isArray(ids) ? ids.map((id) => String(id)).filter(Boolean) : [];
+    } catch (e) {
+        console.error('[hyveview-bridge] widgetEntityIds failed for', type, e);
+        return [];
+    }
+}
+
+export function cardTypeEntityIds(widget: HyveviewWidget | null | undefined): string[] {
+    return _cardTypeEntityIds(widget);
+}
+
 function _widgetEntityIds(widget: HyveviewWidget | null | undefined): string[] {
+    const ids = new Set<string>(_cardTypeEntityIds(widget));
     if (_widgetEntityIdsResolver) {
         try {
-            const ids = _widgetEntityIdsResolver(widget);
-            if (Array.isArray(ids) && ids.length) return ids;
-        } catch { /* fall through */ }
+            const resolved = _widgetEntityIdsResolver(widget);
+            if (Array.isArray(resolved)) {
+                resolved.forEach((id) => { if (id) ids.add(String(id)); });
+            }
+        } catch (e) {
+            console.error('[hyveview-bridge] dashboard widgetEntityIds resolver failed', e);
+        }
     }
-    const ids: string[] = [];
-    if (widget?.entity_id) ids.push(widget.entity_id);
-    if (widget?.unique_id) ids.push(widget.unique_id);
+    if (ids.size) return [...ids];
+    const fallback: string[] = [];
+    if (widget?.entity_id) fallback.push(widget.entity_id);
+    if (widget?.unique_id) fallback.push(widget.unique_id);
     if (Array.isArray(widget?.entities)) {
         widget.entities.forEach((e) => {
-            if (e?.entity_id) ids.push(e.entity_id);
-            if (e?.unique_id) ids.push(e.unique_id);
+            if (e?.entity_id) fallback.push(e.entity_id);
+            if (e?.unique_id) fallback.push(e.unique_id);
         });
     }
     const cfg = widget?.config && typeof widget.config === 'object' ? widget.config : {};
-    if (Array.isArray(cfg.entity_ids)) cfg.entity_ids.forEach((id) => { if (id) ids.push(String(id)); });
+    if (Array.isArray(cfg.entity_ids)) cfg.entity_ids.forEach((id) => { if (id) fallback.push(String(id)); });
     if (Array.isArray(cfg.entities)) {
         cfg.entities.forEach((e: { entity_id?: string; unique_id?: string }) => {
-            if (e?.entity_id) ids.push(e.entity_id);
-            if (e?.unique_id) ids.push(e.unique_id);
+            if (e?.entity_id) fallback.push(e.entity_id);
+            if (e?.unique_id) fallback.push(e.unique_id);
         });
     }
-    return [...new Set(ids)];
+    return [...new Set(fallback)];
 }
 
 export function effectiveCardType(widget: HyveviewWidget | null | undefined): string {

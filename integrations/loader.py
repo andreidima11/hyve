@@ -231,21 +231,23 @@ class IntegrationManager:
             eligible.append((key, integration, interval))
 
         if run_initial_sync and eligible:
-            # Run the first fetch for every enabled integration in parallel so
-            # the server boots quickly even when several providers are
-            # configured. A slow provider can no longer hold up the others.
+            # Cap parallel startup sync so N integrations do not hammer upstream
+            # APIs and SQLite at once.
+            bootstrap_sem = asyncio.Semaphore(4)
+
             async def _one(key: str) -> None:
-                try:
-                    await store.do_sync(key, force=True)
-                    if logger:
-                        logger("success", key, f"Startup sync OK for {key}")
-                except SyncThrottledError as exc:
-                    msg = _format_bootstrap_deferred_message(exc.retry_after or 0)
-                    if logger:
-                        logger("deferred", key, msg)
-                except Exception as exc:
-                    if logger:
-                        logger("error", key, f"Startup sync failed for {key}: {exc}")
+                async with bootstrap_sem:
+                    try:
+                        await store.do_sync(key, force=True)
+                        if logger:
+                            logger("success", key, f"Startup sync OK for {key}")
+                    except SyncThrottledError as exc:
+                        msg = _format_bootstrap_deferred_message(exc.retry_after or 0)
+                        if logger:
+                            logger("deferred", key, msg)
+                    except Exception as exc:
+                        if logger:
+                            logger("error", key, f"Startup sync failed for {key}: {exc}")
 
             await asyncio.gather(*(_one(k) for k, _, _ in eligible), return_exceptions=True)
 
@@ -262,7 +264,13 @@ class IntegrationManager:
                 continue
             try:
                 items.extend(await integration.list_entities(store))
-            except Exception:
+            except Exception as exc:
+                log.warning(
+                    "list_entities failed slug=%s entry=%s",
+                    integration.slug,
+                    integration.entry_id,
+                    exc_info=exc,
+                )
                 continue
         return items
 

@@ -8,7 +8,7 @@ from env_bootstrap import ensure_env_loaded
 ensure_env_loaded()
 
 CONFIG_FILE = "config.json"
-RELEASE_VERSION = "0.8.10"
+RELEASE_VERSION = "0.8.11"
 APP_VERSION = RELEASE_VERSION
 _settings_log = logging.getLogger("settings")
 

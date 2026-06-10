@@ -40,7 +40,7 @@ export function createDashboardLiveWs(deps: DashboardLiveWsDeps) {
 
     function pauseCameraStreams(): void {
         try {
-            document.querySelectorAll('hv-camera-carousel, hv-camera-stream, hyve-camera-live-player').forEach((el) => {
+            document.querySelectorAll('hv-camera-carousel, hv-camera-stream').forEach((el) => {
                 try { (el as CameraStreamElement).pauseStream?.(); } catch { /* ignore */ }
             });
         } catch { /* ignore */ }
@@ -48,7 +48,7 @@ export function createDashboardLiveWs(deps: DashboardLiveWsDeps) {
 
     function resumeCameraStreams(): void {
         try {
-            document.querySelectorAll('hv-camera-carousel, hv-camera-stream, hyve-camera-live-player').forEach((el) => {
+            document.querySelectorAll('hv-camera-carousel, hv-camera-stream').forEach((el) => {
                 try { (el as CameraStreamElement).resumeStream?.(); } catch { /* ignore */ }
             });
         } catch { /* ignore */ }

@@ -7,6 +7,8 @@ export function effectiveCardType(widget: HyveviewWidget | null | undefined): st
 
 export function setWidgetEntityIdsResolver(fn: WidgetEntityIdsResolver | null): void;
 
+export function cardTypeEntityIds(widget: HyveviewWidget | null | undefined): string[];
+
 export function registerCard(
     type: string,
     ElementClass: HyveviewCardClass,

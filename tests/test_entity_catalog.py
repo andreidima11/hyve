@@ -9,7 +9,14 @@ def test_build_entities_uncached_returns_list(monkeypatch):
     monkeypatch.setattr(
         entity_catalog,
         "get_integration_manager",
-        lambda: type("M", (), {"all_instances": lambda self: []})(),
+        lambda: type(
+            "M",
+            (),
+            {
+                "all_instances": lambda self: [],
+                "is_bootstrap_eligible": lambda self, i: True,
+            },
+        )(),
     )
     monkeypatch.setattr(
         entity_catalog,
@@ -19,6 +26,7 @@ def test_build_entities_uncached_returns_list(monkeypatch):
             (),
             {
                 "get_entities": lambda self, key: {},
+                "get_entities_many": lambda self, keys: {key: {} for key in keys},
                 "apply_overrides": lambda self, items: None,
             },
         )(),

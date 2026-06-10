@@ -65,6 +65,37 @@ def test_signal_source_refresh_triggers_immediate_rebuild(monkeypatch):
     assert calls["n"] >= boot_count + 2
 
 
+def test_kick_during_rebuild_is_not_lost(monkeypatch):
+  calls = {"n": 0}
+
+  def fake_build(*, include_derived: bool, sort_mode: str):
+      calls["n"] += 1
+      return [{"entity_id": "sensor.t", "state": str(calls["n"]), "unit": ""}]
+
+  monkeypatch.setattr("core.entity_catalog.build_entities_uncached", fake_build)
+
+  async def run():
+      mirror = EntityMirror(tick_sec=60.0)
+      mirror.start()
+      await asyncio.sleep(0.02)
+      boot = calls["n"]
+
+      async def kick_while_locked():
+          await asyncio.sleep(0.01)
+          mirror.signal_source_refresh("mosquitto:e1")
+          await asyncio.sleep(0.01)
+          mirror.signal_source_refresh("mosquitto:e2")
+
+      asyncio.create_task(kick_while_locked())
+      mirror.signal_source_refresh("mosquitto:e0")
+      await asyncio.sleep(0.2)
+      await mirror.stop()
+      return boot
+
+  boot = asyncio.run(run())
+  assert calls["n"] >= boot + 2
+
+
 def test_source_unreachable_flags_entities(monkeypatch):
     class FakeStore:
         def source_is_reachable(self, store_key: str) -> bool:
@@ -72,6 +103,9 @@ def test_source_unreachable_flags_entities(monkeypatch):
 
         def get_entities(self, key):
             return {"entities": {}}
+
+        def get_entities_many(self, keys):
+            return {key: self.get_entities(key) for key in keys}
 
         def apply_overrides(self, items):
             return None

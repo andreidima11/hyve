@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import logging
+import time as _time
 from typing import Any
 
+import database
 import models
 from integrations.extractors import infer_source as _infer_source
 from integrations.entity_utils import resolve_entity_by_id
@@ -31,6 +33,17 @@ from smart_home_registry import entity_domain, normalize_entity_record
 from sqlalchemy.orm import Session
 
 log = logging.getLogger("dashboard")
+
+_SCENE_SYNTHETIC_TTL_SEC = 30.0
+_scene_synthetic_cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
+
+
+def invalidate_scene_synthetic_cache(username: str | None = None) -> None:
+    """Drop cached scene-as-entity rows (after scene CRUD or WS reconnect)."""
+    if username:
+        _scene_synthetic_cache.pop(str(username).strip(), None)
+    else:
+        _scene_synthetic_cache.clear()
 
 
 async def _available_entities() -> list[dict[str, Any]]:
@@ -77,6 +90,24 @@ def _scene_synthetic_entities(db: Session, user: models.User) -> list[dict[str, 
             },
         })
     return out
+
+
+def get_scene_synthetic_entities(user: models.User) -> list[dict[str, Any]]:
+    """Cached scene rows for dashboard WS enrichment (avoids per-tab DB hits)."""
+    username = str(getattr(user, "username", "") or "").strip()
+    if not username:
+        return []
+    now = _time.monotonic()
+    cached = _scene_synthetic_cache.get(username)
+    if cached and (now - cached[0]) < _SCENE_SYNTHETIC_TTL_SEC:
+        return list(cached[1])
+    db = next(database.get_db())
+    try:
+        items = _scene_synthetic_entities(db, user)
+    finally:
+        db.close()
+    _scene_synthetic_cache[username] = (now, items)
+    return list(items)
 
 
 def _hydrate_widgets(widgets: list[dict[str, Any]], entity_items: list[dict[str, Any]], viewer: str | None = None) -> list[dict[str, Any]]:

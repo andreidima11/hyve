@@ -1,6 +1,6 @@
 /** Apply WS entity diffs to dashboard cache + Hyveview fast-path patching. */
 
-import { fusionSolarWidgetEntityIds } from '/static/hyveview/cards/fusion_solar/card.js';
+import * as HyveBridge from '/static/hyveview/bridge.js';
 import { entityIdVariants, findEntityById, updatesGetWithAliases, updatesHasWithAliases } from '../entity_aliases.js';
 import { patchRegistryCardStates } from './card_registry.js';
 import { widgetArticleEl } from './cards/updates.js';
@@ -60,9 +60,7 @@ export function createDashboardEntityPatcher(deps: DashboardEntityPatcherDeps) {
         add(widget.entity_id);
         climateConfiguredIds(widget).forEach((id) => ids.add(id));
         cameraWidgetEntities(widget).forEach((e) => ids.add(e.entity_id));
-        if (widgetRenderer(widget) === 'fusion_solar') {
-            fusionSolarWidgetEntityIds(widget).forEach((id: string) => ids.add(id));
-        }
+        HyveBridge.cardTypeEntityIds(widget).forEach((id: string) => ids.add(id));
         if (Array.isArray(widget.entities)) widget.entities.forEach(add);
         const cfg = widget?.config && typeof widget.config === 'object'
             ? widget.config as Record<string, unknown>
@@ -175,7 +173,10 @@ export function createDashboardEntityPatcher(deps: DashboardEntityPatcherDeps) {
                 if (handled.has(id)) return true;
                 return widgetSkipsLiveRerender(widgetById(id));
             });
-        } catch (_) { return false; }
+        } catch (err) {
+            console.warn('[dashboard] tryFastPathForUpdates failed; falling back to full render', err);
+            return false;
+        }
     }
 
     function tryFastPathForEntities(entityIds: string | string[] | Set<string> | null | undefined) {
@@ -268,6 +269,18 @@ export function createDashboardEntityPatcher(deps: DashboardEntityPatcherDeps) {
         }
 
         if (touched) {
+            void import('/static/hyveview/core/store.js').then((mod) => {
+                const mapped = items.filter((it) => it?.entity_id).map((it) => ({
+                    entity_id: it.entity_id!,
+                    state: it.state ?? null,
+                    attributes: it.attributes || {},
+                    unit: it.unit || '',
+                    available: it.available !== false,
+                    name: String(it.entity_id),
+                }));
+                if (isSnapshot && typeof mod.applySnapshot === 'function') mod.applySnapshot(mapped);
+                else if (typeof mod.applyDiff === 'function') mod.applyDiff(mapped);
+            }).catch(() => {});
             const patchWidget = (widget: DashboardWidget | null | undefined) => {
                 if (!widget) return;
                 const targetIds = widgetEntityIds(widget);
@@ -323,7 +336,12 @@ export function createDashboardEntityPatcher(deps: DashboardEntityPatcherDeps) {
         const set = new Set(entityIds);
         const before = cache.available_entities.length;
         cache.available_entities = cache.available_entities.filter(it => !set.has(it.entity_id));
-        if (cache.available_entities.length !== before) renderDashboard();
+        if (cache.available_entities.length !== before) {
+            void import('/static/hyveview/core/store.js').then((mod) => {
+                if (typeof mod.applyRemoved === 'function') mod.applyRemoved(entityIds);
+            }).catch(() => {});
+            renderDashboard();
+        }
     }
 
     return {

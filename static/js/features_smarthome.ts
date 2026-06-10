@@ -1,4 +1,9 @@
 import { apiCall } from './api.js';
+import {
+    initIntegrationsLiveWs,
+    refreshIntegrationsLiveConnection,
+    subscribeIntegrationsLive,
+} from './integrations_live_ws.js';
 import { getCameraStreamToken, cameraProxyUrlSync, startCameraPreviewRefresh, stopCameraPreviewRefresh } from './camera_auth.js';
 import { cameraLoaderMarkup, bindCameraPreviewLoaders } from './camera_loader.js';
 import { t, tState, applyTranslations } from './lang/index.js';
@@ -405,95 +410,31 @@ export async function loadSmarthome(options: LoadSmarthomeOptions = {}) {
     return _smarthomeLoadPromise;
 }
 
-// ── Live entity-state updates (smarthome WS) ───────────────────────────
-let _smarthomeLiveWS: WebSocket | null = null;
-let _smarthomeLiveReconnectTimer: ReturnType<typeof setTimeout> | null = null;
-let _smarthomeLivePingTimer: ReturnType<typeof setInterval> | null = null;
-let _smarthomeLiveBackoff = 1000;
+// ── Live entity-state updates (shared integrations WS hub) ───────────────
+let _smarthomeLiveUnsub: (() => void) | null = null;
 let _smarthomeCacheRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
-async function _fetchSmarthomeWsToken() {
-    try {
-        const res = await apiCall('/api/token/sse', { method: 'POST' });
-        if (!res || !res.ok) return null;
-        const data = await res.json().catch(() => ({}));
-        return data?.sse_token || null;
-    } catch (_) { return null; }
+function _ensureSmarthomeLiveSubscription(): void {
+    if (_smarthomeLiveUnsub) return;
+    initIntegrationsLiveWs({ apiCall });
+    _smarthomeLiveUnsub = subscribeIntegrationsLive({
+        id: 'smarthome',
+        isActive: () => {
+            const view = document.getElementById('view-smarthome');
+            return !!(view && !view.classList.contains('hidden'));
+        },
+        onItems: (items, isSnapshot) => _applySmarthomeLiveItems(items as SmarthomeEntity[], isSnapshot),
+        onRemoved: _removeSmarthomeLiveItems,
+    });
 }
 
-export function disconnectSmarthomeLive() {
-    if (_smarthomeLiveReconnectTimer) {
-        clearTimeout(_smarthomeLiveReconnectTimer);
-        _smarthomeLiveReconnectTimer = null;
-    }
-    if (_smarthomeLivePingTimer) {
-        clearInterval(_smarthomeLivePingTimer);
-        _smarthomeLivePingTimer = null;
-    }
-    if (_smarthomeLiveWS) {
-        try { _smarthomeLiveWS.onclose = null; } catch (_) {}
-        try { _smarthomeLiveWS.close(); } catch (_) {}
-        _smarthomeLiveWS = null;
-    }
+function _connectSmarthomeLive(): void {
+    _ensureSmarthomeLiveSubscription();
+    refreshIntegrationsLiveConnection();
 }
 
-async function _connectSmarthomeLive() {
-    const view = document.getElementById('view-smarthome');
-    if (!view || view.classList.contains('hidden')) {
-        disconnectSmarthomeLive();
-        return;
-    }
-    if (_smarthomeLiveWS && (_smarthomeLiveWS.readyState === WebSocket.OPEN || _smarthomeLiveWS.readyState === WebSocket.CONNECTING)) return;
-
-    const token = await _fetchSmarthomeWsToken();
-    if (!token) { _scheduleSmarthomeLiveReconnect(); return; }
-
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const url = `${proto}://${window.location.host}/api/integrations/ws/live?token=${encodeURIComponent(token)}`;
-    let ws;
-    try { ws = new WebSocket(url); }
-    catch (_) { _scheduleSmarthomeLiveReconnect(); return; }
-    _smarthomeLiveWS = ws;
-
-    ws.onopen = () => {
-        _smarthomeLiveBackoff = 1000;
-        if (_smarthomeLivePingTimer) clearInterval(_smarthomeLivePingTimer);
-        _smarthomeLivePingTimer = setInterval(() => {
-            const v = document.getElementById('view-smarthome');
-            if (!v || v.classList.contains('hidden')) { disconnectSmarthomeLive(); return; }
-            try { ws.send('ping'); } catch (_) {}
-        }, 25000);
-    };
-
-    ws.onmessage = (ev) => {
-        let payload = null;
-        try { payload = JSON.parse(ev.data); } catch (_) { return; }
-        if (!payload || !payload.type) return;
-        if (payload.type === 'snapshot' || payload.type === 'diff') {
-            _applySmarthomeLiveItems(Array.isArray(payload.items) ? payload.items : [], payload.type === 'snapshot');
-        } else if (payload.type === 'removed') {
-            _removeSmarthomeLiveItems(Array.isArray(payload.entity_ids) ? payload.entity_ids : []);
-        }
-    };
-
-    ws.onclose = () => {
-        if (_smarthomeLivePingTimer) { clearInterval(_smarthomeLivePingTimer); _smarthomeLivePingTimer = null; }
-        _smarthomeLiveWS = null;
-        _scheduleSmarthomeLiveReconnect();
-    };
-    ws.onerror = () => { try { ws.close(); } catch (_) {} };
-}
-
-function _scheduleSmarthomeLiveReconnect() {
-    const view = document.getElementById('view-smarthome');
-    if (!view || view.classList.contains('hidden')) return;
-    if (_smarthomeLiveReconnectTimer) return;
-    const delay = Math.min(_smarthomeLiveBackoff, 15000);
-    _smarthomeLiveBackoff = Math.min(_smarthomeLiveBackoff * 2, 15000);
-    _smarthomeLiveReconnectTimer = setTimeout(() => {
-        _smarthomeLiveReconnectTimer = null;
-        _connectSmarthomeLive();
-    }, delay);
+export function disconnectSmarthomeLive(): void {
+    refreshIntegrationsLiveConnection();
 }
 
 function _applySmarthomeLiveItems(items: SmarthomeEntity[], isSnapshot: boolean) {
@@ -1580,7 +1521,7 @@ export function closeEntityDetailModal() {
     const modal = document.getElementById('entity-detail-modal');
     stopCameraPreviewRefresh();
     if (modal) {
-        modal.querySelectorAll('hyve-camera-live-player').forEach(el => {
+        modal.querySelectorAll('hv-camera-stream').forEach(el => {
             try { (el as HTMLElement & { pauseStream?: () => void }).pauseStream?.(); } catch (_) {}
         });
         modal.classList.add('hidden');

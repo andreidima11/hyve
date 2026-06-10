@@ -153,9 +153,9 @@ export class HyveviewCameraCard extends HyveviewCardBase {
       title: widgetTitle(cfg, { entityId }),
       icon: '📷',
     });
+    body.classList.add('hv-card-camera__stage');
     body.style.padding = '0';
     body.style.position = 'relative';
-    body.style.background = '#000';
     body.style.aspectRatio = '16 / 9';
 
     const img = document.createElement('img');
@@ -278,7 +278,6 @@ export class HyveviewCameraCard extends HyveviewCardBase {
       video.muted = false;
       Object.assign(video.style, {
         width: '100%', height: '100%', objectFit: 'cover', display: 'none',
-        background: '#000',
       });
       video.addEventListener('loadeddata', () => this._setLoading(false));
       video.addEventListener('playing', () => this._setLoading(false));

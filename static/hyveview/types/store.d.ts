@@ -7,16 +7,12 @@ export type EntityChangeCallback = (entityId: string, state: HyveviewEntityState
 export type UnsubscribeFn = () => void;
 
 export interface HyveviewStoreApi {
-    connect(): Promise<boolean>;
     getState(entityId: string): HyveviewEntityState | null;
     subscribe(entityId: string, cb: EntityStateCallback): UnsubscribeFn;
     subscribeAll(cb: EntityChangeCallback): UnsubscribeFn;
     listEntities(): HyveviewEntityState[];
     seedEntities(items: HyveviewEntityState[] | null | undefined): void;
-}
-
-export interface HyveviewWsMessage {
-    type?: string;
-    items?: HyveviewEntityState[];
-    entity_ids?: string[];
+    applySnapshot(items: HyveviewEntityState[] | null | undefined): void;
+    applyDiff(items: HyveviewEntityState[] | null | undefined): void;
+    applyRemoved(ids: string[] | null | undefined): void;
 }
