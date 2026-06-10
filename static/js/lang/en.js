@@ -62,6 +62,10 @@ const en = {
         remember_me: "Remember me",
         button: "Sign in"
     },
+    auth: {
+        token_required: "Token required",
+        invalid_token: "Invalid token",
+    },
     header: {
         dashboard: "Dashboard",
         auth_required: "Logged in",
@@ -452,6 +456,7 @@ const en = {
         view_inbox: "Inbox",
         view_archive: "Archive",
         done: "Done.",
+        apply: "Apply",
         loading: "Loading…",
         unread_badge_aria: "{count} unread notifications",
         unread_badge_none: "No unread notifications",
@@ -556,6 +561,17 @@ const en = {
         preflight_checking_btn: "Checking...",
         preflight_no_checks: "No checks required — ready to install.",
         preflight_error: "Check failed",
+    preflight_unknown_addon: "Unknown add-on",
+    preflight_docker_auto_install: "Missing — will be installed automatically (Colima via Homebrew).",
+    preflight_docker_missing: "Neither Docker nor Homebrew is installed.",
+    preflight_fix_install_brew: "Install Homebrew: https://brew.sh (then retry — Hyve installs the rest).",
+    preflight_fix_brew: "Install Homebrew: https://brew.sh",
+    preflight_fix_node: "Install Node.js: https://nodejs.org",
+    preflight_xcode_license: "The Xcode license has not been accepted.",
+    preflight_clang_missing: "clang was not found.",
+    preflight_command_not_found: "{command} was not found.",
+    preflight_exit_code: "Exit code {code}",
+    preflight_portaudio_missing: "The portaudio library is missing — pyaudio cannot be built.",
         install_complete: "Installation complete!",
         install_failed: "Installation failed",
         install_connection_lost: "Connection lost",
@@ -769,6 +785,9 @@ const en = {
         export_button: "Export",
         blueprint_button: "Blueprint",
         blueprint_button_title: "Create from a blueprint",
+        export_done: "Automation exported.",
+        import_empty: "The file is empty or invalid.",
+        import_error: "Import failed.",
         builder_id_ph: "auto-generated from title",
         import_done: "Imported {name}",
     },
@@ -1178,7 +1197,11 @@ const en = {
         addon_uninstalled: "Add-on uninstalled",
         addon_install_error: "Install error",
         addon_uninstall_error: "Uninstall error",
-        addon_not_found: "Add-on not found",
+        addon_not_found: "Add-on not found: {slug}",
+        addon_not_installed: "Add-on \"{slug}\" is not installed",
+        addon_install_failed: "Install failed: {message}",
+        addon_error: "{message}",
+        addon_process_error: "{message}",
         addon_config_save_error: "Config save error",
         addon_config_saved: "Configuration saved",
         xiaomi_connected: "Xiaomi account connected",
@@ -2071,6 +2094,7 @@ const en = {
         auth_required: "Authentication required",
         forbidden: "Access denied",
         admin_required: "Admin access required",
+        invalid_json: "Invalid JSON",
         account_deactivated: "Account is deactivated",
         running: "Running",
         stopped: "Stopped",
@@ -2397,7 +2421,8 @@ const en = {
         oauth_connected: "Connected",
         device_rename_prompt: "New device name:",
         device_rename_failed: "Rename failed.",
-        device_rename_synced: "Device renamed and entities refreshed."
+        device_rename_synced: "Device renamed and entities refreshed.",
+        device_rename_ok: "Device renamed."
     }
 };
 

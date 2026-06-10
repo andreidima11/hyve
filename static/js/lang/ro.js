@@ -62,6 +62,10 @@ const ro = {
         remember_me: "Ține-mă minte",
         button: "Intră în cont"
     },
+    auth: {
+        token_required: "Token necesar",
+        invalid_token: "Token invalid",
+    },
     header: {
         dashboard: "Panou",
         auth_required: "Conectat",
@@ -453,6 +457,7 @@ const ro = {
         view_inbox: "Inbox",
         view_archive: "Arhivă",
         done: "Gata.",
+        apply: "Aplică",
         loading: "Se încarcă…",
         unread_badge_aria: "{count} notificări necitite",
         unread_badge_none: "Fără notificări necitite",
@@ -557,6 +562,17 @@ const ro = {
         preflight_checking_btn: "Se verifică...",
         preflight_no_checks: "Nicio verificare necesară — gata de instalare.",
         preflight_error: "Eroare verificare",
+        preflight_unknown_addon: "Add-on necunoscut",
+        preflight_docker_auto_install: "Lipsă — va fi instalat automat (Colima via Homebrew).",
+        preflight_docker_missing: "Nici Docker, nici Homebrew nu sunt instalate.",
+        preflight_fix_install_brew: "Instalează Homebrew: https://brew.sh (apoi reîncearcă — Hyve aduce restul).",
+        preflight_fix_brew: "Instalează Homebrew: https://brew.sh",
+        preflight_fix_node: "Instalează Node.js: https://nodejs.org",
+        preflight_xcode_license: "Licența Xcode nu a fost acceptată.",
+        preflight_clang_missing: "clang nu a fost găsit.",
+        preflight_command_not_found: "{command} nu a fost găsit.",
+        preflight_exit_code: "Cod de ieșire {code}",
+        preflight_portaudio_missing: "Biblioteca portaudio lipsește — pyaudio nu se poate compila.",
         install_complete: "Instalare completă!",
         install_failed: "Instalare eșuată",
         install_connection_lost: "Conexiune pierdută",
@@ -770,6 +786,9 @@ const ro = {
         export_button: "Export",
         blueprint_button: "Blueprint",
         blueprint_button_title: "Creează dintr-un blueprint",
+        export_done: "Automatizare exportată.",
+        import_empty: "Fișierul este gol sau invalid.",
+        import_error: "Import eșuat.",
         builder_id_ph: "auto-generat din titlu",
         import_done: "Importat {name}",
     },
@@ -1179,7 +1198,11 @@ const ro = {
         addon_uninstalled: "Add-on dezinstalat",
         addon_install_error: "Eroare la instalare",
         addon_uninstall_error: "Eroare la dezinstalare",
-        addon_not_found: "Add-on negăsit",
+        addon_not_found: "Add-on negăsit: {slug}",
+        addon_not_installed: "Add-on \"{slug}\" nu este instalat",
+        addon_install_failed: "Instalare eșuată: {message}",
+        addon_error: "{message}",
+        addon_process_error: "{message}",
         addon_config_save_error: "Eroare la salvare config",
         addon_config_saved: "Configurare salvată",
         xiaomi_connected: "Cont Xiaomi conectat",
@@ -2071,6 +2094,7 @@ const ro = {
         auth_required: "Autentificare necesară",
         forbidden: "Acces interzis",
         admin_required: "Acces interzis (necesită admin)",
+        invalid_json: "JSON invalid",
         account_deactivated: "Contul este dezactivat",
         na: "N/A",
         running: "Rulează",
@@ -2398,7 +2422,8 @@ const ro = {
         oauth_connected: "Conectat",
         device_rename_prompt: "Nume nou pentru dispozitiv:",
         device_rename_failed: "Redenumire eșuată.",
-        device_rename_synced: "Dispozitiv redenumit și entitățile reîmprospătate."
+        device_rename_synced: "Dispozitiv redenumit și entitățile reîmprospătate.",
+        device_rename_ok: "Dispozitiv redenumit."
     }
 };
 

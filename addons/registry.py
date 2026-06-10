@@ -482,6 +482,34 @@ def list_all() -> list[dict]:
 
 # ── preflight checks ─────────────────────────────────────────────────────
 
+def _preflight_item(
+    name: str,
+    ok: bool,
+    *,
+    detail_key: str | None = None,
+    detail_params: dict | None = None,
+    detail: str = "",
+    fix: str = "",
+    fix_key: str | None = None,
+    fix_params: dict | None = None,
+) -> dict:
+    item: dict = {"name": name, "ok": ok}
+    if detail_key:
+        item["detail_key"] = detail_key
+        if detail_params:
+            item["detail_params"] = detail_params
+    elif detail:
+        item["detail"] = detail
+    if not ok:
+        if fix_key:
+            item["fix_key"] = fix_key
+            if fix_params:
+                item["fix_params"] = fix_params
+        elif fix:
+            item["fix"] = fix
+    return item
+
+
 async def preflight_check(slug: str) -> list[dict]:
     """Run pre-install checks for an addon.
 
@@ -489,7 +517,11 @@ async def preflight_check(slug: str) -> list[dict]:
     """
     manifest = get_manifest(slug)
     if not manifest:
-        return [{"name": "manifest", "ok": False, "detail": "Add-on necunoscut", "fix": ""}]
+        return [_preflight_item(
+            "manifest",
+            False,
+            detail_key="apps.preflight_unknown_addon",
+        )]
 
     install = manifest.get("install", {})
     method = install.get("method", "pip")
@@ -509,39 +541,38 @@ async def preflight_check(slug: str) -> list[dict]:
     # as long as either docker OR brew is available.
     if method == "docker":
         if shutil.which("docker"):
-            checks.append({"name": "Docker", "ok": True, "detail": "OK", "fix": ""})
+            checks.append(_preflight_item("Docker", True))
         elif shutil.which("brew"):
-            checks.append({
-                "name": "Docker",
-                "ok": True,
-                "detail": "Lipsă — va fi instalat automat (Colima via Homebrew).",
-                "fix": "",
-            })
+            checks.append(_preflight_item(
+                "Docker",
+                True,
+                detail_key="apps.preflight_docker_auto_install",
+            ))
         else:
-            checks.append({
-                "name": "Docker",
-                "ok": False,
-                "detail": "Nici Docker, nici Homebrew nu sunt instalate.",
-                "fix": "Instalează Homebrew: https://brew.sh (apoi reîncearcă instalarea — Hyve aduce restul).",
-            })
+            checks.append(_preflight_item(
+                "Docker",
+                False,
+                detail_key="apps.preflight_docker_missing",
+                fix_key="apps.preflight_fix_install_brew",
+            ))
 
     if method == "brew":
         checks.append(await _check_command(
             ["brew", "--version"],
             name="Homebrew",
-            fix="Instalează Homebrew: https://brew.sh",
+            fix_key="apps.preflight_fix_brew",
         ))
 
     if method == "npm":
         checks.append(await _check_command(
             ["npm", "--version"],
             name="npm",
-            fix="Instalează Node.js și npm: https://nodejs.org",
+            fix_key="apps.preflight_fix_node",
         ))
         checks.append(await _check_command(
             ["node", "--version"],
             name="Node.js",
-            fix="Instalează Node.js: https://nodejs.org",
+            fix_key="apps.preflight_fix_node",
         ))
 
     return checks
@@ -558,27 +589,27 @@ async def _check_compiler() -> dict:
         out, _ = await asyncio.wait_for(proc.communicate(), timeout=10)
         text = out.decode("utf-8", errors="replace")
         if proc.returncode == 0:
-            return {"name": "Compilator C (clang)", "ok": True, "detail": "OK", "fix": ""}
+            return _preflight_item("C compiler (clang)", True)
         if "license" in text.lower():
-            return {
-                "name": "Licență Xcode",
-                "ok": False,
-                "detail": "Licența Xcode nu a fost acceptată.",
-                "fix": "sudo xcodebuild -license accept",
-            }
-        return {"name": "Compilator C (clang)", "ok": False, "detail": text[:200], "fix": "xcode-select --install"}
+            return _preflight_item(
+                "Xcode license",
+                False,
+                detail_key="apps.preflight_xcode_license",
+                fix="sudo xcodebuild -license accept",
+            )
+        return _preflight_item("C compiler (clang)", False, detail=text[:200], fix="xcode-select --install")
     except FileNotFoundError:
-        return {
-            "name": "Compilator C (clang)",
-            "ok": False,
-            "detail": "clang nu a fost găsit.",
-            "fix": "xcode-select --install",
-        }
+        return _preflight_item(
+            "C compiler (clang)",
+            False,
+            detail_key="apps.preflight_clang_missing",
+            fix="xcode-select --install",
+        )
     except Exception as e:
-        return {"name": "Compilator C (clang)", "ok": False, "detail": str(e), "fix": ""}
+        return _preflight_item("C compiler (clang)", False, detail=str(e))
 
 
-async def _check_command(cmd: list[str], *, name: str, fix: str) -> dict:
+async def _check_command(cmd: list[str], *, name: str, fix: str = "", fix_key: str | None = None) -> dict:
     """Generic check: can we run `cmd` successfully?"""
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -588,12 +619,26 @@ async def _check_command(cmd: list[str], *, name: str, fix: str) -> dict:
         )
         await asyncio.wait_for(proc.wait(), timeout=10)
         if proc.returncode == 0:
-            return {"name": name, "ok": True, "detail": "OK", "fix": ""}
-        return {"name": name, "ok": False, "detail": f"Exit code {proc.returncode}", "fix": fix}
+            return _preflight_item(name, True)
+        return _preflight_item(
+            name,
+            False,
+            detail_key="apps.preflight_exit_code",
+            detail_params={"code": proc.returncode},
+            fix=fix,
+            fix_key=fix_key,
+        )
     except FileNotFoundError:
-        return {"name": name, "ok": False, "detail": f"{cmd[0]} nu a fost găsit.", "fix": fix}
+        return _preflight_item(
+            name,
+            False,
+            detail_key="apps.preflight_command_not_found",
+            detail_params={"command": cmd[0]},
+            fix=fix,
+            fix_key=fix_key,
+        )
     except Exception as e:
-        return {"name": name, "ok": False, "detail": str(e), "fix": fix}
+        return _preflight_item(name, False, detail=str(e), fix=fix, fix_key=fix_key)
 
 
 async def _check_portaudio() -> dict:
@@ -606,19 +651,19 @@ async def _check_portaudio() -> dict:
         )
         await asyncio.wait_for(proc.wait(), timeout=5)
         if proc.returncode == 0:
-            return {"name": "portaudio (pyaudio)", "ok": True, "detail": "OK", "fix": ""}
+            return _preflight_item("portaudio (pyaudio)", True)
     except (FileNotFoundError, asyncio.TimeoutError):
         pass
     # Fallback: check if the header file exists in common locations
     for p in ("/opt/homebrew/include/portaudio.h", "/usr/local/include/portaudio.h", "/usr/include/portaudio.h"):
         if os.path.isfile(p):
-            return {"name": "portaudio (pyaudio)", "ok": True, "detail": "OK", "fix": ""}
-    return {
-        "name": "portaudio (pyaudio)",
-        "ok": False,
-        "detail": "Biblioteca portaudio lipsește — pyaudio nu se poate compila.",
-        "fix": "brew install portaudio",
-    }
+            return _preflight_item("portaudio (pyaudio)", True)
+    return _preflight_item(
+        "portaudio (pyaudio)",
+        False,
+        detail_key="apps.preflight_portaudio_missing",
+        fix="brew install portaudio",
+    )
 
 
 # ── install / uninstall ───────────────────────────────────────────────────

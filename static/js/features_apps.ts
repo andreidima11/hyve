@@ -3,7 +3,7 @@
  */
 import { apiCall } from './api.js';
 import { showToast, escapeHtml, showConfirm } from './utils.js';
-import { t } from './lang/index.js';
+import { t, translateApiDetail } from './lang/index.js';
 import { switchTab, openConfigSection } from './nav_bridge.js';
 import { isAdmin } from './user_context.js';
 import type {
@@ -569,6 +569,18 @@ export async function refreshAppLogs() {
 
 // ── lifecycle (install / uninstall / enable / disable) ──────────────────
 
+function _preflightField(check: AddonPreflightCheck, field: 'detail' | 'fix'): string {
+    const keyName = field === 'detail' ? 'detail_key' : 'fix_key';
+    const paramsName = field === 'detail' ? 'detail_params' : 'fix_params';
+    const key = check[keyName as keyof AddonPreflightCheck];
+    if (typeof key === 'string' && key) {
+        const params = check[paramsName as keyof AddonPreflightCheck];
+        return t(key, typeof params === 'object' && params ? params as Record<string, unknown> : undefined);
+    }
+    const raw = check[field];
+    return typeof raw === 'string' ? raw : '';
+}
+
 export async function runPreflight(slug: string) {
     const area = document.getElementById('preflight-area');
     const btn  = document.getElementById('preflight-btn') as HTMLButtonElement | null;
@@ -582,7 +594,7 @@ export async function runPreflight(slug: string) {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/install/preflight`);
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            area.innerHTML = `<p class="text-xs text-red-400"><i class="fas fa-exclamation-triangle mr-1.5"></i>${escapeHtml(err.detail || t('apps.preflight_error'))}</p>`;
+            area.innerHTML = `<p class="text-xs text-red-400"><i class="fas fa-exclamation-triangle mr-1.5"></i>${escapeHtml(translateApiDetail(err.detail) || t('apps.preflight_error'))}</p>`;
             return;
         }
         const data = await res.json();
@@ -600,10 +612,10 @@ export async function runPreflight(slug: string) {
             }
             return `<div class="rounded-lg bg-red-500/10 border border-red-500/20 p-3 space-y-1">
                 <div class="flex items-center gap-2 text-xs text-red-400 font-semibold"><i class="fas fa-times-circle"></i><span>${escapeHtml(c.name)}</span></div>
-                <p class="text-[11px] text-slate-400">${escapeHtml(c.detail)}</p>
-                ${c.fix ? `<div class="flex items-center gap-2 mt-1">
-                    <code class="flex-1 text-[11px] bg-slate-800 text-amber-300 px-2.5 py-1.5 rounded-lg font-mono select-all">${escapeHtml(c.fix)}</code>
-                    <button type="button" data-config-action="copyPreflightFix" data-config-copy-text="${escapeHtml(c.fix)}" class="px-2 py-1.5 rounded-lg text-[10px] font-bold bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] transition-all flex-shrink-0"><i class="fas fa-copy"></i></button>
+                <p class="text-[11px] text-slate-400">${escapeHtml(_preflightField(c, 'detail'))}</p>
+                ${(_preflightField(c, 'fix')) ? `<div class="flex items-center gap-2 mt-1">
+                    <code class="flex-1 text-[11px] bg-slate-800 text-amber-300 px-2.5 py-1.5 rounded-lg font-mono select-all">${escapeHtml(_preflightField(c, 'fix'))}</code>
+                    <button type="button" data-config-action="copyPreflightFix" data-config-copy-text="${escapeHtml(_preflightField(c, 'fix'))}" class="px-2 py-1.5 rounded-lg text-[10px] font-bold bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] transition-all flex-shrink-0"><i class="fas fa-copy"></i></button>
                 </div>` : ''}
             </div>`;
         }).join('');

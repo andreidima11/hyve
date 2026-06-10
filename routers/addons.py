@@ -23,13 +23,25 @@ import models
 from addons import registry
 from addons import process_manager
 from addons import ingress as addon_ingress
+from core.http.errors import error_detail
 
 router = APIRouter(prefix="/api/addons", tags=["addons"])
 
 
 def _require_admin(user: models.User = Depends(auth.get_current_user)):
     if not user.is_admin:
-        raise HTTPException(403, "Admin only")
+        raise HTTPException(status_code=403, detail=error_detail("common.admin_required"))
+
+
+def _addon_http_exception(exc: Exception) -> HTTPException:
+    msg = str(exc)
+    if msg.startswith("Unknown addon:"):
+        slug = msg.split(":", 1)[-1].strip()
+        return HTTPException(status_code=404, detail=error_detail("hy.addon_not_found", {"slug": slug}))
+    if msg.startswith("Addon ") and msg.endswith(" is not installed"):
+        slug = msg[6:-len(" is not installed")].strip()
+        return HTTPException(status_code=400, detail=error_detail("hy.addon_not_installed", {"slug": slug}))
+    return HTTPException(status_code=400, detail=error_detail("hy.addon_error", {"message": msg}))
 
 
 async def _authenticate_ingress_admin(request, slug: str) -> models.User:
@@ -96,7 +108,7 @@ async def get_addon(slug: str, user: models.User = Depends(auth.get_current_user
     """Get a single addon's manifest + state."""
     manifest = registry.get_manifest(slug)
     if not manifest:
-        raise HTTPException(404, f"Addon {slug} not found")
+        raise HTTPException(status_code=404, detail=error_detail("hy.addon_not_found", {"slug": slug}))
     return registry.addon_entry(manifest)
 
 
@@ -114,9 +126,12 @@ async def install_addon(slug: str, user: models.User = Depends(_require_admin)):
         state = registry.install_addon(slug)
         return {"slug": slug, "state": state}
     except ValueError as e:
-        raise HTTPException(404, str(e))
+        raise _addon_http_exception(e) from e
     except Exception as e:
-        raise HTTPException(500, f"Install failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=error_detail("hy.addon_install_failed", {"message": str(e)}),
+        ) from e
 
 
 @router.get("/{slug}/install/stream")
@@ -128,20 +143,20 @@ async def install_addon_stream(slug: str, token: str | None = None, request: Req
     from sqlalchemy.orm import Session as SASession
     import database
     if not token:
-        raise HTTPException(401, "Token required")
+        raise HTTPException(status_code=401, detail=error_detail("auth.token_required"))
     db = next(database.get_db())
     try:
         sse_payload = auth.consume_sse_exchange_token(token, db)
         if not sse_payload:
-            raise HTTPException(401, "Invalid token")
+            raise HTTPException(status_code=401, detail=error_detail("auth.invalid_token"))
         username = sse_payload["sub"]
         user = db.query(models.User).filter(models.User.username == username).first()
         if not user or not user.is_admin:
-            raise HTTPException(403, "Admin only")
+            raise HTTPException(status_code=403, detail=error_detail("common.admin_required"))
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(401, "Invalid token")
+        raise HTTPException(status_code=401, detail=error_detail("auth.invalid_token"))
     finally:
         db.close()
 
@@ -160,7 +175,7 @@ async def uninstall_addon(slug: str, user: models.User = Depends(_require_admin)
         state = registry.uninstall_addon(slug)
         return {"slug": slug, "state": state}
     except ValueError as e:
-        raise HTTPException(404, str(e))
+        raise _addon_http_exception(e) from e
 
 
 @router.post("/{slug}/enable")
@@ -170,7 +185,7 @@ async def enable_addon(slug: str, user: models.User = Depends(_require_admin)):
         state = registry.set_addon_enabled(slug, True)
         return {"slug": slug, "state": state}
     except ValueError as e:
-        raise HTTPException(400, str(e))
+        raise _addon_http_exception(e) from e
 
 
 @router.post("/{slug}/disable")
@@ -180,7 +195,7 @@ async def disable_addon(slug: str, user: models.User = Depends(_require_admin)):
         state = registry.set_addon_enabled(slug, False)
         return {"slug": slug, "state": state}
     except ValueError as e:
-        raise HTTPException(400, str(e))
+        raise _addon_http_exception(e) from e
 
 
 @router.post("/{slug}/watchdog")
@@ -189,13 +204,13 @@ async def set_watchdog(slug: str, request: Request, user: models.User = Depends(
     try:
         body = await request.json()
     except Exception:
-        raise HTTPException(400, "Invalid JSON")
+        raise HTTPException(status_code=400, detail=error_detail("common.invalid_json"))
     enabled = bool(body.get("enabled", False))
     try:
         state = registry.set_addon_watchdog(slug, enabled)
         return {"slug": slug, "state": state}
     except ValueError as e:
-        raise HTTPException(400, str(e))
+        raise _addon_http_exception(e) from e
 
 
 @router.patch("/{slug}/config")
@@ -204,12 +219,12 @@ async def update_config(slug: str, request: Request, user: models.User = Depends
     try:
         body = await request.json()
     except Exception:
-        raise HTTPException(400, "Invalid JSON")
+        raise HTTPException(status_code=400, detail=error_detail("common.invalid_json"))
     try:
         state = registry.update_addon_config(slug, body)
         return {"slug": slug, "state": state}
     except ValueError as e:
-        raise HTTPException(400, str(e))
+        raise _addon_http_exception(e) from e
 
 
 @router.get("/{slug}/health")
@@ -227,9 +242,12 @@ async def start_process(slug: str, user: models.User = Depends(_require_admin)):
     try:
         return await process_manager.start(slug)
     except ValueError as e:
-        raise HTTPException(400, str(e))
+        raise _addon_http_exception(e) from e
     except RuntimeError as e:
-        raise HTTPException(500, str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=error_detail("hy.addon_process_error", {"message": str(e)}),
+        ) from e
 
 
 @router.post("/{slug}/stop")
@@ -244,7 +262,10 @@ async def restart_process(slug: str, user: models.User = Depends(_require_admin)
     try:
         return await process_manager.restart(slug)
     except (ValueError, RuntimeError) as e:
-        raise HTTPException(500, str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=error_detail("hy.addon_process_error", {"message": str(e)}),
+        ) from e
 
 
 @router.get("/{slug}/status")

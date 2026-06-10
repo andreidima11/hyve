@@ -68,7 +68,11 @@ export interface AddonPreflightCheck {
     ok?: boolean;
     name?: string;
     detail?: string;
+    detail_key?: string;
+    detail_params?: Record<string, unknown>;
     fix?: string;
+    fix_key?: string;
+    fix_params?: Record<string, unknown>;
 }
 
 export interface AddonSerialPort {
