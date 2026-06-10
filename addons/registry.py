@@ -248,6 +248,135 @@ def _run_capture(cmd: list[str], timeout: float = 30) -> str | None:
     return None
 
 
+_CHANNEL_TAGS = frozenset({
+    "stable", "latest", "main", "master", "dev", "edge", "nightly", "beta", "rc",
+})
+
+
+def _is_channel_tag(version: str) -> bool:
+    return str(version or "").strip().lower() in _CHANNEL_TAGS
+
+
+def _normalize_version_string(version: str) -> str:
+    raw = str(version or "").strip()
+    if not raw:
+        return ""
+    if raw.lower().startswith("v") and len(raw) > 1 and (raw[1].isdigit() or raw[1] == "."):
+        return raw[1:]
+    return raw
+
+
+def _docker_image(manifest: dict) -> str:
+    return str((manifest.get("install") or {}).get("image") or "").strip()
+
+
+def _github_repo(manifest: dict) -> str:
+    install = manifest.get("install") or {}
+    return str(install.get("version_github") or install.get("github_repo") or "").strip()
+
+
+def _github_latest_version(repo: str) -> str | None:
+    repo = str(repo or "").strip().strip("/")
+    if not repo or "/" not in repo:
+        return None
+    import urllib.request
+    try:
+        url = f"https://api.github.com/repos/{repo}/releases/latest"
+        req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            data = json.loads(resp.read().decode("utf-8", "replace"))
+        tag = str(data.get("tag_name") or data.get("name") or "").strip()
+        normalized = _normalize_version_string(tag)
+        return normalized or None
+    except Exception as e:
+        log.debug("github latest failed for %s: %s", repo, e)
+        return None
+
+
+def _docker_installed_version(image: str) -> str | None:
+    if not image or not shutil.which("docker"):
+        return None
+    fmt = '{{index .Config.Labels "org.opencontainers.image.version"}}'
+    label = _run_capture(["docker", "image", "inspect", image, "--format", fmt], timeout=15)
+    if label and label not in ("<no value>", ""):
+        normalized = _normalize_version_string(label)
+        if normalized and not _is_channel_tag(normalized):
+            return normalized
+    if ":" in image:
+        tag = image.rsplit(":", 1)[-1].strip()
+        if tag and not _is_channel_tag(tag):
+            normalized = _normalize_version_string(tag)
+            if normalized:
+                return normalized
+    return None
+
+
+def _http_runtime_version(manifest: dict, state: dict) -> str | None:
+    hc = manifest.get("health_check") or {}
+    if hc.get("type") != "http" or not hc.get("path"):
+        return None
+    cfg = state.get("config") or {}
+    host = hc.get("host") or cfg.get(hc.get("host_key", "host"), "localhost")
+    port = int(cfg.get(hc.get("port_key", "port"), 0) or 0)
+    if not port:
+        return None
+    import urllib.request
+    url = f"http://{host}:{port}{hc.get('path')}"
+    try:
+        with urllib.request.urlopen(url, timeout=3) as resp:
+            body = resp.read().decode("utf-8", "replace").strip()
+        if body.startswith("{"):
+            data = json.loads(body)
+            ver = str(data.get("version") or data.get("tag") or "").strip()
+        else:
+            ver = body.strip().strip('"')
+        normalized = _normalize_version_string(ver)
+        return normalized if normalized and not _is_channel_tag(normalized) else None
+    except Exception as e:
+        log.debug("runtime version probe failed for %s: %s", manifest.get("slug"), e)
+        return None
+
+
+def _resolve_display_version(manifest: dict, state: dict) -> str:
+    """Best-effort semver for UI — never a Docker channel tag when avoidable."""
+    manifest_ver = str(manifest.get("version") or "").strip()
+
+    if state.get("installed"):
+        saved = str(state.get("version") or "").strip()
+        if saved and not _is_channel_tag(saved):
+            return saved
+        runtime = _http_runtime_version(manifest, state)
+        if runtime:
+            return runtime
+        resolved = _resolve_installed_version(manifest)
+        if resolved:
+            return resolved
+
+    install = manifest.get("install") or {}
+    if install.get("method") == "docker":
+        resolved = _docker_installed_version(_docker_image(manifest))
+        if resolved:
+            return resolved
+
+    if _is_channel_tag(manifest_ver):
+        latest = _github_latest_version(_github_repo(manifest))
+        if latest:
+            return latest
+
+    return manifest_ver or "?"
+
+
+def addon_entry(manifest: dict, state: dict | None = None) -> dict:
+    """Manifest + state enriched with a resolved catalog version for the UI."""
+    state = state if state is not None else get_state(manifest["slug"])
+    return {
+        **manifest,
+        "version": _resolve_display_version(manifest, state),
+        "state": state,
+        "update_available": is_update_available(manifest, state),
+    }
+
+
 def _pip_installed_version(pkg: str) -> str | None:
     out = _run_capture([sys.executable, "-m", "pip", "show", pkg], timeout=30)
     if not out:
@@ -299,6 +428,8 @@ def _resolve_installed_version(manifest: dict) -> str | None:
     """Read the *actual* installed version (local, fast — no network)."""
     install = manifest.get("install", {}) or {}
     method = install.get("method", "pip")
+    if method == "docker":
+        return _docker_installed_version(_docker_image(manifest))
     packages = install.get("packages") or []
     if not packages:
         return None
@@ -313,6 +444,8 @@ def _resolve_latest_version(manifest: dict) -> str | None:
     """Query the package registry for the latest version (may hit the network)."""
     install = manifest.get("install", {}) or {}
     method = install.get("method", "pip")
+    if method == "docker":
+        return _github_latest_version(_github_repo(manifest))
     packages = install.get("packages") or []
     if not packages:
         return None
@@ -337,7 +470,7 @@ def refresh_addon_versions(slug: str) -> dict:
 
     changed = False
     try:
-        installed = _resolve_installed_version(manifest)
+        installed = _http_runtime_version(manifest, state) or _resolve_installed_version(manifest)
         if installed and state.get("version") != installed:
             state["version"] = installed
             changed = True
@@ -359,16 +492,7 @@ def refresh_addon_versions(slug: str) -> dict:
 
 def list_all() -> list[dict]:
     """Return manifests merged with installed state + an update-available flag."""
-    result = []
-    for manifest in list_available():
-        slug = manifest["slug"]
-        state = get_state(slug)
-        result.append({
-            **manifest,
-            "state": state,
-            "update_available": is_update_available(manifest, state),
-        })
-    return result
+    return [addon_entry(manifest) for manifest in list_available()]
 
 
 # ── preflight checks ─────────────────────────────────────────────────────
@@ -545,6 +669,10 @@ def update_addon(slug: str) -> dict:
         resolved = _resolve_installed_version(manifest)
         if resolved:
             version = resolved
+        elif _is_channel_tag(version):
+            latest = _github_latest_version(_github_repo(manifest))
+            if latest:
+                version = latest
     except Exception:
         pass
 
@@ -780,6 +908,10 @@ def _finalize_install(slug: str, manifest: dict) -> dict:
         resolved = _resolve_installed_version(manifest)
         if resolved:
             version = resolved
+        elif _is_channel_tag(version):
+            latest = _github_latest_version(_github_repo(manifest))
+            if latest:
+                version = latest
     except Exception:
         pass
 

@@ -11,6 +11,19 @@ function _errMsg(err) {
         return err.message;
     return String(err);
 }
+/** Format manifest/runtime version — avoid "vstable" for Docker channel tags. */
+function _formatAddonVersion(version) {
+    const raw = String(version ?? '?').trim() || '?';
+    if (raw === '?')
+        return raw;
+    if (/^v[\d.]/i.test(raw))
+        return raw;
+    if (/^\d/.test(raw))
+        return `v${raw}`;
+    if (/^[a-zA-Z][\w.-]*$/.test(raw))
+        return raw;
+    return `v${raw}`;
+}
 let _currentLogSlug = null;
 let _pollTimer = null;
 let _openSlug = null; // which addon detail is expanded
@@ -193,12 +206,12 @@ function _addonStatusBadge(addon, processStatus) {
     const installed = addon.state?.installed;
     const enabled = addon.state?.enabled;
     if (!installed)
-        return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400">${escapeHtml(t('toast.addon_status_available'))}</span>`;
+        return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400">${escapeHtml(t('hy.addon_status_available'))}</span>`;
     if (addon.start_command && processStatus)
         return _statusBadge(processStatus.status || 'stopped');
     if (enabled)
-        return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('toast.addon_status_active'))}</span>`;
-    return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('toast.addon_status_installed'))}</span>`;
+        return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('hy.addon_status_active'))}</span>`;
+    return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('hy.addon_status_installed'))}</span>`;
 }
 function _updateIndicator(addon) {
     if (!addon || !addon.update_available)
@@ -249,7 +262,7 @@ function _renderDetail(addon, status) {
     const configHtml = _renderConfigSection(addon, isAdminUser);
     // Show the real installed version (resolved from the package) when installed;
     // fall back to the manifest version for not-installed add-ons.
-    const displayVersion = (installed && addon.state?.version) ? addon.state.version : (addon.version || '?');
+    const displayVersion = addon.version || addon.state?.version || '?';
     // Lifecycle controls (install / enable-disable / uninstall) — admin only
     let lifecycleHtml = '';
     if (isAdminUser) {
@@ -264,7 +277,7 @@ function _renderDetail(addon, status) {
                         <i class="fas fa-stethoscope mr-1.5"></i>${escapeHtml(t('apps.check_requirements'))}
                     </button>
                     <button type="button" id="install-btn" data-config-action="installApp" data-config-slug="${escapeHtml(slug)}" class="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20">
-                        <i class="fas fa-download mr-1.5"></i>${escapeHtml(t('toast.addon_install_btn'))}
+                        <i class="fas fa-download mr-1.5"></i>${escapeHtml(t('hy.addon_install_btn'))}
                     </button>
                 </div>
             </div>`;
@@ -321,7 +334,7 @@ function _renderDetail(addon, status) {
             <div class="flex items-center gap-4 text-xs text-slate-500">
                 <span><i class="fas fa-microchip mr-1 opacity-60"></i>PID: <span id="app-detail-pid">${pid}</span></span>
                 <span id="app-detail-uptime-wrap" class="${up ? '' : 'hidden'}"><i class="fas fa-clock mr-1 opacity-60"></i>${escapeHtml(t('apps.uptime'))}: <span id="app-detail-uptime">${up}</span></span>
-                <span><i class="fas fa-tag mr-1 opacity-60"></i>v${escapeHtml(displayVersion)}</span>
+                <span><i class="fas fa-tag mr-1 opacity-60"></i>${escapeHtml(_formatAddonVersion(displayVersion))}</span>
             </div>
             <div class="flex flex-wrap gap-2">
                 <button data-config-action="appAction" data-config-slug="${slug}" data-config-app-action="start" id="app-detail-start" class="px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${isRunning ? 'bg-white/[0.03] text-slate-600 cursor-not-allowed' : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'}" ${isRunning ? 'disabled' : ''}>
@@ -342,18 +355,18 @@ function _renderDetail(addon, status) {
         <!-- Not installed info -->
         <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
             <div class="flex items-center gap-2 text-xs text-slate-500">
-                <i class="fas fa-tag mr-1 opacity-60"></i>v${escapeHtml(displayVersion)}
-                <span class="ml-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400">${escapeHtml(t('toast.addon_status_available'))}</span>
+                <i class="fas fa-tag mr-1 opacity-60"></i>${escapeHtml(_formatAddonVersion(displayVersion))}
+                <span class="ml-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400">${escapeHtml(t('hy.addon_status_available'))}</span>
             </div>
         </div>
         ` : `
         <!-- Installed but no process -->
         <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
             <div class="flex items-center gap-2 text-xs text-slate-500">
-                <i class="fas fa-tag mr-1 opacity-60"></i>v${escapeHtml(displayVersion)}
+                <i class="fas fa-tag mr-1 opacity-60"></i>${escapeHtml(_formatAddonVersion(displayVersion))}
                 ${enabled
-        ? '<span class="ml-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400"><i class="fas fa-circle text-[6px]"></i>Activ</span>'
-        : '<span class="ml-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400"><i class="fas fa-circle text-[6px]"></i>Instalat</span>'}
+        ? `<span class="ml-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('hy.addon_status_active'))}</span>`
+        : `<span class="ml-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('hy.addon_status_installed'))}</span>`}
             </div>
         </div>
         `}
@@ -379,7 +392,7 @@ export async function loadApps() {
         const statuses = await statusRes.json();
         _addonsCache = addons;
         if (!addons.length) {
-            container.innerHTML = `<div class="p-8 text-center text-slate-500 text-sm">${escapeHtml(t('toast.addon_list_empty'))}</div>`;
+            container.innerHTML = `<div class="p-8 text-center text-slate-500 text-sm">${escapeHtml(t('hy.addon_list_empty'))}</div>`;
             return;
         }
         // If a detail was open, re-open it; otherwise show list
@@ -804,7 +817,7 @@ export async function detectAddonSerialPorts(fieldKey) {
         });
     }
     catch (e) {
-        results.innerHTML = `<div class="text-[11px] text-rose-300">${escapeHtml(t('toast.network_error'))}</div>`;
+        results.innerHTML = `<div class="text-[11px] text-rose-300">${escapeHtml(t('hy.network_error'))}</div>`;
     }
 }
 export async function saveAddonConfig(slug) {
@@ -850,12 +863,12 @@ export async function saveAddonConfig(slug) {
             const err = await res.json().catch(() => ({}));
             throw new Error(err.detail || 'Config save failed');
         }
-        showToast(t('toast.addon_config_saved'), 'success');
+        showToast(t('hy.addon_config_saved'), 'success');
         _openSlug = slug;
         await openAppDetail(slug);
     }
     catch (e) {
-        showToast(_errMsg(e) || t('toast.addon_config_save_error'), 'error');
+        showToast(_errMsg(e) || t('hy.addon_config_save_error'), 'error');
     }
 }
 export async function testAddonHealth(slug) {
@@ -869,7 +882,7 @@ export async function testAddonHealth(slug) {
             showToast(t('integrations.connection_ok'), 'success');
         }
         else {
-            showToast(data?.detail || t('toast.addon_health_no_response'), 'warning');
+            showToast(data?.detail || t('hy.addon_health_no_response'), 'warning');
         }
         await _refreshDetailStatus(slug);
     }

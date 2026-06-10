@@ -108,8 +108,7 @@ async def get_addon(slug: str, user: models.User = Depends(auth.get_current_user
     manifest = registry.get_manifest(slug)
     if not manifest:
         raise HTTPException(404, f"Addon {slug} not found")
-    state = registry.get_state(slug)
-    return {**manifest, "state": state, "update_available": registry.is_update_available(manifest, state)}
+    return registry.addon_entry(manifest)
 
 
 @router.get("/{slug}/install/preflight")

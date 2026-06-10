@@ -17,6 +17,7 @@
     "download_on_install": true,
     "bundled": false,
     "channel": "stable",
+    "version_github": "blakeblackshear/frigate",
     "notes": "Frigate nu vine în pachetul aplicației. La instalare se descarcă imaginea oficială Docker (ghcr.io/blakeblackshear/frigate:stable). Dacă Docker nu este disponibil pe acest Mac, Hyve îl aduce automat instalând Colima prin Homebrew (necesită brew preinstalat)."
   },
   "config_schema": [
