@@ -19,7 +19,7 @@ def _run_step(label: str, command: list[str]) -> int:
 
 def main() -> int:
     steps = [
-        ("Python test suite", [PYTHON, "-m", "pytest", "-q"]),
+        ("Python test suite", [PYTHON, "-m", "pytest", "-q"]),  # testpaths=tests via pytest.ini
         ("Frontend CSS build", [which("npm") or "npm", "run", "css:build"]),
         ("Release checks", [PYTHON, "scripts/release_checks.py"]),
     ]

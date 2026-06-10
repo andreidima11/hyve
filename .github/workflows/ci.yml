@@ -39,6 +39,11 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Run pytest
-        run: PYTHONPATH=. pytest tests/
+        run: PYTHONPATH=. pytest -q
+        env:
+          HYVE_SECRET_KEY: ci-test-secret-key-not-for-production
+
+      - name: Release checks
+        run: PYTHONPATH=. python scripts/release_checks.py
         env:
           HYVE_SECRET_KEY: ci-test-secret-key-not-for-production
