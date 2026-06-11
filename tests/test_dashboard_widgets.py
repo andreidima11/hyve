@@ -967,6 +967,78 @@ def test_reorder_dashboard_panel_moves_section_before_target():
     assert [panel["id"] for panel in result["panels"]] == ["sec_a", "sec_c", "sec_b"]
 
 
+def test_user_default_page_preference_roundtrip(monkeypatch):
+    import core.settings as settings
+
+    state = {"dashboard": {"user_prefs": {}}}
+
+    monkeypatch.setattr(settings, "reload_config", lambda: state)
+
+    def _save(patch):
+        dash = patch.get("dashboard") if isinstance(patch.get("dashboard"), dict) else {}
+        if "user_prefs" in dash:
+            state["dashboard"]["user_prefs"] = dash["user_prefs"]
+
+    monkeypatch.setattr(settings, "save_config", _save)
+
+    assert dashboard._user_default_page_id("alice") is None
+    dashboard._set_user_default_page_id("alice", "energie")
+    assert dashboard._user_default_page_id("alice") == "energie"
+    dashboard._set_user_default_page_id("alice", None)
+    assert dashboard._user_default_page_id("alice") is None
+
+
+def test_set_dashboard_default_page_api_rejects_unknown_page():
+    _seed_dashboard_store({
+        "current_page_id": "acasa",
+        "pages": [{"id": "acasa", "title": "Acasă", "panels": []}],
+    })
+
+    user = type("User", (), {"username": "alice", "is_admin": False, "is_active": True})()
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(
+            dashboard.set_dashboard_default_page(
+                dashboard.DashboardDefaultPageBody(page_id="missing"),
+                user,
+            )
+        )
+    assert exc.value.status_code == 404
+
+
+def test_set_dashboard_default_page_api_persists_choice(monkeypatch):
+    import core.settings as settings
+
+    state = {"dashboard": {"user_prefs": {}}}
+    monkeypatch.setattr(settings, "reload_config", lambda: state)
+
+    def _save(patch):
+        dash = patch.get("dashboard") if isinstance(patch.get("dashboard"), dict) else {}
+        if "user_prefs" in dash:
+            state["dashboard"]["user_prefs"] = dash["user_prefs"]
+
+    monkeypatch.setattr(settings, "save_config", _save)
+
+    _seed_dashboard_store({
+        "current_page_id": "acasa",
+        "pages": [
+            {"id": "acasa", "title": "Acasă", "panels": []},
+            {"id": "energie", "title": "Energie", "panels": []},
+        ],
+    })
+
+    user = type("User", (), {"username": "bob", "is_admin": False, "is_active": True})()
+    result = asyncio.run(
+        dashboard.set_dashboard_default_page(
+            dashboard.DashboardDefaultPageBody(page_id="energie"),
+            user,
+        )
+    )
+
+    assert result == {"status": "ok", "default_page_id": "energie"}
+    assert dashboard._user_default_page_id("bob") == "energie"
+
+
 def test_move_dashboard_panel_swaps_adjacent_sections():
     _seed_dashboard_store({
         "current_page_id": "acasa",

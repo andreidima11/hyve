@@ -5,7 +5,9 @@ import skills
 import core.settings as settings
 import core.models as models
 import core.auth as auth
-import integrations.shims.forge as forge
+from integrations.component_import import load_component_module
+
+forge = load_component_module("forge", "pipeline")
 from core.http.errors import error_detail
 from core.log_stream import log_line
 

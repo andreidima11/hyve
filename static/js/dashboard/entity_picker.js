@@ -256,7 +256,4 @@ export function pickDashboardEntityOption(mode, entityId) {
             deps().addClimateEntityId(entityId);
         }
     }
-    if (mode !== 'edit' && typeof deps().renderDashboardAddPreview === 'function') {
-        deps().renderDashboardAddPreview();
-    }
 }

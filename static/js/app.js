@@ -23,7 +23,7 @@ import { startStartupStatusPolling } from './startup_status.js';
 import { importWithCacheBust } from './asset_version.js';
 import { setIsAdmin, setNotificationTimer } from './user_context.js';
 import { showProfileEditor, closeProfileEditor, saveProfile, moveProfileOrder, openProfileCardMenu, closeProfileCardMenu, onProfileProviderChange, onProfileSubProviderChange, syncVisionCapabilityCheckbox, testWhisperConnection, testPiperConnection, activateProfile, } from './features_config.js';
-import { switchIntegrationSubtab, testComfyUIConnection, refreshComfyUICheckpoints, refreshComfyUIWorkflows, uploadComfyUIWorkflow, syncConfiguredIntegration, syncIntegrationEntities, navigateToSmartHomeSource, controlIntegrationEntity, openIntegrationEntityCard, openIntegrationDeviceModal, renameIntegrationDevice, } from './features_integrations_settings.js';
+import { switchIntegrationSubtab, syncConfiguredIntegration, syncIntegrationEntities, navigateToSmartHomeSource, controlIntegrationEntity, openIntegrationEntityCard, openIntegrationDeviceModal, renameIntegrationDevice, } from './features_integrations_settings.js';
 // Expose sendMessage globally so other modules (e.g. voice input in features.js) can call it
 window.sendMessage = sendMessage;
 import { saveConfig, restartServer, syncHA, toggleSelection, toggleAllAI, loadMemory, changeMemPage, deleteMemBulk, filterMemory, toggleAllMem, updateMemBulkCount, openAliasModal, addAliasInput, closeAliasModal, saveAliasesFromModal, closeRowActionsModal, handleHaRowClick, resetSmarthomeFilters, copyEntityIdFromRowActions, toggleSmarthomeFilters, toggleSmarthomePicker, selectSmarthomePickerOption, setDevicesPage, setDevicesPageSize, sortDevicesBy, controlDeviceEntity, openAliasModalFromDetail, closeEntityDetailModal, loadSessionsList, openSession, newChatSession, deleteSession, confirmDeleteSession, cancelDeleteSession, clearSessionContext, copyWebhook, openIntegrationConfigModal, closeIntegrationConfigModal, loadAdminUsers, createUser, deleteUser, unlinkUserPhone, loadModelProfiles, openSkillEdit, closeSkillEditModal, saveSkillEdit, deleteSkill, toggleSkillDesc, toggleSkillDisabled, loadMemoryEvents, memLogPrevPage, memLogNextPage, toggleMemLogDetails, clearMemoryLog, runConsolidationNow, switchIntelligenceTab, addExtractionExample, removeExtractionExample, loadAutomations, deleteAutomation, openAutomationEditor, closeAutomationEditor, saveAutomationEditor, validateAutomationEditor, toggleAutomationDefinition, runAutomationDefinition, testAutomationEditor, exportAutomationYaml, importAutomationYaml, toggleAutoMenu, closeAutoMenu, showAutoDotTooltip, hideAutoDotTooltip, autoSyncAutomationId, markAutomationIdManual, openBlueprintPicker, closeBlueprintPicker, loadBlueprints, importBlueprintYaml, backToBlueprintList, instantiateCurrentBlueprint, deleteCurrentBlueprint, openBlueprintCreator, addBlueprintCreatorInput, removeBlueprintCreatorInput, changeBlueprintCreatorInputType, insertBlueprintCreatorPlaceholder, updateBlueprintCreatorYaml, saveCreatedBlueprint, switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, loadAutomationEditorHistory, updateAutomationStructuredServiceData, selectNotifTransport, selectNotifChannel, testNotification, refreshNotifWsNativeStatus, switchMemorySubtab, checkAddonUpdates, updateAllAddons, updateSingleAddon, closeAddonConfigModal, checkAddonHealth, installAddon, uninstallAddon, toggleAddon, openAddonConfigModal, } from './features.js';
@@ -879,9 +879,6 @@ window.addEventListener('DOMContentLoaded', () => {
         checkAddonHealth: () => checkAddonHealth(),
         copyWebhook: () => copyWebhook(),
         closeIntegrationConfigModal: () => closeIntegrationConfigModal(),
-        testComfyUIConnection: () => testComfyUIConnection(),
-        refreshComfyUICheckpoints: () => refreshComfyUICheckpoints(),
-        refreshComfyUIWorkflows: () => refreshComfyUIWorkflows(),
         testWhisperConnection: () => testWhisperConnection(),
         testPiperConnection: () => testPiperConnection(),
         closeAppLogModal: _lazyAction(_loadAppsModule, 'closeAppLogModal'),
@@ -904,7 +901,6 @@ window.addEventListener('DOMContentLoaded', () => {
         onProfileProviderChange: () => onProfileProviderChange(),
         onProfileSubProviderChange: (type) => onProfileSubProviderChange(_str(type)),
         syncVisionCapabilityCheckbox: () => syncVisionCapabilityCheckbox(),
-        uploadComfyUIWorkflow: (input) => uploadComfyUIWorkflow(input),
         syncConfiguredIntegration: (slug, btn) => syncConfiguredIntegration(_str(slug), btn),
         openIntegrationConfigModal: (slug) => openIntegrationConfigModal(_str(slug)),
         syncIntegrationEntities: (slug) => syncIntegrationEntities(_str(slug)),

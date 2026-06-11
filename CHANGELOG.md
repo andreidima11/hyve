@@ -4,6 +4,22 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.1] — 2026-06
+
+Cleanup release: drop integration shims, schema-only config modal, dashboard modal removal, and CI smoke.
+
+### Platform
+- Remove `integrations/shims/`; import `components/<slug>/` modules directly from routers and brain toolbox.
+- CI: `scripts/smoke_test.py` — app import + key routes after pytest.
+
+### Integrations UI
+- Integration config modal is fully schema-driven (`CONFIG_SCHEMA` + config entries); removed legacy per-integration panels, CCTV row helpers, Assist key UI stubs, and orphaned ComfyUI form JS.
+- Docs: [docs/ROADMAP-0.9.1.md](docs/ROADMAP-0.9.1.md), CARDS_AND_INTEGRATIONS updated for config entries.
+
+### Dashboard
+- Remove legacy add/edit modals (`widget_add_modal`, `widget_legacy_edit`, `widget_add_editor`); Hyveview editor via `add_picker` + `widget_editor_bridge` only.
+- Per-user default dashboard page: regression tests in `tests/test_dashboard_widgets.py`.
+
 ## [0.9.0] — 2026-06
 
 Platform maturity release: config entries as the integration source of truth, catalog i18n, mobile dashboard fixes, and documentation cleanup.

@@ -118,7 +118,6 @@ User fills form (CONFIG_SCHEMA)
 |--------------|--------|
 | `config.json[slug]` for credentials | Migration only (`migrate_from_cfg`); add-on sync uses config entries |
 | `integrations/extractors.py` | Thin compat shim — extractors live in `components/` |
-| `integrations/shims/` | Legacy import paths for comfyui/forge |
 
 ---
 

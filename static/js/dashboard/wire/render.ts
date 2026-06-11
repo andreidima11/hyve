@@ -39,7 +39,6 @@ import {
     readDashboardSectionFallback,
     writeDashboardSectionFallback,
 } from '../dashboard_loader.js';
-import { updateDashboardEntityOptions } from '../widget_add_modal.js';
 import { setEntitySelectState } from '../entity_picker.js';
 import { isDashboardStandalonePanel } from '../standalone_panel.js';
 import { closeDashboardMenu } from '../dashboard_menu.js';
@@ -146,7 +145,6 @@ export function wireDashboardRender(): void {
         resumeDashboardCameras,
         connectDashboardLive,
         configureHyveviewMounted,
-        updateDashboardEntityOptions,
         setEntitySelectState,
         escapeHtml,
         t,

@@ -267,7 +267,4 @@ export function pickDashboardEntityOption(mode: 'add' | 'edit', entityId: string
             deps().addClimateEntityId!(entityId);
         }
     }
-    if (mode !== 'edit' && typeof deps().renderDashboardAddPreview === 'function') {
-        deps().renderDashboardAddPreview!();
-    }
 }

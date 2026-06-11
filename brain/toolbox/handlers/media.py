@@ -119,7 +119,9 @@ async def _exec_cctv_describe(arguments: Dict[str, Any]) -> str:
 
 async def _exec_generate_image(arguments: Dict[str, Any]) -> str:
     """Generate an image using ComfyUI and return a markdown image link."""
-    import integrations.shims.comfyui as comfyui
+    from integrations.component_import import load_component_module
+
+    comfyui = load_component_module("comfyui", "client")
 
     prompt_text = (arguments.get("prompt") or "").strip()
     if not prompt_text:

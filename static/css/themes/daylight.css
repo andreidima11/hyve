@@ -775,27 +775,6 @@
    17. DASHBOARD TABS & PANELS
    ══════════════════════════════════════════════════════════════ */
 
-/* Active editor tab */
-[data-theme="light"] #dashboard-add-editor-visual-tab.is-active,
-[data-theme="light"] #dashboard-add-editor-visibility-tab.is-active,
-[data-theme="light"] #dashboard-widget-editor-visual-tab.is-active,
-[data-theme="light"] #dashboard-widget-editor-visibility-tab.is-active,
-[data-theme="light"] #dashboard-widget-editor-yaml-tab.is-active {
-    background: var(--accent) !important;
-    border-color: var(--accent) !important;
-    color: #ffffff !important;
-}
-/* Inactive tabs */
-[data-theme="light"] #dashboard-add-editor-visual-tab:not(.is-active),
-[data-theme="light"] #dashboard-add-editor-visibility-tab:not(.is-active),
-[data-theme="light"] #dashboard-widget-editor-visual-tab:not(.is-active),
-[data-theme="light"] #dashboard-widget-editor-visibility-tab:not(.is-active),
-[data-theme="light"] #dashboard-widget-editor-yaml-tab:not(.is-active) {
-    background: rgba(15, 23, 42, 0.03) !important;
-    border-color: rgba(15, 23, 42, 0.06) !important;
-    color: var(--text-secondary) !important;
-}
-
 /* Swipe panel padding for card shadows */
 [data-theme="light"] .dashboard-panel-swipe {
     margin: -0.5rem -0.5rem 0;

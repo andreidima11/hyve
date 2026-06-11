@@ -6,6 +6,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, UploadFile, File
 import core.auth as auth
 import core.models as models
+from integrations.component_import import load_component_module
+
+comfyui = load_component_module("comfyui", "client")
 
 router = APIRouter()
 
@@ -15,7 +18,6 @@ async def comfyui_test(
     url: Optional[str] = Query(None, description="ComfyUI server URL to test"),
     _: models.User = Depends(auth.get_current_admin),
 ):
-    import integrations.shims.comfyui as comfyui
     result = await comfyui.test_connection(override_url=url)
     return result
 
@@ -25,7 +27,6 @@ async def comfyui_checkpoints(
     url: Optional[str] = Query(None),
     _: models.User = Depends(auth.get_current_admin),
 ):
-    import integrations.shims.comfyui as comfyui
     ckpts = await comfyui.get_checkpoints(override_url=url)
     return {"checkpoints": ckpts}
 
@@ -35,7 +36,6 @@ async def comfyui_samplers(
     url: Optional[str] = Query(None),
     _: models.User = Depends(auth.get_current_admin),
 ):
-    import integrations.shims.comfyui as comfyui
     data = await comfyui.get_samplers(override_url=url)
     return data
 
@@ -43,7 +43,6 @@ async def comfyui_samplers(
 @router.get("/api/comfyui/workflows")
 async def comfyui_workflows(_: models.User = Depends(auth.get_current_admin)):
     """List available workflow template files from comfyui_workflows/ directory."""
-    import integrations.shims.comfyui as comfyui
     workflows = comfyui._get_workflow_list()
     return {"workflows": workflows}
 
@@ -54,8 +53,6 @@ async def comfyui_upload_workflow(
     _: models.User = Depends(auth.get_current_admin),
 ):
     """Upload a ComfyUI workflow JSON file as a template."""
-    import integrations.shims.comfyui as comfyui
-
     content = await file.read()
     try:
         workflow_data = json.loads(content)

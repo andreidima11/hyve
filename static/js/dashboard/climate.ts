@@ -52,7 +52,6 @@ function deps(): DashboardClimateDeps {
 function getCache() { return deps().getCache(); }
 function findWidget(id: string) { return deps().findWidget(id); }
 function renderDashboard() { return deps().renderDashboard(); }
-function renderDashboardAddPreview() { return deps().renderDashboardAddPreview(); }
 function getEditMode() { return deps().getEditMode(); }
 function widgetDragAttrs(w: DashboardWidget) { return deps().widgetDragAttrs(w); }
 function widgetEditControls(w: DashboardWidget) { return deps().widgetEditControls(w); }
@@ -561,7 +560,6 @@ export function updateDashboardClimateEntityMeta(entityId: string, field: string
     _entitySelection = _entitySelection.map(item => (
         item.entity_id === target ? { ...item, [key]: String(value || '') } : item
     ));
-    renderDashboardAddPreview();
 }
 
 export function addSelectedDashboardClimateEntity() {
@@ -572,12 +570,10 @@ export function addSelectedDashboardClimateEntity() {
         return;
     }
     addDashboardClimateEntityId(selected.entity_id);
-    renderDashboardAddPreview();
 }
 
 export function removeDashboardClimateEntity(entityId: string) {
     setDashboardClimateEntitySelection(_entitySelection.filter(item => item.entity_id !== String(entityId || '')));
-    renderDashboardAddPreview();
 }
 
 function _climateNumber(value: unknown, fallback: number | null = null) {

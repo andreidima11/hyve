@@ -64,7 +64,6 @@ export async function loadIntegrationConfigEntries(slug: string) {
         return;
     }
     if (!payload || !Array.isArray(payload.schema) || payload.schema.length === 0) {
-        // Provider has no declarative schema → keep legacy/custom panel only.
         section.classList.add('hidden');
         return;
     }
@@ -76,16 +75,8 @@ export async function loadIntegrationConfigEntries(slug: string) {
         label: payload.label || slug,
     };
     section.classList.remove('hidden');
-    // Hide the legacy generic panel entirely — the entries section + the
-    // shared Dispozitive section now cover everything.
     const generic = document.getElementById('integration-panel-generic');
     if (generic) generic.classList.add('hidden');
-    // Also hide any hand-authored legacy panel for this slug — once an
-    // integration declares CONFIG_SCHEMA, the entries flow IS the UI.
-    // Keeps every integration looking identical (HA-style).
-    document.querySelectorAll('[id^="integration-panel-"]').forEach(p => {
-        if (p.id !== 'integration-panel-generic') p.classList.add('hidden');
-    });
     const addBtn = document.getElementById('integration-entries-add-btn') as HTMLButtonElement | null;
     if (addBtn) {
         const disable = !_entriesCurrent.supportsMultiple && _entriesCurrent.entries.length > 0;

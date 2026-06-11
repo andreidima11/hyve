@@ -48,5 +48,10 @@ jobs:
         env:
           HYVE_SECRET_KEY: ci-test-secret-key-not-for-production
 
+      - name: Smoke test
+        run: PYTHONPATH=. python scripts/smoke_test.py
+        env:
+          HYVE_SECRET_KEY: ci-test-secret-key-not-for-production
+
       - name: i18n key audit
         run: PYTHONPATH=. python scripts/check_i18n_keys.py

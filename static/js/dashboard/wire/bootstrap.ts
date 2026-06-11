@@ -12,8 +12,6 @@ import { requireDashboardEditAccess } from '../edit_access.js';
 import { weatherIcon, weatherIsNight, weatherVariant } from '../weather_host.js';
 import { enhanceSparklinesIn, trendCache } from '../sparklines.js';
 import { closeDashboardPageModal } from '../page_modal.js';
-import { closeDashboardAddModal } from '../widget_add_modal.js';
-import { closeDashboardWidgetEditor } from '../widget_legacy_edit.js';
 import { ensureHyveviewEntitySeed, saveDashboardWidgetFromEditor } from '../widget_editor_bridge.js';
 import {
     loadDashboard,
@@ -80,9 +78,7 @@ export function wireDashboardBootstrap(): void {
         setEditMode: setDashboardEditMode,
         setCurrentEditorId: setDashboardCurrentEditorId,
         closeDashboardMenu,
-        closeDashboardAddModal,
         closeDashboardPageModal,
-        closeDashboardWidgetEditor,
         renderDashboard,
     });
 

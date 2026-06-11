@@ -60,6 +60,8 @@ from routers.dashboard.store import (
     _normalize_icon,
     _normalize_panel_record,
     _save_dashboard,
+    _set_user_default_page_id,
+    _user_default_page_id,
     _widget_renderer,
 )
 
@@ -89,6 +91,7 @@ from routers.dashboard.routes import (
     patch_dashboard_preferences,
     reorder_dashboard_page,
     reorder_dashboard_panel,
+    set_dashboard_default_page,
 )
 
 __all__ = [
@@ -131,4 +134,7 @@ __all__ = [
     "reorder_dashboard_page",
     "move_dashboard_panel",
     "reorder_dashboard_panel",
+    "set_dashboard_default_page",
+    "_user_default_page_id",
+    "_set_user_default_page_id",
 ]

@@ -22,7 +22,6 @@ import { handleDashboardCardClick, handleDashboardCardKeydown, } from '../widget
 import { selectDashboardPage } from '../page_select.js';
 import { openDashboardPageNav } from '../pages_nav.js';
 import { pickDashboardEntityOption } from '../entity_picker.js';
-import { addDashboardSwitch } from '../widget_add_modal.js';
 import { startDashboardClimateSwipe, adjustDashboardClimateTemperature, toggleDashboardClimateModeMenu, setDashboardClimateMode, selectDashboardClimateSlide, removeDashboardClimateEntity, updateDashboardClimateEntityMeta, } from '../climate.js';
 import { onDashboardLockAction, onDashboardVacuumAction, onDashboardBrightnessInput, onDashboardBrightnessChange, } from '../widget_actions.js';
 import { dashboardWidgetEntityIds } from '../live_bridge.js';
@@ -70,7 +69,6 @@ export function wireDashboardEvents() {
         selectPage: ({ pageId }) => { selectDashboardPage(pageId); },
         openPageNav: ({ pageId }) => { openDashboardPageNav(pageId); },
         pickEntity: ({ mode, entityId }) => pickDashboardEntityOption(mode, entityId),
-        saveAddWidget: () => { addDashboardSwitch(); },
         widgetDrag: ({ event, widgetId }) => startDashboardDrag(event, widgetId),
         panelDrag: ({ event, panelId }) => startDashboardPanelDrag(event, panelId),
         climateSwipeStart: ({ event, widgetId }) => startDashboardClimateSwipe(event, widgetId),

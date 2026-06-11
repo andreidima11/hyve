@@ -23,9 +23,7 @@ export function resetDashboardEditingState(): void {
     document.documentElement.removeAttribute('data-dashboard-editing');
     d.setCurrentEditorId(null);
     d.closeDashboardMenu();
-    d.closeDashboardAddModal();
     d.closeDashboardPageModal();
-    d.closeDashboardWidgetEditor();
     const grid = document.getElementById('dashboard-grid');
     const view = document.getElementById('view-dashboard');
     const onDashboardTab = !!view && !view.classList.contains('hidden');

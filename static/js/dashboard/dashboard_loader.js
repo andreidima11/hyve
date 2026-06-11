@@ -429,7 +429,6 @@ async function loadDashboardImpl(signal = null, { soft = false } = {}) {
             d.resumeDashboardCameras();
         }
         catch (_) { }
-        d.updateDashboardEntityOptions();
         d.connectDashboardLive();
     }
     catch (e) {

@@ -252,9 +252,6 @@
     min-height: 0;
 }
 
-#dashboard-add-modal input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]),
-#dashboard-add-modal textarea,
-#dashboard-add-modal select,
 #dashboard-panel-modal input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]),
 #dashboard-panel-modal textarea,
 #dashboard-panel-modal select,
@@ -267,9 +264,6 @@
     color: var(--text-primary, #f1f5f9) !important;
 }
 
-#dashboard-add-modal input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]):focus,
-#dashboard-add-modal textarea:focus,
-#dashboard-add-modal select:focus,
 #dashboard-panel-modal input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]):focus,
 #dashboard-panel-modal textarea:focus,
 #dashboard-panel-modal select:focus,
@@ -283,8 +277,6 @@
     box-shadow: 0 0 0 1px rgba(var(--accent-rgb, 56,189,248), 0.12) !important;
 }
 
-#dashboard-add-modal input::placeholder,
-#dashboard-add-modal textarea::placeholder,
 #dashboard-panel-modal input::placeholder,
 #dashboard-panel-modal textarea::placeholder,
 #dashboard-page-modal input::placeholder,

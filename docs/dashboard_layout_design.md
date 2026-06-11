@@ -1,7 +1,7 @@
 # Dashboard layout — design doc
 
 **Date:** 1 Jun 2026  
-**Status:** Proposal — awaiting decision on scope  
+**Status:** Partially implemented (0.9.0+)  
 **Goal:** (1) per-user dashboard defaults and visibility, (2) fix mobile section reordering, (3) improve drag-and-drop on touch devices.
 
 ---
@@ -11,7 +11,7 @@
 - Dashboards are stored **centrally on the server** (`config.json` / dashboard store).
 - Multiple pages are supported (`pages[]`).
 - Layout uses **absolute grid coordinates** (`col_start` / `row_start`) per panel.
-- Per-user **default page** and section visibility conditions are not implemented yet.
+- Per-user **default page** is implemented (`PATCH /api/dashboard/preferences/default-page`, page modal checkbox). Section visibility conditions remain partial.
 
 ---
 
@@ -25,18 +25,18 @@
 
 ## 3. Proposed improvements
 
-### A. Fix mobile section reordering *(small, recommended first)*
-- Detect single-column mode; drop target becomes an **insert index**.
-- Persist via the existing reorder endpoint.
-- Press-and-hold (~100 ms) on touch before drag starts.
+### A. Fix mobile section reordering *(done in 0.9.0)*
+- Single-column mode reorders by **array index** (`/api/dashboard/panels/{id}/reorder`).
+- Drop ghost + faded source match card drag UX (0.9.0 polish).
+- Press-and-hold on touch via `_touchHoldGate`.
 
 ### B. Adopt SortableJS for drag *(medium)*
 - SortableJS is already bundled; use `delay` + `delayOnTouchOnly` for touch.
 - Keep 2-D desktop grid where coordinates exist; list-reorder on mobile.
 
-### C. Per-user default dashboard + visibility conditions *(medium)*
-- Per-user default page preference.
-- Section/card visibility (`user`, `state`, screen width).
+### C. Per-user default dashboard + visibility conditions *(partial)*
+- **Done:** per-user default page preference (API + page modal).
+- **Open:** richer section/card visibility (`user`, `state`, screen width).
 
 ### D. Device-specific layouts *(decision needed)*
 - **Recommended pattern:** separate dashboard pages + per-user default or kiosk URL — no per-device layout storage.

@@ -36,7 +36,6 @@ function deps() {
 function getCache() { return deps().getCache(); }
 function findWidget(id) { return deps().findWidget(id); }
 function renderDashboard() { return deps().renderDashboard(); }
-function renderDashboardAddPreview() { return deps().renderDashboardAddPreview(); }
 function getEditMode() { return deps().getEditMode(); }
 function widgetDragAttrs(w) { return deps().widgetDragAttrs(w); }
 function widgetEditControls(w) { return deps().widgetEditControls(w); }
@@ -561,7 +560,6 @@ export function updateDashboardClimateEntityMeta(entityId, field, value) {
     const key = field === 'subtitle' ? 'subtitle' : 'title';
     const target = String(entityId || '');
     _entitySelection = _entitySelection.map(item => (item.entity_id === target ? { ...item, [key]: String(value || '') } : item));
-    renderDashboardAddPreview();
 }
 export function addSelectedDashboardClimateEntity() {
     const entityInput = document.getElementById('dashboard-entity-select');
@@ -571,11 +569,9 @@ export function addSelectedDashboardClimateEntity() {
         return;
     }
     addDashboardClimateEntityId(selected.entity_id);
-    renderDashboardAddPreview();
 }
 export function removeDashboardClimateEntity(entityId) {
     setDashboardClimateEntitySelection(_entitySelection.filter(item => item.entity_id !== String(entityId || '')));
-    renderDashboardAddPreview();
 }
 function _climateNumber(value, fallback = null) {
     const parsed = parseFloat(String(value ?? ''));

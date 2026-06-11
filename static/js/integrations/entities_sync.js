@@ -72,51 +72,11 @@ export async function syncIntegrationEntities(slug, options = {}) {
 ;
 // store current entities for toggling detail
 let _currentEntities = {};
-export async function loadExposedEntitiesSummary() {
-    const grid = document.getElementById('ha-exposed-entities-grid');
-    const empty = document.getElementById('ha-exposed-entities-empty');
-    if (!grid)
-        return;
-    try {
-        const res = await apiCall('/api/integrations/all-entities');
-        if (!res.ok) {
-            if (empty)
-                empty.classList.remove('hidden');
-            return;
-        }
-        const data = await res.json();
-        const sources = data.sources || [];
-        if (!sources.length) {
-            grid.innerHTML = '';
-            if (empty)
-                empty.classList.remove('hidden');
-            return;
-        }
-        if (empty)
-            empty.classList.add('hidden');
-        grid.innerHTML = sources.map((src) => {
-            return `<div class="bg-white/[0.03] border border-white/5 rounded-lg p-2.5 text-center cursor-pointer hover:bg-white/[0.06] hover:border-orange-500/20 transition-all" data-config-action="openSmarthomeTab">
-                <i class="fas ${escapeHtml(src.icon)} ${escapeHtml(src.color)} text-sm mb-1"></i>
-                <div class="text-[10px] font-bold text-slate-400">${escapeHtml(src.label)}</div>
-                <div class="text-[11px] text-slate-500 mono">${escapeHtml(t('integrations.entity_count_label', { count: src.count }))}</div>
-            </div>`;
-        }).join('') + `<div class="bg-white/[0.03] border border-white/5 rounded-lg p-2.5 text-center">
-            <i class="fas fa-layer-group text-accent/60 text-sm mb-1"></i>
-            <div class="text-[10px] font-bold text-accent/80">${escapeHtml(t('integrations.total'))}</div>
-            <div class="text-[11px] text-slate-500 mono">${escapeHtml(t('integrations.entity_count_label', { count: data.total }))}</div>
-        </div>`;
-    }
-    catch (_) {
-        if (empty)
-            empty.classList.remove('hidden');
-    }
-}
 function _ensureEntitySection(slug) {
     const existing = document.getElementById(`${slug}-entities-section`);
     if (existing)
         return existing;
-    // Try built-in integration panel first, then addon container
-    const panel = document.getElementById(`integration-panel-${slug}`) || document.getElementById('addon-entities-container');
+    const panel = document.getElementById('addon-entities-container');
     if (!panel)
         return null;
     const html = `<div id="${slug}-entities-section" class="mt-4 border-t border-white/5 pt-4 hidden">

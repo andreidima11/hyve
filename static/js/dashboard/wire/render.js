@@ -17,7 +17,6 @@ import { initDashboardVisibility } from '../dashboard_visibility.js';
 import { cameraWidgetEntities, initDashboardWidgetCards } from '../widget_cards.js';
 import { initDashboardRender, renderDashboard } from '../dashboard_render.js';
 import { initDashboardLoader, readDashboardSectionFallback, writeDashboardSectionFallback, } from '../dashboard_loader.js';
-import { updateDashboardEntityOptions } from '../widget_add_modal.js';
 import { setEntitySelectState } from '../entity_picker.js';
 import { isDashboardStandalonePanel } from '../standalone_panel.js';
 import { closeDashboardMenu } from '../dashboard_menu.js';
@@ -108,7 +107,6 @@ export function wireDashboardRender() {
         resumeDashboardCameras,
         connectDashboardLive,
         configureHyveviewMounted,
-        updateDashboardEntityOptions,
         setEntitySelectState,
         escapeHtml,
         t,

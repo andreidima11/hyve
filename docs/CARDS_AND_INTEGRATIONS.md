@@ -74,7 +74,7 @@ Supported fields include:
 
 - `slug`
 - `config_key`
-- `config_panel_id`
+- `config_panel_id` (legacy alias; UI is schema-driven)
 - `toggle_input_id`
 - `toggle_slug`
 - `label`
@@ -93,7 +93,7 @@ Important:
 
 - `slug` identifies the integration in the catalog and list rendering
 - `config_key` maps to the integration slug / legacy config section key (config entries are authoritative)
-- `config_panel_id` must match an existing `integration-panel-*` block in [templates/index.html](templates/index.html)
+- Integration settings use **config entries** rendered from each component's `CONFIG_SCHEMA` (see `static/js/integrations/config_entries.ts`); no per-integration HTML panels
 - `toggle_input_id` must point to the checkbox used by `saveConfig()`
 - `supports_sync` controls whether the shared Sync button is rendered
 
@@ -104,9 +104,8 @@ Checklist:
 1. Create a component under `components/<slug>/`.
 2. Ensure it is auto-discoverable by `IntegrationManager`.
 3. Add its metadata to [ui_catalog.json](ui_catalog.json).
-4. Add or reuse a configuration panel in [templates/index.html](templates/index.html).
-5. Make sure `saveConfig()` and `loadConfig()` already understand the related config fields in [static/js/features.js](static/js/features.js).
-6. Add tests for discovery, sync behavior, or any custom `list_entities()` path.
+4. Declare `CONFIG_SCHEMA` on the entity class (multi-field forms are auto-rendered in the integration config modal).
+5. Add tests for discovery, sync behavior, or any custom `list_entities()` path.
 
 Do not:
 

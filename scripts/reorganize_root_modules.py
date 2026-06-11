@@ -35,8 +35,8 @@ MODULE_MAP: dict[str, str] = {
     "memory_context": "brain.memory_context",
     "llm_client": "brain.llm_client",
     "direct_commands": "brain.direct_commands",
-    "comfyui": "integrations.shims.comfyui",
-    "forge": "integrations.shims.forge",
+    "comfyui": "integrations.component_import",  # use load_component_module("comfyui", "client")
+    "forge": "integrations.component_import",  # use load_component_module("forge", "pipeline")
 }
 
 MOVES: list[tuple[str, str]] = [
@@ -64,8 +64,6 @@ MOVES: list[tuple[str, str]] = [
     ("memory_context.py", "brain/memory_context.py"),
     ("llm_client.py", "brain/llm_client.py"),
     ("direct_commands.py", "brain/direct_commands.py"),
-    ("comfyui.py", "integrations/shims/comfyui.py"),
-    ("forge.py", "integrations/shims/forge.py"),
     ("_extract_bytecode.py", "scripts/_extract_bytecode.py"),
     ("_extract_functions.py", "scripts/_extract_functions.py"),
 ]
@@ -102,10 +100,6 @@ def rewrite_file(path: Path) -> bool:
 
 
 def move_files() -> None:
-    (ROOT / "integrations/shims").mkdir(parents=True, exist_ok=True)
-    init = ROOT / "integrations/shims/__init__.py"
-    if not init.exists():
-        init.write_text('"""Legacy component import shims."""\n', encoding="utf-8")
     for src, dst in MOVES:
         s, d = ROOT / src, ROOT / dst
         if not s.exists():

@@ -47,7 +47,6 @@ import {
 import { selectDashboardPage } from '../page_select.js';
 import { openDashboardPageNav } from '../pages_nav.js';
 import { pickDashboardEntityOption } from '../entity_picker.js';
-import { addDashboardSwitch } from '../widget_add_modal.js';
 import {
     startDashboardClimateSwipe,
     adjustDashboardClimateTemperature,
@@ -110,7 +109,6 @@ export function wireDashboardEvents(): void {
         selectPage: ({ pageId }) => { selectDashboardPage(pageId); },
         openPageNav: ({ pageId }) => { openDashboardPageNav(pageId); },
         pickEntity: ({ mode, entityId }: { mode: string; entityId: string }) => pickDashboardEntityOption(mode as 'add' | 'edit', entityId),
-        saveAddWidget: () => { addDashboardSwitch(); },
         widgetDrag: ({ event, widgetId }) => startDashboardDrag(event, widgetId),
         panelDrag: ({ event, panelId }) => startDashboardPanelDrag(event, panelId),
         climateSwipeStart: ({ event, widgetId }) => startDashboardClimateSwipe(event, widgetId),

@@ -74,9 +74,7 @@ export interface DashboardEditingStateDeps {
     setEditMode: (on: boolean) => void;
     setCurrentEditorId: (id: string | null) => void;
     closeDashboardMenu: () => void;
-    closeDashboardAddModal: () => void;
     closeDashboardPageModal: () => void;
-    closeDashboardWidgetEditor: () => void;
     renderDashboard: () => void;
 }
 
@@ -415,7 +413,6 @@ export interface DashboardLoaderDeps {
     resumeDashboardCameras: () => void;
     connectDashboardLive: () => void;
     configureHyveviewMounted: (root: Element) => void;
-    updateDashboardEntityOptions: () => void;
     setEntitySelectState: (message: string, error?: boolean) => void;
     escapeHtml: (text: string) => string;
     t: (key: string, params?: Record<string, unknown>) => string;
@@ -443,35 +440,6 @@ export interface DashboardPreferencesDeps {
     renderDashboard: () => void;
     readDashboardSectionFallback: () => Promise<Record<string, unknown>>;
     writeDashboardSectionFallback: (section: Record<string, unknown>) => Promise<void>;
-    t: (key: string, params?: Record<string, unknown>) => string;
-}
-
-export interface DashboardWidgetAddEditorDeps {
-    getDashboardCache: () => DashboardCache;
-    getAvailableEntity: (entityId: string) => import('./entity.js').HyveEntity | null;
-    renderWidgetCardForPreview: (widget: DashboardWidget) => string;
-    climateEntityRecordsForSave: () => Array<{ entity_id: string; title?: string; subtitle?: string; [key: string]: unknown }>;
-    t: (key: string, params?: Record<string, unknown>) => string;
-}
-
-export interface DashboardWidgetAddModalDeps {
-    requireDashboardEditAccess: () => boolean;
-    closeDashboardMenu: () => void;
-    closeDashboardWidgetEditor: () => void;
-    getCurrentPageId: () => string | null;
-    getCurrentEditorId: () => string | null;
-    clearCurrentEditorId: () => void;
-    getAvailableEntity: (entityId: string) => import('./entity.js').HyveEntity | null;
-    dashboardEditorRenderer: (type: string) => string;
-    dashboardDefaultRowsForType: (type: string) => number;
-    loadDashboardCardCatalog: () => Promise<unknown>;
-    refreshAvailableEntities: () => Promise<unknown>;
-    loadDashboard: () => Promise<void>;
-    readDashboardSectionFallback: () => Promise<{ widgets?: DashboardWidget[]; [key: string]: unknown }>;
-    writeDashboardSectionFallback: (section: Record<string, unknown>) => Promise<void>;
-    clearDashboardClimateEntitySelection: () => void;
-    climateEntityRecordsForSave: () => Array<{ entity_id: string; [key: string]: unknown }>;
-    renderDashboardClimateEntityChips: () => void;
     t: (key: string, params?: Record<string, unknown>) => string;
 }
 
@@ -528,15 +496,6 @@ export interface DashboardEntityPatcherDeps {
     widgetRenderer: (widget: DashboardWidget) => string;
     widgetById: (id: string) => DashboardWidget | null | undefined;
     renderDashboard: () => void;
-}
-
-export interface DashboardWidgetLegacyEditDeps {
-    requireDashboardEditAccess: () => boolean;
-    getCurrentEditorId: () => string | null;
-    readDashboardSectionFallback: () => Promise<{ widgets?: DashboardWidget[] }>;
-    writeDashboardSectionFallback: (section: { widgets?: DashboardWidget[] }) => Promise<void>;
-    loadDashboard: () => Promise<void>;
-    t: (key: string, params?: Record<string, unknown>) => string;
 }
 
 export interface DashboardYamlEditorDeps {
@@ -617,7 +576,6 @@ export interface DashboardClimateDeps {
     getCache: () => DashboardCache;
     findWidget: (id: string) => DashboardWidget | null;
     renderDashboard: () => void;
-    renderDashboardAddPreview: () => void;
     getEditMode: () => boolean;
     widgetDragAttrs: (widget: DashboardWidget) => string;
     widgetEditControls: (widget: DashboardWidget) => string;

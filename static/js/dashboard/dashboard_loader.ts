@@ -418,7 +418,6 @@ async function loadDashboardImpl(signal: AbortSignal | null = null, { soft = fal
             try { d.configureHyveviewMounted(grid); } catch (_) {}
         }
         try { d.resumeDashboardCameras(); } catch (_) {}
-        d.updateDashboardEntityOptions();
         d.connectDashboardLive();
     } catch (e) {
         if (e instanceof DashboardRefreshAbortError || (e instanceof DOMException && e.name === 'AbortError')) return;

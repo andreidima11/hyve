@@ -158,7 +158,9 @@ async def _exec_create_skill(args: Dict, status_queue: Optional[Any] = None) -> 
             pass  # queue full; non-critical streaming preview drop
 
     try:
-        import integrations.shims.forge as forge_mod
+        from integrations.component_import import load_component_module
+
+        forge_mod = load_component_module("forge", "pipeline")
         ok, msg, _ = await forge_mod.run_forge(
             description, save=True,
             name_hint=name_hint, inputs_hint=inputs_hint, allow_network=allow_network,
@@ -182,7 +184,9 @@ async def _exec_edit_skill(args: Dict) -> str:
     if not skill_name or not instruction:
         return "Error: edit_skill requires skill_name and instruction."
     try:
-        import integrations.shims.forge as forge_mod
+        from integrations.component_import import load_component_module
+
+        forge_mod = load_component_module("forge", "pipeline")
         ok, msg = await forge_mod.run_forge_edit(skill_name, instruction)
         if ok:
             try:
@@ -201,7 +205,9 @@ async def _exec_improve_skill(args: Dict) -> str:
     if not skill_name or not error_message:
         return "Error: improve_skill requires skill_name and error_message."
     try:
-        import integrations.shims.forge as forge_mod
+        from integrations.component_import import load_component_module
+
+        forge_mod = load_component_module("forge", "pipeline")
         ok, msg = await forge_mod.run_forge_improve(skill_name, error_message)
         if ok:
             try:

@@ -19,7 +19,7 @@
 ## Deferred to 0.9.x / 0.10
 
 - Per-user default dashboard page (proposal C)
-- Remove dashboard legacy modals (`widget_legacy_edit`, `widget_add_modal`)
-- Drop `integrations/shims/` (comfyui, forge)
-- Minimal Playwright or Vitest smoke in CI
+- ~~Remove dashboard legacy modals~~ → 0.9.1
+- ~~Drop `integrations/shims/`~~ → 0.9.1
+- ~~Minimal smoke in CI~~ → 0.9.1 (`scripts/smoke_test.py`)
 - Schema-driven integration config panels (full HTML replacement)
