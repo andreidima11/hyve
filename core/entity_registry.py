@@ -15,9 +15,9 @@ from typing import Any
 
 from sqlalchemy import text
 
-import database
+import core.database as database
 from integrations.device_aliases import canonical_device_id
-from smart_home_registry import KNOWN_DOMAINS, entity_domain, slugify_object_id
+from core.smart_home_registry import KNOWN_DOMAINS, entity_domain, slugify_object_id
 
 log = logging.getLogger("entity_registry")
 

@@ -82,7 +82,6 @@ function _mountDevicesPageShell() {
                     <table class="hy-list-table" data-i18n-aria-label="hy.table_aria" aria-label="Devices">
                         <thead>
                             <tr>
-                                <th class="hy-col-bulk" aria-hidden="true"></th>
                                 <th class="hy-col-icon" aria-hidden="true"></th>
                                 <th class="hy-col-name"><button type="button" class="hy-th-sort" data-smarthome-action="sortDevices" data-smarthome-sort="name"><span data-i18n="hy.col_name">Name</span><i class="fas fa-sort"></i></button></th>
                                 <th class="hy-col-alias" data-i18n="hy.col_alias">Alias</th>
@@ -651,24 +650,6 @@ function _getFilteredDevices() {
         return leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' }) * direction;
     });
 }
-let _haBulkMode = false;
-export function toggleHABulkMode() {
-    const wrap = document.querySelector('.hy-list-wrap');
-    const btn = document.getElementById('hy-bulk-mode-btn');
-    if (!wrap || !btn)
-        return;
-    smarthomeDeviceState.haBulkMode = !smarthomeDeviceState.haBulkMode;
-    wrap.classList.toggle('hy-bulk-mode', smarthomeDeviceState.haBulkMode);
-    if (!smarthomeDeviceState.haBulkMode) {
-        document.querySelectorAll('.hy-bulk-check').forEach(cb => { cb.checked = false; });
-        const allCheck = document.getElementById('hy-select-all');
-        if (allCheck)
-            allCheck.checked = false;
-        updateHABulkCount();
-    }
-    btn.classList.toggle('active', smarthomeDeviceState.haBulkMode);
-    btn.querySelector('span').textContent = smarthomeDeviceState.haBulkMode ? (t('hy.cancel')) : (t('hy.select'));
-}
 export const SOURCE_ICONS = {
     pago: { icon: 'fa-credit-card', color: 'text-emerald-400', label: 'Pago' },
     fusion_solar: { icon: 'fa-solar-panel', color: 'text-amber-400', label: 'Solar' },
@@ -696,17 +677,16 @@ export function renderDeviceCards() {
         if (totalAll > 0 && filtersActive) {
             const msg = t('hy.empty_no_results');
             const reset = t('hy.reset_filters');
-            tbody.innerHTML = `<tr><td colspan="6" class="hy-list-placeholder">
+            tbody.innerHTML = `<tr><td colspan="5" class="hy-list-placeholder">
                 <i class="fas fa-filter-circle-xmark text-slate-600 mr-2"></i>${msg}
                 <button type="button" class="ml-3 text-accent hover:underline text-xs font-semibold" data-smarthome-action="resetSmarthomeFilters"><i class="fas fa-rotate-left mr-1"></i>${reset}</button>
             </td></tr>`;
         }
         else {
-            tbody.innerHTML = `<tr><td colspan="6" class="hy-list-placeholder"><i class="fas fa-plug text-slate-600 mr-2"></i>${t('hy.no_devices_found')}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="hy-list-placeholder"><i class="fas fa-plug text-slate-600 mr-2"></i>${t('hy.no_devices_found')}</td></tr>`;
         }
         if (pagination)
             pagination.innerHTML = '';
-        updateHABulkCount();
         return;
     }
     const totalPages = Math.max(1, Math.ceil(devices.length / smarthomeDeviceState.devicesState.pageSize));
@@ -742,7 +722,6 @@ export function renderDeviceCards() {
             ? `data-smarthome-action="openDerivedModal" data-smarthome-entity-id="${escapedIdAttr}"`
             : `data-smarthome-action="haRowClick"`;
         return `<tr class="hy-row hy-row-clickable ${isUnavail ? 'hy-row-unavailable' : ''}" data-entity="${escapedIdAttr}" data-domain="${escapeHtmlAttr(domain)}" data-source="${escapeHtmlAttr(source)}" data-search="${escapeHtmlAttr(_deviceSearchText(entity))}" ${rowAction}>
-            <td class="hy-col-bulk"></td>
             <td class="hy-col-icon"><div class="hy-row-icon ${color}"><i class="${iconClass}"></i></div></td>
             <td class="hy-col-name">
                 <div class="hy-row-name">${name} ${sourceBadge}</div>
@@ -765,7 +744,6 @@ export function renderDeviceCards() {
     }).join('');
     if (pagination)
         pagination.innerHTML = _renderDevicesPagination(devices.length, startIndex + 1, Math.min(startIndex + pageDevices.length, devices.length), totalPages);
-    updateHABulkCount();
 }
 function _renderDevicesPagination(total, from, to, totalPages) {
     const sizes = DEVICE_PAGE_SIZE_OPTIONS.map(size => `<option value="${size}" ${size === smarthomeDeviceState.devicesState.pageSize ? 'selected' : ''}>${size}</option>`).join('');
@@ -1079,35 +1057,6 @@ export async function copyEntityIdFromRowActions() {
         showToast(t('hy.clipboard_error'), 'error');
     }
 }
-export function toggleAllHA(checked) {
-    document.querySelectorAll('.hy-bulk-check').forEach(cb => { cb.checked = checked; });
-    updateHABulkCount();
-}
-export function updateHABulkCount() {
-    const count = document.querySelectorAll('.hy-bulk-check:checked').length;
-    const panel = document.getElementById('hy-bulk-panel');
-    const info = document.getElementById('bulk-selection-info');
-    const bulkModeOn = !!document.querySelector('.hy-list-wrap.hy-bulk-mode');
-    if (panel) {
-        if (bulkModeOn && count > 0) {
-            panel.classList.remove('hidden');
-            if (info)
-                info.innerText = t('hy.bulk_selected', { count });
-        }
-        else {
-            panel.classList.add('hidden');
-        }
-    }
-}
-export async function deleteHABulk() {
-    // No-op: bulk delete was Home Assistant only.
-}
-export async function deleteHASingle(eid) {
-    // No-op: single-entity delete was Home Assistant only.
-}
-export async function toggleDevice(eid, btnEl) {
-    // No-op: device toggling was Home Assistant only.
-}
 export async function toggleSelection(eid, sel) {
     const item = Array.isArray(smarthomeDeviceState.integrationEntitiesCache)
         ? smarthomeDeviceState.integrationEntitiesCache.find(x => x.entity_id === eid)
@@ -1129,10 +1078,6 @@ export async function toggleSelection(eid, sel) {
         // update without a full reload.
         if (item)
             item.selected = !!sel;
-        try {
-            updateHABulkCount();
-        }
-        catch (_) { }
     }
     catch {
         revertCheckbox();
@@ -1170,10 +1115,6 @@ export async function toggleAllAI(checked) {
                 cb.checked = !!checked;
             });
         }
-        try {
-            updateHABulkCount();
-        }
-        catch (_) { }
     }
     catch {
         showToast(t('hy.network_error'), 'error');

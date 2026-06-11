@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import settings as settings_mod
-from logger import log_line
+import core.settings as settings_mod
+from core.logger import log_line
 from rich.panel import Panel
 from brain.cortex.config import console
 from brain.cortex.agent_stream import generate_response_stream

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from smart_home_registry import (
+from core.smart_home_registry import (
     entity_domain,
     is_controllable_domain,
     is_visible_domain,

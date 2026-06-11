@@ -17,10 +17,10 @@ from typing import List, Optional, Tuple
 
 import httpx
 
-import settings as settings_mod
+import core.settings as settings_mod
 from addons.entity_store import get_entity_store
 from core.device_control import ControlTargetNotFound, control_entity
-from logger import log_line
+from core.logger import log_line
 
 # ── Regex patterns (Tier 1) ───────────────────────────────────────────────
 
@@ -202,7 +202,7 @@ async def _run_control(entity_id: str, action: str, data: dict | None, display_n
 async def _execute_parsed_commands(commands: List[Tuple[str, str]], user_id: str) -> Optional[str]:
     if not commands:
         return None
-    from device_resolver import find_device_details
+    from core.device_resolver import find_device_details
 
     resolved = await asyncio.gather(
         *[find_device_details(target, user_id, user_message=target) for _, target in commands]
@@ -249,8 +249,8 @@ def _match_scene_for_user(query: str, user_id: str):
     except (TypeError, ValueError):
         return None
     try:
-        import database
-        import models
+        import core.database as database
+        import core.models as models
         from routers import scenes as scenes_module
     except Exception:
         return None
@@ -308,7 +308,7 @@ async def try_scene_command(message: str, user_id: str) -> Optional[str]:
         return f"Nu am găsit o scenă cu numele „{query}”."
 
     try:
-        import database
+        import core.database as database
         from routers import scenes as scenes_module
     except Exception as exc:
         log_line("error", "⚠️", "SCENE_CMD", f"import failed: {exc}")
@@ -428,7 +428,7 @@ async def _llm_extract(message: str, catalogue: str) -> Optional[List[dict]]:
 
     start = time.monotonic()
     try:
-        from llm_client import get_llm_client
+        from brain.llm_client import get_llm_client
 
         client = await get_llm_client()
         resp = await client.post(url, json=payload, headers=headers, timeout=15.0)

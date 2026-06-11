@@ -7,9 +7,9 @@ import httpx
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import StreamingResponse, JSONResponse
 
-import settings
-import assist_keys
-import memory_context
+import core.settings as settings
+import core.assist_keys as assist_keys
+import brain.memory_context as memory_context
 import brain
 from core.http.errors import error_detail
 
@@ -173,7 +173,7 @@ async def chat_completions(request: Request):
                 if own_client:
                     await client.aclose()
             if bridge_user_id and last_user_msg and full_content:
-                from task_utils import create_tracked_task
+                from core.task_utils import create_tracked_task
                 create_tracked_task(brain.process_memory_pipeline(last_user_msg, bridge_user_id, brain.strip_think("".join(full_content))), name="memory_pipeline_openai")
 
         return StreamingResponse(
@@ -207,6 +207,6 @@ async def chat_completions(request: Request):
     if bridge_user_id and last_user_msg:
         content = (data.get("choices") or [{}])[0].get("message", {}).get("content") or ""
         if content:
-            from task_utils import create_tracked_task
+            from core.task_utils import create_tracked_task
             create_tracked_task(brain.process_memory_pipeline(last_user_msg, bridge_user_id, brain.strip_think(content)), name="memory_pipeline_openai_nostream")
     return JSONResponse(content=data)

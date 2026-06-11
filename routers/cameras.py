@@ -24,9 +24,9 @@ from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Uplo
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
-import auth
-import database
-import models
+import core.auth as auth
+import core.database as database
+import core.models as models
 
 router = APIRouter(prefix="/api/cameras", tags=["cameras"])
 log = logging.getLogger("cameras")
@@ -420,7 +420,7 @@ async def camera_snapshot(
 
             resp = await asyncio.wait_for(_fetch_http(), timeout=_SNAPSHOT_DEADLINE)
         elif rtsp_url:
-            import cctv_capture
+            import core.cctv_capture as cctv_capture
 
             frame = await asyncio.wait_for(
                 asyncio.to_thread(cctv_capture.get_rtsp_frame, rtsp_url, 12.0),
@@ -510,7 +510,7 @@ async def camera_stream(
         raise HTTPException(404, "Camera does not expose an MJPEG or RTSP stream.")
 
     if rtsp_url:
-        import cctv_capture
+        import core.cctv_capture as cctv_capture
 
         async def _rtsp_proxy():
             try:
@@ -586,7 +586,7 @@ async def camera_play(
     if not rtsp_url:
         raise HTTPException(404, "Camera nu expune stream RTSP pentru redare WebM.")
 
-    import cctv_capture
+    import core.cctv_capture as cctv_capture
 
     include_audio = attrs.get("has_audio")
     if include_audio is None:

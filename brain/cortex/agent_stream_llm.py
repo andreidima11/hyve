@@ -5,8 +5,8 @@ from __future__ import annotations
 import time
 from typing import Any, AsyncIterator, Dict, List, Optional
 
-import settings as settings_mod
-from logger import log_line
+import core.settings as settings_mod
+from core.logger import log_line
 
 from brain.cortex.agent_helpers import _event_status
 from brain.cortex.config import TIMEOUT_LLM

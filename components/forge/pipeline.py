@@ -190,7 +190,7 @@ def _log(title: str, msg: str):
 def _runtime_network_enabled() -> bool:
     """True when generated skills are allowed to run with network policy at runtime."""
     try:
-        import settings as _settings
+        import core.settings as _settings
         from integrations import entry_settings
 
         searxng_cfg = entry_settings.searxng_settings()
@@ -432,7 +432,7 @@ async def _call_coder_with_stream(
                             elif resp.status_code == 429:
                                 msg = "Coder 429 (rate limit or insufficient quota). Check Z.AI Usage / plan for Coding."
                             try:
-                                from logger import log_line
+                                from core.logger import log_line
                                 log_line("agent", "⚠️", "CODER API", msg)
                             except Exception:
                                 pass
@@ -505,7 +505,7 @@ async def _call_coder_with_stream(
             if resp.status_code == 429:
                 msg = "Coder 429 (rate limit or insufficient quota). Check Z.AI Usage / plan for Coding."
         try:
-            from logger import log_line
+            from core.logger import log_line
             log_line("agent", "⚠️", "CODER API", msg)
         except Exception:
             pass

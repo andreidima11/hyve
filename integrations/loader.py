@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import settings
+import core.settings as settings
 
 from . import config_entries
 from .base import BaseEntity

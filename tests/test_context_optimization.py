@@ -45,7 +45,7 @@ def test_selected_entities_cap_in_prompt():
 
 
 def test_compact_knowledge_cutoff_for_tendency_three(monkeypatch):
-    import settings as settings_mod
+    import core.settings as settings_mod
     from brain.cortex.prompt import _build_dynamic_prompt_suffix
 
     cfg = dict(settings_mod.CFG)
@@ -62,7 +62,7 @@ def test_compact_knowledge_cutoff_for_tendency_three(monkeypatch):
 
 
 def test_tool_result_max_chars_default_is_tier_b():
-    import settings as settings_mod
+    import core.settings as settings_mod
 
     assert int((settings_mod.CFG.get("intelligence") or {}).get("tool_result_max_chars")) == 3000
 
@@ -94,7 +94,7 @@ def test_get_home_status_caps_large_entity_lists(monkeypatch):
 
 
 def test_prompt_cache_fingerprint_ignores_unrelated_config(monkeypatch):
-    import settings as settings_mod
+    import core.settings as settings_mod
 
     base_fp = _prompt_cache_fingerprint("user1", None)
     cfg = dict(settings_mod.CFG)
@@ -105,7 +105,7 @@ def test_prompt_cache_fingerprint_ignores_unrelated_config(monkeypatch):
 
 
 def test_prompt_cache_config_snapshot_is_bounded():
-    import settings as settings_mod
+    import core.settings as settings_mod
 
     snap = _prompt_cache_config_snapshot()
     full_cfg_chars = len(str(settings_mod.CFG))

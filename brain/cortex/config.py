@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Dict
 
-import settings as settings_mod
+import core.settings as settings_mod
 from rich.console import Console
 
 console = Console()

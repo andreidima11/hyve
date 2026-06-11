@@ -9,13 +9,13 @@ import httpx
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-import auth
-import database
-import models
-import settings
+import core.auth as auth
+import core.database as database
+import core.models as models
+import core.settings as settings
 from core.http.errors import error_detail
-import scheduler_service
-from llm_client import get_llm_client
+import core.scheduler_service as scheduler_service
+from brain.llm_client import get_llm_client
 
 
 router = APIRouter(prefix="/api", tags=["entries"])

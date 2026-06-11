@@ -7,9 +7,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-import database
-import models
-import settings
+import core.database as database
+import core.models as models
+import core.settings as settings
 from core.http.app import create_app
 
 

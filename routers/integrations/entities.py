@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from typing import Any
 
-import area_resolver
-import database
-import models
-from auth import get_current_user
+import core.area_resolver as area_resolver
+import core.database as database
+import core.models as models
+from core.auth import get_current_user
 from core.http.errors import error_detail
 from addons.entity_store import get_entity_store
 from fastapi import Depends, HTTPException, Query
 from sqlalchemy import text
-from ui_catalog import integration_catalog
+from core.ui_catalog import integration_catalog
 
 from routers.integrations import helpers
 from routers.integrations.constants import SOURCE_META

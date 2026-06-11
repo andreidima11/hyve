@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Optional
 
-import settings as settings_mod
-from logger import log_line
+import core.settings as settings_mod
+from core.logger import log_line
 from brain.cortex.memory import _MEMORY_RULES_PREFIX, _find_relevant_memories
 from brain.cortex.messages import _estimate_tokens
 
@@ -151,7 +151,7 @@ def _build_dynamic_prompt_suffix(conversation_summary: Optional[str] = None,
     Built fresh every request — small (~50-200 tokens), so cheap to compute.
     light_context=True skips integration/entity/proactive blocks (simple chat path)."""
     timezone = (settings_mod.CFG.get("timezone") or "").strip()
-    from datetime_utils import get_current_datetime_str
+    from core.datetime_utils import get_current_datetime_str
     intel_cfg = (settings_mod.CFG.get("intelligence") or {})
     datetime_round_minutes = int(intel_cfg.get("datetime_round_minutes", 0) or 0)
     datetime_block = f"\n[CURRENT DATE AND TIME]\n{get_current_datetime_str(timezone or None, round_minutes=datetime_round_minutes)}\n"
@@ -387,8 +387,8 @@ def _build_proactive_hints() -> str:
 
     try:
         # Upcoming events (next 2 hours)
-        import database
-        import models
+        import core.database as database
+        import core.models as models
         from datetime import datetime, timedelta
         db = database.SessionLocal()
         try:

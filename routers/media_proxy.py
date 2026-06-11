@@ -18,12 +18,12 @@ import httpx
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import Response
 
-import auth
-import database
-import models
+import core.auth as auth
+import core.database as database
+import core.models as models
 from brain.web_search import _is_internal_url
 from core.http.limiter import limiter
-from logger import log_line
+from core.logger import log_line
 
 router = APIRouter(tags=["media-proxy"])
 

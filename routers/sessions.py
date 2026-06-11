@@ -4,9 +4,9 @@ Handles multi-session chat support with context isolation and message history.
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
-import storage
-import models
-import auth
+import core.storage as storage
+import core.models as models
+import core.auth as auth
 import brain
 from core.http.errors import error_detail
 

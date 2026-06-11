@@ -8,7 +8,7 @@ from datetime import datetime
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from logger import log_detail, log_line
+from core.logger import log_detail, log_line
 
 jobstores = {"default": SQLAlchemyJobStore(url="sqlite:///jobs.sqlite")}
 scheduler = BackgroundScheduler(jobstores=jobstores)
@@ -23,7 +23,7 @@ def reload_config_if_needed() -> None:
     now = time.time()
     if now - _last_config_reload >= _CONFIG_RELOAD_INTERVAL:
         try:
-            import settings as _s
+            import core.settings as _s
 
             _s.reload_config()
             _last_config_reload = now

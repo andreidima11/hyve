@@ -23,12 +23,12 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-import database
-import models
+import core.database as database
+import core.models as models
 from core import event_bus
-from logger import log_detail
+from core.logger import log_detail
 
-import scheduler_service
+import core.scheduler_service as scheduler_service
 
 from .validators import _parse_datetime_string, _parse_time_string
 
@@ -38,7 +38,7 @@ RUNTIME_PREFIX = "autdef_"
 def _execute() -> "callable":
     """Lazy lookup of the executor entry point (defined in the legacy module)
     so we don't introduce a circular import at module load time."""
-    from automation_definitions import execute_automation_definition
+    from core.automation_definitions import execute_automation_definition
     return execute_automation_definition
 
 

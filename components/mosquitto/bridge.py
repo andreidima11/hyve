@@ -545,7 +545,7 @@ class MosquittoBridge:
                     await client.subscribe(_Z2M_BRIDGE_EVENT, qos=0)
                     await client.subscribe(_Z2M_BRIDGE_RESPONSE, qos=0)
                     await client.subscribe(_Z2M_DEVICE_TOP, qos=0)
-                    from logger import log_line
+                    from core.logger import log_line
                     log_line("sys", "📡", "MQTT", f"connected to {host}:{port}")
                     await self._dispatch({"type": "bridge", "status": "connected"})
                     if self._z2m_devices:
@@ -580,7 +580,7 @@ class MosquittoBridge:
                         reason = f"{reason} ({cause_text})"
                 if len(reason) > 120:
                     reason = reason[:117] + "..."
-                from logger import log_line
+                from core.logger import log_line
                 hint = ""
                 if "Disconnected during message iteration" in reason:
                     hint = " — broker closed link (often message burst or keepalive)"

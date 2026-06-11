@@ -49,7 +49,7 @@ import re
 from typing import Any
 
 from integrations.entity_utils import slugify
-from smart_home_registry import normalize_entity_record
+from core.smart_home_registry import normalize_entity_record
 
 log = logging.getLogger("integrations.mosquitto")
 

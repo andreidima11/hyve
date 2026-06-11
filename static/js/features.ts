@@ -30,7 +30,6 @@ export {
     disconnectSmarthomeLive,
     syncHA,
     getIntegrationEntities,
-    toggleHABulkMode,
     setDevicesPage,
     setDevicesPageSize,
     sortDevicesBy,
@@ -43,11 +42,6 @@ export {
     toggleSmarthomeFilters,
     resetSmarthomeFilters,
     copyEntityIdFromRowActions,
-    toggleAllHA,
-    updateHABulkCount,
-    deleteHABulk,
-    deleteHASingle,
-    toggleDevice,
     toggleSelection,
     toggleAllAI,
     openAliasModal,
@@ -60,13 +54,6 @@ export {
     closeEntityDetailModal,
     closeRowActionsModal,
     saveAliasesFromModal,
-    saveAliases,
-    openAddDevicesModal,
-    closeAddDevicesModal,
-    toggleAvailableDevice,
-    toggleAllAvailableDevices,
-    filterAvailableDevices,
-    confirmAddDevices,
 } from './features_smarthome.js';
 
 export {
@@ -118,7 +105,6 @@ export {
 } from './features_automations.js';
 
 export {
-    memCache,
     memoryState,
     loadMemory,
     loadMemoryEvents,

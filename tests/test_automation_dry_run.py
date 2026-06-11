@@ -12,9 +12,9 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-import database
-import models
-import automation_definitions as ad
+import core.database as database
+import core.models as models
+import core.automation_definitions as ad
 
 
 @pytest.fixture()
@@ -67,7 +67,7 @@ def test_dry_run_suppresses_notify_and_returns_trace(db_session, monkeypatch):
     ad.create_definition(db_session, owner_id="u1", actor="user:u1", source_yaml=_NOTIFY_YAML)
     sent = []
     # Patch the underlying scheduler call — if dry-run leaks, this list grows.
-    import scheduler_service
+    import core.scheduler_service as scheduler_service
     monkeypatch.setattr(scheduler_service, "trigger_notification",
                         lambda *a, **kw: sent.append((a, kw)))
 
@@ -98,7 +98,7 @@ def test_dry_run_skips_delay_sleep(db_session, monkeypatch):
     slept = []
     monkeypatch.setattr(time, "sleep", lambda s: slept.append(s))
 
-    import scheduler_service
+    import core.scheduler_service as scheduler_service
     monkeypatch.setattr(scheduler_service, "trigger_notification",
                         lambda *a, **kw: None)
 
@@ -124,7 +124,7 @@ def test_dry_run_disabled_definition_reports_skipped(db_session):
 def test_real_run_still_writes_run_row(db_session, monkeypatch):
     """Sanity: dry_run=False must still create an AutomationRun row."""
     ad.create_definition(db_session, owner_id="u1", actor="user:u1", source_yaml=_NOTIFY_YAML)
-    import scheduler_service
+    import core.scheduler_service as scheduler_service
     monkeypatch.setattr(scheduler_service, "trigger_notification",
                         lambda *a, **kw: None)
 

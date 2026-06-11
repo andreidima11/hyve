@@ -5,7 +5,7 @@ import unicodedata
 import uuid
 from typing import Any
 
-import settings
+import core.settings as settings
 from core import dashboard_store
 from integrations.entity_utils import resolve_entity_by_id
 from integrations.extractors import infer_source as _infer_source
@@ -22,7 +22,7 @@ from routers.dashboard.constants import (
     _MDI_NAME_RE,
     _VISIBILITY_OPERATORS,
 )
-from ui_catalog import resolve_dashboard_card
+from core.ui_catalog import resolve_dashboard_card
 
 def _widget_renderer(widget: dict[str, Any] | None) -> str:
     if not isinstance(widget, dict):

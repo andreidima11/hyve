@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 
-import auth
-import models
+import core.auth as auth
+import core.models as models
 from addons.entity_store import SyncThrottledError, get_entity_store
 from fastapi import Depends, HTTPException
 from core.http.errors import error_detail
@@ -32,7 +32,7 @@ def _raise_sync_http_error(exc: Exception) -> None:
 
 @router.get("/status/sync")
 async def get_sync_status(user: models.User = Depends(auth.get_current_user)):
-    import database
+    import core.database as database
     from sqlalchemy import text
 
     db = next(database.get_db())

@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import WebSocket, WebSocketDisconnect
 
 from core.live_entity_hub import LiveEntityWsHub
-from logger import log_line
+from core.logger import log_line
 
 
 async def run_entity_live_ws(

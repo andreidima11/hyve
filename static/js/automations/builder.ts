@@ -409,14 +409,6 @@ function _upgradeAutoBuilderSelects(host: ParentNode | null) {
     upgradeNativeSelects(host);
 }
 
-// Legacy no-ops: older features.js facades still re-export these names.
-export function setAutomationEntityPickerTarget() {}
-export function pickAutomationEntity() {}
-export function filterAutomationEntityPicker() {}
-export function setAutomationServicePickerTarget() {}
-export function pickAutomationService() {}
-export function filterAutomationServicePicker() {}
-
 function _automationBuilderActionTemplate(kind: string = 'notify') {
     if (kind === 'service') {
         return { kind: 'service', service: 'light.turn_on', entity_id: '', data: '{}' };

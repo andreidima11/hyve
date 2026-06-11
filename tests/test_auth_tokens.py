@@ -6,10 +6,10 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-import auth
-import database
-import models
-from auth import (
+import core.auth as auth
+import core.database as database
+import core.models as models
+from core.auth import (
     create_access_token,
     create_refresh_token,
     create_sse_exchange_token,

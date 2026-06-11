@@ -3,12 +3,12 @@ import os
 import logging
 from copy import deepcopy
 
-from env_bootstrap import ensure_env_loaded
+from core.env_bootstrap import ensure_env_loaded
 
 ensure_env_loaded()
 
 CONFIG_FILE = "config.json"
-RELEASE_VERSION = "v0.8.18"
+RELEASE_VERSION = "0.8.19"
 APP_VERSION = RELEASE_VERSION
 _settings_log = logging.getLogger("settings")
 

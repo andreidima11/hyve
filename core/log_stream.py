@@ -6,8 +6,8 @@ import sys
 from collections import deque
 from typing import List
 
-import settings
-import logger as log_mod
+import core.settings as settings
+import core.logger as log_mod
 from rich.align import Align
 from rich.console import Console
 from rich.panel import Panel
@@ -122,7 +122,7 @@ def print_banner():
     port = int(settings.CFG.get("port", 8082))
     header = Text()
     header.append("Hyve", style="bold cyan")
-    header.append(f"  v{version}", style="dim")
+    header.append(f"  {version}", style="dim")
 
     meta = Text()
     meta.append("Dashboard", style="bold white")

@@ -5,9 +5,9 @@ from datetime import datetime
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-import database
-import models
-from logger import log_detail, log_line
+import core.database as database
+import core.models as models
+from core.logger import log_detail, log_line
 
 # --------------------------------------------------------------------------- #
 # Schema constants — implementation lives in core.automations_engine.schema.  #

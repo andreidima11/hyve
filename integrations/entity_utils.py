@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from smart_home_registry import entity_domain, is_controllable_domain, normalize_entity_record
+from core.smart_home_registry import entity_domain, is_controllable_domain, normalize_entity_record
 
 _Z2M_ENDPOINT_VARIANT = re.compile(r"^(.+)_(l\d+)$", re.I)
 _Z2M_STATE_ENDPOINT_VARIANT = re.compile(r"^(.+)_state_(l\d+)$", re.I)

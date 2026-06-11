@@ -6,8 +6,8 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import traceback
-import models
-import auth
+import core.models as models
+import core.auth as auth
 from core.http.errors import error_detail
 
 router = APIRouter(tags=["shell"])

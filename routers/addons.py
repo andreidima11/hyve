@@ -17,9 +17,9 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket
 from fastapi.responses import StreamingResponse
 
-import auth
-import database
-import models
+import core.auth as auth
+import core.database as database
+import core.models as models
 from addons import registry
 from addons import process_manager
 from addons import ingress as addon_ingress
@@ -141,7 +141,7 @@ async def install_addon_stream(slug: str, token: str | None = None, request: Req
     Uses token query param for auth (EventSource can't send headers).
     """
     from sqlalchemy.orm import Session as SASession
-    import database
+    import core.database as database
     if not token:
         raise HTTPException(status_code=401, detail=error_detail("auth.token_required"))
     db = next(database.get_db())

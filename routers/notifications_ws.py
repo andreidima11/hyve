@@ -4,11 +4,11 @@ Handles real-time push notifications via persistent WebSocket connection.
 Clients connect when app opens, receive instant notifications when reminders trigger.
 """
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Depends, Request
-import auth
-import models
-import database
+import core.auth as auth
+import core.models as models
+import core.database as database
 import json
-from logger import log_line, log_detail
+from core.logger import log_line, log_detail
 from typing import Set, Dict
 
 router = APIRouter()
@@ -200,7 +200,7 @@ async def test_notification_channel(request: Request, current_user: models.User 
     Body: { "transport": "websocket" | "firebase" }
     """
     import time
-    import push_fcm
+    import core.push_fcm as push_fcm
 
     try:
         body = await request.json()

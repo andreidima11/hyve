@@ -13,12 +13,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-import auth
+import core.auth as auth
 import brain
-import database
-import models
-import settings
-import storage
+import core.database as database
+import core.models as models
+import core.settings as settings
+import core.storage as storage
 from core.log_stream import console, log_line
 from routers.system import get_health
 
@@ -83,7 +83,7 @@ async def execute_slash_command(
 
     # ── /version ─────────────────────────────────────────────────
     if cmd == "/version":
-        return {"ok": True, "message": f"**Hyve** v{settings.APP_VERSION}"}
+        return {"ok": True, "message": f"**Hyve** {settings.APP_VERSION}"}
 
     # ── /status ──────────────────────────────────────────────────
     if cmd == "/status":

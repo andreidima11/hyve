@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from smart_home_registry import controllable_domains, visible_domains
+from core.smart_home_registry import controllable_domains, visible_domains
 
 # Entity list caching lives in core.entity_catalog (ENTITIES_TTL=5s).
 # Dashboard WS reads snapshots from EntityMirror via _available_entities().

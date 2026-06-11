@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-import auth
-import database
-import models
-import settings
+import core.auth as auth
+import core.database as database
+import core.models as models
+import core.settings as settings
 from core.log_stream import log_line
 
 SETUP_KEY = "setup_complete"

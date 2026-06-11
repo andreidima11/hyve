@@ -246,7 +246,7 @@ class BaseEntity(ABC):
         return stored if isinstance(stored, dict) else {}
 
     async def list_entities(self, store) -> list[dict[str, Any]]:
-        from smart_home_registry import normalize_entity_record
+        from core.smart_home_registry import normalize_entity_record
 
         if not self.supports_sync:
             return []

@@ -5,7 +5,7 @@ import json
 from addons import integration_sync, registry, state_store
 from core.http.startup_migrations import run_startup_migrations
 from sqlalchemy import text
-import database
+import core.database as database
 
 
 def _fresh():
@@ -24,7 +24,7 @@ def test_set_addon_enabled_syncs_config_json(tmp_path, monkeypatch):
     cfg_path = tmp_path / "config.json"
     cfg_path.write_text(json.dumps({"frigate": {"enabled": False, "port": 5000}}), encoding="utf-8")
 
-    import settings as settings_mod
+    import core.settings as settings_mod
 
     monkeypatch.setattr(settings_mod, "CONFIG_FILE", str(cfg_path))
     monkeypatch.setattr(
@@ -69,7 +69,7 @@ def test_update_addon_config_syncs_fields(tmp_path, monkeypatch):
     cfg_path = tmp_path / "config.json"
     cfg_path.write_text(json.dumps({"mosquitto": {"enabled": True}}), encoding="utf-8")
 
-    import settings as settings_mod
+    import core.settings as settings_mod
 
     monkeypatch.setattr(settings_mod, "CONFIG_FILE", str(cfg_path))
     monkeypatch.setattr(

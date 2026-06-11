@@ -477,7 +477,7 @@ class TapoEntity(BaseEntity):
         try:
             dev = await self._connect()
         except Exception as exc:
-            from logger import log_line
+            from core.logger import log_line
             log_line("error", "🔌", "TAPO", f"fetch failed — {exc}")
             return {"items": [], "error": str(exc)}
 

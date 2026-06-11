@@ -9,10 +9,10 @@ from sqlalchemy.orm import Session
 from typing import Optional
 import asyncio
 
-import automation_definitions
-import database
-import models
-import auth
+import core.automation_definitions as automation_definitions
+import core.database as database
+import core.models as models
+import core.auth as auth
 from core.http.errors import error_detail
 from core.automations_engine import blueprints as bp_engine
 
@@ -97,7 +97,7 @@ async def get_automation_capabilities(
         # integration manager is unavailable.
         entities = []
     try:
-        import area_resolver
+        import core.area_resolver as area_resolver
         areas = list(area_resolver.list_areas() or [])
     except Exception:
         areas = []

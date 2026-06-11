@@ -19,9 +19,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import auth
-import database
-import models
+import core.auth as auth
+import core.database as database
+import core.models as models
 import requests
 import websockets
 

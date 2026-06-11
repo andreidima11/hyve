@@ -6,9 +6,9 @@ import math
 import re
 import time
 from datetime import datetime
-import settings as settings_mod
-from storage import get_collection, compute_embeddings
-from logger import log_line, log_detail
+import core.settings as settings_mod
+from core.storage import get_collection, compute_embeddings
+from core.logger import log_line, log_detail
 
 # Cache scurt (TTL 60s) pentru același user_id + query similar, reduce load pe Chroma
 _MEMORY_CACHE: dict = {}

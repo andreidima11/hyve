@@ -19,7 +19,6 @@ export const smarthomeDeviceState = {
     devicesShellMounted: false,
     liveUnsub: null,
     cacheRefreshTimer: null,
-    haBulkMode: false,
     filterPickerEventsWired: false,
 };
 export const smarthomeModalState = {
@@ -27,5 +26,4 @@ export const smarthomeModalState = {
     haAliasModalOriginalParent: null,
     haRowActionsEntityId: null,
     haRowActionsModalOriginalParent: null,
-    availableDevices: [],
 };

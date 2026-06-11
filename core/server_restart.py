@@ -7,7 +7,7 @@ import threading
 import time
 from typing import Optional
 
-from logger import log_line
+from core.logger import log_line
 
 
 def restart_process(delay: float = 0.5, log_msg: str = "Restart sequence initiated...") -> None:
@@ -25,7 +25,7 @@ def restart_process(delay: float = 0.5, log_msg: str = "Restart sequence initiat
     # Best-effort cleanup for components that may allocate multiprocessing
     # primitives (e.g. embedding model pools) before replacing the process.
     try:
-        import storage
+        import core.storage as storage
 
         storage.shutdown_storage()
     except Exception:

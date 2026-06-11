@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import text
 
-import database
+import core.database as database
 from core import entity_registry
 from core.http.startup_migrations import run_startup_migrations
 

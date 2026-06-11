@@ -4,9 +4,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from core import notification_service
-import database
-import models
-import auth
+import core.database as database
+import core.models as models
+import core.auth as auth
 
 router = APIRouter(tags=["notifications"])
 

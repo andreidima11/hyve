@@ -25,7 +25,7 @@ import tempfile
 import traceback
 from typing import Any, Iterable, Optional
 
-import logger as log_mod
+import core.logger as log_mod
 
 
 CONFIG_FILE = "derived_entities.json"

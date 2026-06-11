@@ -8,8 +8,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Set
 
-import settings as settings_mod
-from logger import log_line, log_detail, log_conversation_model_activity
+import core.settings as settings_mod
+from core.logger import log_line, log_detail, log_conversation_model_activity
 
 from brain.cortex.agent_helpers import _event_status, _tool_call_status_label
 from brain.cortex.prompt import _should_skip_web_search

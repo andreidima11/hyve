@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 from typing import Dict, List
 
-import settings as settings_mod
-from logger import log_line
+import core.settings as settings_mod
+from core.logger import log_line
 from brain.tool_shell import _shell_config, is_run_script_enabled, is_shell_enabled
 from brain.toolbox.definitions import *  # noqa: F401,F403 — tool constants used in builder
 

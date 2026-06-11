@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Dict, Optional
 
-from logger import log_line
+from core.logger import log_line
 
 def _event_status(status_type: str, label: str = None, label_key: str = None, params: dict = None) -> dict:
     out = {"t": "status", "type": status_type}
@@ -37,7 +37,7 @@ def _effective_tool_intent(routed_intent: Optional[str], user_msg: str) -> str:
     if routed_intent in ("simple_chat", "memory", "device_control", "device_query", "compound", "complex"):
         return routed_intent or "complex"
     try:
-        from intent_router import heuristic_intent
+        from brain.intent_router import heuristic_intent
         guessed = heuristic_intent(user_msg)
         if guessed:
             return guessed

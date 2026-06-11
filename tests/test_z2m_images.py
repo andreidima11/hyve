@@ -7,9 +7,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-import auth
-import database
-import models
+import core.auth as auth
+import core.database as database
+import core.models as models
 from core.http.app import create_app
 from integrations.z2m_images import attach_device_images, model_image_slug, proxy_image_url
 

@@ -3,8 +3,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
-import auth
-import models
+import core.auth as auth
+import core.models as models
 from addons.entity_store import SyncThrottledError, get_entity_store
 from fastapi import Depends, HTTPException
 

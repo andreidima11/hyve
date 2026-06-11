@@ -8,11 +8,11 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
-import settings as settings_mod
-from logger import log_line, log_detail
-from storage import collection
+import core.settings as settings_mod
+from core.logger import log_line, log_detail
+from core.storage import collection
 from brain.synapses import append_event, EVENT_ADDED, EVENT_UPDATED
-from memory_context import get_memory_context, clean_text
+from brain.memory_context import get_memory_context, clean_text
 from brain.cortex.llm import _get_aux_or_main_llm
 from brain.cortex.thinking import strip_think
 

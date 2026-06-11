@@ -288,7 +288,7 @@ def apply_to_entities(slug: str, entities: list[dict[str, Any]]) -> list[dict[st
         # rename. Keep the original id available as ``unique_id`` so routing
         # by stable handle still resolves.
         try:
-            from smart_home_registry import (
+            from core.smart_home_registry import (
                 KNOWN_DOMAINS,
                 slugify_object_id,
             )

@@ -1,7 +1,7 @@
 /**
  * Smarthome UI event delegation — modals + dynamically rendered device list.
  */
-const _ROOTS = '#view-smarthome, #add-devices-modal, #entity-detail-modal, #derived-modal, #hy-row-actions-modal, #hy-alias-modal';
+const _ROOTS = '#view-smarthome, #entity-detail-modal, #derived-modal, #hy-row-actions-modal, #hy-alias-modal';
 let _handlers = null;
 let _bound = false;
 function _inSmarthome(el) {
@@ -57,9 +57,6 @@ function _run(action, el, event) {
             return;
         case 'controlDevice':
             _handlers.controlDeviceEntity?.(el.dataset.smarthomeSource || '', _entityId(el), el.dataset.smarthomeDeviceAction || '', el, event);
-            return;
-        case 'toggleAvailableDevice':
-            _handlers.toggleAvailableDevice?.(el, _entityId(el), event);
             return;
         case 'removeAliasRow':
             el.closest('.flex.gap-2.items-center')?.remove();
@@ -118,9 +115,7 @@ function _onInput(event) {
     if (!(el instanceof HTMLElement) || !_inSmarthome(el))
         return;
     const kind = el.dataset.smarthomeInput;
-    if (kind === 'filterAvailableDevices')
-        _handlers?.filterAvailableDevices?.(event, el);
-    else if (kind === 'filterDerivedCandidates')
+    if (kind === 'filterDerivedCandidates')
         _handlers?.filterDerivedCandidates?.(event, el);
 }
 export function initSmarthomeEventBindings(handlers = {}) {

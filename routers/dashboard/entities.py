@@ -4,8 +4,8 @@ import logging
 import time as _time
 from typing import Any
 
-import database
-import models
+import core.database as database
+import core.models as models
 from integrations.extractors import infer_source as _infer_source
 from integrations.entity_utils import resolve_entity_by_id
 from routers import scenes as scenes_module
@@ -29,7 +29,7 @@ from routers.dashboard.store import (
     _widget_renderer,
     _widget_visibility_config,
 )
-from smart_home_registry import entity_domain, normalize_entity_record
+from core.smart_home_registry import entity_domain, normalize_entity_record
 from sqlalchemy.orm import Session
 
 log = logging.getLogger("dashboard")

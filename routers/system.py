@@ -11,17 +11,17 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-import database
-import models
-import scheduler_service
-import settings
-import storage
-import auth
+import core.database as database
+import core.models as models
+import core.scheduler_service as scheduler_service
+import core.settings as settings
+import core.storage as storage
+import core.auth as auth
 from core.http.errors import error_detail
 from core.json_fast import jdumps as _jdumps
 from core.log_stream import _MAX_LOG_STREAMS, log_buffer, log_line, log_queues
 from routers.ollama_proxy import list_models as ollama_list_models
-from server_restart import schedule_restart
+from core.server_restart import schedule_restart
 
 router = APIRouter(tags=["system"])
 

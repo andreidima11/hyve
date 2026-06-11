@@ -1,6 +1,6 @@
 """Tests for the static automation schema introspection (describe_schema)."""
 
-from automation_definitions import describe_schema
+from core.automation_definitions import describe_schema
 
 
 def test_describe_schema_has_expected_top_level_keys():

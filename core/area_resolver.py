@@ -17,8 +17,8 @@ import time
 import unicodedata
 from typing import Optional
 
-import database
-import models
+import core.database as database
+import core.models as models
 
 
 _CACHE: dict = {

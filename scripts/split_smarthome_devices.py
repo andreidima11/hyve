@@ -34,7 +34,6 @@ STATE_MAP = [
     ("_devicesShellMounted", "devicesShellMounted"),
     ("_smarthomeLiveUnsub", "liveUnsub"),
     ("_smarthomeCacheRefreshTimer", "cacheRefreshTimer"),
-    ("_haBulkMode", "haBulkMode"),
     ("_smarthomeFilterPickerEventsWired", "filterPickerEventsWired"),
 ]
 
@@ -53,7 +52,6 @@ STATE = """/**
  * Smart home devices — shared state.
  */
 import type {
-    AvailableDeviceEntry,
     DevicesState,
     SmarthomeEntity,
 } from '../types/features_smarthome.js';
@@ -80,7 +78,6 @@ export const smarthomeDeviceState = {
     devicesShellMounted: false,
     liveUnsub: null as (() => void) | null,
     cacheRefreshTimer: null as ReturnType<typeof setTimeout> | null,
-    haBulkMode: false,
     filterPickerEventsWired: false,
 };
 
@@ -89,7 +86,6 @@ export const smarthomeModalState = {
     haAliasModalOriginalParent: null as ParentNode | null,
     haRowActionsEntityId: null as string | null,
     haRowActionsModalOriginalParent: null as ParentNode | null,
-    availableDevices: [] as AvailableDeviceEntry[],
 };
 
 """

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import models
+import core.models as models
 from fastapi import Depends, HTTPException
 from integrations.entity_utils import entity_id_lookup_variants, resolve_entity_by_id
 from routers import scenes as scenes_module
@@ -13,11 +13,11 @@ from routers.dashboard.store import (
     _widget_entity_records,
     _widget_renderer,
 )
-from smart_home_registry import entity_domain, is_controllable_domain
+from core.smart_home_registry import entity_domain, is_controllable_domain
 from sqlalchemy.orm import Session
 
-import auth
-import database
+import core.auth as auth
+import core.database as database
 from core.http.errors import error_detail
 
 log = logging.getLogger("dashboard")

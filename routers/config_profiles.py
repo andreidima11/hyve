@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-import auth
-import database
-import models
-import scheduler_service
-import settings
+import core.auth as auth
+import core.database as database
+import core.models as models
+import core.scheduler_service as scheduler_service
+import core.settings as settings
 from core.auto_router_stats import get_auto_router_stats
 from core.http.errors import error_detail
 
@@ -76,7 +76,7 @@ async def get_cfg(current_user: models.User = Depends(auth.get_current_user)):
 
     prompts = safe.get("prompts")
     if isinstance(prompts, dict):
-        from settings import DEFAULT_CONFIG as DEFAULTS
+        from core.settings import DEFAULT_CONFIG as DEFAULTS
         defaults_p = DEFAULTS.get("prompts", {})
         for key in ("system_persona", "agent_instructions", "agent_instructions_fallback",
                      "agent_instruction_overrides", "search_web_single_message_instruction",

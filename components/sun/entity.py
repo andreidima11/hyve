@@ -63,7 +63,7 @@ class SunEntity(BaseEntity):
         except Exception:
             pass
         try:
-            import settings
+            import core.settings as settings
 
             section = (settings.CFG or {}).get("location") or {}
             return float(section.get("latitude") or 44.4268), float(section.get("longitude") or 26.1025)
@@ -198,7 +198,7 @@ def ensure_default_entry() -> None:
             continue
     if lat is None or lon is None:
         try:
-            import settings
+            import core.settings as settings
 
             section = (settings.CFG or {}).get("location") or {}
             lat = float(section.get("latitude") or 44.4268)

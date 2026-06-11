@@ -211,7 +211,7 @@ class FrigateEntity(BaseEntity):
         try:
             return await coro
         except Exception as exc:
-            from logger import log_line
+            from core.logger import log_line
             reason = str(exc).split("\n")[0]
             if len(reason) > 100:
                 reason = reason[:97] + "..."

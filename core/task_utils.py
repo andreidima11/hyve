@@ -3,7 +3,7 @@ import asyncio
 import contextvars
 from typing import Set, Coroutine, Any
 
-from logger import log_line
+from core.logger import log_line
 
 # Global set to prevent GC of fire-and-forget tasks
 _background_tasks: Set[asyncio.Task] = set()

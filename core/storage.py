@@ -20,7 +20,7 @@ os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 import chromadb
 from chromadb.config import Settings
 from chromadb.utils import embedding_functions
-from settings import CFG
+from core.settings import CFG
 
 # --- CHROMA DB SETUP (lazy — avoid import-time PersistentClient + embedding load) ---
 os.environ["HF_HUB_OFFLINE"] = "1"

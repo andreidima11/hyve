@@ -6,8 +6,8 @@ import asyncio
 import time
 from typing import Dict, List, Optional
 
-import settings as settings_mod
-from logger import log_line, log_detail, log_conversation_model_activity
+import core.settings as settings_mod
+from core.logger import log_line, log_detail, log_conversation_model_activity
 
 from brain.cortex.agent_context import prepare_agent_turn
 from brain.cortex.agent_helpers import (
@@ -22,7 +22,7 @@ from brain.cortex.agent_stream_llm import (
 from brain.cortex.agent_stream_tools import AgentToolLoopState, execute_agent_tool_calls
 from brain.cortex.config import DEFAULT_MAX_AGENT_TURNS, TIMEOUT_LLM
 from brain.cortex.llm import _llm_headers, _normalize_chat_url, _stream_llm_turn
-from llm_client import get_llm_client
+from brain.llm_client import get_llm_client
 from brain.cortex.messages import (
     _compute_safe_completion_tokens,
     _ensure_text_user_message,

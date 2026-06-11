@@ -506,7 +506,7 @@ class MideaAcClient:
                 continue
             connected.append(device)
         if failed_ids:
-            from logger import log_line
+            from core.logger import log_line
             summary = f"{len(failed_ids)} dispozitiv(e) — {last_reason}"
             log_line("error", "❄️", "MIDEA", f"Auth failed: {summary}")
         if devices and not connected:

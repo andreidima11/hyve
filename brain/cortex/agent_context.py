@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-import settings as settings_mod
+import core.settings as settings_mod
 from brain.cortex.agent_helpers import (
     _AGENT_MINIMAL_TOOL_NAMES,
     _DEVICE_QUERY_TOOL_NAMES,
@@ -31,7 +31,7 @@ from brain.cortex.prompt_cache import (
     _prompt_cache_fingerprint,
 )
 from brain.injection_guard import sanitize_untrusted_content
-from logger import log_line
+from core.logger import log_line
 
 _MEMORY_TOOL_NAMES = frozenset({
     "recall_memory",
@@ -101,7 +101,7 @@ async def prepare_agent_turn(
         if _is_trivial_message(user_msg):
             return None
         try:
-            from memory_context import get_memory_context
+            from brain.memory_context import get_memory_context
 
             raw = await asyncio.to_thread(get_memory_context, user_msg, "", user_id)
             if raw and isinstance(raw, str):

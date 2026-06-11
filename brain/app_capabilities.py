@@ -58,7 +58,7 @@ def _discover_themes() -> list[dict[str, str]]:
 
 def _discover_cards() -> list[dict[str, str]]:
     try:
-        from ui_catalog import dashboard_card_catalog
+        from core.ui_catalog import dashboard_card_catalog
     except Exception:
         return []
     cards: list[dict[str, str]] = []
@@ -79,8 +79,8 @@ def _discover_cards() -> list[dict[str, str]]:
 
 def _discover_integrations() -> list[dict[str, Any]]:
     try:
-        from ui_catalog import integration_catalog
-        import settings as settings_mod
+        from core.ui_catalog import integration_catalog
+        import core.settings as settings_mod
     except Exception:
         return []
     cfg = settings_mod.CFG or {}
@@ -162,7 +162,7 @@ def _discover_ui_map() -> dict[str, Any]:
 def _discover_tools_enabled() -> dict[str, bool]:
     """Quick flags for capability gating: are the most-used optional tools available?"""
     try:
-        import settings as settings_mod
+        import core.settings as settings_mod
     except Exception:
         return {}
     cfg = settings_mod.CFG or {}
@@ -490,7 +490,7 @@ def _status_overview() -> str:
     except Exception:
         lines.append("- Entities in store: unavailable")
     try:
-        import storage
+        import core.storage as storage
         mem = storage.get_collection_health()
         lines.append(f"- Memory (Chroma): {mem.get('status') or 'unknown'}")
     except Exception:
@@ -571,7 +571,7 @@ def _status_entities(filters: dict[str, Any]) -> str:
 def _status_health() -> str:
     lines = ["Hyve health:"]
     try:
-        import storage
+        import core.storage as storage
         mem = storage.get_collection_health()
         lines.append(f"- Memory (Chroma): {mem.get('status') or 'unknown'} ({mem.get('mode') or '?'})")
         if mem.get("last_error"):
@@ -579,13 +579,13 @@ def _status_health() -> str:
     except Exception as exc:
         lines.append(f"- Memory (Chroma): error ({exc})")
     try:
-        import scheduler_service
+        import core.scheduler_service as scheduler_service
         running = scheduler_service.scheduler.running
         lines.append(f"- Scheduler: {'running' if running else 'stopped'}")
     except Exception:
         lines.append("- Scheduler: unknown")
     try:
-        import settings as settings_mod
+        import core.settings as settings_mod
         llm = (settings_mod.CFG or {}).get("llm") or {}
         configured = bool(llm.get("target_url") and llm.get("model_name"))
         lines.append(f"- LLM configured: {configured}")
@@ -623,8 +623,8 @@ def _status_dashboard() -> str:
 
 def _status_automations() -> str:
     try:
-        import database
-        import models
+        import core.database as database
+        import core.models as models
         db = next(database.get_db())
         try:
             rows = db.query(models.AutomationDefinition).order_by(models.AutomationDefinition.updated_at.desc()).limit(50).all()
@@ -644,8 +644,8 @@ def _status_automations() -> str:
 
 def _status_automation_history() -> str:
     try:
-        import database
-        import models
+        import core.database as database
+        import core.models as models
         db = next(database.get_db())
         try:
             runs = (
@@ -672,8 +672,8 @@ def _status_automation_history() -> str:
 
 def _status_scenes() -> str:
     try:
-        import database
-        import models
+        import core.database as database
+        import core.models as models
         db = next(database.get_db())
         try:
             rows = db.query(models.Scene).order_by(models.Scene.updated_at.desc()).limit(40).all()
@@ -691,8 +691,8 @@ def _status_scenes() -> str:
 
 def _status_areas() -> str:
     try:
-        import database
-        import models
+        import core.database as database
+        import core.models as models
         db = next(database.get_db())
         try:
             rows = db.query(models.Area).order_by(models.Area.ordering, models.Area.name).limit(60).all()
@@ -710,7 +710,7 @@ def _status_areas() -> str:
 
 def _status_notifications() -> str:
     try:
-        import settings as settings_mod
+        import core.settings as settings_mod
         cfg = settings_mod.CFG or {}
     except Exception:
         return "Notifications config unavailable."
@@ -722,8 +722,8 @@ def _status_notifications() -> str:
         f"- Notification prefs in config: {bool(notif)}",
     ]
     try:
-        import database
-        import models
+        import core.database as database
+        import core.models as models
         db = next(database.get_db())
         try:
             token_count = db.query(models.PushDevice).count()

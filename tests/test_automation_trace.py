@@ -2,7 +2,7 @@
 
 import pytest
 
-from automation_definitions import (
+from core.automation_definitions import (
     _TraceCollector,
     _trace_begin,
     _trace_current,

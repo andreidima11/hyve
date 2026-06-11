@@ -26,12 +26,6 @@ export {
 } from './automations/blueprints.js';
 
 export {
-    setAutomationEntityPickerTarget,
-    pickAutomationEntity,
-    filterAutomationEntityPicker,
-    setAutomationServicePickerTarget,
-    pickAutomationService,
-    filterAutomationServicePicker,
     loadAutomationEditorHistory,
     switchAutomationEditorMode,
     autoSyncAutomationId,

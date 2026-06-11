@@ -54,13 +54,10 @@ import {
 // Expose sendMessage globally so other modules (e.g. voice input in features.js) can call it
 window.sendMessage = sendMessage;
 import { 
-    saveConfig, restartServer, syncHA, toggleDevice, loadSmarthome,
+    saveConfig, restartServer, syncHA, loadSmarthome,
     toggleSelection, toggleAllAI, loadMemory, filterDevices, changeMemPage, 
-    deleteMemBulk, filterMemory, toggleAllHA, updateHABulkCount, 
-    deleteHABulk, deleteHASingle, saveAliases, toggleAllMem, updateMemBulkCount,
-    filterHAByDomain, filterHABySource, filterHAByArea, toggleHABulkMode,
-    openAliasModal, addAliasInput, closeAliasModal, saveAliasesFromModal, openRowActionsModal, closeRowActionsModal, handleHaRowClick,
-    openAddDevicesModal, closeAddDevicesModal, confirmAddDevices, toggleAvailableDevice, toggleAllAvailableDevices, filterAvailableDevices,
+    deleteMemBulk, filterMemory, toggleAllMem, updateMemBulkCount,
+    openAliasModal, addAliasInput, closeAliasModal, saveAliasesFromModal, closeRowActionsModal, handleHaRowClick,
     resetSmarthomeFilters, copyEntityIdFromRowActions, toggleSmarthomeFilters, toggleSmarthomePicker, selectSmarthomePickerOption,
     setDevicesPage, setDevicesPageSize, sortDevicesBy, controlDeviceEntity, openAliasModalFromDetail, closeEntityDetailModal,
     loadSessionsList, openSession, newChatSession, deleteSession, confirmDeleteSession, cancelDeleteSession, clearSessionContext,
@@ -77,7 +74,7 @@ import {
     autoSyncAutomationId, markAutomationIdManual,
     openBlueprintPicker, closeBlueprintPicker, loadBlueprints, importBlueprintYaml, backToBlueprintList, instantiateCurrentBlueprint, deleteCurrentBlueprint,
     openBlueprintCreator, addBlueprintCreatorInput, removeBlueprintCreatorInput, changeBlueprintCreatorInputType, insertBlueprintCreatorPlaceholder, updateBlueprintCreatorYaml, saveCreatedBlueprint,
-    switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, syncAutomationBuilderFromYaml, loadAutomationEditorHistory, refreshAutomationEntityOptions, updateAutomationStructuredServiceData,
+    switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, loadAutomationEditorHistory, updateAutomationStructuredServiceData,
     loadNotificationPrefs, saveNotificationSettings, selectNotifTransport, selectNotifChannel, testWsNotification, testFcmNotification, testNotification, refreshNotifWsNativeStatus,
     switchMemorySubtab,     checkAddonUpdates, updateAllAddons, updateSingleAddon, closeAddonConfigModal, refreshUpdatesHeaderBadge, checkAddonHealth,
     installAddon, uninstallAddon, toggleAddon, openAddonConfigModal,
@@ -1055,7 +1052,6 @@ window.addEventListener('DOMContentLoaded', () => {
         newChatSession: () => newChatSession(),
         clearSessionContext: () => clearSessionContext(),
     });
-    const debouncedFilterAvailableDevices = debounce(() => filterAvailableDevices(), 200);
     initSmarthomeEventBindings({
         openConfigHub: () => {
             window.location.hash = '#/config';
@@ -1079,15 +1075,6 @@ window.addEventListener('DOMContentLoaded', () => {
         controlDeviceEntity: (source, entityId, action, btn) => controlDeviceEntity(
             _str(source), _str(entityId), _str(action), btn as HTMLElement,
         ),
-        toggleAvailableDevice: (el, entityId) => {
-            const base = el instanceof HTMLElement ? el : null;
-            if (!base) return;
-            const node = (base.closest?.('.add-device-item') as HTMLElement | null) || base;
-            return toggleAvailableDevice(node, _str(entityId));
-        },
-        closeAddDevicesModal: () => closeAddDevicesModal(),
-        toggleAllAvailableDevices: () => toggleAllAvailableDevices(),
-        confirmAddDevices: () => confirmAddDevices(),
         closeEntityDetailModal: () => closeEntityDetailModal(),
         closeDerivedModal: _lazyAction(_loadDerivedModule, 'closeDerivedModal'),
         deleteDerivedFromModal: _lazyAction(_loadDerivedModule, 'deleteDerivedFromModal'),
@@ -1101,7 +1088,6 @@ window.addEventListener('DOMContentLoaded', () => {
         closeAliasModal: () => closeAliasModal(),
         addAliasInput: () => addAliasInput(),
         saveAliasesFromModal: () => saveAliasesFromModal(),
-        filterAvailableDevices: () => debouncedFilterAvailableDevices(),
         filterDerivedCandidates: () => _lazyAction(_loadDerivedModule, 'filterDerivedCandidates')(),
         toggleDerivedInput: (el) => _lazyAction(_loadDerivedModule, 'toggleDerivedInput')(el),
     });

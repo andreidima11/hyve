@@ -5,10 +5,10 @@ import logging
 import uuid
 from typing import Any
 
-import auth
-import database
-import models
-import settings
+import core.auth as auth
+import core.database as database
+import core.models as models
+import core.settings as settings
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -92,7 +92,7 @@ from routers.dashboard.store import (
     _user_default_page_id,
     _write_dashboard_raw,
 )
-from ui_catalog import dashboard_card_catalog
+from core.ui_catalog import dashboard_card_catalog
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 log = logging.getLogger("dashboard")

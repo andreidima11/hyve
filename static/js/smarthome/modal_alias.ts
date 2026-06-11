@@ -77,10 +77,3 @@ export async function saveAliasesFromModal() {
     closeAliasModal();
     dev.renderDeviceCards();
 }
-
-export async function saveAliases(eid: string, val: string) {
-    const aliases = val.split(',').map(s => s.trim()).filter(s => s);
-    await apiCall('/api/integrations/entity/rename', { method: 'POST', body: { entity_id: eid, aliases } });
-    const d = smarthomeDeviceState.integrationEntitiesCache.find(x => x.entity_id === eid);
-    if (d) d.aliases = aliases;
-}

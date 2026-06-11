@@ -9,9 +9,9 @@ from datetime import datetime, timezone
 
 import numpy as np
 
-import storage
-from storage import collection, compute_embeddings
-from logger import log_line
+import core.storage as storage
+from core.storage import collection, compute_embeddings
+from core.logger import log_line
 
 from brain.synapses import (
     append_event,

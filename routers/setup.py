@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-import database
+import core.database as database
 from core.http.limiter import limiter
 from core.setup_service import (
     SetupAlreadyCompleteError,

@@ -30,7 +30,7 @@ def integration_key_for(slug: str) -> str | None:
 def _merge_integration_section(key: str, patch: dict[str, Any]) -> None:
     if not key or not patch:
         return
-    from settings import _load_config_raw, save_config
+    from core.settings import _load_config_raw, save_config
 
     current = dict(_load_config_raw().get(key) or {})
     current.update(patch)

@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query, WebSocket
 
-import auth
-import database
-import models
+import core.auth as auth
+import core.database as database
+import core.models as models
 from core.live_entity_hub import LiveEntityWsHub, diff_snapshot, entity_signature
 from core.ws_live_session import run_entity_live_ws
 from routers.dashboard import _available_entities

@@ -20,8 +20,8 @@ from typing import Any
 
 from sqlalchemy import text
 
-import database
-from logger import log_line
+import core.database as database
+from core.logger import log_line
 
 _POLL_INTERVAL_SEC = 30.0      # how often the recorder samples
 _MIN_INTERVAL_SEC = 120.0      # always force a sample after this gap

@@ -3,10 +3,10 @@ from __future__ import annotations
 import os
 from datetime import datetime
 
-import database
-import models
-import settings
-from logger import log_detail, log_line
+import core.database as database
+import core.models as models
+import core.settings as settings
+from core.logger import log_detail, log_line
 
 
 def _numeric_user_id(user_id: str) -> int | None:

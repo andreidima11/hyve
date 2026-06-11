@@ -8,8 +8,8 @@ import threading
 import time
 from typing import Any, Dict, List, Optional
 
-import settings as settings_mod
-from logger import log_line
+import core.settings as settings_mod
+from core.logger import log_line
 
 
 _SHELL_LOCK = threading.Lock()

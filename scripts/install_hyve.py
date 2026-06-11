@@ -126,7 +126,7 @@ def ensure_env_file() -> None:
 
 def ensure_config_file(port: int) -> None:
     print_step("Preparing config.json")
-    run([str(VENV_PYTHON), "-c", "import settings; settings.load_config()"])
+    run([str(VENV_PYTHON), "-c", "import core.settings as settings; settings.load_config()"])
     data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
     if int(data.get("port") or DEFAULT_PORT) != port:
         data["port"] = port

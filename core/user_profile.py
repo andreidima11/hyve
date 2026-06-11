@@ -38,8 +38,8 @@ def load_user_profile_context(user_id: str) -> dict[str, str] | None:
     if not uid or uid.startswith("web_"):
         return None
     try:
-        import database
-        import models
+        import core.database as database
+        import core.models as models
 
         db = database.SessionLocal()
         try:

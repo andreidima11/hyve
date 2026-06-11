@@ -94,7 +94,7 @@ def _read_meta() -> dict[str, Any]:
 def _migrate_from_config() -> dict[str, Any] | None:
     """Pull dashboard data out of config.json (one-time) into files."""
     try:
-        import settings
+        import core.settings as settings
 
         cfg = settings.reload_config()
     except Exception as exc:  # pragma: no cover

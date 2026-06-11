@@ -15,12 +15,12 @@ import httpx
 import yaml
 from fastapi import HTTPException
 
-import automation_definitions
-import database
-import models
-import settings as settings_mod
-from logger import log_line, log_detail
-from memory_context import get_memory_context
+import core.automation_definitions as automation_definitions
+import core.database as database
+import core.models as models
+import core.settings as settings_mod
+from core.logger import log_line, log_detail
+from brain.memory_context import get_memory_context
 from brain.injection_guard import sanitize_untrusted_content
 from brain.tool_shell import (
     exec_allow_shell,

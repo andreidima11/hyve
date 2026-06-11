@@ -16,7 +16,7 @@ import unicodedata
 import json
 from typing import Any, Dict, List, Tuple
 
-from logger import log_line
+from core.logger import log_line
 
 
 _DEFAULT_UNTRUSTED_CONTENT_TEMPLATE = (
@@ -236,7 +236,7 @@ def sanitize_untrusted_content(text: str, source_label: str) -> str:
     block_score = 8
     truncate_chars = 1200
     try:
-        import settings as settings_mod
+        import core.settings as settings_mod
         sec = settings_mod.CFG.get("security") or {}
         template = (
             sec.get("anti_injection_prompt_template")

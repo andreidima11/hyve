@@ -9,10 +9,10 @@ import bcrypt as _bcrypt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-import assist_keys
-import models, database
-import settings
-from env_bootstrap import ensure_env_loaded
+import core.assist_keys as assist_keys
+import core.models as models, core.database as database
+import core.settings as settings
+from core.env_bootstrap import ensure_env_loaded
 
 ensure_env_loaded()
 

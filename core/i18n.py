@@ -11,7 +11,7 @@ _cache: dict[str, dict[str, Any]] = {}
 
 
 def ui_lang_code() -> str:
-    import settings as settings_mod
+    import core.settings as settings_mod
 
     lang = ((settings_mod.CFG or {}).get("ui") or {}).get("language", "en")
     return "ro" if str(lang).strip().lower() == "ro" else "en"

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import patch
 
-import settings
+import core.settings as settings
 from brain.tool_shell import exec_allow_shell, exec_run_shell, is_run_script_enabled, is_shell_enabled
 
 

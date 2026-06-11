@@ -8,8 +8,8 @@ import re
 import unicodedata
 from typing import Any
 
-import database
-import models
+import core.database as database
+import core.models as models
 
 log = logging.getLogger("integrations.scenes")
 

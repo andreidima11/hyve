@@ -23,11 +23,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-import auth
+import core.auth as auth
 from core.http.errors import error_detail
-import database
-import models
-import area_resolver
+import core.database as database
+import core.models as models
+import core.area_resolver as area_resolver
 
 router = APIRouter(prefix="/api/areas", tags=["areas"])
 

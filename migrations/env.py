@@ -14,12 +14,12 @@ _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from env_bootstrap import ensure_env_loaded
+from core.env_bootstrap import ensure_env_loaded
 
 ensure_env_loaded()
 
-import models  # noqa: F401 — register all ORM tables on Base.metadata
-from database import Base, SQLALCHEMY_DATABASE_URL
+import core.models as models  # noqa: F401 — register all ORM tables on Base.metadata
+from core.database import Base, SQLALCHEMY_DATABASE_URL
 
 config = context.config
 

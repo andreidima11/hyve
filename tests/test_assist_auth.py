@@ -9,9 +9,9 @@ import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-import auth
-import assist_keys
-import settings
+import core.auth as auth
+import core.assist_keys as assist_keys
+import core.settings as settings
 
 
 def _request(headers: dict[str, str] | None = None, client_host: str = "127.0.0.1") -> Request:

@@ -552,7 +552,7 @@ def reconcile_addon_state() -> int:
 
     Runs after ``migrate_from_config_json`` and never downgrades ``installed``.
     """
-    import settings as settings_mod
+    import core.settings as settings_mod
 
     raw = settings_mod._load_config_raw()
     repaired = 0

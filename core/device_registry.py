@@ -16,7 +16,7 @@ from typing import Any
 
 from sqlalchemy import text
 
-import database
+import core.database as database
 from integrations.device_aliases import canonical_device_id
 
 log = logging.getLogger("device_registry")

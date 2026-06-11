@@ -9,12 +9,12 @@ import httpx
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import StreamingResponse, JSONResponse
 
-import settings
-import assist_keys
-import memory_context
+import core.settings as settings
+import core.assist_keys as assist_keys
+import brain.memory_context as memory_context
 import brain
 from core.http.errors import error_detail
-from logger import log_conversation_start
+from core.logger import log_conversation_start
 
 # Under /ollama for when user sets base URL to http://bridge:8082/ollama
 router = APIRouter(prefix="/ollama", tags=["ollama"])
@@ -119,8 +119,8 @@ async def chat_handle(
     allow_anonymous: bool = False,
 ):
     """Ollama-format chat: body has model, messages[, stream]. Proxies to LLM and optionally injects memories. Call this with pre-parsed body (e.g. from main dispatch)."""
-    import auth as auth_mod
-    import database
+    import core.auth as auth_mod
+    import core.database as database
 
     messages = body.get("messages")
     if not messages or not isinstance(messages, list):
@@ -194,7 +194,7 @@ async def chat_handle(
                     "done": True,
                     "done_reason": "stop",
                 }) + "\n"
-                from task_utils import create_tracked_task
+                from core.task_utils import create_tracked_task
                 create_tracked_task(brain.process_memory_pipeline(user_msg, bridge_user_id, brain.strip_think(full_content)), name="memory_pipeline_ollama")
             except Exception as e:
                 err_msg = str(e)[:200]
@@ -277,7 +277,7 @@ async def chat_handle(
                                     last_user_msg = m.get("content") or ""
                                     break
                             full_text = "".join(full_content)
-                            from task_utils import create_tracked_task
+                            from core.task_utils import create_tracked_task
                             create_tracked_task(brain_mod.process_memory_pipeline(last_user_msg, bridge_user_id, brain_mod.strip_think(full_text)), name="memory_pipeline_ollama_proxy")
                         except Exception:
                             pass
@@ -334,7 +334,7 @@ async def chat_handle(
                 if (m.get("role") or "").lower() == "user":
                     last_user_msg = m.get("content") or ""
                     break
-            from task_utils import create_tracked_task
+            from core.task_utils import create_tracked_task
             create_tracked_task(brain_mod.process_memory_pipeline(last_user_msg, bridge_user_id, brain_mod.strip_think(content)), name="memory_pipeline_ollama_nostream")
         except Exception:
             pass

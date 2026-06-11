@@ -142,7 +142,7 @@ def get_time_ms() -> str:
 def _is_verbose() -> bool:
     """Citește verbose_logging din config (lazy import ca să evite circular import)."""
     try:
-        import settings as _s
+        import core.settings as _s
         return bool(_s.CFG.get("verbose_logging"))
     except Exception:
         return False

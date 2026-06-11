@@ -12,11 +12,11 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-import auth
+import core.auth as auth
 import brain
-import database
-import models
-import settings
+import core.database as database
+import core.models as models
+import core.settings as settings
 from core.http.errors import error_detail
 from core.http.limiter import limiter
 from core.log_stream import log_conversation_reply, log_conversation_start, log_line
@@ -166,7 +166,7 @@ async def waha_hook(request: Request, background_tasks: BackgroundTasks, db: Ses
             whatsapp_context_store[chat_id] = history[-10:]
         log_conversation_reply(ai_text, profile_name=settings.get_active_profile_name())
         try:
-            from task_utils import create_tracked_task
+            from core.task_utils import create_tracked_task
             create_tracked_task(brain.process_memory_pipeline(user_msg or user_content_for_history, unified_user_id, clean_ai_text, history), name="memory_pipeline_wa")
         except Exception:
             # Fallback: schedule via background tasks if create_task fails

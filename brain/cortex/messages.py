@@ -8,8 +8,8 @@ import re
 from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
-import settings as settings_mod
-from logger import log_line
+import core.settings as settings_mod
+from core.logger import log_line
 from brain.injection_guard import sanitize_untrusted_content
 from brain.cortex.thinking import RE_HA_CALL_LOG, strip_think
 

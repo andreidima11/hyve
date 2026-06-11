@@ -1,33 +1,5 @@
             <div id="view-smarthome" class="h-full hidden overflow-y-auto animate-up hy-page">
                 <div class="hy-page-inner"></div>
-                <!-- Add Devices Modal -->
-                <div id="add-devices-modal" class="modal-overlay app-modal fixed inset-0 z-50 hidden items-center justify-center p-2 sm:p-4">
-                    <div class="glass app-modal-panel max-w-2xl">
-                        <div class="app-modal-header">
-                            <h3 class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
-                                <i class="fas fa-plus-circle"></i>
-                                <span data-i18n="hy.add_devices_title">Adaugă dispozitive</span>
-                            </h3>
-                            <button data-smarthome-action="closeAddDevicesModal" class="app-modal-close touch-manipulation" aria-label="Close"><i class="fas fa-xmark"></i></button>
-                        </div>
-                        <div class="px-6 pb-2 flex items-center gap-3">
-                            <i class="fas fa-magnifying-glass text-slate-500 text-xs"></i>
-                            <input type="text" id="add-devices-search" data-smarthome-input="filterAvailableDevices" class="bg-transparent border-none focus:ring-0 text-sm text-white placeholder-slate-600 flex-1" placeholder="Search available entities...">
-                            <button data-smarthome-action="toggleAllAvailableDevices" class="text-[10px] font-bold text-accent hover:text-accent-hover uppercase tracking-widest transition-all" data-i18n="hy.select_all">Select all</button>
-                        </div>
-                        <div id="add-devices-list" class="app-modal-body !pt-3 !pb-3 space-y-1.5">
-                            <div class="text-center text-slate-500 text-sm py-8" data-i18n="hy.loading_available">Loading available entities...</div>
-                        </div>
-                        <div class="app-modal-footer items-center justify-between">
-                            <span class="text-xs text-slate-500" id="add-devices-count">0 selected</span>
-                            <div class="flex gap-3">
-                                <button data-smarthome-action="closeAddDevicesModal" class="px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:bg-white/5 transition-colors" data-i18n="hy.cancel">Cancel</button>
-                                <button data-smarthome-action="confirmAddDevices" class="px-4 py-2 rounded-xl text-sm font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n="hy.add_selected">Add Selected</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Integration Device / Entity Detail Modal -->
                 <div id="entity-detail-modal" class="modal-overlay app-modal fixed inset-0 z-[55] hidden items-center justify-center p-2 sm:p-4" data-smarthome-action="closeEntityDetailModal" data-smarthome-backdrop-dismiss="true">
                     <div class="glass app-modal-panel max-w-lg w-full max-h-[78vh] flex flex-col" data-smarthome-stop-propagation="true">

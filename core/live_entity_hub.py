@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Protocol
 
 from fastapi import WebSocket
-from logger import log_line
+from core.logger import log_line
 
 
 def entity_signature(item: dict[str, Any]) -> dict[str, Any]:

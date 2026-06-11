@@ -22,8 +22,8 @@ from fastapi import HTTPException, Request, Response, WebSocket, WebSocketDiscon
 from fastapi.responses import RedirectResponse, StreamingResponse
 from starlette.background import BackgroundTask
 
-import auth
-import models
+import core.auth as auth
+import core.models as models
 from addons import registry
 
 log = logging.getLogger("addons.ingress")

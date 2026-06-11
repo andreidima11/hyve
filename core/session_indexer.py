@@ -9,7 +9,7 @@ import re
 import time
 import logging
 
-from storage import get_collection
+from core.storage import get_collection
 
 _log = logging.getLogger("session_indexer")
 

@@ -2,8 +2,8 @@ import asyncio
 from typing import Any, Callable, List, Optional
 
 import brain
-import settings
-import storage
+import core.settings as settings
+import core.storage as storage
 
 
 class PostResponseManager:
@@ -96,7 +96,7 @@ class PostResponseManager:
         async with self._lock:
             while self._workers_count < target_workers:
                 self._workers_count += 1
-                from task_utils import create_tracked_task
+                from core.task_utils import create_tracked_task
 
                 create_tracked_task(self._worker(), name="post_response_worker")
 
@@ -110,6 +110,6 @@ class PostResponseManager:
         skip_memory_pipeline: bool = False,
     ):
         self._get_queue().put_nowait((user_id, user_msg, full_response, session_id, history, skip_memory_pipeline))
-        from task_utils import create_tracked_task
+        from core.task_utils import create_tracked_task
 
         create_tracked_task(self._maybe_spawn_workers(), name="post_response_spawn")

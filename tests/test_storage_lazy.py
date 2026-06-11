@@ -2,7 +2,7 @@
 
 
 def test_lazy_collection_proxy_delegates(monkeypatch):
-    import storage
+    import core.storage as storage
 
     calls = []
 
@@ -20,7 +20,7 @@ def test_lazy_collection_proxy_delegates(monkeypatch):
 
 
 def test_get_collection_cached(monkeypatch):
-    import storage
+    import core.storage as storage
 
     storage._collection = None
     created = []

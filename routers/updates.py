@@ -24,8 +24,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-import auth
-import models
+import core.auth as auth
+import core.models as models
 from addons import registry
 
 log = logging.getLogger(__name__)
@@ -196,7 +196,7 @@ async def update_addons(body: _UpdateBody, _: models.User = Depends(_require_adm
 
 def _notify_addon_updates(updates: list[dict]):
     """Create a notification for all admin users about available add-on updates."""
-    import database
+    import core.database as database
     from core import notification_service
 
     count = len(updates)
@@ -245,7 +245,7 @@ def _scheduled_addon_check():
     log.info("Scheduled add-on check: %d add-on(s) with updates.", len(updates))
     _notify_addon_updates(updates)
 
-    import settings
+    import core.settings as settings
     auto = settings.CFG.get("updates", {}).get("addons", {}).get("auto_update", False)
     if auto:
         for u in updates:
@@ -260,8 +260,8 @@ def _scheduled_addon_check():
 
 def schedule_addon_check():
     """Register or remove the APScheduler cron job based on config."""
-    import settings
-    from scheduler_service import scheduler
+    import core.settings as settings
+    from core.scheduler_service import scheduler
 
     interval = settings.CFG.get("updates", {}).get("addons", {}).get("check_interval", "never")
 

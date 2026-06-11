@@ -26,9 +26,9 @@ from typing import Optional, Tuple
 
 import httpx
 
-import settings as settings_mod
-from llm_client import get_llm_client
-from logger import log_line
+import core.settings as settings_mod
+from brain.llm_client import get_llm_client
+from core.logger import log_line
 
 # Router response categories
 INTENT_DEVICE_CONTROL = "device_control"

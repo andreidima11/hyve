@@ -5,7 +5,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from direct_commands import _parse_regex_multi
+from brain.direct_commands import _parse_regex_multi
 
 tests = [
     # Simple direct commands

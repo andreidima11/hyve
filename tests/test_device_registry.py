@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy import text
 
-import database
+import core.database as database
 from core import device_registry, entity_registry
 from core.http.startup_migrations import run_startup_migrations
 from integrations import device_aliases

@@ -10,11 +10,11 @@ from typing import Any
 
 import httpx
 
-import database
-import models
-import push_fcm
-import settings
-from logger import log_detail, log_line
+import core.database as database
+import core.models as models
+import core.push_fcm as push_fcm
+import core.settings as settings
+from core.logger import log_detail, log_line
 
 
 def numeric_user_id(user_id: str | int | None) -> int | None:
@@ -365,7 +365,7 @@ def _emit_event(user_id: str, event: str, payload: dict) -> bool:
         except RuntimeError:
             loop = None
         if loop and loop.is_running():
-            from task_utils import create_tracked_task
+            from core.task_utils import create_tracked_task
             create_tracked_task(_send(), name="notification_ws_send")
             return True
         try:

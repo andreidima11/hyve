@@ -2,7 +2,7 @@
 
 import textwrap
 
-import automation_definitions as ad
+import core.automation_definitions as ad
 
 
 def _normalize(yaml_text: str) -> dict:

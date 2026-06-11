@@ -7,11 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-import auth
-import database
-import models
+import core.auth as auth
+import core.database as database
+import core.models as models
 from core.http.errors import error_detail
-import push_fcm
+import core.push_fcm as push_fcm
 
 
 router = APIRouter(tags=["notifications-push"])

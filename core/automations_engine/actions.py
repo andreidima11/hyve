@@ -20,12 +20,12 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-import database
-import models
-import scheduler_service
-import settings
+import core.database as database
+import core.models as models
+import core.scheduler_service as scheduler_service
+import core.settings as settings
 import skills
-from logger import log_detail, log_line
+from core.logger import log_detail, log_line
 
 from core.automations_engine.runtime import _remove_runtime_jobs
 from core.automations_engine.trace import (

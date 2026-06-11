@@ -51,7 +51,7 @@ async def apply_instance_sync_schedule(store, inst, *, restart_loop: bool = Fals
     """Persist scan_interval from the entry config and optionally restart its loop."""
     if inst is None or not inst.supports_sync:
         return None
-    import settings
+    import core.settings as settings
 
     key = register_instance_fetcher(store, inst)
     interval = inst.sync_interval(settings.CFG)

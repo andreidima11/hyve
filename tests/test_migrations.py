@@ -4,8 +4,8 @@ import os
 
 from sqlalchemy import text
 
-import database
-import models
+import core.database as database
+import core.models as models
 from core.http.startup_migrations import run_startup_migrations
 
 

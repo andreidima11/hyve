@@ -5,9 +5,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-import auth
-import database
-import models
+import core.auth as auth
+import core.database as database
+import core.models as models
 from core.http.errors import error_detail
 from core.http.limiter import limiter
 from core.log_stream import log_line

@@ -2,7 +2,7 @@
 
 Self-hosted smart home hub with an integrated AI assistant. One FastAPI process serves the web UI, device integrations, automations, dashboards, and chat — with a built-in LLM agent for control, memory, and skills.
 
-**Current version:** v0.8.18
+**Current version:** 0.8.19
 
 ## Features
 
@@ -193,7 +193,7 @@ Build the native wrapper from `android/HyveBridge/` with Android Studio. Point t
 python scripts/bump_version.py 0.7.2
 ```
 
-Updates `settings.py`, `package.json`, Android `versionName`, and this README version line.
+Updates `core/settings.py`, `package.json`, Android `versionName`, and this README version line.
 
 ## Security notes
 

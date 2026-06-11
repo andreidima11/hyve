@@ -6,9 +6,9 @@ import importlib
 import os
 import sys
 
-import automation_definitions
-import database
-import models
+import core.automation_definitions as automation_definitions
+import core.database as database
+import core.models as models
 from sqlalchemy import text
 from core.log_stream import log_line
 

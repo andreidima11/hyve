@@ -14,7 +14,7 @@ High-level map of how the application is structured today and where it is headin
 └──────────────────────────┬──────────────────────────────────┘
                            │ HTTPS / WSS
 ┌──────────────────────────▼──────────────────────────────────┐
-│  FastAPI (core/http/app.py → routers/*; main.py entrypoint) │
+│  FastAPI (core/http/app.py → routers/*; main.py only in repo root) │
 │  auth · integrations · dashboard · cameras · automations    │
 └──────────┬─────────────────────────────┬────────────────────┘
            │                             │

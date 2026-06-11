@@ -1,21 +1,48 @@
 #!/usr/bin/env python3
-"""Split static/js/smarthome/modals.ts into alias, detail, and add-devices modules."""
+"""Split smarthome modals into alias + detail modules (from git features_smarthome source)."""
 from __future__ import annotations
 
+import re
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "static/js/smarthome"
-src = OUT / "modals.ts"
-if src.stat().st_size < 2000:
-    raise SystemExit("Run split_features_smarthome.py + split_smarthome_devices.py first")
-
-lines = src.read_text().splitlines(keepends=True)
-HEADER = "".join(lines[0:13])
+ORIG = subprocess.check_output(
+    ["git", "show", "HEAD:static/js/features_smarthome.ts"],
+    cwd=ROOT,
+    text=True,
+)
+lines = ORIG.splitlines(keepends=True)
 
 
 def chunk(s: int, e: int) -> str:
     return "".join(lines[s - 1 : e])
+
+
+def rep(text: str) -> str:
+    for old, new in [
+        ("_integrationEntitiesCache", "smarthomeDeviceState.integrationEntitiesCache"),
+        ("_devicesVisibleEntityCache", "smarthomeDeviceState.devicesVisibleEntityCache"),
+        ("_deviceControlPending", "smarthomeDeviceState.deviceControlPending"),
+        ("_deviceOptimisticGuards", "smarthomeDeviceState.deviceOptimisticGuards"),
+        ("_haAliasModalEntityId", "smarthomeModalState.haAliasModalEntityId"),
+        ("_haAliasModalOriginalParent", "smarthomeModalState.haAliasModalOriginalParent"),
+        ("_haRowActionsEntityId", "smarthomeModalState.haRowActionsEntityId"),
+    ]:
+        text = re.sub(rf"\b{re.escape(old)}\b", new, text)
+    for name in sorted(
+        [
+            "loadSmarthome", "renderDeviceCards", "DEVICE_OPTIMISTIC_GUARD_MS",
+            "DOMAIN_ICONS", "DOMAIN_COLORS", "SOURCE_ICONS", "_entityDomain", "_norm",
+            "_iconClass", "_domainLabel", "_optimisticStateForAction", "_markDeviceControlPending",
+            "_errMsg", "_isActiveState",
+        ],
+        key=len,
+        reverse=True,
+    ):
+        text = re.sub(rf"\b{re.escape(name)}\b", f"dev.{name}", text)
+    return text
 
 
 ALIAS = (
@@ -28,8 +55,8 @@ import * as dev from './devices.js';
 import { smarthomeDeviceState, smarthomeModalState } from './device_state.js';
 
 """
-    + chunk(15, 73)
-    + chunk(355, 373)
+    + rep(chunk(1195, 1267))
+    + rep(chunk(1555, 1566))
 )
 
 DETAIL = (
@@ -49,22 +76,8 @@ import { smarthomeDeviceState, smarthomeModalState } from './device_state.js';
 import { openAliasModal, closeAliasModal } from './modal_alias.js';
 
 """
-    + chunk(76, 331)
-    + chunk(333, 353)
-)
-
-ADD_DEVICES = (
-    """/**
- * Smart home — legacy add-devices picker modal.
- */
-import { apiCall } from '../api.js';
-import { t } from '../lang/index.js';
-import { escapeHtml, escapeHtmlAttr } from '../utils.js';
-import * as dev from './devices.js';
-import { smarthomeModalState } from './device_state.js';
-
-"""
-    + chunk(377, 451)
+    + rep(chunk(1276, 1531))
+    + rep(chunk(1533, 1553))
 )
 
 FACADE = """/**
@@ -75,7 +88,6 @@ export {
     addAliasInput,
     closeAliasModal,
     saveAliasesFromModal,
-    saveAliases,
 } from './modal_alias.js';
 
 export {
@@ -86,24 +98,18 @@ export {
     closeEntityDetailModal,
     closeRowActionsModal,
 } from './modal_detail.js';
-
-export {
-    openAddDevicesModal,
-    closeAddDevicesModal,
-    toggleAvailableDevice,
-    toggleAllAvailableDevices,
-    filterAvailableDevices,
-    confirmAddDevices,
-} from './modal_add_devices.js';
 """
 
 
 def main() -> None:
     (OUT / "modal_alias.ts").write_text(ALIAS)
     (OUT / "modal_detail.ts").write_text(DETAIL)
-    (OUT / "modal_add_devices.ts").write_text(ADD_DEVICES)
     (OUT / "modals.ts").write_text(FACADE)
-    for name in ("modal_alias", "modal_detail", "modal_add_devices", "modals"):
+    for stale in ("modal_add_devices.ts", "modal_add_devices.js"):
+        p = OUT / stale
+        if p.exists():
+            p.unlink()
+    for name in ("modal_alias", "modal_detail", "modals"):
         print(f"{name}.ts: {len((OUT / f'{name}.ts').read_text().splitlines())} lines")
 
 

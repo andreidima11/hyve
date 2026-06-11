@@ -2,8 +2,8 @@ import os
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-import settings as settings_mod
-from logger import log_line
+import core.settings as settings_mod
+from core.logger import log_line
 
 
 _FILE_READ_RATE: Dict[str, List[float]] = {}

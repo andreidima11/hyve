@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, patch
 
-from direct_commands import (
+from brain.direct_commands import (
     _parse_regex_multi,
     try_regex_command,
     try_semantic_commands,

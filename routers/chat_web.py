@@ -13,12 +13,12 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-import auth
+import core.auth as auth
 import brain
-import database
-import models
-import settings
-import storage
+import core.database as database
+import core.models as models
+import core.settings as settings
+import core.storage as storage
 from core.auto_router_stats import record_auto_router_usage
 from core.chat_helpers import (
     build_llm_override,
@@ -249,7 +249,7 @@ async def chat_web_impl(request: Request, req: ChatRequest, background_tasks: Ba
         direct_reply = None
         if not req.image and not (req.document_text or "").strip() and effective_message:
             try:
-                from direct_commands import try_scene_command, try_regex_command
+                from brain.direct_commands import try_scene_command, try_regex_command
 
                 direct_reply = await try_scene_command(effective_message, user_id)
                 if direct_reply is None and len(effective_message) <= 250:
@@ -261,7 +261,7 @@ async def chat_web_impl(request: Request, req: ChatRequest, background_tasks: Ba
         routed_intent = None
         if direct_reply is None and effective_message:
             try:
-                from intent_router import classify_intent, INTENT_DEVICE_CONTROL
+                from brain.intent_router import classify_intent, INTENT_DEVICE_CONTROL
                 routed_intent, router_ms = await classify_intent(
                     effective_message,
                     has_image=bool(req.image),
@@ -273,7 +273,7 @@ async def chat_web_impl(request: Request, req: ChatRequest, background_tasks: Ba
         # ── TIER 2: Semantic extraction (only if device_control) ─────
         if direct_reply is None and routed_intent == "device_control":
             try:
-                from direct_commands import try_semantic_commands
+                from brain.direct_commands import try_semantic_commands
                 direct_reply = await try_semantic_commands(effective_message, user_id)
             except Exception as e:
                 log_line("error", "⚠️", "SEMANTIC_CMD", str(e))
@@ -283,14 +283,14 @@ async def chat_web_impl(request: Request, req: ChatRequest, background_tasks: Ba
         if direct_reply is None and routed_intent == "compound":
             # Try Tier 1 (regex) on the full message — it can extract device parts
             try:
-                from direct_commands import try_regex_command
+                from brain.direct_commands import try_regex_command
                 compound_ha_reply = await try_regex_command(effective_message, user_id)
             except Exception:
                 pass
             # If regex didn't find anything, try Tier 2 (semantic)
             if not compound_ha_reply:
                 try:
-                    from direct_commands import try_semantic_commands
+                    from brain.direct_commands import try_semantic_commands
                     compound_ha_reply = await try_semantic_commands(effective_message, user_id)
                 except Exception:
                     pass

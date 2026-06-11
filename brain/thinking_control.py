@@ -34,7 +34,7 @@ def should_suppress_thinking(model_name: str, tool_intent: str, user_msg: str = 
     if tool_intent == "memory":
         return True
     if tool_intent == "simple_chat":
-        from intent_router import is_casual_message
+        from brain.intent_router import is_casual_message
         return is_casual_message(user_msg)
     return False
 

@@ -6,7 +6,7 @@ import time
 
 from sqlalchemy import text
 
-import database
+import core.database as database
 from core import entity_history
 from core.http.startup_migrations import run_startup_migrations
 

@@ -7,7 +7,7 @@ scheduler — pure validator coverage.
 
 import pytest
 
-from automation_definitions import _validate_action, AutomationValidationError
+from core.automation_definitions import _validate_action, AutomationValidationError
 
 
 # --------------------------------------------------------------------------- #

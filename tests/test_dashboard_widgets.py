@@ -899,7 +899,7 @@ def test_add_dashboard_widget_post_assigns_id(monkeypatch):
     """POST /api/dashboard/widgets must not 500 (uuid import regression)."""
     from unittest.mock import MagicMock
 
-    import auth
+    import core.auth as auth
     from core.http.app import create_app
     from fastapi.testclient import TestClient
 

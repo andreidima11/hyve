@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
-from logger import log_line
+from core.logger import log_line
 from brain.tool_shell import (
     exec_allow_shell,
     exec_run_script,

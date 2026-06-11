@@ -3,9 +3,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import auth
-import database
-import models
+import core.auth as auth
+import core.database as database
+import core.models as models
 from core.http.errors import error_detail
 from fastapi import Depends, Header, HTTPException, Query, status
 from fastapi.responses import Response

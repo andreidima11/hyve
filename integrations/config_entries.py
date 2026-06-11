@@ -292,7 +292,7 @@ def migrate_from_cfg(cfg: dict[str, Any], known_slugs: Iterable[str]) -> int:
     if dirty:
         import logging
 
-        import settings as _settings_mod
+        import core.settings as _settings_mod
 
         try:
             _settings_mod.save_config(cfg)

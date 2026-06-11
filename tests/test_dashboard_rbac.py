@@ -3,7 +3,7 @@ import asyncio
 import pytest
 from fastapi import HTTPException
 
-import auth
+import core.auth as auth
 
 
 class _NonAdminUser:

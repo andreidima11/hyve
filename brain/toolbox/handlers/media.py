@@ -15,12 +15,12 @@ import httpx
 import yaml
 from fastapi import HTTPException
 
-import automation_definitions
-import database
-import models
-import settings as settings_mod
-from logger import log_line, log_detail
-from memory_context import get_memory_context
+import core.automation_definitions as automation_definitions
+import core.database as database
+import core.models as models
+import core.settings as settings_mod
+from core.logger import log_line, log_detail
+from brain.memory_context import get_memory_context
 from brain.injection_guard import sanitize_untrusted_content
 from brain.tool_shell import (
     exec_allow_shell,
@@ -77,7 +77,7 @@ async def _exec_cctv_describe(arguments: Dict[str, Any]) -> str:
     if not rtsp_url:
         return f"Error: Camera '{cam.get('name') or cam.get('id')}' has no RTSP URL configured."
     try:
-        import cctv_capture
+        import core.cctv_capture as cctv_capture
         loop = asyncio.get_event_loop()
         frame_bytes = await loop.run_in_executor(None, cctv_capture.get_rtsp_frame, rtsp_url)
     except Exception as e:
@@ -119,7 +119,7 @@ async def _exec_cctv_describe(arguments: Dict[str, Any]) -> str:
 
 async def _exec_generate_image(arguments: Dict[str, Any]) -> str:
     """Generate an image using ComfyUI and return a markdown image link."""
-    import comfyui
+    import integrations.shims.comfyui as comfyui
 
     prompt_text = (arguments.get("prompt") or "").strip()
     if not prompt_text:

@@ -45,7 +45,7 @@ from typing import Any
 import yaml
 from sqlalchemy.orm import Session
 
-import models
+import core.models as models
 from core.automations_engine.validators import (
     AutomationValidationError,
     _slugify,

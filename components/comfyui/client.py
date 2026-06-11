@@ -24,8 +24,8 @@ import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
-import settings as settings_mod
-from logger import log_line
+import core.settings as settings_mod
+from core.logger import log_line
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

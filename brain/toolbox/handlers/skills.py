@@ -15,12 +15,12 @@ import httpx
 import yaml
 from fastapi import HTTPException
 
-import automation_definitions
-import database
-import models
-import settings as settings_mod
-from logger import log_line, log_detail
-from memory_context import get_memory_context
+import core.automation_definitions as automation_definitions
+import core.database as database
+import core.models as models
+import core.settings as settings_mod
+from core.logger import log_line, log_detail
+from brain.memory_context import get_memory_context
 from brain.injection_guard import sanitize_untrusted_content
 from brain.tool_shell import (
     exec_allow_shell,
@@ -158,7 +158,7 @@ async def _exec_create_skill(args: Dict, status_queue: Optional[Any] = None) -> 
             pass  # queue full; non-critical streaming preview drop
 
     try:
-        import forge as forge_mod
+        import integrations.shims.forge as forge_mod
         ok, msg, _ = await forge_mod.run_forge(
             description, save=True,
             name_hint=name_hint, inputs_hint=inputs_hint, allow_network=allow_network,
@@ -182,7 +182,7 @@ async def _exec_edit_skill(args: Dict) -> str:
     if not skill_name or not instruction:
         return "Error: edit_skill requires skill_name and instruction."
     try:
-        import forge as forge_mod
+        import integrations.shims.forge as forge_mod
         ok, msg = await forge_mod.run_forge_edit(skill_name, instruction)
         if ok:
             try:
@@ -201,7 +201,7 @@ async def _exec_improve_skill(args: Dict) -> str:
     if not skill_name or not error_message:
         return "Error: improve_skill requires skill_name and error_message."
     try:
-        import forge as forge_mod
+        import integrations.shims.forge as forge_mod
         ok, msg = await forge_mod.run_forge_improve(skill_name, error_message)
         if ok:
             try:

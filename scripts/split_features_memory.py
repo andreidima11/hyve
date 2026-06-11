@@ -147,10 +147,6 @@ import * as render from './render.js';
 FACADE = """/**
  * Memory UI facade.
  */
-import { memoryState } from './memory/state.js';
-
-/** @deprecated use memoryState.cache */
-export const memCache = memoryState.cache;
 export { memoryState } from './memory/state.js';
 
 export {

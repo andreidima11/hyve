@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import area_resolver
+import core.area_resolver as area_resolver
 
 from routers.integrations.helpers import (
     all_entities as _all_entities,

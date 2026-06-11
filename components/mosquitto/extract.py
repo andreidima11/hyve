@@ -12,7 +12,7 @@ from typing import Any
 from integrations.component_import import import_sibling
 from integrations.entity_utils import finalize_entities as _finalize
 from integrations.entity_utils import is_state_controllable, slugify
-from smart_home_registry import entity_domain, normalize_entity_record
+from core.smart_home_registry import entity_domain, normalize_entity_record
 
 log = logging.getLogger("integrations.mosquitto")
 
@@ -114,7 +114,7 @@ def extract_mosquitto_candidates(payload: Any) -> list[dict[str, Any]]:
                               x.get("name") or ""))
     # HA-style: rewrite entity_id as ``<domain>.<object_id>`` while keeping
     # the legacy ``mqtt:<slug>`` form as ``unique_id`` for routing.
-    from smart_home_registry import normalize_entity_record
+    from core.smart_home_registry import normalize_entity_record
     for item in items:
         normalize_entity_record(item, default_source="mosquitto")
     return items

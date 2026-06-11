@@ -13,8 +13,8 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException
 
-import models
-from auth import get_current_user
+import core.models as models
+from core.auth import get_current_user
 from core.http.errors import error_detail
 from core.loop_watchdog import dump_all_stacks
 

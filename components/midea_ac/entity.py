@@ -5,7 +5,7 @@ import json
 import logging
 from typing import Any
 
-import database
+import core.database as database
 from pathlib import Path
 from sqlalchemy import text
 from integrations.base import BaseEntity

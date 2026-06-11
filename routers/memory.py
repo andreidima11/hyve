@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import traceback
-import storage
-import settings
-import models
-import auth
+import core.storage as storage
+import core.settings as settings
+import core.models as models
+import core.auth as auth
 
 import brain
 from core.http.errors import error_detail

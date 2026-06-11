@@ -8,9 +8,9 @@ import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
-import settings as settings_mod
-from logger import log_line, log_detail
-from llm_client import get_llm_client
+import core.settings as settings_mod
+from core.logger import log_line, log_detail
+from brain.llm_client import get_llm_client
 from brain.cortex.config import TIMEOUT_LLM
 from brain.cortex.messages import (
     _compute_safe_completion_tokens,

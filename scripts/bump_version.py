@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Sync the app version from settings.RELEASE_VERSION into all satellite files.
+"""Sync the app version from core.settings.RELEASE_VERSION into all satellite files.
 
 Usage:
     # Sync current RELEASE_VERSION to all files:
     python scripts/bump_version.py
 
     # Set a new version and sync:
-    python scripts/bump_version.py v0.2.6-ALPHA
+    python scripts/bump_version.py 0.2.6-ALPHA
 """
 import json
 import re
@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SETTINGS_PY = ROOT / "settings.py"
+SETTINGS_PY = ROOT / "core" / "settings.py"
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -37,14 +37,14 @@ _VERSION_RE = re.compile(r'^(RELEASE_VERSION\s*=\s*")([^"]+)(")', re.MULTILINE)
 def get_current_version() -> str:
     m = _VERSION_RE.search(_read(SETTINGS_PY))
     if not m:
-        raise RuntimeError("Cannot find RELEASE_VERSION in settings.py")
+        raise RuntimeError("Cannot find RELEASE_VERSION in core/settings.py")
     return m.group(2)
 
 def set_settings_version(version: str) -> None:
     text = _read(SETTINGS_PY)
     text, n = _VERSION_RE.subn(rf'\g<1>{version}\3', text)
     if n != 1:
-        raise RuntimeError("Failed to update RELEASE_VERSION in settings.py")
+        raise RuntimeError("Failed to update RELEASE_VERSION in core/settings.py")
     _write(SETTINGS_PY, text)
 
 # ── satellite file updaters ──────────────────────────────────────────────────
@@ -97,7 +97,7 @@ def sync_readme(version: str) -> None:
 # ── main ─────────────────────────────────────────────────────────────────────
 
 SYNCERS = [
-    ("settings.py", set_settings_version),
+    ("core/settings.py", set_settings_version),
     ("config.json", sync_config_json),
     ("package.json", sync_package_json),
     ("package-lock.json", sync_package_lock_json),
@@ -105,11 +105,18 @@ SYNCERS = [
     ("README.md", sync_readme),
 ]
 
+def _normalize_version(version: str) -> str:
+    v = version.strip()
+    if v.lower().startswith("v"):
+        v = v[1:]
+    return v
+
+
 def main() -> None:
     if len(sys.argv) > 1:
-        new_version = sys.argv[1].strip()
+        new_version = _normalize_version(sys.argv[1])
     else:
-        new_version = get_current_version()
+        new_version = _normalize_version(get_current_version())
 
     old_version = get_current_version()
     print(f"Version: {old_version} → {new_version}")

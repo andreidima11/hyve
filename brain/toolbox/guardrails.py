@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import settings as settings_mod
+import core.settings as settings_mod
 from brain.injection_guard import sanitize_untrusted_content
 
 def _is_explicit_skill_request(description: str) -> bool:

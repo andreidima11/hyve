@@ -6,10 +6,10 @@ import asyncio
 
 import httpx
 
-import database
-import scheduler_service
-import settings
-import storage
+import core.database as database
+import core.scheduler_service as scheduler_service
+import core.settings as settings
+import core.storage as storage
 from addons.entity_store import get_entity_store
 from core.log_stream import log_line, print_banner
 
@@ -185,7 +185,7 @@ async def startup_maintenance_tasks() -> None:
         try:
             db = next(database.get_db())
             try:
-                from auth import cleanup_expired_revocations
+                from core.auth import cleanup_expired_revocations
 
                 removed = cleanup_expired_revocations(db)
                 if removed:
@@ -237,7 +237,7 @@ async def shutdown_services(app) -> None:
     if getattr(app.state, "http_client", None) is not None:
         await app.state.http_client.aclose()
     try:
-        from llm_client import close_llm_client
+        from brain.llm_client import close_llm_client
 
         await close_llm_client()
     except Exception as exc:

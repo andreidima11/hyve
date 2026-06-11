@@ -8,9 +8,9 @@ import yaml
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-import auth
-import derived_entities
-import models
+import core.auth as auth
+import core.derived_entities as derived_entities
+import core.models as models
 from core.http.errors import error_detail
 
 log = logging.getLogger("derived")

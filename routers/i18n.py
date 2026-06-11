@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 
-import auth
-import models
+import core.auth as auth
+import core.models as models
 from integrations.component_i18n import get_component_translations
 
 router = APIRouter()

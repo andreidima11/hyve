@@ -1,0 +1,1 @@
+"""Legacy component import shims."""

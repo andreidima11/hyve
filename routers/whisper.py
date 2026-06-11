@@ -14,8 +14,8 @@ from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from pydantic import BaseModel
 
-import settings as settings_mod
-from auth import get_current_user
+import core.settings as settings_mod
+from core.auth import get_current_user
 from core.http.errors import error_detail
 
 router = APIRouter(prefix="/api/whisper", tags=["whisper"])

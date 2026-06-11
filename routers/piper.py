@@ -18,8 +18,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-import settings as settings_mod
-from auth import get_current_user
+import core.settings as settings_mod
+from core.auth import get_current_user
 from core.http.errors import error_detail
 
 log = logging.getLogger("piper")

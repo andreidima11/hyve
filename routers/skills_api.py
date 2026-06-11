@@ -2,10 +2,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 import skills
-import settings
-import models
-import auth
-import forge
+import core.settings as settings
+import core.models as models
+import core.auth as auth
+import integrations.shims.forge as forge
 from core.http.errors import error_detail
 from core.log_stream import log_line
 

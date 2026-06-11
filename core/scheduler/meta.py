@@ -10,7 +10,7 @@ from pathlib import Path
 
 from core.sidecar_migrations import run_sidecar_migrations
 from core.sqlite_sidecar import SidecarPool
-from logger import log_detail
+from core.logger import log_detail
 
 _ROOT = Path(__file__).resolve().parents[2]
 _META_DB_PATH = _ROOT / "scheduler_meta.sqlite"

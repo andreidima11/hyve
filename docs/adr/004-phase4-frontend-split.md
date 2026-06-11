@@ -56,6 +56,10 @@ python3 scripts/regenerate_frontend_splits.py && npm run js:build
 
 `notifications_config/page.ts` stays monolithic (autosave + circular deps).
 
+### Post-split cleanup (0.8.18+)
+
+Removed Home Assistant-era dead code: bulk-select column/mode, add-devices modal, automation entity-picker no-ops, deprecated `memCache` alias, orphan `notifications_config/{persist,ui}.js`.
+
 ## Consequences
 
 - `features.js` shrinks incrementally; cache-bust query param on `app.js` import when splitting.

@@ -5,11 +5,11 @@ from sqlalchemy.orm import Session
 import json
 import re
 
-import assist_keys
-import auth
-import database
-import models
-from logger import log_line
+import core.assist_keys as assist_keys
+import core.auth as auth
+import core.database as database
+import core.models as models
+from core.logger import log_line
 
 router = APIRouter()
 

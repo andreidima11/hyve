@@ -11,9 +11,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
-import auth
-import database
-import models
+import core.auth as auth
+import core.database as database
+import core.models as models
 
 
 def upsert_admin(username: str, password: str, full_name: str, email: str | None) -> str:

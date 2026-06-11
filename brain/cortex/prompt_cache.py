@@ -6,9 +6,9 @@ import os
 from collections import OrderedDict
 from typing import Any, Dict, List, Optional
 
-import settings as settings_mod
+import core.settings as settings_mod
 from integrations import entry_settings
-from logger import log_line
+from core.logger import log_line
 
 _CORTEX_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

@@ -14,8 +14,8 @@ from typing import Any
 
 from sqlalchemy import text
 
-import database
-import settings as settings_mod
+import core.database as database
+import core.settings as settings_mod
 
 log = logging.getLogger("addon_state")
 

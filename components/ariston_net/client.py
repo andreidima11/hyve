@@ -14,7 +14,7 @@ import time
 from datetime import date, datetime
 from typing import Any
 
-import settings as settings_mod
+import core.settings as settings_mod
 
 log = logging.getLogger("ariston_net")
 

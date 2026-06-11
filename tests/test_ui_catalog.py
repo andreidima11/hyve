@@ -2,7 +2,7 @@ import pytest
 
 from integrations import config_entries
 from core import sqlite_sidecar
-from ui_catalog import dashboard_card_catalog, integration_catalog, resolve_dashboard_card
+from core.ui_catalog import dashboard_card_catalog, integration_catalog, resolve_dashboard_card
 
 
 @pytest.fixture()

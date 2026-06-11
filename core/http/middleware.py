@@ -13,8 +13,8 @@ from slowapi.errors import RateLimitExceeded
 
 from core.http.limiter import limiter
 
-import logger
-import settings
+import core.logger as logger
+import core.settings as settings
 from core.log_stream import log_line
 
 

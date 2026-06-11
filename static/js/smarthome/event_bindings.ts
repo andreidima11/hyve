@@ -4,7 +4,7 @@
 
 import type { SmarthomeEventHandlers } from '../types/integration.js';
 
-const _ROOTS = '#view-smarthome, #add-devices-modal, #entity-detail-modal, #derived-modal, #hy-row-actions-modal, #hy-alias-modal';
+const _ROOTS = '#view-smarthome, #entity-detail-modal, #derived-modal, #hy-row-actions-modal, #hy-alias-modal';
 
 let _handlers: SmarthomeEventHandlers | null = null;
 let _bound = false;
@@ -69,9 +69,6 @@ function _run(action: string, el: HTMLElement, event: Event): void {
             event,
         );
         return;
-    case 'toggleAvailableDevice':
-        _handlers.toggleAvailableDevice?.(el, _entityId(el), event);
-        return;
     case 'removeAliasRow':
         el.closest('.flex.gap-2.items-center')?.remove();
         return;
@@ -125,8 +122,7 @@ function _onInput(event: Event): void {
     const el = target.closest('[data-smarthome-input]');
     if (!(el instanceof HTMLElement) || !_inSmarthome(el)) return;
     const kind = el.dataset.smarthomeInput;
-    if (kind === 'filterAvailableDevices') _handlers?.filterAvailableDevices?.(event, el);
-    else if (kind === 'filterDerivedCandidates') _handlers?.filterDerivedCandidates?.(event, el);
+    if (kind === 'filterDerivedCandidates') _handlers?.filterDerivedCandidates?.(event, el);
 }
 
 export function initSmarthomeEventBindings(handlers: SmarthomeEventHandlers = {}): void {

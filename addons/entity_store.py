@@ -8,9 +8,9 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Callable, Dict, Optional
 
-import database
+import core.database as database
 from sqlalchemy import text
-from logger import log_line
+from core.logger import log_line
 
 log = logging.getLogger("integrations.entities")
 
@@ -103,7 +103,7 @@ class IntegrationEntityStore:
         """Verify Alembic created integration entity tables (see migrations/003)."""
         import asyncio
 
-        import database
+        import core.database as database
         from core.db_schema import require_sqlite_tables
 
         await asyncio.to_thread(

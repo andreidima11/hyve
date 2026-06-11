@@ -7,11 +7,11 @@ import logging
 import time as _time
 from typing import Any, Literal
 
-import area_resolver
-import derived_entities
+import core.area_resolver as area_resolver
+import core.derived_entities as derived_entities
 from addons.entity_store import get_entity_store
 from integrations import get_integration_manager
-from smart_home_registry import normalize_entity_record
+from core.smart_home_registry import normalize_entity_record
 
 log = logging.getLogger("entity_catalog")
 

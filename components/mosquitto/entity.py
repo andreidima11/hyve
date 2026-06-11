@@ -91,7 +91,7 @@ class MosquittoEntity(BaseEntity):
 
     async def probe_source(self, cached: dict[str, Any] | None = None) -> dict[str, Any]:
         """Full broker drain — rediscover HA MQTT entities and Z2M devices."""
-        import settings
+        import core.settings as settings
 
         return await _drain_broker(self.config_section(settings.CFG))
 
@@ -230,7 +230,7 @@ class MosquittoEntity(BaseEntity):
         except ImportError as exc:
             raise RuntimeError("aiomqtt nu este instalat.") from exc
 
-        import settings
+        import core.settings as settings
 
         record = self._resolve_control_record(entity_id)
         if not record:
@@ -277,7 +277,7 @@ class MosquittoEntity(BaseEntity):
             import aiomqtt  # noqa: F401
         except ImportError as exc:
             raise RuntimeError("aiomqtt nu este instalat.") from exc
-        import settings as _settings
+        import core.settings as _settings
         from integrations import device_aliases
 
         bridge = _bridge_mod.get_bridge(self.entry_id)

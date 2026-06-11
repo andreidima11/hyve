@@ -4,7 +4,7 @@ import json
 
 from sqlalchemy import text
 
-import database
+import core.database as database
 from addons import state_store
 from core.http.startup_migrations import run_startup_migrations
 
@@ -92,7 +92,7 @@ def test_reconcile_addon_state_from_integration_and_disk(tmp_path, monkeypatch):
         },
     }), encoding="utf-8")
 
-    import settings as settings_mod
+    import core.settings as settings_mod
     from addons import registry
 
     monkeypatch.setattr(settings_mod, "CONFIG_FILE", str(cfg_path))
@@ -135,7 +135,7 @@ def test_reconcile_does_not_downgrade_installed(tmp_path, monkeypatch):
     cfg_path = tmp_path / "config.json"
     cfg_path.write_text("{}", encoding="utf-8")
 
-    import settings as settings_mod
+    import core.settings as settings_mod
     from addons import registry
 
     monkeypatch.setattr(settings_mod, "CONFIG_FILE", str(cfg_path))

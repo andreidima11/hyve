@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 
-import settings
+import core.settings as settings
 
 _HTTP_TIMEOUT = httpx.Timeout(connect=10.0, read=45.0, write=10.0, pool=10.0)
 _HTTP_HEADERS = {"User-Agent": "Hyve/1.0 (open-meteo)"}

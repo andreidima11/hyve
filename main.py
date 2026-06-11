@@ -1,5 +1,5 @@
 # Load .env BEFORE any module that reads environment variables.
-from env_bootstrap import ensure_env_loaded
+from core.env_bootstrap import ensure_env_loaded
 ensure_env_loaded()
 
 import warnings
@@ -16,7 +16,7 @@ import socket
 import sys
 import uvicorn
 
-import settings
+import core.settings as settings
 settings.enforce_runtime_requirements(settings.CFG)
 
 from core.http.app import get_hyve_app

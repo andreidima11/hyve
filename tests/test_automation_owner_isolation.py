@@ -10,9 +10,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi import HTTPException
 
-import database
-import models
-import automation_definitions as ad
+import core.database as database
+import core.models as models
+import core.automation_definitions as ad
 
 
 @pytest.fixture()

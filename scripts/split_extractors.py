@@ -46,7 +46,7 @@ def main() -> None:
     fusion_dest = fusion_src
     text = fusion_src.read_text(encoding="utf-8")
     text = text.replace(
-        "from smart_home_registry import normalize_entity_record\n\n\n"
+        "from core.smart_home_registry import normalize_entity_record\n\n\n"
         "def _slugify(value: str) -> str:\n"
         "    text = re.sub(r\"[^a-z0-9]+\", \"_\", (value or \"\").strip().lower())\n"
         "    return text.strip(\"_\") or \"device\"\n\n\n"

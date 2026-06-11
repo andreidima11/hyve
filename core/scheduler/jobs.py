@@ -10,8 +10,8 @@ import time
 import uuid
 from datetime import datetime, timedelta
 
-import settings as settings_mod
-from logger import log_detail, log_line
+import core.settings as settings_mod
+from core.logger import log_detail, log_line
 
 from core.scheduler.engine import reload_config_if_needed, scheduler, start_scheduler, stop_scheduler, to_naive_local
 from core.scheduler.meta import (
@@ -184,7 +184,7 @@ def _try_send_websocket_notification(user_id, message, notification_id=None, ses
         
         if loop and loop.is_running():
             # We're somehow in the async context — schedule it (can't wait for result)
-            from task_utils import create_tracked_task
+            from core.task_utils import create_tracked_task
             create_tracked_task(send_reminder_via_websocket(str(user_id), message, **_kwargs), name="reminder_ws_send")
             return True  # Optimistic — connection exists
         else:
@@ -210,7 +210,9 @@ def _get_user_notification_prefs(user_id: str) -> dict:
     """Load notification preferences for a user from DB. Returns defaults if not set."""
     defaults = {"app": True, "whatsapp": True}
     try:
-        import database, models, json
+        import json
+        import core.database as database
+        import core.models as models
         db = next(database.get_db())
         try:
             # user_id is "user_N" — extract N
@@ -832,7 +834,7 @@ CONSOLIDATION_JOB_ID = "memory_consolidation"
 def _run_consolidation_job():
     """Wrapper: dedupe + opțional AI prune (LLM decide ce fapte să șteargă)."""
     try:
-        import settings as settings_mod
+        import core.settings as settings_mod
         settings_mod.reload_config()
         cfg = settings_mod.CFG.get("intelligence", {}).get("consolidation", {})
         if not cfg.get("enabled"):
@@ -856,7 +858,7 @@ def _run_consolidation_job():
 def schedule_consolidation_job():
     """Programează consolidarea memoriilor la ora configurată (cron)."""
     try:
-        import settings as settings_mod
+        import core.settings as settings_mod
         settings_mod.reload_config()
         cfg = settings_mod.CFG.get("intelligence", {}).get("consolidation", {})
         if scheduler.get_job(CONSOLIDATION_JOB_ID):

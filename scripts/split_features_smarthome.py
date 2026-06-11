@@ -142,7 +142,6 @@ export { ACTIVE_STATES, CONTROLLABLE } from './smarthome/devices.js';
 export {
     loadSmarthome,
     disconnectSmarthomeLive,
-    toggleHABulkMode,
     setDevicesPage,
     setDevicesPageSize,
     sortDevicesBy,
@@ -155,11 +154,6 @@ export {
     toggleSmarthomeFilters,
     resetSmarthomeFilters,
     copyEntityIdFromRowActions,
-    toggleAllHA,
-    updateHABulkCount,
-    deleteHABulk,
-    deleteHASingle,
-    toggleDevice,
     toggleSelection,
     toggleAllAI,
     syncHA,
@@ -177,13 +171,6 @@ export {
     closeEntityDetailModal,
     closeRowActionsModal,
     saveAliasesFromModal,
-    saveAliases,
-    openAddDevicesModal,
-    closeAddDevicesModal,
-    toggleAvailableDevice,
-    toggleAllAvailableDevices,
-    filterAvailableDevices,
-    confirmAddDevices,
 } from './smarthome/modals.js';
 """
 

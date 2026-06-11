@@ -131,7 +131,7 @@ class FusionSolarEntity(BaseEntity):
         wants_kiosk = mode == "kiosk" or (kiosk_url and mode == "auto" and (not username or not password))
 
         existing = _ENTRY_CLIENTS.get(key)
-        import settings as settings_mod
+        import core.settings as settings_mod
 
         def _finalize(c):
             if hasattr(c, "set_user_sync_interval"):

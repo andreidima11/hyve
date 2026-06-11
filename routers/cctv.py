@@ -3,9 +3,9 @@ CCTV camera management and vision API.
 Handles camera listing and AI-based camera frame description.
 """
 from fastapi import APIRouter, Depends
-import settings
-import models
-import auth
+import core.settings as settings
+import core.models as models
+import core.auth as auth
 
 router = APIRouter(tags=["cctv"])
 

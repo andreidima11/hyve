@@ -22,10 +22,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-import auth
-import database
-import models
-from smart_home_registry import entity_domain, is_controllable_domain
+import core.auth as auth
+import core.database as database
+import core.models as models
+from core.smart_home_registry import entity_domain, is_controllable_domain
 
 router = APIRouter(prefix="/api/scenes", tags=["scenes"])
 
