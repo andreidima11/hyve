@@ -37,6 +37,7 @@ output/
 # App runtime data
 chroma_db/
 sessions/
+!static/js/sessions/
 conferences/
 automations/user_*/
 piper_models/

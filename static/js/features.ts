@@ -119,7 +119,7 @@ export {
 
 export {
     memCache,
-    memPage,
+    memoryState,
     loadMemory,
     loadMemoryEvents,
     memLogPrevPage,

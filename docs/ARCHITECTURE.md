@@ -170,17 +170,12 @@ Add-ons may run processes (MQTT, Zigbee2MQTT); integrations **consume** entities
 
 ### Key files
 
-| File | Lines (approx) | Notes |
-|------|----------------|-------|
-| `features.js` | ~210 (facade) | Re-exports only |
-| `features_smarthome.js` | ~1.6k | Devices list, filters, live WS |
-| `features_automations.js` | ~2.4k | Automation editor, blueprints |
-| `features_memory.js` | ~420 | Memory, log, extraction examples |
-| `features_config.js` | ~2.4k | Settings core, profiles, voice (facade) |
-| `features_integrations_settings.js` | ~2.3k | Integrations catalog, entries, entity browser |
-| `features_notifications_config.js` | ~360 | Notifications tab |
-| `features_addons_settings.js` | ~560 | Settings add-ons + updates hub |
-| `features_custom_selects.js` | ~245 | Custom dropdown / native select upgrade |
+| File | Notes |
+|------|--------|
+| `features.ts` / `features.js` | Top-level facade — re-exports domain modules for `app.js` / `ui.js` |
+| `features_<domain>.ts` | Thin per-domain facade (~5–70 lines each) → `static/js/<domain>/*` |
+| `smarthome/device_core.ts` | Largest submodule (~1.1k) — device list, filters, live WS; state in `device_state.ts` |
+| `automations/*`, `config/*`, `integrations/*`, `apps/*`, … | See [ADR 004](adr/004-phase4-frontend-split.md) for full map |
 | `dashboard.js` + `dashboard/*.js` | ~100 + ~30 modules | Grid facade, wire orchestrator, Hyveview bridge |
 | `chat.js` + `chat/*.js` | ~65 + slices | Streaming UI facade (`streaming.js`, `render.js`, `tts.js`, `slash.js`, `history.js`, …) |
 | `hyveview/*` | — | Preferred new card implementations |

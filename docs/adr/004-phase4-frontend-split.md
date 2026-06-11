@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — Phase 4 complete (`features.js` is a ~210-line facade).
+Accepted — complete. `features.js` / `features.ts` are thin facades; each `features_<domain>.ts` re-exports from `static/js/<domain>/` submodules.
 
 ## Context
 
@@ -16,14 +16,45 @@ Accepted — Phase 4 complete (`features.js` is a ~210-line facade).
 4. Export `getIntegrationEntities()` for cross-module reads (automation entity picker fallback).
 5. New UI code goes into new small files; avoid appending large blocks to `features.js`.
 
-## Planned extractions (order)
+## Extractions
 
-| Module | Scope | Status |
-|--------|--------|--------|
-| `features_smarthome.js` | Device list, filters, live WS, aliases | Done |
-| `features_automations.js` | Automation editor, blueprints | Done |
-| `features_memory.js` | Memory table, log, extraction examples, ambient test | Done |
-| `features_config.js` | Settings, integrations, notifications, addons, voice | Done |
+| Facade | Submodule folder | Scope |
+|--------|------------------|--------|
+| `features_smarthome` | `smarthome/` | Device list, filters, live WS, modals |
+| `features_automations` | `automations/` | Automation editor, blueprints |
+| `features_memory` | `memory/` | Memory table, log, extraction examples |
+| `features_config` | `config/` | Settings core, profiles, voice (+ re-export tabs) |
+| `features_integrations_settings` | `integrations/` | Catalog, config entries, entity browser |
+| `features_notifications_config` | `notifications_config/` | Notifications tab |
+| `features_addons_settings` | `addons_settings/` | Settings add-ons + updates hub |
+| `features_apps` | `apps/` | Apps / addon process lifecycle |
+| `features_derived` | `derived/` | Derived entity modal |
+| `features_scenes` | `scenes/` | Scenes list + editor |
+| `features_areas` | `areas/` | Areas / rooms UI |
+| `features_sessions` | `sessions/` | Chat session sidebar |
+| `features_admin_skills` | `admin_skills/` | Admin users + skills |
+| `features_custom_selects` | `custom_selects/` | Custom dropdown / native `<select>` upgrade |
+
+Regenerate scripts live under `scripts/split_features_*.py` (source of truth: `git show HEAD:static/js/features_<name>.ts` at split time).
+
+### Submodule splits (second pass)
+
+| Domain folder | Files | Script |
+|---------------|-------|--------|
+| `smarthome/` | `device_state.ts`, `device_core.ts`, `devices.ts`; `modal_alias.ts`, `modal_detail.ts`, `modal_add_devices.ts`, `modals.ts` | `split_smarthome_devices.py`, `split_smarthome_modals.py` |
+| `scenes/` | `list.ts`, `editor.ts`, `page.ts` | `split_scenes_page.py` |
+| `areas/` | `list.ts`, `editor.ts`, `page.ts` | `split_areas_page.py` |
+| `memory/` | `log.ts`, `facts.ts`, `page.ts` | `split_memory_page.py` |
+| `apps/` | `state.ts`, `poll.ts`, `logs.ts`, `core.ts`, `lifecycle.ts`, `page.ts` | `split_apps_page.py` |
+| `derived/` | `form.ts`, `modal.ts`, `page.ts` | `split_derived_page.py` |
+
+Run feature scripts **before** submodule scripts (submodule scripts read full `page.ts` / `devices.ts` from disk). One-shot:
+
+```bash
+python3 scripts/regenerate_frontend_splits.py && npm run js:build
+```
+
+`notifications_config/page.ts` stays monolithic (autosave + circular deps).
 
 ## Consequences
 
