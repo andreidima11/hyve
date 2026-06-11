@@ -8,7 +8,7 @@ export { loadModelProfiles, moveProfileOrder, syncVisionCapabilityCheckbox, show
 export { copyToClipboard, copyWebhook } from './config/clipboard.js';
 export { restartServer } from './config/server.js';
 export { testWhisperConnection, testPiperConnection } from './config/voice_tests.js';
-export { refreshIntegrationsSettingsView, switchIntegrationSubtab, openIntegrationConfigModal, closeIntegrationConfigModal, } from './features_integrations_settings.js';
+export { refreshIntegrationsSettingsView, switchIntegrationSubtab, openIntegrationConfigModal, closeIntegrationConfigModal, copyAssistOllamaUserUrl, copyAssistKey, regenerateAssistKey, } from './features_integrations_settings.js';
 export { selectNotifChannel, selectNotifTransport, refreshNotifWsNativeStatus, testNotification, testWsNotification, testFcmNotification, loadNotificationPrefs, saveNotificationSettings, } from './features_notifications_config.js';
 export { loadAddons, installAddon, uninstallAddon, toggleAddon, openAddonConfigModal, closeAddonConfigModal, saveAddonConfig, checkAddonHealth, updateHeaderUpdatesBadge, refreshUpdatesHeaderBadge, loadUpdatesAddons, checkAddonUpdates, updateAllAddons, updateSingleAddon, toggleUpdatesIntervalDropdown, setUpdatesInterval, syncUpdatesIntervalDropdown, } from './features_addons_settings.js';
 export { initGenericCustomSelects, upgradeNativeSelects, } from './features_custom_selects.js';

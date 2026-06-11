@@ -13,7 +13,11 @@ export {
     startDashboardResize,
     moveDashboardWidget,
 } from './dashboard/drag_resize.js';
-export { loadDashboard, dashboardHasRenderedContent } from './dashboard/dashboard_loader.js';
+export {
+    loadDashboard,
+    dashboardHasRenderedContent,
+    withDashboardTimeout,
+} from './dashboard/dashboard_loader.js';
 export { disconnectDashboardLive } from './dashboard/live_bridge.js';
 export { closeDashboardMenu, toggleDashboardMenu } from './dashboard/dashboard_menu.js';
 export { findWidget } from './dashboard/widget_store.js';

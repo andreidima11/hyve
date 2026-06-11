@@ -29,6 +29,9 @@ export {
     switchIntegrationSubtab,
     openIntegrationConfigModal,
     closeIntegrationConfigModal,
+    copyAssistOllamaUserUrl,
+    copyAssistKey,
+    regenerateAssistKey,
 } from './features_integrations_settings.js';
 
 export {

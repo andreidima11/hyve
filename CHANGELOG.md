@@ -4,6 +4,14 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.2] — 2026-06
+
+Hotfix: boot overlay stuck on loading after upgrading from 0.9.0/0.9.1.
+
+### Frontend
+- Re-add no-op stubs for removed integration config JS (`comfyui`, Assist/CCTV helpers) so cached module graphs do not 404 on import.
+- Boot: timeout on setup status and initial dashboard load so the splash screen always dismisses.
+
 ## [0.9.1] — 2026-06
 
 Cleanup release: drop integration shims, schema-only config modal, dashboard modal removal, and CI smoke.

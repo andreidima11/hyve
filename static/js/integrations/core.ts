@@ -30,6 +30,13 @@ export {
 } from './config_modal.js';
 
 export {
+    renderCctvCameras,
+    copyAssistOllamaUserUrl,
+    copyAssistKey,
+    regenerateAssistKey,
+} from './legacy_config_stubs.js';
+
+export {
     navigateToSmartHomeSource,
     syncIntegrationEntities,
     loadIntegrationEntities,

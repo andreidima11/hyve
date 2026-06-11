@@ -27,7 +27,7 @@ import { switchIntegrationSubtab, syncConfiguredIntegration, syncIntegrationEnti
 // Expose sendMessage globally so other modules (e.g. voice input in features.js) can call it
 window.sendMessage = sendMessage;
 import { saveConfig, restartServer, syncHA, toggleSelection, toggleAllAI, loadMemory, changeMemPage, deleteMemBulk, filterMemory, toggleAllMem, updateMemBulkCount, openAliasModal, addAliasInput, closeAliasModal, saveAliasesFromModal, closeRowActionsModal, handleHaRowClick, resetSmarthomeFilters, copyEntityIdFromRowActions, toggleSmarthomeFilters, toggleSmarthomePicker, selectSmarthomePickerOption, setDevicesPage, setDevicesPageSize, sortDevicesBy, controlDeviceEntity, openAliasModalFromDetail, closeEntityDetailModal, loadSessionsList, openSession, newChatSession, deleteSession, confirmDeleteSession, cancelDeleteSession, clearSessionContext, copyWebhook, openIntegrationConfigModal, closeIntegrationConfigModal, loadAdminUsers, createUser, deleteUser, unlinkUserPhone, loadModelProfiles, openSkillEdit, closeSkillEditModal, saveSkillEdit, deleteSkill, toggleSkillDesc, toggleSkillDisabled, loadMemoryEvents, memLogPrevPage, memLogNextPage, toggleMemLogDetails, clearMemoryLog, runConsolidationNow, switchIntelligenceTab, addExtractionExample, removeExtractionExample, loadAutomations, deleteAutomation, openAutomationEditor, closeAutomationEditor, saveAutomationEditor, validateAutomationEditor, toggleAutomationDefinition, runAutomationDefinition, testAutomationEditor, exportAutomationYaml, importAutomationYaml, toggleAutoMenu, closeAutoMenu, showAutoDotTooltip, hideAutoDotTooltip, autoSyncAutomationId, markAutomationIdManual, openBlueprintPicker, closeBlueprintPicker, loadBlueprints, importBlueprintYaml, backToBlueprintList, instantiateCurrentBlueprint, deleteCurrentBlueprint, openBlueprintCreator, addBlueprintCreatorInput, removeBlueprintCreatorInput, changeBlueprintCreatorInputType, insertBlueprintCreatorPlaceholder, updateBlueprintCreatorYaml, saveCreatedBlueprint, switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, loadAutomationEditorHistory, updateAutomationStructuredServiceData, selectNotifTransport, selectNotifChannel, testNotification, refreshNotifWsNativeStatus, switchMemorySubtab, checkAddonUpdates, updateAllAddons, updateSingleAddon, closeAddonConfigModal, checkAddonHealth, installAddon, uninstallAddon, toggleAddon, openAddonConfigModal, } from './features.js';
-import { loadDashboard, initDashboardSidebarNav, } from './dashboard.js';
+import { loadDashboard, initDashboardSidebarNav, withDashboardTimeout, } from './dashboard.js';
 function _errMsg(err) {
     if (err instanceof Error)
         return err.message;
@@ -662,7 +662,7 @@ async function bootHyve() {
         overlay.classList.remove('is-hidden');
     setBootMessage('Se încarcă...');
     try {
-        const setupStatus = await fetchSetupStatus();
+        const setupStatus = await withDashboardTimeout(fetchSetupStatus(), 10000, 'Setup status timeout');
         if (!setupStatus?.complete) {
             hideLoginScreen();
             showSetupWizard(setupStatus);
@@ -732,7 +732,7 @@ async function bootHyve() {
     // switchTab() already kicked off loadDashboard(); the in-flight dedup
     // means this just awaits the same promise instead of double-fetching.
     try {
-        await loadDashboard();
+        await withDashboardTimeout(loadDashboard(), 20000, 'Dashboard boot timeout');
     }
     catch (e) {
         console.warn('Dashboard initial load failed', e);

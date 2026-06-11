@@ -78,6 +78,7 @@ import {
 import {
     loadDashboard,
     initDashboardSidebarNav,
+    withDashboardTimeout,
 } from './dashboard.js';
 
 import type { ConfigFormElement } from './types/features_config.js';
@@ -715,7 +716,11 @@ async function bootHyve() {
     setBootMessage('Se încarcă...');
 
     try {
-        const setupStatus = await fetchSetupStatus() as HyveSetupStatus;
+        const setupStatus = await withDashboardTimeout(
+            fetchSetupStatus() as Promise<HyveSetupStatus>,
+            10000,
+            'Setup status timeout',
+        );
         if (!setupStatus?.complete) {
             hideLoginScreen();
             showSetupWizard(setupStatus);
@@ -775,7 +780,11 @@ async function bootHyve() {
     // Step 2b: wait for the dashboard's first paint (entities + render).
     // switchTab() already kicked off loadDashboard(); the in-flight dedup
     // means this just awaits the same promise instead of double-fetching.
-    try { await loadDashboard(); } catch (e) { console.warn('Dashboard initial load failed', e); }
+    try {
+        await withDashboardTimeout(loadDashboard(), 20000, 'Dashboard boot timeout');
+    } catch (e) {
+        console.warn('Dashboard initial load failed', e);
+    }
 
     // Step 3: reveal app — dashboard is already populated. Heavy loaders run in background.
     hideBootOverlay();
