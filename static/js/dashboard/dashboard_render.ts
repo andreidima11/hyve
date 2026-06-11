@@ -102,7 +102,7 @@ export function renderDashboard(): void {
         return;
     }
 
-    const items = sectionPanels.map((panel) => renderPanelSection(panel, compact));
+    const items = sectionPanels.map((panel, index) => renderPanelSection(panel, compact, index));
     const addSectionBtn = editMode
         ? `<button type="button" class="dashboard-panel dashboard-panel--add-section" data-dash-action="openPanelCreator" aria-label="${d.escapeHtml(d.t('dashboard.aria.add_section'))}">
                 <i class="fas fa-plus"></i>
@@ -117,7 +117,7 @@ export function renderDashboard(): void {
     try { d.resumeDashboardCameras(); } catch (_) {}
 }
 
-function renderPanelSection(panel: DashboardPanel, compact: boolean): string {
+function renderPanelSection(panel: DashboardPanel, compact: boolean, mobileOrderIndex = 0): string {
     const d = deps();
     const panelId = String(panel.id || '');
     if (!dashboardElementVisible(panel)) return '';
@@ -200,6 +200,7 @@ function renderPanelSection(panel: DashboardPanel, compact: boolean): string {
         span.colStart ? `--panel-col-start:${span.colStart}` : '',
         span.rowStart ? `--panel-row-start:${span.rowStart}` : '',
         `--panel-row-span:${span.row}`,
+        `--hyve-panel-mobile-order:${mobileOrderIndex}`,
         panelBg ? `--panel-bg:${panelBg}` : '',
     ].filter(Boolean).join('; ');
 

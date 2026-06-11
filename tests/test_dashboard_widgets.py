@@ -937,3 +937,58 @@ def test_add_dashboard_widget_post_assigns_id(monkeypatch):
     assert data["status"] == "ok"
     assert data["widget"]["id"]
     assert data["widget"]["type"] == "sensor"
+
+
+def test_reorder_dashboard_panel_moves_section_before_target():
+    _seed_dashboard_store({
+        "current_page_id": "acasa",
+        "pages": [{
+            "id": "acasa",
+            "title": "Acasă",
+            "panels": [
+                {"id": "sec_a", "title": "A", "widgets": []},
+                {"id": "sec_b", "title": "B", "widgets": []},
+                {"id": "sec_c", "title": "C", "widgets": []},
+            ],
+        }],
+    })
+
+    result = asyncio.run(
+        dashboard.reorder_dashboard_panel(
+            "sec_c",
+            dashboard.DashboardReorderBody(target_id="sec_b"),
+            "acasa",
+            None,
+        )
+    )
+
+    panel_ids = [panel["id"] for panel in _loaded_store()["pages"][0]["panels"]]
+    assert panel_ids == ["sec_a", "sec_c", "sec_b"]
+    assert [panel["id"] for panel in result["panels"]] == ["sec_a", "sec_c", "sec_b"]
+
+
+def test_move_dashboard_panel_swaps_adjacent_sections():
+    _seed_dashboard_store({
+        "current_page_id": "acasa",
+        "pages": [{
+            "id": "acasa",
+            "title": "Acasă",
+            "panels": [
+                {"id": "sec_a", "title": "A", "widgets": []},
+                {"id": "sec_b", "title": "B", "widgets": []},
+            ],
+        }],
+    })
+
+    result = asyncio.run(
+        dashboard.move_dashboard_panel(
+            "sec_a",
+            dashboard.DashboardMoveBody(direction="right"),
+            "acasa",
+            None,
+        )
+    )
+
+    panel_ids = [panel["id"] for panel in _loaded_store()["pages"][0]["panels"]]
+    assert panel_ids == ["sec_b", "sec_a"]
+    assert [panel["id"] for panel in result["panels"]] == ["sec_b", "sec_a"]

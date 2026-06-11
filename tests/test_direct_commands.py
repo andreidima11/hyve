@@ -30,11 +30,11 @@ def test_parse_regex_multi_split_commands():
 def test_try_regex_command_executes_via_device_control():
     async def _run():
         with patch(
-            "device_resolver.find_device_details",
+            "core.device_resolver.find_device_details",
             new=AsyncMock(return_value=("light.kitchen", "Kitchen")),
         ):
             with patch(
-                "direct_commands.control_entity",
+                "brain.direct_commands.control_entity",
                 new=AsyncMock(return_value={"ok": True}),
             ):
                 return await try_regex_command("aprinde bucatarie", "user_1")
@@ -45,5 +45,5 @@ def test_try_regex_command_executes_via_device_control():
 
 
 def test_try_semantic_commands_no_catalogue():
-    with patch("direct_commands._build_catalogue_from_store", return_value=""):
+    with patch("brain.direct_commands._build_catalogue_from_store", return_value=""):
         assert asyncio.run(try_semantic_commands("aprinde becul", "user_1")) is None

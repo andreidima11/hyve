@@ -6,7 +6,7 @@ import asyncio
 import json
 import time
 import traceback
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -122,7 +122,11 @@ class ChatRequest(BaseModel):
 
 @router.post("/api/extract-document")
 @limiter.limit("20/minute")
-async def api_extract_document(request: Request, file: UploadFile = File(...), _: models.User = Depends(auth.get_current_user)):
+async def api_extract_document(
+    request: Request,
+    file: Annotated[UploadFile, File()],
+    _: models.User = Depends(auth.get_current_user),
+):
     """Extract text from uploaded PDF, TXT, or DOCX. Returns { \"text\": \"...\" }."""
     try:
         data = await file.read()

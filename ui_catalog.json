@@ -235,7 +235,7 @@
       "text_color": "#fdba74",
       "supports_sync": true,
       "admin_only": true,
-      "order": 116
+      "order": 118
     },
     {
       "slug": "roborock",
@@ -248,7 +248,7 @@
       "text_color": "#6ee7b7",
       "supports_sync": true,
       "admin_only": true,
-      "order": 117
+      "order": 119
     }
   ],
   "dashboard_cards": [

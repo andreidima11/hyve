@@ -145,6 +145,7 @@ export function wireDashboardEvents(): void {
         showToast,
         t,
         getCurrentPageId: currentPageIdWithCacheFallback,
+        getEditMode: getDashboardEditMode,
     });
 
     initDashboardDragResize({

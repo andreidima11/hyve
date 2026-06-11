@@ -15,7 +15,7 @@ import ssl
 import logging
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import quote
 
 import httpx
@@ -842,8 +842,8 @@ async def _go2rtc_play_file(inst: Any, stream_name: str, file_path: Path) -> Non
 @router.post("/{entity_id}/talk")
 async def camera_talk_push(
     entity_id: str,
+    audio: Annotated[UploadFile, File()],
     user: models.User = Depends(_get_camera_user),
-    audio: UploadFile = File(...),
 ):
     """Play a short audio clip to the camera speaker (go2rtc / ONVIF backchannel when configured)."""
     ent = await _camera_entity(entity_id)

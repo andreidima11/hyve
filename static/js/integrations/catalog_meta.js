@@ -67,3 +67,14 @@ export function integrationLabel(entry) {
     }
     return entry.label || entry.slug || '';
 }
+export function integrationDescription(entry) {
+    if (!entry)
+        return '';
+    const descKey = String(entry.description_key || '').trim();
+    if (descKey) {
+        const translated = t(descKey);
+        if (translated && translated !== descKey)
+            return translated;
+    }
+    return String(entry.description || '').trim();
+}

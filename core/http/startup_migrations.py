@@ -39,7 +39,12 @@ def _import_alembic_command():
 
 
 def run_startup_migrations() -> None:
-    """Ensure ORM tables exist, then apply Alembic revisions (idempotent)."""
+    """Ensure ORM tables exist, then apply Alembic revisions (idempotent).
+
+    New schema changes belong in ``migrations/versions/`` only — do not add
+    ad-hoc ``ALTER TABLE`` here. ``create_all`` bootstraps tables declared on
+    SQLAlchemy models for fresh installs; Alembic brings existing DBs to head.
+    """
     models.Base.metadata.create_all(bind=database.engine)
 
     try:

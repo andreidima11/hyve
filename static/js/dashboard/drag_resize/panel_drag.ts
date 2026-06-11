@@ -24,13 +24,16 @@ import {
     _readGridGeometry,
     _cardCurrentPosition,
     _pointerToGridCell,
-    _positionDashboardDropGhost,
+    _positionDashboardSectionDropGhost,
     _dashboardPanelSpan,
     _dashboardPanelRenderedColSpan,
     _dashboardPanelRenderedRowSpan,
+    _dashboardRootLayoutPanels,
+    _dashboardStandalonePanel,
     _persistDashboardPanelLayout,
     renderDashboardWithFlip,
 } from './grid_geometry.js';
+import type { DashboardPanel } from '../../types/dashboard.js';
 import type { DashboardPanelDragState } from '../../types/drag_resize.js';
 import type { DashboardPanelDropBest } from '../../types/drag_resize.js';
 
@@ -39,18 +42,31 @@ function _dashboardPanelCacheIndex(panelId: string | null | undefined) {
     return panels.findIndex(panel => String(panel?.id || '') === String(panelId || ''));
 }
 
-function _dashboardPanelOrderFromDragState(st: DashboardPanelDragState) {
-    if (!st?.stack || !st.placeholder) return [];
-    return Array.from(st.stack.children)
-        .filter((el): el is HTMLElement => el === st.placeholder || (el instanceof HTMLElement && el.matches?.('.dashboard-panel') && el !== st.sourceEl && !!el.dataset.panelId))
-        .map(el => el === st.placeholder ? st.panelId : String((el as HTMLElement).dataset.panelId || ''))
-        .filter(Boolean);
+function _sectionReorderPanels(st: DashboardPanelDragState) {
+    return Array.from(st.stack.querySelectorAll<HTMLElement>('.dashboard-panel[data-panel-id]'))
+        .filter(panel => panel !== st.sourceEl && panel.offsetParent !== null);
+}
+
+function _singleColumnOrderFromDropBefore(st: DashboardPanelDragState, before: HTMLElement | null) {
+    const others = _sectionReorderPanels(st).map(panel => String(panel.dataset.panelId || '')).filter(Boolean);
+    if (!before) return [...others, st.panelId];
+    const beforeId = String(before.dataset.panelId || '');
+    const idx = others.indexOf(beforeId);
+    if (idx < 0) return [...others, st.panelId];
+    return [...others.slice(0, idx), st.panelId, ...others.slice(idx)];
 }
 
 function _dashboardPanelDropIndexAtPoint(st: DashboardPanelDragState, clientX: number, clientY: number) {
-    const panels = Array.from(st.stack.querySelectorAll<HTMLElement>('.dashboard-panel[data-panel-id]'))
-        .filter(panel => panel !== st.sourceEl && panel !== st.placeholder && panel.offsetParent !== null);
+    const panels = _sectionReorderPanels(st);
     if (!panels.length) return 0;
+
+    if (st.singleColumn) {
+        for (let index = 0; index < panels.length; index += 1) {
+            const rect = panels[index].getBoundingClientRect();
+            if (clientY < rect.top + rect.height / 2) return index;
+        }
+        return panels.length;
+    }
 
     let best: DashboardPanelDropBest | null = null;
     panels.forEach((panel, index) => {
@@ -63,31 +79,44 @@ function _dashboardPanelDropIndexAtPoint(st: DashboardPanelDragState, clientX: n
     if (!best) return panels.length;
 
     const hit: DashboardPanelDropBest = best;
-    // In a single-column (vertical) stack every drop is within a panel's
-    // vertical band, so decide before/after purely by the vertical midpoint.
-    // The horizontal (sameVisualRow) heuristic only makes sense for a 2D
-    // wrapping grid; using it here would always read clientX (the left-side
-    // drag handle) as "before", making it impossible to drop a section below
-    // another one.
-    let after;
-    if (st?.singleColumn) {
-        after = clientY > hit.centerY;
-    } else {
-        const sameVisualRow = clientY >= hit.rect.top - 24 && clientY <= hit.rect.bottom + 24;
-        after = sameVisualRow ? clientX > hit.centerX : clientY > hit.centerY;
-    }
+    const sameVisualRow = clientY >= hit.rect.top - 24 && clientY <= hit.rect.bottom + 24;
+    const after = sameVisualRow ? clientX > hit.centerX : clientY > hit.centerY;
     return hit.index + (after ? 1 : 0);
 }
 
-function _moveDashboardPanelPlaceholder(st: DashboardPanelDragState, clientX: number, clientY: number) {
-    const panels = Array.from(st.stack.querySelectorAll<HTMLElement>('.dashboard-panel[data-panel-id]'))
-        .filter(panel => panel !== st.sourceEl && panel !== st.placeholder && panel.offsetParent !== null);
+function _sectionReorderDropBefore(st: DashboardPanelDragState, clientX: number, clientY: number) {
+    const panels = _sectionReorderPanels(st);
     const dropIndex = Math.max(0, Math.min(_dashboardPanelDropIndexAtPoint(st, clientX, clientY), panels.length));
-    const before = panels[dropIndex] || null;
-    if (before !== st.placeholder?.nextElementSibling) {
-        if (st.placeholder) st.stack.insertBefore(st.placeholder, before);
+    return panels[dropIndex] || null;
+}
+
+function _positionSectionReorderGhost(st: DashboardPanelDragState, clientX: number, clientY: number) {
+    if (!st.ghost) return;
+    const before = _sectionReorderDropBefore(st, clientX, clientY);
+    st.dropBefore = before;
+    st.finalOrder = _singleColumnOrderFromDropBefore(st, before);
+    st.targetIndex = st.finalOrder.indexOf(st.panelId);
+
+    const stackRect = st.stack.getBoundingClientRect();
+    const stackStyles = getComputedStyle(st.stack);
+    const gap = parseFloat(stackStyles.rowGap || stackStyles.gap || '16') || 16;
+    const panels = _sectionReorderPanels(st);
+    const padLeft = parseFloat(stackStyles.paddingLeft) || 0;
+    const padRight = parseFloat(stackStyles.paddingRight) || 0;
+
+    let top: number;
+    if (before) {
+        top = before.getBoundingClientRect().top;
+    } else if (panels.length) {
+        top = panels[panels.length - 1].getBoundingClientRect().bottom + gap;
+    } else {
+        top = stackRect.top;
     }
-    st.targetIndex = _dashboardPanelOrderFromDragState(st).indexOf(st.panelId);
+
+    st.ghost.style.left = `${stackRect.left + padLeft}px`;
+    st.ghost.style.width = `${Math.max(0, stackRect.width - padLeft - padRight)}px`;
+    st.ghost.style.height = `${st.sourceHeight}px`;
+    st.ghost.style.top = `${top}px`;
 }
 
 // On narrow (single-column) layouts the panels stack collapses to one column via
@@ -151,7 +180,7 @@ function _beginDashboardPanelDrag(event: PointerEvent, panelId: string) {
     const clone = sourceEl.cloneNode(true) as HTMLElement;
     clone.classList.add('dashboard-panel-clone');
     clone.removeAttribute('onpointerdown');
-    clone.querySelectorAll('button').forEach((el: Element) => el.removeAttribute('onclick'));
+    clone.querySelectorAll('button, .dashboard-panel__drag').forEach((el: Element) => el.remove());
     clone.style.position = 'fixed';
     clone.style.width = `${rect.width}px`;
     clone.style.height = `${rect.height}px`;
@@ -162,24 +191,22 @@ function _beginDashboardPanelDrag(event: PointerEvent, panelId: string) {
 
     const singleColumn = _dashboardStackIsSingleColumn(stack);
 
-    // Single-column (mobile) → array-index reorder with a placeholder gap.
-    // Multi-column (desktop) → absolute 2D grid placement with a drop ghost.
-    let ghost = null;
-    let placeholder = null;
+    // Single-column (mobile) → fixed drop ghost at the insert slot + faded source.
+    // Multi-column (desktop) → grid drop ghost sized to the dragged section.
+    let ghost: HTMLElement | null = null;
     if (singleColumn) {
-        placeholder = document.createElement('div');
-        placeholder.className = 'dashboard-panel__reorder-placeholder';
-        placeholder.style.height = `${rect.height}px`;
-        stack.insertBefore(placeholder, sourceEl);
-        sourceEl.style.display = 'none';
+        ghost = document.createElement('div');
+        ghost.className = 'dashboard-panel__drop-ghost dashboard-panel__drop-ghost--section dashboard-panel__drop-ghost--reorder';
+        document.body.appendChild(ghost);
     } else {
         ghost = document.createElement('div');
         ghost.className = 'dashboard-panel__drop-ghost dashboard-panel__drop-ghost--section';
-        _positionDashboardDropGhost(ghost, geom, startCol, startRow, span);
         stack.appendChild(ghost);
+        _positionDashboardSectionDropGhost(ghost, stack, geom, startCol, startRow, span, sourceEl);
     }
     sourceEl.setAttribute('data-panel-drag-source', 'true');
     document.documentElement.setAttribute('data-dashboard-panel-dragging', 'true');
+    window.getSelection?.()?.removeAllRanges?.();
 
     dragResizeState.panelDragState = {
         panelId: panelKey,
@@ -188,7 +215,6 @@ function _beginDashboardPanelDrag(event: PointerEvent, panelId: string) {
         stack,
         clone,
         ghost,
-        placeholder,
         singleColumn,
         span,
         fromIndex,
@@ -197,6 +223,8 @@ function _beginDashboardPanelDrag(event: PointerEvent, panelId: string) {
         targetRow: startRow,
         startCol,
         startRow,
+        sourceHeight: rect.height,
+        dropBefore: null,
         pointerId: event.pointerId,
         pointerOffsetX: event.clientX - rect.left,
         pointerOffsetY: event.clientY - rect.top,
@@ -207,6 +235,8 @@ function _beginDashboardPanelDrag(event: PointerEvent, panelId: string) {
         cloneFrame: 0,
         moved: false,
     };
+
+    if (singleColumn) _positionSectionReorderGhost(dragResizeState.panelDragState!, event.clientX, event.clientY);
 
     try { (event.currentTarget as Element | null)?.setPointerCapture?.(event.pointerId); } catch (_) {}
     document.addEventListener('pointermove', _handleDashboardPanelDragMove, { passive: false });
@@ -222,7 +252,7 @@ function _handleDashboardPanelDragMove(event: PointerEvent) {
     _scheduleDashboardPanelCloneMove(st, event.clientX, event.clientY);
 
     if (st.singleColumn) {
-        _moveDashboardPanelPlaceholder(st, event.clientX, event.clientY);
+        _positionSectionReorderGhost(st, event.clientX, event.clientY);
         return;
     }
 
@@ -238,7 +268,7 @@ function _handleDashboardPanelDragMove(event: PointerEvent) {
     );
     st.targetCol = cell.col;
     st.targetRow = cell.row;
-    _positionDashboardDropGhost(st.ghost, geom, cell.col, cell.row, st.span);
+    _positionDashboardSectionDropGhost(st.ghost, st.stack, geom, cell.col, cell.row, st.span, st.sourceEl);
 }
 
 async function _finishDashboardPanelDrag(event: PointerEvent) {
@@ -250,15 +280,9 @@ async function _finishDashboardPanelDrag(event: PointerEvent) {
     document.removeEventListener('pointercancel', _finishDashboardPanelDrag);
     dragResizeState.panelDragState = null;
 
-    // The single-column commit derives the new order from the placeholder's
-    // position in the DOM, so capture it BEFORE the placeholder is removed.
-    if (st.singleColumn) st.finalOrder = _dashboardPanelOrderFromDragState(st);
-
     if (st.cloneFrame) cancelAnimationFrame(st.cloneFrame);
     st.clone?.remove();
     st.ghost?.remove();
-    st.placeholder?.remove();
-    if (st.singleColumn) st.sourceEl.style.display = '';
     st.sourceEl.removeAttribute('data-panel-drag-source');
     document.documentElement.removeAttribute('data-dashboard-panel-dragging');
 
@@ -275,27 +299,32 @@ async function _finishDashboardPanelDrag(event: PointerEvent) {
 
 // Mobile / single-column commit: reorder the panels array (HA-style) and persist
 // via adjacent moves, which the backend applies as a stable pop+insert.
+function _writeSectionPanelsToCache(sections: DashboardPanel[]) {
+    const standalone = _dashboardStandalonePanel();
+    getCache().panels = standalone ? [...sections, standalone] : sections.slice();
+}
+
 async function _commitSingleColumnPanelOrder(st: DashboardPanelDragState) {
-    const order = st.finalOrder || _dashboardPanelOrderFromDragState(st);
+    const order = st.finalOrder || _singleColumnOrderFromDropBefore(st, st.dropBefore);
     const pos = order.indexOf(st.panelId);
     if (pos < 0) return;
     const beforeSectionId = order[pos + 1] || null;
-    const full = Array.isArray(getCache().panels) ? getCache().panels.slice() : [];
-    const oldFullIndex = full.findIndex(p => String(p?.id || '') === st.panelId);
-    if (oldFullIndex < 0) return;
-    const [moved] = full.splice(oldFullIndex, 1);
-    let insertAt = full.length;
+    const sections = _dashboardRootLayoutPanels().slice();
+    const oldIndex = sections.findIndex(p => String(p?.id || '') === st.panelId);
+    if (oldIndex < 0) return;
+    const [moved] = sections.splice(oldIndex, 1);
+    let insertAt = sections.length;
     if (beforeSectionId) {
-        const bi = full.findIndex(p => String(p?.id || '') === String(beforeSectionId));
+        const bi = sections.findIndex(p => String(p?.id || '') === String(beforeSectionId));
         if (bi >= 0) insertAt = bi;
     }
-    if (insertAt === oldFullIndex) return;
-    full.splice(insertAt, 0, moved);
-    getCache().panels = full;
+    if (insertAt === oldIndex) return;
+    sections.splice(insertAt, 0, moved);
+    _writeSectionPanelsToCache(sections);
     renderDashboardWithFlip();
 
     try {
-        await _persistDashboardPanelMove(st.panelId, oldFullIndex, insertAt);
+        await _persistDashboardPanelReorder(st.panelId, beforeSectionId, oldIndex, insertAt);
         showToast(t('dashboard.section_moved'), 'success');
     } catch (e) {
         showToast(_errMsg(e) || t('dashboard.section_move_error'), 'error');
@@ -353,6 +382,27 @@ async function _commitDashboardPanelLayout(st: DashboardPanelDragState) {
         showToast(_errMsg(e) || t('dashboard.section_move_error'), 'error');
         await loadDashboard();
     }
+}
+
+async function _persistDashboardPanelReorder(
+    panelId: string,
+    beforeSectionId: string | null,
+    fromIndex: number,
+    targetIndex: number,
+) {
+    const params = getCurrentPageId() ? `?page_id=${encodeURIComponent(getCurrentPageId())}` : '';
+    if (beforeSectionId) {
+        const res = await apiCall(`/api/dashboard/panels/${encodeURIComponent(panelId)}/reorder${params}`, {
+            method: 'POST',
+            body: { target_id: beforeSectionId },
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(dashApiErr(err.detail, 'dashboard.save_section_order_failed'));
+        }
+        return;
+    }
+    await _persistDashboardPanelMove(panelId, fromIndex, targetIndex);
 }
 
 async function _persistDashboardPanelMove(panelId: string, fromIndex: number, targetIndex: number) {

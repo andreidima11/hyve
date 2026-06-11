@@ -6,7 +6,7 @@ import { t } from '../lang/index.js';
 import { escapeHtml, showToast } from '../utils.js';
 import { loadConfig } from '../features_config.js';
 import { toggleVoiceRecording, isVoiceLoopActive } from '../voice.js';
-import { getIntegrationCatalog, setIntegrationCatalog, integrationDefinition, integrationLabel, normalizeIntegrationIcon, updateIntegrationCatalogEnabled, } from './catalog_meta.js';
+import { getIntegrationCatalog, setIntegrationCatalog, integrationDefinition, integrationLabel, integrationDescription, normalizeIntegrationIcon, updateIntegrationCatalogEnabled, } from './catalog_meta.js';
 import { integrationEntitySourceSlug } from './catalog_meta.js';
 import { syncIntegrationEntities } from './entities_sync.js';
 import { findIntegrationCheckbox, integrationSlugCandidates } from './utils.js';
@@ -216,7 +216,7 @@ function _renderIntegrationCatalogRows() {
         const toggleInputId = escapeHtml(String(entry.toggle_input_id || `${entry.slug}_enabled`));
         const toggleSlug = escapeHtml(String(entry.toggle_slug || entry.slug || ''));
         const label = escapeHtml(integrationLabel(entry));
-        const description = escapeHtml(String(entry.description || '').trim());
+        const description = escapeHtml(integrationDescription(entry));
         const iconClass = escapeHtml(normalizeIntegrationIcon(entry.icon || 'fa-plug'));
         const image = String(entry.image || '').trim();
         const accent = escapeHtml(String(entry.accent || '#94a3b8'));

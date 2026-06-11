@@ -9,6 +9,7 @@ export interface IntegrationCatalogEntry {
     toggle_input_id?: string;
     toggle_slug?: string;
     title_key?: string;
+    description_key?: string;
     label?: string;
     description?: string;
     icon?: string;

@@ -2,7 +2,54 @@ import pytest
 
 from integrations import config_entries
 from core import sqlite_sidecar
-from core.ui_catalog import dashboard_card_catalog, integration_catalog, resolve_dashboard_card
+from core.ui_catalog import (
+    _CATALOG_PATH,
+    dashboard_card_catalog,
+    integration_catalog,
+    resolve_dashboard_card,
+)
+
+
+def test_ui_catalog_json_lives_at_repo_root():
+    assert _CATALOG_PATH.name == "ui_catalog.json"
+    assert _CATALOG_PATH.is_file()
+    entries = integration_catalog()
+    slugs = {entry["slug"] for entry in entries}
+    assert "waha" in slugs
+    assert "comfyui" in slugs
+
+
+def test_integration_catalog_has_i18n_keys_for_all_entries():
+    entries = integration_catalog()
+    assert len(entries) >= 19
+    for entry in entries:
+        slug = entry["slug"]
+        assert entry.get("title_key") == f"config.{slug}_section"
+        assert entry.get("description_key") == f"integrations.catalog.{slug}_desc"
+
+
+def test_integration_catalog_orders_are_unique():
+    entries = integration_catalog()
+    orders = [entry["order"] for entry in entries]
+    assert len(orders) == len(set(orders))
+
+
+# Bundled components without a settings row (internal helpers).
+_CATALOG_OPTIONAL_SLUGS = frozenset({"sun", "hyve_scenes", "forge"})
+
+
+def test_catalog_covers_user_facing_components():
+    from pathlib import Path
+
+    components_dir = Path(__file__).resolve().parent.parent / "components"
+    component_slugs = {
+        p.name
+        for p in components_dir.iterdir()
+        if p.is_dir() and not p.name.startswith("_")
+    }
+    catalog_slugs = {entry["slug"] for entry in integration_catalog()}
+    missing = sorted(component_slugs - catalog_slugs - _CATALOG_OPTIONAL_SLUGS)
+    assert not missing, f"components missing from ui_catalog.json: {missing}"
 
 
 @pytest.fixture()
@@ -73,8 +120,10 @@ def test_integration_catalog_enabled_follows_config_entries(isolated_entries_db,
         schema=[],
         enabled=True,
     )
+    import core.settings as settings
+
     monkeypatch.setitem(
-        __import__("settings").CFG,
+        settings.CFG,
         "open_meteo",
         {"enabled": False, "latitude": 44.0, "longitude": 26.0},
     )

@@ -119,7 +119,6 @@ export interface DashboardPanelDragState {
     stack: HTMLElement;
     clone: HTMLElement;
     ghost: HTMLElement | null;
-    placeholder: HTMLElement | null;
     singleColumn: boolean;
     span: DashboardPanelSpan;
     fromIndex: number;
@@ -128,6 +127,8 @@ export interface DashboardPanelDragState {
     targetRow: number;
     startCol: number;
     startRow: number;
+    sourceHeight: number;
+    dropBefore: HTMLElement | null;
     pointerId: number;
     pointerOffsetX: number;
     pointerOffsetY: number;

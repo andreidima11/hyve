@@ -36,7 +36,7 @@ def test_migrate_from_cfg_creates_entry_and_disables_legacy(isolated_entries_db,
     def _fake_save(updated):
         saved.append(dict(updated))
 
-    monkeypatch.setattr("settings.save_config", _fake_save)
+    monkeypatch.setattr("core.settings.save_config", _fake_save)
 
     created = migrate_from_cfg(cfg, ["open_meteo"])
     assert created == 1
@@ -49,7 +49,7 @@ def test_migrate_from_cfg_creates_entry_and_disables_legacy(isolated_entries_db,
 
 def test_migrate_from_cfg_idempotent_when_entry_exists(isolated_entries_db, monkeypatch):
     cfg = {"open_meteo": {"enabled": True, "latitude": 1.0, "longitude": 2.0}}
-    monkeypatch.setattr("settings.save_config", lambda _: None)
+    monkeypatch.setattr("core.settings.save_config", lambda _: None)
     config_entries.create_entry(
         slug="open_meteo",
         title="Existing",

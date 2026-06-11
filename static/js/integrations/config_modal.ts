@@ -10,6 +10,7 @@ import {
     integrationDefinition,
     integrationCatalogSlug,
     integrationLabel,
+    integrationDescription,
     normalizeIntegrationIcon,
     supportsIntegrationEntitySync,
 } from './catalog_meta.js';
@@ -52,25 +53,10 @@ export function renderCctvCameras(cameras: unknown[]) {
     list.innerHTML = '';
     (cameras as Record<string, unknown>[] || []).forEach((cam) => addCctvCameraRow(cam));
 }
-const INTEGRATION_MODAL_TITLES: Record<string, string> = { ha: 'config.ha_section', searxng: 'config.searxng_section', waha: 'config.waha_section', cctv: 'config.cctv_section', whisper: 'config.whisper_section', comfyui: 'config.comfyui_section', piper: 'config.piper_section', pago: 'config.pago_section', fusion_solar: 'config.fusion_solar_section' };
-const INTEGRATION_MODAL_ICONS: Record<string, string> = { ha: 'fa-house-signal', searxng: 'fa-magnifying-glass', waha: 'fa-brands fa-whatsapp', cctv: 'fa-video', whisper: 'fa-microphone', comfyui: 'fa-palette', piper: 'fa-volume-up', pago: 'fa-file-invoice-dollar', fusion_solar: 'fa-solar-panel' };
-const INTEGRATION_MODAL_IMAGES: Record<string, string> = {
-    waha: '/static/icons/integrations/waha.png',
-    searxng: '/static/icons/integrations/searxng.png',
-    comfyui: '/static/icons/integrations/comfyui.avif',
-    whisper: '/static/icons/integrations/whisper.png',
-    piper: '/static/icons/integrations/piper.webp',
-    fusion_solar: '/static/icons/integrations/fusion_solar.png',
-    open_meteo: '/static/icons/integrations/open_meteo.png',
-    pago: '/static/icons/integrations/pago.png',
-    eon_romania: '/static/icons/integrations/eon_romania.png',
-    reteleelectrice: '/static/icons/integrations/reteleelectrice.jpg',
-    reolink: '/static/icons/integrations/reolink.jpg',
-    tapo: '/static/icons/integrations/tapo.png',
-    midea_ac: '/static/icons/integrations/midea_ac.png',
-    ariston_net: '/static/icons/integrations/ariston_net.svg',
-    mosquitto: '/static/icons/integrations/mosquitto.png',
-};
+function integrationIconClass(meta: ReturnType<typeof integrationDefinition>): string {
+    const raw = normalizeIntegrationIcon(meta?.icon || 'fa-plug');
+    return raw.includes(' ') ? raw : `fas ${raw}`;
+}
 
 export async function openIntegrationConfigModal(integrationId: string) {
     const modal = document.getElementById('integration-config-modal');
@@ -108,7 +94,7 @@ export async function openIntegrationConfigModal(integrationId: string) {
             generic.classList.remove('hidden');
             const descEl = document.getElementById('integration-generic-description');
             if (descEl) {
-                const desc = String(meta?.description || '').trim();
+                const desc = integrationDescription(meta);
                 descEl.textContent = desc;
                 descEl.classList.toggle('hidden', !desc);
             }
@@ -129,11 +115,9 @@ export async function openIntegrationConfigModal(integrationId: string) {
             }
         }
     }
-    const titleKey = INTEGRATION_MODAL_TITLES[integrationId];
-    const resolvedTitle = (titleKey ? t(titleKey) : '') || integrationLabel(meta) || integrationId;
-    const icon = INTEGRATION_MODAL_ICONS[integrationId]
-        || normalizeIntegrationIcon(meta?.icon || 'fa-plug');
-    const logo = String(meta?.image || INTEGRATION_MODAL_IMAGES[integrationId] || '').trim();
+    const resolvedTitle = integrationLabel(meta) || integrationId;
+    const icon = integrationIconClass(meta);
+    const logo = String(meta?.image || '').trim();
     titleEl.textContent = resolvedTitle;
     if (logoEl) {
         logoEl.classList.toggle('hidden', !logo);
@@ -148,7 +132,7 @@ export async function openIntegrationConfigModal(integrationId: string) {
         };
     }
     if (iconEl) {
-        iconEl.className = `fas ${icon}`;
+        iconEl.className = icon;
         iconEl.classList.toggle('hidden', !!logo);
         iconEl.style.display = logo ? 'none' : '';
     }

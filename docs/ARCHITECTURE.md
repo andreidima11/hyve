@@ -79,7 +79,7 @@ Tools:   brain/toolbox.py → device control, web, memory, skills
 
 ### Discovery
 
-`integrations/loader.py` scans `integrations/providers/*.py`, loads each module, registers every `BaseEntity` subclass by `slug`.
+`integrations/component_loader.py` discovers `components/<slug>/entity.py` (and `custom_components/`), then `integrations/loader.py` instantiates one `BaseEntity` per config entry.
 
 ### Config entry lifecycle
 
@@ -116,11 +116,9 @@ User fills form (CONFIG_SCHEMA)
 
 | Legacy piece | Status |
 |--------------|--------|
-| `config.json[slug]` for credentials | Inert / migration only |
-| `main.py` lifespan Pago/Fusion bootstrap | Skip when config entries exist |
-| `routers/pago.py`, `routers/fusion_solar.py` | Duplicate APIs — deprecate |
-| `integrations/extractors.py` | Shared extractors — move into providers |
-| Root `*_client.py` files | Move next to provider |
+| `config.json[slug]` for credentials | Migration only (`migrate_from_cfg`); add-on sync uses config entries |
+| `integrations/extractors.py` | Thin compat shim — extractors live in `components/` |
+| `integrations/shims/` | Legacy import paths for comfyui/forge |
 
 ---
 

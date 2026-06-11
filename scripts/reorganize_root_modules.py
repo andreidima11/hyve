@@ -121,7 +121,7 @@ def move_files() -> None:
 def rewrite_tree() -> int:
     changed = 0
     for path in ROOT.rglob("*.py"):
-        if ".venv" in path.parts or "node_modules" in path.parts:
+        if any(p in path.parts for p in (".venv", "venv", "node_modules", "site-packages")):
             continue
         if rewrite_file(path):
             changed += 1

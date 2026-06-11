@@ -11,6 +11,7 @@ import {
     setIntegrationCatalog,
     integrationDefinition,
     integrationLabel,
+    integrationDescription,
     normalizeIntegrationIcon,
     updateIntegrationCatalogEnabled,
 } from './catalog_meta.js';
@@ -220,7 +221,7 @@ function _renderIntegrationCatalogRows(): void {
         const toggleInputId = escapeHtml(String(entry.toggle_input_id || `${entry.slug}_enabled`));
         const toggleSlug = escapeHtml(String(entry.toggle_slug || entry.slug || ''));
         const label = escapeHtml(integrationLabel(entry));
-        const description = escapeHtml(String(entry.description || '').trim());
+        const description = escapeHtml(integrationDescription(entry));
         const iconClass = escapeHtml(normalizeIntegrationIcon(entry.icon || 'fa-plug'));
         const image = String(entry.image || '').trim();
         const accent = escapeHtml(String(entry.accent || '#94a3b8'));

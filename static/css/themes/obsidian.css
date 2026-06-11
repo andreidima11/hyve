@@ -16,7 +16,6 @@
     --secondary-accent: rgba(168, 85, 247, 0.6);
     --secondary-accent-rgb: 168, 85, 247;
     --msg-user: linear-gradient(135deg, #0c4a6e 0%, #0284c7 50%, #38bdf8 100%);
-    --logo-gradient: linear-gradient(135deg, #38bdf8, #a78bfa);
 
     /* ── Surfaces / Backgrounds ── */
     --bg-main: #030712;
@@ -127,7 +126,7 @@
     --selector-accent: #38bdf8;
     --img-card-bg: rgba(0, 0, 0, 0.25);
     --noise-opacity: 0.5;
-    --logo-shadow: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+    --logo-shadow: none;
     --meta-theme-color: #030712;
 }
 

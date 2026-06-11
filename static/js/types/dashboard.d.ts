@@ -87,6 +87,7 @@ export interface DashboardPullRefreshDeps {
     showToast: (message: string, type?: string) => void;
     t: (key: string, params?: Record<string, unknown>) => string;
     getCurrentPageId: () => string;
+    getEditMode: () => boolean;
 }
 
 export interface DashboardVisibilityCondition {

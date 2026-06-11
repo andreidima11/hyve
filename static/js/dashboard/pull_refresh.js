@@ -1,6 +1,6 @@
 /** Pull-to-refresh for the dashboard view (mobile + trackpad). */
 export function initDashboardPullToRefresh(deps) {
-    const { loadDashboard, selectDashboardPage, setRefreshIndicator, showToast, t, getCurrentPageId, } = deps;
+    const { loadDashboard, selectDashboardPage, setRefreshIndicator, showToast, t, getCurrentPageId, getEditMode, } = deps;
     const view = document.getElementById('view-dashboard');
     if (!view || view.dataset.ptrInit === '1')
         return;
@@ -14,6 +14,13 @@ export function initDashboardPullToRefresh(deps) {
     let triggered = false;
     let indicator = null;
     let refreshing = false;
+    function pullToRefreshDisabled() {
+        if (getEditMode())
+            return true;
+        const html = document.documentElement;
+        return html.hasAttribute('data-dashboard-panel-dragging')
+            || html.hasAttribute('data-dashboard-dragging');
+    }
     function ensureIndicator() {
         if (indicator)
             return indicator;
@@ -197,6 +204,10 @@ export function initDashboardPullToRefresh(deps) {
         }
     }
     dashboardView.addEventListener('touchstart', (ev) => {
+        if (pullToRefreshDisabled()) {
+            pulling = false;
+            return;
+        }
         if (dashboardView.scrollTop > 0) {
             pulling = false;
             return;
@@ -208,6 +219,11 @@ export function initDashboardPullToRefresh(deps) {
         triggered = false;
     }, { passive: true });
     dashboardView.addEventListener('touchmove', (ev) => {
+        if (pullToRefreshDisabled()) {
+            pulling = false;
+            hideIndicator();
+            return;
+        }
         if (!pulling)
             return;
         if (dashboardView.scrollTop > 0) {
@@ -241,6 +257,11 @@ export function initDashboardPullToRefresh(deps) {
     let wheelAccum = 0;
     let wheelTimer = null;
     dashboardView.addEventListener('wheel', (ev) => {
+        if (pullToRefreshDisabled()) {
+            wheelAccum = 0;
+            hideIndicator();
+            return;
+        }
         if (dashboardView.scrollTop > 0 || ev.deltaY >= 0) {
             wheelAccum = 0;
             return;

@@ -103,6 +103,7 @@ export function wireDashboardEvents() {
         showToast,
         t,
         getCurrentPageId: currentPageIdWithCacheFallback,
+        getEditMode: getDashboardEditMode,
     });
     initDashboardDragResize({
         getCache: getDashboardCache,

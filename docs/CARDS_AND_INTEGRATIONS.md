@@ -44,7 +44,7 @@ Every integration should be split into two concerns:
 
 ### Backend provider requirements
 
-Create a provider in `integrations/providers/` that subclasses `BaseEntity`.
+Create a component in `components/<slug>/entity.py` that subclasses `BaseEntity` (see `manifest.json`).
 
 It should own:
 
@@ -79,7 +79,8 @@ Supported fields include:
 - `toggle_slug`
 - `label`
 - `title_key`
-- `description`
+- `description_key` (preferred; falls back to `description`)
+- `description` (legacy fallback label)
 - `icon`
 - `accent`
 - `icon_background`
@@ -91,7 +92,7 @@ Supported fields include:
 Important:
 
 - `slug` identifies the integration in the catalog and list rendering
-- `config_key` maps to the config section saved in `config.json`
+- `config_key` maps to the integration slug / legacy config section key (config entries are authoritative)
 - `config_panel_id` must match an existing `integration-panel-*` block in [templates/index.html](templates/index.html)
 - `toggle_input_id` must point to the checkbox used by `saveConfig()`
 - `supports_sync` controls whether the shared Sync button is rendered
@@ -100,7 +101,7 @@ Important:
 
 Checklist:
 
-1. Create a provider in `integrations/providers/`.
+1. Create a component under `components/<slug>/`.
 2. Ensure it is auto-discoverable by `IntegrationManager`.
 3. Add its metadata to [ui_catalog.json](ui_catalog.json).
 4. Add or reuse a configuration panel in [templates/index.html](templates/index.html).
@@ -239,7 +240,7 @@ Before merging a new integration or card extension, verify:
 
 ### Example: add a new cloud storage integration
 
-- add provider in `integrations/providers/cloud_storage.py`
+- add component in `components/cloud_storage/entity.py`
 - implement `fetch_entities()` and `extract_entities()`
 - add metadata entry in [ui_catalog.json](ui_catalog.json)
 - create config panel markup if needed

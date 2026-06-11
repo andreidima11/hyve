@@ -74,3 +74,13 @@ export function integrationLabel(entry: IntegrationCatalogEntry | null | undefin
     }
     return entry.label || entry.slug || '';
 }
+
+export function integrationDescription(entry: IntegrationCatalogEntry | null | undefined) {
+    if (!entry) return '';
+    const descKey = String(entry.description_key || '').trim();
+    if (descKey) {
+        const translated = t(descKey);
+        if (translated && translated !== descKey) return translated;
+    }
+    return String(entry.description || '').trim();
+}

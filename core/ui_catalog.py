@@ -8,7 +8,7 @@ from typing import Any
 from integrations import config_entries, get_integration_manager
 
 
-_CATALOG_PATH = Path(__file__).resolve().parent / "ui_catalog.json"
+_CATALOG_PATH = Path(__file__).resolve().parent.parent / "ui_catalog.json"
 _CARD_RENDERERS = {
     "switch", "button", "info", "label", "weather", "scene",
     # Phase 2 — rich HA-style cards
@@ -211,7 +211,8 @@ def _normalize_integration_entry(entry: dict[str, Any]) -> dict[str, Any]:
         "toggle_input_id": toggle_input_id,
         "toggle_slug": toggle_slug,
         "label": str(entry.get("label") or slug.replace("_", " ").title()).strip(),
-        "title_key": str(entry.get("title_key") or "").strip(),
+        "title_key": str(entry.get("title_key") or f"config.{slug}_section").strip(),
+        "description_key": str(entry.get("description_key") or f"integrations.catalog.{slug}_desc").strip(),
         "description": str(entry.get("description") or "").strip(),
         "icon": str(entry.get("icon") or "fa-puzzle-piece").strip(),
         "image": str(entry.get("image") or "").strip(),

@@ -18,12 +18,6 @@ from routers.dashboard.constants import (
     _DEFAULT_PAGE_TITLE,
     _DEFAULT_PREFS,
 )
-from routers.dashboard.control import (
-    _expand_entity_id_aliases,
-    _normalize_widget_control_action,
-    _primary_widget_entity_id,
-    toggle_dashboard_widget,
-)
 from routers.dashboard.entities import (
     _available_entities,
     _hydrate_panels,
@@ -31,6 +25,12 @@ from routers.dashboard.entities import (
     _panel_entity_ids,
     _scene_synthetic_entities,
     invalidate_available_entities_cache,
+)
+from routers.dashboard.control import (
+    _expand_entity_id_aliases,
+    _normalize_widget_control_action,
+    _primary_widget_entity_id,
+    toggle_dashboard_widget,
 )
 from routers.dashboard.models import (
     DashboardDefaultPageBody,
@@ -85,8 +85,10 @@ def _find_widget_any_page(widget_id: str, page_id: str | None = None):
 # Re-export route handlers referenced by tests
 from routers.dashboard.routes import (
     delete_dashboard_page,
+    move_dashboard_panel,
     patch_dashboard_preferences,
     reorder_dashboard_page,
+    reorder_dashboard_panel,
 )
 
 __all__ = [
@@ -127,4 +129,6 @@ __all__ = [
     "delete_dashboard_page",
     "patch_dashboard_preferences",
     "reorder_dashboard_page",
+    "move_dashboard_panel",
+    "reorder_dashboard_panel",
 ]

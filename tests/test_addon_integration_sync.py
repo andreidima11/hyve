@@ -1,14 +1,15 @@
-"""Add-on → integration config.json sync."""
-
-import json
+"""Add-on → integration config entry sync."""
 
 from addons import integration_sync, registry, state_store
 from core.http.startup_migrations import run_startup_migrations
+from integrations import config_entries
 from sqlalchemy import text
 import core.database as database
 
 
-def _fresh():
+def _fresh(monkeypatch, tmp_path):
+    entries_db = tmp_path / "integration_entries.sqlite"
+    monkeypatch.setattr(config_entries, "_DB_PATH", entries_db)
     run_startup_migrations()
     with database.engine.connect() as conn:
         conn.execute(text("DELETE FROM addon_state"))
@@ -19,35 +20,8 @@ def test_integration_key_for_frigate():
     assert integration_sync.integration_key_for("frigate") == "frigate"
 
 
-def test_set_addon_enabled_syncs_config_json(tmp_path, monkeypatch):
-    _fresh()
-    cfg_path = tmp_path / "config.json"
-    cfg_path.write_text(json.dumps({"frigate": {"enabled": False, "port": 5000}}), encoding="utf-8")
-
-    import core.settings as settings_mod
-
-    monkeypatch.setattr(settings_mod, "CONFIG_FILE", str(cfg_path))
-    monkeypatch.setattr(
-        settings_mod,
-        "_load_config_raw",
-        lambda: json.loads(cfg_path.read_text(encoding="utf-8")),
-    )
-
-    saved_cfg: dict = {}
-
-    def _capture_save(patch):
-        saved_cfg.update(patch)
-        current = json.loads(cfg_path.read_text(encoding="utf-8"))
-        for key, value in patch.items():
-            if key in current and isinstance(current[key], dict) and isinstance(value, dict):
-                current[key].update(value)
-            else:
-                current[key] = value
-        cfg_path.write_text(json.dumps(current, indent=4), encoding="utf-8")
-        settings_mod.CFG = settings_mod.load_config()
-        return settings_mod.CFG
-
-    monkeypatch.setattr(settings_mod, "save_config", _capture_save)
+def test_set_addon_enabled_syncs_config_entry(tmp_path, monkeypatch):
+    _fresh(monkeypatch, tmp_path)
 
     state_store.save_state("frigate", {
         "installed": True,
@@ -57,39 +31,17 @@ def test_set_addon_enabled_syncs_config_json(tmp_path, monkeypatch):
         "watchdog": False,
     })
 
+    integration_sync.sync_from_addon_state("frigate")
     registry.set_addon_enabled("frigate", True)
 
-    data = json.loads(cfg_path.read_text(encoding="utf-8"))
-    assert data["frigate"]["enabled"] is True
-    assert data["frigate"]["port"] == 5000
+    entries = config_entries.list_entries("frigate")
+    assert len(entries) == 1
+    assert entries[0]["enabled"] is True
+    assert entries[0]["data"].get("port") == 5005
 
 
-def test_update_addon_config_syncs_fields(tmp_path, monkeypatch):
-    _fresh()
-    cfg_path = tmp_path / "config.json"
-    cfg_path.write_text(json.dumps({"mosquitto": {"enabled": True}}), encoding="utf-8")
-
-    import core.settings as settings_mod
-
-    monkeypatch.setattr(settings_mod, "CONFIG_FILE", str(cfg_path))
-    monkeypatch.setattr(
-        settings_mod,
-        "_load_config_raw",
-        lambda: json.loads(cfg_path.read_text(encoding="utf-8")),
-    )
-
-    def _capture_save(patch):
-        current = json.loads(cfg_path.read_text(encoding="utf-8"))
-        for key, value in patch.items():
-            if key in current and isinstance(current[key], dict) and isinstance(value, dict):
-                current[key].update(value)
-            else:
-                current[key] = value
-        cfg_path.write_text(json.dumps(current, indent=4), encoding="utf-8")
-        settings_mod.CFG = settings_mod.load_config()
-        return settings_mod.CFG
-
-    monkeypatch.setattr(settings_mod, "save_config", _capture_save)
+def test_update_addon_config_syncs_config_entry(tmp_path, monkeypatch):
+    _fresh(monkeypatch, tmp_path)
 
     state_store.save_state("mosquitto", {
         "installed": True,
@@ -101,6 +53,7 @@ def test_update_addon_config_syncs_fields(tmp_path, monkeypatch):
 
     registry.update_addon_config("mosquitto", {"port": 1884, "host": "localhost"})
 
-    data = json.loads(cfg_path.read_text(encoding="utf-8"))
-    assert data["mosquitto"]["port"] == 1884
-    assert data["mosquitto"]["host"] == "localhost"
+    entries = config_entries.list_entries("mosquitto")
+    assert len(entries) == 1
+    assert entries[0]["data"].get("port") == 1884
+    assert entries[0]["data"].get("host") == "localhost"

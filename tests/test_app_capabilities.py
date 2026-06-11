@@ -95,11 +95,15 @@ def test_guardrails_keep_app_help_available_in_filtered_tool_sets():
 
 def _load_intent_router(monkeypatch):
     monkeypatch.setitem(sys.modules, "httpx", types.SimpleNamespace(TimeoutException=TimeoutError))
-    monkeypatch.setitem(sys.modules, "settings", types.SimpleNamespace(CFG={"intelligence": {"intent_router": {"enabled": False}}}))
-    monkeypatch.setitem(sys.modules, "llm_client", types.SimpleNamespace(get_llm_client=lambda: None))
-    monkeypatch.setitem(sys.modules, "logger", types.SimpleNamespace(log_line=lambda *args, **kwargs: None))
+    monkeypatch.setitem(
+        sys.modules,
+        "core.settings",
+        types.SimpleNamespace(CFG={"intelligence": {"intent_router": {"enabled": False}}}),
+    )
+    monkeypatch.setitem(sys.modules, "brain.llm_client", types.SimpleNamespace(get_llm_client=lambda: None))
+    monkeypatch.setitem(sys.modules, "core.logger", types.SimpleNamespace(log_line=lambda *args, **kwargs: None))
 
-    router_path = _PROJECT_ROOT / "intent_router.py"
+    router_path = _PROJECT_ROOT / "brain" / "intent_router.py"
     spec = importlib.util.spec_from_file_location("intent_router_under_test", router_path)
     router = importlib.util.module_from_spec(spec)
     assert spec and spec.loader

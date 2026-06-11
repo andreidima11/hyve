@@ -54,12 +54,8 @@ export function _pointerToGridCell(gridEl, geom, clientX, clientY, span, offsetX
 export function _positionDashboardDropGhost(ghost, geom, col, row, span) {
     if (!ghost || !geom || !span)
         return;
-    // On phones every card/section is forced full-width and only the vertical
-    // order matters; a column-spanned ghost would render as a thin sliver on
-    // the left ("o linie laterala stanga"), so span the whole row instead.
-    const mobile = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 767px)').matches;
-    const visualColSpan = mobile ? geom.colCount : _visualColSpanForGrid(span.col, geom);
-    const visualColStart = mobile ? 1 : _visualColStartForGrid(col ?? 1, geom, span.col);
+    const visualColSpan = _visualColSpanForGrid(span.col, geom);
+    const visualColStart = _visualColStartForGrid(col ?? 1, geom, span.col);
     const width = geom.colWidth * visualColSpan + geom.colGap * Math.max(0, visualColSpan - 1);
     const height = geom.rowHeight * span.row + geom.rowGap * Math.max(0, span.row - 1);
     const left = geom.padLeft + (visualColStart - 1) * (geom.colWidth + geom.colGap);
@@ -69,6 +65,46 @@ export function _positionDashboardDropGhost(ghost, geom, col, row, span) {
     ghost.style.width = `${width}px`;
     ghost.style.height = `${height}px`;
     ghost.style.transform = `translate3d(${left}px, ${top}px, 0)`;
+}
+function _stackPixelAnchorForCell(stack, geom, visualColStart, row) {
+    let left = null;
+    let top = null;
+    for (const panel of stack.querySelectorAll('.dashboard-panel[data-panel-id]')) {
+        const style = getComputedStyle(panel);
+        const colStart = parseInt(String(panel.style.getPropertyValue('--panel-col-start') || style.gridColumnStart), 10);
+        const rowStart = parseInt(String(panel.style.getPropertyValue('--panel-row-start') || style.gridRowStart), 10);
+        const rect = panel.getBoundingClientRect();
+        const relLeft = rect.left - geom.rect.left;
+        const relTop = rect.top - geom.rect.top;
+        if (top === null && Number.isFinite(rowStart) && rowStart === row)
+            top = relTop;
+        if (left === null && Number.isFinite(colStart) && colStart === visualColStart)
+            left = relLeft;
+        if (top !== null && left !== null)
+            break;
+    }
+    return {
+        left: left ?? geom.padLeft + (visualColStart - 1) * (geom.colWidth + geom.colGap),
+        top: top ?? geom.padTop + (row - 1) * (geom.rowHeight + geom.rowGap),
+    };
+}
+/** Section drop ghost: match the dragged panel's rendered size and anchor to real grid slots. */
+export function _positionDashboardSectionDropGhost(ghost, stack, geom, col, row, span, sourceEl) {
+    if (!ghost || !stack || !geom || !span)
+        return;
+    const sourceRect = sourceEl?.getBoundingClientRect();
+    const visualColSpan = _visualColSpanForGrid(span.col, geom);
+    const visualColStart = _visualColStartForGrid(col ?? 1, geom, span.col);
+    const gridWidth = geom.colWidth * visualColSpan + geom.colGap * Math.max(0, visualColSpan - 1);
+    const gridHeight = geom.rowHeight * span.row + geom.rowGap * Math.max(0, span.row - 1);
+    const width = sourceRect?.width ?? gridWidth;
+    const height = sourceRect?.height ?? gridHeight;
+    const anchor = _stackPixelAnchorForCell(stack, geom, visualColStart, row ?? 1);
+    ghost.dataset.size = `${visualColSpan}/${SECTION_COLS}`;
+    ghost.dataset.rows = String(span.row || 1);
+    ghost.style.width = `${width}px`;
+    ghost.style.height = `${height}px`;
+    ghost.style.transform = `translate3d(${anchor.left}px, ${anchor.top}px, 0)`;
 }
 /** Compute current grid position of a card by reverse-mapping its rect onto the grid. */
 export function _cardCurrentPosition(card, gridEl, geom, span) {

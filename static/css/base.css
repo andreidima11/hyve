@@ -28,7 +28,13 @@
     --secondary-accent: rgba(168, 85, 247, 0.6);
     --secondary-accent-rgb: 168, 85, 247;
     --msg-user: linear-gradient(135deg, #0c4a6e 0%, #0284c7 50%, #38bdf8 100%);
-    --logo-gradient: linear-gradient(135deg, #38bdf8, #a78bfa);
+    --logo-gradient: linear-gradient(
+        118deg,
+        color-mix(in oklab, var(--accent-hover) 92%, white 8%) 0%,
+        var(--accent) 52%,
+        color-mix(in oklab, var(--accent) 88%, black 12%) 100%
+    );
+    --logo-mark-mask: url("/static/img/hyve-mark.svg");
 
     --bg-main: #030712;
     --surface-0: #030712;
@@ -168,7 +174,7 @@
     --selector-accent: #38bdf8;
     --img-card-bg: rgba(0, 0, 0, 0.25);
     --noise-opacity: 0.5;
-    --logo-shadow: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+    --logo-shadow: none;
     --meta-theme-color: #030712;
 }
 
@@ -477,126 +483,124 @@ body.derived-page-open {
 
 .hyve-logo {
     --hyve-logo-size: 1.82rem;
-    --hyve-logo-light: rgba(248, 250, 252, 0.98);
-    --hyve-logo-muted: rgba(var(--text-muted-rgb, 148, 163, 184), 0.92);
-    --hyve-logo-glow: color-mix(in srgb, var(--accent) 28%, transparent);
+    --hyve-logo-ink: var(--text-heading, #f8fafc);
+    --hyve-logo-muted: color-mix(in srgb, var(--text-secondary) 88%, transparent);
     display: inline-flex;
     align-items: center;
-    gap: 0;
-    color: var(--hyve-logo-light);
-    font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-    font-weight: 800;
+    gap: 0.5em;
+    color: var(--hyve-logo-ink);
+    font-family: "Outfit", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600;
     font-synthesis: none;
     line-height: 1;
-    letter-spacing: -0.04em;
+    letter-spacing: -0.035em;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    isolation: isolate;
     position: relative;
-    filter: none;
+    user-select: none;
+}
+
+.hyve-logo--sidebar::before,
+.hyve-logo--hero::before {
+    content: '';
+    flex-shrink: 0;
+    width: 1.12em;
+    height: 1.19em;
+    aspect-ratio: 64 / 68;
+    background: var(--logo-gradient);
+    -webkit-mask: var(--logo-mark-mask) center / contain no-repeat;
+    mask: var(--logo-mark-mask) center / contain no-repeat;
+    opacity: 1;
+    filter:
+        drop-shadow(0 1px 1px color-mix(in srgb, var(--accent) 18%, transparent))
+        drop-shadow(0 0 16px color-mix(in srgb, var(--accent) 32%, transparent));
 }
 
 .hyve-logo__wordmark {
-    position: relative;
     display: inline-flex;
     align-items: baseline;
     gap: 0;
     font-size: 1em;
-    letter-spacing: inherit;
-    z-index: 1;
-}
-
-.hyve-logo__wordmark::after {
-    content: '';
-    position: absolute;
-    inset: -0.42em -0.55em;
-    border-radius: 999px;
-    background:
-        radial-gradient(
-            ellipse 72% 58% at 50% 52%,
-            var(--hyve-logo-glow) 0%,
-            transparent 72%
-        );
-    filter: blur(12px);
-    opacity: 0.9;
-    z-index: -1;
-    pointer-events: none;
+    letter-spacing: -0.035em;
+    font-variant-ligatures: none;
 }
 
 .hyve-logo .hyve-me {
-    color: var(--hyve-logo-light);
-    text-shadow:
-        0 0 18px color-mix(in srgb, var(--hyve-logo-light) 22%, transparent),
-        0 1px 0 color-mix(in srgb, var(--hyve-logo-light) 12%, transparent);
+    color: var(--hyve-logo-ink);
+    font-weight: 600;
+    letter-spacing: -0.035em;
 }
 
 .hyve-logo .hyve-mini {
+    font-weight: 700;
+    letter-spacing: -0.03em;
     background: var(--logo-gradient);
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     color: transparent;
-    filter: var(--logo-shadow);
-    padding-right: 0.02em;
 }
 
 .hyve-logo--hero {
     --hyve-logo-size: clamp(2.65rem, 9vw, 3.4rem);
-    flex-direction: row;
+    gap: 0.56em;
     font-size: clamp(2.35rem, 8vw, 3.15rem);
-    letter-spacing: -0.045em;
+    letter-spacing: -0.04em;
 }
 
-.hyve-logo--hero .hyve-logo__wordmark::after {
-    inset: -0.5em -0.72em;
-    filter: blur(16px);
-    opacity: 1;
+.hyve-logo--hero::before {
+    width: 1.18em;
+    height: 1.25em;
+    filter:
+        drop-shadow(0 2px 3px color-mix(in srgb, var(--accent) 22%, transparent))
+        drop-shadow(0 0 22px color-mix(in srgb, var(--accent) 38%, transparent));
 }
 
 .hyve-logo--hero .hyve-me {
-    text-shadow:
-        0 0 28px color-mix(in srgb, var(--hyve-logo-light) 28%, transparent),
-        0 2px 12px color-mix(in srgb, var(--accent) 18%, transparent);
+    font-weight: 600;
 }
 
 .hyve-logo--hero .hyve-mini {
-    filter: var(--logo-shadow) drop-shadow(0 0 14px color-mix(in srgb, var(--accent) 35%, transparent));
+    font-weight: 700;
 }
 
 .hyve-logo--sidebar {
     --hyve-logo-size: 1.72rem;
-    font-size: 1.42rem;
-    letter-spacing: -0.03em;
+    gap: 0.44em;
+    font-size: 1.38rem;
+    letter-spacing: -0.032em;
     overflow: visible;
 }
 
-.hyve-logo--sidebar .hyve-logo__wordmark::after {
-    inset: -0.32em -0.42em;
-    filter: blur(8px);
-    opacity: 0.75;
+.hyve-logo--sidebar::before {
+    width: 1.06em;
+    height: 1.12em;
+    filter:
+        drop-shadow(0 1px 1px color-mix(in srgb, var(--accent) 16%, transparent))
+        drop-shadow(0 0 12px color-mix(in srgb, var(--accent) 26%, transparent));
 }
 
 @media (min-width: 640px) {
     .hyve-logo--sidebar {
         --hyve-logo-size: 1.9rem;
-        font-size: 1.64rem;
+        font-size: 1.58rem;
     }
 }
 
 .hyve-wordmark {
-    font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-    font-weight: 800;
+    font-family: "Outfit", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600;
     font-synthesis: none;
-    letter-spacing: -0.04em;
+    letter-spacing: -0.035em;
     line-height: 0.92;
-    color: #f8fafc;
+    color: var(--text-heading, #f8fafc);
     white-space: nowrap;
     text-rendering: geometricPrecision;
 }
 
 .hyve-wordmark-accent {
-    background: linear-gradient(135deg, #8ea1ff 0%, #6f83ff 50%, #b2bbff 100%);
+    background: var(--logo-gradient);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
