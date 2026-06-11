@@ -76,7 +76,16 @@ def main() -> int:
         if code != 0:
             return code
 
-    _run(["git", "tag", "-a", version, "-m", title], check=False)
+    tag_exists = subprocess.run(
+        ["git", "rev-parse", version],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    ).returncode == 0
+    if tag_exists:
+        print(f"Tag {version} already exists; skipping tag create.")
+    else:
+        _run(["git", "tag", "-a", version, "-m", title])
     _run(["git", "push", "-u", "origin", "HEAD"])
     _run(["git", "push", "origin", version])
 
