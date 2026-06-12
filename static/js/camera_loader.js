@@ -24,14 +24,15 @@ export function showCameraLoaderLoading(loader) {
     if (label)
         label.textContent = t('dashboard.camera.loading');
 }
-export function showCameraLoaderError(loader) {
+export function showCameraLoaderError(loader, message) {
     if (!loader)
         return;
     loader.classList.add('is-visible', 'is-error');
     loader.querySelector('[data-hv-cam-loader-anim]')?.classList.add('hidden');
     const label = loader.querySelector('[data-hv-cam-loader-label]');
+    const text = String(message || '').trim();
     if (label)
-        label.textContent = t('entity.render.camera_unavailable');
+        label.textContent = text || t('entity.render.camera_unavailable');
 }
 export function hideCameraLoader(loader) {
     if (!loader)

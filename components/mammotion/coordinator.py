@@ -50,8 +50,10 @@ class MowerCoordinator:
         bluetooth_enabled: bool = True,
         cloud_enabled: bool = True,
         movement_use_wifi: bool = False,
+        hub: Any | None = None,
     ) -> None:
         self._client = client
+        self._hub = hub
         self.device_name = device_name
         self.operation_settings = operation_settings or OperationSettings()
         self.map_offset_lat = map_offset_lat

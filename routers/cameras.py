@@ -887,3 +887,82 @@ async def camera_talk_push(
                 tmp_path.unlink()
             except Exception:
                 pass
+
+
+def _is_mammotion_camera(ent: dict[str, Any]) -> bool:
+    if str(ent.get("source") or "").strip().lower() != "mammotion":
+        return False
+    attrs = ent.get("attributes") if isinstance(ent.get("attributes"), dict) else {}
+    if str(attrs.get("mammotion_key") or "") == "webrtc":
+        return True
+    if str(attrs.get("stream_type") or "") == "agora_webrtc":
+        return True
+    eid = str(ent.get("entity_id") or "")
+    return eid.endswith("_webrtc")
+
+
+@router.post("/{entity_id}/mammotion/start")
+async def mammotion_camera_start(
+    entity_id: str,
+    user: models.User = Depends(_get_camera_user),
+):
+    from components.mammotion.camera_stream import mammotion_hub_for_camera_entity, start_mammotion_camera
+
+    ent = await _camera_entity(entity_id)
+    if not _is_mammotion_camera(ent):
+        raise HTTPException(400, "Camera nu este Mammotion WebRTC.")
+    try:
+        hub, device_name = await mammotion_hub_for_camera_entity(ent)
+        tokens = await start_mammotion_camera(hub, device_name)
+        return {"ok": True, "entity_id": entity_id, "tokens": tokens}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        log.warning("mammotion camera start %s failed: %s", entity_id, exc, exc_info=True)
+        raise HTTPException(502, f"Pornire cameră eșuată: {exc}") from exc
+
+
+@router.get("/{entity_id}/mammotion/tokens")
+async def mammotion_camera_tokens(
+    entity_id: str,
+    user: models.User = Depends(_get_camera_user),
+):
+    from components.mammotion.camera_stream import mammotion_hub_for_camera_entity, refresh_mammotion_stream_tokens
+
+    ent = await _camera_entity(entity_id)
+    if not _is_mammotion_camera(ent):
+        raise HTTPException(400, "Camera nu este Mammotion WebRTC.")
+    try:
+        hub, device_name = await mammotion_hub_for_camera_entity(ent)
+        tokens = await refresh_mammotion_stream_tokens(hub, device_name)
+        return {"ok": True, "entity_id": entity_id, "tokens": tokens}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        log.warning("mammotion camera tokens %s failed: %s", entity_id, exc, exc_info=True)
+        raise HTTPException(502, f"Token video eșuat: {exc}") from exc
+
+
+@router.post("/{entity_id}/mammotion/stop")
+async def mammotion_camera_stop(
+    entity_id: str,
+    user: models.User = Depends(_get_camera_user),
+):
+    from components.mammotion.camera_stream import mammotion_hub_for_camera_entity, stop_mammotion_camera
+
+    ent = await _camera_entity(entity_id)
+    if not _is_mammotion_camera(ent):
+        raise HTTPException(400, "Camera nu este Mammotion WebRTC.")
+    try:
+        hub, device_name = await mammotion_hub_for_camera_entity(ent)
+        await stop_mammotion_camera(hub, device_name)
+        return {"ok": True, "entity_id": entity_id}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        log.warning("mammotion camera stop %s failed: %s", entity_id, exc)
+        raise HTTPException(502, f"Oprire cameră eșuată: {exc}") from exc

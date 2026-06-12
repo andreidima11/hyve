@@ -8,12 +8,15 @@
  *   index     — initial camera index (optional)
  */
 
-import { cameraPreferWebmPlayer, cameraSupportsGo2rtc } from '../../js/camera_live.js';
+import { cameraIsAgoraMammotion, cameraPreferWebmPlayer, cameraSupportsGo2rtc } from '../../js/camera_live.js';
 import { getCameraStreamToken } from '../../js/camera_auth.js';
 import { t } from '../../js/lang/index.js';
 import type { HyveCameraStream } from './camera_stream.js';
 
-type CarouselStream = HyveCameraStream & HTMLElement;
+type CarouselStream = (HyveCameraStream | HTMLElement) & {
+  pauseStream?: () => void;
+  resumeStream?: () => void;
+};
 
 const CAROUSEL_DOM_VERSION = '5';
 
@@ -22,6 +25,7 @@ interface CarouselEntity {
   title: string;
   webm: boolean;
   go2rtc: boolean;
+  agora: boolean;
 }
 
 interface CameraCapabilities {
@@ -50,6 +54,7 @@ function _parseEntities(raw: string): CarouselEntity[] {
           title: String(e.title || e.entity_id || '').trim(),
           webm: e.webm === true || e.webm === 'true',
           go2rtc: e.go2rtc === true || e.go2rtc === 'true',
+          agora: e.agora === true || e.agora === 'true',
         }))
       : [];
   } catch (_) {
@@ -239,7 +244,7 @@ class HyveCameraCarousel extends HTMLElement {
     if (this._stream === stream) this._stream = null;
   }
 
-  _entityStreamConfig(ent: CarouselEntity): { webm: boolean; go2rtc: boolean } {
+  _entityStreamConfig(ent: CarouselEntity): { webm: boolean; go2rtc: boolean; agora: boolean } {
     const cache = (window as Window & { _dashboardCache?: { available_entities?: Array<{ entity_id?: string; attributes?: Record<string, unknown> }> } })._dashboardCache;
     const live = (cache?.available_entities || []).find((e) => e.entity_id === ent.entity_id);
     const attrs = live?.attributes || {};
@@ -247,7 +252,13 @@ class HyveCameraCarousel extends HTMLElement {
     if (webm === false) webm = cameraPreferWebmPlayer(attrs);
     let go2rtc = ent.go2rtc;
     if (go2rtc == null) go2rtc = cameraSupportsGo2rtc(attrs);
-    return { webm, go2rtc };
+    let agora = ent.agora;
+    if (agora == null) agora = cameraIsAgoraMammotion(attrs);
+    return { webm, go2rtc, agora };
+  }
+
+  _streamUsesAgora(stream: CarouselStream | null | undefined): boolean {
+    return String(stream?.tagName || '').toLowerCase() === 'hv-mammotion-camera';
   }
 
   _setStreamAttr(stream: CarouselStream, name: string, value: string): void {
@@ -255,7 +266,15 @@ class HyveCameraCarousel extends HTMLElement {
   }
 
   _applyStreamAttrs(stream: CarouselStream, ent: CarouselEntity, { active = false, buffered = false } = {}): void {
-    const { webm, go2rtc } = this._entityStreamConfig(ent);
+    const { webm, go2rtc, agora } = this._entityStreamConfig(ent);
+    if (agora || this._streamUsesAgora(stream)) {
+      this._setStreamAttr(stream, 'entity', ent.entity_id);
+      this._setStreamAttr(stream, 'alt', ent.title || ent.entity_id);
+      this._setStreamAttr(stream, 'autoplay', (active && this._mode === 'live') ? 'true' : 'false');
+      stream.classList.toggle('hv-camera-carousel__stream--active', active);
+      stream.classList.toggle('hv-camera-carousel__stream--buffer', buffered);
+      return;
+    }
     // Only the active slide goes live; preloaded (buffered) slides poll a
     // snapshot so off-screen cameras don't each hold a live MJPEG/go2rtc/WebM
     // connection. On swipe the slide becomes active and upgrades to live.
@@ -274,7 +293,12 @@ class HyveCameraCarousel extends HTMLElement {
     stream.classList.toggle('hv-camera-carousel__stream--buffer', buffered);
   }
 
-  _createStreamElement(): CarouselStream {
+  _createStreamElement(ent: CarouselEntity): CarouselStream {
+    if (this._entityStreamConfig(ent).agora) {
+      const stream = document.createElement('hv-mammotion-camera') as CarouselStream;
+      stream.className = 'hyve-dashboard-card__camera-player hv-camera-carousel__stream hv-camera-carousel__stream--agora';
+      return stream;
+    }
     const stream = document.createElement('hv-camera-stream') as CarouselStream;
     stream.className = 'hyve-dashboard-card__camera-player hv-camera-carousel__stream';
     return stream;
@@ -283,9 +307,14 @@ class HyveCameraCarousel extends HTMLElement {
   _attachStream(ent: CarouselEntity, { active = false, buffered = false } = {}): CarouselStream {
     this._ensureStreamMap();
     let stream = this._streams.get(ent.entity_id);
+    const wantsAgora = this._entityStreamConfig(ent).agora;
+    if (stream && this._streamUsesAgora(stream) !== wantsAgora) {
+      this._removeStream(ent.entity_id);
+      stream = undefined;
+    }
     if (!stream || !stream.isConnected) {
       if (stream) this._streams.delete(ent.entity_id);
-      stream = this._createStreamElement();
+      stream = this._createStreamElement(ent);
       this._stage!.appendChild(stream);
       this._streams.set(ent.entity_id, stream);
     }
@@ -306,9 +335,13 @@ class HyveCameraCarousel extends HTMLElement {
     for (const entityId of [...this._streams.keys()]) {
       if (this._streams.get(entityId) !== this._stream) this._removeStream(entityId);
     }
+    const wantsAgora = this._entityStreamConfig(cur).agora;
+    if (this._stream && this._streamUsesAgora(this._stream) !== wantsAgora) {
+      this._clearAllStreams();
+    }
     if (!this._stream || !this._stream.isConnected) {
       this._clearAllStreams();
-      this._stream = this._createStreamElement();
+      this._stream = this._createStreamElement(cur);
       this._stream.classList.add('hv-camera-carousel__stream--active');
       this._stage.appendChild(this._stream);
       this._streams.set(cur.entity_id, this._stream);
@@ -763,6 +796,9 @@ class HyveCameraCarousel extends HTMLElement {
     }
     this._titleEl.textContent = cur.title || cur.entity_id;
     this._renderDots();
+    if (this._menuBtn) {
+      this._menuBtn.hidden = this._entityStreamConfig(cur).agora;
+    }
     this._syncPreloadStreams();
     this._applyMicToCamera();
   }

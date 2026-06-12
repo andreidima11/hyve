@@ -1,6 +1,7 @@
 import './entity_renderers.js';
 // Hyveview bare-path imports dedupe to a single module instance (see hyveview_setup.js).
 import '/static/hyveview/elements/camera_stream.js';
+import '/static/hyveview/elements/mammotion_camera.js';
 import '/static/hyveview/elements/camera_carousel.js';
 
 import { loadBundledCardPackages } from '/static/hyveview/cards/loader.js';

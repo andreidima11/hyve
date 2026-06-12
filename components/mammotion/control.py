@@ -146,7 +146,38 @@ async def control_mammotion(
     if domain == "vacuum":
         return await _control_spino(coordinator, act, payload)
 
+    if domain == "camera" and key == "webrtc":
+        return await _control_mammotion_camera(coordinator, act, payload)
+
     raise ValueError(f"Domeniu Mammotion nesuportat pentru control: {domain}")
+
+
+async def _control_mammotion_camera(
+    coordinator: MowerCoordinator,
+    act: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    del payload
+    hub = coordinator._hub
+    if hub is None:
+        raise ValueError("Sesiunea Mammotion nu este disponibilă pentru cameră.")
+    from components.mammotion.camera_stream import (
+        refresh_mammotion_stream_tokens,
+        start_mammotion_camera,
+        stop_mammotion_camera,
+    )
+
+    device_name = coordinator.device_name
+    if act in {"turn_on", "on", "start", "start_video", "play"}:
+        tokens = await start_mammotion_camera(hub, device_name)
+        return {"status": "ok", "action": "start_video", "tokens": tokens}
+    if act in {"turn_off", "off", "stop", "stop_video"}:
+        await stop_mammotion_camera(hub, device_name)
+        return {"status": "ok", "action": "stop_video"}
+    if act in {"refresh_stream", "refresh"}:
+        tokens = await refresh_mammotion_stream_tokens(hub, device_name, force=True)
+        return {"status": "ok", "action": "refresh_stream", "tokens": tokens}
+    raise ValueError(f"Acțiune cameră Mammotion nesuportată: {act}")
 
 
 async def _control_lawn_mower(coordinator: MowerCoordinator, act: str, payload: dict[str, Any]) -> dict[str, Any]:

@@ -25,12 +25,13 @@ export function showCameraLoaderLoading(loader: Element | null): void {
     if (label) label.textContent = t('dashboard.camera.loading');
 }
 
-export function showCameraLoaderError(loader: Element | null): void {
+export function showCameraLoaderError(loader: Element | null, message?: string): void {
     if (!loader) return;
     loader.classList.add('is-visible', 'is-error');
     loader.querySelector('[data-hv-cam-loader-anim]')?.classList.add('hidden');
     const label = loader.querySelector('[data-hv-cam-loader-label]');
-    if (label) label.textContent = t('entity.render.camera_unavailable');
+    const text = String(message || '').trim();
+    if (label) label.textContent = text || t('entity.render.camera_unavailable');
 }
 
 export function hideCameraLoader(loader: Element | null): void {

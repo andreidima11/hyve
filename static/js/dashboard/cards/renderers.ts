@@ -23,6 +23,7 @@ export interface CardRenderCtx {
     getCache: () => DashboardCache;
     cameraPreferWebmPlayer: (attrs: Record<string, unknown>) => boolean;
     cameraSupportsGo2rtc: (attrs: Record<string, unknown>) => boolean;
+    cameraIsAgoraMammotion: (attrs: Record<string, unknown>) => boolean;
     interactive?: boolean;
 }
 
@@ -136,6 +137,7 @@ export function renderCameraCard(widget: DashboardWidget, ctx: CardRenderCtx): s
             title: e.title || e.entity_id,
             webm: ctx.cameraPreferWebmPlayer(attrs as Record<string, unknown>),
             go2rtc: ctx.cameraSupportsGo2rtc(attrs as Record<string, unknown>),
+            agora: ctx.cameraIsAgoraMammotion(attrs as Record<string, unknown>),
         };
     });
     const entitiesAttr = esc(encodeURIComponent(JSON.stringify(entitiesPayload)));

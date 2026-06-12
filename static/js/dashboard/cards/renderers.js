@@ -100,6 +100,7 @@ export function renderCameraCard(widget, ctx) {
             title: e.title || e.entity_id,
             webm: ctx.cameraPreferWebmPlayer(attrs),
             go2rtc: ctx.cameraSupportsGo2rtc(attrs),
+            agora: ctx.cameraIsAgoraMammotion(attrs),
         };
     });
     const entitiesAttr = esc(encodeURIComponent(JSON.stringify(entitiesPayload)));

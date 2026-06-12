@@ -304,19 +304,26 @@ def build_mower_entities(row: MowerRow) -> list[dict[str, Any]]:
         )
 
     if row.flags.get("supports_video"):
-        out.append(
-            base_entity(
-                device_name=row.device_name,
-                obj=row.obj,
-                label=row.label,
-                domain="camera",
-                key="webrtc",
-                state="idle",
-                controllable=False,
-                online=row.online,
-                icon="fas fa-video",
-            )
+        cam = base_entity(
+            device_name=row.device_name,
+            obj=row.obj,
+            label=row.label,
+            domain="camera",
+            key="webrtc",
+            state="idle",
+            controllable=True,
+            online=row.online,
+            icon="fas fa-video",
+            extra_attrs={
+                "model_name": row.device_name,
+                "stream_type": "agora_webrtc",
+                "live_providers": ["agora"],
+            },
         )
+        caps = cam["attributes"].setdefault("capabilities", {})
+        if isinstance(caps, dict):
+            caps["stream_type"] = "agora_webrtc"
+        out.append(cam)
 
     for key, pred in MOWER_SWITCHES.items():
         if not pred(row.flags, row.switches):

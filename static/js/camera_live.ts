@@ -54,8 +54,18 @@ export function cameraPreferHttpLive(attrs: unknown): boolean {
     return mjpeg.startsWith('http://') || mjpeg.startsWith('https://');
 }
 
+/** Mammotion lawn mower — Agora cloud WebRTC (not RTSP/MJPEG). */
+export function cameraIsAgoraMammotion(attrs: unknown): boolean {
+    const a = asCameraAttrs(attrs);
+    if (!a) return false;
+    if (String(a.stream_type || '') === 'agora_webrtc') return true;
+    const providers = a.live_providers;
+    return Array.isArray(providers) && providers.includes('agora');
+}
+
 /** Pick the live transport for `<hv-camera-stream>` / dashboard camera cards. */
 export function cameraLiveTransport(attrs: unknown): CameraLiveTransport {
+    if (cameraIsAgoraMammotion(attrs)) return 'agora';
     if (cameraSupportsGo2rtc(attrs)) return 'go2rtc';
     if (cameraPreferWebmPlayer(attrs)) return 'webm';
     return 'mjpeg';

@@ -1,7 +1,7 @@
 /**
  * Dashboard widget card HTML — span, drag attrs, and card registry dispatch.
  */
-import { cameraPreferWebmPlayer, cameraSupportsGo2rtc } from '../camera_live.js';
+import { cameraIsAgoraMammotion, cameraPreferWebmPlayer, cameraSupportsGo2rtc } from '../camera_live.js';
 import { widgetTitle } from '/static/hyveview/host.js';
 import { SECTION_COLS } from './constants.js';
 import { getCard } from './card_registry.js';
@@ -130,6 +130,7 @@ export function buildCardRenderCtx(renderer, extra = {}) {
         getCache: d.getCache,
         cameraPreferWebmPlayer,
         cameraSupportsGo2rtc,
+        cameraIsAgoraMammotion,
         ...extra,
     };
 }

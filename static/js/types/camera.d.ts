@@ -1,6 +1,6 @@
 /** Camera entity attribute hints for live transport selection. */
 
-export type CameraLiveProvider = 'webm' | 'mjpeg' | 'go2rtc' | 'snapshot';
+export type CameraLiveProvider = 'webm' | 'mjpeg' | 'go2rtc' | 'snapshot' | 'agora';
 
 export type CameraMediaKind = 'snapshot' | 'image' | 'stream' | 'play';
 
@@ -14,4 +14,4 @@ export interface CameraEntityAttrs {
     [key: string]: unknown;
 }
 
-export type CameraLiveTransport = 'go2rtc' | 'webm' | 'mjpeg';
+export type CameraLiveTransport = 'agora' | 'go2rtc' | 'webm' | 'mjpeg';

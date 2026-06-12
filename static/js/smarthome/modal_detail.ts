@@ -6,7 +6,8 @@ import { cameraProxyUrlSync, startCameraPreviewRefresh, stopCameraPreviewRefresh
 import { cameraLoaderMarkup, bindCameraPreviewLoaders } from '../camera_loader.js';
 import { t, tState, translateApiDetail } from '../lang/index.js';
 import { escapeHtml, escapeHtmlAttr, showToast } from '../utils.js';
-import { cameraPreferWebmPlayer } from '../camera_live.js';
+import { cameraIsAgoraMammotion, cameraPreferWebmPlayer } from '../camera_live.js';
+import '/static/hyveview/elements/mammotion_camera.js';
 import { renderEntityRegistrySection, wireEntityRegistryEditor } from '../entity_renderers.js';
 import type { SmarthomeEntity } from '../types/features_smarthome.js';
 import * as dev from './devices.js';
@@ -127,6 +128,13 @@ function _cameraPreviewMarkup(entity: SmarthomeEntity, attrs: Record<string, unk
     const domain = dev._entityDomain(entity);
     if (domain === 'image') return _imagePreviewMarkup(entity, attrs);
     if (domain !== 'camera') return '';
+    if (cameraIsAgoraMammotion(attrs)) {
+        const eid = escapeHtmlAttr(entity.entity_id || '');
+        const title = escapeHtml(entity.name || entity.entity_id || 'Camera');
+        return `<div class="hy-detail-camera hy-detail-camera--mammotion">
+            <hv-mammotion-camera entity="${eid}" alt="${title}"></hv-mammotion-camera>
+        </div>`;
+    }
     const hasAudio = !!(attrs.has_audio);
     const playUrl = cameraPreferWebmPlayer(attrs) ? _cameraProxyUrl(entity.entity_id, 'play') : '';
     if (playUrl) {

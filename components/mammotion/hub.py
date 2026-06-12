@@ -63,6 +63,7 @@ class MammotionHub:
         self._auth_recovery_at = 0.0
         self._rate_limited_until = 0.0
         self._bootstrapped_devices: set[str] = set()
+        self._stream_cache: dict[str, dict[str, Any]] = {}
 
     # ── client / cache (shared with legacy MammotionSession) ─────────────────
 
@@ -437,6 +438,7 @@ class MammotionHub:
                 bluetooth_enabled=bool(stored.get("bluetooth_enabled", True)),
                 cloud_enabled=bool(stored.get("cloud_enabled", True)),
                 movement_use_wifi=self.movement_use_wifi,
+                hub=self,
             )
         return self._coordinators[device_name]
 

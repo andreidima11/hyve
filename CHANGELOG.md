@@ -4,6 +4,27 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.4] — 2026-06
+
+Feature release: Mammotion lawn mower **live camera** (Agora WebRTC) in integrations, entity detail, and dashboard camera cards.
+
+### Integrations — Mammotion camera
+- **`camera.*_webrtc` entity** with `stream_type: agora_webrtc` for Luba/Yuka models that support video.
+- Backend: Agora token fetch via PyMammotion cloud API (`/api/cameras/{id}/mammotion/start|tokens|stop`); optional MQTT wake for the encoder when the control path is up.
+- Device resolution uses the active Mammotion session registry (not only the cloud HTTP device list), so the camera works when the rest of the integration already does.
+
+### Frontend
+- **`<hv-mammotion-camera>`** — Agora WebRTC player with Play, loader, and real error messages.
+- Integrations device modal and entity renderers route Mammotion cameras to the Agora player (not MJPEG/RTSP).
+- **Dashboard camera card** (`hv-camera-carousel`): detects Agora/Mammotion and embeds the same player; live mode auto-starts when visible.
+- CSP: allow Agora SDK script and WebRTC connect targets (`download.agora.io`, `*.agora.io`, `*.sd-rtn.com`).
+
+### Entity UI
+- Select dropdown: removed redundant “OPTION” label above Mammotion select controls.
+
+### Tests
+- `tests/test_mammotion_camera_stream.py` — token payload, device name resolution, Agora stream attrs.
+
 ## [0.9.3] — 2026-06
 
 Feature release: Mammotion lawn mower integration, entity control UI fixes, and dashboard lawn mower card.

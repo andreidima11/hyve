@@ -827,3 +827,12 @@
     width: 100%;
     min-width: 0;
 }
+
+.hy-mammotion-camera__stage {
+    min-height: 10rem;
+}
+.hy-mammotion-camera__video video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}

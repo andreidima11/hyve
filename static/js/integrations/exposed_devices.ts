@@ -394,10 +394,7 @@ function _renderEntityControlRow(ent: HyveEntity, slug: string): string {
             escapeHtml,
         );
         if (selectHtml) {
-            control = `<div class="int-entity-row__select-wrap">
-                <div class="text-[10px] text-slate-500 uppercase tracking-wide mb-1">${escapeHtml(t('entity.render.option'))}</div>
-                ${selectHtml}
-            </div>`;
+            control = `<div class="int-entity-row__select-wrap">${selectHtml}</div>`;
         }
     } else if (controllable && dom === 'button') {
         control = `<button type="button"

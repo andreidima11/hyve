@@ -11,7 +11,8 @@ import { escapeHtml } from './utils.js';
 import { apiCall } from './api.js';
 import { t, tState } from './lang/index.js';
 import '/static/hyveview/elements/camera_stream.js';
-import { cameraLiveTransport } from './camera_live.js';
+import '/static/hyveview/elements/mammotion_camera.js';
+import { cameraIsAgoraMammotion, cameraLiveTransport } from './camera_live.js';
 import { entityStateForDisplay, isMomentaryDomain, renderSelectControlHtml, } from './entity_constants.js';
 function _er(key, params) {
     return t('entity.render.' + key, params);
@@ -467,7 +468,6 @@ function renderSelect(entity, slug) {
         return '';
     return `
     <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
-        <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">${escapeHtml(_er('option'))}</div>
         ${selectHtml}
     </div>`;
 }
@@ -628,10 +628,17 @@ function renderCamera(entity, slug) {
         return '';
     const title = entity.name || eid;
     const attrs = entity.attributes || {};
+    const safeTitle = escapeHtml(title);
+    if (cameraIsAgoraMammotion(attrs)) {
+        return `
+    <div class="hy-entity-camera-shell mb-3">
+        <hv-mammotion-camera entity="${escapeHtml(eid)}" alt="${safeTitle}"></hv-mammotion-camera>
+    </div>
+    ${_renderCameraPtzPad(entity, slug)}`;
+    }
     const transport = cameraLiveTransport(attrs);
     const useGo2rtc = transport === 'go2rtc';
     const hasAudio = !!attrs.has_audio;
-    const safeTitle = escapeHtml(title);
     const streamAttrs = [
         'class="relative block aspect-video hy-card-camera__stage"',
         `entity="${escapeHtml(eid)}"`,
@@ -879,10 +886,7 @@ function renderDeviceEntityRow(entity, slug) {
         else if (dom === 'select') {
             const selectHtml = renderSelectControlHtml(slug, eid, (entity.attributes || {}), caps, String(entity.state ?? ''), _ctrlAttrs, _attr, escapeHtml);
             if (selectHtml) {
-                control = `<div class="int-entity-row__select-wrap">
-                    <div class="text-[10px] text-slate-500 uppercase tracking-wide mb-1">${escapeHtml(_er('option'))}</div>
-                    ${selectHtml}
-                </div>`;
+                control = `<div class="int-entity-row__select-wrap">${selectHtml}</div>`;
             }
         }
         else if (dom === 'button') {
