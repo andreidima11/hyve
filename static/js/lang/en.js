@@ -1231,6 +1231,7 @@ const en = {
         waiting_data: "Loading...",
         sync_error: "Could not connect to the smart-home backend.",
         sync_success: "All devices synced.",
+        sync_partial: "Sync finished with some errors.",
         delete_error: "Could not delete.",
         copy_entity_id: "Copy entity ID",
         copy_id_short: "Copy ID",

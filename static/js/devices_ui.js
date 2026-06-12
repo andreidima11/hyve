@@ -68,25 +68,6 @@ function _entityIcon(entity, active = true) {
     }
     return `fas ${DOMAIN_ICONS[dom] || 'fa-microchip'}`;
 }
-function _toggleHtml(entity, extraClass = '') {
-    const source = String(entity.source || '').trim();
-    if (!source || source === 'derived')
-        return '';
-    const dom = _domain(entity);
-    const eid = String(entity.entity_id || '');
-    if (!eid || entity.controllable === false)
-        return '';
-    if (!CONTROLLABLE.includes(dom))
-        return '';
-    const lower = _norm(entity.state);
-    const isOn = _entityIsActive(entity);
-    const action = isOn ? 'turn_off' : 'turn_on';
-    const attrs = `data-smarthome-action="controlDevice" data-smarthome-source="${escapeHtmlAttr(source)}" data-smarthome-entity-id="${escapeHtmlAttr(eid)}" data-smarthome-device-action="${action}" data-smarthome-stop-propagation="true"`;
-    if (!['switch', 'light', 'input_boolean', 'fan', 'outlet', 'plug'].includes(dom))
-        return '';
-    const onAttr = isOn ? 'true' : 'false';
-    return `<button type="button" role="switch" aria-checked="${isOn}" data-on="${onAttr}" data-entity-toggle="${escapeHtmlAttr(eid)}" class="app-toggle-switch hyd-toggle ${extraClass}" ${attrs}><span class="app-toggle-thumb"></span></button>`;
-}
 function _stateReadout(entity) {
     const dom = _domain(entity);
     const lower = _norm(entity.state);
@@ -229,97 +210,18 @@ function _deviceIconHtml(device, size = 'list') {
     }
     return `<span class="${sizeClass} ${glow}"><i class="fas ${icon}" aria-hidden="true"></i></span>`;
 }
-function _rowKind(device) {
-    const dom = String(device.primary_domain || '').toLowerCase();
-    if (dom === 'binary_sensor')
-        return 'sensor';
-    if (dom === 'water_heater' || dom === 'fan')
-        return 'climate';
-    if (dom && DOMAIN_GLOW[dom])
-        return dom;
-    return 'default';
-}
-function _rowAvatarIcon(device) {
-    const primary = primaryDeviceEntity(device);
-    if (primary) {
-        const dom = _domain(primary);
-        const attrs = (primary.attributes || {});
-        const caps = (attrs.capabilities || {});
-        const dc = String(caps.device_class || attrs.device_class || '');
-        const icon = getDomainIcon(dom, dc);
-        const custom = _iconClass(primary.icon);
-        return custom || `fas ${icon}`;
-    }
-    const dom = device.primary_domain || 'default';
-    return `fas ${DOMAIN_ICONS[dom] || 'fa-microchip'}`;
-}
-function _rowSubtitle(device, area, srcMeta) {
-    if (area)
-        return area;
-    if (device.entry_title)
-        return String(device.entry_title);
-    if (srcMeta?.label)
-        return srcMeta.label;
-    const n = (device.entities || []).length;
-    return `${n} ${t('hy.detail_entities')}`;
-}
-function _rowBrightnessInline(entity, isOn) {
-    const source = String(entity.source || '');
-    if (!source || source === 'derived')
-        return '';
-    const flags = resolveLightControlFlags(entity, isOn);
-    if (!flags.hasBrightness)
-        return '';
-    const pct = Math.round((flags.brightnessValue / flags.brightnessScale) * 100);
-    const eid = String(entity.entity_id || '');
-    return `<div class="hyd-row__slider">
-        <input type="range" min="0" max="100" step="1" value="${pct}" class="hyd-row__range"
-            ${_lightAttr(eid, source, 'brightness', ` data-smarthome-light-scale="${flags.brightnessScale}" data-smarthome-stop-propagation="true"`)}>
-        <span class="hyd-row__pct mono" data-smarthome-light-brightness-label="${escapeHtmlAttr(eid)}">${pct}%</span>
-    </div>`;
-}
-function _rowControlsHtml(primary, device) {
-    if (!primary) {
-        const readout = escapeHtml(_deviceSummaryReadout(device));
-        return `<div class="hyd-row__readout"><span class="hyd-row__value mono">${readout}</span></div>`;
-    }
-    const dom = _domain(primary);
-    const lower = _norm(primary.state);
-    const isOn = isActiveState(lower) || lower === 'on';
-    const toggle = _toggleHtml(primary, 'hyd-row__toggle');
-    const readout = escapeHtml(_stateReadout(primary));
-    if (dom === 'light') {
-        const slider = isOn ? _rowBrightnessInline(primary, isOn) : '';
-        return `<div class="hyd-row__controls hyd-row__controls--light">
-            ${toggle}
-            ${slider || `<span class="hyd-row__pct mono">${readout}</span>`}
-        </div>`;
-    }
-    if (dom === 'climate' || dom === 'water_heater') {
-        const attrs = (primary.attributes || {});
-        const target = attrs.temperature ?? attrs.target_temp_high ?? attrs.target_temp_low ?? '';
-        const targetHint = target !== '' && target != null
-            ? `<span class="hyd-row__hint">${escapeHtml(String(readout))}</span>`
-            : '';
-        return `<div class="hyd-row__controls hyd-row__controls--climate">
-            <strong class="hyd-row__temp mono">${readout}</strong>
-            ${targetHint}
-        </div>`;
-    }
-    if (dom === 'sensor' || dom === 'binary_sensor') {
-        const tone = isOn ? 'is-on' : (['unavailable', 'unknown', 'offline'].includes(lower) ? 'is-offline' : '');
-        return `<div class="hyd-row__controls hyd-row__controls--sensor ${tone}">
-            <span class="hyd-row__sensor-state">${readout}</span>
-        </div>`;
-    }
-    if (['switch', 'light', 'input_boolean', 'fan', 'outlet', 'plug'].includes(dom)) {
-        return `<div class="hyd-row__controls hyd-row__controls--switch">
-            ${toggle}
-            <span class="hyd-row__value mono">${readout}</span>
-        </div>`;
-    }
-    return `<div class="hyd-row__controls">
-        <span class="hyd-row__value mono">${readout}</span>
+function _listRowMetaHtml(entity, device) {
+    const subject = entity || (device ? primaryDeviceEntity(device) : null);
+    const readout = subject
+        ? _stateReadout(subject)
+        : (device ? _deviceSummaryReadout(device) : '');
+    const showReadout = subject ? !_entityCanToggle(subject) : true;
+    const readoutHtml = showReadout && readout
+        ? `<span class="hyd-entity-row__state mono">${escapeHtml(readout)}</span>`
+        : '';
+    return `<div class="hyd-entity-row__meta">
+        ${readoutHtml}
+        <i class="fas fa-chevron-right hyd-entity-row__chev" aria-hidden="true"></i>
     </div>`;
 }
 function _editablePageTitleShell(viewDataAttr, viewInnerHtml, editPanelHtml) {
@@ -339,25 +241,23 @@ function _editablePageTitleEditPanel(inputAttrs, saveAttrs, cancelAttrs, panelAt
             </button>
         </div>`;
 }
-export function renderDeviceListCard(device, sourceIcons) {
+export function renderDeviceListCard(device, _sourceIcons) {
     const primary = primaryDeviceEntity(device);
     const key = escapeHtmlAttr(device.device_key);
     const name = escapeHtml(device.name || device.device_id || t('hy.device_default'));
-    const rawArea = device.area ? String(device.area) : '';
-    const srcMeta = sourceIcons[device.source_slug || ''] || null;
-    const isActive = deviceHasActiveEntity(device);
-    const kind = _rowKind(device);
-    const subtitle = escapeHtml(_rowSubtitle(device, rawArea, srcMeta));
-    const iconClass = _rowAvatarIcon(device);
-    const controls = _rowControlsHtml(primary, device);
-    return `<article class="hyd-row hyd-row--${escapeHtmlAttr(kind)} ${isActive ? 'is-active' : ''}" data-device-key="${key}" data-smarthome-action="openDeviceDetail" role="listitem">
-        <div class="hyd-row__avatar hyd-row__avatar--${escapeHtmlAttr(kind)}"><i class="${iconClass}" aria-hidden="true"></i></div>
-        <div class="hyd-row__info">
-            <div class="hyd-row__name">${name}</div>
-            <div class="hyd-row__sub">${subtitle}</div>
+    const isUnavail = primary ? _entityIsUnavailable(primary) : false;
+    const sub = primary
+        ? escapeHtml(_domain(primary))
+        : escapeHtml(String(device.primary_domain || device.entry_title || `${(device.entities || []).length} ${t('hy.detail_entities')}`));
+    const iconHtml = _deviceIconHtml(device, 'list');
+    const meta = _listRowMetaHtml(primary, device);
+    return `<article class="hyd-entity-row${isUnavail ? ' is-offline' : ''}" data-device-key="${key}" data-smarthome-action="openDeviceDetail" role="listitem">
+        ${iconHtml}
+        <div class="hyd-entity-row__body">
+            <div class="hyd-entity-row__name">${name}</div>
+            <div class="hyd-entity-row__sub">${sub}</div>
         </div>
-        ${controls}
-        <i class="fas fa-chevron-right hyd-row__chev" aria-hidden="true"></i>
+        ${meta}
     </article>`;
 }
 export function renderDeviceDetailPage(device, sourceIcons) {
@@ -408,27 +308,21 @@ export function renderEntityListCard(entity, sourceIcons, options = {}) {
     const isDerived = entity.source === 'derived';
     const domain = _domain(entity);
     const lower = _norm(entity.state);
-    const isOn = _entityIsActive(entity);
     const isUnavail = ['unavailable', 'unknown', 'offline'].includes(lower);
     const name = escapeHtml(entity.name || entityId);
     const sub = escapeHtml(domain);
-    const readout = escapeHtml(_stateReadout(entity));
-    const toggle = _toggleHtml(entity);
     const eidAttr = escapeHtmlAttr(entityId);
     const action = isDerived
         ? `data-smarthome-action="openDerivedModal" data-smarthome-entity-id="${eidAttr}"`
         : `data-smarthome-action="openEntityDetail" data-smarthome-entity-id="${eidAttr}"`;
     const nestedClass = options.nested ? ' hyd-entity-row--nested' : '';
-    return `<article class="hyd-entity-row${nestedClass} ${isOn ? 'is-active' : ''} ${isUnavail ? 'is-offline' : ''}" data-entity="${eidAttr}" ${action} role="listitem">
+    return `<article class="hyd-entity-row${nestedClass}${isUnavail ? ' is-offline' : ''}" data-entity="${eidAttr}" ${action} role="listitem">
         ${_entityIconHtml(entity, 'list')}
         <div class="hyd-entity-row__body">
             <div class="hyd-entity-row__name">${name}</div>
             <div class="hyd-entity-row__sub">${sub}</div>
         </div>
-        <div class="hyd-entity-row__meta">
-            ${toggle || `<span class="hyd-entity-row__state mono">${readout}</span>`}
-            <i class="fas fa-chevron-right hyd-entity-row__chev" aria-hidden="true"></i>
-        </div>
+        ${_listRowMetaHtml(entity, null)}
     </article>`;
 }
 function _deviceOverviewCard(device, primary, sourceIcons, infoRows, entityCount) {
@@ -491,6 +385,53 @@ function _deviceOverviewCard(device, primary, sourceIcons, infoRows, entityCount
             </div>
         </div>
     </section>`;
+}
+/** Patch a device list row in place (live WS). */
+export function patchDeviceListRowDom(device) {
+    const key = String(device.device_key || '');
+    if (!key)
+        return;
+    const row = document.querySelector(`.hyd-entity-row[data-device-key="${CSS.escape(key)}"]`);
+    if (!row)
+        return;
+    const primary = primaryDeviceEntity(device);
+    row.classList.toggle('is-offline', primary ? _entityIsUnavailable(primary) : false);
+    const iconEl = row.querySelector('.hyd-icon');
+    if (iconEl)
+        iconEl.outerHTML = _deviceIconHtml(device, 'list');
+    const stateEl = row.querySelector('.hyd-entity-row__state');
+    const readout = primary ? _stateReadout(primary) : _deviceSummaryReadout(device);
+    const showReadout = primary ? !_entityCanToggle(primary) : true;
+    if (showReadout && readout) {
+        if (stateEl)
+            stateEl.textContent = readout;
+    }
+    else if (stateEl) {
+        stateEl.remove();
+    }
+}
+/** Patch an entity list row in place (live WS). */
+export function patchEntityListRowDom(entity) {
+    const eid = String(entity.entity_id || '');
+    if (!eid)
+        return;
+    const row = document.querySelector(`.hyd-entity-row[data-entity="${CSS.escape(eid)}"]`);
+    if (!row)
+        return;
+    row.classList.toggle('is-offline', _entityIsUnavailable(entity));
+    const iconEl = row.querySelector('.hyd-icon');
+    if (iconEl)
+        iconEl.outerHTML = _entityIconHtml(entity, 'list');
+    const readout = _stateReadout(entity);
+    const showReadout = !_entityCanToggle(entity);
+    const stateEl = row.querySelector('.hyd-entity-row__state');
+    if (showReadout && readout) {
+        if (stateEl)
+            stateEl.textContent = readout;
+    }
+    else if (stateEl) {
+        stateEl.remove();
+    }
 }
 /** Patch device overview card in place (live WS) — avoids full detail re-render flicker. */
 export function patchDeviceOverviewDom(device) {

@@ -23,6 +23,7 @@ export const smarthomeDeviceState = {
     liveUnsub: null,
     cacheRefreshTimer: null,
     filterPickerEventsWired: false,
+    syncInProgress: false,
 };
 export const smarthomeModalState = {
     haAliasModalEntityId: null,

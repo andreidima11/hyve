@@ -32,6 +32,7 @@ export const smarthomeDeviceState = {
     liveUnsub: null as (() => void) | null,
     cacheRefreshTimer: null as ReturnType<typeof setTimeout> | null,
     filterPickerEventsWired: false,
+    syncInProgress: false,
 };
 
 export const smarthomeModalState = {

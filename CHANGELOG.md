@@ -4,6 +4,23 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.6.1] — 2026-06
+
+Patch release: **Devices list polish** and **sync-all** for integrations.
+
+### Devices UI
+- Device list cards use the same row layout as entity rows (square icon, domain subtitle, chevron).
+- Removed active-state card glow/outline and icon text-shadow; ON/OFF shown via icon tone only.
+- Removed inline toggle switches from list rows — control from detail/overview only.
+- Hub-aligned surfaces and typography in `devices-ui.css` (no separate glass styling).
+
+### Integrations
+- **`POST /api/integrations/sync-all`** — resync all configured integrations in one request; partial/error aggregation.
+- Devices page **Sync** button calls sync-all with spinner while in progress; success/partial/error toasts.
+
+### Tests
+- `tests/test_integrations_sync_all.py` — sync-all happy path and total-failure handling.
+
 ## [0.9.6] — 2026-06
 
 Feature release: **modern Devices & entity detail UI**, inline friendly-name editing, primary-entity picker, and richer device metadata across integrations.

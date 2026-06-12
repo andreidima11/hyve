@@ -3,19 +3,18 @@
    Uses theme CSS variables only — no Tailwind utility look.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-#view-smarthome:has(.hy-devices-root--modern) .hy-page-inner {
-    max-width: min(90rem, 100%);
-}
-
-#view-smarthome:has(.hy-devices-root--modern) {
-    background: var(--surface-0, var(--bg-main));
-}
+/* Uses theme CSS variables only — aligned with hy-panel hub typography/surfaces. */
 
 .hy-devices-root--modern {
     position: relative;
     isolation: isolate;
     gap: 1.15rem;
     padding-bottom: 3rem;
+    font-family: inherit;
+    color: var(--text-primary);
+    --hyd-surface: color-mix(in oklab, var(--surface-card) 78%, var(--bg-main) 22%);
+    --hyd-surface-muted: color-mix(in oklab, var(--surface-card) 68%, var(--bg-main) 32%);
+    --hyd-surface-hover: color-mix(in oklab, var(--surface-card) 88%, var(--accent) 3%);
 }
 
 .hyd-ambient {
@@ -85,6 +84,23 @@
     transform: scale(0.96);
 }
 
+.hyd-mast__back--icon.is-syncing,
+.hyd-mast__back--icon.is-syncing:hover,
+.hyd-mast__back--icon.is-syncing:focus-visible {
+    opacity: 0.9;
+    pointer-events: none;
+}
+
+.hyd-mast__back--icon.is-syncing i,
+.hy-btn.is-syncing i.fa-arrows-rotate {
+    animation: hyd-sync-spin 0.85s linear infinite;
+}
+
+@keyframes hyd-sync-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 .hyd-mast__eyebrow {
     display: block;
     font-size: 0.62rem;
@@ -96,9 +112,9 @@
 
 .hyd-mast__title {
     margin: 0.12rem 0 0;
-    font-size: clamp(1.45rem, 3.2vw, 2.15rem);
-    font-weight: 820;
-    letter-spacing: -0.03em;
+    font-size: clamp(1.35rem, 3vw, 2rem);
+    font-weight: 760;
+    letter-spacing: -0.02em;
     line-height: 1.05;
     color: var(--text-heading);
 }
@@ -171,12 +187,9 @@
 }
 
 .hyd-btn--glass {
-    border-color: var(--overlay-8);
-    background: color-mix(in oklab, var(--surface-glass) 65%, transparent);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    border-color: var(--border-light);
+    background: var(--hyd-surface);
     color: var(--text-secondary);
-    box-shadow: inset 0 1px 0 var(--overlay-6);
 }
 
 .hyd-btn--glass:hover,
@@ -240,11 +253,8 @@
     gap: 0.65rem;
     padding: 0.7rem 0.85rem;
     border-radius: 1rem;
-    border: 1px solid var(--overlay-7);
-    background: color-mix(in oklab, var(--surface-glass) 72%, transparent);
-    backdrop-filter: blur(16px) saturate(130%);
-    -webkit-backdrop-filter: blur(16px) saturate(130%);
-    box-shadow: inset 0 1px 0 var(--overlay-5);
+    border: 1px solid var(--border-light);
+    background: var(--hyd-surface);
 }
 
 .hyd-metric__dot {
@@ -276,7 +286,7 @@
 
 .hyd-metric__value {
     font-size: 1.05rem;
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--text-heading);
     font-variant-numeric: tabular-nums;
@@ -404,188 +414,9 @@
     gap: 0.65rem;
 }
 
-/* ── Device list rows ───────────────────────────────────────────────────── */
+/* ── Device list (same row style as entity list) ────────────────────────── */
 .hyd-device-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-}
-
-.hyd-row {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
-    align-items: center;
-    gap: 0.85rem 1rem;
-    padding: 0.85rem 1rem;
-    border-radius: 1rem;
-    border: 1px solid var(--overlay-7);
-    background: color-mix(in oklab, var(--surface-card) 78%, transparent);
-    cursor: pointer;
-    transition: border-color 0.2s, background 0.2s, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.hyd-row:hover,
-.hyd-row:focus-within {
-    border-color: color-mix(in oklab, var(--accent) 32%, var(--border-light));
-    background: color-mix(in oklab, var(--surface-card) 92%, var(--accent) 4%);
-}
-
-.hyd-row.is-active {
-    border-color: color-mix(in oklab, var(--accent) 38%, var(--border-light));
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 12%, transparent);
-}
-
-.hyd-row__avatar {
-    width: 2.65rem;
-    height: 2.65rem;
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 999px;
-    font-size: 1rem;
-    color: var(--text-heading);
-    background: color-mix(in oklab, var(--glow-primary) 55%, var(--surface-card));
-}
-
-.hyd-row__avatar--light { background: color-mix(in oklab, #facc15 28%, var(--surface-card)); color: #facc15; }
-.hyd-row__avatar--switch { background: color-mix(in oklab, var(--accent) 22%, var(--surface-card)); color: var(--accent); }
-.hyd-row__avatar--climate { background: color-mix(in oklab, #fb7185 22%, var(--surface-card)); color: #fb7185; }
-.hyd-row__avatar--camera { background: color-mix(in oklab, #38bdf8 22%, var(--surface-card)); color: #38bdf8; }
-.hyd-row__avatar--sensor { background: color-mix(in oklab, #4ade80 22%, var(--surface-card)); color: #4ade80; }
-.hyd-row__avatar--cover { background: color-mix(in oklab, #fb923c 22%, var(--surface-card)); color: #fb923c; }
-.hyd-row__avatar--lock { background: color-mix(in oklab, #f87171 22%, var(--surface-card)); color: #f87171; }
-.hyd-row__avatar--vacuum { background: color-mix(in oklab, #818cf8 22%, var(--surface-card)); color: #818cf8; }
-.hyd-row__avatar--media_player { background: color-mix(in oklab, #c084fc 22%, var(--surface-card)); color: #c084fc; }
-.hyd-row__avatar--derived { background: color-mix(in oklab, #f472b6 22%, var(--surface-card)); color: #f472b6; }
-
-.hyd-row__info {
-    min-width: 0;
-}
-
-.hyd-row__name {
-    font-size: 0.92rem;
-    font-weight: 750;
-    letter-spacing: -0.01em;
-    color: var(--text-heading);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.hyd-row__sub {
-    margin-top: 0.12rem;
-    font-size: 0.74rem;
-    color: var(--text-tertiary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.hyd-row__controls {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    justify-content: flex-end;
-    min-width: 0;
-}
-
-.hyd-row__controls--climate {
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0.1rem;
-}
-
-.hyd-row__controls--sensor .hyd-row__sensor-state {
-    font-size: 0.82rem;
-    font-weight: 700;
-    color: #4ade80;
-}
-
-.hyd-row__controls--sensor.is-on .hyd-row__sensor-state {
-    color: color-mix(in oklab, var(--accent) 85%, white);
-}
-
-.hyd-row__controls--sensor.is-offline .hyd-row__sensor-state {
-    color: var(--text-tertiary);
-}
-
-.hyd-row__temp {
-    font-size: 1.15rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    color: var(--text-heading);
-    line-height: 1;
-}
-
-.hyd-row__hint {
-    font-size: 0.68rem;
-    font-weight: 650;
-    color: #fb923c;
-}
-
-.hyd-row__value {
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-}
-
-.hyd-row__pct {
-    min-width: 2.4rem;
-    text-align: right;
-    font-size: 0.76rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-}
-
-.hyd-row__slider {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    min-width: min(9rem, 28vw);
-}
-
-.hyd-row__range {
-    flex: 1;
-    min-width: 4.5rem;
-    height: 0.28rem;
-    margin: 0;
-    appearance: none;
-    -webkit-appearance: none;
-    border-radius: 999px;
-    background: color-mix(in oklab, var(--accent) 18%, var(--overlay-8));
-    cursor: pointer;
-}
-
-.hyd-row__range::-webkit-slider-thumb {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 0.95rem;
-    height: 0.95rem;
-    border-radius: 999px;
-    border: 0;
-    background: var(--accent);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
-}
-
-.hyd-row__range::-moz-range-thumb {
-    width: 0.95rem;
-    height: 0.95rem;
-    border-radius: 999px;
-    border: 0;
-    background: var(--accent);
-}
-
-.hyd-row__toggle {
-    flex-shrink: 0;
-    transform: scale(0.92);
-}
-
-.hyd-row__chev {
-    flex-shrink: 0;
-    font-size: 0.72rem;
-    color: var(--text-tertiary);
-    opacity: 0.65;
+    gap: 0.5rem;
 }
 
 /* ── Icons ──────────────────────────────────────────────────────────────── */
@@ -630,16 +461,16 @@
     display: none;
 }
 
-.hyd-glow--light { color: color-mix(in oklab, #facc15 88%, white); text-shadow: 0 0 24px color-mix(in oklab, #facc15 45%, transparent); }
-.hyd-glow--switch { color: color-mix(in oklab, var(--accent) 92%, white); text-shadow: 0 0 22px color-mix(in oklab, var(--accent) 40%, transparent); }
-.hyd-glow--climate { color: #fb7185; text-shadow: 0 0 22px color-mix(in oklab, #fb7185 40%, transparent); }
-.hyd-glow--camera { color: #38bdf8; text-shadow: 0 0 22px color-mix(in oklab, #38bdf8 40%, transparent); }
-.hyd-glow--sensor { color: #22d3ee; text-shadow: 0 0 22px color-mix(in oklab, #22d3ee 38%, transparent); }
-.hyd-glow--cover { color: #fb923c; text-shadow: 0 0 22px color-mix(in oklab, #fb923c 38%, transparent); }
-.hyd-glow--lock { color: #f87171; text-shadow: 0 0 22px color-mix(in oklab, #f87171 38%, transparent); }
-.hyd-glow--vacuum { color: #818cf8; text-shadow: 0 0 22px color-mix(in oklab, #818cf8 38%, transparent); }
-.hyd-glow--media { color: #c084fc; text-shadow: 0 0 22px color-mix(in oklab, #c084fc 38%, transparent); }
-.hyd-glow--derived { color: #f472b6; text-shadow: 0 0 22px color-mix(in oklab, #f472b6 38%, transparent); }
+.hyd-glow--light { color: color-mix(in oklab, #facc15 88%, white); }
+.hyd-glow--switch { color: color-mix(in oklab, var(--accent) 92%, white); }
+.hyd-glow--climate { color: #fb7185; }
+.hyd-glow--camera { color: #38bdf8; }
+.hyd-glow--sensor { color: #22d3ee; }
+.hyd-glow--cover { color: #fb923c; }
+.hyd-glow--lock { color: #f87171; }
+.hyd-glow--vacuum { color: #818cf8; }
+.hyd-glow--media { color: #c084fc; }
+.hyd-glow--derived { color: #f472b6; }
 .hyd-glow--default { color: var(--text-secondary); }
 
 .hyd-icon.is-inactive {
@@ -655,8 +486,7 @@
 }
 
 .hyd-card--overview.is-off {
-    border-color: var(--overlay-8);
-    box-shadow: inset 0 1px 0 var(--overlay-5);
+    border-color: var(--border-light);
 }
 
 .hyd-card--overview.is-off .hyd-overview__status {
@@ -683,9 +513,9 @@
     align-items: center;
     gap: 0.85rem;
     padding: 0.85rem 0.95rem;
-    border: 1px solid var(--overlay-7);
+    border: 1px solid var(--border-light);
     border-radius: 1rem;
-    background: color-mix(in oklab, var(--surface-card) 65%, transparent);
+    background: var(--hyd-surface-muted);
     cursor: pointer;
     transition: border-color 0.18s, background 0.18s, transform 0.16s;
 }
@@ -693,26 +523,22 @@
 .hyd-entity-row:hover,
 .hyd-entity-row:focus-within {
     border-color: color-mix(in oklab, var(--accent) 32%, var(--border-light));
-    background: color-mix(in oklab, var(--surface-card) 55%, var(--accent) 8%);
+    background: var(--hyd-surface-hover);
     transform: translateX(2px);
-}
-
-.hyd-entity-row.is-active {
-    border-color: color-mix(in oklab, var(--accent) 40%, var(--border-light));
 }
 
 .hyd-entity-row.is-offline { opacity: 0.68; }
 .hyd-entity-row.is-control-pending { opacity: 0.6; pointer-events: none; }
 
 .hyd-entity-row--nested {
-    background: color-mix(in oklab, var(--surface-card) 48%, var(--bg-main) 52%);
+    background: var(--hyd-surface-muted);
 }
 
 .hyd-entity-row__body { min-width: 0; flex: 1; }
 
 .hyd-entity-row__name {
-    font-size: 0.88rem;
-    font-weight: 700;
+    font-size: 0.8125rem;
+    font-weight: 600;
     color: var(--text-heading);
     white-space: nowrap;
     overflow: hidden;
@@ -721,8 +547,9 @@
 
 .hyd-entity-row__sub {
     margin-top: 0.15rem;
-    font-size: 0.7rem;
+    font-size: 0.6875rem;
     color: var(--text-tertiary);
+    font-weight: normal;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -784,7 +611,7 @@
 
 .hyd-pager__info strong {
     color: var(--text-heading);
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .hyd-pager__actions {
@@ -870,27 +697,26 @@
 
 .hyd-page__back,
 .hyd-page__action {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.25rem;
+    height: 2.25rem;
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--overlay-8);
-    border-radius: 0.9rem;
-    background: color-mix(in oklab, var(--surface-glass) 70%, transparent);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    color: var(--text-secondary);
+    border: 1px solid var(--overlay-7);
+    border-radius: 0.75rem;
+    background: var(--overlay-4);
+    color: var(--text-tertiary);
     cursor: pointer;
-    transition: border-color 0.15s, color 0.15s, transform 0.15s;
+    transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
 }
 
 .hyd-page__back:hover,
 .hyd-page__action:hover,
 .hyd-page__back:focus-visible,
 .hyd-page__action:focus-visible {
-    border-color: color-mix(in oklab, var(--accent) 40%, var(--border-light));
+    border-color: var(--overlay-10);
+    background: var(--overlay-8);
     color: var(--text-heading);
     outline: none;
 }
@@ -899,9 +725,9 @@
 
 .hyd-page__titles h1 {
     margin: 0;
-    font-size: clamp(1.2rem, 3vw, 1.55rem);
-    font-weight: 820;
-    letter-spacing: -0.03em;
+    font-size: clamp(1.2rem, 2.5vw, 1.45rem);
+    font-weight: 760;
+    letter-spacing: -0.02em;
     color: var(--text-heading);
 }
 
@@ -961,9 +787,9 @@
     background: color-mix(in oklab, var(--surface-card) 72%, transparent);
     color: var(--text-heading);
     font: inherit;
-    font-size: clamp(1.05rem, 2.8vw, 1.45rem);
-    font-weight: 820;
-    letter-spacing: -0.03em;
+    font-size: clamp(1.05rem, 2.8vw, 1.35rem);
+    font-weight: 760;
+    letter-spacing: -0.02em;
     outline: none;
 }
 
@@ -974,9 +800,9 @@
 
 .hyd-editable-name__label {
     margin: 0;
-    font-size: clamp(1.2rem, 3vw, 1.55rem);
-    font-weight: 820;
-    letter-spacing: -0.03em;
+    font-size: clamp(1.2rem, 2.5vw, 1.45rem);
+    font-weight: 760;
+    letter-spacing: -0.02em;
     color: var(--text-heading);
     min-width: 0;
     overflow-wrap: anywhere;
@@ -1008,9 +834,9 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--overlay-8);
+    border: 1px solid var(--border-light);
     border-radius: 0.65rem;
-    background: color-mix(in oklab, var(--surface-glass) 70%, transparent);
+    background: var(--hyd-surface);
     color: var(--text-tertiary);
     cursor: pointer;
     transition: border-color 0.15s, color 0.15s;
@@ -1085,16 +911,13 @@
 }
 
 .hyd-card {
-    border: 1px solid var(--overlay-8);
-    border-radius: 1.15rem;
-    background: color-mix(in oklab, var(--surface-glass) 62%, transparent);
-    backdrop-filter: blur(16px) saturate(130%);
-    -webkit-backdrop-filter: blur(16px) saturate(130%);
+    border: 1px solid var(--border-light);
+    border-radius: 1rem;
+    background: var(--hyd-surface);
     padding: 1rem;
     min-width: 0;
     max-width: 100%;
     box-sizing: border-box;
-    box-shadow: inset 0 1px 0 var(--overlay-5);
 }
 
 .hyd-card--hero {
@@ -1202,10 +1025,7 @@
 }
 
 .hyd-card--hero.is-on {
-    border-color: color-mix(in oklab, var(--accent) 35%, var(--border-light));
-    box-shadow:
-        inset 0 1px 0 var(--overlay-8),
-        0 0 40px color-mix(in oklab, var(--accent) 12%, transparent);
+    border-color: var(--border-light);
 }
 
 .hyd-card--overview {
@@ -1215,10 +1035,7 @@
 }
 
 .hyd-card--overview.is-on {
-    border-color: color-mix(in oklab, var(--accent) 35%, var(--border-light));
-    box-shadow:
-        inset 0 1px 0 var(--overlay-8),
-        0 0 40px color-mix(in oklab, var(--accent) 12%, transparent);
+    border-color: var(--border-light);
 }
 
 .hyd-overview {
@@ -1448,8 +1265,8 @@
 .hyd-hero-readout__value {
     display: block;
     font-size: clamp(1rem, 14cqi, 2.25rem);
-    font-weight: 820;
-    letter-spacing: -0.03em;
+    font-weight: 700;
+    letter-spacing: -0.02em;
     color: var(--text-heading);
     font-variant-numeric: tabular-nums;
     line-height: 1.05;
@@ -1508,7 +1325,7 @@
 .hyd-card__title {
     margin: 0 0 0.7rem;
     font-size: 0.78rem;
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--text-tertiary);
@@ -1533,7 +1350,7 @@
 .hyd-info-row dd {
     margin: 0;
     color: var(--text-primary);
-    font-weight: 700;
+    font-weight: 600;
     text-align: right;
     min-width: 0;
     overflow-wrap: anywhere;
@@ -1614,27 +1431,6 @@
 
     .hyd-filter-grid {
         grid-template-columns: 1fr;
-    }
-
-    .hyd-row {
-        grid-template-columns: auto minmax(0, 1fr) auto;
-        gap: 0.7rem;
-        padding: 0.75rem 0.85rem;
-    }
-
-    .hyd-row__controls {
-        grid-column: 1 / -1;
-        justify-content: flex-start;
-        padding-left: 3.5rem;
-    }
-
-    .hyd-row__chev {
-        display: none;
-    }
-
-    .hyd-row__slider {
-        width: 100%;
-        min-width: 0;
     }
 
     .hyd-card {

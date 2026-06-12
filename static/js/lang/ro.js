@@ -1232,6 +1232,7 @@ const ro = {
         waiting_data: "Se încarcă...",
         sync_error: "Nu s-a putut conecta la backend-ul smart-home.",
         sync_success: "Toate dispozitivele au fost sincronizate.",
+        sync_partial: "Sincronizare finalizată cu unele erori.",
         delete_error: "Ștergerea a eșuat.",
         copy_entity_id: "Copiază entity ID",
         copy_id_short: "Copiază ID",

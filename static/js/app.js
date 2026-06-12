@@ -1018,7 +1018,7 @@ window.addEventListener('DOMContentLoaded', () => {
             switchTab('config');
             openConfigSection('integrations');
         },
-        syncSmartHome: () => syncHA(),
+        syncSmartHome: () => { void syncHA(); },
         openDerivedModal: (entityId) => _lazyAction(_loadDerivedModule, 'openDerivedModal')(entityId || undefined),
         toggleSmarthomeFilters: () => toggleSmarthomeFilters(),
         resetSmarthomeFilters: () => resetSmarthomeFilters(),

@@ -14,7 +14,7 @@ import {
 } from './device_primary_modal.js';
 import { getCameraStreamToken, cameraProxyUrlSync, startCameraPreviewRefresh, stopCameraPreviewRefresh } from '../camera_auth.js';
 import { cameraLoaderMarkup, bindCameraPreviewLoaders } from '../camera_loader.js';
-import { t, tState, applyTranslations } from '../lang/index.js';
+import { t, tState, applyTranslations, translateApiDetail } from '../lang/index.js';
 import { escapeHtml, escapeHtmlAttr, showToast, showConfirm, debounce } from '../utils.js';
 import { cameraPreferWebmPlayer } from '../camera_live.js';
 import { renderEntityModal, wireEntityRegistryEditor, wireEntityFriendlyNameEditor } from '../entity_renderers.js';
@@ -36,6 +36,8 @@ import {
     renderDeviceListCard,
     renderDeviceDetailPage,
     patchDeviceOverviewDom,
+    patchDeviceListRowDom,
+    patchEntityListRowDom,
     patchEntityOverviewDom,
     patchEntityDetailDom,
 } from '../devices_ui.js';
@@ -83,7 +85,7 @@ function _mountDevicesPageShell() {
                     <h1 class="hyd-mast__title hyd-top__title" data-i18n="nav.smarthome">Devices</h1>
                 </div>
                 <div class="hyd-mast__actions">
-                    <button type="button" data-smarthome-action="syncSmartHome" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.reload" aria-label="Sync">
+                    <button type="button" data-smarthome-action="syncSmartHome" data-smarthome-sync-btn class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="hy.sync_all" aria-label="Sync">
                         <i class="fas fa-arrows-rotate"></i>
                     </button>
                     <button type="button" data-smarthome-action="openIntegrations" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n-title="hy.add_devices_title">
@@ -128,7 +130,7 @@ function _mountDevicesPageShell() {
 
             <section id="hy-cards-grid" class="hyd-list-shell">
                 <div id="hy-entity-list-view" class="hyd-gallery">
-                    <div id="hy-entity-cards" class="hyd-device-list" role="list"></div>
+                    <div id="hy-entity-cards" class="hyd-entity-list hyd-device-list" role="list"></div>
                     <span id="hy-source-all-count" class="hyd-sr-only" aria-hidden="true">--</span>
                     <div id="hy-devices-pagination" class="hyd-pager"></div>
                 </div>
@@ -195,7 +197,7 @@ function _setDevicesError(message: string) {
     const pagination = document.getElementById('hy-devices-pagination');
     if (grid) grid.innerHTML = `<div class="hyd-list-placeholder hy-list-error">
         <i class="fas fa-triangle-exclamation"></i>${escapeHtml(message || t('integrations.devices_load_error'))}
-        <button type="button" class="hy-btn hy-btn-ghost" data-smarthome-action="syncSmartHome"><i class="fas fa-arrows-rotate"></i>${escapeHtml(t('integrations.retry'))}</button>
+        <button type="button" class="hy-btn hy-btn-ghost" data-smarthome-action="syncSmartHome" data-smarthome-sync-btn><i class="fas fa-arrows-rotate"></i>${escapeHtml(t('integrations.retry'))}</button>
     </div>`;
     if (pagination) pagination.innerHTML = '';
 }
@@ -601,12 +603,7 @@ function _patchRowInPlace(d: SmarthomeEntity) {
         : entityStateForDisplay(dom, d.state, tState) + (d.unit ? ` ${d.unit}` : '');
 
     const row = document.querySelector(`.hyd-entity-row[data-entity="${CSS.escape(eid)}"]`);
-    if (row) {
-        const stateEl = row.querySelector('.hyd-entity-row__state');
-        if (stateEl) stateEl.textContent = stateDisplay;
-        row.classList.toggle('is-active', isOn);
-        row.classList.toggle('is-offline', isUnavail);
-    }
+    if (row) patchEntityListRowDom(d);
     const group = _findDeviceGroupByEntityId(eid);
     if (smarthomeDeviceState.openEntityId === eid) {
         const entity = smarthomeDeviceState.integrationEntitiesCache.find((x) => x.entity_id === eid);
@@ -619,9 +616,7 @@ function _patchRowInPlace(d: SmarthomeEntity) {
         const primary = primaryDeviceEntity(synced);
         if (primary?.entity_id === eid) patchDeviceOverviewDom(synced);
     } else if (group) {
-        const listRow = document.querySelector(`.hyd-row[data-device-key="${CSS.escape(group.device_key)}"]`);
-        const readout = listRow?.querySelector('.hyd-row__state');
-        if (readout) readout.textContent = stateDisplay;
+        patchDeviceListRowDom(_syncDeviceGroupEntities(group));
     }
 
     // Entity rows inside the device detail modal (live state + toggle buttons)
@@ -1544,7 +1539,45 @@ export async function toggleAllAI(checked: boolean) {
 }
 
 export async function syncHA() {
-    loadSmarthome({ force: true });
+    if (smarthomeDeviceState.syncInProgress) return;
+    const buttons = document.querySelectorAll('[data-smarthome-sync-btn]');
+    smarthomeDeviceState.syncInProgress = true;
+    buttons.forEach((btn) => {
+        if (!(btn instanceof HTMLButtonElement)) return;
+        btn.disabled = true;
+        btn.classList.add('is-syncing');
+        btn.setAttribute('aria-busy', 'true');
+    });
+    try {
+        const res = await apiCall('/api/integrations/sync-all', { method: 'POST' });
+        const payload = await res.json().catch(() => ({})) as {
+            status?: string;
+            synced_count?: number;
+            entity_count?: number;
+            errors?: Array<{ slug?: string; detail?: unknown }>;
+            detail?: unknown;
+        };
+        if (!res.ok) {
+            throw new Error(translateApiDetail(payload.detail) || t('hy.sync_error'));
+        }
+        await loadSmarthome({ force: true });
+        const partial = payload.status === 'partial' || (payload.errors && payload.errors.length > 0);
+        if (partial) {
+            showToast(t('hy.sync_partial'), 'warning', 3200);
+        } else {
+            showToast(t('hy.sync_success'), 'success', 2200);
+        }
+    } catch (err) {
+        showToast(_errMsg(err) || t('hy.sync_error'), 'error', 3500);
+    } finally {
+        smarthomeDeviceState.syncInProgress = false;
+        buttons.forEach((btn) => {
+            if (!(btn instanceof HTMLButtonElement)) return;
+            btn.disabled = false;
+            btn.classList.remove('is-syncing');
+            btn.removeAttribute('aria-busy');
+        });
+    }
 }
 
 /** Read-only view of cached integration entities (automation picker fallback). */
