@@ -359,3 +359,108 @@ def test_z2m_light_set_rgb_color():
     )
     assert topic == "zigbee2mqtt/rgb_bulb/set"
     assert payload == '{"state": "ON", "color": {"r": 10, "g": 20, "b": 30}}'
+
+
+def test_ha_mqtt_light_discovery_sets_color_from_supported_color_modes():
+    from components.mosquitto.extract import _apply_ha_mqtt_light_discovery, _normalize_light_capabilities
+
+    caps: dict = {"command_topic": "home/light/set"}
+    _apply_ha_mqtt_light_discovery(
+        caps,
+        {
+            "schema": "json",
+            "brightness": True,
+            "supported_color_modes": ["color_temp", "xy", "hs"],
+        },
+    )
+    _normalize_light_capabilities(caps)
+    assert caps["color"] is True
+    assert caps["color_temp"] is True
+    assert caps["brightness"] is True
+    assert caps["json_command"] is True
+
+
+def test_z2m_light_hue_saturation_features_enable_color_cap():
+    device = {
+        "friendly_name": "rgb_bulb_hs",
+        "ieee_address": "0xB40ECFD0CDE10000",
+        "definition": {
+            "model": "D2SI",
+            "vendor": "Tuya",
+            "exposes": [
+                {
+                    "type": "light",
+                    "features": [
+                        {"property": "state", "type": "binary", "access": 7},
+                        {"property": "hue", "type": "numeric", "access": 7, "value_min": 0, "value_max": 360},
+                        {"property": "saturation", "type": "numeric", "access": 7, "value_min": 0, "value_max": 100},
+                    ],
+                }
+            ],
+        },
+    }
+    states = {
+        "zigbee2mqtt/rgb_bulb_hs": {
+            "state": "ON",
+            "color": {"hue": 120, "saturation": 80},
+        },
+    }
+    entities = _entities_from_z2m_exposes(device, states)
+    assert len(entities) == 1
+    caps = entities[0]["attributes"]["capabilities"]
+    assert caps["color"] is True
+    assert caps.get("color_property") == "color_hs"
+    assert caps.get("hue_sat_top_level") is True
+
+
+def test_z2m_light_set_hs_color_converts_rgb_to_nested_hue_saturation():
+    caps = {
+        "command_topic": "zigbee2mqtt/rgb_bulb_hs/set",
+        "z2m_property": "state",
+        "color": True,
+        "color_property": "color_hs",
+        "hue_sat_top_level": True,
+    }
+    topic, payload = _build_command(
+        "light",
+        "set",
+        caps,
+        {"state": "ON", "color": {"r": 255, "g": 0, "b": 0}},
+    )
+    assert topic == "zigbee2mqtt/rgb_bulb_hs/set"
+    data = __import__("json").loads(payload)
+    assert data["color"]["hue"] == 0
+    assert data["color"]["saturation"] == 100
+    assert data["state"] == "ON"
+    assert "hue" not in data
+    assert "saturation" not in data
+
+
+def test_z2m_light_set_xy_color_keeps_rgb_in_color_object():
+    caps = {
+        "command_topic": "zigbee2mqtt/rgb_bulb_xy/set",
+        "z2m_property": "state",
+        "color": True,
+        "color_property": "color_xy",
+        "supported_color_modes": ["xy", "color_temp"],
+    }
+    topic, payload = _build_command(
+        "light",
+        "set",
+        caps,
+        {"state": "ON", "color": {"r": 46, "g": 102, "b": 150}},
+    )
+    data = __import__("json").loads(payload)
+    assert data["color"] == {"r": 46, "g": 102, "b": 150}
+
+
+def test_merge_light_state_infers_color_capability():
+    from components.mosquitto.extract import _infer_light_capabilities_from_attributes, _merge_light_attributes
+
+    attrs = {"capabilities": {"command_topic": "zigbee2mqtt/bulb/set"}}
+    _merge_light_attributes(attrs, {"color": {"r": 1, "g": 2, "b": 3}})
+    assert attrs["capabilities"]["color"] is True
+
+    attrs2 = {"capabilities": {}, "color_temp": 250}
+    _infer_light_capabilities_from_attributes(attrs2)
+    assert attrs2["capabilities"]["color_temp"] is True

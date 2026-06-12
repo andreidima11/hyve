@@ -24,6 +24,56 @@ RATE_LIMIT_USER_MESSAGE = (
 )
 
 
+_NUDGE_TRANSPORT_FAILED = (
+    "Canal MQTT indisponibil pentru nudge — Integrări → Mammotion → Sync, "
+    "așteaptă ~1 minut, apoi încearcă din nou."
+)
+
+
+def reset_mqtt_auth_failures(client: Any, device_name: str) -> None:
+    """Clear pymammotion auth circuit-breaker flags so Sync can recover Aliyun MQTT."""
+    if client is None:
+        return
+    handle = client.mower(device_name)
+    if handle is None:
+        return
+    from pymammotion.transport.base import TransportType
+
+    for transport_type in (TransportType.CLOUD_ALIYUN, TransportType.CLOUD_MAMMOTION):
+        transport = handle.get_transport(transport_type)
+        if transport is None:
+            continue
+        transport.clear_auth_failed()
+        transport._unrecoverable_auth_failure = False  # noqa: SLF001 — Hyve recovery hook
+
+
+async def ensure_nudge_transport(client: Any, device_name: str) -> str:
+    """Reconnect MQTT if needed before manual movement commands."""
+    from pymammotion.transport.base import NoTransportAvailableError, TransportType
+
+    reset_mqtt_auth_failures(client, device_name)
+    handle = client.mower(device_name)
+    if handle is None:
+        raise ValueError(_NUDGE_TRANSPORT_FAILED)
+
+    for transport_type in (TransportType.CLOUD_ALIYUN, TransportType.CLOUD_MAMMOTION):
+        transport = handle.get_transport(transport_type)
+        if transport is None or not transport.is_usable:
+            continue
+        if transport.is_connected:
+            continue
+        try:
+            await transport.connect()
+        except Exception as exc:
+            log.debug("mammotion nudge reconnect %s for %s: %s", transport_type.value, device_name, exc)
+
+    try:
+        selected = handle.active_transport(prefer_ble=False)
+    except NoTransportAvailableError as exc:
+        raise ValueError(_NUDGE_TRANSPORT_FAILED) from exc
+    return str(getattr(getattr(selected, "transport_type", None), "value", selected))
+
+
 def clear_rate_limit_if_control_ready(client: Any, device_name: str) -> None:
     """Drop sync backoff when live MQTT telemetry proves the robot is reachable."""
     if client is None:

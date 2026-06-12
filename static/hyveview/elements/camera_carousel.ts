@@ -8,7 +8,12 @@
  *   index     — initial camera index (optional)
  */
 
-import { cameraIsAgoraMammotion, cameraPreferWebmPlayer, cameraSupportsGo2rtc } from '../../js/camera_live.js';
+import {
+  cameraIsAgoraMammotion,
+  cameraIsMammotionLive,
+  cameraPreferWebmPlayer,
+  cameraSupportsGo2rtc,
+} from '../../js/camera_live.js';
 import { getCameraStreamToken } from '../../js/camera_auth.js';
 import { t } from '../../js/lang/index.js';
 import type { HyveCameraStream } from './camera_stream.js';
@@ -64,7 +69,7 @@ function _parseEntities(raw: string): CarouselEntity[] {
 
 class HyveCameraCarousel extends HTMLElement {
   static get observedAttributes() {
-    return ['entities', 'mode', 'interval', 'index', 'default-audio', 'default-mic', 'preload', 'preload-scope'];
+    return ['entities', 'mode', 'interval', 'index', 'default-audio', 'default-mic', 'preload', 'preload-scope', 'autoplay'];
   }
 
   private _entities: CarouselEntity[] = [];
@@ -167,7 +172,7 @@ class HyveCameraCarousel extends HTMLElement {
     if (name === 'default-audio' || name === 'default-mic') {
       this._applyAudioDefaultsFromAttrs({ force: true });
     }
-    if (name === 'mode' || name === 'interval' || name === 'preload' || name === 'preload-scope') {
+    if (name === 'mode' || name === 'interval' || name === 'preload' || name === 'preload-scope' || name === 'autoplay') {
       this._renderIndex();
     }
   }
@@ -219,6 +224,10 @@ class HyveCameraCarousel extends HTMLElement {
     return (this.getAttribute('preload-scope') || 'adjacent').toLowerCase() === 'all' ? 'all' : 'adjacent';
   }
 
+  get _autoplayOn() {
+    return this.getAttribute('autoplay') !== 'false';
+  }
+
   _preloadIndices(): Set<number> {
     const indices = new Set<number>();
     if (!this._preloadOn || this._entities.length < 2) return indices;
@@ -253,7 +262,7 @@ class HyveCameraCarousel extends HTMLElement {
     let go2rtc = ent.go2rtc;
     if (go2rtc == null) go2rtc = cameraSupportsGo2rtc(attrs);
     let agora = ent.agora;
-    if (agora == null) agora = cameraIsAgoraMammotion(attrs);
+    if (!agora) agora = cameraIsMammotionLive(ent.entity_id, attrs);
     return { webm, go2rtc, agora };
   }
 
@@ -270,7 +279,9 @@ class HyveCameraCarousel extends HTMLElement {
     if (agora || this._streamUsesAgora(stream)) {
       this._setStreamAttr(stream, 'entity', ent.entity_id);
       this._setStreamAttr(stream, 'alt', ent.title || ent.entity_id);
-      this._setStreamAttr(stream, 'autoplay', (active && this._mode === 'live') ? 'true' : 'false');
+      this._setStreamAttr(stream, 'autoplay', (active && this._autoplayOn) ? 'true' : 'false');
+      // Carousel layout makes per-stream IntersectionObserver unreliable — same as hv-camera-stream.
+      this._setStreamAttr(stream, 'force-active', active ? 'true' : 'false');
       stream.classList.toggle('hv-camera-carousel__stream--active', active);
       stream.classList.toggle('hv-camera-carousel__stream--buffer', buffered);
       return;

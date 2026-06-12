@@ -4,6 +4,33 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.5] — 2026-06
+
+Feature release: **RGB Zigbee light controls** (Mosquitto/Z2M), custom Hyve color picker, Mammotion camera autoplay, and Mammotion nudge / transport polish.
+
+### Integrations — Mosquitto / Zigbee2MQTT lights
+- Detect RGB, color temperature, and brightness capabilities from Z2M composite exposes, HA MQTT discovery (`supported_color_modes`), and live state.
+- MQTT control: `set_brightness`, `set_color_temp`, and `set` with correct JSON payloads — RGB from the UI is converted to nested `color: {hue, saturation}` or `color: {r,g,b}` as required by Zigbee2MQTT.
+- Integration **device modal**: inline brightness, custom color picker, and color-temperature sliders for `light` entities (no extra click into entity detail).
+- Optimistic light attribute updates; sliders no longer snap back after control.
+
+### Frontend — light color picker
+- New **`static/js/light_controls.ts`**: shared capability detection, Hyve-styled picker (saturation/value plane, hue slider, presets), used in Integrations and Smart home entity detail.
+- Replaces native `<input type="color">`; theme-aware CSS in `components.css`.
+- Direct control commit from picker (`commitIntegrationControl` / `commitSmarthomeLightControl`).
+- i18n: `entity.render.hue` (EN/RO).
+
+### Mammotion
+- **Camera autoplay** in integrations entity detail, device modal, and dashboard camera cards; card editor **Autoplay** toggle (`dashboard.camera.autoplay`).
+- `<hv-mammotion-camera>`: immediate play on attach, compact play overlay, stream pause/resume when modals or dashboard live mode change.
+- **Nudge buttons**: disabled with honest tooltip when server-side BLE is unavailable; `movement_use_wifi` / `nudge_server_ble` metadata.
+- PyMammotion compat patches, session bootstrap, and command transport hardening.
+
+### Tests
+- `tests/test_mosquitto_control.py` — Z2M light color/capability and MQTT payload conversion.
+- `tests/test_mammotion_nudge_availability.py`, `tests/test_mammotion_nudge_transport.py`, `tests/test_mammotion_movement_config.py`.
+- `tests/test_camera_autoplay_config.py` — camera card autoplay defaults.
+
 ## [0.9.4] — 2026-06
 
 Feature release: Mammotion lawn mower **live camera** (Agora WebRTC) in integrations, entity detail, and dashboard camera cards.

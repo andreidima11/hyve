@@ -973,6 +973,12 @@
     border-radius: 0.75rem;
     background: #000;
 }
+.hy-entity-camera-shell hv-mammotion-camera,
+.hy-detail-camera--mammotion hv-mammotion-camera {
+    display: block;
+    min-height: 12rem;
+    aspect-ratio: 16 / 9;
+}
 
 .hy-ptz-pad {
     padding: 0.75rem 0.85rem;

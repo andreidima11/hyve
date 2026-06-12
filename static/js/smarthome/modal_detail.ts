@@ -2,11 +2,17 @@
  * Smart home — entity detail modal (row actions, camera preview, device control).
  */
 import { apiCall } from '../api.js';
-import { cameraProxyUrlSync, startCameraPreviewRefresh, stopCameraPreviewRefresh } from '../camera_auth.js';
+import {
+    cameraProxyUrlSync,
+    pauseEntityDetailCameraStreams,
+    startCameraPreviewRefresh,
+    stopCameraPreviewRefresh,
+} from '../camera_auth.js';
 import { cameraLoaderMarkup, bindCameraPreviewLoaders } from '../camera_loader.js';
 import { t, tState, translateApiDetail } from '../lang/index.js';
 import { escapeHtml, escapeHtmlAttr, showToast } from '../utils.js';
-import { cameraIsAgoraMammotion, cameraPreferWebmPlayer } from '../camera_live.js';
+import { cameraIsMammotionEntity, cameraPreferWebmPlayer } from '../camera_live.js';
+import { renderHyColorPickerMarkup, resolveLightControlFlags } from '../light_controls.js';
 import '/static/hyveview/elements/mammotion_camera.js';
 import { renderEntityRegistrySection, wireEntityRegistryEditor } from '../entity_renderers.js';
 import type { SmarthomeEntity } from '../types/features_smarthome.js';
@@ -128,11 +134,11 @@ function _cameraPreviewMarkup(entity: SmarthomeEntity, attrs: Record<string, unk
     const domain = dev._entityDomain(entity);
     if (domain === 'image') return _imagePreviewMarkup(entity, attrs);
     if (domain !== 'camera') return '';
-    if (cameraIsAgoraMammotion(attrs)) {
+    if (cameraIsMammotionEntity(entity.entity_id || '', attrs)) {
         const eid = escapeHtmlAttr(entity.entity_id || '');
         const title = escapeHtml(entity.name || entity.entity_id || 'Camera');
         return `<div class="hy-detail-camera hy-detail-camera--mammotion">
-            <hv-mammotion-camera entity="${eid}" alt="${title}"></hv-mammotion-camera>
+            <hv-mammotion-camera entity="${eid}" alt="${title}" autoplay="true" force-active="true"></hv-mammotion-camera>
         </div>`;
     }
     const hasAudio = !!(attrs.has_audio);
@@ -195,59 +201,23 @@ function _cacheBustCameraUrl(url: string) {
     return `${raw}${raw.includes('?') ? '&' : '?'}_hyve=${Date.now()}`;
 }
 
-function _lightCaps(entity: SmarthomeEntity) {
-    const attrs = (entity.attributes && typeof entity.attributes === 'object' ? entity.attributes : {}) as Record<string, unknown>;
-    const caps = (attrs.capabilities && typeof attrs.capabilities === 'object' ? attrs.capabilities : {}) as Record<string, unknown>;
-    return { attrs, caps };
-}
-
-function _lightBrightnessScale(caps: Record<string, unknown>) {
-    if (caps.brightness_scale != null) return Number(caps.brightness_scale) || 254;
-    const brRange = caps.brightness_range;
-    if (Array.isArray(brRange) && brRange.length >= 2) return Number(brRange[1]) || 254;
-    return 254;
-}
-
-function _lightBrightnessValue(entity: SmarthomeEntity, scale: number) {
-    const { attrs } = _lightCaps(entity);
-    const raw = Number(attrs.brightness);
-    if (Number.isFinite(raw)) return Math.max(0, Math.min(scale, raw));
-    const on = dev._isActiveState(dev._norm(entity.state)) || dev._norm(entity.state) === 'on';
-    return on ? scale : 0;
-}
-
-function _rgbToHex(attrs: Record<string, unknown>) {
-    const color = attrs.color;
-    if (color && typeof color === 'object') {
-        const c = color as Record<string, number>;
-        if (Number.isFinite(c.r) && Number.isFinite(c.g) && Number.isFinite(c.b)) {
-            const part = (v: number) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0');
-            return `#${part(c.r)}${part(c.g)}${part(c.b)}`;
-        }
-    }
-    return '#ffffff';
-}
-
 function _deviceLightControls(entity: SmarthomeEntity) {
     if (!entity || dev._entityDomain(entity) !== 'light') return '';
-    const { attrs, caps } = _lightCaps(entity);
     const entityId = escapeHtmlAttr(entity.entity_id || '');
     const source = escapeHtmlAttr(entity.source || '');
     const _er = (key: string) => t('entity.render.' + key);
-    const hasBrightness = !!(caps.brightness || caps.brightness_command_topic || caps.brightness_range);
-    const hasColor = !!caps.color;
-    const hasColorTemp = !!caps.color_temp;
+    const on = dev._isActiveState(dev._norm(entity.state)) || dev._norm(entity.state) === 'on';
+    const flags = resolveLightControlFlags(entity, on);
+    const { hasBrightness, hasColor, hasColorTemp } = flags;
     if (!hasBrightness && !hasColor && !hasColorTemp) return '';
 
-    const scale = _lightBrightnessScale(caps);
-    const brightness = _lightBrightnessValue(entity, scale);
+    const scale = flags.brightnessScale;
+    const brightness = flags.brightnessValue;
     const pct = Math.round((brightness / scale) * 100);
-    const ctRange = Array.isArray(caps.color_temp_range) ? caps.color_temp_range : [153, 500];
-    const ctMin = Number(ctRange[0]) || 153;
-    const ctMax = Number(ctRange[1]) || 500;
-    const ctVal = Number(attrs.color_temp);
-    const colorTemp = Number.isFinite(ctVal) ? Math.max(ctMin, Math.min(ctMax, ctVal)) : Math.round((ctMin + ctMax) / 2);
-    const colorHex = _rgbToHex(attrs);
+    const ctMin = flags.colorTempMin;
+    const ctMax = flags.colorTempMax;
+    const colorTemp = flags.colorTempValue;
+    const colorHex = flags.colorHex;
 
     const ctrlAttrs = (kind: string, extra = '') =>
         `data-smarthome-light-input="${kind}" data-smarthome-source="${source}" data-smarthome-entity-id="${entityId}"${extra}`;
@@ -265,14 +235,13 @@ function _deviceLightControls(entity: SmarthomeEntity) {
         </div>`;
     }
     if (hasColor) {
-        body += `
-        <div class="hy-detail-light-row">
-            <div class="hy-detail-light-label">
-                <span>${escapeHtml(_er('color'))}</span>
-            </div>
-            <input type="color" value="${escapeHtmlAttr(colorHex)}" class="hy-detail-color-input"
-                ${ctrlAttrs('color')}>
-        </div>`;
+        body += renderHyColorPickerMarkup(
+            colorHex,
+            ctrlAttrs('color'),
+            escapeHtml,
+            escapeHtmlAttr,
+            { color: _er('color'), hue: _er('hue') },
+        );
     }
     if (hasColorTemp) {
         body += `
@@ -398,10 +367,8 @@ export function openAliasModalFromDetail(entityId: string) {
 export function closeEntityDetailModal() {
     const modal = document.getElementById('entity-detail-modal');
     stopCameraPreviewRefresh();
+    pauseEntityDetailCameraStreams(modal);
     if (modal) {
-        modal.querySelectorAll('hv-camera-stream').forEach(el => {
-            try { (el as HTMLElement & { pauseStream?: () => void }).pauseStream?.(); } catch (_) {}
-        });
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }

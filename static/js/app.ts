@@ -16,6 +16,7 @@ import { initMemoryEventBindings } from './memory/event_bindings.js';
 import { initSmarthomeEventBindings } from './smarthome/event_bindings.js';
 import { initShellEventBindings } from './shell/event_bindings.js';
 import { initIntegrationEventBindings } from './integrations/event_bindings.js';
+import { initHyColorPickerBindings } from './light_controls.js';
 import { toggleModelSelector, closeModelSelector } from './chat/model_selector.js';
 import { setUserProfileContext, loadUserProfilePage, switchUserProfileTab, saveUserProfileGeneral, saveUserProfileSecurity } from './user_profile.js';
 import { initNotifications, loadUserNotifications, switchUserNotificationFilter, toggleUserNotificationFilterMenu, markUserNotificationRead, archiveUserNotification, deleteUserNotification, clearAllUserNotifications, changeUserNotificationsPage, loadNotificationCounts, updateNotificationBadge, navigateNotification } from './notifications.js';
@@ -1098,6 +1099,7 @@ window.addEventListener('DOMContentLoaded', () => {
         openIntegrationDeviceModal: (idx, slug) => openIntegrationDeviceModal(idx, slug),
         renameIntegrationDevice: (...args) => renameIntegrationDevice(...args),
     });
+    initHyColorPickerBindings();
     try { initDashboardSidebarNav(); } catch (_) {}
     applyInitialGreeting();
 

@@ -68,6 +68,7 @@ function widgetToEditorCard(widget) {
         cfg.interval = Number(widgetConfig.interval) || DEFAULT_CAMERA_INTERVAL;
         cfg.default_audio = !!widgetConfig.default_audio;
         cfg.default_microphone = !!widgetConfig.default_microphone;
+        cfg.autoplay = widgetConfig.autoplay !== false;
         cfg.preload = !!widgetConfig.preload;
         cfg.preload_scope = widgetConfig.preload_scope === 'all' ? 'all' : 'adjacent';
         const ents = widgetConfig.entities || [];
@@ -232,6 +233,7 @@ function editorResultToWidgetBody(result, { existingWidget = null } = {}) {
             interval,
             entities: records,
             entity_ids: records.map((r) => r.entity_id),
+            autoplay: cfg.autoplay !== false,
             default_audio: !!cfg.default_audio,
             default_microphone: !!cfg.default_microphone,
             preload: !!cfg.preload,

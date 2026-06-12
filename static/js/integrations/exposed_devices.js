@@ -6,8 +6,9 @@ import { initIntegrationsLiveWs, refreshIntegrationsLiveConnection, subscribeInt
 import { t, translateApiDetail, tState } from '../lang/index.js';
 import { escapeHtml, escapeHtmlAttr, showToast } from '../utils.js';
 import { renderEntityModal, getDomainIcon, wireEntityRegistryEditor } from '../entity_renderers.js';
+import { renderLightControlsMarkup } from '../light_controls.js';
 import { CONTROLLABLE, entityStateForDisplay, renderSelectControlHtml, } from '../entity_constants.js';
-import { appendMediaQueryToken, getCameraStreamToken, startCameraPreviewRefresh, stopCameraPreviewRefresh } from '../camera_auth.js';
+import { appendMediaQueryToken, getCameraStreamToken, pauseEntityDetailCameraStreams, startCameraPreviewRefresh, stopCameraPreviewRefresh, } from '../camera_auth.js';
 import { integrationSlugsMatch } from '../integration_sources.js';
 import { errMsg, integrationApiError, isActiveState } from './utils.js';
 import { integrationDefinition, integrationEntitySourceSlug, integrationIdForSourceSlug, integrationLabel, supportsIntegrationEntitySync, } from './catalog_meta.js';
@@ -34,6 +35,39 @@ function _disconnectIntegrationExposedLive() {
     _integrationExposedLiveSlug = null;
     refreshIntegrationsLiveConnection();
 }
+const _LIGHT_FINE_ACTIONS = new Set(['set_brightness', 'set_color_temp', 'set']);
+function _applyLightControlOptimistic(ent, action, data) {
+    if (!ent || !data)
+        return;
+    const attrs = { ...(ent.attributes || {}) };
+    if (action === 'set_brightness' && data.brightness != null) {
+        attrs.brightness = Number(data.brightness);
+        ent.state = 'on';
+    }
+    if (action === 'set_color_temp' && data.color_temp != null) {
+        attrs.color_temp = Number(data.color_temp);
+        ent.state = 'on';
+    }
+    if (action === 'set' && data.color && typeof data.color === 'object') {
+        attrs.color = data.color;
+        ent.state = 'on';
+    }
+    ent.attributes = attrs;
+}
+function _syncLightControlInputs(entityId, attrs) {
+    const eid = CSS.escape(String(entityId));
+    if (attrs.color_temp != null) {
+        const ct = String(attrs.color_temp);
+        document.querySelectorAll(`[data-int-entity-id="${eid}"][data-int-input="color_temp"]`).forEach((el) => { el.value = ct; });
+        document.querySelectorAll(`[data-int-light-ct-label="${eid}"]`).forEach((el) => {
+            el.textContent = ct;
+        });
+    }
+    if (attrs.brightness != null) {
+        const br = String(attrs.brightness);
+        document.querySelectorAll(`[data-int-entity-id="${eid}"][data-int-input="brightness"]`).forEach((el) => { el.value = br; });
+    }
+}
 function _patchIntegrationExposedEntityState(item) {
     if (!item || !item.entity_id)
         return;
@@ -45,13 +79,26 @@ function _patchIntegrationExposedEntityState(item) {
     const isOn = isActiveState(stateLower);
     const isOff = ['off', 'closed', 'locked', 'idle', 'docked', 'paused'].includes(stateLower);
     const tone = isOn ? 'text-accent' : (isOff ? 'text-slate-400' : 'text-slate-200');
+    const attrPatch = (item.attributes && typeof item.attributes === 'object')
+        ? item.attributes
+        : null;
     if (_exposedDevicesState?.devices) {
         for (const dev of _exposedDevicesState.devices) {
             const ent = (dev.entities || []).find(e => e.entity_id === eid);
             if (ent) {
-                ent.state = state;
+                if (item.state !== undefined && item.state !== null)
+                    ent.state = String(item.state);
                 if (item.unit)
                     ent.unit = String(item.unit);
+                if (attrPatch) {
+                    const merged = { ...(ent.attributes || {}) };
+                    for (const [key, val] of Object.entries(attrPatch)) {
+                        if (val !== undefined)
+                            merged[key] = val;
+                    }
+                    ent.attributes = merged;
+                    _syncLightControlInputs(String(eid), attrPatch);
+                }
                 break;
             }
         }
@@ -365,17 +412,27 @@ function _renderEntityControlRow(ent, slug) {
         }
     }
     else if (controllable && dom === 'button') {
+        const mammotionKey = String(attrs.mammotion_key || '');
+        const isNudgeButton = mammotionKey.startsWith('emergency_nudge_');
+        const nudgeHintKey = typeof attrs.nudge_hint_key === 'string' ? attrs.nudge_hint_key : '';
+        const nudgeDisabled = isNudgeButton && ent.available === false;
+        const btnTitle = nudgeHintKey ? t(nudgeHintKey) : t('entity.render.send');
+        const btnClass = nudgeDisabled
+            ? 'px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-500 text-[11px] font-semibold shrink-0 opacity-60 cursor-not-allowed'
+            : 'px-3 py-1.5 rounded-lg bg-accent/15 border border-accent/30 text-accent text-[11px] font-semibold shrink-0';
+        const pressAttrs = nudgeDisabled ? '' : _intCtrlAttrs(slug, eid, 'press', null, { stop: true });
         control = `<button type="button"
-            class="px-3 py-1.5 rounded-lg bg-accent/15 border border-accent/30 text-accent text-[11px] font-semibold shrink-0"
-            title="${escapeHtml(t('entity.render.send'))}" aria-label="${escapeHtml(t('entity.render.send'))}"
-            ${_intCtrlAttrs(slug, eid, 'press', null, { stop: true })}>
+            class="${btnClass}"
+            title="${escapeHtml(btnTitle)}" aria-label="${escapeHtml(btnTitle)}"
+            ${nudgeDisabled ? 'disabled' : ''}
+            ${pressAttrs}>
             <i class="fas fa-bolt mr-1"></i>${escapeHtml(t('entity.render.send'))}
         </button>`;
     }
     const encoded = encodeURIComponent(JSON.stringify(ent)).replace(/'/g, '%27');
     const stateHtml = `<span class="text-[11px] mono ${tone} truncate max-w-[9rem] text-right justify-self-end" data-entity-state="${eidA}">${escapeHtml(state)}${unit}</span>`;
     const controlHtml = control || stateHtml;
-    return `<div class="int-entity-row px-3 py-3 bg-white/[0.03] border border-white/5 rounded-xl cursor-pointer hover:bg-white/[0.06] hover:border-accent/20 transition-colors"
+    const rowHtml = `<div class="int-entity-row px-3 py-3 bg-white/[0.03] border border-white/5 rounded-xl cursor-pointer hover:bg-white/[0.06] hover:border-accent/20 transition-colors"
         data-entity-action="openCard" data-int-encoded="${encoded}">
         <i class="fas ${icon} text-accent/70 text-sm w-4 text-center shrink-0"></i>
         <div class="int-entity-row__label">
@@ -384,6 +441,21 @@ function _renderEntityControlRow(ent, slug) {
         </div>
         ${controlHtml}
     </div>`;
+    if (dom === 'light') {
+        const lightExtras = renderLightControlsMarkup(ent, slug, _intCtrlAttrs, escapeHtml, escapeHtmlAttr, {
+            brightness: t('entity.render.brightness'),
+            color: t('entity.render.color'),
+            color_temp: t('entity.render.color_temp'),
+            hue: t('entity.render.hue'),
+        }, { compact: true });
+        if (lightExtras) {
+            return `<div class="rounded-xl border border-white/5 bg-white/[0.03] overflow-hidden">
+                ${rowHtml.replace(' rounded-xl', '')}
+                <div class="px-3 pb-3 border-t border-white/5" data-int-light-controls="1">${lightExtras}</div>
+            </div>`;
+        }
+    }
+    return rowHtml;
 }
 // Pagination for the entity list inside the device-detail modal.
 const _ENTITY_PAGE_SIZE = 5;
@@ -477,12 +549,7 @@ function _openIntegrationEntityDetailModal(entity, slug) {
     if (!modal || !body || !entity)
         return;
     stopCameraPreviewRefresh();
-    modal.querySelectorAll('hv-camera-stream').forEach(el => {
-        try {
-            el.pauseStream?.();
-        }
-        catch (_) { }
-    });
+    pauseEntityDetailCameraStreams(modal);
     const dom = String(entity.domain || String(entity.entity_id || '').split('.')[0] || '').toLowerCase();
     const entAttrs = (entity.attributes || {});
     const entCaps = (entAttrs.capabilities || {});
@@ -656,8 +723,11 @@ export async function controlIntegrationEntity(slug, entityId, action, btn, data
                 touchedEnt.state = 'off';
             else if (action === 'set' && data && data.value !== undefined)
                 touchedEnt.state = String(data.value);
+            else if (_LIGHT_FINE_ACTIONS.has(action))
+                _applyLightControlOptimistic(touchedEnt, action, data);
             const modal = document.getElementById('entity-detail-modal');
-            if (modal && !modal.classList.contains('hidden') && touchedIdx >= 0) {
+            const isDeviceListOpen = modal && !modal.classList.contains('hidden') && modal.querySelector('[data-entity-list]');
+            if (isDeviceListOpen && touchedIdx >= 0 && !_LIGHT_FINE_ACTIONS.has(action)) {
                 openIntegrationDeviceModal(touchedIdx, slug);
             }
         }
@@ -677,7 +747,8 @@ export async function controlIntegrationEntity(slug, entityId, action, btn, data
         if (touchedEnt) {
             touchedEnt.state = prevState;
             const modal = document.getElementById('entity-detail-modal');
-            if (modal && !modal.classList.contains('hidden') && touchedIdx >= 0) {
+            const isDeviceListOpen = modal && !modal.classList.contains('hidden') && modal.querySelector('[data-entity-list]');
+            if (isDeviceListOpen && touchedIdx >= 0 && !_LIGHT_FINE_ACTIONS.has(action)) {
                 openIntegrationDeviceModal(touchedIdx, slug);
             }
         }

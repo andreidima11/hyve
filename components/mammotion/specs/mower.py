@@ -93,6 +93,40 @@ MOWER_SWITCHES: dict[str, Callable[[dict[str, Any], dict[str, Any]], bool]] = {
     "cloud_enabled": lambda f, _: True,
 }
 
+NUDGE_BUTTON_KEYS = frozenset(
+    {
+        "emergency_nudge_forward",
+        "emergency_nudge_left",
+        "emergency_nudge_right",
+        "emergency_nudge_back",
+    }
+)
+
+
+def _nudge_button_attrs(flags: dict[str, Any]) -> dict[str, Any]:
+    server_ble = bool(flags.get("nudge_server_ble"))
+    movement_wifi = bool(flags.get("movement_use_wifi"))
+    attrs: dict[str, Any] = {
+        "nudge_server_ble": server_ble,
+        "movement_use_wifi": movement_wifi,
+    }
+    if server_ble:
+        return attrs
+    if movement_wifi:
+        attrs["nudge_hint_key"] = "integrations.mammotion_nudge_app_ble_hint"
+        return attrs
+    attrs["nudge_hint_key"] = "integrations.mammotion_nudge_ble_required"
+    return attrs
+
+
+def _nudge_button_available(flags: dict[str, Any], *, online: bool) -> bool:
+    if not online:
+        return False
+    if bool(flags.get("nudge_server_ble")):
+        return True
+    return bool(flags.get("movement_use_wifi"))
+
+
 MOWER_BUTTONS: dict[str, Callable[[dict[str, Any]], bool]] = {
     "start_map_sync": lambda _: True,
     "start_schedule_sync": lambda _: True,
@@ -394,6 +428,9 @@ def build_mower_entities(row: MowerRow) -> list[dict[str, Any]]:
         action_ent["name"] = f"{row.label} {btn_label}"
         action_ent["friendly_name"] = action_ent["name"]
         action_ent["attributes"]["mammotion_button_kind"] = "action"
+        if key in NUDGE_BUTTON_KEYS:
+            action_ent["attributes"].update(_nudge_button_attrs(row.flags))
+            action_ent["available"] = _nudge_button_available(row.flags, online=row.online)
         out.append(action_ent)
 
     for plan_id, plan in row.plans.items():

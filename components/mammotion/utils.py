@@ -11,6 +11,20 @@ from typing import Any
 _DEFAULT_MAMMOTION_HA_FINGERPRINT = "0.6.4"
 
 
+def movement_use_wifi_from_entry(data: dict[str, Any] | None) -> bool:
+    """Parse CONFIG_SCHEMA bool for emergency nudge over cloud/MQTT."""
+    if not data:
+        return False
+    value = data.get("movement_use_wifi")
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return False
+
+
 def mammotion_ha_fingerprint() -> str:
     """Version tag Mammotion accepts in the OAuth ``App-Version`` header."""
     raw = (os.environ.get("MAMMOTION_HA_FINGERPRINT") or _DEFAULT_MAMMOTION_HA_FINGERPRINT).strip()

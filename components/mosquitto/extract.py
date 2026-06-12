@@ -255,6 +255,7 @@ def _entity_from_discovery(
         capabilities["brightness_value_template"] = msg.get("brightness_value_template") or ""
         capabilities["brightness_scale"] = msg.get("brightness_scale") or 255
     if domain == "light":
+        _apply_ha_mqtt_light_discovery(capabilities, msg)
         _normalize_light_capabilities(capabilities)
 
     if z2m_prop == "action" and domain in {"sensor", "event"}:
@@ -739,6 +740,51 @@ def _merge_light_attributes(
     for key in _LIGHT_STATE_KEYS:
         if key in state:
             attributes[key] = state[key]
+    _infer_light_capabilities_from_attributes(attributes)
+
+
+_COLOR_ONLY_MODES = frozenset({"rgb", "xy", "hs", "rgbw", "rgbww", "hs_color", "rgb_color", "rgbw_color", "rgbww_color"})
+
+
+def _apply_supported_color_modes(capabilities: dict[str, Any], modes: list[Any]) -> None:
+    if not modes:
+        return
+    capabilities["supported_color_modes"] = modes
+    normalized = {str(m).lower() for m in modes if m}
+    if normalized & _COLOR_ONLY_MODES or normalized - {"color_temp", "white", "onoff"}:
+        capabilities["color"] = True
+    if "color_temp" in normalized:
+        capabilities["color_temp"] = True
+
+
+def _apply_ha_mqtt_light_discovery(capabilities: dict[str, Any], msg: dict[str, Any]) -> None:
+    """Map Home Assistant MQTT light discovery fields to Hyve capability flags."""
+    modes = msg.get("supported_color_modes")
+    if isinstance(modes, list):
+        _apply_supported_color_modes(capabilities, modes)
+    if msg.get("color_temp") is True or msg.get("color_temp_command_template"):
+        capabilities["color_temp"] = True
+    if msg.get("brightness") is True or capabilities.get("brightness_command_topic"):
+        capabilities.setdefault("brightness", True)
+    if str(msg.get("schema") or "").lower() == "json":
+        capabilities["json_command"] = True
+
+
+def _infer_light_capabilities_from_attributes(attributes: dict[str, Any]) -> None:
+    """Infer RGB / color-temp UI from live state when discovery omitted capability flags."""
+    caps = attributes.get("capabilities")
+    if not isinstance(caps, dict):
+        return
+    for key in ("color", "color_xy", "color_hs"):
+        if attributes.get(key) is not None:
+            caps["color"] = True
+            caps.setdefault("color_property", key if key != "color" else "color")
+            break
+    if attributes.get("color_temp") is not None:
+        caps["color_temp"] = True
+    modes = caps.get("supported_color_modes")
+    if isinstance(modes, list):
+        _apply_supported_color_modes(caps, modes)
 
 
 def _normalize_light_capabilities(capabilities: dict[str, Any]) -> None:
@@ -754,6 +800,69 @@ def _normalize_light_capabilities(capabilities: dict[str, Any]) -> None:
             pass
     if capabilities.get("brightness") and not capabilities.get("brightness_scale"):
         capabilities["brightness_scale"] = 254
+    modes = capabilities.get("supported_color_modes")
+    if isinstance(modes, list):
+        _apply_supported_color_modes(capabilities, modes)
+
+
+def _rgb_to_hsv(r: int, g: int, b: int) -> tuple[float, float, float]:
+    """Return hue 0-360, saturation 0-100, value 0-100."""
+    rf, gf, bf = r / 255.0, g / 255.0, b / 255.0
+    mx = max(rf, gf, bf)
+    mn = min(rf, gf, bf)
+    d = mx - mn
+    h = 0.0
+    if d != 0:
+        if mx == rf:
+            h = ((gf - bf) / d) % 6
+        elif mx == gf:
+            h = (bf - rf) / d + 2
+        else:
+            h = (rf - gf) / d + 4
+        h *= 60
+    s = 0.0 if mx == 0 else (d / mx) * 100.0
+    v = mx * 100.0
+    return h, s, v
+
+
+def _adapt_light_set_payload(
+    caps: dict[str, Any],
+    data: dict[str, Any],
+    *,
+    payload_on: Any,
+) -> dict[str, Any]:
+    """Map UI RGB payloads to the Z2M/HA color format the device expects."""
+    out = dict(data)
+    color = out.pop("color", None)
+    if not isinstance(color, dict):
+        return out
+    try:
+        r = int(color.get("r") or 0)
+        g = int(color.get("g") or 0)
+        b = int(color.get("b") or 0)
+    except (TypeError, ValueError):
+        out["color"] = color
+        return out
+
+    prop = str(caps.get("color_property") or "color").lower()
+    modes = caps.get("supported_color_modes")
+    normalized_modes = (
+        {str(m).lower() for m in modes if m}
+        if isinstance(modes, list) else set()
+    )
+    prefers_hs = (
+        prop == "color_hs"
+        or caps.get("hue_sat_top_level")
+        or ("hs" in normalized_modes and "xy" not in normalized_modes)
+    )
+    if prefers_hs:
+        h, s, _v = _rgb_to_hsv(r, g, b)
+        out["color"] = {"hue": round(h), "saturation": round(s)}
+    else:
+        # Z2M accepts RGB (and hex) for color_xy and most Tuya RGB bulbs.
+        out["color"] = {"r": r, "g": g, "b": b}
+    out.setdefault("state", payload_on)
+    return out
 
 
 def _light_command_payload(
@@ -783,6 +892,8 @@ def _light_command_payload(
         clean = {k: v for k, v in data.items() if k not in {"brightness_pct"}}
         if caps.get("brightness_command_topic") and set(clean.keys()) == {"brightness"}:
             return str(caps["brightness_command_topic"]), str(int(clean["brightness"]))
+        if "color" in clean:
+            clean = _adapt_light_set_payload(caps, clean, payload_on=payload_on)
         if clean:
             if "brightness" in clean and int(clean.get("brightness") or 0) > 0:
                 clean.setdefault("state", payload_on)
@@ -1204,7 +1315,8 @@ def _entities_from_z2m_exposes(
             primary_prop = ""
             for feat in features if isinstance(features, list) else []:
                 fp = str(feat.get("property") or "")
-                if not fp:
+                feat_name = str(feat.get("name") or "").lower()
+                if not fp and not feat_name:
                     continue
                 if fp in ("state", f"state_{entry.get('endpoint', '')}") and not primary_prop:
                     primary_prop = fp
@@ -1226,11 +1338,33 @@ def _entities_from_z2m_exposes(
                     ct_max = feat.get("value_max")
                     if ct_min is not None or ct_max is not None:
                         caps["color_temp_range"] = [ct_min, ct_max]
-                if fp in ("color_xy", "color_hs", "color"):
+                color_prop = fp if fp in ("color_xy", "color_hs", "color") else ""
+                if not color_prop and feat_name in ("color_xy", "color_hs", "color"):
+                    color_prop = feat_name
+                if color_prop:
                     caps["color"] = True
-                    caps["color_property"] = fp
+                    caps["color_property"] = color_prop
+                elif fp in ("hue", "saturation") or feat_name in ("hue", "saturation"):
+                    caps["color"] = True
+                    caps.setdefault("color_property", "color_hs")
+                elif feat.get("type") == "composite" and "color" in feat_name:
+                    caps["color"] = True
+                    caps["color_property"] = feat_name if feat_name in ("color_xy", "color_hs") else "color"
                 if feat.get("values"):
                     caps[f"{fp}_values"] = feat["values"]
+
+            has_hue = any(
+                str(f.get("property") or "") == "hue"
+                or str(f.get("name") or "").lower() == "hue"
+                for f in (features if isinstance(features, list) else [])
+            )
+            has_sat = any(
+                str(f.get("property") or "") == "saturation"
+                or str(f.get("name") or "").lower() == "saturation"
+                for f in (features if isinstance(features, list) else [])
+            )
+            if has_hue and has_sat:
+                caps["hue_sat_top_level"] = True
 
             if primary_prop:
                 writable = bool((entry.get("access") or 0) & 2) or any(

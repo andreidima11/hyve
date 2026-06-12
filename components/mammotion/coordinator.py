@@ -97,6 +97,9 @@ class MowerCoordinator:
             "map_offset_lon": self.map_offset_lon,
             "bluetooth_enabled": self.bluetooth_enabled,
             "cloud_enabled": self.cloud_enabled,
+            "movement_use_wifi": self.movement_use_wifi,
+            "nudge_server_ble": self._ble_usable_on_server(),
+            "nudge_available": self._nudge_available(),
         }
         merged.update(self.report.meta())
         merged.update(self.map.meta())
@@ -387,17 +390,75 @@ class MowerCoordinator:
     async def start_task(self, plan_id: str) -> None:
         await self._send_and_wait("single_schedule", "todev_planjob_set", plan_id=plan_id)
 
-    async def move_forward(self, speed: float = 0.4) -> None:
-        await self._send("move_ctrl", linear=speed, angular=0, prefer_ble=not self.movement_use_wifi)
+    def _ble_usable_on_server(self) -> bool:
+        handle = self._client.mower(self.device_name)
+        if handle is None:
+            return False
+        from pymammotion.transport.base import TransportType
 
-    async def move_back(self, speed: float = 0.4) -> None:
-        await self._send("move_ctrl", linear=-speed, angular=0, prefer_ble=not self.movement_use_wifi)
+        ble = handle.get_transport(TransportType.BLE)
+        return ble is not None and ble.is_usable
 
-    async def move_left(self, speed: float = 0.4) -> None:
-        await self._send("move_ctrl", linear=0, angular=speed, prefer_ble=not self.movement_use_wifi)
+    def _nudge_available(self) -> bool:
+        if self._ble_usable_on_server():
+            return True
+        return bool(self.movement_use_wifi)
 
-    async def move_right(self, speed: float = 0.4) -> None:
-        await self._send("move_ctrl", linear=0, angular=-speed, prefer_ble=not self.movement_use_wifi)
+    def _ensure_nudge_ready(self) -> None:
+        if not self._nudge_available():
+            raise ValueError(
+                "Nudge necesită Bluetooth la robot. Opțiuni: dongle BLE pe serverul Hyve, "
+                "sau activează „Mișcare emergency prin Wi‑Fi” și ține aplicația Mammotion deschisă "
+                "lângă robot (Bluetooth activ) — Wi‑Fi/cloud singur nu declanșează mișcarea."
+            )
+        if self.movement_use_wifi and not self._ble_usable_on_server():
+            log.info(
+                "mammotion nudge for %s over cloud without server BLE — robot needs an active "
+                "Bluetooth session (Mammotion app nearby or Hyve BLE dongle)",
+                self.device_name,
+            )
+        device = self.data
+        dev = getattr(getattr(device, "report_data", None), "dev", None) if device else None
+        if dev is None:
+            raise ValueError("Robotul nu este pregătit — apasă Sync și așteaptă ~1 minut.")
+        from pymammotion.utility.constant.device_constant import WorkMode
+
+        mode = int(getattr(dev, "sys_status", 0) or 0)
+        if mode == WorkMode.MODE_CHARGING:
+            raise ValueError("Robotul e pe stație — folosește „Eliberează din dock” înainte de nudge.")
+
+    async def _send_nudge_burst(self, command: str, **kwargs: Any) -> None:
+        from components.mammotion.session_bootstrap import ensure_nudge_transport
+
+        self._ensure_nudge_ready()
+        await ensure_nudge_transport(self._client, self.device_name)
+        prefer_ble = not self.movement_use_wifi
+        pulses = 5
+        for pulse in range(pulses):
+            await self._send(command, prefer_ble=prefer_ble, **kwargs)
+            if pulse + 1 < pulses:
+                await asyncio.sleep(0.1)
+        try:
+            await self._send(
+                "send_movement",
+                linear_speed=0,
+                angular_speed=0,
+                prefer_ble=prefer_ble,
+            )
+        except Exception:
+            pass
+
+    async def move_forward(self, speed: float = 0.5) -> None:
+        await self._send_nudge_burst("move_forward", linear=speed)
+
+    async def move_back(self, speed: float = 0.5) -> None:
+        await self._send_nudge_burst("move_back", linear=speed)
+
+    async def move_left(self, speed: float = 0.5) -> None:
+        await self._send_nudge_burst("move_left", angular=speed)
+
+    async def move_right(self, speed: float = 0.5) -> None:
+        await self._send_nudge_burst("move_right", angular=speed)
 
     def _rw_expected_field(self, rw_id: int) -> str:
         if rw_id in (3, 6, 7, 8, 10, 11) and DeviceType.is_luba_pro(self.device_name):

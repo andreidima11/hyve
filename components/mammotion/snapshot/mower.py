@@ -60,7 +60,12 @@ def build_mower_snapshot(
     vision = rd.vision_info
     loc = device.location
 
-    flags = mower_flags(device_name)
+    flags = {
+        **mower_flags(device_name),
+        "movement_use_wifi": bool(meta.get("movement_use_wifi")),
+        "nudge_server_ble": bool(meta.get("nudge_server_ble")),
+        "nudge_available": bool(meta.get("nudge_available")),
+    }
     product_key = str(getattr(ms, "product_key", "") or "")
     op_settings = meta.get("operation_settings") if isinstance(meta.get("operation_settings"), dict) else {}
 

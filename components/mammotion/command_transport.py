@@ -33,7 +33,7 @@ async def async_send_command(
     bluetooth_enabled: bool = True,
     **kwargs: Any,
 ) -> None:
-    """Send via ``send_command_with_args`` like HA ``MammotionReportUpdateCoordinator.async_send_command``."""
+    """Send a fire-and-forget command; uses ``send_raw`` so pymammotion cannot silently skip it."""
     clear_pymammotion_rate_limit_for_command(client, device_name)
     prepare_device_for_command(client, device_name)
     if client.get_device_by_name(device_name) is None or not device_handle_online(client, device_name):
@@ -41,12 +41,24 @@ async def async_send_command(
 
     from pymammotion.transport.base import NoTransportAvailableError
 
+    handle = client.mower(device_name)
+    if handle is None:
+        raise ValueError(_OFFLINE)
+    if not handle.has_usable_transport:
+        raise ValueError(_COMMAND_FAILED)
+
+    prefer_ble = kwargs.pop("prefer_ble", bluetooth_enabled)
+    commands = handle.commands
     try:
-        await client.send_command_with_args(
-            device_name,
-            command,
-            prefer_ble=kwargs.pop("prefer_ble", bluetooth_enabled),
-            **kwargs,
+        command_bytes: bytes = getattr(commands, command)(**kwargs)
+    except AttributeError as exc:
+        raise ValueError(f"Comandă Mammotion necunoscută: {command}") from exc
+
+    session = client._get_session_for_device(device_name)
+    try:
+        await client._send_with_auth_retry(
+            lambda: handle.send_raw(command_bytes, prefer_ble=prefer_ble),
+            session,
         )
     except NoTransportAvailableError as exc:
         log.debug("No transport for %s command %s: %s", device_name, command, exc)

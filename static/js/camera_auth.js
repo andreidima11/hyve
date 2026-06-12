@@ -125,3 +125,16 @@ export function stopCameraPreviewRefresh() {
         _cameraPreviewTimer = null;
     }
 }
+/** Stop live previews in the entity detail modal (MJPEG/WebM and Mammotion Agora). */
+export function pauseEntityDetailCameraStreams(root = document.getElementById('entity-detail-modal')) {
+    if (!root)
+        return;
+    root.querySelectorAll('hv-camera-stream, hv-mammotion-camera').forEach((el) => {
+        try {
+            el.pauseStream?.();
+        }
+        catch {
+            /* ignore */
+        }
+    });
+}

@@ -42,6 +42,8 @@
     height: 100%;
     object-fit: cover;
 }
+.hyve-dashboard-card__camera-player.hv-camera-carousel__stream--agora .hy-mammotion-camera__video,
+.hyve-dashboard-card__camera-player.hv-camera-carousel__stream--agora .hy-mammotion-camera__video video {
     width: 100%;
     height: 100%;
     min-width: 0;

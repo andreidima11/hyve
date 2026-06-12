@@ -92,10 +92,10 @@ class MammotionEntity(BaseEntity):
         },
         {
             "key": "movement_use_wifi",
-            "label": "Mișcare emergency prin Wi‑Fi",
+            "label": "Nudge prin cloud (fără BLE pe server)",
             "type": "bool",
             "default": False,
-            "help": "Implicit comenzile nudge folosesc BLE. Activează dacă nu ai BLE pe server.",
+            "help": "Trimite comenzile nudge prin cloud/MQTT în loc de BLE pe server. Nu înlocuiește Bluetooth la robot: firmware-ul acceptă mișcarea manuală doar cu sesiune BT activă (app Mammotion lângă robot sau dongle BLE pe Hyve). Robotul trebuie scos din dock.",
         },
         {
             "key": "scan_interval",
@@ -176,11 +176,23 @@ class MammotionEntity(BaseEntity):
         except Exception as exc:
             log.warning("mammotion settings persist failed: %s", exc)
 
+    def _movement_use_wifi(self) -> bool:
+        from components.mammotion.utils import movement_use_wifi_from_entry
+
+        return movement_use_wifi_from_entry(self.entry_data)
+
+    def _sync_session_runtime_options(self) -> None:
+        if self._session is None:
+            return
+        self._session._hub.apply_runtime_options(movement_use_wifi=self._movement_use_wifi())
+
     async def _get_session(self) -> Any:
         if self._session is not None:
+            self._sync_session_runtime_options()
             return self._session
         async with self._session_lock:
             if self._session is not None:
+                self._sync_session_runtime_options()
                 return self._session
             MammotionSession = _client_module().MammotionSession
             on_push = self._schedule_push_sync if self.entry_id and self.entry_id != "__test__" else None
@@ -189,7 +201,7 @@ class MammotionEntity(BaseEntity):
                 password=self._password(),
                 cache=self.entry_data.get("_mammotion_cache"),
                 device_settings=self.entry_data.get("_mammotion_device_settings"),
-                movement_use_wifi=bool(self.entry_data.get("movement_use_wifi")),
+                movement_use_wifi=self._movement_use_wifi(),
                 persist_cache=self._persist_cache,
                 persist_settings=self._persist_device_settings,
                 on_push=on_push,

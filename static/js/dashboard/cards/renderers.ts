@@ -4,6 +4,11 @@
  */
 
 import * as HVBridge from '/static/hyveview/bridge.js';
+import {
+    cameraAutoplayEnabled,
+    cameraEntityIdIsMammotionWebrtc,
+    cameraIsMammotionLive,
+} from '../../camera_live.js';
 import type { DashboardCache, DashboardWidget, DashboardWidgetSpan } from '../../types/dashboard.js';
 import type { HyveEntity } from '../../types/entity.js';
 
@@ -132,27 +137,44 @@ export function renderCameraCard(widget: DashboardWidget, ctx: CardRenderCtx): s
             (x: HyveEntity) => x.entity_id === e.entity_id,
         );
         const attrs = live?.attributes || {};
+        const agora = cameraIsMammotionLive(e.entity_id, attrs);
         return {
             entity_id: e.entity_id,
             title: e.title || e.entity_id,
             webm: ctx.cameraPreferWebmPlayer(attrs as Record<string, unknown>),
             go2rtc: ctx.cameraSupportsGo2rtc(attrs as Record<string, unknown>),
-            agora: ctx.cameraIsAgoraMammotion(attrs as Record<string, unknown>),
+            agora,
         };
     });
     const entitiesAttr = esc(encodeURIComponent(JSON.stringify(entitiesPayload)));
-    const mediaMarkup = entities.length
-        ? `<hv-camera-carousel
+    const mammotionOnly = entitiesPayload.length > 0
+        && entitiesPayload.every((e) => e.agora || cameraEntityIdIsMammotionWebrtc(e.entity_id));
+    const liveMode = mode === 'live';
+    const autoplay = cameraAutoplayEnabled(cfg, { liveMode, mammotionOnly });
+    let mediaMarkup = '';
+    if (!entities.length) {
+        mediaMarkup = `<div class="hyve-dashboard-card__camera-placeholder"><i class="fas fa-video-slash"></i></div>`;
+    } else if (mammotionOnly && entities.length === 1) {
+        const ent = entitiesPayload[0];
+        mediaMarkup = `<hv-mammotion-camera
+                class="hyve-dashboard-card__camera-player hv-camera-carousel__stream--agora"
+                entity="${esc(ent.entity_id)}"
+                alt="${esc(ent.title || ent.entity_id)}"
+                autoplay="${autoplay ? 'true' : 'false'}"
+                force-active="true"></hv-mammotion-camera>`;
+    } else {
+        mediaMarkup = `<hv-camera-carousel
                 class="hyve-dashboard-card__camera-player"
                 entities="${entitiesAttr}"
-                mode="${esc(mode === 'live' ? 'live' : 'snapshot')}"
+                mode="${esc(liveMode ? 'live' : 'snapshot')}"
                 interval="${interval}"
                 default-audio="${defaultAudio ? 'true' : 'false'}"
                 default-mic="${defaultMic ? 'true' : 'false'}"
                 preload="${preload ? 'true' : 'false'}"
                 preload-scope="${esc(preloadScope)}"
-                index="0"></hv-camera-carousel>`
-        : `<div class="hyve-dashboard-card__camera-placeholder"><i class="fas fa-video-slash"></i></div>`;
+                autoplay="${autoplay ? 'true' : 'false'}"
+                index="0"></hv-camera-carousel>`;
+    }
     return `
         <article ${ctx.widgetDragAttrs(widget)}
             class="hyve-dashboard-card hyve-dashboard-card--camera ${ctx.widgetSizeClass(widget)}"

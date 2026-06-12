@@ -349,8 +349,11 @@ class MammotionHub:
             bind_http_to_client(client, http, account=self.account)
 
             names = self._iter_device_names()
+            from components.mammotion.session_bootstrap import reset_mqtt_auth_failures
+
             for device_name in names:
                 clear_pymammotion_rate_limit_for_command(client, device_name)
+                reset_mqtt_auth_failures(client, device_name)
 
             if not self._session_active() or not names:
                 await self._connect_unlocked()
@@ -420,6 +423,13 @@ class MammotionHub:
         }
         self._device_settings = payload
         self._persist_settings(payload)
+
+    def apply_runtime_options(self, *, movement_use_wifi: bool | None = None) -> None:
+        """Push entry-level options into live coordinators (session already open)."""
+        if movement_use_wifi is not None:
+            self.movement_use_wifi = movement_use_wifi
+            for coord in self._coordinators.values():
+                coord.movement_use_wifi = movement_use_wifi
 
     def _coordinator_for(self, device_name: str) -> Any:
         from pymammotion.data.model.device_config import OperationSettings

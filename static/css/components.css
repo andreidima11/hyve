@@ -828,8 +828,142 @@
     min-width: 0;
 }
 
+/* ─── Hyve light color picker (integrations + devices) ───────────── */
+.hy-color-picker {
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.65rem;
+    border: 1px solid var(--border-light);
+    border-radius: 0.65rem;
+    background: color-mix(in oklab, var(--surface-card) 72%, transparent);
+}
+.hy-color-picker--compact {
+    gap: 0.45rem;
+    padding: 0.55rem;
+}
+.hy-color-picker__head {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+}
+.hy-color-picker__preview {
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    border-radius: 0.55rem;
+    border: 1px solid var(--border-light);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--text-primary) 8%, transparent);
+}
+.hy-color-picker__meta {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+}
+.hy-color-picker__label {
+    font-size: 0.68rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.hy-color-picker__hex {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+.hy-color-picker__sb {
+    position: relative;
+    height: 5rem;
+    border-radius: 0.55rem;
+    border: 1px solid var(--border-light);
+    overflow: hidden;
+    touch-action: none;
+    cursor: crosshair;
+    background:
+        linear-gradient(to top, #000, transparent),
+        linear-gradient(to right, #fff, hsl(var(--hy-picker-hue, 0), 100%, 50%));
+}
+.hy-color-picker--compact .hy-color-picker__sb {
+    height: 3.75rem;
+}
+.hy-color-picker__sb-cursor {
+    position: absolute;
+    width: 0.95rem;
+    height: 0.95rem;
+    margin: -0.475rem 0 0 -0.475rem;
+    border-radius: 9999px;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px color-mix(in oklab, #000 55%, transparent), 0 2px 8px color-mix(in oklab, #000 35%, transparent);
+    pointer-events: none;
+}
+.hy-color-picker__hue-row {
+    display: grid;
+    gap: 0.3rem;
+}
+.hy-color-picker__slider-label {
+    font-size: 0.68rem;
+    color: var(--text-tertiary);
+}
+.hy-color-picker__hue {
+    --hy-range-track: linear-gradient(
+        to right,
+        hsl(0, 100%, 50%), hsl(60, 100%, 50%), hsl(120, 100%, 50%),
+        hsl(180, 100%, 50%), hsl(240, 100%, 50%), hsl(300, 100%, 50%), hsl(360, 100%, 50%)
+    );
+}
+.hy-color-picker__presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+.hy-color-picker__preset {
+    width: 1.35rem;
+    height: 1.35rem;
+    padding: 0;
+    border-radius: 9999px;
+    border: 1px solid var(--border-light);
+    background: var(--hy-preset-color, #fff);
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.hy-color-picker__preset:hover {
+    transform: scale(1.08);
+    border-color: var(--border-hover);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 28%, transparent);
+}
+.hy-color-picker__preset:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 45%, transparent);
+}
+.hy-color-picker__value {
+    display: none;
+}
+
 .hy-mammotion-camera__stage {
     min-height: 10rem;
+}
+.hy-mammotion-camera__play {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 3;
+    width: 3.5rem;
+    height: 3.5rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    transform: translate(-50%, -50%);
+    background: color-mix(in oklab, var(--accent, #3b82f6) 90%, transparent);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.hy-mammotion-camera__play:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 .hy-mammotion-camera__video video {
     width: 100%;

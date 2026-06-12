@@ -151,3 +151,19 @@ export function stopCameraPreviewRefresh(): void {
         _cameraPreviewTimer = null;
     }
 }
+
+type PausableStream = HTMLElement & { pauseStream?: () => void };
+
+/** Stop live previews in the entity detail modal (MJPEG/WebM and Mammotion Agora). */
+export function pauseEntityDetailCameraStreams(
+    root: ParentNode | null = document.getElementById('entity-detail-modal'),
+): void {
+    if (!root) return;
+    root.querySelectorAll('hv-camera-stream, hv-mammotion-camera').forEach((el) => {
+        try {
+            (el as PausableStream).pauseStream?.();
+        } catch {
+            /* ignore */
+        }
+    });
+}

@@ -351,9 +351,13 @@ async def _try_mqtt_camera_prep(hub: Any, device_name: str) -> None:
 
 async def start_mammotion_camera(hub: Any, device_name: str) -> dict[str, Any]:
     """Wake the mower encoder (when MQTT is up) and return fresh Agora tokens."""
+    import asyncio
+
     await _ensure_cloud_http(hub)
     canonical_name, _iot_id = await _resolve_device_ref(hub, device_name)
     await _try_mqtt_camera_wake(hub, canonical_name)
+    # Give the robot time to enter the Agora channel as publisher before the browser joins.
+    await asyncio.sleep(1.5)
     return await refresh_mammotion_stream_tokens(hub, canonical_name, force=True)
 
 
@@ -395,3 +399,8 @@ async def stop_mammotion_camera(hub: Any, device_name: str) -> None:
         log.debug("mammotion camera stop for %s: %s", canonical_name, exc)
     hub._stream_cache.pop(device_name, None)
     hub._stream_cache.pop(canonical_name, None)
+
+
+def invalidate_mammotion_stream_cache(hub: Any, device_name: str) -> None:
+    """Drop cached Agora tokens so the next viewer gets a fresh uid."""
+    hub._stream_cache.pop(device_name, None)

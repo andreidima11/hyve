@@ -12,7 +12,8 @@ import { apiCall } from './api.js';
 import { t, tState } from './lang/index.js';
 import '/static/hyveview/elements/camera_stream.js';
 import '/static/hyveview/elements/mammotion_camera.js';
-import { cameraIsAgoraMammotion, cameraLiveTransport } from './camera_live.js';
+import { cameraIsMammotionEntity, cameraLiveTransport } from './camera_live.js';
+import { renderLightControlsMarkup } from './light_controls.js';
 import { entityStateForDisplay, isMomentaryDomain, renderSelectControlHtml, } from './entity_constants.js';
 function _er(key, params) {
     return t('entity.render.' + key, params);
@@ -377,46 +378,7 @@ function renderSwitch(entity, slug) {
 function renderLight(entity, slug) {
     const eid = entity.entity_id;
     const isOn = String(entity.state || '').toLowerCase() === 'on';
-    const attrs = (entity.attributes || {});
-    const caps = attrs.capabilities || {};
-    let bright = '';
-    const hasBrightness = !!(caps.brightness_command_topic || caps.brightness || caps.brightness_range);
-    if (hasBrightness) {
-        const scale = Number(caps.brightness_scale) || Number(Array.isArray(caps.brightness_range) ? caps.brightness_range[1] : 254) || 254;
-        const raw = Number(attrs.brightness);
-        const current = Number.isFinite(raw) ? raw : (isOn ? scale : 0);
-        bright = `
-        <div class="mt-3 pt-3 border-t border-white/5">
-            <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
-                <span>${escapeHtml(_er('brightness'))}</span>
-                <span class="mono text-slate-200">${Math.round((current / scale) * 100)}%</span>
-            </div>
-            <input type="range" min="0" max="${scale}" step="1" value="${current}"
-                   class="cfg-range w-full"
-                   ${_ctrlAttrs(slug, eid, 'set_brightness')} data-int-input="brightness">
-        </div>`;
-    }
-    let colorCtl = '';
-    if (caps.color) {
-        const color = attrs.color;
-        let hex = '#ffffff';
-        if (color && typeof color === 'object') {
-            const c = color;
-            if (Number.isFinite(c.r) && Number.isFinite(c.g) && Number.isFinite(c.b)) {
-                const part = (v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0');
-                hex = `#${part(c.r)}${part(c.g)}${part(c.b)}`;
-            }
-        }
-        colorCtl = `
-        <div class="mt-3 pt-3 border-t border-white/5">
-            <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
-                <span>${escapeHtml(_er('color'))}</span>
-            </div>
-            <input type="color" value="${_attr(hex)}"
-                   class="w-full h-10 rounded-lg border border-white/10 bg-transparent"
-                   ${_ctrlAttrs(slug, eid, 'set')} data-int-input="color">
-        </div>`;
-    }
+    const controls = renderLightControlsMarkup(entity, slug, _ctrlAttrs, escapeHtml, _attr, { brightness: _er('brightness'), color: _er('color'), color_temp: _er('color_temp'), hue: _er('hue') });
     return `
     <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
         <div class="flex items-center justify-between gap-4">
@@ -430,8 +392,7 @@ function renderLight(entity, slug) {
                 <span class="app-toggle-thumb"></span>
             </button>
         </div>
-        ${bright}
-        ${colorCtl}
+        ${controls}
     </div>`;
 }
 function renderNumber(entity, slug) {
@@ -629,10 +590,10 @@ function renderCamera(entity, slug) {
     const title = entity.name || eid;
     const attrs = entity.attributes || {};
     const safeTitle = escapeHtml(title);
-    if (cameraIsAgoraMammotion(attrs)) {
+    if (cameraIsMammotionEntity(eid, attrs)) {
         return `
     <div class="hy-entity-camera-shell mb-3">
-        <hv-mammotion-camera entity="${escapeHtml(eid)}" alt="${safeTitle}"></hv-mammotion-camera>
+        <hv-mammotion-camera entity="${escapeHtml(eid)}" alt="${safeTitle}" autoplay="true" force-active="true"></hv-mammotion-camera>
     </div>
     ${_renderCameraPtzPad(entity, slug)}`;
     }

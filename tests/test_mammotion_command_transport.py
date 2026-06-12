@@ -126,3 +126,47 @@ def test_async_send_command_raises_when_offline():
             import asyncio
 
             asyncio.run(async_send_command(client, "Luba-X", "start_job"))
+
+
+def test_async_send_command_raises_when_no_transport():
+    from components.mammotion.command_transport import async_send_command
+
+    client = MagicMock()
+    client.get_device_by_name.return_value = MagicMock()
+    handle = MagicMock()
+    handle.has_usable_transport = False
+    client.mower.return_value = handle
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(
+            "components.mammotion.command_transport.device_handle_online",
+            lambda _c, _n: True,
+        )
+        with pytest.raises(ValueError, match="Comanda nu a putut"):
+            import asyncio
+
+            asyncio.run(async_send_command(client, "Luba-X", "move_forward", linear=0.4))
+
+
+def test_async_send_command_uses_send_raw():
+    from components.mammotion.command_transport import async_send_command
+
+    client = MagicMock()
+    client.get_device_by_name.return_value = MagicMock()
+    handle = MagicMock()
+    handle.has_usable_transport = True
+    handle.commands.move_forward.return_value = b"\x01\x02"
+    client.mower.return_value = handle
+    client._get_session_for_device.return_value = MagicMock()
+    client._send_with_auth_retry = AsyncMock()
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(
+            "components.mammotion.command_transport.device_handle_online",
+            lambda _c, _n: True,
+        )
+        import asyncio
+
+        asyncio.run(async_send_command(client, "Luba-X", "move_forward", linear=0.4, prefer_ble=False))
+
+    client._send_with_auth_retry.assert_awaited_once()

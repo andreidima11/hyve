@@ -33,6 +33,9 @@ function _controlPayload(el) {
             },
         };
     }
+    if (kind === 'color_temp' && 'value' in el) {
+        return { color_temp: parseInt(String(el.value), 10) };
+    }
     if (kind === 'valueFloat' && 'value' in el) {
         return { value: parseFloat(String(el.value)) };
     }
@@ -60,6 +63,8 @@ function _onClick(event) {
         _controlFromEl(ctrl, event);
         return;
     }
+    if (target.closest('[data-int-light-controls], [data-hy-color-picker]'))
+        return;
     const openCard = target.closest('[data-entity-action="openCard"]');
     if (openCard instanceof HTMLElement) {
         const encoded = openCard.dataset.intEncoded || '';
@@ -108,6 +113,12 @@ function _onInput(event) {
     const entityId = el.dataset.intEntityId || '';
     const unit = el.dataset.intUnit || '';
     window.__previewIntegrationNumberValue?.(entityId, 'value' in el ? String(el.value) : '', unit);
+}
+/** Commit a control from a bound input (used by custom light color picker). */
+export function commitIntegrationControl(el) {
+    if (!el.matches('[data-entity-action="control"]'))
+        return;
+    _controlFromEl(el, new Event('change'));
 }
 export function initIntegrationEventBindings(handlers = {}) {
     _handlers = handlers;

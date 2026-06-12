@@ -148,6 +148,11 @@ function _onClick(event: MouseEvent): void {
 function _onChange(event: Event): void {
     const target = event.target;
     if (!(target instanceof Element)) return;
+    const lightCtrl = target.closest('[data-smarthome-light-input]');
+    if (lightCtrl instanceof HTMLInputElement && _inSmarthome(lightCtrl)) {
+        _handleLightControlChange(lightCtrl);
+        return;
+    }
     const el = target.closest('[data-smarthome-change]');
     if (!(el instanceof HTMLElement) || !_inSmarthome(el)) return;
     const kind = el.dataset.smarthomeChange;
@@ -173,23 +178,26 @@ function _onChange(event: Event): void {
         _handlers?.toggleDerivedInput?.(el, event);
         return;
     }
-    const lightCtrl = target.closest('[data-smarthome-light-input]');
-    if (lightCtrl instanceof HTMLInputElement && _inSmarthome(lightCtrl)) {
-        _handleLightControlChange(lightCtrl);
-    }
 }
 
 function _onInput(event: Event): void {
     const target = event.target;
     if (!(target instanceof Element)) return;
+    const lightCtrl = target.closest('[data-smarthome-light-input]');
+    if (lightCtrl instanceof HTMLInputElement && _inSmarthome(lightCtrl)) {
+        _handleLightControlInput(lightCtrl);
+        return;
+    }
     const el = target.closest('[data-smarthome-input]');
     if (!(el instanceof HTMLElement) || !_inSmarthome(el)) return;
     const kind = el.dataset.smarthomeInput;
     if (kind === 'filterDerivedCandidates') _handlers?.filterDerivedCandidates?.(event, el);
-    const lightCtrl = target.closest('[data-smarthome-light-input]');
-    if (lightCtrl instanceof HTMLInputElement && _inSmarthome(lightCtrl)) {
-        _handleLightControlInput(lightCtrl);
-    }
+}
+
+/** Commit a light control from a bound input (used by custom light color picker). */
+export function commitSmarthomeLightControl(el: HTMLInputElement): void {
+    if (!el.dataset.smarthomeLightInput || !_inSmarthome(el)) return;
+    _handleLightControlChange(el);
 }
 
 export function initSmarthomeEventBindings(handlers: SmarthomeEventHandlers = {}): void {

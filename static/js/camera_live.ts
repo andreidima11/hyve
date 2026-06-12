@@ -63,6 +63,31 @@ export function cameraIsAgoraMammotion(attrs: unknown): boolean {
     return Array.isArray(providers) && providers.includes('agora');
 }
 
+/** Entity id fallback when dashboard cache attrs are not loaded yet. */
+export function cameraEntityIdIsMammotionWebrtc(entityId: string): boolean {
+    return String(entityId || '').trim().endsWith('_webrtc');
+}
+
+export function cameraIsMammotionLive(entityId: string, attrs: unknown): boolean {
+    return cameraIsAgoraMammotion(attrs) || cameraEntityIdIsMammotionWebrtc(entityId);
+}
+
+/** Mammotion Agora camera — attrs and/or entity_id suffix (integrations list may omit stream_type). */
+export function cameraIsMammotionEntity(entityId: string, attrs: unknown): boolean {
+    return cameraIsMammotionLive(entityId, attrs);
+}
+
+/** Dashboard camera card — autoplay checkbox; defaults on for live mode and Mammotion. */
+export function cameraAutoplayEnabled(
+    cfg: Record<string, unknown> | null | undefined,
+    options: { liveMode: boolean; mammotionOnly: boolean },
+): boolean {
+    const raw = cfg?.autoplay;
+    if (raw === false || raw === 'false') return false;
+    if (raw === true || raw === 'true') return true;
+    return options.liveMode || options.mammotionOnly;
+}
+
 /** Pick the live transport for `<hv-camera-stream>` / dashboard camera cards. */
 export function cameraLiveTransport(attrs: unknown): CameraLiveTransport {
     if (cameraIsAgoraMammotion(attrs)) return 'agora';

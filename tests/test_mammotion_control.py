@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
 from components.mammotion.control import control_mammotion, parse_target_id
 
 
@@ -95,3 +97,65 @@ def test_control_lawn_mower_start():
     result = asyncio.run(_run())
     coord.start_mow.assert_awaited_once_with(areas=[1])
     assert result["status"] == "ok"
+
+
+def test_control_nudge_button_calls_move_left():
+    coord = MagicMock()
+    coord.device_name = "Luba-TEST01"
+    coord.press_button = AsyncMock()
+
+    async def _run():
+        return await control_mammotion(
+            coord,
+            "button.luba_test01_emergency_nudge_left",
+            "press",
+            {},
+        )
+
+    result = asyncio.run(_run())
+    coord.press_button.assert_awaited_once_with("emergency_nudge_left")
+    assert result["status"] == "ok"
+
+
+def test_nudge_move_uses_pymammotion_command_keys():
+    from unittest.mock import patch
+
+    from components.mammotion.coordinator import MowerCoordinator
+    from pymammotion.utility.constant.device_constant import WorkMode
+
+    client = MagicMock()
+    device = MagicMock()
+    dev = MagicMock()
+    dev.sys_status = WorkMode.MODE_READY
+    device.report_data.dev = dev
+    client.get_device_by_name.return_value = device
+
+    coord = MowerCoordinator(client, "Luba-TEST01", movement_use_wifi=True)
+    with (
+        patch(
+            "components.mammotion.session_bootstrap.ensure_nudge_transport",
+            new_callable=AsyncMock,
+            return_value="cloud_mammotion",
+        ),
+        patch.object(coord, "_send", new_callable=AsyncMock) as send,
+    ):
+        asyncio.run(coord.move_left(0.35))
+    move_calls = [c for c in send.await_args_list if c.args and c.args[0] == "move_left"]
+    assert len(move_calls) == 5
+    assert move_calls[0].kwargs == {"prefer_ble": False, "angular": 0.35}
+
+
+def test_nudge_blocked_on_dock_without_release():
+    from components.mammotion.coordinator import MowerCoordinator
+    from pymammotion.utility.constant.device_constant import WorkMode
+
+    client = MagicMock()
+    device = MagicMock()
+    dev = MagicMock()
+    dev.sys_status = WorkMode.MODE_CHARGING
+    device.report_data.dev = dev
+    client.get_device_by_name.return_value = device
+
+    coord = MowerCoordinator(client, "Luba-TEST01", movement_use_wifi=True)
+    with pytest.raises(ValueError, match="dock"):
+        asyncio.run(coord.move_forward())
