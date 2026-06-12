@@ -92,7 +92,7 @@ _SPLIT_CONJ = re.compile(
 )
 
 _CONTROLLABLE_DOMAINS = frozenset(
-    {"light", "switch", "lock", "cover", "climate", "fan", "media_player", "vacuum"}
+    {"light", "switch", "lock", "cover", "climate", "fan", "media_player", "vacuum", "lawn_mower"}
 )
 
 

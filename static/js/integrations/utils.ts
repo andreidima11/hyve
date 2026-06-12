@@ -1,5 +1,11 @@
 import type { ConfigFormElement } from '../types/features_config.js';
 import { ACTIVE_STATES } from '../entity_constants.js';
+import { t, translateApiDetail } from '../lang/index.js';
+
+/** Resolve FastAPI ``error_detail`` payloads or plain API error bodies to text. */
+export function integrationApiError(detail: unknown, fallbackKey = 'integrations.action_failed'): string {
+    return translateApiDetail(detail) || t(fallbackKey);
+}
 
 export function errMsg(err: unknown): string {
     if (err instanceof Error) return err.message;

@@ -23,7 +23,7 @@ import { selectDashboardPage } from '../page_select.js';
 import { openDashboardPageNav } from '../pages_nav.js';
 import { pickDashboardEntityOption } from '../entity_picker.js';
 import { startDashboardClimateSwipe, adjustDashboardClimateTemperature, toggleDashboardClimateModeMenu, setDashboardClimateMode, selectDashboardClimateSlide, removeDashboardClimateEntity, updateDashboardClimateEntityMeta, } from '../climate.js';
-import { onDashboardLockAction, onDashboardVacuumAction, onDashboardBrightnessInput, onDashboardBrightnessChange, } from '../widget_actions.js';
+import { onDashboardLockAction, onDashboardVacuumAction, onDashboardLawnMowerAction, onDashboardBrightnessInput, onDashboardBrightnessChange, } from '../widget_actions.js';
 import { dashboardWidgetEntityIds } from '../live_bridge.js';
 import { loadDashboard, setDashboardRefreshIndicator, readDashboardSectionFallback, writeDashboardSectionFallback } from '../dashboard_loader.js';
 import { findWidget } from '../widget_store.js';
@@ -90,6 +90,7 @@ export function wireDashboardEvents() {
         },
         lockAction: ({ widgetId, action }) => { onDashboardLockAction(widgetId, action); },
         vacuumAction: ({ widgetId, action }) => { onDashboardVacuumAction(widgetId, action); },
+        lawnMowerAction: ({ widgetId, action }) => { onDashboardLawnMowerAction(widgetId, action); },
         brightnessInput: ({ event, widgetId }) => onDashboardBrightnessInput(event, widgetId),
         brightnessChange: ({ event, widgetId }) => onDashboardBrightnessChange(event, widgetId),
     });

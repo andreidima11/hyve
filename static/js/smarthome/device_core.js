@@ -7,7 +7,7 @@ import { getCameraStreamToken } from '../camera_auth.js';
 import { t, tState, applyTranslations } from '../lang/index.js';
 import { escapeHtml, escapeHtmlAttr, showToast, debounce } from '../utils.js';
 import { entityMatchesIntegration } from '../integration_sources.js';
-import { ACTIVE_STATES, CONTROLLABLE } from '../entity_constants.js';
+import { ACTIVE_STATES, CONTROLLABLE, entityStateForDisplay } from '../entity_constants.js';
 import { smarthomeDeviceState, smarthomeModalState, DEVICES_ENTITY_CACHE_KEY, DEVICES_ENTITY_CACHE_TTL_MS, DEVICE_PAGE_SIZE_OPTIONS } from './device_state.js';
 export function _errMsg(err) {
     if (err instanceof Error)
@@ -135,7 +135,7 @@ export const DOMAIN_ICONS = {
     light: 'fa-lightbulb', switch: 'fa-toggle-on', script: 'fa-play',
     input_boolean: 'fa-toggle-on', cover: 'fa-door-open', lock: 'fa-lock',
     sensor: 'fa-gauge', binary_sensor: 'fa-circle-dot', climate: 'fa-temperature-half',
-    media_player: 'fa-music', vacuum: 'fa-robot', weather: 'fa-cloud-sun',
+    media_player: 'fa-music', vacuum: 'fa-robot', lawn_mower: 'fa-leaf', weather: 'fa-cloud-sun',
     person: 'fa-user', image: 'fa-image', camera: 'fa-video'
 };
 export const DOMAIN_COLORS = {
@@ -144,7 +144,7 @@ export const DOMAIN_COLORS = {
     cover: 'bg-orange-500/15 text-orange-400', lock: 'bg-red-500/15 text-red-400',
     sensor: 'bg-cyan-500/15 text-cyan-400', binary_sensor: 'bg-teal-500/15 text-teal-400',
     climate: 'bg-rose-500/15 text-rose-400', media_player: 'bg-purple-500/15 text-purple-400',
-    vacuum: 'bg-indigo-500/15 text-indigo-400', weather: 'bg-sky-500/15 text-sky-400',
+    vacuum: 'bg-indigo-500/15 text-indigo-400', lawn_mower: 'bg-lime-500/15 text-lime-400', weather: 'bg-sky-500/15 text-sky-400',
     person: 'bg-slate-500/15 text-slate-400',
     image: 'bg-violet-500/15 text-violet-400', camera: 'bg-sky-500/15 text-sky-400'
 };
@@ -159,7 +159,7 @@ const DOMAIN_LABEL_KEYS = {
 };
 const DOMAIN_ORDER = [
     'light', 'switch', 'sensor', 'binary_sensor', 'climate', 'cover', 'lock',
-    'media_player', 'camera', 'image', 'vacuum', 'weather', 'person', 'number', 'select',
+    'media_player', 'camera', 'image', 'vacuum', 'lawn_mower', 'weather', 'person', 'number', 'select',
     'button', 'script', 'input_boolean',
 ];
 // Normalize an icon spec into a usable CSS class. Mirrors dashboard.js _iconClass
@@ -541,10 +541,12 @@ function _patchRowInPlace(d) {
         }
     }
 }
-export function _optimisticStateForAction(action, currentState) {
+export function _optimisticStateForAction(action, currentState, domain = '') {
     const state = _norm(currentState);
+    const dom = String(domain || '').toLowerCase();
     const onActions = {
-        turn_on: 'on', open_cover: 'open', unlock: 'unlocked', start: 'cleaning', media_play: 'playing',
+        turn_on: 'on', open_cover: 'open', unlock: 'unlocked', start: dom === 'lawn_mower' ? 'mowing' : 'cleaning', media_play: 'playing',
+        start_mowing: 'mowing', pause: 'paused', return_to_base: 'returning',
     };
     const offActions = {
         turn_off: 'off', close_cover: 'closed', lock: 'locked', stop: 'off', media_pause: 'paused',
@@ -707,7 +709,9 @@ export function renderDeviceCards() {
         const fallbackIcon = isDerived ? 'fa-calculator' : (DOMAIN_ICONS[domain] || 'fa-microchip');
         const iconClass = customIconCls || `fas ${fallbackIcon}`;
         const color = isDerived ? 'bg-pink-500/15 text-pink-400' : (DOMAIN_COLORS[domain] || 'bg-slate-500/15 text-slate-400');
-        const stateDisplay = isUnavail ? tState('unavailable') : `${entity.state ?? ''}${entity.unit ? ' ' + entity.unit : ''}`;
+        const stateDisplay = isUnavail
+            ? tState('unavailable')
+            : `${entityStateForDisplay(domain, entity.state, tState)}${entity.unit ? ' ' + entity.unit : ''}`;
         const aliases = _entityAliases(entity);
         const aliasCount = aliases.length;
         const aliasBtnText = aliasCount === 0 ? t('hy.alias_add') : aliasCount === 1 ? t('hy.alias_1') : t('hy.alias_n', { count: aliasCount });

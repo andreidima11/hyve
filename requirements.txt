@@ -42,6 +42,10 @@ msmart-ng>=2026.4.1
 # Roborock vacuum integration (cloud)
 python-roborock>=5.14.1
 
+# Mammotion lawn mower (PyMammotion; requires Python >=3.13)
+pymammotion==0.8.5
+betterproto2==0.9.1
+
 # Reolink cameras / NVR (same library as Home Assistant)
 reolink-aio==0.20.1
 

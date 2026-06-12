@@ -1026,7 +1026,7 @@ window.addEventListener('DOMContentLoaded', () => {
         toggleDerivedSelection: (entityId, checked) => _lazyAction(_loadDerivedModule, 'toggleDerivedSelection')(entityId, checked),
         toggleAllAIVisible: (checked) => toggleAllAI(Boolean(checked)),
         openAliasModalFromDetail: (entityId) => openAliasModalFromDetail(_str(entityId)),
-        controlDeviceEntity: (source, entityId, action, btn) => controlDeviceEntity(_str(source), _str(entityId), _str(action), btn),
+        controlDeviceEntity: (source, entityId, action, btn, data) => controlDeviceEntity(_str(source), _str(entityId), _str(action), btn, (data && typeof data === 'object' ? data : {})),
         closeEntityDetailModal: () => closeEntityDetailModal(),
         closeDerivedModal: _lazyAction(_loadDerivedModule, 'closeDerivedModal'),
         deleteDerivedFromModal: _lazyAction(_loadDerivedModule, 'deleteDerivedFromModal'),

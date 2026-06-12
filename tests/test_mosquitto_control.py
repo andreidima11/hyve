@@ -260,3 +260,102 @@ def test_ha_discovery_infers_z2m_property_from_value_template():
     }
     topic, payload = _build_command("switch", "turn_on", caps, None)
     assert payload == '{"state_l1": "ON"}'
+
+
+def test_z2m_composite_light_exposes_brightness_and_color_caps():
+    device = {
+        "friendly_name": "rgb_bulb",
+        "ieee_address": "0xA4C138FE8B1226AB",
+        "definition": {
+            "model": "RGB",
+            "vendor": "Tuya",
+            "exposes": [
+                {
+                    "type": "light",
+                    "features": [
+                        {"property": "state", "type": "binary", "access": 7},
+                        {
+                            "property": "brightness",
+                            "type": "numeric",
+                            "access": 7,
+                            "value_min": 0,
+                            "value_max": 254,
+                        },
+                        {"property": "color_xy", "type": "composite", "access": 7},
+                        {
+                            "property": "color_temp",
+                            "type": "numeric",
+                            "access": 7,
+                            "value_min": 153,
+                            "value_max": 500,
+                        },
+                    ],
+                }
+            ],
+        },
+    }
+    states = {
+        "zigbee2mqtt/rgb_bulb": {
+            "state": "ON",
+            "brightness": 120,
+            "color": {"r": 255, "g": 128, "b": 0},
+            "color_temp": 320,
+        },
+    }
+    entities = _entities_from_z2m_exposes(device, states)
+    assert len(entities) == 1
+    ent = entities[0]
+    assert ent["domain"] == "light"
+    assert ent["state"] == "ON"
+    caps = ent["attributes"]["capabilities"]
+    assert caps["brightness"] is True
+    assert caps["brightness_scale"] == 254
+    assert caps["color"] is True
+    assert caps["color_property"] == "color_xy"
+    assert caps["color_temp"] is True
+    assert caps["color_temp_range"] == [153, 500]
+    assert ent["attributes"]["brightness"] == 120
+    assert ent["attributes"]["color"] == {"r": 255, "g": 128, "b": 0}
+    assert ent["attributes"]["color_temp"] == 320
+
+
+def test_z2m_light_set_brightness_uses_json_payload():
+    caps = {
+        "command_topic": "zigbee2mqtt/rgb_bulb/set",
+        "z2m_property": "state",
+        "payload_on": "ON",
+        "payload_off": "OFF",
+        "brightness": True,
+        "brightness_scale": 254,
+    }
+    topic, payload = _build_command("light", "set_brightness", caps, {"brightness": 128})
+    assert topic == "zigbee2mqtt/rgb_bulb/set"
+    assert payload == '{"brightness": 128, "state": "ON"}'
+
+
+def test_z2m_light_set_color_temp_uses_json_payload():
+    caps = {
+        "command_topic": "zigbee2mqtt/rgb_bulb/set",
+        "z2m_property": "state",
+        "payload_on": "ON",
+        "color_temp": True,
+    }
+    topic, payload = _build_command("light", "set_color_temp", caps, {"color_temp": 320})
+    assert topic == "zigbee2mqtt/rgb_bulb/set"
+    assert payload == '{"color_temp": 320, "state": "ON"}'
+
+
+def test_z2m_light_set_rgb_color():
+    caps = {
+        "command_topic": "zigbee2mqtt/rgb_bulb/set",
+        "z2m_property": "state",
+        "color": True,
+    }
+    topic, payload = _build_command(
+        "light",
+        "set",
+        caps,
+        {"state": "ON", "color": {"r": 10, "g": 20, "b": 30}},
+    )
+    assert topic == "zigbee2mqtt/rgb_bulb/set"
+    assert payload == '{"state": "ON", "color": {"r": 10, "g": 20, "b": 30}}'

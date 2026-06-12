@@ -6,10 +6,14 @@ import logging
 import core.auth as auth
 import core.models as models
 from addons.entity_store import SyncThrottledError, get_entity_store
-from fastapi import Depends, HTTPException
+from fastapi import BackgroundTasks, Depends, HTTPException
 
+from core.http.errors import error_detail
 from routers.integrations import helpers
-from routers.integrations.constants import ENTRY_TEST_TIMEOUT_SECONDS
+from routers.integrations.constants import (
+    ENTRY_TEST_TIMEOUT_SECONDS,
+    MAMMOTION_ENTRY_TEST_TIMEOUT_SECONDS,
+)
 from routers.integrations.models import ConfigEntryBody, ConfigEntryTestBody
 from routers.integrations.router import router
 
@@ -63,10 +67,11 @@ async def test_provider_entry(
                     v = data.get(f["key"])
                     if not v or (isinstance(v, str) and set(v) <= {"•", "*"}):
                         data[f["key"]] = existing["data"].get(f["key"], "")
+    test_timeout = MAMMOTION_ENTRY_TEST_TIMEOUT_SECONDS if slug == "mammotion" else ENTRY_TEST_TIMEOUT_SECONDS
     try:
         result = await asyncio.wait_for(
             cls.async_test_connection(data),
-            timeout=ENTRY_TEST_TIMEOUT_SECONDS,
+            timeout=test_timeout,
         )
     except asyncio.TimeoutError:
         result = {"ok": False, "message_key": "integrations.test_timeout"}
@@ -76,6 +81,13 @@ async def test_provider_entry(
 
 
 async def wire_new_entry(manager, slug: str, entry_id: str) -> None:
+    # Yield once so the HTTP response for create/update can flush before a slow
+    # initial sync (e.g. Mammotion cloud login + MQTT) monopolizes the loop.
+    await asyncio.sleep(0)
+    if slug == "mammotion":
+        # UI "Test connection" often logs in seconds before Save — brief pause
+        # reduces Mammotion cloud rate-limit failures on the first real sync.
+        await asyncio.sleep(3)
     try:
         store = get_entity_store()
         inst = manager.get_by_entry(entry_id)
@@ -121,6 +133,7 @@ async def wire_new_entry(manager, slug: str, entry_id: str) -> None:
 async def create_provider_entry(
     slug: str,
     body: ConfigEntryBody,
+    background_tasks: BackgroundTasks,
     user: models.User = Depends(auth.get_current_admin),
 ):
     from integrations import config_entries, get_integration_manager
@@ -150,7 +163,7 @@ async def create_provider_entry(
     manager = get_integration_manager()
     manager.reload()
 
-    asyncio.create_task(wire_new_entry(manager, slug, entry["entry_id"]))
+    background_tasks.add_task(wire_new_entry, manager, slug, entry["entry_id"])
 
     return {"status": "ok", "entry": helpers.redact_entry(entry, meta["schema"])}
 
@@ -160,6 +173,7 @@ async def update_provider_entry(
     slug: str,
     entry_id: str,
     body: ConfigEntryBody,
+    background_tasks: BackgroundTasks,
     user: models.User = Depends(auth.get_current_admin),
 ):
     from integrations import config_entries, get_integration_manager
@@ -189,7 +203,7 @@ async def update_provider_entry(
         except Exception as exc:
             log.warning("Background resync after update failed for %s: %s", entry_id, exc)
 
-    asyncio.create_task(_background_resync(slug, entry["entry_id"]))
+    background_tasks.add_task(_background_resync, slug, entry["entry_id"])
 
     return {"status": "ok", "entry": helpers.redact_entry(entry, meta["schema"])}
 

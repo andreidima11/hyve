@@ -8,6 +8,59 @@ const _ROOTS = '#view-smarthome, #entity-detail-modal, #derived-modal, #hy-row-a
 
 let _handlers: SmarthomeEventHandlers | null = null;
 let _bound = false;
+let _lightBrightnessTimer: ReturnType<typeof setTimeout> | null = null;
+
+function _lightControlPayload(el: HTMLInputElement): { action: string; data: Record<string, unknown> } | null {
+    const kind = el.dataset.smarthomeLightInput || '';
+    const entityId = el.dataset.smarthomeEntityId || '';
+    if (!entityId || !kind) return null;
+    if (kind === 'brightness') {
+        const scale = Number(el.dataset.smarthomeLightScale || 254) || 254;
+        const pct = Number(el.value);
+        const brightness = Math.round((pct / 100) * scale);
+        const label = document.querySelector(`[data-smarthome-light-brightness-label="${CSS.escape(entityId)}"]`);
+        if (label) label.textContent = `${Math.round(pct)}%`;
+        return { action: 'set_brightness', data: { brightness, brightness_pct: pct } };
+    }
+    if (kind === 'color_temp') {
+        const colorTemp = Number(el.value);
+        const strong = el.closest('.hy-detail-light-row')?.querySelector('strong');
+        if (strong) strong.textContent = String(colorTemp);
+        return { action: 'set_color_temp', data: { color_temp: colorTemp } };
+    }
+    if (kind === 'color') {
+        const hex = String(el.value || '').replace('#', '');
+        if (hex.length !== 6) return null;
+        const r = parseInt(hex.slice(0, 2), 16);
+        const g = parseInt(hex.slice(2, 4), 16);
+        const b = parseInt(hex.slice(4, 6), 16);
+        return { action: 'set', data: { state: 'ON', color: { r, g, b } } };
+    }
+    return null;
+}
+
+function _sendLightControl(el: HTMLInputElement): void {
+    const source = el.dataset.smarthomeSource || '';
+    const entityId = el.dataset.smarthomeEntityId || '';
+    const payload = _lightControlPayload(el);
+    if (!source || !entityId || !payload) return;
+    void _handlers?.controlDeviceEntity?.(source, entityId, payload.action, el, payload.data);
+}
+
+function _handleLightControlInput(el: HTMLInputElement): void {
+    if (el.dataset.smarthomeLightInput !== 'brightness') return;
+    _lightControlPayload(el);
+    if (_lightBrightnessTimer) clearTimeout(_lightBrightnessTimer);
+    _lightBrightnessTimer = setTimeout(() => _sendLightControl(el), 220);
+}
+
+function _handleLightControlChange(el: HTMLInputElement): void {
+    if (el.dataset.smarthomeLightInput === 'brightness' && _lightBrightnessTimer) {
+        clearTimeout(_lightBrightnessTimer);
+        _lightBrightnessTimer = null;
+    }
+    _sendLightControl(el);
+}
 
 function _inSmarthome(el: Element | null): boolean {
     return !!el?.closest(_ROOTS);
@@ -34,10 +87,15 @@ function _run(action: string, el: HTMLElement, event: Event): void {
     case 'switchDerivedBuilder':
         _handlers.switchDerivedBuilder?.(el.dataset.smarthomeBuilder || '', event, el);
         return;
-    case 'openDerivedModal':
-        if (event.target instanceof Element && event.target.closest('button, input, a, label')) return;
+    case 'openDerivedModal': {
+        // Toolbar button is the action host; on rows, ignore nested controls (checkbox, alias).
+        if (event.target instanceof Element && el !== event.target.closest('button, input, a, label')) {
+            const nested = event.target.closest('button, input, a, label');
+            if (nested && el.contains(nested)) return;
+        }
         _handlers.openDerivedModal?.(_entityId(el), event, el);
         return;
+    }
     case 'haRowClick':
         _handlers.handleHaRowClick?.(_delegatedEvent(event, el));
         return;
@@ -66,7 +124,7 @@ function _run(action: string, el: HTMLElement, event: Event): void {
             _entityId(el),
             el.dataset.smarthomeDeviceAction || '',
             el,
-            event,
+            {},
         );
         return;
     case 'removeAliasRow':
@@ -113,6 +171,11 @@ function _onChange(event: Event): void {
     }
     if (kind === 'toggleDerivedInput') {
         _handlers?.toggleDerivedInput?.(el, event);
+        return;
+    }
+    const lightCtrl = target.closest('[data-smarthome-light-input]');
+    if (lightCtrl instanceof HTMLInputElement && _inSmarthome(lightCtrl)) {
+        _handleLightControlChange(lightCtrl);
     }
 }
 
@@ -123,6 +186,10 @@ function _onInput(event: Event): void {
     if (!(el instanceof HTMLElement) || !_inSmarthome(el)) return;
     const kind = el.dataset.smarthomeInput;
     if (kind === 'filterDerivedCandidates') _handlers?.filterDerivedCandidates?.(event, el);
+    const lightCtrl = target.closest('[data-smarthome-light-input]');
+    if (lightCtrl instanceof HTMLInputElement && _inSmarthome(lightCtrl)) {
+        _handleLightControlInput(lightCtrl);
+    }
 }
 
 export function initSmarthomeEventBindings(handlers: SmarthomeEventHandlers = {}): void {

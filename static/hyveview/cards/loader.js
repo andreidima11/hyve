@@ -13,6 +13,7 @@ import { register as registerClimate } from './climate/index.js';
 import { register as registerCamera } from './camera/index.js';
 import { register as registerPicture } from './picture/index.js';
 import { register as registerVacuum } from './vacuum/index.js';
+import { register as registerLawnMower } from './lawn_mower/index.js';
 import { register as registerFusionSolar } from './fusion_solar/index.js';
 import { apiCall } from '../../js/api.js';
 import { ensureCardStylesheet } from '../core/card-styles.js';
@@ -30,6 +31,7 @@ const _BUNDLED = [
     registerCamera,
     registerPicture,
     registerVacuum,
+    registerLawnMower,
     registerFusionSolar,
 ];
 let _bundledLoaded = false;

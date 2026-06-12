@@ -2,7 +2,7 @@
 
 Self-hosted smart home hub with an integrated AI assistant. One FastAPI process serves the web UI, device integrations, automations, dashboards, and chat — with a built-in LLM agent for control, memory, and skills.
 
-**Current version:** 0.9.2
+**Current version:** 0.9.3
 
 ## Features
 
@@ -18,7 +18,7 @@ Self-hosted smart home hub with an integrated AI assistant. One FastAPI process 
 
 ## Requirements
 
-- Python 3.12+
+- Python 3.13+
 - Node.js 18+ (Tailwind CSS build only)
 - SQLite (default), optional ChromaDB data dir (`chroma_db/`)
 - LLM backend: Ollama, OpenAI-compatible API, or configured provider in `config.json`

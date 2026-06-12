@@ -12,6 +12,7 @@ CONTROLLABLE_DOMAINS = frozenset({
     "cover",
     "lock",
     "vacuum",
+    "lawn_mower",
     "climate",
     "water_heater",
     "media_player",

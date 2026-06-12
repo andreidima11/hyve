@@ -79,6 +79,7 @@ export {
     onDashboardBrightnessChange,
     onDashboardLockAction,
     onDashboardVacuumAction,
+    onDashboardLawnMowerAction,
 } from './dashboard/widget_actions.js';
 
 loadBundledCardPackages();

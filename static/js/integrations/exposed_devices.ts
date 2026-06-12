@@ -10,12 +10,17 @@ import {
 import { t, translateApiDetail, tState } from '../lang/index.js';
 import { escapeHtml, escapeHtmlAttr, showToast } from '../utils.js';
 import { renderEntityModal, getDomainIcon, wireEntityRegistryEditor } from '../entity_renderers.js';
-import { ACTIVE_STATES, CONTROLLABLE, selectOptionsFromCaps } from '../entity_constants.js';
+import {
+    ACTIVE_STATES,
+    CONTROLLABLE,
+    entityStateForDisplay,
+    renderSelectControlHtml,
+} from '../entity_constants.js';
 import { appendMediaQueryToken, getCameraStreamToken, startCameraPreviewRefresh, stopCameraPreviewRefresh } from '../camera_auth.js';
 import { integrationSlugsMatch } from '../integration_sources.js';
 import type { ExposedDevicesState, IntegrationDeviceSection } from '../types/features_integrations_settings.js';
 import type { IntegrationDeviceGroup, HyveEntity } from '../types/entity.js';
-import { errMsg, isActiveState } from './utils.js';
+import { errMsg, integrationApiError, isActiveState } from './utils.js';
 import {
     integrationDefinition,
     integrationEntitySourceSlug,
@@ -52,7 +57,8 @@ function _disconnectIntegrationExposedLive(): void {
 function _patchIntegrationExposedEntityState(item: Record<string, unknown>): void {
     if (!item || !item.entity_id) return;
     const eid = item.entity_id;
-    const state = item.state == null || item.state === '' ? 'unknown' : String(item.state);
+    const dom = String(item.domain || String(item.entity_id || '').split('.')[0] || '').toLowerCase();
+    const state = entityStateForDisplay(dom, item.state, tState);
     const unit = item.unit ? ` ${item.unit}` : '';
     const stateLower = state.toLowerCase();
     const isOn = isActiveState(stateLower);
@@ -315,7 +321,7 @@ function _renderEntityControlRow(ent: HyveEntity, slug: string): string {
     const eid = String(ent.entity_id || '');
     const name = escapeHtml(String(ent.name || ent.friendly_name || eid));
     const dom = String(ent.domain || String(eid).split('.')[0] || '').toLowerCase();
-    const state = ent.state == null || ent.state === '' ? 'unknown' : String(ent.state);
+    const state = entityStateForDisplay(dom, ent.state, tState);
     const unit = ent.unit ? ` ${escapeHtml(String(ent.unit))}` : '';
     const lower = state.toLowerCase();
     const isOn = isActiveState(lower);
@@ -356,6 +362,20 @@ function _renderEntityControlRow(ent: HyveEntity, slug: string): string {
             ${vBtn('stop', 'fa-stop', t('entity.render.vacuum_stop'))}
             ${vBtn('return_to_base', 'fa-house', t('entity.render.vacuum_dock'))}
         </div>`;
+    } else if (controllable && dom === 'lawn_mower') {
+        const stateLbl = tState(lower);
+        const mBtn = (mowAction: string, ic: string, title: string) => `<button type="button" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"
+            class="w-8 h-8 rounded-full border bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-accent shrink-0 flex items-center justify-center transition-colors"
+            ${_intCtrlAttrs(slug, eid, mowAction, null, { stop: true })}>
+            <i class="fas ${ic} text-[11px]"></i>
+        </button>`;
+        control = `<div class="flex items-center gap-1.5 shrink-0">
+            <span class="text-[10px] mono ${tone} mr-0.5">${escapeHtml(stateLbl)}</span>
+            ${mBtn('start', 'fa-play', t('entity.render.lawn_mower_start'))}
+            ${mBtn('pause', 'fa-pause', t('entity.render.lawn_mower_pause'))}
+            ${mBtn('stop', 'fa-stop', t('entity.render.stop'))}
+            ${mBtn('return_to_base', 'fa-house', t('entity.render.lawn_mower_dock'))}
+        </div>`;
     } else if (dom === 'number' && Number.isFinite(Number(ent.state))) {
         const min = caps.min ?? 0, max = caps.max ?? 100, step = caps.step ?? 1;
         const val = Number(ent.state);
@@ -363,24 +383,34 @@ function _renderEntityControlRow(ent: HyveEntity, slug: string): string {
             class="w-24 md:w-32 shrink-0 accent-accent"
             ${_intCtrlAttrs(slug, eid, 'set')} data-int-input="valueFloat" data-entity-stop="1">`;
     } else if (dom === 'select') {
-        const selectOpts = selectOptionsFromCaps(caps);
-        if (selectOpts.length) control = `<select class="w-full bg-white/5 border border-white/10 rounded-lg text-[11px] text-slate-200 px-2 py-1.5"
-            ${_intCtrlAttrs(slug, eid, 'set')} data-int-input="valueString" data-entity-stop="1">
-            ${selectOpts.map(o => {
-                const v = (o && typeof o === 'object') ? String(o.value ?? o.label ?? '') : String(o);
-                const lbl = (o && typeof o === 'object') ? String(o.label ?? o.value ?? '') : String(o);
-                return `<option value="${escapeHtmlAttr(v)}" ${v.toLowerCase() === lower ? 'selected' : ''}>${escapeHtml(lbl)}</option>`;
-            }).join('')}
-        </select>`;
+        const selectHtml = renderSelectControlHtml(
+            slug,
+            eid,
+            attrs,
+            caps as import('../types/entity.js').EntityCapabilities,
+            String(ent.state ?? ''),
+            _intCtrlAttrs,
+            escapeHtmlAttr,
+            escapeHtml,
+        );
+        if (selectHtml) {
+            control = `<div class="int-entity-row__select-wrap">
+                <div class="text-[10px] text-slate-500 uppercase tracking-wide mb-1">${escapeHtml(t('entity.render.option'))}</div>
+                ${selectHtml}
+            </div>`;
+        }
+    } else if (controllable && dom === 'button') {
+        control = `<button type="button"
+            class="px-3 py-1.5 rounded-lg bg-accent/15 border border-accent/30 text-accent text-[11px] font-semibold shrink-0"
+            title="${escapeHtml(t('entity.render.send'))}" aria-label="${escapeHtml(t('entity.render.send'))}"
+            ${_intCtrlAttrs(slug, eid, 'press', null, { stop: true })}>
+            <i class="fas fa-bolt mr-1"></i>${escapeHtml(t('entity.render.send'))}
+        </button>`;
     }
 
     const encoded = encodeURIComponent(JSON.stringify(ent)).replace(/'/g, '%27');
     const stateHtml = `<span class="text-[11px] mono ${tone} truncate max-w-[9rem] text-right justify-self-end" data-entity-state="${eidA}">${escapeHtml(state)}${unit}</span>`;
-    const controlHtml = control
-        ? (dom === 'select'
-            ? `<div class="int-entity-row__select-wrap">${control}</div>`
-            : control)
-        : stateHtml;
+    const controlHtml = control || stateHtml;
     return `<div class="int-entity-row px-3 py-3 bg-white/[0.03] border border-white/5 rounded-xl cursor-pointer hover:bg-white/[0.06] hover:border-accent/20 transition-colors"
         data-entity-action="openCard" data-int-encoded="${encoded}">
         <i class="fas ${icon} text-accent/70 text-sm w-4 text-center shrink-0"></i>
@@ -656,7 +686,7 @@ export async function controlIntegrationEntity(slug: string, entityId: string, a
             body: JSON.stringify({ entity_id: entityId, action, data: data || {} }),
         });
         const out = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(out.detail || out.message || t('integrations.action_failed'));
+        if (!res.ok) throw new Error(integrationApiError(out.detail, 'integrations.action_failed'));
     } catch (err) {
         // Rollback optimistic update
         if (touchedEnt) {
@@ -691,7 +721,7 @@ export async function renameIntegrationDevice(slug: string, deviceId: string, cu
             }),
         });
         const out = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(out.detail || out.message || t('integrations.device_rename_failed'));
+        if (!res.ok) throw new Error(integrationApiError(out.detail, 'integrations.device_rename_failed'));
         // Backend purges stale MQTT discovery + force-sync; reload device list so
         // entity rows match the new friendly name (not only the card title).
         const section = document.getElementById('integration-exposed-entities-section');

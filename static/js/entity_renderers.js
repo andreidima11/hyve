@@ -12,7 +12,7 @@ import { apiCall } from './api.js';
 import { t, tState } from './lang/index.js';
 import '/static/hyveview/elements/camera_stream.js';
 import { cameraLiveTransport } from './camera_live.js';
-import { selectOptionsFromCaps } from './entity_constants.js';
+import { entityStateForDisplay, isMomentaryDomain, renderSelectControlHtml, } from './entity_constants.js';
 function _er(key, params) {
     return t('entity.render.' + key, params);
 }
@@ -71,8 +71,8 @@ function _ctrlAttrs(slug, eid, action, payload = null, { stop = false } = {}) {
     const stopAttr = stop ? ' data-entity-stop="1"' : '';
     return `data-entity-action="control" data-int-slug="${_attr(slug)}" data-int-entity-id="${_attr(eid)}" data-int-cmd="${_attr(action)}"${payloadAttr}${stopAttr}`;
 }
-function _stateLabel(state, unit = '') {
-    const text = tState(state == null || state === '' ? 'unknown' : state);
+function _stateLabel(state, unit = '', domain = '') {
+    const text = tState(entityStateForDisplay(domain, state, tState));
     if (!unit)
         return escapeHtml(text);
     return `${escapeHtml(text)}<span class="text-slate-400 text-base ml-1">${escapeHtml(unit)}</span>`;
@@ -175,16 +175,21 @@ function renderHero(entity) {
         else if (lower === 'off' || lower === 'closed' || lower === 'locked')
             tone = 'text-slate-400';
     }
+    const title = escapeHtml(entity.name || entity.entity_id || _er('action'));
     const devName = (entity.attributes || {}).device_name || '';
-    const subline = devName && entity.name && !entity.name.toLowerCase().startsWith(devName.toLowerCase())
-        ? `${escapeHtml(devName)} · ${escapeHtml(entity.entity_id || '')}`
+    const subline = devName && entity.name && !entity.name.toLowerCase().startsWith(String(devName).toLowerCase())
+        ? `${escapeHtml(String(devName))} · ${escapeHtml(entity.entity_id || '')}`
         : escapeHtml(entity.entity_id || '');
+    const kicker = isMomentaryDomain(domain) ? _er('action') : (domain || '');
+    const stateLine = isMomentaryDomain(domain)
+        ? `<div class="hy-entity-hero-title">${title}</div>`
+        : `<div class="hy-entity-hero-state ${tone}" data-entity-state="${escapeHtml(entity.entity_id || '')}">${_stateLabel(state, unit, domain)}</div>`;
     return `
     <div class="hy-entity-hero mb-3">
         <div class="hy-entity-hero-icon" aria-hidden="true"><i class="fas ${icon}"></i></div>
         <div class="hy-entity-hero-body">
-            <div class="hy-entity-hero-kicker">${escapeHtml(domain || '')}</div>
-            <div class="hy-entity-hero-state ${tone}" data-entity-state="${escapeHtml(entity.entity_id || '')}">${_stateLabel(state, unit)}</div>
+            <div class="hy-entity-hero-kicker">${escapeHtml(kicker)}</div>
+            ${stateLine}
             <div class="hy-entity-hero-sub mono">${subline}</div>
         </div>
     </div>`;
@@ -371,11 +376,14 @@ function renderSwitch(entity, slug) {
 function renderLight(entity, slug) {
     const eid = entity.entity_id;
     const isOn = String(entity.state || '').toLowerCase() === 'on';
-    const caps = (entity.attributes || {}).capabilities || {};
+    const attrs = (entity.attributes || {});
+    const caps = attrs.capabilities || {};
     let bright = '';
-    if (caps.brightness_command_topic) {
-        const scale = Number(caps.brightness_scale) || 255;
-        const current = Number((entity.attributes || {}).brightness) || 0;
+    const hasBrightness = !!(caps.brightness_command_topic || caps.brightness || caps.brightness_range);
+    if (hasBrightness) {
+        const scale = Number(caps.brightness_scale) || Number(Array.isArray(caps.brightness_range) ? caps.brightness_range[1] : 254) || 254;
+        const raw = Number(attrs.brightness);
+        const current = Number.isFinite(raw) ? raw : (isOn ? scale : 0);
         bright = `
         <div class="mt-3 pt-3 border-t border-white/5">
             <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
@@ -384,7 +392,28 @@ function renderLight(entity, slug) {
             </div>
             <input type="range" min="0" max="${scale}" step="1" value="${current}"
                    class="cfg-range w-full"
-                   ${_ctrlAttrs(slug, eid, 'set')} data-int-input="brightness">
+                   ${_ctrlAttrs(slug, eid, 'set_brightness')} data-int-input="brightness">
+        </div>`;
+    }
+    let colorCtl = '';
+    if (caps.color) {
+        const color = attrs.color;
+        let hex = '#ffffff';
+        if (color && typeof color === 'object') {
+            const c = color;
+            if (Number.isFinite(c.r) && Number.isFinite(c.g) && Number.isFinite(c.b)) {
+                const part = (v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0');
+                hex = `#${part(c.r)}${part(c.g)}${part(c.b)}`;
+            }
+        }
+        colorCtl = `
+        <div class="mt-3 pt-3 border-t border-white/5">
+            <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
+                <span>${escapeHtml(_er('color'))}</span>
+            </div>
+            <input type="color" value="${_attr(hex)}"
+                   class="w-full h-10 rounded-lg border border-white/10 bg-transparent"
+                   ${_ctrlAttrs(slug, eid, 'set')} data-int-input="color">
         </div>`;
     }
     return `
@@ -401,6 +430,7 @@ function renderLight(entity, slug) {
             </button>
         </div>
         ${bright}
+        ${colorCtl}
     </div>`;
 }
 function renderNumber(entity, slug) {
@@ -429,28 +459,16 @@ function renderNumber(entity, slug) {
     </div>`;
 }
 function renderSelect(entity, slug) {
-    const eid = entity.entity_id;
-    const caps = (entity.attributes || {}).capabilities || {};
-    const options = Array.isArray(caps.options) ? caps.options : [];
-    const current = String(entity.state || '').toLowerCase();
-    if (!options.length)
+    const eid = entity.entity_id || '';
+    const attrs = (entity.attributes || {});
+    const caps = attrs.capabilities || {};
+    const selectHtml = renderSelectControlHtml(slug, eid, attrs, caps, String(entity.state ?? ''), _ctrlAttrs, _attr, escapeHtml);
+    if (!selectHtml)
         return '';
-    const buttons = options.map(opt => {
-        const v = (opt && typeof opt === 'object') ? String(opt.value ?? opt.label ?? '') : String(opt);
-        const lbl = (opt && typeof opt === 'object') ? String(opt.label ?? opt.value ?? '') : String(opt);
-        const isCurrent = v.toLowerCase() === current;
-        const cls = isCurrent
-            ? 'bg-accent/20 border-accent/50 text-accent'
-            : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10';
-        return `<button type="button" class="px-3 py-1.5 rounded-lg text-xs border ${cls} transition-colors"
-                ${_ctrlAttrs(slug, eid, 'set', { value: v })}>
-                ${escapeHtml(lbl)}
-            </button>`;
-    }).join('');
     return `
     <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
         <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">${escapeHtml(_er('option'))}</div>
-        <div class="flex flex-wrap gap-1.5">${buttons}</div>
+        ${selectHtml}
     </div>`;
 }
 function renderButton(entity, slug) {
@@ -513,6 +531,38 @@ function renderCover(entity, slug) {
                     ${_ctrlAttrs(slug, eid, 'set', { value: 'STOP' })}><i class="fas fa-stop mr-1"></i>${escapeHtml(_er('stop'))}</button>
             <button type="button" class="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-200 text-xs hover:bg-white/10"
                     ${_ctrlAttrs(slug, eid, 'turn_off')}><i class="fas fa-arrow-down mr-1"></i>${escapeHtml(_er('down'))}</button>
+        </div>
+    </div>`;
+}
+function _mobilityActionBtn(slug, eid, action, icon, label) {
+    return `<button type="button" class="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-200 text-xs hover:bg-white/10 hover:text-accent"
+        ${_ctrlAttrs(slug, eid, action, null, { stop: true })}>
+        <i class="fas ${icon} mr-1"></i>${escapeHtml(label)}
+    </button>`;
+}
+function renderLawnMower(entity, slug) {
+    const eid = entity.entity_id || '';
+    return `
+    <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
+        <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">${escapeHtml(_er('action'))}</div>
+        <div class="grid grid-cols-2 gap-2">
+            ${_mobilityActionBtn(slug, eid, 'start', 'fa-play', _er('lawn_mower_start'))}
+            ${_mobilityActionBtn(slug, eid, 'pause', 'fa-pause', _er('lawn_mower_pause'))}
+            ${_mobilityActionBtn(slug, eid, 'stop', 'fa-stop', _er('stop'))}
+            ${_mobilityActionBtn(slug, eid, 'return_to_base', 'fa-house', _er('lawn_mower_dock'))}
+        </div>
+    </div>`;
+}
+function renderVacuum(entity, slug) {
+    const eid = entity.entity_id || '';
+    return `
+    <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
+        <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">${escapeHtml(_er('action'))}</div>
+        <div class="grid grid-cols-2 gap-2">
+            ${_mobilityActionBtn(slug, eid, 'start', 'fa-play', _er('vacuum_start'))}
+            ${_mobilityActionBtn(slug, eid, 'stop', 'fa-stop', _er('vacuum_stop'))}
+            ${_mobilityActionBtn(slug, eid, 'return_to_base', 'fa-house', _er('vacuum_dock'))}
+            ${_mobilityActionBtn(slug, eid, 'locate', 'fa-location-crosshairs', _er('vacuum_locate'))}
         </div>
     </div>`;
 }
@@ -617,6 +667,8 @@ const RENDERERS = {
     sensor: renderSensor,
     binary_sensor: renderSensor,
     camera: renderCamera,
+    lawn_mower: renderLawnMower,
+    vacuum: renderVacuum,
 };
 export function renderEntityModal(entity, slug) {
     if (!entity || typeof entity !== 'object')
@@ -665,7 +717,8 @@ export function renderEntityCard(entity, slug) {
     const dc = caps.device_class || '';
     const icon = getDomainIcon(entity.domain || '', dc);
     const title = entity.name || entity.entity_id || 'Entity';
-    const state = (entity.state == null || entity.state === '') ? 'unknown' : String(entity.state);
+    const domain = String(entity.domain || '').toLowerCase();
+    const state = entityStateForDisplay(domain, entity.state, tState);
     const unit = entity.unit ? ` ${escapeHtml(String(entity.unit))}` : '';
     const lower = state.toLowerCase();
     const isOn = lower === 'on' || lower === 'open' || lower === 'unlocked';
@@ -675,7 +728,13 @@ export function renderEntityCard(entity, slug) {
     const encoded = encodeURIComponent(JSON.stringify(entity)).replace(/'/g, '%27');
     // Inline toggle for switches/lights
     let inlineCtl = '';
-    if (entity.controllable && (entity.domain === 'switch' || entity.domain === 'light' || entity.domain === 'fan' || entity.domain === 'outlet' || entity.domain === 'plug')) {
+    if (entity.controllable && domain === 'button') {
+        inlineCtl = `<button type="button" class="px-2.5 py-1 rounded-lg bg-accent/15 border border-accent/30 text-accent text-[10px] font-semibold shrink-0"
+            ${_ctrlAttrs(slug, eid, 'press', null, { stop: true })} title="${escapeHtml(_er('send'))}">
+            <i class="fas fa-bolt"></i>
+        </button>`;
+    }
+    else if (entity.controllable && (entity.domain === 'switch' || entity.domain === 'light' || entity.domain === 'fan' || entity.domain === 'outlet' || entity.domain === 'plug')) {
         inlineCtl = `<button type="button" role="switch" aria-checked="${isOn}"
             class="app-toggle-switch shrink-0" data-entity-toggle="${escapeHtml(eid)}" data-on="${isOn}"
             ${_ctrlAttrs(slug, eid, isOn ? 'turn_off' : 'turn_on', null, { stop: true })}>
@@ -791,14 +850,14 @@ function renderDeviceEntityRow(entity, slug) {
     const icon = getDomainIcon(entity.domain || '', dc);
     const title = entity.name || entity.entity_id || 'Entity';
     const eid = entity.entity_id || '';
-    const state = (entity.state == null || entity.state === '') ? 'unknown' : String(entity.state);
+    const dom = String(entity.domain || '').toLowerCase();
+    const state = entityStateForDisplay(dom, entity.state, tState);
     const unit = entity.unit ? ` ${escapeHtml(String(entity.unit))}` : '';
     const lower = state.toLowerCase();
     const isOn = lower === 'on' || lower === 'open' || lower === 'unlocked';
     const isOff = lower === 'off' || lower === 'closed' || lower === 'locked';
     const tone = isOn ? 'text-accent' : (isOff ? 'text-slate-400' : 'text-slate-200');
     let control = '';
-    const dom = entity.domain;
     if (entity.controllable) {
         if (dom === 'switch' || dom === 'light' || dom === 'fan' || dom === 'outlet' || dom === 'plug') {
             control = `<button type="button" role="switch" aria-checked="${isOn}"
@@ -818,16 +877,13 @@ function renderDeviceEntityRow(entity, slug) {
                 ${_ctrlAttrs(slug, eid, 'set')} data-int-input="valueFloat" data-int-input-preview="1" data-int-unit="${_attr(unitText)}" data-entity-stop="1">`;
         }
         else if (dom === 'select') {
-            const selectOpts = selectOptionsFromCaps(caps);
-            if (selectOpts.length && selectOpts.length <= 6)
-                control = `<select class="bg-white/5 border border-white/10 rounded-lg text-[11px] text-slate-200 px-2 py-1"
-                ${_ctrlAttrs(slug, eid, 'set')} data-int-input="valueString" data-entity-stop="1">
-                ${selectOpts.map(o => {
-                    const v = (o && typeof o === 'object') ? String(o.value ?? o.label ?? '') : String(o);
-                    const lbl = (o && typeof o === 'object') ? String(o.label ?? o.value ?? '') : String(o);
-                    return `<option value="${escapeHtml(v)}" ${v.toLowerCase() === lower ? 'selected' : ''}>${escapeHtml(lbl)}</option>`;
-                }).join('')}
-            </select>`;
+            const selectHtml = renderSelectControlHtml(slug, eid, (entity.attributes || {}), caps, String(entity.state ?? ''), _ctrlAttrs, _attr, escapeHtml);
+            if (selectHtml) {
+                control = `<div class="int-entity-row__select-wrap">
+                    <div class="text-[10px] text-slate-500 uppercase tracking-wide mb-1">${escapeHtml(_er('option'))}</div>
+                    ${selectHtml}
+                </div>`;
+            }
         }
         else if (dom === 'button') {
             control = `<button type="button" class="px-3 py-1 rounded-lg bg-accent/15 border border-accent/30 text-accent text-[11px] font-semibold shrink-0"
@@ -835,14 +891,25 @@ function renderDeviceEntityRow(entity, slug) {
                 <i class="fas fa-bolt"></i>
             </button>`;
         }
+        else if (dom === 'vacuum' || dom === 'lawn_mower') {
+            const vBtn = (vacAction, ic, title) => `<button type="button" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"
+                class="w-8 h-8 rounded-full border bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-accent shrink-0 flex items-center justify-center transition-colors"
+                ${_ctrlAttrs(slug, eid, vacAction, null, { stop: true })}>
+                <i class="fas ${ic} text-[11px]"></i>
+            </button>`;
+            const startLabel = dom === 'lawn_mower' ? _er('lawn_mower_start') : _er('vacuum_start');
+            const dockLabel = dom === 'lawn_mower' ? _er('lawn_mower_dock') : _er('vacuum_dock');
+            control = `<div class="flex items-center gap-1.5 shrink-0">
+                ${vBtn('start', 'fa-play', startLabel)}
+                ${dom === 'lawn_mower' ? vBtn('pause', 'fa-pause', _er('lawn_mower_pause')) : ''}
+                ${vBtn('stop', 'fa-stop', _er('stop'))}
+                ${vBtn('return_to_base', 'fa-house', dockLabel)}
+            </div>`;
+        }
     }
     const encoded = encodeURIComponent(JSON.stringify(entity)).replace(/'/g, '%27');
     const stateHtml = `<span class="text-[12px] mono ${tone} truncate max-w-[9rem] shrink-0" data-entity-state="${escapeHtml(eid)}">${escapeHtml(state)}${unit}</span>`;
-    const controlHtml = control
-        ? (dom === 'select'
-            ? `<div class="int-entity-row__select-wrap">${control}</div>`
-            : control)
-        : stateHtml;
+    const controlHtml = control || stateHtml;
     return `<div class="int-entity-row px-3 py-2.5 bg-white/[0.03] border border-white/5 rounded-xl hover:bg-white/[0.06] hover:border-accent/20 transition-colors cursor-pointer"
         data-entity-action="openCard" data-int-encoded="${encoded}">
         <i class="fas ${icon} text-accent/70 text-sm w-4 text-center shrink-0"></i>

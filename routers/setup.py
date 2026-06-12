@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
 import core.database as database
@@ -38,10 +38,18 @@ async def setup_status():
 @limiter.limit("5/minute")
 async def setup_complete(
     request: Request,
-    body: SetupCompleteBody,
     db: Session = Depends(database.get_db),
 ):
-    if body.password != body.password_confirm:
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail={"key": "common.invalid_json"})
+    try:
+        payload = SetupCompleteBody.model_validate(data)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors()) from exc
+
+    if payload.password != payload.password_confirm:
         raise HTTPException(
             status_code=400,
             detail={"key": "setup.password_mismatch"},
@@ -49,13 +57,13 @@ async def setup_complete(
     try:
         return complete_setup(
             db,
-            username=body.username.strip(),
-            password=body.password,
-            full_name=body.full_name.strip(),
-            email=body.email.strip(),
-            language=body.language.strip(),
-            timezone=body.timezone.strip(),
-            server_name=body.server_name.strip(),
+            username=payload.username.strip(),
+            password=payload.password,
+            full_name=payload.full_name.strip(),
+            email=payload.email.strip(),
+            language=payload.language.strip(),
+            timezone=payload.timezone.strip(),
+            server_name=payload.server_name.strip(),
         )
     except SetupAlreadyCompleteError:
         raise HTTPException(status_code=403, detail={"key": "setup.already_complete"})

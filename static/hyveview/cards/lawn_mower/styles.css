@@ -1,0 +1,39 @@
+/* Lawn mower card — shell base + action buttons (shared/shell.css). */
+.hyve-dashboard-card--lawn-mower {
+    border-radius: var(--hyve-card-radius, 1rem);
+}
+
+.hyve-dashboard-card__lawn-mower-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.hyve-dashboard-card__lawn-mower-btn {
+    flex: 1 1 auto;
+    min-width: 2.5rem;
+    padding: 0.45rem 0.65rem;
+    border-radius: 0.65rem;
+    border: 1px solid var(--hyve-border-subtle, rgba(255, 255, 255, 0.08));
+    background: var(--hyve-surface-2, rgba(255, 255, 255, 0.04));
+    color: var(--hyve-text-secondary, #94a3b8);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.hyve-dashboard-card__lawn-mower-btn:hover {
+    background: var(--hyve-surface-3, rgba(255, 255, 255, 0.08));
+    color: var(--hyve-text-primary, #f8fafc);
+}
+
+.hyve-dashboard-card__lawn-mower-btn[data-active="true"] {
+    border-color: var(--hyve-accent, #84cc16);
+    color: var(--hyve-accent, #84cc16);
+}
+
+.hyve-dashboard-card__lawn-mower-battery {
+    font-size: 0.75rem;
+    color: var(--hyve-text-muted, #64748b);
+    white-space: nowrap;
+}

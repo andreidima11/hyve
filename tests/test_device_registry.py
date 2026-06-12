@@ -222,6 +222,62 @@ def test_refresh_skips_user_edited_entity_ids():
     assert row["entity_id_user_set"] is True
 
 
+def test_refresh_migrates_z2m_unique_id_without_entity_id_collision():
+    ieee = "0xa4c138fe8b1226ab"
+    entity_registry.register_entity({
+        "unique_id": "z2m:my_lamp:countdown_l1",
+        "entity_id": "number.my_lamp_countdown_l1",
+        "domain": "number",
+        "name": "My Lamp Countdown L1",
+        "device_id": ieee,
+        "source": "mosquitto",
+    })
+    entity_registry.reload()
+
+    result = entity_registry.refresh_entity_ids_for_device_rename(
+        ieee,
+        old_friendly="my_lamp",
+        new_friendly="releu_d2",
+    )
+
+    assert result["updated"] == 1
+    assert entity_registry.get_by_unique_id("z2m:my_lamp:countdown_l1") is None
+    row = entity_registry.get_by_unique_id("z2m:releu_d2:countdown_l1")
+    assert row is not None
+    assert row["entity_id"] == "number.releu_d2_countdown_l1"
+
+
+def test_refresh_z2m_unique_id_drops_stale_row_when_target_exists():
+    ieee = "0xa4c138fe8b1226ab"
+    entity_registry.register_entity({
+        "unique_id": "z2m:my_lamp:countdown_l1",
+        "entity_id": "number.my_lamp_countdown_l1",
+        "domain": "number",
+        "name": "My Lamp Countdown L1",
+        "device_id": ieee,
+        "source": "mosquitto",
+    })
+    entity_registry.register_entity({
+        "unique_id": "z2m:releu_d2:countdown_l1",
+        "entity_id": "number.releu_d2_countdown_l1",
+        "domain": "number",
+        "name": "Releu D2 Countdown L1",
+        "device_id": ieee,
+        "source": "mosquitto",
+    })
+    entity_registry.reload()
+
+    result = entity_registry.refresh_entity_ids_for_device_rename(
+        ieee,
+        old_friendly="my_lamp",
+        new_friendly="releu_d2",
+    )
+
+    assert entity_registry.get_by_unique_id("z2m:my_lamp:countdown_l1") is None
+    assert entity_registry.get_by_unique_id("z2m:releu_d2:countdown_l1") is not None
+    assert result["skipped"] >= 0
+
+
 def test_after_device_rename_ignores_z2m_revert_when_user_named():
     async def run():
         from components.mosquitto.bridge import MosquittoBridge

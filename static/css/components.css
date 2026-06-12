@@ -817,8 +817,8 @@
 }
 
 .int-entity-row__select-wrap {
-    width: 9rem;
-    max-width: 9rem;
+    width: 10.5rem;
+    max-width: min(10.5rem, 42vw);
     justify-self: end;
 }
 

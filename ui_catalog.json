@@ -249,6 +249,19 @@
       "supports_sync": true,
       "admin_only": true,
       "order": 119
+    },
+    {
+      "slug": "mammotion",
+      "label": "Mammotion",
+      "description": "Roboți Mammotion Luba / Yuka / Spino — senzori, switch-uri, programări (cloud PyMammotion)",
+      "icon": "fa-leaf",
+      "image": "/static/icons/integrations/mammotion.png",
+      "accent": "#84cc16",
+      "icon_background": "rgba(132,204,22,0.18)",
+      "text_color": "#bef264",
+      "supports_sync": true,
+      "admin_only": true,
+      "order": 120
     }
   ],
   "dashboard_cards": [
@@ -507,6 +520,21 @@
       "subtitle_label": "Subtitlu / text",
       "subtitle_placeholder": "ex: Aspirator living",
       "order": 170
+    },
+    {
+      "id": "lawn_mower",
+      "label": "Tunsor",
+      "description": "Robot tuns gazon — start/pauză/dock/stop, stare și baterie",
+      "renderer": "lawn_mower",
+      "requires_entity": true,
+      "entity_filter": "lawn_mower",
+      "supports_visibility": true,
+      "supports_switch_style": false,
+      "supports_background": false,
+      "default_size": "md",
+      "subtitle_label": "Subtitlu / text",
+      "subtitle_placeholder": "ex: Luba curte",
+      "order": 175
     }
   ]
 }

@@ -1,7 +1,7 @@
 /**
  * HA-style integration config entries (multi-instance, declarative).
  */
-import { apiCall } from '../api.js';
+import { apiCall, isNetworkFetchError } from '../api.js';
 import { t, translateApiDetail, integrationApiMessage } from '../lang/index.js';
 import { escapeHtml, escapeHtmlAttr, showToast, showConfirm } from '../utils.js';
 import { errMsg, intEl } from './utils.js';
@@ -31,10 +31,6 @@ export async function loadIntegrationConfigEntries(slug) {
     const section = document.getElementById('integration-entries-section');
     if (!section)
         return;
-    if (!integrationHasConfigSchema(slug)) {
-        section.classList.add('hidden');
-        return;
-    }
     const desc = document.getElementById('integration-generic-description');
     if (desc) {
         desc.textContent = '';
@@ -83,7 +79,7 @@ export async function loadIntegrationConfigEntries(slug) {
         addBtn.disabled = disable;
         addBtn.classList.toggle('opacity-40', disable);
         addBtn.title = disable ? t('integrations.single_entry_only') : '';
-        addBtn.onclick = () => openEntryEditor({});
+        addBtn.onclick = () => openEntryEditor(null);
     }
     // Hide the generic "no settings" hint — the entries section IS the settings UI.
     const hint = document.getElementById('integration-generic-empty-hint');
@@ -256,7 +252,7 @@ function openEntryEditor(entry) {
             const opts = field.options.map(o => `<option value="${escapeHtml(o.value)}" ${String(o.value) === String(value) ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('');
             input = `<select id="${id}" name="${fkey}" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-accent outline-none">${opts}</select>`;
         }
-        else if (field.type === 'bool') {
+        else if (field.type === 'bool' || field.type === 'boolean') {
             input = `<label class="flex items-center gap-2 text-sm text-slate-200"><input type="checkbox" id="${id}" name="${fkey}" ${value ? 'checked' : ''} class="accent-accent"> <span>${escapeHtml(field.label || fkey)}</span></label>`;
         }
         else {
@@ -265,7 +261,7 @@ function openEntryEditor(entry) {
             const maxAttr = field.max != null ? ` max="${escapeHtmlAttr(field.max)}"` : '';
             input = `<input type="${t}" id="${id}" name="${fkey}"${minAttr}${maxAttr} ${placeholder} value="${escapeHtml(String(value ?? ''))}" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-accent outline-none">`;
         }
-        if (field.type === 'bool') {
+        if (field.type === 'bool' || field.type === 'boolean') {
             wrap.innerHTML = input;
         }
         else {
@@ -282,6 +278,7 @@ function openEntryEditor(entry) {
         closeBtn.onclick = close;
     if (cancelBtn)
         cancelBtn.onclick = close;
+    const editingEntryId = entry?.entry_id ? String(entry.entry_id) : '';
     // Helper: collect form data, skipping masked secrets when editing.
     const collectData = () => {
         const out = {};
@@ -293,13 +290,13 @@ function openEntryEditor(entry) {
             if (!el)
                 continue;
             let v;
-            if (field.type === 'bool')
+            if (field.type === 'bool' || field.type === 'boolean')
                 v = !!el.checked;
             else if (field.type === 'number')
                 v = el.value === '' ? null : Number(el.value);
             else
                 v = el.value;
-            if (entry && field.secret && typeof v === 'string' && /^[•*]+$/.test(v))
+            if (editingEntryId && field.secret && typeof v === 'string' && /^[•*]+$/.test(v))
                 continue;
             out[fkey] = v;
         }
@@ -315,13 +312,12 @@ function openEntryEditor(entry) {
             const orig = testBtn.innerHTML;
             testBtn.disabled = true;
             testBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${escapeHtml(t('integrations.test_connecting'))}`;
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 45000);
+            const testTimeoutMs = _entriesCurrent.slug === 'mammotion' ? 90000 : 45000;
             try {
                 const r = await apiCall(`/api/integrations/${encodeURIComponent(_entriesCurrent.slug || '')}/entries/test`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ data: collectData(), entry_id: entry?.entry_id ? String(entry.entry_id) : null }),
-                    signal: controller.signal,
+                    timeout: testTimeoutMs,
                 });
                 const o = await r.json().catch(() => ({}));
                 if (r.ok && o.ok) {
@@ -334,13 +330,12 @@ function openEntryEditor(entry) {
                 }
             }
             catch (e) {
-                errEl.textContent = e.name === 'AbortError'
+                errEl.textContent = e.name === 'TimeoutError'
                     ? t('integrations.test_timeout')
                     : (errMsg(e) || t('common.error'));
                 errEl.classList.remove('hidden');
             }
             finally {
-                clearTimeout(timeoutId);
                 testBtn.disabled = false;
                 testBtn.innerHTML = orig;
             }
@@ -351,7 +346,6 @@ function openEntryEditor(entry) {
         saveBtnEl.onclick = async () => {
             const saveBtn = saveBtnEl;
             const payload = { title: (titleInput.value || '').trim() || _entriesCurrent.label, data: collectData() };
-            const isCreate = !entry;
             const slug = _entriesCurrent.slug;
             // Disable save button to prevent double-clicks
             if (saveBtn) {
@@ -359,10 +353,15 @@ function openEntryEditor(entry) {
                 saveBtn.classList.add('opacity-50');
             }
             try {
-                const url = entry
-                    ? `/api/integrations/${encodeURIComponent(slug || '')}/entries/${encodeURIComponent(String(entry.entry_id ?? ''))}`
+                const url = editingEntryId
+                    ? `/api/integrations/${encodeURIComponent(slug || '')}/entries/${encodeURIComponent(editingEntryId)}`
                     : `/api/integrations/${encodeURIComponent(slug || '')}/entries`;
-                const r = await apiCall(url, { method: entry ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const r = await apiCall(url, {
+                    method: editingEntryId ? 'PATCH' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    timeout: 30000,
+                });
                 const o = await r.json().catch(() => ({}));
                 if (!r.ok) {
                     errEl.textContent = translateApiDetail(o.detail) || translateApiDetail(o.errors) || t('integrations.save_error');
@@ -383,7 +382,12 @@ function openEntryEditor(entry) {
                 _pollForEntities(slug || '', 0, savedEntryId);
             }
             catch (e) {
-                errEl.textContent = errMsg(e) || t('common.error');
+                const msg = e.name === 'TimeoutError'
+                    ? t('integrations.test_timeout')
+                    : isNetworkFetchError(e)
+                        ? t('integrations.save_network_error')
+                        : (errMsg(e) || t('common.error'));
+                errEl.textContent = msg;
                 errEl.classList.remove('hidden');
             }
             finally {

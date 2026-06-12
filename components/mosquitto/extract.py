@@ -254,6 +254,8 @@ def _entity_from_discovery(
         capabilities["brightness_state_topic"] = msg.get("brightness_state_topic") or ""
         capabilities["brightness_value_template"] = msg.get("brightness_value_template") or ""
         capabilities["brightness_scale"] = msg.get("brightness_scale") or 255
+    if domain == "light":
+        _normalize_light_capabilities(capabilities)
 
     if z2m_prop == "action" and domain in {"sensor", "event"}:
         domain = "event"
@@ -277,6 +279,8 @@ def _entity_from_discovery(
     if z2m_prop:
         attributes["z2m_property"] = z2m_prop
         attributes["state_topic"] = state_topic
+    if domain == "light" and isinstance(raw_state, dict):
+        _merge_light_attributes(attributes, raw_state)
     # Augment with Z2M device meta if we recognise it.
     if device_id and device_id in device_meta:
         meta = device_meta[device_id]
@@ -311,7 +315,7 @@ def _entity_from_discovery(
     # HA-style entity_id derived from the human-friendly device/feature name.
     # Fall back to the original opaque unique_id if no name is available.
     object_basis = display_name if (display_name and display_name != legacy_id) else unique_id
-    ha_entity_id = f"{(domain if domain in {'sensor','binary_sensor','switch','light','climate','water_heater','number','select','scene','weather','sun','cover','lock','vacuum','fan','media_player','button','image','event'} else 'sensor')}.{slugify(object_basis)}"
+    ha_entity_id = f"{(domain if domain in {'sensor','binary_sensor','switch','light','climate','water_heater','number','select','scene','weather','sun','cover','lock','vacuum','lawn_mower','fan','media_player','button','image','event'} else 'sensor')}.{slugify(object_basis)}"
 
     return {
         "entity_id": ha_entity_id,
@@ -724,6 +728,68 @@ def _merge_payload(stored: Any, live: Any) -> dict[str, Any]:
 # ── Command builder ────────────────────────────────────────────────────────
 
 
+_LIGHT_STATE_KEYS = ("brightness", "color", "color_temp", "color_xy", "color_hs")
+
+
+def _merge_light_attributes(
+    attributes: dict[str, Any],
+    state: dict[str, Any],
+) -> None:
+    """Copy live Z2M/HA light fields into entity attributes for UI controls."""
+    for key in _LIGHT_STATE_KEYS:
+        if key in state:
+            attributes[key] = state[key]
+
+
+def _normalize_light_capabilities(capabilities: dict[str, Any]) -> None:
+    """Ensure HA MQTT and Z2M native lights expose a consistent capability shape."""
+    if capabilities.get("brightness_command_topic"):
+        capabilities.setdefault("brightness", True)
+        capabilities.setdefault("brightness_scale", capabilities.get("brightness_scale") or 255)
+    br_range = capabilities.get("brightness_range")
+    if isinstance(br_range, list) and len(br_range) >= 2 and not capabilities.get("brightness_scale"):
+        try:
+            capabilities["brightness_scale"] = int(br_range[1])
+        except (TypeError, ValueError):
+            pass
+    if capabilities.get("brightness") and not capabilities.get("brightness_scale"):
+        capabilities["brightness_scale"] = 254
+
+
+def _light_command_payload(
+    domain: str,
+    verb: str,
+    cmd: str,
+    caps: dict[str, Any],
+    data: dict[str, Any] | None,
+    *,
+    payload_on: Any = "ON",
+) -> tuple[str, str]:
+    """Build MQTT payload for light brightness / color / color_temp actions."""
+    if domain != "light" or not cmd or not isinstance(data, dict):
+        return "", ""
+    action = (verb or "").lower()
+    if action == "set_brightness" and "brightness" in data:
+        if caps.get("brightness_command_topic"):
+            return str(caps["brightness_command_topic"]), str(int(data["brightness"]))
+        pl: dict[str, Any] = {"brightness": int(data["brightness"])}
+        if int(data["brightness"]) > 0:
+            pl["state"] = payload_on
+        return cmd, json.dumps(pl, ensure_ascii=False)
+    if action == "set_color_temp" and "color_temp" in data:
+        pl = {"color_temp": int(data["color_temp"]), "state": payload_on}
+        return cmd, json.dumps(pl, ensure_ascii=False)
+    if action == "set":
+        clean = {k: v for k, v in data.items() if k not in {"brightness_pct"}}
+        if caps.get("brightness_command_topic") and set(clean.keys()) == {"brightness"}:
+            return str(caps["brightness_command_topic"]), str(int(clean["brightness"]))
+        if clean:
+            if "brightness" in clean and int(clean.get("brightness") or 0) > 0:
+                clean.setdefault("state", payload_on)
+            return cmd, json.dumps(clean, ensure_ascii=False)
+    return "", ""
+
+
 def _z2m_control_caps(
     friendly: str,
     prop: str,
@@ -896,6 +962,11 @@ def _build_command(
             return cmd, _z2m_set_payload(z2m_prop, payload_off)
         if verb in {"toggle"}:
             return cmd, _z2m_set_payload(z2m_prop, "TOGGLE")
+        light_topic, light_payload = _light_command_payload(
+            domain, verb, cmd, caps, data, payload_on=payload_on,
+        )
+        if light_topic:
+            return light_topic, light_payload
         if verb in {"set", "publish"} and isinstance(data, dict):
             if "value" in data:
                 return cmd, _z2m_set_payload(z2m_prop, data["value"])
@@ -921,6 +992,12 @@ def _build_command(
         if "brightness" in data and caps.get("brightness_command_topic"):
             return caps["brightness_command_topic"], str(int(data["brightness"]))
         return cmd, json.dumps(data, ensure_ascii=False)
+
+    light_topic, light_payload = _light_command_payload(
+        domain, verb, cmd, caps, data, payload_on=payload_on,
+    )
+    if light_topic:
+        return light_topic, light_payload
 
     return "", ""
 
@@ -1136,10 +1213,22 @@ def _entities_from_z2m_exposes(
                     vmax = feat.get("value_max")
                     if vmin is not None or vmax is not None:
                         caps[f"{fp}_range"] = [vmin, vmax]
+                if fp == "brightness":
+                    caps["brightness"] = True
+                    bmax = feat.get("value_max")
+                    caps["brightness_scale"] = int(bmax) if bmax is not None else 254
+                    bmin = feat.get("value_min")
+                    if bmin is not None:
+                        caps["brightness_min"] = int(bmin)
                 if fp == "color_temp":
                     caps["color_temp"] = True
-                if fp in ("color_xy", "color_hs"):
+                    ct_min = feat.get("value_min")
+                    ct_max = feat.get("value_max")
+                    if ct_min is not None or ct_max is not None:
+                        caps["color_temp_range"] = [ct_min, ct_max]
+                if fp in ("color_xy", "color_hs", "color"):
                     caps["color"] = True
+                    caps["color_property"] = fp
                 if feat.get("values"):
                     caps[f"{fp}_values"] = feat["values"]
 
@@ -1158,6 +1247,10 @@ def _entities_from_z2m_exposes(
                     ent["attributes"]["capabilities"]["z2m_property"] = primary_prop
                     ent["attributes"]["command_topic"] = f"zigbee2mqtt/{mqtt_friendly}/set"
                     ent["attributes"]["z2m_property"] = primary_prop
+                    if domain == "light":
+                        _normalize_light_capabilities(ent["attributes"]["capabilities"])
+                        if isinstance(state_payload, dict):
+                            _merge_light_attributes(ent["attributes"], state_payload)
                     out.append(ent)
             return
 

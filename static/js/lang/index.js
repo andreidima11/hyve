@@ -158,6 +158,33 @@ export function tVacuumStatus(statusAttr, genericState) {
     return tState(genericState);
 }
 
+const LAWN_MOWER_STATUS_ALIASES = {
+    mowing: 'hyveview.lawn_mower.status.mowing',
+    returning: 'hyveview.lawn_mower.status.returning',
+    'returning to dock': 'hyveview.lawn_mower.status.returning',
+    paused: 'hyveview.lawn_mower.status.paused',
+    docked: 'hyveview.lawn_mower.status.docked',
+    idle: 'hyveview.lawn_mower.status.idle',
+    error: 'hyveview.lawn_mower.status.error',
+};
+
+export function tLawnMowerStatus(statusAttr, genericState) {
+    const raw = String(statusAttr || '').trim().toLowerCase();
+    if (raw) {
+        const aliasKey = LAWN_MOWER_STATUS_ALIASES[raw];
+        if (aliasKey) {
+            const val = t(aliasKey);
+            if (val !== aliasKey) return val;
+        }
+    }
+    const state = String(genericState || 'unknown').toLowerCase();
+    const stateKey = `hyveview.lawn_mower.status.${state}`;
+    const stateVal = t(stateKey);
+    if (stateVal !== stateKey) return stateVal;
+    if (statusAttr) return String(statusAttr);
+    return tState(genericState);
+}
+
 /** Get raw value (array, object, etc.) for a key — no string coercion. */
 export function tRaw(key) {
     const dict = dictionaries[currentLanguage] || dictionaries[DEFAULT_LANG];

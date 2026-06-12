@@ -48,7 +48,7 @@ export class HyveviewLightCard extends HyveviewCardBase {
         const escape = host.escape;
         const attrs = (w.attributes && typeof w.attributes === 'object' ? w.attributes : {});
         const caps = (attrs.capabilities && typeof attrs.capabilities === 'object' ? attrs.capabilities : {});
-        this._supportsBrightness = !!(caps.brightness_command_topic || attrs.brightness != null);
+        this._supportsBrightness = !!(caps.brightness_command_topic || caps.brightness || caps.brightness_range || attrs.brightness != null);
         const editMode = !!w._edit_mode;
         const title = widgetTitle(w);
         const wid = escape(w.id || '');

@@ -10,6 +10,7 @@ export declare function translateApiDetail(detail: unknown): string;
 export declare function integrationApiMessage(payload: Record<string, unknown> | null | undefined): string;
 export declare function tState(rawState: unknown): string;
 export declare function tVacuumStatus(statusAttr: unknown, genericState: unknown): string;
+export declare function tLawnMowerStatus(statusAttr: unknown, genericState: unknown): string;
 export declare function tRaw(key: string): unknown;
 export declare function getLanguage(): string;
 export declare function getAvailableLanguages(): Array<{ code: string; label: string }>;

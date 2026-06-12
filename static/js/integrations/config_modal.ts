@@ -12,7 +12,7 @@ import {
 } from './catalog_meta.js';
 import { loadIntegrationCatalog, syncConfiguredIntegration } from './catalog.js';
 import { loadIntegrationExposedEntities } from './exposed_devices.js';
-import { loadIntegrationConfigEntries, integrationHasConfigSchema } from './config_entries.js';
+import { loadIntegrationConfigEntries } from './config_entries.js';
 
 export function slugForId(s: string) {
     if (!s || typeof s !== 'string') return '';
@@ -92,9 +92,9 @@ export async function openIntegrationConfigModal(integrationId: string) {
     }
     openSubPage('integration-config-modal');
 
-    if (integrationHasConfigSchema(catalogSlug)) {
-        try { await loadIntegrationConfigEntries(catalogSlug); } catch (_) {}
-    } else {
+    try { await loadIntegrationConfigEntries(catalogSlug); } catch (_) {}
+    const entriesVisible = !!(entriesSection && !entriesSection.classList.contains('hidden'));
+    if (!entriesVisible) {
         _showGenericPanel(meta, catalogSlug);
     }
 

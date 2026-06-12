@@ -22,7 +22,7 @@ export { initDashboardSidebarNav, openDashboardPageNav } from './dashboard/pages
 export { closeDashboardPageModal, createDashboardPage, deleteDashboardPage, openDashboardPageModal, saveDashboardHeader, } from './dashboard/page_modal.js';
 export { addDashboardPanelVisibilityCondition, closeDashboardPanelModal, openDashboardPanelCreator, openDashboardPanelEditor, saveDashboardPanel, toggleDashboardPanelBackground, toggleDashboardPanelVisibility, } from './dashboard/panel_modal.js';
 export { toggleDashboardClimateModeMenu, selectDashboardClimateSlide, shiftDashboardClimateSlide, startDashboardClimateSwipe, moveDashboardClimateSwipe, endDashboardClimateSwipe, adjustDashboardClimateTemperature, setDashboardClimateMode, updateDashboardClimateEntityMeta, addSelectedDashboardClimateEntity, removeDashboardClimateEntity, } from './dashboard/climate.js';
-export { onDashboardBrightnessInput, onDashboardBrightnessChange, onDashboardLockAction, onDashboardVacuumAction, } from './dashboard/widget_actions.js';
+export { onDashboardBrightnessInput, onDashboardBrightnessChange, onDashboardLockAction, onDashboardVacuumAction, onDashboardLawnMowerAction, } from './dashboard/widget_actions.js';
 loadBundledCardPackages();
 registerDashboardCards();
 wireDashboardModules();

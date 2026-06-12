@@ -23,6 +23,18 @@ function _controlPayload(el: HTMLInputElement | HTMLSelectElement | HTMLElement)
     if (kind === 'brightness' && 'value' in el) {
         return { brightness: parseInt(String(el.value), 10) };
     }
+    if (kind === 'color' && 'value' in el) {
+        const hex = String(el.value || '').replace('#', '');
+        if (hex.length !== 6) return null;
+        return {
+            state: 'ON',
+            color: {
+                r: parseInt(hex.slice(0, 2), 16),
+                g: parseInt(hex.slice(2, 4), 16),
+                b: parseInt(hex.slice(4, 6), 16),
+            },
+        };
+    }
     if (kind === 'valueFloat' && 'value' in el) {
         return { value: parseFloat(String(el.value)) };
     }

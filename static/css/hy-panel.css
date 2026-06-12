@@ -1157,6 +1157,38 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
 }
+.hy-detail-light-controls {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 0.85rem;
+    padding: 0.75rem;
+    border: 1px solid var(--overlay-6);
+    border-radius: 0.75rem;
+    background: var(--overlay-2);
+}
+.hy-detail-light-row { display: grid; gap: 0.45rem; }
+.hy-detail-light-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-size: 0.68rem;
+    color: var(--text-tertiary);
+}
+.hy-detail-light-label strong {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.hy-detail-color-input {
+    width: 100%;
+    height: 2.25rem;
+    padding: 0.15rem;
+    border: 1px solid var(--overlay-8);
+    border-radius: 0.55rem;
+    background: var(--overlay-3);
+    cursor: pointer;
+}
 .hy-detail-attrs {
     max-height: 18rem;
     overflow: auto;

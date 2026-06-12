@@ -557,26 +557,37 @@ def _migrate_unique_id_unlocked(
     if not old_uid or not new_uid or old_uid == new_uid:
         return
     row = by_uid.get(old_uid)
-    if not row or new_uid in by_uid:
+    if not row:
         return
     now = time.time()
+
+    if new_uid in by_uid:
+        # Post-rename sync may already have registered the target unique_id — drop stale row.
+        with _db() as db:
+            db.execute(text("DELETE FROM entity_registry WHERE unique_id = :old_uid"), {"old_uid": old_uid})
+            db.commit()
+        old_eid = str(row.get("entity_id") or "")
+        if old_eid and by_eid.get(old_eid) == old_uid:
+            by_eid.pop(old_eid, None)
+        by_uid.pop(old_uid, None)
+        return
+
     with _db() as db:
         db.execute(text("""
-            INSERT INTO entity_registry
-            (unique_id, entity_id, domain, name, device_id, source,
-             config_entry_id, disabled, created_at, updated_at, entity_id_user_set)
-            SELECT :new_uid, entity_id, domain, name, device_id, source,
-                   config_entry_id, disabled, created_at, :updated, entity_id_user_set
-            FROM entity_registry WHERE unique_id = :old_uid
+            UPDATE entity_registry
+            SET unique_id = :new_uid, updated_at = :updated
+            WHERE unique_id = :old_uid
         """), {"new_uid": new_uid, "old_uid": old_uid, "updated": now})
-        db.execute(text("DELETE FROM entity_registry WHERE unique_id = :old_uid"), {"old_uid": old_uid})
         db.commit()
+
     new_row = dict(row)
     new_row["unique_id"] = new_uid
     new_row["updated_at"] = now
     by_uid[new_uid] = new_row
     by_uid.pop(old_uid, None)
-    by_eid[new_row["entity_id"]] = new_uid
+    eid = str(new_row.get("entity_id") or "")
+    if eid:
+        by_eid[eid] = new_uid
 
 
 def refresh_entity_ids_for_device_rename(

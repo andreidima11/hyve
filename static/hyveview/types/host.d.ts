@@ -22,6 +22,7 @@ export interface HyveviewHostApi {
     weatherIsNight: (attrs: unknown) => boolean;
     t?: (key: string, params?: Record<string, unknown>) => string;
     tVacuumStatus?: (status: unknown, state: string) => string;
+    tLawnMowerStatus?: (status: unknown, state: string) => string;
 }
 
 export interface WidgetTitleFallbacks {

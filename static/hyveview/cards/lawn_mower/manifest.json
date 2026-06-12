@@ -1,0 +1,11 @@
+{
+  "id": "lawn_mower",
+  "name": "Lawn mower",
+  "description": "Robot lawn mower controls.",
+  "version": "1.0.0",
+  "entry": "index.js",
+  "styles": [
+    "styles.css"
+  ],
+  "hyve_card": true
+}

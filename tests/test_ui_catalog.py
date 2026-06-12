@@ -108,6 +108,9 @@ def test_integration_catalog_marks_config_schema_availability():
     assert "piper" in by_slug
     assert by_slug["piper"]["has_config_schema"] is True
 
+    assert "mammotion" in by_slug
+    assert by_slug["mammotion"]["has_config_schema"] is True
+
     assert "mosquitto" in by_slug
     assert by_slug["mosquitto"]["has_config_schema"] is True
 

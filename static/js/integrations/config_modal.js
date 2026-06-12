@@ -5,7 +5,7 @@ import { openSubPage, closeSubPage } from '../utils.js';
 import { integrationDefinition, integrationCatalogSlug, integrationLabel, integrationDescription, normalizeIntegrationIcon, supportsIntegrationEntitySync, } from './catalog_meta.js';
 import { loadIntegrationCatalog, syncConfiguredIntegration } from './catalog.js';
 import { loadIntegrationExposedEntities } from './exposed_devices.js';
-import { loadIntegrationConfigEntries, integrationHasConfigSchema } from './config_entries.js';
+import { loadIntegrationConfigEntries } from './config_entries.js';
 export function slugForId(s) {
     if (!s || typeof s !== 'string')
         return '';
@@ -92,13 +92,12 @@ export async function openIntegrationConfigModal(integrationId) {
         iconEl.style.display = logo ? 'none' : '';
     }
     openSubPage('integration-config-modal');
-    if (integrationHasConfigSchema(catalogSlug)) {
-        try {
-            await loadIntegrationConfigEntries(catalogSlug);
-        }
-        catch (_) { }
+    try {
+        await loadIntegrationConfigEntries(catalogSlug);
     }
-    else {
+    catch (_) { }
+    const entriesVisible = !!(entriesSection && !entriesSection.classList.contains('hidden'));
+    if (!entriesVisible) {
         _showGenericPanel(meta, catalogSlug);
     }
     if (supportsIntegrationEntitySync(catalogSlug)) {

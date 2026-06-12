@@ -4,6 +4,32 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.3] — 2026-06
+
+Feature release: Mammotion lawn mower integration, entity control UI fixes, and dashboard lawn mower card.
+
+### Integrations
+- **Mammotion** (`components/mammotion/`): cloud login (PyMammotion 0.8.5), MQTT command transport, entity sync for Luba / Yuka / Spino — sensors, switches, numbers, selects, action buttons, and per-plan task buttons from mower maps.
+- Config entry test/sync: 120s timeout for Mammotion; background wire after create/update so the UI responds before cloud login.
+- `start.sh` prefers `.venv` (Python 3.13 + pymammotion) over legacy `venv`.
+- CI and `.python-version` bumped to Python 3.13.
+
+### Entity UI
+- **Select** entities: dropdown with label + options (from `capabilities.options` / `attributes.options`); no longer limited to ≤6 options or plain state text.
+- **Button** entities: action control instead of “unknown” empty state; momentary domains show a send/action affordance.
+- Smart home device modal: richer entity detail panel and inline controls for controllable domains.
+
+### Dashboard
+- New **lawn_mower** Hyveview card (start / pause / stop / dock, battery and state).
+- Widget actions wired for lawn mower entities on the dashboard.
+
+### Mosquitto / Z2M
+- Bridge version sensor and improved device metadata extraction for Zigbee2MQTT entities.
+
+### Platform
+- Entity registry: stable unique IDs and alias resolution improvements.
+- i18n: entity render strings (EN/RO) for lawn mower, button, and select controls.
+
 ## [0.9.2] — 2026-06
 
 Hotfix: boot overlay stuck on loading after upgrading from 0.9.0/0.9.1.

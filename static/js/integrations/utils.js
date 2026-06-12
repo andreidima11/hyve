@@ -1,4 +1,9 @@
 import { ACTIVE_STATES } from '../entity_constants.js';
+import { t, translateApiDetail } from '../lang/index.js';
+/** Resolve FastAPI ``error_detail`` payloads or plain API error bodies to text. */
+export function integrationApiError(detail, fallbackKey = 'integrations.action_failed') {
+    return translateApiDetail(detail) || t(fallbackKey);
+}
 export function errMsg(err) {
     if (err instanceof Error)
         return err.message;

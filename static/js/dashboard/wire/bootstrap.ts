@@ -4,7 +4,7 @@
 
 import { apiCall } from '../../api.js';
 import { showConfirm, showToast } from '../../utils.js';
-import { t, tVacuumStatus } from '../../lang/index.js';
+import { t, tVacuumStatus, tLawnMowerStatus } from '../../lang/index.js';
 import { HVSetHost, hvOpenEditor } from '../hyveview_setup.js';
 import { widgetIconSpec } from '../../icon_utils.js';
 import { escapeHtml, stateOn } from '../helpers.js';
@@ -62,6 +62,7 @@ export function wireDashboardBootstrap(): void {
         weatherVariant,
         weatherIsNight,
         tVacuumStatus,
+        tLawnMowerStatus,
         t,
     });
 

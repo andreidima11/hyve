@@ -59,6 +59,7 @@ import {
 import {
     onDashboardLockAction,
     onDashboardVacuumAction,
+    onDashboardLawnMowerAction,
     onDashboardBrightnessInput,
     onDashboardBrightnessChange,
 } from '../widget_actions.js';
@@ -130,6 +131,7 @@ export function wireDashboardEvents(): void {
         },
         lockAction: ({ widgetId, action }) => { onDashboardLockAction(widgetId, action); },
         vacuumAction: ({ widgetId, action }) => { onDashboardVacuumAction(widgetId, action); },
+        lawnMowerAction: ({ widgetId, action }) => { onDashboardLawnMowerAction(widgetId, action); },
         brightnessInput: ({ event, widgetId }) => onDashboardBrightnessInput(event, widgetId),
         brightnessChange: ({ event, widgetId }) => onDashboardBrightnessChange(event, widgetId),
     });

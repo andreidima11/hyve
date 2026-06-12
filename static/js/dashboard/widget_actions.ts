@@ -11,6 +11,7 @@ let _deps: DashboardWidgetActionDeps | null = null;
 let _brightnessDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 const _brightnessLastSent = new Map<string, number>();
 const _vacuumResyncTimers = new Map<string, ReturnType<typeof setTimeout>[]>();
+const _lawnMowerResyncTimers = new Map<string, ReturnType<typeof setTimeout>[]>();
 
 const VACUUM_OPTIMISTIC_STATE: Record<string, string | null> = {
     start: 'cleaning',
@@ -18,6 +19,13 @@ const VACUUM_OPTIMISTIC_STATE: Record<string, string | null> = {
     stop: 'idle',
     return_to_base: 'returning',
     locate: null,
+};
+
+const LAWN_MOWER_OPTIMISTIC_STATE: Record<string, string | null> = {
+    start: 'mowing',
+    pause: 'paused',
+    stop: 'idle',
+    return_to_base: 'returning',
 };
 
 export function initDashboardWidgetActions(deps: DashboardWidgetActionDeps): void {
@@ -39,6 +47,18 @@ function scheduleVacuumResync(slug: string): void {
     };
     const timers = [setTimeout(fire, 3000), setTimeout(fire, 9000)];
     _vacuumResyncTimers.set(slug, timers);
+}
+
+function scheduleLawnMowerResync(slug: string): void {
+    if (!slug) return;
+    const existing = _lawnMowerResyncTimers.get(slug);
+    if (existing) existing.forEach((id) => clearTimeout(id));
+    const fire = async () => {
+        try { await deps().apiCall(`/api/integrations/sync/${encodeURIComponent(slug)}`, { method: 'POST' }); }
+        catch { /* best effort */ }
+    };
+    const timers = [setTimeout(fire, 3000), setTimeout(fire, 9000)];
+    _lawnMowerResyncTimers.set(slug, timers);
 }
 
 async function sendBrightness(widgetId: string, pct: number): Promise<void> {
@@ -138,6 +158,35 @@ export async function onDashboardVacuumAction(widgetId: string, action: string):
             if (!tryFastPathForEntities([String(widget.entity_id || '')])) renderDashboard();
         }
         scheduleVacuumResync(slug);
+    } catch (e) {
+        const msg = e instanceof Error ? e.message : t('dashboard.action_failed');
+        showToast(msg, 'error');
+    }
+}
+
+export async function onDashboardLawnMowerAction(widgetId: string, action: string): Promise<void> {
+    const { apiCall, t, showToast, findWidget, tryFastPathForEntities, renderDashboard } = deps();
+    const widget = findWidget(widgetId);
+    if (!widget) return;
+    try {
+        const slug = String(widget.source || 'mammotion');
+        const res = await apiCall(`/api/integrations/${encodeURIComponent(slug)}/control`, {
+            method: 'POST',
+            body: { entity_id: widget.entity_id, action, data: {} },
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(dashApiError((err as { detail?: unknown }).detail, 'dashboard.action_failed'));
+        }
+        const optimistic = LAWN_MOWER_OPTIMISTIC_STATE[action];
+        if (optimistic) {
+            widget.current_state = optimistic;
+            const attrs = { ...((widget.attributes || {}) as Record<string, unknown>) };
+            delete attrs.status;
+            widget.attributes = attrs;
+            if (!tryFastPathForEntities([String(widget.entity_id || '')])) renderDashboard();
+        }
+        scheduleLawnMowerResync(slug);
     } catch (e) {
         const msg = e instanceof Error ? e.message : t('dashboard.action_failed');
         showToast(msg, 'error');
