@@ -177,15 +177,17 @@ function _renderConfigSection(addon, isAdmin) {
         : t('apps.config_intro_not_installed');
     return `
     <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 space-y-4">
-        <div class="space-y-1">
-            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${escapeHtml(t('apps.config_section'))}</span>
-            <p class="text-xs text-slate-500">${escapeHtml(intro)}</p>
+        <div class="flex items-start justify-between gap-3">
+            <div class="space-y-1 min-w-0">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${escapeHtml(t('apps.config_section'))}</span>
+                <p class="text-xs text-slate-500">${escapeHtml(intro)}</p>
+            </div>
+            ${isAdmin ? `<button type="button" data-config-action="saveAddonConfig" data-config-slug="${escapeHtml(addon.slug)}" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors flex-shrink-0 shadow-lg shadow-accent/20"><i class="fas fa-check"></i>${escapeHtml(t('apps.save_config'))}</button>` : ''}
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             ${schema.map((field) => _renderConfigField(field, cfg[field.key ?? ''], isAdmin)).join('')}
         </div>
         <div class="flex flex-wrap gap-2">
-            ${isAdmin ? `<button type="button" data-config-action="saveAddonConfig" data-config-slug="${escapeHtml(addon.slug)}" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent text-bg-main hover:bg-accent-hover transition-all shadow-lg shadow-accent/20"><i class="fas fa-save mr-1.5"></i>${escapeHtml(t('apps.save_config'))}</button>` : ''}
             ${isAdmin ? `<button type="button" data-config-action="testAddonHealth" data-config-slug="${escapeHtml(addon.slug)}" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] transition-all"><i class="fas fa-heart-pulse mr-1.5"></i>${escapeHtml(t('apps.test_connection'))}</button>` : ''}
             ${webUrl ? `<button type="button" data-config-action="openAddonWebUI" data-config-slug="${escapeHtml(addon.slug)}" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-all"><i class="fas fa-display mr-1.5"></i>${escapeHtml(t('apps.open_web_ui'))}</button>` : ''}
         </div>
@@ -249,6 +251,7 @@ export function _renderDetail(addon, status) {
     const enabled = addon.state?.enabled;
     const hasProcess = !!addon.start_command;
     const isAdminUser = isAdmin();
+    const hasConfigSchema = !!(addon.config_schema || []).length;
     const configHtml = _renderConfigSection(addon, isAdminUser);
     // Show the real installed version (resolved from the package) when installed;
     // fall back to the manifest version for not-installed add-ons.
@@ -274,13 +277,19 @@ export function _renderDetail(addon, status) {
         }
         else {
             const watchdogOn = !!addon.state?.watchdog;
+            const adminSaveBtn = isAdminUser && hasProcess && !hasConfigSchema
+                ? `<button type="button" data-config-action="saveAddonConfig" data-config-slug="${escapeHtml(slug)}" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors flex-shrink-0 shadow-lg shadow-accent/20"><i class="fas fa-check"></i>${escapeHtml(t('apps.save_config'))}</button>`
+                : '';
             lifecycleHtml = `
             <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 space-y-3">
-                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${escapeHtml(t('apps.admin_section'))}</span>
+                <div class="flex items-start justify-between gap-3">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${escapeHtml(t('apps.admin_section'))}</span>
+                    ${adminSaveBtn}
+                </div>
                 ${hasProcess ? `
                 <label class="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 flex items-start gap-3 cursor-pointer">
                     <input type="checkbox" id="addon-watchdog-${escapeHtml(slug)}" ${watchdogOn ? 'checked' : ''}
-                        data-config-input="toggleAddonWatchdog" data-config-slug="${escapeHtml(slug)}"
+                        data-config-slug="${escapeHtml(slug)}"
                         class="mt-0.5 rounded border-white/10 bg-slate-900 text-accent focus:ring-accent/40">
                     <span class="min-w-0">
                         <span class="block text-sm text-white"><i class="fas fa-shield-halved mr-1.5 opacity-70"></i>${escapeHtml(t('apps.watchdog_auto_restart'))}</span>

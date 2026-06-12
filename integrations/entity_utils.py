@@ -93,3 +93,57 @@ def set_status_attrs(
     attributes["status_key"] = str(key or "").strip()
     if label is not None:
         attributes["status"] = label
+
+
+def device_field_bundle(
+    device_id: str,
+    device_name: str = "",
+    *,
+    manufacturer: str = "",
+    model: str = "",
+    area: str = "",
+) -> dict[str, str]:
+    """Return device metadata fields for entity records and ``attributes``."""
+    did = str(device_id or "").strip()
+    dname = str(device_name or did).strip()
+    fields: dict[str, str] = {"device_id": did, "device_name": dname}
+    if manufacturer:
+        fields["device_manufacturer"] = str(manufacturer).strip()
+    if model:
+        fields["device_model"] = str(model).strip()
+    if area:
+        fields["area"] = str(area).strip()
+    return fields
+
+
+def attach_device_fields(
+    entity: dict[str, Any],
+    *,
+    device_id: str,
+    device_name: str = "",
+    manufacturer: str = "",
+    model: str = "",
+    area: str = "",
+) -> dict[str, Any]:
+    """Attach shared ``device_id`` / ``device_name`` on entity root and attributes."""
+    fields = device_field_bundle(
+        device_id,
+        device_name,
+        manufacturer=manufacturer,
+        model=model,
+        area=area,
+    )
+    entity["device_id"] = fields["device_id"]
+    entity["device_name"] = fields["device_name"]
+    if manufacturer:
+        entity["device_manufacturer"] = fields["device_manufacturer"]
+    if model:
+        entity["device_model"] = fields["device_model"]
+    if area:
+        entity["area"] = fields["area"]
+    attrs = entity.get("attributes")
+    if not isinstance(attrs, dict):
+        attrs = {}
+        entity["attributes"] = attrs
+    attrs.update(fields)
+    return entity

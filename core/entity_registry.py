@@ -381,6 +381,48 @@ def update_entry(
         return dict(existing)
 
 
+def migrate_legacy_custom_name_overrides() -> int:
+    """Move ``integration_entity_overrides.custom_name`` into ``registry.name``.
+
+    Legacy installs stored friendly names in overrides; the canonical store is
+    ``entity_registry.name`` (HA-style). Returns the number of rows migrated.
+    """
+    try:
+        from addons.entity_store import get_entity_store
+    except Exception:
+        return 0
+
+    store = get_entity_store()
+    overrides = store.get_overrides() or {}
+    migrated = 0
+    for key, ov in overrides.items():
+        custom = str(ov.get("custom_name") or "").strip()
+        if not custom:
+            continue
+        entry = get_by_entity_id(str(key)) or get_by_unique_id(str(key))
+        if not entry:
+            continue
+        uid = str(entry.get("unique_id") or "").strip()
+        if not uid:
+            continue
+        current = str(entry.get("name") or "").strip()
+        if not current:
+            try:
+                update_entry(uid, name=custom)
+            except Exception as exc:
+                log.debug("custom_name migrate failed for %s: %s", uid, exc)
+                continue
+        try:
+            store.set_override(str(entry.get("entity_id") or key), custom_name="", aliases=None)
+        except Exception as exc:
+            log.debug("custom_name clear failed for %s: %s", key, exc)
+            continue
+        migrated += 1
+    if migrated:
+        reload()
+    return migrated
+
+
 def _slug(value: str) -> str:
     from integrations.entity_utils import slugify
 

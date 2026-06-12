@@ -288,18 +288,33 @@ async def list_integration_entities(user: models.User = Depends(get_current_user
 
 @router.post("/entity/rename")
 async def rename_entity(body: dict, user: models.User = Depends(get_current_user)):
+    from core import entity_registry
+
     entity_id = (body.get("entity_id") or "").strip()
     if not entity_id:
         raise HTTPException(status_code=400, detail=error_detail("integrations.entity_id_required"))
     custom_name = body.get("custom_name")
     aliases = body.get("aliases")
+    clear_legacy_name = None
     if custom_name is not None:
         custom_name = str(custom_name).strip()
+        entry = entity_registry.get_by_entity_id(entity_id)
+        if not entry:
+            raise HTTPException(status_code=404, detail=error_detail("integrations.registry_entry_not_found"))
+        try:
+            entity_registry.update_entry(entry["unique_id"], name=custom_name)
+        except KeyError:
+            raise HTTPException(status_code=404, detail=error_detail("integrations.registry_entry_not_found"))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=error_detail("common.error_with_message", {"message": str(exc)}))
+        entity_registry.reload()
+        clear_legacy_name = ""
     if aliases is not None:
         if not isinstance(aliases, list):
             raise HTTPException(status_code=400, detail=error_detail("integrations.aliases_must_be_list"))
         aliases = [str(a).strip() for a in aliases if str(a).strip()]
     store = get_entity_store()
-    store.set_override(entity_id, custom_name=custom_name, aliases=aliases)
+    if clear_legacy_name is not None or aliases is not None:
+        store.set_override(entity_id, custom_name=clear_legacy_name, aliases=aliases)
     helpers.invalidate_all_entities_cache()
     return {"status": "ok", "entity_id": entity_id}

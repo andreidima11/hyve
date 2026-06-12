@@ -2,12 +2,54 @@ from __future__ import annotations
 
 from typing import Any
 
-from integrations.entity_utils import finalize_entities as _finalize
+from integrations.entity_utils import attach_device_fields, finalize_entities as _finalize, slugify
 
-def extract_pago_candidates(payload: Any) -> list[dict[str, Any]]:
+
+def _resolve_pago_device(
+    payload: dict[str, Any],
+    *,
+    entry_id: str = "",
+    entry_title: str = "",
+) -> tuple[str, str]:
+    """One Hyve device per Pago config entry (account)."""
+    eid = str(entry_id or "").strip()
+    title = str(entry_title or "").strip()
+    profil = payload.get("profil") if isinstance(payload.get("profil"), dict) else {}
+    email = str(profil.get("email") or "").strip()
+    if eid:
+        device_id = eid
+    elif email:
+        device_id = f"pago_{slugify(email)}"
+    else:
+        device_id = "pago_default"
+    device_name = title or email or "Pago"
+    return device_id, device_name
+
+
+def extract_pago_candidates(
+    payload: Any,
+    *,
+    entry_id: str = "",
+    entry_title: str = "",
+) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     if not isinstance(payload, dict):
         return items
+
+    device_id, device_name = _resolve_pago_device(
+        payload,
+        entry_id=entry_id,
+        entry_title=entry_title,
+    )
+
+    def _push(entity: dict[str, Any]) -> None:
+        attach_device_fields(
+            entity,
+            device_id=device_id,
+            device_name=device_name,
+            manufacturer="Pago",
+        )
+        items.append(entity)
 
     def _text(*parts: Any) -> str:
         return " • ".join(str(part).strip() for part in parts if str(part or "").strip())
@@ -29,9 +71,9 @@ def extract_pago_candidates(payload: Any) -> list[dict[str, Any]]:
         suma = factura.get("suma_datorata")
         scadenta = _date(factura.get("scadenta"))
         state = _text(_money(suma), f"scadentă {scadenta}" if scadenta else "", "factură")
-        items.append({
+        _push({
             "entity_id": f"pago:factura_{idx}",
-            "name": f"Pago • {furnizor}",
+            "name": furnizor,
             "state": state or "Factură",
             "domain": "sensor",
             "source": "pago",
@@ -51,9 +93,9 @@ def extract_pago_candidates(payload: Any) -> list[dict[str, Any]]:
             date_value = _date(alerte.get(key))
             if date_value:
                 tags.append(f"{label} {date_value}")
-        items.append({
+        _push({
             "entity_id": f"pago:vehicul_{idx}",
-            "name": f"Pago • {plate}",
+            "name": plate,
             "state": " • ".join(tags) if tags else ("Date incomplete" if vehicul.get("incomplet") else "Fără alerte"),
             "domain": "sensor",
             "source": "pago",
@@ -66,9 +108,9 @@ def extract_pago_candidates(payload: Any) -> list[dict[str, Any]]:
     if isinstance(abon, dict) and abon:
         pret = _money(abon.get("pret"))
         plati_ramase = abon.get("plati_ramase")
-        items.append({
+        _push({
             "entity_id": "pago:abonament",
-            "name": "Pago • Abonament",
+            "name": "Abonament",
             "state": _text("Activ" if abon.get("activ") else "Inactiv", f"{plati_ramase} plăți rămase" if plati_ramase is not None else "", pret),
             "domain": "sensor",
             "source": "pago",
@@ -85,8 +127,8 @@ def extract_pago_candidates(payload: Any) -> list[dict[str, Any]]:
         locatie = str(cont.get("locatie") or "").strip()
         amount = _money(cont.get("ultima_plata_suma"))
         when = _date(cont.get("ultima_plata_data"))
-        title = f"Pago • {furnizor}" + (f" ({locatie})" if locatie else "")
-        items.append({
+        title = f"{furnizor}" + (f" ({locatie})" if locatie else "")
+        _push({
             "entity_id": f"pago:cont_{idx}",
             "name": title,
             "state": _text(amount, when, "autoplată" if cont.get("auto_plata") else ""),
@@ -104,11 +146,11 @@ def extract_pago_candidates(payload: Any) -> list[dict[str, Any]]:
         last4 = str(card.get("last4") or "").strip()
         alias = str(card.get("alias") or "").strip()
         ctype = str(card.get("tip_card") or "").strip()
-        name = alias or (f"Pago • Card ****{last4}" if last4 else f"Pago • Card {idx}")
+        label = alias or (f"Card ****{last4}" if last4 else f"Card {idx}")
         state = _text(f"****{last4}" if last4 else "", ctype, "implicit" if card.get("default") else "", "activ" if card.get("activ") else "inactiv")
-        items.append({
+        _push({
             "entity_id": f"pago:card_{idx}",
-            "name": name,
+            "name": label,
             "state": state or "Card",
             "domain": "sensor",
             "source": "pago",
@@ -126,10 +168,10 @@ def extract_pago_candidates(payload: Any) -> list[dict[str, Any]]:
         amount = _money(plata.get("suma_platita") or plata.get("suma"))
         when = _date(plata.get("data"))
         status = str(plata.get("status") or "").strip()
-        name = f"Pago • {furnizor}" + (f" ({locatie})" if locatie else "")
-        items.append({
+        title = f"{furnizor}" + (f" ({locatie})" if locatie else "")
+        _push({
             "entity_id": f"pago:plata_{idx}",
-            "name": name,
+            "name": title,
             "state": _text(amount, when, status),
             "domain": "sensor",
             "source": "pago",

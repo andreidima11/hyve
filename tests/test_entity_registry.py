@@ -148,3 +148,71 @@ def test_sync_registers_new_entities():
     assert stored is not None
     assert stored["entity_id"] == "switch.lamp"
     assert stored["device_id"] == "0xabc"
+
+
+def test_migrate_custom_name_fills_empty_registry_name():
+    entity_registry.register_entity({
+        "unique_id": "mqtt:bed_light",
+        "entity_id": "light.lampa_dormitor",
+        "domain": "light",
+        "name": "",
+        "source": "mosquitto",
+    })
+    entity_registry.reload()
+
+    with database.engine.connect() as conn:
+        conn.execute(text("""
+            INSERT INTO integration_entity_overrides (entity_id, custom_name, aliases, selected)
+            VALUES ('light.lampa_dormitor', 'Lampa dormitor', '[]', 0)
+        """))
+        conn.commit()
+
+    migrated = entity_registry.migrate_legacy_custom_name_overrides()
+    assert migrated == 1
+
+    row = entity_registry.get_by_entity_id("light.lampa_dormitor")
+    assert row is not None
+    assert row["name"] == "Lampa dormitor"
+
+    with database.engine.connect() as conn:
+        custom = conn.execute(
+            text("SELECT custom_name FROM integration_entity_overrides WHERE entity_id = :eid"),
+            {"eid": "light.lampa_dormitor"},
+        ).fetchone()
+    assert custom is not None
+    assert custom[0] == ""
+
+
+def test_apply_overrides_keeps_registry_friendly_name():
+    from addons.entity_store import get_entity_store
+
+    entity_registry.register_entity({
+        "unique_id": "mqtt:bed_light",
+        "entity_id": "light.lampa_dormitor",
+        "domain": "light",
+        "name": "Lampa dormitor",
+        "source": "mosquitto",
+    })
+    entity_registry.reload()
+
+    with database.engine.connect() as conn:
+        conn.execute(text("""
+            INSERT INTO integration_entity_overrides (entity_id, custom_name, aliases, selected)
+            VALUES ('light.lampa_dormitor', 'Legacy Override Name', '[\"lampa mea\"]', 1)
+        """))
+        conn.commit()
+
+    entities = [{
+        "unique_id": "mqtt:bed_light",
+        "entity_id": "light.lampa_dormitor",
+        "domain": "light",
+        "name": "Provider Name",
+        "source": "mosquitto",
+        "attributes": {},
+    }]
+    entity_registry.sync_entities(entities)
+    get_entity_store().apply_overrides(entities)
+
+    assert entities[0]["name"] == "Lampa dormitor"
+    assert entities[0]["aliases"] == ["lampa mea"]
+    assert entities[0]["selected"] is True

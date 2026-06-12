@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from integrations.entity_utils import slugify
+from integrations.entity_utils import attach_device_fields, slugify
 
 # Re-export detection type constants used in binary_sensor specs
 try:
@@ -259,6 +259,31 @@ def _state_for_spec(api: Host, spec: ReolinkSpec, channel: int | None) -> Any:
     return raw
 
 
+def _reolink_device(api: Host, prefix: str, channel: int | None) -> tuple[str, str]:
+    if channel is None:
+        return f"{prefix}_host", str(api.nvr_name or api.name or "Reolink")
+    label = str(api.camera_name(channel) or f"Channel {channel}")
+    return f"{prefix}_ch{channel}", label
+
+
+def _append_reolink_entity(
+    items: list[dict[str, Any]],
+    entity: dict[str, Any],
+    *,
+    api: Host,
+    prefix: str,
+    channel: int | None,
+) -> None:
+    did, dname = _reolink_device(api, prefix, channel)
+    items.append(attach_device_fields(
+        entity,
+        device_id=did,
+        device_name=dname,
+        manufacturer="Reolink",
+        model=str(getattr(api, "model", "") or ""),
+    ))
+
+
 def build_entities(
     api: Host,
     *,
@@ -323,7 +348,7 @@ def build_entities(
                 "controllable": spec.controllable,
                 "attributes": attrs,
             }
-            items.append(item)
+            _append_reolink_entity(items, item, api=api, prefix=prefix, channel=ch)
 
     # Dynamic: Smart AI binary sensors per zone (HA binary_sensor.py)
     _SMART_AI = (
@@ -355,7 +380,7 @@ def build_entities(
                 except Exception:
                     continue
                 eid = f"binary_sensor.{prefix}_ch{ch}_{slugify(key)}_{loc}"
-                items.append({
+                _append_reolink_entity(items, {
                     "entity_id": eid,
                     "name": f"{ch_name} {key} ({zone})",
                     "state": "on" if on else "off",
@@ -372,7 +397,7 @@ def build_entities(
                         "reolink_smart_type": smart_type,
                         "reolink_object_type": obj_type,
                     },
-                })
+                }, api=api, prefix=prefix, channel=ch)
 
     # Dynamic: IO inputs
     for ch in api.channels:
@@ -387,7 +412,7 @@ def build_entities(
                 on = None
             ch_name = api.camera_name(ch)
             eid = f"binary_sensor.{prefix}_ch{ch}_io_input_{idx}"
-            items.append({
+            _append_reolink_entity(items, {
                 "entity_id": eid,
                 "name": f"{ch_name} IO {idx}",
                 "state": "on" if on else "off" if on is not None else "unknown",
@@ -401,7 +426,7 @@ def build_entities(
                     "reolink_channel": ch,
                     "reolink_index": idx,
                 },
-            })
+            }, api=api, prefix=prefix, channel=ch)
 
     # Dynamic: automation rules
     for ch in api.channels:
@@ -417,7 +442,7 @@ def build_entities(
                 continue
             ch_name = api.camera_name(ch)
             eid = f"switch.{prefix}_ch{ch}_rule_{rid}"
-            items.append({
+            _append_reolink_entity(items, {
                 "entity_id": eid,
                 "name": f"{ch_name} Regulă {rname}",
                 "state": "on" if on else "off",
@@ -431,6 +456,6 @@ def build_entities(
                     "reolink_channel": ch,
                     "reolink_rule_id": rid,
                 },
-            })
+            }, api=api, prefix=prefix, channel=ch)
 
     return items

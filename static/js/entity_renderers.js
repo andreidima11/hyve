@@ -218,6 +218,133 @@ function slugifyObjectId(value) {
         .replace(/_+/g, '_')
         .replace(/^_|_$/g, '') || 'unknown';
 }
+export function entityDisplayName(entity) {
+    if (!entity)
+        return '';
+    return String(entity.name || entity.entity_id || '').trim();
+}
+export async function saveEntityRegistryName(entity, nameInput) {
+    const uid = entityUniqueId(entity);
+    if (!uid)
+        throw new Error('missing unique_id');
+    const name = String(nameInput || '').trim();
+    if (!name)
+        throw new Error(_er('friendly_name_required'));
+    const current = String(entity.name || '').trim();
+    if (name === current)
+        return { name: current, unchanged: true };
+    const res = await apiCall(`/api/integrations/entities/registry/${encodeURIComponent(uid)}`, { method: 'PATCH', body: { name } });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw new Error(out.detail || out.message || _er('friendly_name_save_failed'));
+    }
+    const saved = String(out.entry?.name || name).trim() || name;
+    entity.name = saved;
+    return { name: saved, unchanged: false };
+}
+export function wireEntityFriendlyNameEditor(container, entity, options = {}) {
+    if (!container || !entity)
+        return;
+    const root = container.querySelector('[data-entity-friendly-name-root]');
+    if (!root)
+        return;
+    if (!entityUniqueId(entity))
+        return;
+    const viewWrap = root.querySelector('[data-entity-friendly-name-view-wrap]');
+    const view = root.querySelector('[data-entity-friendly-name-view]');
+    const panel = root.querySelector('[data-entity-friendly-name-edit-panel]');
+    const input = root.querySelector('[data-entity-friendly-name-input]');
+    const editBtn = root.querySelector('[data-entity-friendly-name-edit]');
+    const saveBtn = root.querySelector('[data-entity-friendly-name-save]');
+    const cancelBtn = root.querySelector('[data-entity-friendly-name-cancel]');
+    const showView = () => {
+        viewWrap?.classList.remove('hidden');
+        panel?.classList.add('hidden');
+    };
+    const showEdit = () => {
+        viewWrap?.classList.add('hidden');
+        panel?.classList.remove('hidden');
+        if (input)
+            input.value = entityDisplayName(entity);
+        input?.focus();
+        input?.select();
+    };
+    if (editBtn)
+        editBtn.onclick = showEdit;
+    if (cancelBtn)
+        cancelBtn.onclick = showView;
+    const submit = async () => {
+        if (!input || saveBtn?.disabled)
+            return;
+        if (saveBtn)
+            saveBtn.disabled = true;
+        try {
+            const result = await saveEntityRegistryName(entity, input.value || '');
+            if (view)
+                view.textContent = result.name;
+            showView();
+            options.onUpdated?.({ entity, name: result.name });
+            if (!result.unchanged && options.toast !== false && options.toast !== 'false') {
+                const { showToast } = await import('./utils.js');
+                showToast(_er('friendly_name_updated'), 'success', 2200);
+            }
+        }
+        catch (err) {
+            const { showToast } = await import('./utils.js');
+            showToast(err instanceof Error ? err.message : _er('friendly_name_save_failed'), 'error', 3200);
+        }
+        finally {
+            if (saveBtn)
+                saveBtn.disabled = false;
+        }
+    };
+    if (saveBtn)
+        saveBtn.onclick = submit;
+    if (input) {
+        input.onkeydown = (ev) => {
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
+                submit();
+            }
+            else if (ev.key === 'Escape') {
+                ev.preventDefault();
+                showView();
+            }
+        };
+    }
+}
+export function renderEntityFriendlyNameSection(entity) {
+    const uid = entityUniqueId(entity);
+    if (!uid)
+        return '';
+    const eid = String(entity.entity_id || '');
+    const display = escapeHtml(entityDisplayName(entity) || eid);
+    return `
+    <div class="rounded-2xl bg-white/5 border border-white/10 p-3 mb-3" data-entity-friendly-name-root>
+        <div class="flex items-center gap-2 text-[9px] uppercase tracking-widest text-slate-500">
+            <span>${escapeHtml(_er('friendly_name'))}</span>
+            <button type="button" data-entity-friendly-name-edit class="hover:text-accent transition-colors" title="${escapeHtml(_er('friendly_name'))}">
+                <i class="fas fa-pen text-[10px]"></i>
+            </button>
+        </div>
+        <div data-entity-friendly-name-view-wrap>
+            <div class="text-sm font-semibold text-slate-100 mt-1 break-words leading-snug" data-entity-friendly-name-view>${display}</div>
+            <div class="text-[10px] text-slate-500 mono break-all mt-1">${escapeHtml(eid)}</div>
+        </div>
+        <div data-entity-friendly-name-edit-panel class="hidden mt-2 flex flex-col gap-2">
+            <div class="flex items-center gap-2">
+                <input type="text" data-entity-friendly-name-input value="${_attr(entityDisplayName(entity) || eid)}"
+                    class="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-accent/40">
+                <button type="button" data-entity-friendly-name-save class="px-2 py-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent text-[11px] font-semibold hover:bg-accent/30 shrink-0">
+                    <i class="fas fa-check"></i>
+                </button>
+                <button type="button" data-entity-friendly-name-cancel class="px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-[11px] hover:bg-white/10 shrink-0">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>`;
+}
 export function renderEntityRegistrySection(entity) {
     const uid = entityUniqueId(entity);
     const eid = String(entity?.entity_id || '').trim();
@@ -359,6 +486,14 @@ export function wireEntityRegistryEditor(container, entity, options = {}) {
 function renderSwitch(entity, slug) {
     const eid = entity.entity_id;
     const isOn = String(entity.state || '').toLowerCase() === 'on';
+    const canToggle = entity.controllable !== false;
+    const toggleBtn = canToggle ? `
+            <button type="button"
+                    role="switch" aria-checked="${isOn}"
+                    class="app-toggle-switch shrink-0" data-entity-toggle="${escapeHtml(eid)}" data-on="${isOn}"
+                    ${_ctrlAttrs(slug, eid, isOn ? 'turn_off' : 'turn_on')}>
+                <span class="app-toggle-thumb"></span>
+            </button>` : '';
     return `
     <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
         <div class="flex items-center justify-between gap-4">
@@ -366,19 +501,21 @@ function renderSwitch(entity, slug) {
                 <div class="text-[11px] uppercase tracking-wider text-slate-400">${escapeHtml(_er('state'))}</div>
                 <div class="text-sm font-semibold text-slate-100 mt-0.5">${escapeHtml(isOn ? tState('on') : tState('off'))}</div>
             </div>
-            <button type="button"
-                    role="switch" aria-checked="${isOn}"
-                    class="app-toggle-switch shrink-0" data-entity-toggle="${escapeHtml(eid)}" data-on="${isOn}"
-                    ${_ctrlAttrs(slug, eid, isOn ? 'turn_off' : 'turn_on')}>
-                <span class="app-toggle-thumb"></span>
-            </button>
+            ${toggleBtn}
         </div>
     </div>`;
 }
 function renderLight(entity, slug) {
     const eid = entity.entity_id;
     const isOn = String(entity.state || '').toLowerCase() === 'on';
+    const canToggle = entity.controllable !== false;
     const controls = renderLightControlsMarkup(entity, slug, _ctrlAttrs, escapeHtml, _attr, { brightness: _er('brightness'), color: _er('color'), color_temp: _er('color_temp'), hue: _er('hue') });
+    const toggleBtn = canToggle ? `
+            <button type="button" role="switch" aria-checked="${isOn}"
+                    class="app-toggle-switch shrink-0" data-entity-toggle="${escapeHtml(eid)}" data-on="${isOn}"
+                    ${_ctrlAttrs(slug, eid, isOn ? 'turn_off' : 'turn_on')}>
+                <span class="app-toggle-thumb"></span>
+            </button>` : '';
     return `
     <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
         <div class="flex items-center justify-between gap-4">
@@ -386,11 +523,7 @@ function renderLight(entity, slug) {
                 <div class="text-[11px] uppercase tracking-wider text-slate-400">${escapeHtml(_er('light'))}</div>
                 <div class="text-sm font-semibold text-slate-100 mt-0.5">${escapeHtml(isOn ? _er('light_on') : _er('light_off'))}</div>
             </div>
-            <button type="button" role="switch" aria-checked="${isOn}"
-                    class="app-toggle-switch shrink-0" data-entity-toggle="${escapeHtml(eid)}" data-on="${isOn}"
-                    ${_ctrlAttrs(slug, eid, isOn ? 'turn_off' : 'turn_on')}>
-                <span class="app-toggle-thumb"></span>
-            </button>
+            ${toggleBtn}
         </div>
         ${controls}
     </div>`;
@@ -621,10 +754,19 @@ function renderCamera(entity, slug) {
     </div>
     ${_renderCameraPtzPad(entity, slug)}`;
 }
+const OVERVIEW_TOGGLE_DOMAINS = new Set(['switch', 'outlet', 'plug', 'input_boolean', 'fan']);
+function _renderLightControlsSection(entity, slug) {
+    const isOn = String(entity.state || '').toLowerCase() === 'on';
+    const controls = renderLightControlsMarkup(entity, slug, _ctrlAttrs, escapeHtml, _attr, { brightness: _er('brightness'), color: _er('color'), color_temp: _er('color_temp'), hue: _er('hue') });
+    if (!controls)
+        return '';
+    return `<div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">${controls}</div>`;
+}
 const RENDERERS = {
     switch: renderSwitch,
     outlet: renderSwitch,
     plug: renderSwitch,
+    input_boolean: renderSwitch,
     light: renderLight,
     number: renderNumber,
     select: renderSelect,
@@ -638,16 +780,24 @@ const RENDERERS = {
     lawn_mower: renderLawnMower,
     vacuum: renderVacuum,
 };
-export function renderEntityModal(entity, slug) {
+export function renderEntityModal(entity, slug, options = {}) {
     if (!entity || typeof entity !== 'object')
         return '';
     const domain = String(entity.domain || '').toLowerCase();
     const renderer = RENDERERS[domain];
-    let body = renderHero(entity);
+    let body = options.detailPage ? '' : renderHero(entity);
     body += renderEntityRegistrySection(entity);
     if (renderer) {
         try {
-            body += renderer(entity, slug) || '';
+            if (options.detailPage && OVERVIEW_TOGGLE_DOMAINS.has(domain)) {
+                // On/off toggle lives on the overview status panel.
+            }
+            else if (options.detailPage && domain === 'light') {
+                body += _renderLightControlsSection(entity, slug) || '';
+            }
+            else {
+                body += renderer(entity, slug) || '';
+            }
         }
         catch (e) {
             console.warn('renderer failed', e);

@@ -98,20 +98,23 @@ def _device_candidates_by_field(device: dict, field: str) -> list:
 
 
 def _load_devices_from_overrides() -> list:
-    """Build the device list (entity_id/name/aliases/selected) from the
-    unified integration_entity_overrides store, replacing the legacy
-    legacy entity-store lookup."""
-    out: list = []
+    """Build AI match candidates from the unified entity catalog."""
     try:
-        overrides = get_entity_store().get_overrides() or {}
+        entities = get_entity_store().get_all_entities() or []
     except Exception:
-        overrides = {}
-    for eid, ov in overrides.items():
+        entities = []
+    out: list = []
+    for ent in entities:
+        if not isinstance(ent, dict):
+            continue
+        eid = str(ent.get("entity_id") or "").strip()
+        if not eid:
+            continue
         out.append({
             "entity_id": eid,
-            "name": ov.get("custom_name") or eid,
-            "aliases": ov.get("aliases") or [],
-            "selected": bool(ov.get("selected")),
+            "name": str(ent.get("name") or eid).strip() or eid,
+            "aliases": list(ent.get("aliases") or []),
+            "selected": bool(ent.get("selected")),
         })
     return out
 
@@ -136,21 +139,6 @@ async def find_device_details(
     try:
         cfg = settings_mod.CFG
         devices = _load_devices_from_overrides()
-        if not devices:
-            devices = []
-        # Include integration entities that have custom names/aliases
-        overrides = get_entity_store().get_overrides()
-        for eid, ov in overrides.items():
-            if not ov.get("custom_name") and not ov.get("aliases"):
-                continue
-            if any(d.get("entity_id") == eid for d in devices):
-                continue
-            devices.append({
-                "entity_id": eid,
-                "name": ov.get("custom_name") or eid,
-                "aliases": ov.get("aliases") or [],
-                "selected": True,
-            })
         if not devices:
             return None, None
         active_devices_all = [d for d in devices if isinstance(d, dict) and d.get("selected", False)]

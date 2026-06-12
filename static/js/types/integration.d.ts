@@ -24,7 +24,10 @@ export interface IntegrationEventHandlers {
         slug: string,
         deviceId: string,
         deviceName: string,
-    ) => void | Promise<void>;
+        providedName?: string,
+        homeassistantRename?: boolean,
+        options?: { skipDetailRefresh?: boolean },
+    ) => void | Promise<void | { device_id?: string; name?: string }>;
     [key: string]: unknown;
 }
 

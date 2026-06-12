@@ -22,6 +22,13 @@ export {
     toggleAllAI,
     syncHA,
     getIntegrationEntities,
+    openEntityDetail,
+    closeEntityDetail,
+    openDeviceDetail,
+    closeDeviceDetail,
+    filterEntityCategory,
+    closeDevicePrimaryModal,
+    selectDevicePrimaryEntity,
 } from './smarthome/devices.js';
 
 export {

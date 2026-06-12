@@ -131,7 +131,11 @@ window.addEventListener('entity-state-changed', (e) => {
                 input.value = String(numericState);
         });
     }
-    const toggleSelector = `.app-toggle-switch[data-entity-toggle="${CSS.escape(eid)}"], .app-toggle-switch[onclick*="${CSS.escape(eid)}"]`;
+    const toggleSelector = [
+        `.app-toggle-switch[data-entity-toggle="${CSS.escape(eid)}"]`,
+        `.app-toggle-switch[data-smarthome-entity-id="${CSS.escape(eid)}"]`,
+        `.app-toggle-switch[onclick*="${CSS.escape(eid)}"]`,
+    ].join(', ');
     document.querySelectorAll(toggleSelector).forEach((btn) => {
         if (!(btn instanceof HTMLElement))
             return;
@@ -139,6 +143,9 @@ window.addEventListener('entity-state-changed', (e) => {
         const isOn = lower === 'on' || lower === 'open' || lower === 'unlocked' || lower === 'playing' || lower === 'heat' || lower === 'cool' || lower === 'home';
         btn.dataset.on = isOn ? 'true' : 'false';
         btn.setAttribute('aria-checked', isOn ? 'true' : 'false');
+        if (btn.dataset.smarthomeDeviceAction) {
+            btn.dataset.smarthomeDeviceAction = isOn ? 'turn_off' : 'turn_on';
+        }
         const card = btn.closest('.hyve-dashboard-card');
         if (card instanceof HTMLElement && card.dataset.entityId === eid) {
             card.dataset.on = isOn ? 'true' : 'false';

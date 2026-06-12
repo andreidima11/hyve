@@ -288,15 +288,24 @@ export async function saveAddonConfig(slug: string) {
         body[key] = `${el.value || ''}`.trim();
     });
 
-    // Persist watchdog state alongside config so a save can't desync it.
+    // Persist watchdog state alongside config.
     const watchdogCb = document.getElementById(`addon-watchdog-${slug}`) as HTMLInputElement | null;
     if (watchdogCb) {
-        try {
-            await apiCall(`/api/addons/${encodeURIComponent(slug)}/watchdog`, {
-                method: 'POST',
-                body: { enabled: !!watchdogCb.checked },
-            });
-        } catch (_) { /* non-fatal — config save still proceeds */ }
+        const wdRes = await apiCall(`/api/addons/${encodeURIComponent(slug)}/watchdog`, {
+            method: 'POST',
+            body: { enabled: !!watchdogCb.checked },
+        });
+        if (!wdRes.ok) {
+            const data = await wdRes.json().catch(() => ({}));
+            throw new Error(data.detail || t('apps.watchdog_save_error'));
+        }
+        const idx = appsState.addonsCache.findIndex(a => a.slug === slug);
+        if (idx >= 0) {
+            appsState.addonsCache[idx].state = {
+                ...(appsState.addonsCache[idx].state || {}),
+                watchdog: !!watchdogCb.checked,
+            };
+        }
     }
 
     try {

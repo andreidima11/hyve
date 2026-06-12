@@ -551,8 +551,8 @@ class IntegrationEntityStore:
             ov = overrides.get(eid) or (overrides.get(uid) if uid else None)
             if not ov:
                 continue
-            if ov.get("custom_name"):
-                entity["name"] = ov["custom_name"]
+            # Friendly names live in entity_registry.name (HA-style).
+            # custom_name in overrides is legacy — migrated by entity_registry.
             if ov.get("aliases"):
                 entity["aliases"] = ov["aliases"]
             # Generic selection flag — overrides any provider-specific value

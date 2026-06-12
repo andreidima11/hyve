@@ -203,10 +203,44 @@
 
 #entity-detail-modal .app-modal-panel {
     max-height: min(78vh, 42rem);
+    min-width: 0;
+    width: min(32rem, calc(100vw - max(1rem, env(safe-area-inset-left) + env(safe-area-inset-right) + 0.75rem)));
+    max-width: min(32rem, calc(100vw - max(1rem, env(safe-area-inset-left) + env(safe-area-inset-right) + 0.75rem)));
 }
 
 #entity-detail-modal .app-modal-body {
     scrollbar-gutter: stable;
+    overflow-x: clip;
+    min-width: 0;
+}
+
+#entity-detail-modal .app-modal-body > * {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+#entity-detail-modal .app-modal-body pre {
+    overflow-x: auto;
+    word-break: break-all;
+    max-width: 100%;
+}
+
+#entity-detail-modal .app-modal-body .hy-entity-camera-shell,
+#entity-detail-modal .app-modal-body hv-camera-stream,
+#entity-detail-modal .app-modal-body hv-mammotion-camera {
+    max-width: 100%;
+}
+
+@media (max-width: 639px) {
+    #entity-detail-modal .app-modal-header {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    #entity-detail-modal .app-modal-body {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
 }
 
 .hy-detail-camera {

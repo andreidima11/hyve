@@ -16,3 +16,13 @@ export interface EntityRegistryEditorOptions {
     onUpdated?: (ctx: EntityRegistryUpdateContext) => void;
     toast?: boolean | 'false';
 }
+
+export interface EntityFriendlyNameUpdateContext {
+    entity: HyveEntity;
+    name: string;
+}
+
+export interface EntityFriendlyNameEditorOptions {
+    onUpdated?: (ctx: EntityFriendlyNameUpdateContext) => void;
+    toast?: boolean | 'false';
+}

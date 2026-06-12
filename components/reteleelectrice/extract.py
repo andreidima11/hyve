@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from integrations.entity_utils import finalize_entities as _finalize
+from integrations.entity_utils import attach_device_fields, finalize_entities as _finalize
 
 _RE_MONTHS_RO = (
     "ianuarie", "februarie", "martie", "aprilie", "mai", "iunie",
@@ -206,7 +206,7 @@ def extract_reteleelectrice_candidates(payload):
               unit="", attributes=None, controllable=False):
         eid = f"reteleelectrice:{_re_slug(pod_name)}:{eid_suffix}"
         attrs = {k: v for k, v in (attributes or {}).items() if v not in (None, "", [])}
-        items.append({
+        items.append(attach_device_fields({
             "entity_id": eid,
             "name": name,
             "state": "" if state is None else str(state),
@@ -216,7 +216,7 @@ def extract_reteleelectrice_candidates(payload):
             "unit": unit,
             "controllable": controllable,
             "attributes": attrs,
-        })
+        }, device_id=pod_name, device_name=pod_name, manufacturer="Rețele Electrice"))
 
     for pod in pods:
         if not isinstance(pod, dict):

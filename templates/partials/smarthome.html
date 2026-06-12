@@ -194,6 +194,23 @@
                 </div>
             </div>
 
+            <!-- Primary entity picker (long-press device status) -->
+            <div id="hy-device-primary-modal" class="modal-overlay app-modal fixed inset-0 z-[100] hidden items-center justify-center p-2 sm:p-4" data-smarthome-action="closeDevicePrimaryModal" data-smarthome-backdrop-dismiss="true" aria-hidden="true">
+                <div class="glass app-modal-panel max-w-md w-full" data-smarthome-stop-propagation="true">
+                    <div class="app-modal-header">
+                        <h3 class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2 min-w-0">
+                            <i class="fas fa-star-half-stroke"></i>
+                            <span class="truncate" data-i18n="hy.detail_primary_entity">Primary entity</span>
+                        </h3>
+                        <button type="button" data-smarthome-action="closeDevicePrimaryModal" data-smarthome-stop-propagation="true" class="app-modal-close touch-manipulation" aria-label="Close"><i class="fas fa-xmark pointer-events-none"></i></button>
+                    </div>
+                    <div id="hy-device-primary-modal-body" class="app-modal-body flex-1 min-h-0 overflow-y-auto !pt-2 !pb-3">
+                        <p class="text-[11px] text-slate-500 mb-2" data-i18n="hy.detail_primary_entity_hint">Choose which entity drives status and toggle on this page</p>
+                        <div id="hy-device-primary-entity-list"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Alias Modal (la nivel de body ca să rămână vizibil la scroll) -->
             <div id="hy-alias-modal" class="modal-overlay app-modal fixed inset-0 z-[100] hidden items-center justify-center p-2 sm:p-4" data-smarthome-action="closeAliasModal" data-smarthome-backdrop-dismiss="true">
                 <div class="glass app-modal-panel max-w-md" data-smarthome-stop-propagation="true">

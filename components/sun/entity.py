@@ -9,6 +9,7 @@ from typing import Any
 
 from integrations.base import BaseEntity
 from integrations.component_import import import_sibling
+from integrations.entity_utils import attach_device_fields, slugify
 
 log = logging.getLogger("integrations.sun")
 
@@ -112,6 +113,18 @@ class SunEntity(BaseEntity):
     def extract_entities(self, payload: Any) -> list[dict[str, Any]]:
         if not isinstance(payload, dict):
             return []
+        entry_tag = slugify(str(self.entry_id or "default")[:12]) or "default"
+        device_id = f"sun_{entry_tag}"
+        device_name = "Sun"
+
+        def _add(entity: dict[str, Any]) -> dict[str, Any]:
+            return attach_device_fields(
+                entity,
+                device_id=device_id,
+                device_name=device_name,
+                manufacturer="Hyve",
+            )
+
         elevation = payload.get("elevation", 0.0)
         state = "above_horizon" if elevation > -0.833 else "below_horizon"
         attrs = {
@@ -126,7 +139,7 @@ class SunEntity(BaseEntity):
             "rising": payload.get("rising"),
         }
         entities: list[dict[str, Any]] = [
-            {
+            _add({
                 "entity_id": "sun.sun",
                 "name": "Sun",
                 "friendly_name": "Sun",
@@ -136,7 +149,7 @@ class SunEntity(BaseEntity):
                 "controllable": False,
                 "icon": "fas fa-sun",
                 "attributes": attrs,
-            }
+            })
         ]
         sensor_specs = [
             ("sensor.sun_next_dawn", "Next dawn", payload.get("next_dawn"), "fas fa-cloud-sun", "timestamp"),
@@ -149,32 +162,28 @@ class SunEntity(BaseEntity):
             ("sensor.sun_solar_azimuth", "Solar azimuth", payload.get("azimuth"), "fas fa-compass", "°"),
         ]
         for entity_id, friendly, value, icon, unit in sensor_specs:
-            entities.append(
-                {
-                    "entity_id": entity_id,
-                    "name": friendly,
-                    "friendly_name": friendly,
-                    "state": value,
-                    "domain": "sensor",
-                    "source": self.slug,
-                    "controllable": False,
-                    "icon": icon,
-                    "attributes": {"unit_of_measurement": unit} if unit else {},
-                }
-            )
-        entities.append(
-            {
-                "entity_id": "binary_sensor.sun_solar_rising",
-                "name": "Solar rising",
-                "friendly_name": "Solar rising",
-                "state": "on" if payload.get("rising") else "off",
-                "domain": "binary_sensor",
+            entities.append(_add({
+                "entity_id": entity_id,
+                "name": friendly,
+                "friendly_name": friendly,
+                "state": value,
+                "domain": "sensor",
                 "source": self.slug,
                 "controllable": False,
-                "icon": "fas fa-arrow-trend-up",
-                "attributes": {},
-            }
-        )
+                "icon": icon,
+                "attributes": {"unit_of_measurement": unit} if unit else {},
+            }))
+        entities.append(_add({
+            "entity_id": "binary_sensor.sun_solar_rising",
+            "name": "Solar rising",
+            "friendly_name": "Solar rising",
+            "state": "on" if payload.get("rising") else "off",
+            "domain": "binary_sensor",
+            "source": self.slug,
+            "controllable": False,
+            "icon": "fas fa-arrow-trend-up",
+            "attributes": {},
+        }))
         return entities
 
     def format_context(self, entities: dict[str, Any]) -> str:

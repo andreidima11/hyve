@@ -4,6 +4,34 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.6] — 2026-06
+
+Feature release: **modern Devices & entity detail UI**, inline friendly-name editing, primary-entity picker, and richer device metadata across integrations.
+
+### Devices UI
+- New full-page **device** and **entity detail** views (`devices_ui.ts`, `devices-ui.css`) — overview card (status icon, toggle, brightness), device info rows, nested entity list.
+- Device list cards grouped by physical device (`devices_group.ts`); category chips and filters unchanged in behaviour.
+- **Primary entity** for multi-entity devices: long-press status icon → modal to pick which entity drives toggle/state on the device page.
+- **Inline rename** for device and entity friendly names (replaces `prompt()`); stays on the same detail page after rename, including through Z2M/MQTT resync.
+- Entity rows show **domain** (`switch`, `lawn_mower`, `vacuum`, …) instead of integration label; hero state readout scales font size for long labels (e.g. *Indisponibil*).
+- Live WS updates patch detail DOM in place (no full re-render flicker on toggle or state change).
+- Removed success toast (*Comandă trimisă*) on entity toggle — errors still surface via toast.
+- **Things hub** (`static/js/things/`): open device/entity detail from Integrations settings with return navigation.
+
+### Entity registry & rename
+- Friendly names stored in **`entity_registry.name`** (HA-style); one-time migration from legacy `custom_name` overrides.
+- Entity detail **Avansat**: AI context + aliases; entity ID row with inline copy.
+- Shared **`device_field_bundle`** / **`attach_device_fields`** for consistent `device_id` / `device_name` on entities (Pago, Sun, Tapo, Reolink, ReteleElectrice, …).
+- Device resolver and AI prompt use registry display names.
+
+### Integrations
+- Reolink registry and Pago extract improvements; Sun/Tapo entity metadata alignment.
+- Integration exposed-devices grid delegates detail navigation to unified Devices UI.
+
+### Tests
+- `tests/test_entity_registry.py` — custom_name migration and registry name behaviour.
+- `tests/test_integration_device_ids.py` — stable device IDs in API payloads.
+
 ## [0.9.5] — 2026-06
 
 Feature release: **RGB Zigbee light controls** (Mosquitto/Z2M), custom Hyve color picker, Mammotion camera autoplay, and Mammotion nudge / transport polish.

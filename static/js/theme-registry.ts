@@ -30,5 +30,3 @@ window.__HYVE_THEME_REGISTRY__ = {
     getStoredThemeId,
     getStoredThemeSelector,
 };
-
-export {};

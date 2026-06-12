@@ -5,10 +5,13 @@ import { apiCall } from '../api.js';
 import { initIntegrationsLiveWs, refreshIntegrationsLiveConnection, subscribeIntegrationsLive, } from '../integrations_live_ws.js';
 import { t, translateApiDetail, tState } from '../lang/index.js';
 import { escapeHtml, escapeHtmlAttr, showToast } from '../utils.js';
-import { renderEntityModal, getDomainIcon, wireEntityRegistryEditor } from '../entity_renderers.js';
+import { getDomainIcon } from '../entity_renderers.js';
+import { getThingsReturnContext } from '../things/nav.js';
+import { smarthomeDeviceState } from '../smarthome/device_state.js';
+import { openIntegrationEntityInHub, openIntegrationDeviceInHub } from '../things/hub.js';
 import { renderLightControlsMarkup } from '../light_controls.js';
 import { CONTROLLABLE, entityStateForDisplay, renderSelectControlHtml, } from '../entity_constants.js';
-import { appendMediaQueryToken, getCameraStreamToken, pauseEntityDetailCameraStreams, startCameraPreviewRefresh, stopCameraPreviewRefresh, } from '../camera_auth.js';
+import { appendMediaQueryToken, getCameraStreamToken, } from '../camera_auth.js';
 import { integrationSlugsMatch } from '../integration_sources.js';
 import { errMsg, integrationApiError, isActiveState } from './utils.js';
 import { integrationDefinition, integrationEntitySourceSlug, integrationIdForSourceSlug, integrationLabel, supportsIntegrationEntitySync, } from './catalog_meta.js';
@@ -529,49 +532,11 @@ function _wireEntityListPagination(body, ents, slug, deviceId) {
             rerender();
         };
 }
-function _patchExposedEntityId(oldEntityId, newEntityId, uniqueId) {
-    const state = _exposedDevicesState;
-    if (!state?.devices)
-        return;
-    for (const dev of state.devices) {
-        for (const ent of dev.entities || []) {
-            if (ent.entity_id === oldEntityId || (uniqueId && ent.unique_id === uniqueId)) {
-                ent.entity_id = newEntityId;
-            }
-        }
-    }
+export function renderDeviceEntityListMarkup(ents, slug, deviceId) {
+    return _renderPaginatedEntityList(ents, slug, deviceId);
 }
-function _openIntegrationEntityDetailModal(entity, slug) {
-    const modal = document.getElementById('entity-detail-modal');
-    const iconEl = document.getElementById('entity-detail-modal-icon');
-    const labelEl = document.getElementById('entity-detail-modal-label');
-    const body = document.getElementById('entity-detail-modal-body');
-    if (!modal || !body || !entity)
-        return;
-    stopCameraPreviewRefresh();
-    pauseEntityDetailCameraStreams(modal);
-    const dom = String(entity.domain || String(entity.entity_id || '').split('.')[0] || '').toLowerCase();
-    const entAttrs = (entity.attributes || {});
-    const entCaps = (entAttrs.capabilities || {});
-    const dc = String(entCaps.device_class || entAttrs.device_class || '');
-    const icon = getDomainIcon(dom, dc);
-    if (iconEl)
-        iconEl.className = `fas ${icon}`;
-    if (labelEl)
-        labelEl.textContent = String(entity.name || entity.entity_id || 'Entity');
-    const entitySlug = slug || _exposedDevicesState?.slug || String(entity.source || '');
-    body.innerHTML = renderEntityModal(entity, entitySlug);
-    wireEntityRegistryEditor(body, entity, {
-        onUpdated: ({ oldEntityId, newEntityId, uniqueId }) => {
-            _patchExposedEntityId(oldEntityId, newEntityId, uniqueId);
-            _openIntegrationEntityDetailModal(entity, entitySlug);
-        },
-    });
-    if (modal.parentNode !== document.body)
-        document.body.appendChild(modal);
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    startCameraPreviewRefresh();
+export function wireDeviceEntityList(root, ents, slug, deviceId) {
+    _wireEntityListPagination(root, ents, slug, deviceId);
 }
 export function openIntegrationEntityCard(encoded) {
     let entity = null;
@@ -583,119 +548,15 @@ export function openIntegrationEntityCard(encoded) {
     }
     if (!entity || !entity.entity_id)
         return;
-    _openIntegrationEntityDetailModal(entity, _exposedDevicesState?.slug || String(entity.source || ''));
+    const entitySlug = _exposedDevicesState?.slug || String(entity.source || '');
+    openIntegrationEntityInHub(entity, entitySlug);
 }
-;
 export function openIntegrationDeviceModal(idx, slug) {
     const state = _exposedDevicesState;
     if (!state || !integrationSlugsMatch(state.slug || '', slug))
         return;
-    const dev = state.devices[idx];
-    if (!dev)
-        return;
-    const modal = document.getElementById('entity-detail-modal');
-    const iconEl = document.getElementById('entity-detail-modal-icon');
-    const labelEl = document.getElementById('entity-detail-modal-label');
-    const body = document.getElementById('entity-detail-modal-body');
-    if (!modal || !body)
-        return;
-    if (iconEl)
-        iconEl.className = 'fas fa-microchip';
-    if (labelEl)
-        labelEl.textContent = t('common.device');
-    const name = escapeHtml(dev.name || dev.device_id || (t('common.device')));
-    const sub = [dev.model, dev.manufacturer].filter(Boolean).join(' · ');
-    const ents = (dev.entities || []).slice().sort((a, b) => {
-        const order = { switch: 0, light: 1, cover: 2, lock: 3, climate: 4, number: 5, select: 6, button: 7, event: 8, binary_sensor: 9, sensor: 10 };
-        const da = String(a.entity_id || '').split('.')[0];
-        const db = String(b.entity_id || '').split('.')[0];
-        const oa = order[da] ?? 99, ob = order[db] ?? 99;
-        if (oa !== ob)
-            return oa - ob;
-        return String(a.name || '').localeCompare(String(b.name || ''));
-    });
-    const sA = escapeHtmlAttr(slug);
-    const didA = escapeHtmlAttr(dev.device_id || '');
-    const curA = escapeHtmlAttr(dev.name || dev.device_id || '');
-    const hero = `
-    <div class="rounded-2xl bg-white/5 border border-white/10 p-3 mb-3 flex items-start gap-3">
-        ${_z2mDeviceVisualHtml(dev, { size: 'modal' })}
-        <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2 text-[9px] uppercase tracking-widest text-slate-500">
-                <span>Dispozitiv</span>
-                <button type="button" id="entity-detail-rename-btn" class="hover:text-accent transition-colors" title="${escapeHtml(t('integrations.rename_device_title'))}">
-                    <i class="fas fa-pen text-[10px]"></i>
-                </button>
-            </div>
-            <div id="entity-detail-name-view" class="text-sm font-semibold text-slate-100 mt-0.5 break-words leading-snug">${name}</div>
-            <div id="entity-detail-name-edit" class="hidden mt-1 flex flex-col gap-2">
-                <div class="flex items-center gap-2">
-                    <input type="text" id="entity-detail-name-input" value="${curA}"
-                        class="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-accent/40">
-                    <button type="button" id="entity-detail-name-save" class="px-2 py-1 rounded-lg bg-accent/20 border border-accent/40 text-accent text-[11px] font-semibold hover:bg-accent/30 shrink-0">
-                        <i class="fas fa-check"></i>
-                    </button>
-                    <button type="button" id="entity-detail-name-cancel" class="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-[11px] hover:bg-white/10 shrink-0">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <label class="flex items-start gap-2 text-[10px] text-slate-400 cursor-pointer select-none">
-                    <input type="checkbox" id="entity-detail-ha-rename" checked
-                        class="mt-0.5 rounded border-white/20 bg-white/5 text-accent focus:ring-accent/40">
-                    <span>
-                        <span class="text-slate-300">${escapeHtml(t('integrations.update_entity_ids'))}</span>
-                        <span class="block text-slate-500 mt-0.5">${escapeHtml(t('integrations.update_entity_ids_hint'))}</span>
-                    </span>
-                </label>
-            </div>
-            ${sub ? `<div class="text-[10px] text-slate-500 break-words mt-0.5">${escapeHtml(sub)}</div>` : ''}
-            <div class="text-[9px] text-slate-500 mono break-all mt-1 leading-snug">${escapeHtml(dev.device_id || '')}</div>
-        </div>
-        <div class="text-right shrink-0">
-            <div class="text-lg font-semibold text-slate-200 mono leading-none">${ents.length}</div>
-            <div class="text-[9px] uppercase tracking-wider text-slate-500 mt-0.5">${escapeHtml(t('integrations.entities_label'))}</div>
-        </div>
-    </div>`;
-    const list = ents.length
-        ? _renderPaginatedEntityList(ents, slug, dev.device_id || '')
-        : `<div class="text-[11px] text-slate-500 text-center py-6">${escapeHtml(t('integrations.no_controls'))}</div>`;
-    body.innerHTML = hero + list;
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    _wireEntityListPagination(body, ents, slug, dev.device_id || '');
-    // Wire inline rename UI
-    const view = body.querySelector('#entity-detail-name-view');
-    const edit = body.querySelector('#entity-detail-name-edit');
-    const input = body.querySelector('#entity-detail-name-input');
-    const renameBtn = body.querySelector('#entity-detail-rename-btn');
-    const saveBtn = body.querySelector('#entity-detail-name-save');
-    const cancelBtn = body.querySelector('#entity-detail-name-cancel');
-    const showEdit = () => { view?.classList.add('hidden'); edit?.classList.remove('hidden'); input?.focus(); input?.select(); };
-    const hideEdit = () => { edit?.classList.add('hidden'); view?.classList.remove('hidden'); };
-    if (renameBtn)
-        renameBtn.onclick = showEdit;
-    if (cancelBtn)
-        cancelBtn.onclick = hideEdit;
-    const submit = () => {
-        const haRename = body.querySelector('#entity-detail-ha-rename');
-        const updateIds = haRename ? haRename.checked : true;
-        renameIntegrationDevice(slug, dev.device_id || '', dev.name || dev.device_id || '', input?.value || '', updateIds);
-    };
-    if (saveBtn)
-        saveBtn.onclick = submit;
-    if (input)
-        input.onkeydown = (ev) => {
-            if (ev.key === 'Enter') {
-                ev.preventDefault();
-                submit();
-            }
-            else if (ev.key === 'Escape') {
-                ev.preventDefault();
-                hideEdit();
-            }
-        };
+    openIntegrationDeviceInHub(idx, slug, state.devices);
 }
-;
 export async function controlIntegrationEntity(slug, entityId, action, btn, data) {
     if (btn) {
         btn.disabled = true;
@@ -762,7 +623,18 @@ export async function controlIntegrationEntity(slug, entityId, action, btn, data
     }
 }
 ;
-export async function renameIntegrationDevice(slug, deviceId, currentName, providedName, homeassistantRename = true) {
+function _patchIntegrationEntityDeviceNames(deviceId, name) {
+    for (const ent of smarthomeDeviceState.integrationEntitiesCache) {
+        const attrs = (ent.attributes || {});
+        const did = String(ent.device_id || attrs.device_id || '').trim();
+        if (did !== deviceId)
+            continue;
+        ent.device_name = name;
+        if (attrs)
+            attrs.device_name = name;
+    }
+}
+export async function renameIntegrationDevice(slug, deviceId, currentName, providedName, homeassistantRename = true, options = {}) {
     let next = providedName;
     if (next == null) {
         next = window.prompt(t('integrations.device_rename_prompt'), currentName || '') ?? undefined;
@@ -785,34 +657,39 @@ export async function renameIntegrationDevice(slug, deviceId, currentName, provi
         const out = await res.json().catch(() => ({}));
         if (!res.ok)
             throw new Error(integrationApiError(out.detail, 'integrations.device_rename_failed'));
-        // Backend purges stale MQTT discovery + force-sync; reload device list so
-        // entity rows match the new friendly name (not only the card title).
-        const section = document.getElementById('integration-exposed-entities-section');
-        if (section && !section.classList.contains('hidden')) {
-            const integrationId = integrationIdForSourceSlug(slug);
-            if (integrationId) {
-                try {
-                    await loadIntegrationExposedEntities(integrationId);
-                }
-                catch (_) { }
-            }
+        const canonicalId = String(out.device_id || deviceId);
+        _patchIntegrationEntityDeviceNames(canonicalId, trimmed);
+        const openKey = smarthomeDeviceState.openDeviceKey;
+        if (openKey && !options.skipDetailRefresh) {
+            const { loadSmarthome, openDeviceDetail } = await import('../smarthome/device_core.js');
+            await loadSmarthome();
+            openDeviceDetail(openKey, { keepReturnContext: !!getThingsReturnContext() });
         }
-        else if (_exposedDevicesState.slug && integrationSlugsMatch(_exposedDevicesState.slug, slug)) {
-            const idx = _exposedDevicesState.devices.findIndex(d => (d.device_id || '') === deviceId);
-            if (idx >= 0) {
-                _exposedDevicesState.devices[idx].name = trimmed;
-                const grid = document.getElementById('integration-exposed-entities-grid');
-                if (grid)
-                    grid.innerHTML = _exposedDevicesState.devices.map((d, i) => _devCardHtml(d, i, slug)).join('');
-                const modal = document.getElementById('entity-detail-modal');
-                if (modal && !modal.classList.contains('hidden')) {
-                    openIntegrationDeviceModal(idx, slug);
+        else if (!options.skipDetailRefresh) {
+            const section = document.getElementById('integration-exposed-entities-section');
+            if (section && !section.classList.contains('hidden')) {
+                const integrationId = integrationIdForSourceSlug(slug);
+                if (integrationId) {
+                    try {
+                        await loadIntegrationExposedEntities(integrationId);
+                    }
+                    catch (_) { }
+                }
+            }
+            else if (_exposedDevicesState.slug && integrationSlugsMatch(_exposedDevicesState.slug, slug)) {
+                const idx = _exposedDevicesState.devices.findIndex(d => (d.device_id || '') === deviceId);
+                if (idx >= 0) {
+                    _exposedDevicesState.devices[idx].name = trimmed;
+                    const grid = document.getElementById('integration-exposed-entities-grid');
+                    if (grid)
+                        grid.innerHTML = _exposedDevicesState.devices.map((d, i) => _devCardHtml(d, i, slug)).join('');
                 }
             }
         }
         if (typeof showToast === 'function') {
             showToast(t('integrations.device_rename_synced') || t('integrations.device_rename_ok'), 'success', 2200);
         }
+        return { device_id: canonicalId, name: trimmed };
     }
     catch (err) {
         if (typeof showToast === 'function')

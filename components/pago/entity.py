@@ -57,7 +57,11 @@ class PagoEntity(BaseEntity):
         return await client.fetch_light(cached)
 
     def extract_entities(self, payload: Any) -> list[dict[str, Any]]:
-        return extract_pago_candidates(payload)
+        return extract_pago_candidates(
+            payload,
+            entry_id=str(self.entry_id or ""),
+            entry_title=str(self.entry_title or ""),
+        )
 
     def format_context(self, entities: dict[str, Any]) -> str:
         return _context_mod.format_pago_context(entities if isinstance(entities, dict) else {})

@@ -1,3 +1,4 @@
+"use strict";
 const themeOptions = Object.freeze([
     { id: 'canvas', selector: 'canvas', label: 'Canvas', preview: ['#0a0a0a', '#171717', '#a8c7fa'] },
     { id: 'obsidian', selector: 'dark', label: 'Obsidian', preview: ['#030712', '#0f172a', '#38bdf8'] },
@@ -29,4 +30,3 @@ window.__HYVE_THEME_REGISTRY__ = {
     getStoredThemeId,
     getStoredThemeSelector,
 };
-export {};

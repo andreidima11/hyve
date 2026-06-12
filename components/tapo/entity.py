@@ -22,7 +22,7 @@ _extract_mod = import_sibling(_component_dir, "extract")
 _context_mod = import_sibling(_component_dir, "context")
 extract_tapo_candidates = _extract_mod.extract_tapo_candidates
 
-from integrations.entity_utils import slugify
+from integrations.entity_utils import attach_device_fields, slugify
 
 if TYPE_CHECKING:
     from kasa import Device
@@ -332,10 +332,23 @@ class TapoEntity(BaseEntity):
         name = (dev.alias or dev.model or dev.host or key).strip()
         full_name = f"{parent_name} {name}".strip() if parent_name else name
         dtype_val = _dtype_value(dev)
+
+        def _add(entity: dict[str, Any]) -> None:
+            attach_device_fields(
+                entity,
+                device_id=key,
+                device_name=name,
+                manufacturer="TP-Link",
+                model=str(dev.model or ""),
+            )
+            items.append(entity)
+
         base_attrs = {
             "friendly_name": full_name,
             "device_manufacturer": "TP-Link",
             "device_model": dev.model or "",
+            "device_id": key,
+            "device_name": name,
             "tapo_host": dev.host,
             "tapo_device_key": key,
             "tapo_device_type": dtype_val,
@@ -361,7 +374,7 @@ class TapoEntity(BaseEntity):
             if self._ptz_available(dev):
                 cam_attrs["ptz_supported"] = True
                 cam_attrs["capabilities"] = {**(cam_attrs.get("capabilities") or {}), "ptz": True}
-            items.append({
+            _add({
                 "entity_id": f"camera.{prefix}_{key}",
                 "name": full_name,
                 "state": "streaming" if dev.is_on else "idle",
@@ -374,7 +387,7 @@ class TapoEntity(BaseEntity):
             })
             if self._ptz_available(dev):
                 for suffix, label, ptz_action in _PTZ_BUTTONS:
-                    items.append({
+                    _add({
                         "entity_id": f"button.{prefix}_{key}_{suffix}",
                         "name": f"{full_name} {label}",
                         "state": "idle",
@@ -391,7 +404,7 @@ class TapoEntity(BaseEntity):
                     })
             motion = dev.modules.get("MotionDetection")
             if motion is not None:
-                items.append({
+                _add({
                     "entity_id": f"switch.{prefix}_{key}_motion_detect",
                     "name": f"{full_name} detecție mișcare",
                     "state": "on" if motion.enabled else "off",
@@ -403,7 +416,7 @@ class TapoEntity(BaseEntity):
                 })
             person = dev.modules.get("PersonDetection")
             if person is not None:
-                items.append({
+                _add({
                     "entity_id": f"switch.{prefix}_{key}_person_detect",
                     "name": f"{full_name} detecție persoană",
                     "state": "on" if person.enabled else "off",
@@ -436,10 +449,10 @@ class TapoEntity(BaseEntity):
                     ent["attributes"]["brightness"] = int(light_mod.brightness)
                 except Exception:
                     pass
-            items.append(ent)
+            _add(ent)
 
         if dev.rssi is not None:
-            items.append({
+            _add({
                 "entity_id": f"sensor.{prefix}_{key}_rssi",
                 "name": f"{full_name} RSSI",
                 "state": str(dev.rssi),
@@ -452,7 +465,7 @@ class TapoEntity(BaseEntity):
 
         led = dev.features.get("led") if dev.features else None
         if led is not None:
-            items.append({
+            _add({
                 "entity_id": f"switch.{prefix}_{key}_led",
                 "name": f"{full_name} LED",
                 "state": "on" if led.value else "off",

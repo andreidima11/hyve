@@ -3,8 +3,9 @@
  */
 
 import type { SmarthomeEventHandlers } from '../types/integration.js';
+import { consumeDevicePrimaryHoldClick } from './device_primary_modal.js';
 
-const _ROOTS = '#view-smarthome, #entity-detail-modal, #derived-modal, #hy-row-actions-modal, #hy-alias-modal';
+const _ROOTS = '#view-smarthome, #entity-detail-modal, #derived-modal, #hy-row-actions-modal, #hy-alias-modal, #hy-device-primary-modal';
 
 let _handlers: SmarthomeEventHandlers | null = null;
 let _bound = false;
@@ -118,7 +119,9 @@ function _run(action: string, el: HTMLElement, event: Event): void {
     case 'openAliasModalFromDetail':
         _handlers.openAliasModalFromDetail?.(_entityId(el), event, el);
         return;
-    case 'controlDevice':
+    case 'controlDevice': {
+        const holdRoot = el.closest('[data-smarthome-primary-hold-root]') as HTMLElement | null;
+        if (consumeDevicePrimaryHoldClick(holdRoot)) return;
         _handlers.controlDeviceEntity?.(
             el.dataset.smarthomeSource || '',
             _entityId(el),
@@ -126,6 +129,47 @@ function _run(action: string, el: HTMLElement, event: Event): void {
             el,
             {},
         );
+        return;
+    }
+    case 'openDeviceDetail': {
+        if (event.target instanceof Element) {
+            const blocked = event.target.closest('button, input, a, label, [data-smarthome-stop-propagation="true"]');
+            if (blocked && el.contains(blocked) && blocked !== el) return;
+        }
+        event.stopPropagation();
+        const key = el.dataset.deviceKey || '';
+        if (key) _handlers.openDeviceDetail?.(key, event, el);
+        return;
+    }
+    case 'closeDeviceDetail':
+        _handlers.closeDeviceDetail?.(event, el);
+        return;
+    case 'openEntityDetail': {
+        event.stopPropagation();
+        const eid = el.dataset.smarthomeEntityId || _entityId(el);
+        if (eid) _handlers.openEntityDetail?.(eid, event, el);
+        return;
+    }
+    case 'closeEntityDetail':
+        _handlers.closeEntityDetail?.(event, el);
+        return;
+    case 'renameDeviceDetail':
+        event.stopPropagation();
+        _handlers.renameDeviceDetail?.(event, el);
+        return;
+    case 'closeDevicePrimaryModal':
+        _handlers.closeDevicePrimaryModal?.(event, el);
+        return;
+    case 'selectDevicePrimaryEntity': {
+        event.stopPropagation();
+        const auto = el.dataset.auto === 'true';
+        const entityId = auto ? null : (el.dataset.entityId || null);
+        _handlers.selectDevicePrimaryEntity?.(el.dataset.deviceKey || '', entityId, event, el);
+        return;
+    }
+    case 'filterEntityCategory':
+        event.preventDefault();
+        _handlers.filterEntityCategory?.(el.dataset.smarthomeCategory || 'all', event, el);
         return;
     case 'removeAliasRow':
         el.closest('.flex.gap-2.items-center')?.remove();

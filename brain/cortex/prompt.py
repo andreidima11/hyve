@@ -292,9 +292,12 @@ def _build_dynamic_prompt_suffix(conversation_summary: Optional[str] = None,
                 from addons.entity_store import get_entity_store as _ges
                 for eid, ov in (_ges().get_overrides() or {}).items():
                     if ov.get("selected"):
+                        from core import entity_registry
+                        entry = entity_registry.get_by_entity_id(eid)
+                        display = (entry or {}).get("name") or eid
                         items.append({
                             "entity_id": eid,
-                            "name": ov.get("custom_name") or eid,
+                            "name": display,
                             "selected": True,
                         })
 

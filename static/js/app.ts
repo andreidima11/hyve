@@ -57,6 +57,8 @@ import {
     openAliasModal, addAliasInput, closeAliasModal, saveAliasesFromModal, closeRowActionsModal, handleHaRowClick,
     resetSmarthomeFilters, copyEntityIdFromRowActions, toggleSmarthomeFilters, toggleSmarthomePicker, selectSmarthomePickerOption,
     setDevicesPage, setDevicesPageSize, sortDevicesBy, controlDeviceEntity, openAliasModalFromDetail, closeEntityDetailModal,
+    openEntityDetail, closeEntityDetail, openDeviceDetail, closeDeviceDetail, filterEntityCategory,
+    closeDevicePrimaryModal, selectDevicePrimaryEntity,
     loadSessionsList, openSession, newChatSession, deleteSession, confirmDeleteSession, cancelDeleteSession, clearSessionContext,
     copyWebhook, openIntegrationConfigModal, closeIntegrationConfigModal, refreshIntegrationsSettingsView, loadAdminUsers, createUser, deleteUser, unlinkUserPhone,
     loadModelProfiles,
@@ -987,6 +989,7 @@ window.addEventListener('DOMContentLoaded', () => {
         openAddonWebUI: (slug) => _lazyAction(_loadAppsModule, 'openAddonWebUI')(slug),
         closeAddonWebUI: () => _lazyAction(_loadAppsModule, 'closeAddonWebUI')(),
         testAddonHealth: (slug) => _lazyAction(_loadAppsModule, 'testAddonHealth')(slug),
+        saveAddonConfig: (slug) => _lazyAction(_loadAppsModule, 'saveAddonConfig')(slug),
         copyPreflightFix: (text) => { const s = _str(text); if (s) navigator.clipboard.writeText(s).catch(() => {}); },
         toggleAddonWatchdog: (slug, enabled) => _lazyAction(_loadAppsModule, 'toggleAddonWatchdog')(slug, enabled),
     });
@@ -1059,6 +1062,11 @@ window.addEventListener('DOMContentLoaded', () => {
             window.location.hash = '#/config';
             switchTab('config');
         },
+        openIntegrations: () => {
+            window.location.hash = '#/config';
+            switchTab('config');
+            openConfigSection('integrations');
+        },
         syncSmartHome: () => syncHA(),
         openDerivedModal: (entityId) => _lazyAction(_loadDerivedModule, 'openDerivedModal')(entityId || undefined),
         toggleSmarthomeFilters: () => toggleSmarthomeFilters(),
@@ -1092,6 +1100,21 @@ window.addEventListener('DOMContentLoaded', () => {
         saveAliasesFromModal: () => saveAliasesFromModal(),
         filterDerivedCandidates: () => _lazyAction(_loadDerivedModule, 'filterDerivedCandidates')(),
         toggleDerivedInput: (el) => _lazyAction(_loadDerivedModule, 'toggleDerivedInput')(el),
+        openDeviceDetail: (deviceKey) => openDeviceDetail(_str(deviceKey)),
+        closeDeviceDetail: () => closeDeviceDetail(),
+        openEntityDetail: (entityId) => openEntityDetail(_str(entityId)),
+        closeEntityDetail: () => closeEntityDetail(),
+        renameDeviceDetail: (_event, el) => {
+            if (!(el instanceof HTMLElement)) return;
+            void renameIntegrationDevice(
+                el.dataset.smarthomeSourceSlug || '',
+                el.dataset.smarthomeDeviceId || '',
+                el.dataset.smarthomeDeviceName || '',
+            );
+        },
+        closeDevicePrimaryModal: () => closeDevicePrimaryModal(),
+        selectDevicePrimaryEntity: (deviceKey, entityId) => selectDevicePrimaryEntity(_str(deviceKey), entityId ? _str(entityId) : null),
+        filterEntityCategory: (category) => filterEntityCategory(_str(category)),
     });
     initIntegrationEventBindings({
         controlIntegrationEntity: (...args) => controlIntegrationEntity(...args),

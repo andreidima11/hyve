@@ -139,6 +139,8 @@ def build_entities_uncached(
         from core import entity_registry
 
         entity_registry.sync_entities(merged)
+        entity_registry.migrate_legacy_custom_name_overrides()
+        entity_registry.sync_entities(merged)
     except Exception as exc:
         log.warning("entity registry apply failed: %s", exc, exc_info=exc)
 

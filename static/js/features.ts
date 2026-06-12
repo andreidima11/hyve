@@ -54,6 +54,13 @@ export {
     closeEntityDetailModal,
     closeRowActionsModal,
     saveAliasesFromModal,
+    openEntityDetail,
+    closeEntityDetail,
+    openDeviceDetail,
+    closeDeviceDetail,
+    filterEntityCategory,
+    closeDevicePrimaryModal,
+    selectDevicePrimaryEntity,
 } from './features_smarthome.js';
 
 export {

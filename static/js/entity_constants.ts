@@ -22,7 +22,11 @@ export function entityStateForDisplay(
 ): string {
     if (isMomentaryDomain(domain)) return tState('button');
     if (state == null || state === '') return tState('unknown');
-    return String(state);
+    const raw = String(state).trim();
+    if (!raw) return tState('unknown');
+    const translated = tState(raw);
+    if (translated !== raw) return translated;
+    return raw.charAt(0).toLocaleUpperCase() + raw.slice(1);
 }
 
 export type ControllableDomain = (typeof CONTROLLABLE)[number];
