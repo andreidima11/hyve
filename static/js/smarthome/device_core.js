@@ -1015,7 +1015,7 @@ export function openEntityDetail(entityId, opts = {}) {
         || smarthomeDeviceState.devicesVisibleEntityCache.get(entityId);
     if (!entity)
         return;
-    if (!opts.keepReturnContext) {
+    if (!opts.keepReturnContext && !smarthomeDeviceState.openDeviceKey) {
         void import('../things/nav.js').then((m) => m.clearThingsReturnContext());
     }
     if (!opts.skipDeviceParent && !smarthomeDeviceState.openDeviceKey) {

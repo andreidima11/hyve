@@ -594,7 +594,7 @@ const en = {
         check_requirements: "Check requirements",
         admin_section: "Administration",
         watchdog_auto_restart: "Auto restart (watchdog)",
-        watchdog_auto_restart_hint: "Starts the service with Hyve and restarts it if the process crashes.",
+        watchdog_auto_restart_hint: "Starts with Hyve and restarts after unexpected crashes, with increasing delays (not a tight loop on errors).",
         uninstall: "Uninstall",
         process_section: "Process",
         logs: "Logs",

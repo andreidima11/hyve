@@ -1022,7 +1022,7 @@ export function openEntityDetail(entityId: string, opts: { keepReturnContext?: b
     const entity = smarthomeDeviceState.integrationEntitiesCache.find((e) => e.entity_id === entityId)
         || smarthomeDeviceState.devicesVisibleEntityCache.get(entityId);
     if (!entity) return;
-    if (!opts.keepReturnContext) {
+    if (!opts.keepReturnContext && !smarthomeDeviceState.openDeviceKey) {
         void import('../things/nav.js').then((m) => m.clearThingsReturnContext());
     }
     if (!opts.skipDeviceParent && !smarthomeDeviceState.openDeviceKey) {

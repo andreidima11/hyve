@@ -207,6 +207,48 @@ export async function syncConfiguredIntegration(integrationId: string, button: H
     }
 };
 
+function _integrationIconHtml(entry: { icon?: unknown; image?: unknown; accent?: unknown }): string {
+    const iconClass = escapeHtml(normalizeIntegrationIcon(entry.icon || 'fa-plug'));
+    const image = String(entry.image || '').trim();
+    const accent = escapeHtml(String(entry.accent || '#94a3b8'));
+    if (image) {
+        return `<span class="hyd-icon hyd-icon--list hyd-icon--photo"><img src="${escapeHtml(image)}" alt="" loading="lazy"></span>`;
+    }
+    return `<span class="hyd-icon hyd-icon--list" style="color:${accent};background:color-mix(in oklab, ${accent} 16%, var(--surface-card));"><i class="fas ${iconClass}"></i></span>`;
+}
+
+function _integrationRowHtml(entry: ReturnType<typeof getIntegrationCatalog>[number]): string {
+    const slug = escapeHtml(String(entry.slug || ''));
+    const toggleInputId = escapeHtml(String(entry.toggle_input_id || `${entry.slug}_enabled`));
+    const toggleSlug = escapeHtml(String(entry.toggle_slug || entry.slug || ''));
+    const label = escapeHtml(integrationLabel(entry));
+    const description = escapeHtml(integrationDescription(entry));
+    const adminOnly = entry.admin_only ? 'config-admin-only' : '';
+    const enabled = !!entry.enabled;
+    const offlineClass = enabled ? '' : ' is-offline';
+    const disableHidden = enabled ? '' : ' hidden';
+    const enableHidden = enabled ? ' hidden' : '';
+    const toggle = `
+        <div class="hyd-integration-row__toggle ${adminOnly}">
+            <input type="checkbox" id="${toggleInputId}" class="sr-only" aria-hidden="true">
+            <button type="button" id="${toggleSlug}-btn-disable" class="integration-toggle-btn hyd-btn hyd-btn--ghost hyd-btn--sm hyd-btn--danger${disableHidden}"><i class="fas fa-power-off"></i><span>${escapeHtml(t('integrations.disable'))}</span></button>
+            <button type="button" id="${toggleSlug}-btn-enable" class="integration-toggle-btn hyd-btn hyd-btn--ghost hyd-btn--sm hyd-btn--success${enableHidden}"><i class="fas fa-check"></i><span>${escapeHtml(t('integrations.enable'))}</span></button>
+        </div>`;
+    return `
+        <article data-integration-row="${slug}" class="hyd-entity-row hyd-integration-row${offlineClass} ${adminOnly}" role="listitem">
+            ${_integrationIconHtml(entry)}
+            <div class="hyd-entity-row__body" data-config-action="openIntegrationConfigModal" data-config-slug="${slug}" role="button" tabindex="0">
+                <div class="hyd-entity-row__name">${label}</div>
+                ${description ? `<div class="hyd-entity-row__sub">${description}</div>` : ''}
+            </div>
+            <div class="hyd-entity-row__meta hyd-integration-row__actions">
+                <button type="button" data-config-action="openIntegrationConfigModal" data-config-slug="${slug}" class="hyd-btn hyd-btn--ghost hyd-btn--sm">${escapeHtml(t('integrations.settings_btn'))}</button>
+                ${toggle}
+                <i class="fas fa-chevron-right hyd-entity-row__chev hyd-integration-row__chev" aria-hidden="true"></i>
+            </div>
+        </article>`;
+}
+
 function _renderIntegrationCatalogRows(): void {
     const list = document.getElementById('integrations-list');
     if (!list) return;
@@ -215,46 +257,7 @@ function _renderIntegrationCatalogRows(): void {
     list.innerHTML = '';
     if (emptyEl) list.appendChild(emptyEl);
 
-    const rowsHtml = getIntegrationCatalog().map((entry) => {
-        const slug = escapeHtml(String(entry.slug || ''));
-        const panelId = escapeHtml(String(entry.config_panel_id || entry.slug || ''));
-        const toggleInputId = escapeHtml(String(entry.toggle_input_id || `${entry.slug}_enabled`));
-        const toggleSlug = escapeHtml(String(entry.toggle_slug || entry.slug || ''));
-        const label = escapeHtml(integrationLabel(entry));
-        const description = escapeHtml(integrationDescription(entry));
-        const iconClass = escapeHtml(normalizeIntegrationIcon(entry.icon || 'fa-plug'));
-        const image = String(entry.image || '').trim();
-        const accent = escapeHtml(String(entry.accent || '#94a3b8'));
-        const iconBackground = escapeHtml(String(entry.icon_background || 'rgba(148,163,184,0.18)'));
-        const textColor = escapeHtml(String(entry.text_color || entry.accent || '#cbd5e1'));
-        const adminOnly = entry.admin_only ? 'config-admin-only' : '';
-        const syncButton = entry.supports_sync
-            ? `<button type="button" id="${slug}-sync-btn" data-config-action="syncConfiguredIntegration" data-config-slug="${slug}" class="px-3 py-2 rounded-xl text-xs font-medium bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-colors inline-flex items-center gap-1.5"><i class="fas fa-arrows-rotate"></i><span>${escapeHtml(t('integrations.entity_detail.sync_btn'))}</span></button>`
-            : '';
-        // Toggle is rendered for every integration — Home Assistant is just
-        // another source and can be disabled like any other.
-        const toggle = `
-                    <div class="flex items-center gap-2 ${adminOnly}">
-                        <input type="checkbox" id="${toggleInputId}" class="sr-only" aria-hidden="true">
-                        <button type="button" id="${toggleSlug}-btn-disable" class="integration-toggle-btn integration-btn-disable text-red-500/70 hover:text-red-500 hover:bg-red-500/10 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all inline-flex items-center gap-1.5 sm:gap-2 min-h-[36px] sm:min-h-[44px] border border-transparent hover:border-red-500/20 touch-manipulation hidden"><i class="fas fa-power-off"></i> <span>${escapeHtml(t('integrations.disable'))}</span></button>
-                        <button type="button" id="${toggleSlug}-btn-enable" class="integration-toggle-btn integration-btn-enable text-emerald-500/70 hover:text-emerald-500 hover:bg-emerald-500/10 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all inline-flex items-center gap-1.5 sm:gap-2 min-h-[36px] sm:min-h-[44px] border border-transparent hover:border-emerald-500/20 touch-manipulation"><i class="fas fa-check"></i> <span>${escapeHtml(t('integrations.enable'))}</span></button>
-                    </div>`;
-        return `
-            <div data-integration-row="${slug}" class="cfg-section flex flex-wrap items-center justify-between gap-3 min-w-0 ${adminOnly}" style="border-left: 4px solid ${accent};">
-                <div class="flex items-center gap-3 min-w-0">
-                    ${image ? `<img src="${escapeHtml(image)}" alt="" class="w-10 h-10 shrink-0" loading="lazy">` : `<span class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style="background:${iconBackground}; color:${textColor};"><i class="fas ${iconClass} text-xl"></i></span>`}
-                    <div class="min-w-0">
-                        <div class="text-sm font-bold truncate" style="color:${textColor};">${label}</div>
-                        ${description ? `<div class="text-[11px] text-slate-500 truncate">${description}</div>` : ''}
-                    </div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button type="button" data-config-action="openIntegrationConfigModal" data-config-slug="${slug}" class="px-4 py-2 rounded-xl text-xs font-medium bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-colors">${escapeHtml(t('integrations.settings_btn'))}</button>
-                    ${syncButton}
-                    ${toggle}
-                </div>
-            </div>`;
-    }).join('');
+    const rowsHtml = getIntegrationCatalog().map((entry) => _integrationRowHtml(entry)).join('');
 
     list.insertAdjacentHTML('beforeend', rowsHtml);
 }

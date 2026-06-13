@@ -101,6 +101,17 @@ def _resolve_args(args: list[str], config: dict) -> list[str]:
     return resolved
 
 
+def _effective_config(manifest: dict, stored: dict | None) -> dict:
+    """Merge config_schema defaults with stored addon config."""
+    schema = manifest.get("config_schema") or []
+    defaults = {
+        field["key"]: field.get("default", "")
+        for field in schema
+        if field.get("key")
+    }
+    return {**defaults, **(stored or {})}
+
+
 def _find_executable(command: str) -> str:
     """Find the command in the project venv first, then system PATH."""
     venv_bin = os.path.join(_PROJECT_ROOT, "venv", "bin", command)
@@ -223,6 +234,7 @@ async def start(slug: str) -> dict:
     _intentionally_stopped.discard(slug)
     # If already running, return current status
     if slug in _processes and _processes[slug].running:
+        _watchdog_on_success(slug)
         return _status_dict(slug)
 
     manifest = registry.get_manifest(slug)
@@ -234,7 +246,7 @@ async def start(slug: str) -> dict:
         raise ValueError(f"Addon {slug} has no start_command defined")
 
     state = registry.get_state(slug)
-    config = state.get("config", {})
+    config = _effective_config(manifest, state.get("config"))
 
     # Check if the port is already in use (external process)
     hc = manifest.get("health_check", {})
@@ -244,6 +256,7 @@ async def start(slug: str) -> dict:
     host = hc.get("host") or config.get(host_key, "localhost")
     if port and await _port_in_use(host, port):
         log.info("Port %s:%d already in use — treating %s as externally running", host, port, slug)
+        _watchdog_on_success(slug)
         return {"slug": slug, "status": "running", "pid": None, "uptime": None, "external": True}
 
     command = _find_executable(start_cmd["command"])
@@ -273,6 +286,7 @@ async def start(slug: str) -> dict:
         )
 
     log.info("Started %s (PID %s)", slug, mp.pid)
+    _watchdog_on_success(slug)
     return _status_dict(slug)
 
 
@@ -280,6 +294,7 @@ async def stop(slug: str) -> dict:
     """Stop the addon process (managed or external orphan listening on its port)."""
     # Mark as intentionally stopped so the watchdog won't immediately restart it
     _intentionally_stopped.add(slug)
+    _watchdog_retry_state.pop(slug, None)
     mp = _processes.get(slug)
     if mp and mp.running:
         log.info("Stopping %s (PID %s)", slug, mp.pid)
@@ -403,37 +418,107 @@ async def stop_all():
 
 
 # ── WATCHDOG ───────────────────────────────────────────────────────────────
+# Home Assistant–style: restart only unexpected exits, with exponential backoff
+# and a long pause after repeated failures (no tight restart loops on bad config).
 
 _watchdog_task: asyncio.Task | None = None
-_WATCHDOG_INTERVAL = 10  # seconds between checks
+_WATCHDOG_CHECK_INTERVAL = 30  # seconds between health checks
+_WATCHDOG_INITIAL_BACKOFF = 30  # first retry delay after a crash/failed start
+_WATCHDOG_MAX_BACKOFF = 600  # cap between retries (10 minutes)
+_WATCHDOG_GIVE_UP_AFTER = 6  # consecutive failures before a long pause
+_WATCHDOG_GIVE_UP_PAUSE = 3600  # 1 hour — then retry once more slowly
+
+# slug -> { failures, next_retry_at, paused_until, last_log_at }
+_watchdog_retry_state: dict[str, dict[str, float | int]] = {}
+
+
+def _watchdog_backoff_seconds(failures: int) -> float:
+    if failures <= 0:
+        return 0.0
+    exponent = min(max(failures - 1, 0), 4)
+    return float(min(_WATCHDOG_MAX_BACKOFF, _WATCHDOG_INITIAL_BACKOFF * (2 ** exponent)))
+
+
+def _watchdog_on_success(slug: str) -> None:
+    _watchdog_retry_state.pop(slug, None)
+
+
+def _watchdog_on_failure(slug: str, *, reason: str = "") -> None:
+    now = time.time()
+    st = _watchdog_retry_state.setdefault(
+        slug,
+        {"failures": 0, "next_retry_at": 0.0, "paused_until": 0.0, "last_log_at": 0.0},
+    )
+    st["failures"] = int(st.get("failures", 0)) + 1
+    failures = int(st["failures"])
+    detail = f": {reason}" if reason else ""
+
+    if failures >= _WATCHDOG_GIVE_UP_AFTER:
+        st["paused_until"] = now + _WATCHDOG_GIVE_UP_PAUSE
+        st["failures"] = 0
+        st["next_retry_at"] = st["paused_until"]
+        log.warning(
+            "Watchdog: %s failed %d times%s — pausing auto-restart for %ds",
+            slug,
+            _WATCHDOG_GIVE_UP_AFTER,
+            detail,
+            _WATCHDOG_GIVE_UP_PAUSE,
+        )
+        st["last_log_at"] = now
+        return
+
+    delay = _watchdog_backoff_seconds(failures)
+    st["next_retry_at"] = now + delay
+    # Avoid log spam: at most one warning per backoff window.
+    if now - float(st.get("last_log_at", 0.0)) >= max(delay * 0.5, 15.0):
+        log.warning(
+            "Watchdog: %s restart failed%s — next attempt in %.0fs (failure %d/%d)",
+            slug,
+            detail,
+            delay,
+            failures,
+            _WATCHDOG_GIVE_UP_AFTER,
+        )
+        st["last_log_at"] = now
+
+
+def _watchdog_can_retry(slug: str) -> bool:
+    now = time.time()
+    st = _watchdog_retry_state.get(slug)
+    if not st:
+        return True
+    paused_until = float(st.get("paused_until", 0.0))
+    if paused_until > now:
+        return False
+    if paused_until and paused_until <= now:
+        st["paused_until"] = 0.0
+        log.info("Watchdog: %s long pause ended — resuming supervised restarts", slug)
+    return now >= float(st.get("next_retry_at", 0.0))
 
 
 async def _watchdog_loop():
-    """Periodically check watchdog-enabled addons and restart crashed ones."""
+    """Periodically check watchdog-enabled addons and restart unexpected exits."""
     while True:
-        await asyncio.sleep(_WATCHDOG_INTERVAL)
+        await asyncio.sleep(_WATCHDOG_CHECK_INTERVAL)
         try:
             slugs = registry.get_watchdog_addons()
             for slug in slugs:
-                # Respect explicit user stop — don't fight the user
                 if slug in _intentionally_stopped:
                     continue
-                mp = _processes.get(slug)
-                # Only restart if we previously managed it (or if it's never been started)
-                if mp and not mp.running:
-                    log.warning("Watchdog: %s exited (code %s), restarting...", slug, mp.return_code)
-                    try:
-                        await start(slug)
-                        log.info("Watchdog: %s restarted successfully", slug)
-                    except Exception as e:
-                        log.error("Watchdog: failed to restart %s: %s", slug, e)
-                elif mp is None:
-                    # Not started yet (e.g. server just booted) — start it
-                    log.info("Watchdog: auto-starting %s", slug)
-                    try:
-                        await start(slug)
-                    except Exception as e:
-                        log.error("Watchdog: failed to start %s: %s", slug, e)
+                if not _watchdog_can_retry(slug):
+                    continue
+
+                status = await get_status_async(slug)
+                if status.get("status") == "running":
+                    _watchdog_on_success(slug)
+                    continue
+
+                try:
+                    log.info("Watchdog: %s is %s — attempting restart", slug, status.get("status"))
+                    await start(slug)
+                    log.info("Watchdog: %s restarted successfully", slug)
+                except Exception as exc:
+                    _watchdog_on_failure(slug, reason=str(exc))
         except Exception as e:
             log.error("Watchdog loop error: %s", e)
 
@@ -444,7 +529,7 @@ async def start_watchdog():
     if _watchdog_task and not _watchdog_task.done():
         return
     _watchdog_task = asyncio.create_task(_watchdog_loop())
-    log.info("Addon watchdog started (interval=%ds)", _WATCHDOG_INTERVAL)
+    log.info("Addon watchdog started (interval=%ds)", _WATCHDOG_CHECK_INTERVAL)
 
 
 async def stop_watchdog():
@@ -466,8 +551,15 @@ async def auto_start_watchdog_addons():
         return
     log.info("Auto-starting watchdog addons: %s", ", ".join(slugs))
     for slug in slugs:
+        if slug in _intentionally_stopped:
+            continue
         try:
+            status = await get_status_async(slug)
+            if status.get("status") == "running":
+                _watchdog_on_success(slug)
+                continue
             await start(slug)
             log.info("Auto-started %s", slug)
         except Exception as e:
+            _watchdog_on_failure(slug, reason=str(e))
             log.warning("Failed to auto-start %s: %s", slug, e)

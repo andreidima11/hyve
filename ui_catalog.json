@@ -6,7 +6,7 @@
       "title_key": "config.waha_section",
       "description": "Mesagerie și webhook",
       "icon": "fa-whatsapp",
-      "image": "/static/icons/integrations/waha.png",
+      "image": "/static/icons/integrations/waha.svg",
       "accent": "#10b981",
       "icon_background": "rgba(16,185,129,0.2)",
       "text_color": "#34d399",

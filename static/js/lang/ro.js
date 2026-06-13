@@ -595,7 +595,7 @@ const ro = {
         check_requirements: "Verifică cerințe",
         admin_section: "Administrare",
         watchdog_auto_restart: "Restartare automată (watchdog)",
-        watchdog_auto_restart_hint: "Pornește serviciul odată cu Hyve și îl repornește dacă procesul cade.",
+        watchdog_auto_restart_hint: "Pornește odată cu Hyve și repornește după căderi neașteptate, cu întârzieri crescătoare (fără buclă strânsă la erori).",
         uninstall: "Dezinstalează",
         process_section: "Proces",
         logs: "Loguri",

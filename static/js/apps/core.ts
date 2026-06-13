@@ -96,7 +96,7 @@ export async function appAction(slug: string, action: string) {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/${action}`, { method: 'POST' });
         if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            throw new Error(data.detail || res.statusText);
+            throw new Error(translateApiDetail(data.detail) || res.statusText || t('common.error'));
         }
         showToast(t('apps.process_action_ok', { slug, action }), 'success');
         // Re-fetch status to update buttons

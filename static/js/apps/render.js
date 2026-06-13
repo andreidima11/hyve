@@ -1,9 +1,18 @@
 import { escapeHtml } from '../utils.js';
-import { t } from '../lang/index.js';
+import { t, translateApiDetail } from '../lang/index.js';
 import { isAdmin } from '../user_context.js';
 export function _errMsg(err) {
-    if (err instanceof Error)
-        return err.message;
+    if (err instanceof Error) {
+        const msg = err.message.trim();
+        if (msg && msg !== '[object Object]')
+            return msg;
+        return t('common.error');
+    }
+    if (err && typeof err === 'object') {
+        const translated = translateApiDetail(err);
+        if (translated)
+            return translated;
+    }
     return String(err);
 }
 /** Format manifest/runtime version — avoid "vstable" for Docker channel tags. */
@@ -290,6 +299,7 @@ export function _renderDetail(addon, status) {
                 <label class="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 flex items-start gap-3 cursor-pointer">
                     <input type="checkbox" id="addon-watchdog-${escapeHtml(slug)}" ${watchdogOn ? 'checked' : ''}
                         data-config-slug="${escapeHtml(slug)}"
+                        data-config-input="toggleAddonWatchdog"
                         class="mt-0.5 rounded border-white/10 bg-slate-900 text-accent focus:ring-accent/40">
                     <span class="min-w-0">
                         <span class="block text-sm text-white"><i class="fas fa-shield-halved mr-1.5 opacity-70"></i>${escapeHtml(t('apps.watchdog_auto_restart'))}</span>

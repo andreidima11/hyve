@@ -4,6 +4,30 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.6.2] — 2026-06
+
+Patch release: **addon watchdog & reconcile fixes**, **Integrations list UI polish**, and **navigation back-stack** fix.
+
+### Addons
+- **Watchdog (HA-style):** 30s health checks, exponential backoff (30s → 480s), 1h pause after 6 consecutive failures — no tight restart loops on bad config.
+- Watchdog toggle **persists immediately** (not only on Save); supervised addons require `installed + watchdog` only.
+- **Mosquitto start:** merge `config_schema` defaults before resolving start args (fixes unresolved `{ws_port}` placeholders).
+- **Frigate false “installed”:** artifact-based reconcile + startup repair when integration config points at a remote host without local Docker image.
+- **Brew addons (Mosquitto):** detect Homebrew binary/version and restore installed state after reconcile.
+
+### Integrations UI
+- Catalog rows use the same **`hyd-entity-row`** card style as Devices (icons, typography, hover).
+- Removed **Sync** from the catalog list — sync stays in the integration detail modal.
+- Updated integration logos: **WAHA** (SVG), **SearXNG**, **Midea AC**, **Roborock**.
+
+### Apps & navigation
+- Fix **`[object Object]`** toast when addon start fails (API error detail translation).
+- **Back navigation:** Integrations → device → entity → back ×2 returns to the integration page (not the Devices tab).
+
+### Tests
+- `tests/test_addon_watchdog.py` — backoff and long-pause behaviour.
+- Extended addon state / home-automation tests for brew reconcile, watchdog persistence, Frigate repair.
+
 ## [0.9.6.1] — 2026-06
 
 Patch release: **Devices list polish** and **sync-all** for integrations.

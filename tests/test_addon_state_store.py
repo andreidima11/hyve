@@ -107,6 +107,8 @@ def test_reconcile_addon_state_from_integration_and_disk(tmp_path, monkeypatch):
     models_dir.mkdir()
     (models_dir / "test.onnx").write_text("x", encoding="utf-8")
     monkeypatch.setattr(registry, "_PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(registry, "_brew_installed_version", lambda _pkg: None)
+    monkeypatch.setattr(registry, "_brew_binary_path", lambda _pkg: None)
 
     z2m_prefix = tmp_path / "output/addons/zigbee2mqtt/runtime"
     pkg_dir = z2m_prefix / "node_modules" / "zigbee2mqtt"
@@ -130,6 +132,93 @@ def test_reconcile_addon_state_from_integration_and_disk(tmp_path, monkeypatch):
     assert piper["config"]["voice"] == "ro_RO-mihai-medium"
 
 
+def test_reconcile_frigate_remote_integration_does_not_mark_installed(tmp_path, monkeypatch):
+    _fresh_addon_state()
+    cfg_path = tmp_path / "config.json"
+    cfg_path.write_text(json.dumps({
+        "frigate": {
+            "enabled": True,
+            "host": "192.168.0.101",
+            "port": 8971,
+            "rtsp_port": 8554,
+            "webrtc_port": 8555,
+        },
+    }), encoding="utf-8")
+
+    import core.settings as settings_mod
+    from addons import registry
+
+    monkeypatch.setattr(settings_mod, "CONFIG_FILE", str(cfg_path))
+    monkeypatch.setattr(
+        settings_mod,
+        "_load_config_raw",
+        lambda: json.loads(cfg_path.read_text(encoding="utf-8")),
+    )
+    monkeypatch.setattr(settings_mod, "CFG", {})
+    monkeypatch.setattr(registry, "_PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(registry, "_docker_installed_version", lambda _image: None)
+    monkeypatch.setattr(registry, "_brew_installed_version", lambda _pkg: None)
+    monkeypatch.setattr(registry, "_brew_binary_path", lambda _pkg: None)
+
+    assert registry.reconcile_addon_state() == 0
+    frigate = state_store.get_state("frigate")
+    assert frigate["installed"] is False
+
+
+def test_repair_clears_false_installed_docker_addon(tmp_path, monkeypatch):
+    _fresh_addon_state()
+    state_store.save_state("frigate", {
+        "installed": True,
+        "enabled": True,
+        "version": "stable",
+        "config": {"port": 8971},
+        "watchdog": False,
+    })
+
+    import core.settings as settings_mod
+    from addons import registry
+
+    cfg_path = tmp_path / "config.json"
+    cfg_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(settings_mod, "CONFIG_FILE", str(cfg_path))
+    monkeypatch.setattr(settings_mod, "_load_config_raw", lambda: {})
+    monkeypatch.setattr(settings_mod, "CFG", {})
+    monkeypatch.setattr(registry, "_PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(registry, "_docker_installed_version", lambda _image: None)
+    monkeypatch.setattr(registry, "_brew_installed_version", lambda _pkg: None)
+    monkeypatch.setattr(registry, "_brew_binary_path", lambda _pkg: None)
+
+    assert registry.reconcile_addon_state() == 1
+    frigate = state_store.get_state("frigate")
+    assert frigate["installed"] is False
+    assert frigate["enabled"] is False
+
+
+def test_reconcile_restores_brew_addon_when_binary_present(tmp_path, monkeypatch):
+    _fresh_addon_state()
+    cfg_path = tmp_path / "config.json"
+    cfg_path.write_text("{}", encoding="utf-8")
+
+    import core.settings as settings_mod
+    from addons import registry
+
+    monkeypatch.setattr(settings_mod, "CONFIG_FILE", str(cfg_path))
+    monkeypatch.setattr(settings_mod, "_load_config_raw", lambda: {})
+    monkeypatch.setattr(settings_mod, "CFG", {})
+    monkeypatch.setattr(registry, "_PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(
+        registry,
+        "_detect_on_disk_install",
+        lambda manifest: "2.1.2" if manifest.get("slug") == "mosquitto" else None,
+    )
+
+    assert state_store.get_state("mosquitto")["installed"] is False
+    assert registry.reconcile_addon_state() == 1
+    mosq = state_store.get_state("mosquitto")
+    assert mosq["installed"] is True
+    assert mosq["version"] == "2.1.2"
+
+
 def test_reconcile_does_not_downgrade_installed(tmp_path, monkeypatch):
     _fresh_addon_state()
     cfg_path = tmp_path / "config.json"
@@ -151,11 +240,47 @@ def test_reconcile_does_not_downgrade_installed(tmp_path, monkeypatch):
     })
 
     monkeypatch.setattr(registry, "_PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(
+        registry,
+        "_detect_on_disk_install",
+        lambda manifest: "2.0.18" if manifest.get("slug") == "mosquitto" else None,
+    )
     assert registry.reconcile_addon_state() == 0
     assert state_store.get_state("mosquitto")["installed"] is True
 
 
-def test_addon_state_table_from_migrations():
+def test_watchdog_persists_in_sqlite():
+    _fresh_addon_state()
+    state_store.save_state("mosquitto", {
+        "installed": True,
+        "enabled": True,
+        "version": "2.1.2",
+        "config": {"port": 1883},
+        "watchdog": True,
+    })
+    loaded = state_store.get_state("mosquitto")
+    assert loaded["watchdog"] is True
+
+    from addons import registry
+
+    registry.set_addon_watchdog("mosquitto", False)
+    assert state_store.get_state("mosquitto")["watchdog"] is False
+    registry.set_addon_watchdog("mosquitto", True)
+    assert state_store.get_state("mosquitto")["watchdog"] is True
+
+
+def test_get_watchdog_addons_without_enabled_flag():
+    from addons import registry
+
+    _fresh_addon_state()
+    state_store.save_state("mosquitto", {
+        "installed": True,
+        "enabled": False,
+        "version": "2.1.2",
+        "config": {"port": 1883},
+        "watchdog": True,
+    })
+    assert "mosquitto" in registry.get_watchdog_addons()
     run_startup_migrations()
 
     with database.engine.connect() as conn:

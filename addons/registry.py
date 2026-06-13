@@ -233,6 +233,66 @@ def _run_capture(cmd: list[str], timeout: float = 30) -> str | None:
     return None
 
 
+def _run_capture_text(cmd: list[str], timeout: float = 15) -> str | None:
+    """Like ``_run_capture`` but also accepts stderr (e.g. ``mosquitto -h``)."""
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        out = (r.stdout or "").strip()
+        err = (r.stderr or "").strip()
+        return out or err or None
+    except Exception as e:
+        log.debug("cmd failed %s: %s", cmd, e)
+    return None
+
+
+def _brew_binary_path(pkg: str) -> str | None:
+    candidates = [
+        shutil.which(pkg),
+        os.path.join("/opt/homebrew/sbin", pkg),
+        os.path.join("/opt/homebrew/bin", pkg),
+        os.path.join("/usr/local/sbin", pkg),
+        os.path.join("/usr/local/bin", pkg),
+    ]
+    for path in candidates:
+        if path and os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    return None
+
+
+def _brew_binary_present(pkg: str) -> bool:
+    return _brew_binary_path(pkg) is not None
+
+
+def _brew_binary_version(pkg: str) -> str | None:
+    cmd = _brew_binary_path(pkg)
+    if not cmd:
+        return None
+    for args in ([cmd, "-h"], [cmd, "--version"], [cmd, "version"]):
+        out = _run_capture_text(args, timeout=10)
+        if not out:
+            continue
+        match = re.search(r"(\d+\.\d+(?:\.\d+)?(?:\.\d+)?)", out)
+        if match:
+            normalized = _normalize_version_string(match.group(1))
+            if normalized:
+                return normalized
+    return None
+
+
+def _brew_installed_version(pkg: str) -> str | None:
+    pkg = str(pkg or "").strip()
+    if not pkg:
+        return None
+    if shutil.which("brew"):
+        out = _run_capture(["brew", "list", "--versions", pkg], timeout=20)
+        if out:
+            for line in out.splitlines():
+                parts = line.strip().split()
+                if len(parts) >= 2 and parts[0] == pkg:
+                    return _normalize_version_string(parts[-1]) or parts[-1]
+    return _brew_binary_version(pkg)
+
+
 _CHANNEL_TAGS = frozenset({
     "stable", "latest", "main", "master", "dev", "edge", "nightly", "beta", "rc",
 })
@@ -422,6 +482,13 @@ def _resolve_installed_version(manifest: dict) -> str | None:
         return _pip_installed_version(_strip_pkg_version(packages[0]))
     if method == "npm":
         return _npm_installed_version(_strip_pkg_version(packages[0], npm=True), _npm_prefix_dir(manifest))
+    if method == "brew":
+        for pkg in packages:
+            ver = _brew_installed_version(_strip_pkg_version(pkg))
+            if ver:
+                return ver
+            if _brew_binary_present(_strip_pkg_version(pkg)):
+                return str(manifest.get("version") or "installed")
     return None
 
 
@@ -520,6 +587,38 @@ def _legacy_section_config(
     return {}
 
 
+_INSTALL_METHODS_REQUIRING_ARTIFACTS = frozenset({"docker", "brew", "npm", "pip", "binary"})
+
+
+def _install_requires_artifacts(manifest: dict) -> bool:
+    method = str((manifest.get("install") or {}).get("method") or "").strip().lower()
+    return method in _INSTALL_METHODS_REQUIRING_ARTIFACTS
+
+
+def _repair_false_installed_flags() -> int:
+    """Clear ``installed`` when DB says yes but local package/image is missing."""
+    fixed = 0
+    for manifest in list_available():
+        slug = manifest["slug"]
+        state = get_state(slug)
+        if not state.get("installed"):
+            continue
+        if not _install_requires_artifacts(manifest):
+            continue
+        if _detect_on_disk_install(manifest):
+            continue
+        new_state = dict(state)
+        new_state["installed"] = False
+        new_state["version"] = None
+        new_state["latest_version"] = None
+        if manifest.get("start_command"):
+            new_state["enabled"] = False
+        _save_addon_state(slug, new_state)
+        log.info("Cleared false installed flag for add-on %s (no local artifacts)", slug)
+        fixed += 1
+    return fixed
+
+
 def _reconcile_hints(manifest: dict, raw_config: dict, on_disk_version: str | None) -> dict[str, Any] | None:
     hints: dict[str, Any] = {}
     if on_disk_version:
@@ -542,7 +641,9 @@ def _reconcile_hints(manifest: dict, raw_config: dict, on_disk_version: str | No
         if section.get("enabled") is True or cfg:
             section_signal = True
 
-    if on_disk_version or section_signal:
+    if on_disk_version:
+        return hints
+    if section_signal and not _install_requires_artifacts(manifest):
         return hints
     return None
 
@@ -550,12 +651,14 @@ def _reconcile_hints(manifest: dict, raw_config: dict, on_disk_version: str | No
 def reconcile_addon_state() -> int:
     """Backfill SQLite when install info lived only in integration sections or on disk.
 
-    Runs after ``migrate_from_config_json`` and never downgrades ``installed``.
+    Also clears false ``installed`` flags (e.g. remote Frigate integration without
+    a local Docker image). Never downgrades a verified on-disk install.
     """
     import core.settings as settings_mod
 
+    repaired = _repair_false_installed_flags()
+
     raw = settings_mod._load_config_raw()
-    repaired = 0
     for manifest in list_available():
         slug = manifest["slug"]
         state = get_state(slug)
@@ -1082,6 +1185,8 @@ def update_addon_config(slug: str, config: dict) -> dict:
 
     state = get_state(slug)
     if not state.get("installed"):
+        if _install_requires_artifacts(manifest):
+            raise ValueError(f"Addon {slug} is not installed")
         schema = manifest.get("config_schema", [])
         default_config = {field["key"]: field.get("default", "") for field in schema}
         state = {
@@ -1112,23 +1217,29 @@ def set_addon_enabled(slug: str, enabled: bool) -> dict:
 
 def set_addon_watchdog(slug: str, enabled: bool) -> dict:
     """Enable/disable watchdog for an addon. Returns updated state."""
+    manifest = get_manifest(slug)
+    if not manifest:
+        raise ValueError(f"Unknown addon: {slug}")
     state = get_state(slug)
     if not state.get("installed"):
         raise ValueError(f"Addon {slug} is not installed")
-    state["watchdog"] = enabled
+    state = dict(state)
+    state["watchdog"] = bool(enabled)
     _save_addon_state(slug, state)
     return state
 
 
 def get_watchdog_addons() -> list[str]:
-    """Return slugs of addons with watchdog enabled."""
+    """Return slugs of addons with watchdog enabled (auto-start on boot)."""
     result = []
     for manifest in list_available():
         slug = manifest["slug"]
         state = get_state(slug)
-        if state.get("installed") and state.get("enabled") and state.get("watchdog"):
-            if manifest.get("start_command"):
-                result.append(slug)
+        if not state.get("installed") or not state.get("watchdog"):
+            continue
+        if not manifest.get("start_command"):
+            continue
+        result.append(slug)
     return result
 
 

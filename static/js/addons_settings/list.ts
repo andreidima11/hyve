@@ -2,7 +2,7 @@
  * Add-ons settings: catalog list, install/enable, config modal.
  */
 import { apiCall } from '../api.js';
-import { t } from '../lang/index.js';
+import { t, translateApiDetail } from '../lang/index.js';
 import { showToast, showConfirm, escapeHtml, openSubPage, closeSubPage } from '../utils.js';
 import { loadIntegrationEntities } from '../features_integrations_settings.js';
 import type { AddonRecord } from './types.js';
@@ -142,7 +142,11 @@ export async function openAddonConfigModal(slug: string) {
     // Watchdog toggle
     const watchdogToggle = document.getElementById('addon-watchdog-toggle') as HTMLInputElement | null;
     const watchdogSection = document.getElementById('addon-watchdog-section');
-    if (watchdogToggle) watchdogToggle.checked = !!(addon.state?.watchdog);
+    if (watchdogToggle) {
+        watchdogToggle.checked = !!(addon.state?.watchdog);
+        watchdogToggle.dataset.configInput = 'toggleAddonWatchdog';
+        watchdogToggle.dataset.configSlug = slug;
+    }
     // Only show watchdog if addon has a start_command
     if (watchdogSection) watchdogSection.classList.toggle('hidden', !addon.start_command);
 
@@ -162,6 +166,7 @@ export function closeAddonConfigModal() {
 
 export async function saveAddonConfig() {
     if (!_currentAddonSlug) return;
+    const slug = _currentAddonSlug;
     const fields = document.querySelectorAll('#addon-config-fields [data-addon-key]');
     const config: Record<string, unknown> = {};
     fields.forEach(f => {
@@ -171,8 +176,26 @@ export async function saveAddonConfig() {
         config[key] = el.type === 'number' ? Number(el.value) : el.value;
     });
 
+    const watchdogToggle = document.getElementById('addon-watchdog-toggle') as HTMLInputElement | null;
+    if (watchdogToggle && !watchdogToggle.closest('.hidden')) {
+        try {
+            const wdRes = await apiCall(`/api/addons/${encodeURIComponent(slug)}/watchdog`, {
+                method: 'POST',
+                body: { enabled: watchdogToggle.checked },
+            });
+            if (!wdRes.ok) {
+                const data = await wdRes.json().catch(() => ({}));
+                showToast(translateApiDetail(data.detail) || t('apps.watchdog_save_error'), 'error');
+                return;
+            }
+        } catch (e) {
+            showToast(t('hy.network_error'), 'error');
+            return;
+        }
+    }
+
     try {
-        const res = await apiCall(`/api/addons/${encodeURIComponent(_currentAddonSlug)}/config`, {
+        const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/config`, {
             method: 'PATCH',
             body: config,
         });
@@ -183,17 +206,6 @@ export async function saveAddonConfig() {
     } catch (e) {
         showToast(t('hy.network_error'), 'error');
         return;
-    }
-
-    // Save watchdog setting
-    const watchdogToggle = document.getElementById('addon-watchdog-toggle') as HTMLInputElement | null;
-    if (watchdogToggle && !watchdogToggle.closest('.hidden')) {
-        try {
-            await apiCall(`/api/addons/${encodeURIComponent(_currentAddonSlug)}/watchdog`, {
-                method: 'POST',
-                body: { enabled: watchdogToggle.checked },
-            });
-        } catch (e) {}
     }
 
     showToast(t('hy.addon_config_saved'), 'success');

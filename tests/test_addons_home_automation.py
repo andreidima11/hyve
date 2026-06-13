@@ -77,3 +77,31 @@ def test_downloadable_addons_build_real_install_commands():
 
     assert mosq_cmd and mosq_cmd[0] == "brew"
     assert zigbee_cmd and zigbee_cmd[0] == "npm"
+
+
+def test_process_manager_merges_config_defaults():
+    from addons.process_manager import _effective_config, _resolve_args
+
+    manifest = registry.get_manifest("mosquitto")
+    assert manifest is not None
+
+    merged = _effective_config(manifest, {"port": 1883})
+    assert merged["port"] == 1883
+    assert merged["ws_port"] == 9001
+    assert merged["allow_anonymous"] is True
+
+    args = _resolve_args(manifest["start_command"]["args"], merged)
+    assert "{ws_port}" not in args[2]
+    assert args[2] == "9001"
+
+
+def test_brew_installed_version_detects_mosquitto_binary(monkeypatch):
+    manifest = registry.get_manifest("mosquitto")
+    assert manifest is not None
+    monkeypatch.setattr(
+        registry,
+        "_brew_installed_version",
+        lambda pkg: "2.1.2" if pkg == "mosquitto" else None,
+    )
+    assert registry._resolve_installed_version(manifest) == "2.1.2"
+    assert registry._detect_on_disk_install(manifest) == "2.1.2"

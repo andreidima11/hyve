@@ -3,7 +3,7 @@
  */
 import { apiCall } from '../api.js';
 import { showToast, escapeHtml } from '../utils.js';
-import { t } from '../lang/index.js';
+import { t, translateApiDetail } from '../lang/index.js';
 import { appsState } from './state.js';
 import * as render from './render.js';
 import { startPoll, refreshDetailStatus } from './poll.js';
@@ -79,7 +79,7 @@ export async function appAction(slug, action) {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/${action}`, { method: 'POST' });
         if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            throw new Error(data.detail || res.statusText);
+            throw new Error(translateApiDetail(data.detail) || res.statusText || t('common.error'));
         }
         showToast(t('apps.process_action_ok', { slug, action }), 'success');
         // Re-fetch status to update buttons
