@@ -9,6 +9,20 @@ import { integrationDefinition } from './catalog_meta.js';
 import { loadIntegrationExposedEntities } from './exposed_devices.js';
 let _entriesCurrent = { slug: null, schema: [], entries: [], supportsMultiple: false, label: '' };
 const _syncingEntryIds = new Set();
+let _tapoWizardStep = 1;
+let _tapoEntryPatch = {};
+function _isTapoWizard(entry) {
+    return _entriesCurrent.slug === 'tapo' && !entry?.entry_id;
+}
+function _visibleSchema(entry) {
+    const schema = _entriesCurrent.schema;
+    if (!_isTapoWizard(entry))
+        return schema;
+    if (_tapoWizardStep === 1) {
+        return schema.filter(f => String(f.ui_group || 'default') === 'api');
+    }
+    return schema.filter(f => String(f.ui_group || '') === 'camera_rtsp');
+}
 export function integrationHasConfigSchema(integrationId) {
     const def = integrationDefinition(integrationId);
     return !!def?.has_config_schema;
@@ -226,49 +240,81 @@ function openEntryEditor(entry) {
     const titleInput = document.querySelector('#integration-entry-form input[name="__title__"]');
     if (!modal || !fieldsEl || !titleInput || !errEl || !titleEl)
         return;
+    _tapoWizardStep = 1;
+    _tapoEntryPatch = {};
     errEl.classList.add('hidden');
     errEl.textContent = '';
     titleEl.textContent = entry && entry.title ? t('integrations.entry_edit_title', { title: String(entry.title) }) : t('integrations.entry_add_title', { label: _entriesCurrent.label });
     titleInput.value = entry?.title ? String(entry.title) : '';
-    fieldsEl.innerHTML = '';
     const data = (entry?.data || {});
-    _entriesCurrent.schema.forEach(field => {
-        const wrap = document.createElement('div');
-        const fkey = String(field.key || '');
-        const id = `entry_field_${fkey}`;
-        const required = field.required ? '<span class="text-red-400">*</span>' : '';
-        const help = field.help ? `<div class="text-[10px] text-slate-500 mt-1">${escapeHtml(field.help)}</div>` : '';
-        let input = '';
-        const value = data[fkey] !== undefined ? data[fkey] : (field.default !== undefined ? field.default : '');
-        const placeholder = field.placeholder ? `placeholder="${escapeHtml(field.placeholder)}"` : '';
-        if (field.type === 'link') {
-            const href = escapeHtmlAttr(field.url || '#');
-            input = `<a href="${href}" target="_blank" rel="noopener noreferrer"
+    const editingEntryId = entry?.entry_id ? String(entry.entry_id) : '';
+    const renderFields = () => {
+        fieldsEl.innerHTML = '';
+        const wizardEl = document.getElementById('integration-entry-wizard-steps');
+        if (wizardEl) {
+            if (_isTapoWizard(entry)) {
+                wizardEl.classList.remove('hidden');
+                const step1 = _tapoWizardStep === 1 ? 'text-accent font-semibold' : 'text-slate-500';
+                const step2 = _tapoWizardStep === 2 ? 'text-accent font-semibold' : 'text-slate-500';
+                wizardEl.innerHTML = `
+                    <div class="flex items-center justify-between gap-2 mb-1 text-[11px]">
+                        <span class="${step1}">${escapeHtml(t('integrations.tapo_wizard_step_api'))}</span>
+                        <span class="text-slate-600">→</span>
+                        <span class="${step2}">${escapeHtml(t('integrations.tapo_wizard_step_rtsp'))}</span>
+                    </div>`;
+                if (_tapoWizardStep === 2) {
+                    const back = document.createElement('button');
+                    back.type = 'button';
+                    back.className = 'text-[10px] text-slate-400 hover:text-slate-200 mb-2 underline-offset-2 hover:underline';
+                    back.textContent = t('integrations.tapo_wizard_back');
+                    back.onclick = () => { _tapoWizardStep = 1; errEl.classList.add('hidden'); renderFields(); };
+                    fieldsEl.appendChild(back);
+                }
+            }
+            else {
+                wizardEl.classList.add('hidden');
+                wizardEl.innerHTML = '';
+            }
+        }
+        _visibleSchema(entry).forEach(field => {
+            const wrap = document.createElement('div');
+            const fkey = String(field.key || '');
+            const id = `entry_field_${fkey}`;
+            const required = field.required ? '<span class="text-red-400">*</span>' : '';
+            const help = field.help ? `<div class="text-[10px] text-slate-500 mt-1">${escapeHtml(field.help)}</div>` : '';
+            let input = '';
+            const value = data[fkey] !== undefined ? data[fkey] : (field.default !== undefined ? field.default : '');
+            const placeholder = field.placeholder ? `placeholder="${escapeHtml(field.placeholder)}"` : '';
+            if (field.type === 'link') {
+                const href = escapeHtmlAttr(field.url || '#');
+                input = `<a href="${href}" target="_blank" rel="noopener noreferrer"
                 class="w-full flex items-center justify-center gap-2 bg-accent/15 border border-accent/40 text-accent rounded-lg px-3 py-2.5 text-sm font-semibold hover:bg-accent/25 transition-colors no-underline">
                 <i class="fas fa-arrow-up-right-from-square"></i> <span>Deschide pagina Xiaomi</span>
             </a>`;
-        }
-        else if (field.type === 'select' && Array.isArray(field.options)) {
-            const opts = field.options.map(o => `<option value="${escapeHtml(o.value)}" ${String(o.value) === String(value) ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('');
-            input = `<select id="${id}" name="${fkey}" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-accent outline-none">${opts}</select>`;
-        }
-        else if (field.type === 'bool' || field.type === 'boolean') {
-            input = `<label class="flex items-center gap-2 text-sm text-slate-200"><input type="checkbox" id="${id}" name="${fkey}" ${value ? 'checked' : ''} class="accent-accent"> <span>${escapeHtml(field.label || fkey)}</span></label>`;
-        }
-        else {
-            const t = field.type === 'number' ? 'number' : (field.type === 'password' ? 'password' : (field.type === 'url' ? 'url' : 'text'));
-            const minAttr = field.min != null ? ` min="${escapeHtmlAttr(field.min)}"` : '';
-            const maxAttr = field.max != null ? ` max="${escapeHtmlAttr(field.max)}"` : '';
-            input = `<input type="${t}" id="${id}" name="${fkey}"${minAttr}${maxAttr} ${placeholder} value="${escapeHtml(String(value ?? ''))}" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-accent outline-none">`;
-        }
-        if (field.type === 'bool' || field.type === 'boolean') {
-            wrap.innerHTML = input;
-        }
-        else {
-            wrap.innerHTML = `<label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">${escapeHtml(field.label || fkey)} ${required}</label>${input}${help}`;
-        }
-        fieldsEl.appendChild(wrap);
-    });
+            }
+            else if (field.type === 'select' && Array.isArray(field.options)) {
+                const opts = field.options.map(o => `<option value="${escapeHtml(o.value)}" ${String(o.value) === String(value) ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('');
+                input = `<select id="${id}" name="${fkey}" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-accent outline-none">${opts}</select>`;
+            }
+            else if (field.type === 'bool' || field.type === 'boolean') {
+                input = `<label class="flex items-center gap-2 text-sm text-slate-200"><input type="checkbox" id="${id}" name="${fkey}" ${value ? 'checked' : ''} class="accent-accent"> <span>${escapeHtml(field.label || fkey)}</span></label>`;
+            }
+            else {
+                const t = field.type === 'number' ? 'number' : (field.type === 'password' ? 'password' : (field.type === 'url' ? 'url' : 'text'));
+                const minAttr = field.min != null ? ` min="${escapeHtmlAttr(field.min)}"` : '';
+                const maxAttr = field.max != null ? ` max="${escapeHtmlAttr(field.max)}"` : '';
+                input = `<input type="${t}" id="${id}" name="${fkey}"${minAttr}${maxAttr} ${placeholder} value="${escapeHtml(String(value ?? ''))}" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-accent outline-none">`;
+            }
+            if (field.type === 'bool' || field.type === 'boolean') {
+                wrap.innerHTML = input;
+            }
+            else {
+                wrap.innerHTML = `<label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">${escapeHtml(field.label || fkey)} ${required}</label>${input}${help}`;
+            }
+            fieldsEl.appendChild(wrap);
+        });
+    };
+    renderFields();
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     const close = () => { modal.classList.add('hidden'); modal.classList.remove('flex'); };
@@ -278,10 +324,9 @@ function openEntryEditor(entry) {
         closeBtn.onclick = close;
     if (cancelBtn)
         cancelBtn.onclick = close;
-    const editingEntryId = entry?.entry_id ? String(entry.entry_id) : '';
     // Helper: collect form data, skipping masked secrets when editing.
     const collectData = () => {
-        const out = {};
+        const out = { ..._tapoEntryPatch };
         for (const field of _entriesCurrent.schema) {
             if (field.type === 'oauth' || field.type === 'link')
                 continue;
@@ -313,16 +358,30 @@ function openEntryEditor(entry) {
             testBtn.disabled = true;
             testBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${escapeHtml(t('integrations.test_connecting'))}`;
             const testTimeoutMs = _entriesCurrent.slug === 'mammotion' ? 90000 : 45000;
+            const testPhase = _isTapoWizard(entry)
+                ? (_tapoWizardStep === 1 ? 'api' : 'full')
+                : 'full';
             try {
                 const r = await apiCall(`/api/integrations/${encodeURIComponent(_entriesCurrent.slug || '')}/entries/test`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: collectData(), entry_id: entry?.entry_id ? String(entry.entry_id) : null }),
+                    body: JSON.stringify({
+                        data: collectData(),
+                        entry_id: entry?.entry_id ? String(entry.entry_id) : null,
+                        test_phase: testPhase,
+                    }),
                     timeout: testTimeoutMs,
                 });
                 const o = await r.json().catch(() => ({}));
                 if (r.ok && o.ok) {
+                    if (o.entry_patch && typeof o.entry_patch === 'object') {
+                        _tapoEntryPatch = { ..._tapoEntryPatch, ...o.entry_patch };
+                    }
+                    if (_isTapoWizard(entry) && o.requires_camera_rtsp && _tapoWizardStep === 1) {
+                        _tapoWizardStep = 2;
+                        renderFields();
+                    }
                     if (typeof showToast === 'function')
-                        showToast(integrationApiMessage(o) || t('integrations.connection_ok'), 'success', 2200);
+                        showToast(integrationApiMessage(o) || t('integrations.connection_ok'), 'success', 2800);
                 }
                 else {
                     errEl.textContent = integrationApiMessage(o) || t('integrations.test_failed');

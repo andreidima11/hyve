@@ -68,9 +68,13 @@ async def test_provider_entry(
                     if not v or (isinstance(v, str) and set(v) <= {"•", "*"}):
                         data[f["key"]] = existing["data"].get(f["key"], "")
     test_timeout = MAMMOTION_ENTRY_TEST_TIMEOUT_SECONDS if slug == "mammotion" else ENTRY_TEST_TIMEOUT_SECONDS
+    phase = str(body.test_phase or "full").strip().lower()
     try:
+        test_kwargs: dict[str, Any] = {}
+        if phase in {"api", "full"}:
+            test_kwargs["phase"] = phase
         result = await asyncio.wait_for(
-            cls.async_test_connection(data),
+            cls.async_test_connection(data, **test_kwargs),
             timeout=test_timeout,
         )
     except asyncio.TimeoutError:
@@ -188,6 +192,10 @@ async def update_provider_entry(
     )
     if not entry:
         raise HTTPException(status_code=404, detail={"key": "integrations.entry_not_found"})
+
+    if body.enabled is not None:
+        from addons import integration_sync
+        integration_sync.sync_enabled_to_addon(slug, bool(body.enabled))
 
     manager = get_integration_manager()
     manager.reload()

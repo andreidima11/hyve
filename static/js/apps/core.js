@@ -7,6 +7,16 @@ import { t, translateApiDetail } from '../lang/index.js';
 import { appsState } from './state.js';
 import * as render from './render.js';
 import { startPoll, refreshDetailStatus } from './poll.js';
+import { toggleAddonWatchdog } from './lifecycle.js';
+function _wireAddonDetailControls(slug) {
+    const cb = document.getElementById(`addon-watchdog-${slug}`);
+    if (!cb || cb.dataset.watchdogBound === '1')
+        return;
+    cb.dataset.watchdogBound = '1';
+    cb.addEventListener('change', () => {
+        void toggleAddonWatchdog(slug, cb.checked);
+    });
+}
 export async function loadApps() {
     const container = document.getElementById('apps-list');
     if (!container)
@@ -28,6 +38,7 @@ export async function loadApps() {
             const addon = addons.find(a => a.slug === appsState.openSlug);
             if (addon) {
                 container.innerHTML = render._renderDetail(addon, statuses[addon.slug]);
+                _wireAddonDetailControls(addon.slug);
                 startPoll();
                 return;
             }
@@ -58,6 +69,7 @@ export async function openAppDetail(slug) {
         else
             appsState.addonsCache.push(addon);
         container.innerHTML = render._renderDetail(addon, status);
+        _wireAddonDetailControls(slug);
     }
     catch (e) {
         showToast(t('apps.error_detail', { message: render._errMsg(e) }), 'error');

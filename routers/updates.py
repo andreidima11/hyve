@@ -1,19 +1,13 @@
 """
-Updates API router — add-on update management.
+Updates API router — Hyve self-update + add-on update management.
 
 Provides:
-  GET   /api/updates/addons          — list installed add-ons + available-update flags
-  POST  /api/updates/addons/check    — recompute available updates + notify admins
-  POST  /api/updates/addons/update   — update one/all add-ons to the bundled version
-
-Scheduled:
-  schedule_addon_check()  — register/remove APScheduler cron job based on config
-
-Add-on "updates" are detected by comparing the installed version (config.json
-state) against the version shipped in the bundled manifest. No network call is
-needed — newer manifests arrive when Hyve itself is upgraded. This is fully
-generic: every add-on (current or future) is handled the same way, nothing is
-hardcoded per add-on.
+  GET   /api/updates/hyve           — current vs latest GitHub release
+  POST  /api/updates/hyve/check       — refresh latest release from GitHub
+  POST  /api/updates/hyve/apply       — git checkout tag + deps + restart
+  GET   /api/updates/addons           — list installed add-ons + available-update flags
+  POST  /api/updates/addons/check     — recompute available updates + notify admins
+  POST  /api/updates/addons/update    — update one/all add-ons to the bundled version
 """
 
 from __future__ import annotations
@@ -26,7 +20,12 @@ from pydantic import BaseModel
 
 import core.auth as auth
 import core.models as models
+import core.settings as settings
 from addons import registry
+from core.hyve_update import HyveUpdateError, apply_update as apply_hyve_update
+from core.hyve_update import check_for_update as check_hyve_update
+from core.hyve_update import get_status as get_hyve_status
+from core.http.errors import error_detail
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +33,26 @@ _ADDON_CHECK_JOB_ID = "hyve_addon_check"
 
 # In-memory cache for the last check results (drives the hub badge).
 _last_check: dict[str, Any] = {"outdated": [], "checked_at": None}
+
+
+def _persist_addons_last_check() -> None:
+    try:
+        settings.save_config({"updates": {"addons_last_check": dict(_last_check)}})
+    except Exception as exc:
+        log.debug("persist addons last check failed: %s", exc)
+
+
+def _hydrate_addons_last_check() -> None:
+    global _last_check
+    stored = (settings.CFG.get("updates") or {}).get("addons_last_check")
+    if isinstance(stored, dict) and stored.get("checked_at"):
+        _last_check = {
+            "outdated": list(stored.get("outdated") or []),
+            "checked_at": stored.get("checked_at"),
+        }
+
+
+_hydrate_addons_last_check()
 
 router = APIRouter(prefix="/api/updates", tags=["updates"])
 
@@ -87,6 +106,36 @@ def _collect_addon_updates() -> list[dict[str, Any]]:
     return updates
 
 
+def _hyve_update_count() -> int:
+    return 1 if get_hyve_status().get("update_available") else 0
+
+
+# ---------------------------------------------------------------------------
+# Hyve self-update (GitHub releases + git checkout)
+# ---------------------------------------------------------------------------
+
+@router.get("/hyve")
+async def get_hyve_update_status(_: models.User = Depends(_require_admin)):
+    return get_hyve_status()
+
+
+@router.post("/hyve/check")
+async def check_hyve_updates(_: models.User = Depends(_require_admin)):
+    import asyncio
+
+    return await asyncio.to_thread(check_hyve_update)
+
+
+@router.post("/hyve/apply")
+async def apply_hyve_updates(_: models.User = Depends(_require_admin)):
+    import asyncio
+
+    try:
+        return await asyncio.to_thread(apply_hyve_update)
+    except HyveUpdateError as exc:
+        raise HTTPException(status_code=400, detail=error_detail(exc.key, exc.params or None)) from exc
+
+
 # ---------------------------------------------------------------------------
 # GET /addons — list installed add-ons with update flags
 # ---------------------------------------------------------------------------
@@ -114,9 +163,12 @@ async def list_addon_updates(_: models.User = Depends(_require_admin)):
             "update_available": available,
         })
     addons.sort(key=lambda a: (not a["update_available"], a["name"].lower()))
+    hyve = get_hyve_status()
+    total_updates = update_count + _hyve_update_count()
     return {
+        "hyve": hyve,
         "addons": addons,
-        "total_updates": update_count,
+        "total_updates": total_updates,
         "last_check": _last_check if _last_check["checked_at"] else None,
     }
 
@@ -136,6 +188,7 @@ async def check_addon_updates(_: models.User = Depends(_require_admin)):
     updates = _collect_addon_updates()
     _last_check["outdated"] = updates
     _last_check["checked_at"] = _dt.datetime.now().isoformat()
+    _persist_addons_last_check()
 
     if updates:
         try:
@@ -179,6 +232,7 @@ async def update_addons(body: _UpdateBody, _: models.User = Depends(_require_adm
     _last_check["outdated"] = _collect_addon_updates()
     import datetime as _dt
     _last_check["checked_at"] = _dt.datetime.now().isoformat()
+    _persist_addons_last_check()
 
     status = "ok" if not failed else ("partial" if updated else "error")
     if status == "ok":
@@ -237,6 +291,7 @@ def _scheduled_addon_check():
     updates = _collect_addon_updates()
     _last_check["outdated"] = updates
     _last_check["checked_at"] = _dt.datetime.now().isoformat()
+    _persist_addons_last_check()
 
     if not updates:
         log.info("Scheduled add-on check: all up to date.")
@@ -256,6 +311,7 @@ def _scheduled_addon_check():
             except Exception as e:
                 log.warning("Auto-update failed for %s: %s", slug, e)
         _last_check["outdated"] = _collect_addon_updates()
+        _persist_addons_last_check()
 
 
 def schedule_addon_check():

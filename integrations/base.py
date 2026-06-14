@@ -76,7 +76,7 @@ class BaseEntity(ABC):
         return {"ok": True, "title": ""}
 
     @classmethod
-    async def async_test_connection(cls, data: dict[str, Any]) -> dict[str, Any]:
+    async def async_test_connection(cls, data: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
         """Default connection test: instantiate a transient provider with the
         supplied data and call ``fetch_entities``. Subclasses can override
         for a lighter check (e.g. just authenticate without fetching).

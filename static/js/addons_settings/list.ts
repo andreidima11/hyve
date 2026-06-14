@@ -41,7 +41,7 @@ export async function installAddon(slug: string) {
             await loadAddons();
         } else {
             const err = await res.json().catch(() => ({})) as { detail?: string };
-            showToast(err.detail || t('hy.addon_install_error'), 'error');
+            showToast(translateApiDetail(err.detail) || t('hy.addon_install_error'), 'error');
             if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fas fa-download"></i> ${escapeHtml(t('hy.addon_install_btn'))}`; }
         }
     } catch (e) {

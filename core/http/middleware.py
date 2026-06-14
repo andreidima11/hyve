@@ -100,6 +100,20 @@ def register_http_middleware(app: FastAPI) -> None:
     )
 
     @app.middleware("http")
+    async def maintenance_mode_gate(request: Request, call_next):
+        from core.backup.maintenance import is_active, path_allowed_during_maintenance
+
+        if is_active() and not path_allowed_during_maintenance(request.url.path):
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "key": "backup.maintenance_active",
+                    "params": {},
+                },
+            )
+        return await call_next(request)
+
+    @app.middleware("http")
     async def attach_request_id(request: Request, call_next):
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
         request.state.request_id = request_id

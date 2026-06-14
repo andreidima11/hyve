@@ -232,6 +232,7 @@ async def start(slug: str) -> dict:
     """Start the addon process. Returns status dict."""
     # Explicit start clears any prior intentional-stop flag
     _intentionally_stopped.discard(slug)
+    registry.set_process_user_stopped(slug, False)
     # If already running, return current status
     if slug in _processes and _processes[slug].running:
         _watchdog_on_success(slug)
@@ -294,6 +295,7 @@ async def stop(slug: str) -> dict:
     """Stop the addon process (managed or external orphan listening on its port)."""
     # Mark as intentionally stopped so the watchdog won't immediately restart it
     _intentionally_stopped.add(slug)
+    registry.set_process_user_stopped(slug, True)
     _watchdog_retry_state.pop(slug, None)
     mp = _processes.get(slug)
     if mp and mp.running:
@@ -551,7 +553,7 @@ async def auto_start_watchdog_addons():
         return
     log.info("Auto-starting watchdog addons: %s", ", ".join(slugs))
     for slug in slugs:
-        if slug in _intentionally_stopped:
+        if slug in _intentionally_stopped or registry.is_process_user_stopped(slug):
             continue
         try:
             status = await get_status_async(slug)

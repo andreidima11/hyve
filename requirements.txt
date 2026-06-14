@@ -49,8 +49,8 @@ betterproto2==0.9.1
 # Reolink cameras / NVR (same library as Home Assistant)
 reolink-aio==0.20.1
 
-# Tapo / TP-Link Smart Home (same library as Home Assistant tplink integration)
-python-kasa[speedups]==0.10.2
+# Tapo / TP-Link Smart Home — track python-kasa main (0.10.2 + login_version 3, SSL ciphers)
+python-kasa[speedups] @ git+https://github.com/python-kasa/python-kasa.git@76d9f68547ec4ad61b329708debb4fa99dfd8e65
 
 # Rate limiting for API endpoints
 slowapi>=0.1.9
@@ -82,3 +82,7 @@ firebase-admin>=6.5.0
 
 # Rich console logging
 rich>=13.0.0
+
+# Backup remote targets (S3 / SFTP)
+boto3>=1.34.0
+paramiko>=3.4.0

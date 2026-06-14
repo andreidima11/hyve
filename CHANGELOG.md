@@ -4,6 +4,36 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.7.0] — 2026-06
+
+Feature release: **backup & restore (AAA)**, **remote targets (S3/SFTP)**, and **Hyve self-update** from GitHub Releases.
+
+### Backup & restore
+- **`.hyvebak` archives** with manifest, checksums, SQLite snapshot, and tiered data policy (`docs/adr/007-backup-restore.md`).
+- **CLI** `scripts/hyve_backup.py` (create / verify / restore).
+- **Admin API** `/api/backup/*`: create, verify, restore, rollback, settings, maintenance mode.
+- **Scheduled backups** (daily/weekly/monthly at 03:00) with local retention and pre-restore safety snapshots.
+- **Optional encryption** at rest (Fernet → `.hyvebak.enc`).
+- **Remote upload** to S3-compatible storage or SFTP with remote retention.
+- **Pull from remote** — list, download, and restore archives stored off-box.
+- **Settings UI** — Hub card after Updates with local/remote archive management.
+
+### Updates
+- **Hyve self-update** via GitHub Releases (`core/hyve_update.py`): check, apply tag checkout, persist last check in config.
+- Updates hub shows Hyve release info alongside add-on updates.
+
+### Add-ons
+- Persist **user-stopped** process flag across restarts (watchdog respects manual stop).
+- Sanitize implausible version strings from GitHub/Docker metadata.
+- Bidirectional **enabled** sync between integration entries and add-on state (`__hyve_meta` isolation).
+
+### Integrations
+- **Tapo:** Kasa SSL helper, improved connection/RTSP flow.
+
+### Tests
+- `tests/test_backup_*.py` — round-trip, API, retention, remote, encryption.
+- `tests/test_hyve_update.py`, `tests/test_updates_check_persist.py`, Tapo and add-on sync tests.
+
 ## [0.9.6.4] — 2026-06
 
 Patch release: **fix JS boot error** on fresh installs after 0.9.6.3.

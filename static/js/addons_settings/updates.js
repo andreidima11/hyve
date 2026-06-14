@@ -1,11 +1,42 @@
 /**
- * Add-ons settings: Updates hub + check interval dropdown.
+ * Add-ons settings: Updates hub (Hyve + add-ons) + check interval dropdown.
  */
 import { apiCall } from '../api.js';
 import { t } from '../lang/index.js';
 import { showConfirm, escapeHtml } from '../utils.js';
 import { isExplicitNonAdmin } from '../user_context.js';
+import { translateApiDetail } from '../lang/index.js';
 let _addonUpdatesCache = [];
+let _hyveUpdateCache = null;
+function _updatesEl(primaryId, ...legacyIds) {
+    return (document.getElementById(primaryId)
+        ?? legacyIds.map(id => document.getElementById(id)).find(Boolean)
+        ?? null);
+}
+function _updatesListEl() {
+    return _updatesEl('updates-list', 'updates-addons-list');
+}
+/** Hide legacy split Hyve/add-ons chrome when rendering the unified list. */
+function _normalizeLegacyLayout() {
+    document.getElementById('updates-panel-hyve')?.classList.add('hidden');
+    const legacyHyveList = document.getElementById('updates-hyve-list');
+    if (legacyHyveList)
+        legacyHyveList.innerHTML = '';
+    const addonsHeading = document.getElementById('updates-panel-addons')?.querySelector('h3');
+    addonsHeading?.classList.add('hidden');
+}
+function _setListLoading() {
+    const html = `<div class="text-center py-8 text-slate-500 text-xs"><i class="fas fa-spinner fa-spin mr-2"></i>${escapeHtml(t('updates.loading'))}</div>`;
+    const list = _updatesListEl();
+    if (list)
+        list.innerHTML = html;
+}
+function _setListError(msg) {
+    const html = `<div class="text-center py-8 text-red-400 text-xs"><i class="fas fa-triangle-exclamation mr-2"></i>${msg}</div>`;
+    const list = _updatesListEl();
+    if (list)
+        list.innerHTML = html;
+}
 /** Update the iOS-style badge on the Updates hub card with the number of available updates. */
 export function updateHeaderUpdatesBadge(count) {
     const badge = document.getElementById('hub-updates-badge-count');
@@ -18,12 +49,11 @@ export function updateHeaderUpdatesBadge(count) {
     }
     badge.textContent = n > 99 ? '99+' : String(n);
     badge.classList.remove('hidden');
-    // Replay animation
     badge.style.animation = 'none';
     void badge.offsetWidth;
     badge.style.animation = '';
 }
-/** Background poll for available add-on updates and refresh the header badge. */
+/** Background poll for available updates and refresh the header badge. */
 export async function refreshUpdatesHeaderBadge() {
     if (isExplicitNonAdmin())
         return;
@@ -37,36 +67,52 @@ export async function refreshUpdatesHeaderBadge() {
     catch (_) { }
 }
 export async function loadUpdatesAddons() {
-    const list = document.getElementById('updates-addons-list');
-    if (!list)
-        return;
-    list.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs"><i class="fas fa-spinner fa-spin mr-2"></i>${escapeHtml(t('updates.loading'))}</div>`;
+    _normalizeLegacyLayout();
+    _setListLoading();
     _setUpdatesStatus('', 'hidden');
+    _setHyveHint('');
     try {
         const res = await apiCall('/api/updates/addons');
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(translateApiDetail(err.detail) || res.statusText || t('common.error'));
+        }
         const data = await res.json();
+        _hyveUpdateCache = data.hyve || null;
         _addonUpdatesCache = data.addons || [];
         updateHeaderUpdatesBadge(data.total_updates || 0);
-        _renderAddonUpdateRows();
+        _renderUpdateRows();
     }
     catch (e) {
-        list.innerHTML = `<div class="text-center py-8 text-red-400 text-xs"><i class="fas fa-triangle-exclamation mr-2"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}</div>`;
+        _setListError(escapeHtml(e instanceof Error ? e.message : String(e)));
     }
 }
 export async function checkAddonUpdates() {
-    const btn = document.getElementById('updates-addons-check-btn');
+    const btn = _updatesEl('updates-check-btn', 'updates-addons-check-btn');
     if (btn) {
         btn.disabled = true;
         btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>${escapeHtml(t('updates.check_btn'))}</span>`;
     }
     _setUpdatesStatus(`<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('updates.checking'))}`, 'info');
     try {
-        await apiCall('/api/updates/addons/check', { method: 'POST' });
-        // Reload the full list so badges/state reflect the recomputed result.
+        const results = await Promise.allSettled([
+            apiCall('/api/updates/hyve/check', { method: 'POST' }),
+            apiCall('/api/updates/addons/check', { method: 'POST' }),
+        ]);
         await loadUpdatesAddons();
-        const count = _addonUpdatesCache.filter(a => a.update_available).length;
-        if (count > 0) {
-            _setUpdatesStatus(`<i class="fas fa-arrow-up mr-1.5"></i>${escapeHtml(t('updates.n_updates_available', { count }))}`, 'warning');
+        const hyvePending = _hyveUpdateCache?.update_available ? 1 : 0;
+        const addonPending = _addonUpdatesCache.filter(a => a.update_available).length;
+        const total = hyvePending + addonPending;
+        const checkFailed = results.some(r => r.status === 'rejected'
+            || (r.status === 'fulfilled' && !r.value.ok));
+        if (_hyveUpdateCache?.error?.key) {
+            _setUpdatesStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(translateApiDetail(_hyveUpdateCache.error))}`, 'error');
+        }
+        else if (checkFailed && total === 0) {
+            _setUpdatesStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(t('updates.check_failed'))}`, 'error');
+        }
+        else if (total > 0) {
+            _setUpdatesStatus(`<i class="fas fa-arrow-up mr-1.5"></i>${escapeHtml(t('updates.n_updates_available', { count: total }))}`, 'warning');
         }
         else {
             _setUpdatesStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(t('updates.all_up_to_date'))}`, 'success');
@@ -79,6 +125,37 @@ export async function checkAddonUpdates() {
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = `<i class="fas fa-rotate"></i><span>${escapeHtml(t('updates.check_btn'))}</span>`;
+        }
+    }
+}
+export async function applyHyveUpdate() {
+    const hyve = _hyveUpdateCache;
+    if (!hyve?.update_available)
+        return;
+    const latest = hyve.latest || hyve.tag || '?';
+    if (!(await showConfirm(t('updates.confirm_update_hyve', { version: latest }))))
+        return;
+    const upgradeBtn = document.getElementById('updates-hyve-upgrade-btn');
+    if (upgradeBtn) {
+        upgradeBtn.disabled = true;
+        upgradeBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i>`;
+    }
+    _setUpdatesStatus(`<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('updates.hyve_installing'))}`, 'info');
+    try {
+        const res = await apiCall('/api/updates/hyve/apply', { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(translateApiDetail(data.detail) || t('updates.save_error'));
+        }
+        _setUpdatesStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(t('updates.hyve_updated_restarting', { version: data.version || latest }))}`, 'success');
+    }
+    catch (e) {
+        _setUpdatesStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`, 'error');
+    }
+    finally {
+        if (upgradeBtn) {
+            upgradeBtn.disabled = false;
+            upgradeBtn.innerHTML = `<i class="fas fa-arrow-up"></i>`;
         }
     }
 }
@@ -98,7 +175,7 @@ export async function updateSingleAddon(slug) {
     await _runAddonUpdate({ slugs: [slug] });
 }
 async function _runAddonUpdate(body) {
-    const upgradeBtn = document.getElementById('updates-addons-upgrade-btn');
+    const upgradeBtn = _updatesEl('updates-upgrade-all-btn', 'updates-addons-upgrade-btn');
     if (upgradeBtn) {
         upgradeBtn.disabled = true;
         upgradeBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>${escapeHtml(t('updates.upgrade_btn_loading'))}</span>`;
@@ -141,55 +218,114 @@ const _ADDON_COLOR_MAP = {
     green: 'text-green-400', emerald: 'text-emerald-400', slate: 'text-slate-400',
     indigo: 'text-indigo-400', rose: 'text-rose-400',
 };
-function _renderAddonUpdateRows() {
-    const list = document.getElementById('updates-addons-list');
+function _displayVersion(value) {
+    const raw = String(value ?? '').trim();
+    if (!raw || raw.length > 64)
+        return '?';
+    if (raw.includes('<') || raw.toUpperCase().includes('DOCTYPE'))
+        return '?';
+    return raw;
+}
+function _hyveRowHtml(hyve) {
+    const current = _displayVersion(hyve.current);
+    const latest = _displayVersion(hyve.latest);
+    let versionHtml;
+    let badge;
+    let actionHtml = '';
+    let rowClass = 'upd-row';
+    if (hyve.error?.key) {
+        versionHtml = `<span class="font-mono text-slate-400">${escapeHtml(current)}</span>`;
+        badge = `<span class="upd-badge upd-badge--warn"><i class="fas fa-triangle-exclamation"></i>${escapeHtml(t('updates.badge_check_failed'))}</span>`;
+        rowClass += ' upd-row--outdated';
+    }
+    else if (hyve.update_available) {
+        versionHtml = `<span class="font-mono text-slate-400">${escapeHtml(current)}</span><i class="fas fa-arrow-right text-[8px] text-amber-400 mx-1"></i><span class="font-mono text-amber-400 font-semibold">${escapeHtml(latest)}</span>`;
+        badge = `<span class="upd-badge upd-badge--update"><i class="fas fa-arrow-up"></i>${escapeHtml(t('updates.badge_update'))}</span>`;
+        rowClass += ' upd-row--outdated';
+        if (hyve.git_available) {
+            actionHtml = `<button type="button" data-config-action="applyHyveUpdate" id="updates-hyve-upgrade-btn" class="upd-row-btn" title="${escapeHtml(t('updates.hyve_upgrade_btn'))}"><i class="fas fa-arrow-up"></i></button>`;
+        }
+    }
+    else {
+        versionHtml = `<span class="font-mono text-slate-400">${escapeHtml(current)}</span>`;
+        badge = `<span class="upd-badge upd-badge--ok"><i class="fas fa-check"></i>${escapeHtml(t('updates.badge_up_to_date'))}</span>`;
+    }
+    return `<div class="${rowClass}">
+        <div class="upd-row-main">
+            <span class="upd-row-icon inline-flex items-center justify-center flex-shrink-0"><i class="fas fa-house text-accent"></i></span>
+            <span class="upd-row-name">Hyve</span>
+        </div>
+        <div class="upd-row-version">${versionHtml}</div>
+        <div class="upd-row-status">${badge}${actionHtml}</div>
+    </div>`;
+}
+function _addonRowHtml(a) {
+    const iconColor = _ADDON_COLOR_MAP[a.color || ''] || _ADDON_COLOR_MAP.slate;
+    const iconHtml = a.image
+        ? `<img src="${escapeHtml(a.image)}" alt="" class="w-4 h-4 rounded object-contain" loading="lazy">`
+        : `<i class="${escapeHtml(a.icon || 'fas fa-puzzle-piece')} ${iconColor}"></i>`;
+    let versionHtml;
+    let badge;
+    let actionHtml;
+    if (a.update_available) {
+        versionHtml = `<span class="font-mono text-slate-400">${escapeHtml(_displayVersion(a.current))}</span><i class="fas fa-arrow-right text-[8px] text-amber-400 mx-1"></i><span class="font-mono text-amber-400 font-semibold">${escapeHtml(_displayVersion(a.latest))}</span>`;
+        badge = `<span class="upd-badge upd-badge--update"><i class="fas fa-arrow-up"></i>${escapeHtml(t('updates.badge_update'))}</span>`;
+        actionHtml = `<button type="button" data-config-action="updateSingleAddon" data-config-slug="${escapeHtml(a.slug)}" class="upd-row-btn" title="${escapeHtml(t('updates.upgrade_btn'))}"><i class="fas fa-arrow-up"></i></button>`;
+    }
+    else {
+        versionHtml = `<span class="font-mono text-slate-400">${escapeHtml(_displayVersion(a.current || a.latest))}</span>`;
+        badge = `<span class="upd-badge upd-badge--ok"><i class="fas fa-check"></i>${escapeHtml(t('updates.badge_up_to_date'))}</span>`;
+        actionHtml = '';
+    }
+    return `<div class="upd-row${a.update_available ? ' upd-row--outdated' : ''}">
+        <div class="upd-row-main">
+            <span class="upd-row-icon inline-flex items-center justify-center flex-shrink-0">${iconHtml}</span>
+            <span class="upd-row-name">${escapeHtml(a.name)}</span>
+        </div>
+        <div class="upd-row-version">${versionHtml}</div>
+        <div class="upd-row-status">${badge}${actionHtml}</div>
+    </div>`;
+}
+function _renderUpdateRows() {
+    _normalizeLegacyLayout();
+    const list = _updatesListEl();
     if (!list)
         return;
+    const hyve = _hyveUpdateCache;
     const sorted = [..._addonUpdatesCache].sort((a, b) => {
         if (!!a.update_available !== !!b.update_available)
             return a.update_available ? -1 : 1;
         return (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
     });
-    const total = sorted.length;
-    const pending = sorted.filter(a => a.update_available).length;
-    const countEl = document.getElementById('updates-addons-count');
-    if (countEl)
-        countEl.textContent = t('updates.addons_count', { count: total });
-    const upgradeBtn = document.getElementById('updates-addons-upgrade-btn');
+    const addonTotal = sorted.length;
+    const addonPending = sorted.filter(a => a.update_available).length;
+    const totalItems = (hyve ? 1 : 0) + addonTotal;
+    const countEl = _updatesEl('updates-count', 'updates-addons-count');
+    if (countEl) {
+        countEl.textContent = totalItems
+            ? t('updates.items_count', { count: totalItems })
+            : t('updates.no_addons');
+    }
+    const upgradeBtn = _updatesEl('updates-upgrade-all-btn', 'updates-addons-upgrade-btn');
     if (upgradeBtn)
-        upgradeBtn.classList.toggle('hidden', pending === 0);
-    if (!total) {
+        upgradeBtn.classList.toggle('hidden', addonPending === 0);
+    if (!hyve && !addonTotal) {
         list.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">${escapeHtml(t('updates.no_addons'))}</div>`;
+        _setHyveHint('');
         return;
     }
-    list.innerHTML = sorted.map(a => {
-        const iconColor = _ADDON_COLOR_MAP[a.color || ''] || _ADDON_COLOR_MAP.slate;
-        const iconHtml = a.image
-            ? `<img src="${escapeHtml(a.image)}" alt="" class="w-4 h-4 rounded object-contain" loading="lazy">`
-            : `<i class="${escapeHtml(a.icon || 'fas fa-puzzle-piece')} ${iconColor}"></i>`;
-        let versionHtml, badge, actionHtml;
-        if (a.update_available) {
-            versionHtml = `<span class="font-mono text-slate-400">${escapeHtml(a.current || '?')}</span><i class="fas fa-arrow-right text-[8px] text-amber-400 mx-1"></i><span class="font-mono text-amber-400 font-semibold">${escapeHtml(a.latest || '?')}</span>`;
-            badge = `<span class="upd-badge upd-badge--update"><i class="fas fa-arrow-up"></i>${escapeHtml(t('updates.badge_update'))}</span>`;
-            actionHtml = `<button type="button" data-config-action="updateSingleAddon" data-config-slug="${escapeHtml(a.slug)}" class="upd-row-btn"><i class="fas fa-arrow-up"></i></button>`;
-        }
-        else {
-            versionHtml = `<span class="font-mono text-slate-400">${escapeHtml(a.current || a.latest || '?')}</span>`;
-            badge = `<span class="upd-badge upd-badge--ok"><i class="fas fa-check"></i>${escapeHtml(t('updates.badge_up_to_date'))}</span>`;
-            actionHtml = '';
-        }
-        return `<div class="upd-row${a.update_available ? ' upd-row--outdated' : ''}">
-            <div class="upd-row-main">
-                <span class="upd-row-icon inline-flex items-center justify-center flex-shrink-0">${iconHtml}</span>
-                <span class="upd-row-name">${escapeHtml(a.name)}</span>
-            </div>
-            <div class="upd-row-version">${versionHtml}</div>
-            <div class="upd-row-status">${badge}${actionHtml}</div>
-        </div>`;
-    }).join('');
+    const rows = [];
+    if (hyve)
+        rows.push(_hyveRowHtml(hyve));
+    rows.push(...sorted.map(_addonRowHtml));
+    list.innerHTML = rows.join('');
+    const hints = [];
+    if (hyve && !hyve.git_available)
+        hints.push(t('updates.hyve_hint_not_git'));
+    _setHyveHint(hints.length ? hints.join(' · ') : '');
 }
 function _setUpdatesStatus(html, type) {
-    const el = document.getElementById('updates-addons-status');
+    const el = _updatesEl('updates-status', 'updates-addons-status');
     if (!el)
         return;
     if (type === 'hidden') {
@@ -203,8 +339,20 @@ function _setUpdatesStatus(html, type) {
         warning: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
         error: 'bg-red-500/10 border-red-500/20 text-red-400',
     };
-    el.className = `mb-3 text-[11px] rounded-xl p-3 border ${colors[type] || colors.info}`;
+    el.className = `text-[11px] rounded-xl p-3 border ${colors[type] || colors.info}`;
     el.innerHTML = html;
+}
+function _setHyveHint(text) {
+    const el = document.getElementById('updates-hyve-hint');
+    if (!el)
+        return;
+    if (!text) {
+        el.classList.add('hidden');
+        el.textContent = '';
+        return;
+    }
+    el.classList.remove('hidden');
+    el.textContent = text;
 }
 // --- Updates interval custom dropdown ---
 function _intervalLabel(val) {
@@ -212,7 +360,6 @@ function _intervalLabel(val) {
     return key ? t(key) : val;
 }
 let _updatesDropdownBound = false;
-// Bind once at module load — works even before loadConfig has run
 if (typeof document !== 'undefined' && !_updatesDropdownBound) {
     _updatesDropdownBound = true;
     document.addEventListener('click', (e) => {

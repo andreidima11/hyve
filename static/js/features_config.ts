@@ -58,11 +58,23 @@ export {
     refreshUpdatesHeaderBadge,
     loadUpdatesAddons,
     checkAddonUpdates,
+    applyHyveUpdate,
     updateAllAddons,
     updateSingleAddon,
     toggleUpdatesIntervalDropdown,
     setUpdatesInterval,
     syncUpdatesIntervalDropdown,
+    loadBackupPanel,
+    createBackup,
+    verifyBackup,
+    restoreBackup,
+    rollbackBackup,
+    saveBackupSettings,
+    deleteBackupArchive,
+    testBackupRemote,
+    loadRemoteBackupArchives,
+    pullRemoteBackup,
+    restoreRemoteBackup,
 } from './features_addons_settings.js';
 
 export {

@@ -1,4 +1,4 @@
-import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive, refreshIntegrationsSettingsView, loadNotificationPrefs, loadAutomations, checkAddonUpdates, toggleVoiceRecording } from './features.js';
+import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive, refreshIntegrationsSettingsView, loadNotificationPrefs, loadAutomations, loadUpdatesAddons, loadBackupPanel, toggleVoiceRecording } from './features.js';
 import { loadUserProfilePage } from './user_profile.js';
 import { loadPlanner, loadApps, loadScenes, loadAreas, populateAppTab, closeAddonWebUI } from './nav_bridge.js';
 import { loadDashboard, dashboardHasRenderedContent, resetDashboardEditingState, disconnectDashboardLive, initDashboardSidebarNav } from './dashboard.js';
@@ -430,6 +430,7 @@ const _configSectionTitles = {
     scenes: 'config.hub_scenes_title',
     areas: 'config.hub_areas_title',
     updates: 'config.hub_updates_title',
+    backup: 'config.hub_backup_title',
 };
 const _configSectionSubtitles = {
     settings: 'config.subtitle',
@@ -444,8 +445,9 @@ const _configSectionSubtitles = {
     scenes: 'config.section_scenes_subtitle',
     areas: 'config.section_areas_subtitle',
     updates: 'config.hub_updates_desc',
+    backup: 'config.hub_backup_desc',
 };
-const _standaloneSections = ['integrations', 'automations', 'memories', 'appearance', 'users', 'logs', 'app', 'addons', 'scenes', 'areas', 'updates'];
+const _standaloneSections = ['integrations', 'automations', 'memories', 'appearance', 'users', 'logs', 'app', 'addons', 'scenes', 'areas', 'updates', 'backup'];
 // Map config sections to their DOM panel IDs (for panels that live outside config)
 const _sectionPanelIds = {
     automations: 'intelligence-panel-automations',
@@ -518,7 +520,9 @@ export function openConfigSection(section) {
         if (section === 'areas')
             loadAreas();
         if (section === 'updates')
-            checkAddonUpdates();
+            loadUpdatesAddons();
+        if (section === 'backup')
+            loadBackupPanel();
     }
     else {
         // --- Settings with tabs ---

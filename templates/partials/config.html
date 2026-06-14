@@ -76,7 +76,12 @@
                             <span id="hub-updates-badge-count" class="notification-badge notification-badge--ios hidden" aria-live="polite">0</span>
                             <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-3 group-hover:bg-indigo-500/20 transition-colors"><i class="fas fa-arrow-up-from-bracket text-lg"></i></div>
                             <h3 class="text-sm font-semibold text-white" data-i18n="config.hub_updates_title">Actualizări</h3>
-                            <p class="text-[10px] text-slate-500 mt-1" data-i18n="config.hub_updates_desc">Actualizări add-on</p>
+                            <p class="text-[10px] text-slate-500 mt-1" data-i18n="config.hub_updates_desc">Actualizări Hyve și add-on</p>
+                        </button>
+                        <button data-config-action="openSection" data-config-section="backup" class="config-admin-only text-left p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] hover:border-white/[0.08] transition-all group">
+                            <div class="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center mb-3 group-hover:bg-teal-500/20 transition-colors"><i class="fas fa-database text-lg"></i></div>
+                            <h3 class="text-sm font-semibold text-white" data-i18n="config.hub_backup_title">Backup</h3>
+                            <p class="text-[10px] text-slate-500 mt-1" data-i18n="config.hub_backup_desc">Backup și restore date Hyve</p>
                         </button>
                         <button data-config-action="openSection" data-config-section="logs" class="config-admin-only text-left p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] hover:border-white/[0.08] transition-all group">
                             <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-3 group-hover:bg-amber-500/20 transition-colors"><i class="fas fa-terminal text-lg"></i></div>
@@ -1170,30 +1175,165 @@
                             </div>
                         </div>
 
-                        <!-- ═══ UPDATES / ADDONS ═══ -->
+                        <!-- ═══ UPDATES (Hyve + add-ons) ═══ -->
                         <div id="cfg-tab-updates" class="cfg-tab-panel hidden animate-up space-y-4 config-admin-only" data-config-tab="updates">
-                            <!-- Addons panel -->
-                            <div id="updates-panel-addons">
-                                <!-- Status bar -->
-                                <div id="updates-addons-status" class="hidden mb-3 text-[11px] rounded-xl p-3 border"></div>
-
-                                <!-- Actions -->
-                                <div class="flex items-center justify-between gap-2 mb-3">
-                                    <span id="updates-addons-count" class="text-[11px] text-slate-500"></span>
+                            <div id="updates-panel" class="space-y-3">
+                                <div id="updates-status" class="hidden text-[11px] rounded-xl p-3 border"></div>
+                                <div class="flex items-center justify-between gap-2">
+                                    <span id="updates-count" class="text-[11px] text-slate-500"></span>
                                     <div class="flex items-center gap-2">
-                                        <button type="button" data-config-action="checkAddonUpdates" id="updates-addons-check-btn" class="hy-btn hy-btn-ghost text-[11px]">
+                                        <button type="button" data-config-action="checkAddonUpdates" id="updates-check-btn" class="hy-btn hy-btn-ghost text-[11px]">
                                             <i class="fas fa-rotate"></i><span data-i18n="updates.check_btn">Verifică</span>
                                         </button>
-                                        <button type="button" data-config-action="updateAllAddons" id="updates-addons-upgrade-btn" class="hy-btn hy-btn-primary text-[11px] hidden">
+                                        <button type="button" data-config-action="updateAllAddons" id="updates-upgrade-all-btn" class="hy-btn hy-btn-primary text-[11px] hidden">
                                             <i class="fas fa-arrow-up"></i><span data-i18n="updates.upgrade_all_btn">Actualizează</span>
                                         </button>
                                     </div>
                                 </div>
-
-                                <!-- Table -->
-                                <div id="updates-addons-list" class="space-y-0">
+                                <div id="updates-list" class="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
                                     <div class="text-center py-8 text-slate-500 text-xs"><i class="fas fa-spinner fa-spin mr-2"></i><span data-i18n="updates.loading">Se încarcă...</span></div>
                                 </div>
+                                <p id="updates-hyve-hint" class="hidden text-[10px] text-slate-500 px-1 leading-relaxed"></p>
+                            </div>
+                        </div>
+
+                        <!-- ═══ BACKUP & RESTORE ═══ -->
+                        <div id="cfg-tab-backup" class="cfg-tab-panel hidden animate-up space-y-4 config-admin-only" data-config-tab="backup">
+                            <div id="backup-panel" class="space-y-4">
+                                <div id="backup-maintenance-banner" class="hidden text-[11px] rounded-xl p-3 border"></div>
+                                <div id="backup-status" class="hidden text-[11px] rounded-xl p-3 border"></div>
+                                <section class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-4">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <h3 class="text-xs font-bold text-white uppercase tracking-widest" data-i18n="backup.schedule_title">Backup automat</h3>
+                                        <button type="button" data-config-action="saveBackupSettings" id="backup-save-settings-btn" class="hy-btn hy-btn-ghost text-[11px]">
+                                            <i class="fas fa-check"></i><span data-i18n="backup.save_settings">Salvează</span>
+                                        </button>
+                                    </div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div class="space-y-1">
+                                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5" data-i18n="backup.schedule_interval">Programare</label>
+                                            <select id="backup_schedule_interval" class="dashboard-custom-select-native">
+                                                <option value="never" data-i18n="updates.interval_never">Niciodată</option>
+                                                <option value="daily" data-i18n="updates.interval_daily">Zilnic</option>
+                                                <option value="weekly" data-i18n="updates.interval_weekly">Săptămânal</option>
+                                                <option value="monthly" data-i18n="updates.interval_monthly">Lunar</option>
+                                            </select>
+                                            <div class="dashboard-custom-select" id="backup_schedule_dropdown" data-open="false" data-target="backup_schedule_interval">
+                                                <button type="button" class="dashboard-custom-select__button" data-action="toggle-backup-schedule">
+                                                    <span class="dashboard-custom-select__value" data-i18n="updates.interval_never">Niciodată</span>
+                                                    <i class="fas fa-chevron-down"></i>
+                                                </button>
+                                                <div class="dashboard-custom-select__menu">
+                                                    <button type="button" class="dashboard-custom-select__option" data-value="never" data-label-key="updates.interval_never" data-selected="true" data-i18n="updates.interval_never">Niciodată</button>
+                                                    <button type="button" class="dashboard-custom-select__option" data-value="daily" data-label-key="updates.interval_daily" data-i18n="updates.interval_daily">Zilnic</button>
+                                                    <button type="button" class="dashboard-custom-select__option" data-value="weekly" data-label-key="updates.interval_weekly" data-i18n="updates.interval_weekly">Săptămânal</button>
+                                                    <button type="button" class="dashboard-custom-select__option" data-value="monthly" data-label-key="updates.interval_monthly" data-i18n="updates.interval_monthly">Lunar</button>
+                                                </div>
+                                            </div>
+                                            <p class="text-[10px] text-slate-500 mt-1" data-i18n="backup.schedule_hint">Rulează la 03:00 (ora serverului).</p>
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" for="backup_retention_count" data-i18n="backup.retention_count">Păstrează arhive</label>
+                                            <input type="number" id="backup_retention_count" min="1" max="100" value="10" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-300 focus:border-accent outline-none">
+                                            <p class="text-[10px] text-slate-500 mt-1" data-i18n="backup.retention_hint">Număr maxim de backup-uri hyve-*. Cele vechi se șterg automat.</p>
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" for="backup_pre_restore_retention_count" data-i18n="backup.pre_restore_retention">Păstrează pre-restore</label>
+                                            <input type="number" id="backup_pre_restore_retention_count" min="1" max="20" value="3" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-300 focus:border-accent outline-none">
+                                        </div>
+                                    </div>
+                                    <p id="backup-last-scheduled" class="text-[10px] text-slate-500"></p>
+                                </section>
+                                <section class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
+                                    <h3 class="text-xs font-bold text-white uppercase tracking-widest" data-i18n="backup.options_title">Opțiuni arhivă</h3>
+                                    <label class="flex items-start gap-3 cursor-pointer">
+                                        <input type="checkbox" id="backup-include-optional" class="mt-0.5 w-4 h-4 rounded accent-accent bg-slate-900 border-white/10">
+                                        <span>
+                                            <span class="text-xs font-semibold text-white/90 block" data-i18n="backup.include_optional">Include opțional (chroma, sessions, generated)</span>
+                                            <span class="text-[10px] text-slate-500 block mt-0.5" data-i18n="backup.include_optional_hint">Date mari sau regenerabile.</span>
+                                        </span>
+                                    </label>
+                                    <label class="flex items-start gap-3 cursor-pointer">
+                                        <input type="checkbox" id="backup-include-frigate-media" class="mt-0.5 w-4 h-4 rounded accent-accent bg-slate-900 border-white/10">
+                                        <span>
+                                            <span class="text-xs font-semibold text-white/90 block" data-i18n="backup.include_frigate_media">Include media Frigate</span>
+                                            <span class="text-[10px] text-slate-500 block mt-0.5" data-i18n="backup.include_frigate_media_hint">Poate crește mult dimensiunea arhivei.</span>
+                                        </span>
+                                    </label>
+                                    <label class="flex items-start gap-3 cursor-pointer">
+                                        <input type="checkbox" id="backup-refetch-addons" class="mt-0.5 w-4 h-4 rounded accent-accent bg-slate-900 border-white/10">
+                                        <span>
+                                            <span class="text-xs font-semibold text-white/90 block" data-i18n="backup.refetch_addons">Refetch add-on runtime la restore</span>
+                                            <span class="text-[10px] text-slate-500 block mt-0.5" data-i18n="backup.refetch_addons_hint">Reinstalează artifacts (docker/npm) după restore.</span>
+                                        </span>
+                                    </label>
+                                    <label class="flex items-start gap-3 cursor-pointer">
+                                        <input type="checkbox" id="backup-encrypt-at-rest" class="mt-0.5 w-4 h-4 rounded accent-accent bg-slate-900 border-white/10">
+                                        <span>
+                                            <span class="text-xs font-semibold text-white/90 block" data-i18n="backup.encrypt_at_rest">Criptează arhivele (.enc)</span>
+                                            <span class="text-[10px] text-slate-500 block mt-0.5" data-i18n="backup.encrypt_at_rest_hint">Cheie în secrets/backup_archive.key sau HYVE_BACKUP_ENCRYPTION_KEY.</span>
+                                        </span>
+                                    </label>
+                                </section>
+                                <section class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-4">
+                                    <h3 class="text-xs font-bold text-white uppercase tracking-widest" data-i18n="backup.remote_title">Remote backup</h3>
+                                    <label class="flex items-center gap-3 cursor-pointer">
+                                        <input type="checkbox" id="backup-remote-enabled" class="w-4 h-4 rounded accent-accent bg-slate-900 border-white/10">
+                                        <span class="text-xs font-semibold text-white/90" data-i18n="backup.remote_enabled">Upload remote la creare</span>
+                                    </label>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div class="space-y-1">
+                                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="backup.remote_provider">Provider</label>
+                                            <select id="backup_remote_provider" class="dashboard-custom-select-native">
+                                                <option value="none" data-i18n="backup.remote_none">Niciunul</option>
+                                                <option value="s3">S3 / MinIO</option>
+                                                <option value="sftp">SFTP</option>
+                                            </select>
+                                        </div>
+                                        <div class="space-y-1">
+                                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" for="backup_remote_retention" data-i18n="backup.remote_retention">Retenție remote</label>
+                                            <input type="number" id="backup_remote_retention" min="0" max="100" value="5" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-300 focus:border-accent outline-none">
+                                        </div>
+                                    </div>
+                                    <div id="backup-remote-s3-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-3 hidden">
+                                        <input type="text" id="backup_s3_bucket" placeholder="bucket" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none">
+                                        <input type="text" id="backup_s3_prefix" placeholder="hyve/" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none">
+                                        <input type="text" id="backup_s3_region" placeholder="region" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none">
+                                        <input type="text" id="backup_s3_endpoint" placeholder="https://minio.example/s3" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none">
+                                        <p class="sm:col-span-2 text-[10px] text-slate-500" data-i18n="backup.s3_env_hint">Credențiale S3: HYVE_BACKUP_S3_ACCESS_KEY și HYVE_BACKUP_S3_SECRET_KEY în .env</p>
+                                    </div>
+                                    <div id="backup-remote-sftp-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-3 hidden">
+                                        <input type="text" id="backup_sftp_host" placeholder="host" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none">
+                                        <input type="number" id="backup_sftp_port" value="22" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm mono text-slate-300 focus:border-accent outline-none">
+                                        <input type="text" id="backup_sftp_username" placeholder="user" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none">
+                                        <input type="password" id="backup_sftp_password" placeholder="password" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none">
+                                        <input type="text" id="backup_sftp_path" placeholder="/backups/hyve" class="sm:col-span-2 w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none">
+                                    </div>
+                                    <button type="button" data-config-action="testBackupRemote" id="backup-test-remote-btn" class="hy-btn hy-btn-ghost text-[11px]">
+                                        <i class="fas fa-plug"></i><span data-i18n="backup.test_remote">Testează conexiunea</span>
+                                    </button>
+                                    <div id="backup-remote-archives-section" class="hidden space-y-3 pt-3 border-t border-white/[0.06]">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest" data-i18n="backup.remote_archives_title">Arhive remote</h4>
+                                            <button type="button" data-config-action="loadRemoteBackupArchives" id="backup-refresh-remote-btn" class="hy-btn hy-btn-ghost text-[11px]">
+                                                <i class="fas fa-arrows-rotate"></i><span data-i18n="backup.remote_refresh">Reîmprospătează</span>
+                                            </button>
+                                        </div>
+                                        <div id="backup-remote-list" class="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+                                            <div class="text-center py-6 text-slate-500 text-xs" data-i18n="backup.remote_archives_hint">Salvează setările remote și apasă Reîmprospătează.</div>
+                                        </div>
+                                    </div>
+                                </section>
+                                <div class="flex items-center justify-between gap-2">
+                                    <span id="backup-count" class="text-[11px] text-slate-500"></span>
+                                    <button type="button" data-config-action="createBackup" id="backup-create-btn" class="hy-btn hy-btn-primary text-[11px]">
+                                        <i class="fas fa-plus"></i><span data-i18n="backup.create_btn">Backup nou</span>
+                                    </button>
+                                </div>
+                                <div id="backup-list" class="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+                                    <div class="text-center py-8 text-slate-500 text-xs"><i class="fas fa-spinner fa-spin mr-2"></i><span data-i18n="backup.loading">Se încarcă...</span></div>
+                                </div>
+                                <p class="text-[10px] text-slate-500 px-1 leading-relaxed" data-i18n="backup.footer_hint">Restore creează automat un backup de siguranță. Folosește rollback pe arhivele pre-restore dacă ceva nu e în regulă.</p>
                             </div>
                         </div>
 
@@ -1698,6 +1838,7 @@
                                                 <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1" data-i18n="config.integration_entry_title_label">Titlu</label>
                                                 <input type="text" name="__title__" class="w-full bg-white/[0.03] border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent/40" data-i18n-placeholder="config.integration_entry_title_ph" placeholder="Intrare principală">
                                             </div>
+                                            <div id="integration-entry-wizard-steps" class="hidden"></div>
                                             <div id="integration-entry-fields" class="space-y-3"></div>
                                             <div id="integration-entry-error" class="hidden text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-2"></div>
                                         </form>

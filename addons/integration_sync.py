@@ -115,5 +115,28 @@ def sync_from_addon_state(slug: str, state: dict[str, Any] | None = None) -> Non
     patch: dict[str, Any] = {"enabled": bool(state.get("enabled"))}
     cfg = state.get("config")
     if isinstance(cfg, dict) and cfg:
-        patch.update(cfg)
+        patch.update({k: v for k, v in cfg.items() if k != "__hyve_meta"})
     _apply_entry_patch(key, patch)
+
+
+def addon_slug_for_integration(integration_slug: str) -> str | None:
+    key = str(integration_slug or "").strip()
+    if not key:
+        return None
+    for manifest in registry.list_available():
+        if integration_key_for(str(manifest.get("slug") or "")) == key:
+            return str(manifest["slug"])
+    return None
+
+
+def sync_enabled_to_addon(integration_slug: str, enabled: bool) -> None:
+    """Mirror integration entry ``enabled`` into add-on SQLite state (no entry write-back)."""
+    slug = addon_slug_for_integration(integration_slug)
+    if not slug:
+        return
+    state = registry.get_state(slug)
+    if not state.get("installed"):
+        return
+    if bool(state.get("enabled")) == bool(enabled):
+        return
+    registry.patch_addon_enabled(slug, bool(enabled))

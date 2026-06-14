@@ -669,6 +669,9 @@
     cursor: pointer;
     transition: background 0.2s, color 0.2s;
 }
+.hy-btn.hidden {
+    display: none !important;
+}
 .hy-btn-ghost {
     background: var(--overlay-6);
     color: var(--text-secondary);
@@ -1722,6 +1725,7 @@
 }
 .upd-badge--update  { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
 .upd-badge--ok      { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.2); }
+.upd-badge--warn    { background: rgba(245,158,11,0.1); color: #fbbf24; border: 1px solid rgba(245,158,11,0.18); }
 .upd-badge--blocked { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.2); cursor: help; }
 
 .upd-row-btn {

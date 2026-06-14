@@ -74,6 +74,10 @@ def test_migrate_from_config_json(tmp_path, monkeypatch):
     assert "addons" not in remaining
 
 
+def _no_integration_entries(_domain: str):
+    return []
+
+
 def test_reconcile_addon_state_from_integration_and_disk(tmp_path, monkeypatch):
     _fresh_addon_state()
     cfg_path = tmp_path / "config.json"
@@ -109,6 +113,7 @@ def test_reconcile_addon_state_from_integration_and_disk(tmp_path, monkeypatch):
     monkeypatch.setattr(registry, "_PROJECT_ROOT", tmp_path)
     monkeypatch.setattr(registry, "_brew_installed_version", lambda _pkg: None)
     monkeypatch.setattr(registry, "_brew_binary_path", lambda _pkg: None)
+    monkeypatch.setattr("integrations.config_entries.list_entries", _no_integration_entries)
 
     z2m_prefix = tmp_path / "output/addons/zigbee2mqtt/runtime"
     pkg_dir = z2m_prefix / "node_modules" / "zigbee2mqtt"
@@ -159,6 +164,7 @@ def test_reconcile_frigate_remote_integration_does_not_mark_installed(tmp_path, 
     monkeypatch.setattr(registry, "_docker_installed_version", lambda _image: None)
     monkeypatch.setattr(registry, "_brew_installed_version", lambda _pkg: None)
     monkeypatch.setattr(registry, "_brew_binary_path", lambda _pkg: None)
+    monkeypatch.setattr("integrations.config_entries.list_entries", _no_integration_entries)
 
     assert registry.reconcile_addon_state() == 0
     frigate = state_store.get_state("frigate")
@@ -187,6 +193,8 @@ def test_repair_clears_false_installed_docker_addon(tmp_path, monkeypatch):
     monkeypatch.setattr(registry, "_docker_installed_version", lambda _image: None)
     monkeypatch.setattr(registry, "_brew_installed_version", lambda _pkg: None)
     monkeypatch.setattr(registry, "_brew_binary_path", lambda _pkg: None)
+    monkeypatch.setattr(registry, "_detect_on_disk_install", lambda _manifest: None)
+    monkeypatch.setattr("integrations.config_entries.list_entries", _no_integration_entries)
 
     assert registry.reconcile_addon_state() == 1
     frigate = state_store.get_state("frigate")
@@ -211,6 +219,7 @@ def test_reconcile_restores_brew_addon_when_binary_present(tmp_path, monkeypatch
         "_detect_on_disk_install",
         lambda manifest: "2.1.2" if manifest.get("slug") == "mosquitto" else None,
     )
+    monkeypatch.setattr("integrations.config_entries.list_entries", _no_integration_entries)
 
     assert state_store.get_state("mosquitto")["installed"] is False
     assert registry.reconcile_addon_state() == 1
@@ -245,6 +254,7 @@ def test_reconcile_does_not_downgrade_installed(tmp_path, monkeypatch):
         "_detect_on_disk_install",
         lambda manifest: "2.0.18" if manifest.get("slug") == "mosquitto" else None,
     )
+    monkeypatch.setattr("integrations.config_entries.list_entries", _no_integration_entries)
     assert registry.reconcile_addon_state() == 0
     assert state_store.get_state("mosquitto")["installed"] is True
 

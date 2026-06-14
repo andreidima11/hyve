@@ -51,3 +51,17 @@ export interface AddonUpdateRow {
     latest?: string;
     update_available?: boolean;
 }
+
+export interface HyveUpdateStatus {
+    current?: string;
+    latest?: string;
+    tag?: string;
+    update_available?: boolean;
+    release_url?: string;
+    release_notes?: string;
+    checked_at?: string | null;
+    error?: { key?: string; params?: Record<string, unknown> } | null;
+    git_available?: boolean;
+    github_repo?: string;
+    github_token_configured?: boolean;
+}

@@ -55,6 +55,54 @@ def _save_addon_state(slug: str, state: dict) -> dict:
     return state_store.save_state(slug, state)
 
 
+_HYVE_META_KEY = "__hyve_meta"
+
+
+def _addon_meta(state: dict) -> dict[str, Any]:
+    cfg = state.get("config") or {}
+    meta = cfg.get(_HYVE_META_KEY)
+    return dict(meta) if isinstance(meta, dict) else {}
+
+
+def _patch_addon_meta(slug: str, **updates: Any) -> dict:
+    """Merge Hyve-internal flags stored inside ``config.__hyve_meta``."""
+    state = dict(get_state(slug))
+    config = dict(state.get("config") or {})
+    meta = _addon_meta(state)
+    for key, value in updates.items():
+        if value is None:
+            meta.pop(key, None)
+        else:
+            meta[key] = value
+    if meta:
+        config[_HYVE_META_KEY] = meta
+    else:
+        config.pop(_HYVE_META_KEY, None)
+    state["config"] = config
+    _save_addon_state(slug, state)
+    return state
+
+
+def is_process_user_stopped(slug: str) -> bool:
+    return bool(_addon_meta(get_state(slug)).get("user_stopped_process"))
+
+
+def set_process_user_stopped(slug: str, stopped: bool) -> dict:
+    return _patch_addon_meta(slug, user_stopped_process=True if stopped else None)
+
+
+def is_user_uninstalled(slug: str) -> bool:
+    return bool(_addon_meta(get_state(slug)).get("user_uninstalled"))
+
+
+def mark_user_uninstalled(slug: str) -> dict:
+    return _patch_addon_meta(slug, user_uninstalled=True)
+
+
+def clear_user_uninstalled(slug: str) -> dict:
+    return _patch_addon_meta(slug, user_uninstalled=None)
+
+
 # ── registry ───────────────────────────────────────────────────────────────
 
 def _iter_manifest_paths(root: Path):
@@ -311,6 +359,18 @@ def _normalize_version_string(version: str) -> str:
     return raw
 
 
+def _plausible_version_string(version: str | None) -> str | None:
+    raw = _normalize_version_string(str(version or ""))
+    if not raw or len(raw) > 64:
+        return None
+    upper = raw.upper()
+    if "<" in raw or ">" in raw or "DOCTYPE" in upper or "HTML" in upper:
+        return None
+    if not re.match(r"^[\d][\d.A-Za-z_-]*$", raw):
+        return None
+    return raw
+
+
 def _docker_image(manifest: dict) -> str:
     return str((manifest.get("install") or {}).get("image") or "").strip()
 
@@ -331,7 +391,7 @@ def _github_latest_version(repo: str) -> str | None:
         with urllib.request.urlopen(req, timeout=12) as resp:
             data = json.loads(resp.read().decode("utf-8", "replace"))
         tag = str(data.get("tag_name") or data.get("name") or "").strip()
-        normalized = _normalize_version_string(tag)
+        normalized = _plausible_version_string(_normalize_version_string(tag))
         return normalized or None
     except Exception as e:
         log.debug("github latest failed for %s: %s", repo, e)
@@ -374,8 +434,8 @@ def _http_runtime_version(manifest: dict, state: dict) -> str | None:
             data = json.loads(body)
             ver = str(data.get("version") or data.get("tag") or "").strip()
         else:
-            ver = body.strip().strip('"')
-        normalized = _normalize_version_string(ver)
+            ver = ""
+        normalized = _plausible_version_string(_normalize_version_string(ver))
         return normalized if normalized and not _is_channel_tag(normalized) else None
     except Exception as e:
         log.debug("runtime version probe failed for %s: %s", manifest.get("slug"), e)
@@ -388,8 +448,9 @@ def _resolve_display_version(manifest: dict, state: dict) -> str:
 
     if state.get("installed"):
         saved = str(state.get("version") or "").strip()
-        if saved and not _is_channel_tag(saved):
-            return saved
+        plausible_saved = _plausible_version_string(saved) if saved else None
+        if plausible_saved and not _is_channel_tag(plausible_saved):
+            return plausible_saved
         runtime = _http_runtime_version(manifest, state)
         if runtime:
             return runtime
@@ -437,7 +498,7 @@ def _pypi_latest_version(pkg: str) -> str | None:
     try:
         with urllib.request.urlopen(f"https://pypi.org/pypi/{pkg}/json", timeout=12) as resp:
             data = json.loads(resp.read().decode("utf-8", "replace"))
-        return (data.get("info") or {}).get("version")
+        return _plausible_version_string((data.get("info") or {}).get("version"))
     except Exception as e:
         log.debug("pypi latest failed for %s: %s", pkg, e)
         return None
@@ -466,7 +527,7 @@ def _npm_installed_version(pkg: str, prefix: Path | None) -> str | None:
 
 
 def _npm_latest_version(pkg: str) -> str | None:
-    return _run_capture(["npm", "view", pkg, "version"], timeout=30)
+    return _plausible_version_string(_run_capture(["npm", "view", pkg, "version"], timeout=30))
 
 
 def _resolve_installed_version(manifest: dict) -> str | None:
@@ -521,8 +582,14 @@ def refresh_addon_versions(slug: str) -> dict:
         return state
 
     changed = False
+    existing_version = state.get("version")
+    if existing_version and not _plausible_version_string(str(existing_version)):
+        state["version"] = None
+        changed = True
+
     try:
         installed = _http_runtime_version(manifest, state) or _resolve_installed_version(manifest)
+        installed = _plausible_version_string(str(installed or "")) if installed else None
         if installed and state.get("version") != installed:
             state["version"] = installed
             changed = True
@@ -536,6 +603,11 @@ def refresh_addon_versions(slug: str) -> dict:
             changed = True
     except Exception as e:
         log.debug("latest version resolve failed for %s: %s", slug, e)
+
+    existing_latest = state.get("latest_version")
+    if existing_latest and not _plausible_version_string(str(existing_latest)):
+        state["latest_version"] = None
+        changed = True
 
     if changed:
         _save_addon_state(slug, state)
@@ -619,6 +691,12 @@ def _repair_false_installed_flags() -> int:
     return fixed
 
 
+def _entry_config_for_manifest(manifest: dict, data: dict[str, Any]) -> dict[str, Any]:
+    schema = manifest.get("config_schema") or []
+    schema_keys = {f.get("key") for f in schema if f.get("key")}
+    return {k: data[k] for k in schema_keys if k in data}
+
+
 def _reconcile_hints(manifest: dict, raw_config: dict, on_disk_version: str | None) -> dict[str, Any] | None:
     hints: dict[str, Any] = {}
     if on_disk_version:
@@ -628,6 +706,25 @@ def _reconcile_hints(manifest: dict, raw_config: dict, on_disk_version: str | No
     key = _config_section_key(manifest)
     section = raw_config.get(key) if key else None
     section_signal = False
+
+    if key:
+        try:
+            from integrations import config_entries
+
+            entries = config_entries.list_entries(key)
+            if entries:
+                entry = entries[0]
+                hints["enabled"] = bool(entry.get("enabled"))
+                cfg = _entry_config_for_manifest(manifest, entry.get("data") or {})
+                if cfg:
+                    hints["config"] = cfg
+                    section_signal = True
+                elif entry.get("enabled") is True:
+                    section_signal = True
+                section = None
+        except Exception:
+            pass
+
     if isinstance(section, dict):
         if "enabled" in section:
             hints["enabled"] = bool(section["enabled"])
@@ -664,6 +761,8 @@ def reconcile_addon_state() -> int:
         state = get_state(slug)
         if state.get("installed"):
             continue
+        if is_user_uninstalled(slug):
+            continue
 
         on_disk = _detect_on_disk_install(manifest)
         hints = _reconcile_hints(manifest, raw, on_disk)
@@ -679,7 +778,9 @@ def reconcile_addon_state() -> int:
             new_state["enabled"] = hints["enabled"]
         if hints.get("config"):
             merged = dict(new_state.get("config") or {})
-            merged.update(hints["config"])
+            user_keys = [k for k in merged if k != _HYVE_META_KEY]
+            if not user_keys:
+                merged.update(hints["config"])
             new_state["config"] = merged
 
         _save_addon_state(slug, new_state)
@@ -1170,7 +1271,13 @@ def _finalize_install(slug: str, manifest: dict) -> dict:
 
 def uninstall_addon(slug: str) -> dict:
     """Uninstall an addon. Returns updated state."""
-    state = {"installed": False, "enabled": False, "version": None, "config": {}, "watchdog": False}
+    state = {
+        "installed": False,
+        "enabled": False,
+        "version": None,
+        "config": {_HYVE_META_KEY: {"user_uninstalled": True}},
+        "watchdog": False,
+    }
     _save_addon_state(slug, state)
     integration_sync.sync_enabled(slug, False)
     log.info("Addon %s uninstalled", slug)
@@ -1206,12 +1313,23 @@ def update_addon_config(slug: str, config: dict) -> dict:
 
 def set_addon_enabled(slug: str, enabled: bool) -> dict:
     """Enable/disable an addon. Returns updated state."""
+    state = patch_addon_enabled(slug, enabled)
+    if state is None:
+        raise ValueError(f"Addon {slug} is not installed")
+    integration_sync.sync_enabled(slug, enabled)
+    return state
+
+
+def patch_addon_enabled(slug: str, enabled: bool) -> dict | None:
+    """Update ``enabled`` in SQLite only (no integration write-back)."""
     state = get_state(slug)
     if not state.get("installed"):
-        raise ValueError(f"Addon {slug} is not installed")
-    state["enabled"] = enabled
+        return None
+    if bool(state.get("enabled")) == bool(enabled):
+        return state
+    state = dict(state)
+    state["enabled"] = bool(enabled)
     _save_addon_state(slug, state)
-    integration_sync.sync_enabled(slug, enabled)
     return state
 
 

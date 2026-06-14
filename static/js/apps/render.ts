@@ -32,6 +32,7 @@ export function _errMsg(err: unknown): string {
 export function _formatAddonVersion(version: string | null | undefined): string {
     const raw = String(version ?? '?').trim() || '?';
     if (raw === '?') return raw;
+    if (/<[^>]+>|DOCTYPE/i.test(raw) || raw.length > 64) return '?';
     if (/^v[\d.]/i.test(raw)) return raw;
     if (/^\d/.test(raw)) return `v${raw}`;
     if (/^[a-zA-Z][\w.-]*$/.test(raw)) return raw;
@@ -318,8 +319,7 @@ export function _renderDetail(addon: AddonCatalogEntry, status: AddonProcessStat
                 ${hasProcess ? `
                 <label class="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 flex items-start gap-3 cursor-pointer">
                     <input type="checkbox" id="addon-watchdog-${escapeHtml(slug)}" ${watchdogOn ? 'checked' : ''}
-                        data-config-slug="${escapeHtml(slug)}"
-                        data-config-input="toggleAddonWatchdog"
+                        data-addon-watchdog="${escapeHtml(slug)}"
                         class="mt-0.5 rounded border-white/10 bg-slate-900 text-accent focus:ring-accent/40">
                     <span class="min-w-0">
                         <span class="block text-sm text-white"><i class="fas fa-shield-halved mr-1.5 opacity-70"></i>${escapeHtml(t('apps.watchdog_auto_restart'))}</span>

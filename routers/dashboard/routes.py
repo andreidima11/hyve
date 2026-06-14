@@ -484,12 +484,10 @@ async def update_dashboard_page(page_id: str, data: DashboardPageUpdateBody, _: 
             current = store.get("current_page_id") or page_id
             if current == page_id:
                 current = new_id
-            settings.save_config({
-                "dashboard": {
-                    "pages": store_pages,
-                    "current_page_id": current,
-                    "templates": store.get("templates") or [],
-                }
+            _write_dashboard_raw({
+                "pages": store_pages,
+                "current_page_id": current,
+                "templates": store.get("templates") or [],
             })
             settings.reload_config()
             final_page_id = new_id

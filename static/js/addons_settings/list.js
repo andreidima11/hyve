@@ -42,7 +42,7 @@ export async function installAddon(slug) {
         }
         else {
             const err = await res.json().catch(() => ({}));
-            showToast(err.detail || t('hy.addon_install_error'), 'error');
+            showToast(translateApiDetail(err.detail) || t('hy.addon_install_error'), 'error');
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = `<i class="fas fa-download"></i> ${escapeHtml(t('hy.addon_install_btn'))}`;

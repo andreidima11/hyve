@@ -38,3 +38,4 @@ class ConfigEntryBody(BaseModel):
 class ConfigEntryTestBody(BaseModel):
     data: dict[str, Any] | None = None
     entry_id: str | None = None
+    test_phase: str | None = None  # tapo: "api" (pas 1) | "full" (pas 2 + RTSP)

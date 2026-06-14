@@ -8,6 +8,7 @@ from routers import addons as addons_router
 from routers import areas as areas_router
 from routers import auth_tokens as auth_tokens_router
 from routers import automations_reminders as automations_reminders_router
+from routers import backup as backup_router
 from routers import cameras as cameras_router
 from routers import cctv as cctv_router
 from routers import chat_web as chat_web_router
@@ -45,6 +46,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(skills_router.router)
     app.include_router(memory_router.router)
     app.include_router(system_router.router)
+    app.include_router(backup_router.router)
     app.include_router(setup_router.router)
     app.include_router(auth_tokens_router.router)
     app.include_router(chat_web_router.router)

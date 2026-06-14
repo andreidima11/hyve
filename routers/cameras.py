@@ -264,6 +264,26 @@ def _resolve_rtsp_url(attrs: dict[str, Any]) -> str:
     return ""
 
 
+def _is_tapo_entity(ent: dict[str, Any]) -> bool:
+    return str(ent.get("source") or "").strip().lower() == "tapo"
+
+
+async def _resolve_rtsp_for_entity(ent: dict[str, Any], attrs: dict[str, Any]) -> str:
+    """Prefer a fresh Tapo RTSP URL (entry/camera-account creds) over stale registry attrs."""
+    if _is_tapo_entity(ent):
+        try:
+            integration, target = await _tapo_device_for_entity(ent)
+            section = dict(getattr(integration, "entry_data", {}) or {})
+            url = integration._rtsp_url(target, section=section)
+            if url:
+                return url
+        except HTTPException:
+            raise
+        except Exception as exc:
+            log.warning("tapo RTSP resolve for %s failed: %s", ent.get("entity_id"), exc)
+    return _resolve_rtsp_url(attrs)
+
+
 def _http_stream_url(attrs: dict[str, Any]) -> str:
     """HTTP(S) MJPEG or live URL (Frigate, Reolink HTTP) — preferred over RTSP proxy."""
     for key in ("mjpeg_url", "stream_url"):
@@ -403,9 +423,15 @@ async def camera_snapshot(
         except Exception as exc:
             log.warning("reolink snapshot %s failed, trying RTSP: %s", entity_id, exc)
 
-    rtsp_url = _resolve_rtsp_url(attrs)
+    rtsp_url = await _resolve_rtsp_for_entity(ent, attrs)
     url = str(attrs.get("snapshot_url") or "").strip()
     if not url and not rtsp_url:
+        if _is_tapo_entity(ent):
+            raise HTTPException(
+                404,
+                "Camera Tapo fără RTSP. Setează Cont cameră în Tapo App "
+                "(Setări → Avansate → Cont cameră) și completează rtsp_username/rtsp_password în integrare.",
+            )
         raise HTTPException(404, "Camera nu expune snapshot.")
     try:
         if _prefer_http_snapshot(ent, attrs) and url:
@@ -447,7 +473,13 @@ async def camera_snapshot(
     except asyncio.TimeoutError:
         raise HTTPException(504, "Snapshot timeout")
     except Exception as exc:
-        raise HTTPException(502, f"Snapshot indisponibil: {exc}")
+        if _is_tapo_entity(ent):
+            raise HTTPException(
+                502,
+                "Snapshot Tapo indisponibil. RTSP folosește Cont cameră (Tapo App → Setări cameră → "
+                f"Setări avansate → Cont cameră), nu neapărat contul cloud. Detaliu: {exc}",
+            ) from exc
+        raise HTTPException(502, f"Snapshot indisponibil: {exc}") from exc
     body = resp.content
     return Response(
         content=body,
@@ -505,7 +537,7 @@ async def camera_stream(
     ent = await _camera_entity(entity_id)
     attrs = _hydrate_frigate_stream_attrs(ent, dict(ent.get("attributes") or {}))
     url = _http_stream_url(attrs)
-    rtsp_url = "" if url else _resolve_rtsp_url(attrs)
+    rtsp_url = "" if url else await _resolve_rtsp_for_entity(ent, attrs)
     if not url and not rtsp_url:
         raise HTTPException(404, "Camera does not expose an MJPEG or RTSP stream.")
 
@@ -582,7 +614,7 @@ async def camera_play(
     attrs = dict(ent.get("attributes") or {})
     if not _supports_webm_live(attrs):
         raise HTTPException(404, "Camera nu suportă redare WebM live.")
-    rtsp_url = _resolve_rtsp_url(attrs)
+    rtsp_url = await _resolve_rtsp_for_entity(ent, attrs)
     if not rtsp_url:
         raise HTTPException(404, "Camera nu expune stream RTSP pentru redare WebM.")
 

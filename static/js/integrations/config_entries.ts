@@ -11,6 +11,21 @@ import { loadIntegrationExposedEntities } from './exposed_devices.js';
 
 let _entriesCurrent: IntegrationConfigEntriesState = { slug: null, schema: [], entries: [], supportsMultiple: false, label: '' };
 const _syncingEntryIds = new Set<string>();
+let _tapoWizardStep = 1;
+let _tapoEntryPatch: Record<string, unknown> = {};
+
+function _isTapoWizard(entry: Record<string, unknown> | null): boolean {
+    return _entriesCurrent.slug === 'tapo' && !entry?.entry_id;
+}
+
+function _visibleSchema(entry: Record<string, unknown> | null) {
+    const schema = _entriesCurrent.schema;
+    if (!_isTapoWizard(entry)) return schema;
+    if (_tapoWizardStep === 1) {
+        return schema.filter(f => String(f.ui_group || 'default') === 'api');
+    }
+    return schema.filter(f => String(f.ui_group || '') === 'camera_rtsp');
+}
 
 export function integrationHasConfigSchema(integrationId: string): boolean {
     const def = integrationDefinition(integrationId);
@@ -208,12 +223,42 @@ function openEntryEditor(entry: Record<string, unknown> | null): void {
     const errEl = document.getElementById('integration-entry-error');
     const titleInput = document.querySelector('#integration-entry-form input[name="__title__"]');
     if (!modal || !fieldsEl || !titleInput || !errEl || !titleEl) return;
+    _tapoWizardStep = 1;
+    _tapoEntryPatch = {};
     errEl.classList.add('hidden'); errEl.textContent = '';
     titleEl.textContent = entry && entry.title ? t('integrations.entry_edit_title', { title: String(entry.title) }) : t('integrations.entry_add_title', { label: _entriesCurrent.label });
     (titleInput as HTMLInputElement).value = entry?.title ? String(entry.title) : '';
-    fieldsEl.innerHTML = '';
     const data = (entry?.data || {}) as Record<string, unknown>;
-    _entriesCurrent.schema.forEach(field => {
+    const editingEntryId = entry?.entry_id ? String(entry.entry_id) : '';
+
+    const renderFields = () => {
+        fieldsEl.innerHTML = '';
+        const wizardEl = document.getElementById('integration-entry-wizard-steps');
+        if (wizardEl) {
+            if (_isTapoWizard(entry)) {
+                wizardEl.classList.remove('hidden');
+                const step1 = _tapoWizardStep === 1 ? 'text-accent font-semibold' : 'text-slate-500';
+                const step2 = _tapoWizardStep === 2 ? 'text-accent font-semibold' : 'text-slate-500';
+                wizardEl.innerHTML = `
+                    <div class="flex items-center justify-between gap-2 mb-1 text-[11px]">
+                        <span class="${step1}">${escapeHtml(t('integrations.tapo_wizard_step_api'))}</span>
+                        <span class="text-slate-600">→</span>
+                        <span class="${step2}">${escapeHtml(t('integrations.tapo_wizard_step_rtsp'))}</span>
+                    </div>`;
+                if (_tapoWizardStep === 2) {
+                    const back = document.createElement('button');
+                    back.type = 'button';
+                    back.className = 'text-[10px] text-slate-400 hover:text-slate-200 mb-2 underline-offset-2 hover:underline';
+                    back.textContent = t('integrations.tapo_wizard_back');
+                    back.onclick = () => { _tapoWizardStep = 1; errEl.classList.add('hidden'); renderFields(); };
+                    fieldsEl.appendChild(back);
+                }
+            } else {
+                wizardEl.classList.add('hidden');
+                wizardEl.innerHTML = '';
+            }
+        }
+        _visibleSchema(entry).forEach(field => {
         const wrap = document.createElement('div');
         const fkey = String(field.key || '');
         const id = `entry_field_${fkey}`;
@@ -245,7 +290,10 @@ function openEntryEditor(entry: Record<string, unknown> | null): void {
             wrap.innerHTML = `<label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">${escapeHtml(field.label || fkey)} ${required}</label>${input}${help}`;
         }
         fieldsEl.appendChild(wrap);
-    });
+        });
+    };
+
+    renderFields();
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     const close = () => { modal.classList.add('hidden'); modal.classList.remove('flex'); };
@@ -253,10 +301,9 @@ function openEntryEditor(entry: Record<string, unknown> | null): void {
     const cancelBtn = document.getElementById('integration-entry-cancel') as HTMLButtonElement | null;
     if (closeBtn) closeBtn.onclick = close;
     if (cancelBtn) cancelBtn.onclick = close;
-    const editingEntryId = entry?.entry_id ? String(entry.entry_id) : '';
     // Helper: collect form data, skipping masked secrets when editing.
     const collectData = () => {
-        const out: Record<string, unknown> = {};
+        const out: Record<string, unknown> = { ..._tapoEntryPatch };
         for (const field of _entriesCurrent.schema) {
             if (field.type === 'oauth' || field.type === 'link') continue;
             const fkey = String(field.key || '');
@@ -282,15 +329,29 @@ function openEntryEditor(entry: Record<string, unknown> | null): void {
             testBtn.disabled = true;
             testBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${escapeHtml(t('integrations.test_connecting'))}`;
             const testTimeoutMs = _entriesCurrent.slug === 'mammotion' ? 90000 : 45000;
+            const testPhase = _isTapoWizard(entry)
+                ? (_tapoWizardStep === 1 ? 'api' : 'full')
+                : 'full';
             try {
                 const r = await apiCall(`/api/integrations/${encodeURIComponent(_entriesCurrent.slug || '')}/entries/test`, {
                     method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ data: collectData(), entry_id: entry?.entry_id ? String(entry.entry_id) : null }),
+                    body: JSON.stringify({
+                        data: collectData(),
+                        entry_id: entry?.entry_id ? String(entry.entry_id) : null,
+                        test_phase: testPhase,
+                    }),
                     timeout: testTimeoutMs,
                 });
                 const o = await r.json().catch(() => ({}));
                 if (r.ok && o.ok) {
-                    if (typeof showToast === 'function') showToast(integrationApiMessage(o) || t('integrations.connection_ok'), 'success', 2200);
+                    if (o.entry_patch && typeof o.entry_patch === 'object') {
+                        _tapoEntryPatch = { ..._tapoEntryPatch, ...o.entry_patch };
+                    }
+                    if (_isTapoWizard(entry) && o.requires_camera_rtsp && _tapoWizardStep === 1) {
+                        _tapoWizardStep = 2;
+                        renderFields();
+                    }
+                    if (typeof showToast === 'function') showToast(integrationApiMessage(o) || t('integrations.connection_ok'), 'success', 2800);
                 } else {
                     errEl.textContent = integrationApiMessage(o) || t('integrations.test_failed');
                     errEl.classList.remove('hidden');

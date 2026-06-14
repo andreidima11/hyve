@@ -10,6 +10,8 @@ import core.database as database
 def _fresh(monkeypatch, tmp_path):
     entries_db = tmp_path / "integration_entries.sqlite"
     monkeypatch.setattr(config_entries, "_DB_PATH", entries_db)
+    monkeypatch.setattr("core.settings._load_config_raw", lambda: {})
+    monkeypatch.setattr(registry, "_detect_on_disk_install", lambda _m: None)
     run_startup_migrations()
     with database.engine.connect() as conn:
         conn.execute(text("DELETE FROM addon_state"))
@@ -57,3 +59,41 @@ def test_update_addon_config_syncs_config_entry(tmp_path, monkeypatch):
     assert len(entries) == 1
     assert entries[0]["data"].get("port") == 1884
     assert entries[0]["data"].get("host") == "localhost"
+
+
+def test_sync_enabled_to_addon_from_integration(tmp_path, monkeypatch):
+    _fresh(monkeypatch, tmp_path)
+
+    state_store.save_state("frigate", {
+        "installed": True,
+        "enabled": True,
+        "version": "0.17.1",
+        "config": {"port": 5005},
+        "watchdog": False,
+    })
+    config_entries.create_entry("frigate", title="Frigate", data={"port": 5005}, schema=[], enabled=True)
+
+    integration_sync.sync_enabled_to_addon("frigate", False)
+
+    assert registry.get_state("frigate")["enabled"] is False
+    entries = config_entries.list_entries("frigate")
+    assert entries[0]["enabled"] is True
+
+
+def test_reconcile_hints_uses_config_entry_not_legacy(tmp_path, monkeypatch):
+    _fresh(monkeypatch, tmp_path)
+
+    config_entries.create_entry(
+        "mosquitto",
+        title="Mosquitto",
+        data={"port": 1883},
+        schema=[],
+        enabled=False,
+    )
+    manifest = registry.get_manifest("mosquitto")
+    assert manifest
+    raw = {"mosquitto": {"enabled": True, "port": 1999}}
+    hints = registry._reconcile_hints(manifest, raw, "2.1.0")
+    assert hints is not None
+    assert hints["enabled"] is False
+    assert hints["config"]["port"] == 1883

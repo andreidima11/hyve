@@ -212,15 +212,20 @@ export async function toggleAddonWatchdog(slug: string, enabled: boolean) {
             }
         } else {
             const data = await res.json().catch(() => ({}));
-            showToast(data.detail || t('apps.watchdog_save_error'), 'error');
-            const cb = document.getElementById(`addon-watchdog-${slug}`) as HTMLInputElement | null;
-            if (cb) cb.checked = !enabled;
+            showToast(translateApiDetail(data.detail) || t('apps.watchdog_save_error'), 'error');
+            _revertWatchdogCheckbox(slug, enabled);
         }
     } catch (e) {
         showToast(t('hy.network_error'), 'error');
-        const cb = document.getElementById(`addon-watchdog-${slug}`) as HTMLInputElement | null;
-        if (cb) cb.checked = !enabled;
+        _revertWatchdogCheckbox(slug, enabled);
     }
+}
+
+function _revertWatchdogCheckbox(slug: string, enabled: boolean) {
+    const cb = document.getElementById(`addon-watchdog-${slug}`) as HTMLInputElement | null;
+    if (cb) cb.checked = !enabled;
+    const modalCb = document.getElementById('addon-watchdog-toggle') as HTMLInputElement | null;
+    if (modalCb) modalCb.checked = !enabled;
 }
 
 export async function detectAddonSerialPorts(fieldKey: string) {
@@ -297,7 +302,7 @@ export async function saveAddonConfig(slug: string) {
         });
         if (!wdRes.ok) {
             const data = await wdRes.json().catch(() => ({}));
-            throw new Error(data.detail || t('apps.watchdog_save_error'));
+            throw new Error(translateApiDetail(data.detail) || t('apps.watchdog_save_error'));
         }
         const idx = appsState.addonsCache.findIndex(a => a.slug === slug);
         if (idx >= 0) {
@@ -316,7 +321,7 @@ export async function saveAddonConfig(slug: string) {
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            throw new Error(err.detail || 'Config save failed');
+            throw new Error(translateApiDetail(err.detail) || 'Config save failed');
         }
         showToast(t('hy.addon_config_saved'), 'success');
         appsState.openSlug = slug;
@@ -336,7 +341,7 @@ export async function testAddonHealth(slug: string) {
         if (data?.ok) {
             showToast(t('integrations.connection_ok'), 'success');
         } else {
-            showToast(data?.detail || t('hy.addon_health_no_response'), 'warning');
+            showToast(translateApiDetail(data?.detail) || t('hy.addon_health_no_response'), 'warning');
         }
         await refreshDetailStatus(slug);
     } catch (e) {

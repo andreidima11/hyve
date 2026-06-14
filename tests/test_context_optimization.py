@@ -104,10 +104,23 @@ def test_prompt_cache_fingerprint_ignores_unrelated_config(monkeypatch):
     assert _prompt_cache_fingerprint("user1", None) == base_fp
 
 
-def test_prompt_cache_config_snapshot_is_bounded():
+def test_prompt_cache_config_snapshot_is_bounded(monkeypatch):
     import core.settings as settings_mod
 
+    monkeypatch.setattr(
+        settings_mod,
+        "CFG",
+        {
+            "prompts": {"system": "x"},
+            "intelligence": {"lazy_history": True},
+            "security": {},
+            "skills_disabled": [],
+            "personas": {"default": {"name": "Default"}},
+            "backup": {"remote": {"s3": {"bucket": "x" * 5000}}},
+        },
+    )
     snap = _prompt_cache_config_snapshot()
-    full_cfg_chars = len(str(settings_mod.CFG))
     snap_chars = len(str(snap))
-    assert snap_chars < full_cfg_chars / 10
+    backup_chars = len(str(settings_mod.CFG["backup"]))
+    assert "backup" not in snap
+    assert snap_chars < backup_chars / 2
