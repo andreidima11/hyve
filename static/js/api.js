@@ -125,6 +125,10 @@ export async function apiCall(url, options = {}) {
             clearTimeout(timeoutId);
     }
     if (res.status === 401 && !_suppressLogout) {
+        const hadAuth = !!(authToken || headers.Authorization);
+        if (!hadAuth) {
+            return res;
+        }
         const refreshed = await _tryRefresh();
         if (refreshed) {
             headers.Authorization = `Bearer ${authToken}`;
@@ -135,7 +139,9 @@ export async function apiCall(url, options = {}) {
             localStorage.removeItem('hyve_remember');
         }
         catch { /* ignore */ }
-        window.location.replace(`/?_expired=${Date.now()}`);
+        if (!window.location.search.includes('_expired=')) {
+            window.location.replace(`/?_expired=${Date.now()}`);
+        }
         throw new Error('Session expired.');
     }
     return res;

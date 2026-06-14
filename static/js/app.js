@@ -1,4 +1,4 @@
-import { authToken, clearAuthToken } from './api.js';
+import { authToken, clearAuthToken, suppressLogout } from './api.js';
 import { showToast, debounce, showConfirm, showSourcesModal } from './utils.js';
 import { handleLogin, loadUserProfile, restoreRememberedCredentials, tryAutoLogin } from './auth.js';
 import { initSetupWizard, showSetupWizard, fetchSetupStatus } from './setup.js';
@@ -27,7 +27,7 @@ import { showProfileEditor, closeProfileEditor, saveProfile, moveProfileOrder, o
 import { switchIntegrationSubtab, syncConfiguredIntegration, syncIntegrationEntities, navigateToSmartHomeSource, controlIntegrationEntity, openIntegrationEntityCard, openIntegrationDeviceModal, renameIntegrationDevice, } from './features_integrations_settings.js';
 // Expose sendMessage globally so other modules (e.g. voice input in features.js) can call it
 window.sendMessage = sendMessage;
-import { saveConfig, restartServer, syncHA, toggleSelection, toggleAllAI, loadMemory, changeMemPage, deleteMemBulk, filterMemory, toggleAllMem, updateMemBulkCount, openAliasModal, addAliasInput, closeAliasModal, saveAliasesFromModal, closeRowActionsModal, handleHaRowClick, resetSmarthomeFilters, copyEntityIdFromRowActions, toggleSmarthomeFilters, toggleSmarthomePicker, selectSmarthomePickerOption, setDevicesPage, setDevicesPageSize, sortDevicesBy, controlDeviceEntity, openAliasModalFromDetail, closeEntityDetailModal, openEntityDetail, closeEntityDetail, openDeviceDetail, closeDeviceDetail, filterEntityCategory, closeDevicePrimaryModal, selectDevicePrimaryEntity, loadSessionsList, openSession, newChatSession, deleteSession, confirmDeleteSession, cancelDeleteSession, clearSessionContext, copyWebhook, openIntegrationConfigModal, closeIntegrationConfigModal, loadAdminUsers, createUser, deleteUser, unlinkUserPhone, loadModelProfiles, openSkillEdit, closeSkillEditModal, saveSkillEdit, deleteSkill, toggleSkillDesc, toggleSkillDisabled, loadMemoryEvents, memLogPrevPage, memLogNextPage, toggleMemLogDetails, clearMemoryLog, runConsolidationNow, switchIntelligenceTab, addExtractionExample, removeExtractionExample, loadAutomations, deleteAutomation, openAutomationEditor, closeAutomationEditor, saveAutomationEditor, validateAutomationEditor, toggleAutomationDefinition, runAutomationDefinition, testAutomationEditor, exportAutomationYaml, importAutomationYaml, toggleAutoMenu, closeAutoMenu, showAutoDotTooltip, hideAutoDotTooltip, autoSyncAutomationId, markAutomationIdManual, openBlueprintPicker, closeBlueprintPicker, loadBlueprints, importBlueprintYaml, backToBlueprintList, instantiateCurrentBlueprint, deleteCurrentBlueprint, openBlueprintCreator, addBlueprintCreatorInput, removeBlueprintCreatorInput, changeBlueprintCreatorInputType, insertBlueprintCreatorPlaceholder, updateBlueprintCreatorYaml, saveCreatedBlueprint, switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, loadAutomationEditorHistory, updateAutomationStructuredServiceData, selectNotifTransport, selectNotifChannel, testNotification, refreshNotifWsNativeStatus, switchMemorySubtab, checkAddonUpdates, updateAllAddons, updateSingleAddon, closeAddonConfigModal, checkAddonHealth, installAddon, uninstallAddon, toggleAddon, openAddonConfigModal, } from './features.js';
+import { saveConfig, restartServer, syncHA, toggleSelection, toggleAllAI, loadMemory, changeMemPage, deleteMemBulk, filterMemory, toggleAllMem, updateMemBulkCount, openAliasModal, addAliasInput, closeAliasModal, saveAliasesFromModal, closeRowActionsModal, handleHaRowClick, resetSmarthomeFilters, copyEntityIdFromRowActions, toggleSmarthomeFilters, toggleSmarthomePicker, selectSmarthomePickerOption, setDevicesPage, setDevicesPageSize, sortDevicesBy, controlDeviceEntity, openAliasModalFromDetail, closeEntityDetailModal, openEntityDetail, closeEntityDetail, openDeviceDetail, closeDeviceDetail, filterEntityCategory, closeDevicePrimaryModal, selectDevicePrimaryEntity, loadSessionsList, openSession, newChatSession, deleteSession, confirmDeleteSession, cancelDeleteSession, clearSessionContext, copyWebhook, openIntegrationConfigModal, closeIntegrationConfigModal, loadAdminUsers, createUser, deleteUser, unlinkUserPhone, loadModelProfiles, openSkillEdit, closeSkillEditModal, saveSkillEdit, deleteSkill, toggleSkillDesc, toggleSkillDisabled, loadMemoryEvents, memLogPrevPage, memLogNextPage, toggleMemLogDetails, clearMemoryLog, runConsolidationNow, switchIntelligenceTab, addExtractionExample, removeExtractionExample, loadAutomations, deleteAutomation, openAutomationEditor, closeAutomationEditor, saveAutomationEditor, validateAutomationEditor, toggleAutomationDefinition, runAutomationDefinition, testAutomationEditor, exportAutomationYaml, importAutomationYaml, toggleAutoMenu, closeAutoMenu, showAutoDotTooltip, hideAutoDotTooltip, autoSyncAutomationId, markAutomationIdManual, openBlueprintPicker, closeBlueprintPicker, loadBlueprints, importBlueprintYaml, backToBlueprintList, instantiateCurrentBlueprint, deleteCurrentBlueprint, openBlueprintCreator, addBlueprintCreatorInput, removeBlueprintCreatorInput, changeBlueprintCreatorInputType, insertBlueprintCreatorPlaceholder, updateBlueprintCreatorYaml, saveCreatedBlueprint, switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, loadAutomationEditorHistory, updateAutomationStructuredServiceData, selectNotifTransport, selectNotifChannel, testNotification, refreshNotifWsNativeStatus, switchMemorySubtab, checkAddonUpdates, applyHyveUpdate, updateAllAddons, updateSingleAddon, closeAddonConfigModal, checkAddonHealth, installAddon, uninstallAddon, toggleAddon, openAddonConfigModal, saveAddonConfig as saveAddonConfigModal, } from './features.js';
 import { loadDashboard, initDashboardSidebarNav, withDashboardTimeout, } from './dashboard.js';
 function _errMsg(err) {
     if (err instanceof Error)
@@ -662,18 +662,28 @@ async function bootHyve() {
     if (overlay)
         overlay.classList.remove('is-hidden');
     setBootMessage('Se încarcă...');
+    suppressLogout(true);
+    let setupStatus = null;
     try {
-        const setupStatus = await withDashboardTimeout(fetchSetupStatus(), 10000, 'Setup status timeout');
-        if (!setupStatus?.complete) {
-            hideLoginScreen();
-            showSetupWizard(setupStatus);
-            hideBootOverlay();
-            return;
-        }
+        setupStatus = await withDashboardTimeout(fetchSetupStatus(), 10000, 'Setup status timeout');
     }
     catch (e) {
         console.warn('setup status check failed', e);
+        setupStatus = { complete: false };
     }
+    if (!setupStatus?.complete) {
+        clearAuthToken();
+        try {
+            localStorage.removeItem('hyve_remember');
+        }
+        catch { /* ignore */ }
+        suppressLogout(false);
+        hideLoginScreen();
+        showSetupWizard(setupStatus);
+        hideBootOverlay();
+        return;
+    }
+    suppressLogout(false);
     // Step 1: ensure we have a valid token (existing → autologin → fail)
     const stored = localStorage.getItem('hyve_token');
     let hasToken = stored && stored !== 'null' && stored !== 'undefined';
@@ -875,6 +885,7 @@ window.addEventListener('DOMContentLoaded', () => {
         requestStoragePermission: () => requestStoragePermission(),
         clearAppCache: () => clearAppCache(),
         checkAddonUpdates: () => checkAddonUpdates(),
+        applyHyveUpdate: () => applyHyveUpdate(),
         updateAllAddons: () => updateAllAddons(),
         closeAddonConfigModal: () => closeAddonConfigModal(),
         checkAddonHealth: () => checkAddonHealth(),
@@ -938,7 +949,14 @@ window.addEventListener('DOMContentLoaded', () => {
         openAddonWebUI: (slug) => _lazyAction(_loadAppsModule, 'openAddonWebUI')(slug),
         closeAddonWebUI: () => _lazyAction(_loadAppsModule, 'closeAddonWebUI')(),
         testAddonHealth: (slug) => _lazyAction(_loadAppsModule, 'testAddonHealth')(slug),
-        saveAddonConfig: (slug) => _lazyAction(_loadAppsModule, 'saveAddonConfig')(slug),
+        saveAddonConfig: (slug) => {
+            const s = _str(slug);
+            const modal = document.getElementById('addon-config-modal');
+            const modalOpen = modal && !modal.classList.contains('hidden');
+            if (modalOpen || !s)
+                return saveAddonConfigModal();
+            return _lazyAction(_loadAppsModule, 'saveAddonConfig')(s);
+        },
         copyPreflightFix: (text) => { const s = _str(text); if (s)
             navigator.clipboard.writeText(s).catch(() => { }); },
         toggleAddonWatchdog: (slug, enabled) => _lazyAction(_loadAppsModule, 'toggleAddonWatchdog')(slug, enabled),

@@ -1,4 +1,4 @@
-import { authToken, clearAuthToken } from './api.js';
+import { authToken, clearAuthToken, suppressLogout } from './api.js';
 import { showToast, debounce, showConfirm, showSourcesModal } from './utils.js';
 import { handleLogin, loadUserProfile, restoreRememberedCredentials, tryAutoLogin } from './auth.js';
 import { initSetupWizard, showSetupWizard, fetchSetupStatus } from './setup.js';
@@ -75,8 +75,8 @@ import {
     openBlueprintCreator, addBlueprintCreatorInput, removeBlueprintCreatorInput, changeBlueprintCreatorInputType, insertBlueprintCreatorPlaceholder, updateBlueprintCreatorYaml, saveCreatedBlueprint,
     switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, loadAutomationEditorHistory, updateAutomationStructuredServiceData,
     loadNotificationPrefs, saveNotificationSettings, selectNotifTransport, selectNotifChannel, testWsNotification, testFcmNotification, testNotification, refreshNotifWsNativeStatus,
-    switchMemorySubtab,     checkAddonUpdates, updateAllAddons, updateSingleAddon, closeAddonConfigModal, refreshUpdatesHeaderBadge, checkAddonHealth,
-    installAddon, uninstallAddon, toggleAddon, openAddonConfigModal,
+    switchMemorySubtab,     checkAddonUpdates, applyHyveUpdate, updateAllAddons, updateSingleAddon, closeAddonConfigModal, refreshUpdatesHeaderBadge, checkAddonHealth,
+    installAddon, uninstallAddon, toggleAddon, openAddonConfigModal, saveAddonConfig as saveAddonConfigModal,
 } from './features.js';
 import {
     loadDashboard,
@@ -718,21 +718,28 @@ async function bootHyve() {
     if (overlay) overlay.classList.remove('is-hidden');
     setBootMessage('Se încarcă...');
 
+    suppressLogout(true);
+    let setupStatus: HyveSetupStatus | null = null;
     try {
-        const setupStatus = await withDashboardTimeout(
+        setupStatus = await withDashboardTimeout(
             fetchSetupStatus() as Promise<HyveSetupStatus>,
             10000,
             'Setup status timeout',
         );
-        if (!setupStatus?.complete) {
-            hideLoginScreen();
-            showSetupWizard(setupStatus);
-            hideBootOverlay();
-            return;
-        }
     } catch (e) {
         console.warn('setup status check failed', e);
+        setupStatus = { complete: false } as HyveSetupStatus;
     }
+    if (!setupStatus?.complete) {
+        clearAuthToken();
+        try { localStorage.removeItem('hyve_remember'); } catch { /* ignore */ }
+        suppressLogout(false);
+        hideLoginScreen();
+        showSetupWizard(setupStatus);
+        hideBootOverlay();
+        return;
+    }
+    suppressLogout(false);
 
     // Step 1: ensure we have a valid token (existing → autologin → fail)
     const stored = localStorage.getItem('hyve_token');
@@ -926,6 +933,7 @@ window.addEventListener('DOMContentLoaded', () => {
         requestStoragePermission: () => requestStoragePermission(),
         clearAppCache: () => clearAppCache(),
         checkAddonUpdates: () => checkAddonUpdates(),
+        applyHyveUpdate: () => applyHyveUpdate(),
         updateAllAddons: () => updateAllAddons(),
         closeAddonConfigModal: () => closeAddonConfigModal(),
         checkAddonHealth: () => checkAddonHealth(),
@@ -989,7 +997,13 @@ window.addEventListener('DOMContentLoaded', () => {
         openAddonWebUI: (slug) => _lazyAction(_loadAppsModule, 'openAddonWebUI')(slug),
         closeAddonWebUI: () => _lazyAction(_loadAppsModule, 'closeAddonWebUI')(),
         testAddonHealth: (slug) => _lazyAction(_loadAppsModule, 'testAddonHealth')(slug),
-        saveAddonConfig: (slug) => _lazyAction(_loadAppsModule, 'saveAddonConfig')(slug),
+        saveAddonConfig: (slug) => {
+            const s = _str(slug);
+            const modal = document.getElementById('addon-config-modal');
+            const modalOpen = modal && !modal.classList.contains('hidden');
+            if (modalOpen || !s) return saveAddonConfigModal();
+            return _lazyAction(_loadAppsModule, 'saveAddonConfig')(s);
+        },
         copyPreflightFix: (text) => { const s = _str(text); if (s) navigator.clipboard.writeText(s).catch(() => {}); },
         toggleAddonWatchdog: (slug, enabled) => _lazyAction(_loadAppsModule, 'toggleAddonWatchdog')(slug, enabled),
     });

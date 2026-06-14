@@ -4,6 +4,18 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.6.3] — 2026-06
+
+Patch release: **first-run setup wizard fix** (Proxmox / fresh install) and **installer improvements**.
+
+### First-run / install
+- **Fix:** stop infinite page reload with “session expired” before the setup wizard on fresh installs (401 redirect loop when no JWT was present).
+- **Boot:** clear stale browser tokens when setup is incomplete; tolerate `/api/setup/status` failures and still show the wizard.
+- **Installer (`install_hyve.py`):** run `npm run js:build`, print LAN URL (not only `127.0.0.1`), verify setup API after start, `--fresh` to reset wizard, stop stale PID before restart.
+
+### Tests
+- `tests/test_install_hyve.py` — installer URL / banner helpers.
+
 ## [0.9.6.2] — 2026-06
 
 Patch release: **addon watchdog & reconcile fixes**, **Integrations list UI polish**, and **navigation back-stack** fix.

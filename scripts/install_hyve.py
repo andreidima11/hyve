@@ -2,7 +2,7 @@
 """Install Hyve dependencies and start the server.
 
 First-time configuration (admin account, language, timezone) is done in the
-browser at http://localhost:<port>/ after the server starts.
+browser setup wizard after the server starts.
 """
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import json
 import os
 import secrets
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -44,6 +45,48 @@ def run(cmd: list[str], *, cwd: Path = ROOT, check: bool = True) -> subprocess.C
     return subprocess.run(cmd, cwd=cwd, check=check)
 
 
+def detect_lan_ip() -> str | None:
+    """Best-effort LAN address (for Proxmox / NAS install hints)."""
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            sock.connect(("8.8.8.8", 80))
+            ip = str(sock.getsockname()[0] or "").strip()
+            return ip or None
+        finally:
+            sock.close()
+    except OSError:
+        return None
+
+
+def build_access_urls(port: int, *, lan_ip: str | None = None) -> list[str]:
+    urls = [f"http://127.0.0.1:{port}/"]
+    ip = (lan_ip if lan_ip is not None else detect_lan_ip()) or ""
+    if ip and ip not in {"127.0.0.1", "localhost"}:
+        urls.append(f"http://{ip}:{port}/")
+    return urls
+
+
+def format_setup_banner(*, complete: bool, bootstrap: bool) -> str:
+    if bootstrap:
+        return "Headless admin created — open Hyve and sign in (browser wizard skipped)."
+    if complete:
+        return "Setup already complete — sign in with your admin account."
+    return (
+        "Setup wizard required — create your admin account, language, and timezone in the browser."
+    )
+
+
+def fetch_setup_status(port: int, *, timeout: float = 5.0) -> dict | None:
+    url = f"http://127.0.0.1:{port}/api/setup/status"
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            return payload if isinstance(payload, dict) else None
+    except Exception:
+        return None
+
+
 def ensure_venv() -> None:
     if VENV_PYTHON.exists():
         print_step("Reusing existing virtual environment")
@@ -66,11 +109,13 @@ def install_python_dependencies() -> None:
 def install_node_dependencies(skip_npm: bool) -> None:
     if skip_npm:
         print_step("Skipping Node.js dependencies by request")
+        print("  Note: use committed static/js/*.js or run: npm ci && npm run js:build")
         return
 
     npm = shutil.which("npm")
     if not npm:
-        print_step("npm not found; skipping Node.js dependencies")
+        print_step("npm not found; skipping Node.js build")
+        print("  Warning: without npm run js:build, use a release tag with prebuilt static/js assets.")
         return
 
     print_step("Installing Node.js dependencies")
@@ -82,6 +127,14 @@ def install_node_dependencies(skip_npm: bool) -> None:
         run([npm, "run", "css:build"])
     except subprocess.CalledProcessError:
         print("Warning: CSS build failed. Existing committed frontend assets will still be used if available.")
+
+    try:
+        print_step("Building JavaScript bundles (required for setup wizard)")
+        run([npm, "run", "js:build"])
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(
+            "JavaScript build failed. Install Node.js 18+ and retry, or use --skip-npm with a release checkout."
+        ) from exc
 
 
 def _set_env_value(lines: list[str], key: str, value: str) -> list[str]:
@@ -133,6 +186,20 @@ def ensure_config_file(port: int) -> None:
         CONFIG_FILE.write_text(json.dumps(data, indent=4) + "\n", encoding="utf-8")
 
 
+def reset_first_run_state() -> None:
+    """Drop local DB + setup flag so the browser wizard runs again."""
+    print_step("Resetting first-run state (fresh setup wizard)")
+    for path in (ROOT / "hyve.db", ROOT / "users.db"):
+        if path.exists():
+            path.unlink()
+            print(f"  removed {path.name}")
+    if CONFIG_FILE.exists():
+        data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        data["setup_complete"] = False
+        CONFIG_FILE.write_text(json.dumps(data, indent=4) + "\n", encoding="utf-8")
+        print("  set config.json setup_complete=false")
+
+
 def bootstrap_admin(username: str, full_name: str, email: str, password: str) -> None:
     print_step("Bootstrapping admin account (headless)")
     run([
@@ -158,6 +225,27 @@ def _pid_is_running(pid: int) -> bool:
         return False
 
 
+def stop_existing_server() -> None:
+    if not PID_FILE.exists():
+        return
+    try:
+        pid = int(PID_FILE.read_text(encoding="utf-8").strip())
+    except ValueError:
+        PID_FILE.unlink(missing_ok=True)
+        return
+    if pid and _pid_is_running(pid):
+        print_step(f"Stopping existing Hyve server (PID {pid})")
+        try:
+            os.kill(pid, 15)
+            for _ in range(20):
+                if not _pid_is_running(pid):
+                    break
+                time.sleep(0.25)
+        except OSError:
+            pass
+    PID_FILE.unlink(missing_ok=True)
+
+
 def wait_for_server(url: str, timeout_seconds: int = 90) -> bool:
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
@@ -174,29 +262,46 @@ def wait_for_server(url: str, timeout_seconds: int = 90) -> bool:
     return False
 
 
-def start_server(port: int, open_browser_when_ready: bool) -> None:
+def print_access_instructions(
+    port: int,
+    *,
+    bootstrap: bool,
+    setup_status: dict | None,
+    open_browser: bool,
+) -> None:
+    complete = bool((setup_status or {}).get("complete"))
+    urls = build_access_urls(port)
+    print("\n" + "=" * 60)
+    print(format_setup_banner(complete=complete, bootstrap=bootstrap))
+    print("Open Hyve in your browser:")
+    for url in urls:
+        marker = " (use this from other devices on your LAN)" if "127.0.0.1" not in url else " (on this machine)"
+        print(f"  → {url}{marker}")
+    if setup_status is None:
+        print("  Warning: could not verify /api/setup/status — check logs if the wizard does not appear.")
+    elif not complete and not bootstrap:
+        print("  First visit shows the setup wizard (admin + language + timezone).")
+    print("=" * 60 + "\n")
+    if open_browser:
+        webbrowser.open(urls[0])
+    elif len(urls) > 1:
+        print("From a phone or laptop on the same network, use the LAN URL above.\n")
+
+
+def start_server(port: int, *, bootstrap: bool, open_browser_when_ready: bool) -> None:
     url = f"http://127.0.0.1:{port}/"
     if wait_for_server(url, timeout_seconds=2):
         print_step(f"Server already running at {url}")
-        if open_browser_when_ready:
-            webbrowser.open(url)
-        else:
-            print(f"Open this URL in your browser: {url}")
+        status = fetch_setup_status(port)
+        print_access_instructions(
+            port,
+            bootstrap=bootstrap,
+            setup_status=status,
+            open_browser=open_browser_when_ready,
+        )
         return
 
-    if PID_FILE.exists():
-        try:
-            old_pid = int(PID_FILE.read_text(encoding="utf-8").strip())
-        except ValueError:
-            old_pid = 0
-        if old_pid and _pid_is_running(old_pid):
-            print_step(f"Server already running with PID {old_pid}")
-            if open_browser_when_ready:
-                webbrowser.open(url)
-            else:
-                print(f"Open this URL in your browser: {url}")
-            return
-        PID_FILE.unlink(missing_ok=True)
+    stop_existing_server()
 
     print_step("Starting server")
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -211,12 +316,14 @@ def start_server(port: int, open_browser_when_ready: bool) -> None:
     PID_FILE.write_text(str(process.pid), encoding="utf-8")
 
     if wait_for_server(url, timeout_seconds=90):
-        print(f"Hyve is ready at {url}")
-        print("Complete first-time setup in your browser (admin account, language, timezone).")
-        if open_browser_when_ready:
-            webbrowser.open(url)
-        else:
-            print(f"Open this URL in your browser: {url}")
+        status = fetch_setup_status(port)
+        print(f"Hyve is ready (PID {process.pid}).")
+        print_access_instructions(
+            port,
+            bootstrap=bootstrap,
+            setup_status=status,
+            open_browser=open_browser_when_ready,
+        )
         return
 
     print(f"Server did not become ready in time. Check {LOG_FILE} for details.")
@@ -227,9 +334,14 @@ def parse_args() -> argparse.Namespace:
         description="Install Hyve dependencies and start the server. Configure the app in the browser on first visit.",
     )
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"HTTP port (default {DEFAULT_PORT})")
-    parser.add_argument("--skip-npm", action="store_true")
+    parser.add_argument("--skip-npm", action="store_true", help="Skip npm ci / css:build / js:build")
     parser.add_argument("--no-start", action="store_true", help="Install only; do not start uvicorn")
     parser.add_argument("--no-open-browser", action="store_true")
+    parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Delete hyve.db/users.db and reset setup_complete before install (re-run wizard)",
+    )
     parser.add_argument(
         "--bootstrap-admin",
         nargs=2,
@@ -245,6 +357,10 @@ def main() -> int:
     os.chdir(ROOT)
     args = parse_args()
     port = int(args.port or DEFAULT_PORT)
+    bootstrap = bool(args.bootstrap_admin)
+
+    if args.fresh:
+        reset_first_run_state()
 
     ensure_venv()
     install_python_dependencies()
@@ -266,11 +382,17 @@ def main() -> int:
     if args.no_start:
         print_step("Installation complete")
         print(f"Start the app with: {VENV_PYTHON} main.py")
-        if not args.bootstrap_admin:
-            print(f"Then open http://127.0.0.1:{port}/ to finish setup in the browser.")
+        urls = build_access_urls(port)
+        if not bootstrap:
+            print(format_setup_banner(complete=False, bootstrap=False))
+            print(f"Then open: {urls[-1]}")
         return 0
 
-    start_server(port=port, open_browser_when_ready=not args.no_open_browser)
+    start_server(
+        port=port,
+        bootstrap=bootstrap,
+        open_browser_when_ready=not args.no_open_browser,
+    )
     print_step("Installation complete")
     return 0
 
