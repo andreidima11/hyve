@@ -5,6 +5,10 @@ import { apiCall } from '../api.js';
 import { t, translateApiDetail } from '../lang/index.js';
 import { showConfirm, escapeHtml } from '../utils.js';
 import { isExplicitNonAdmin } from '../user_context.js';
+let _cachedBackupSettings;
+function _remoteUiAvailable() {
+    return !!_el('backup-remote-enabled');
+}
 function _el(id) {
     return document.getElementById(id);
 }
@@ -103,6 +107,8 @@ function _renderRemoteArchives(archives) {
     list.innerHTML = archives.map(_remoteArchiveRowHtml).join('');
 }
 export async function loadRemoteBackupArchives() {
+    if (!_remoteUiAvailable())
+        return;
     const list = _el('backup-remote-list');
     if (list) {
         list.innerHTML = `<div class="text-center py-6 text-slate-500 text-xs"><i class="fas fa-spinner fa-spin mr-2"></i>${escapeHtml(t('backup.remote_loading'))}</div>`;
@@ -179,6 +185,24 @@ function _applySettings(settings) {
     const encrypt = _el('backup-encrypt-at-rest');
     if (encrypt)
         encrypt.checked = !!settings.encrypt_at_rest;
+    if (!_remoteUiAvailable()) {
+        const last = _el('backup-last-scheduled');
+        if (last) {
+            if (settings.last_scheduled_at) {
+                const status = settings.last_scheduled_status === 'failed'
+                    ? t('backup.last_scheduled_failed')
+                    : t('backup.last_scheduled_ok');
+                last.textContent = t('backup.last_scheduled', {
+                    when: _formatWhen(settings.last_scheduled_at),
+                    status,
+                });
+            }
+            else {
+                last.textContent = t('backup.last_scheduled_never');
+            }
+        }
+        return;
+    }
     const remote = settings.remote || {};
     const remoteEnabled = _el('backup-remote-enabled');
     if (remoteEnabled)
@@ -229,12 +253,35 @@ function _applySettings(settings) {
     }
 }
 function _toggleRemoteFields(provider) {
+    if (!_remoteUiAvailable())
+        return;
     _el('backup-remote-s3-fields')?.classList.toggle('hidden', provider !== 's3');
     _el('backup-remote-sftp-fields')?.classList.toggle('hidden', provider !== 'sftp');
 }
-function _settingsFromForm() {
+function _remoteSettingsFromForm() {
     const provider = _el('backup_remote_provider')?.value || 'none';
     return {
+        enabled: !!_el('backup-remote-enabled')?.checked,
+        provider,
+        upload_on_create: true,
+        retention_count: Math.max(0, parseInt(_el('backup_remote_retention')?.value || '5', 10) || 0),
+        s3: {
+            bucket: _el('backup_s3_bucket')?.value || '',
+            prefix: _el('backup_s3_prefix')?.value || 'hyve/',
+            region: _el('backup_s3_region')?.value || '',
+            endpoint_url: _el('backup_s3_endpoint')?.value || '',
+        },
+        sftp: {
+            host: _el('backup_sftp_host')?.value || '',
+            port: parseInt(_el('backup_sftp_port')?.value || '22', 10) || 22,
+            username: _el('backup_sftp_username')?.value || '',
+            password: _el('backup_sftp_password')?.value || '',
+            remote_path: _el('backup_sftp_path')?.value || '/backups/hyve',
+        },
+    };
+}
+function _settingsFromForm() {
+    const settings = {
         schedule_interval: _el('backup_schedule_interval')?.value || 'never',
         retention_count: Math.max(1, parseInt(_el('backup_retention_count')?.value || '10', 10) || 10),
         pre_restore_retention_count: Math.max(1, parseInt(_el('backup_pre_restore_retention_count')?.value || '3', 10) || 3),
@@ -242,26 +289,14 @@ function _settingsFromForm() {
         include_frigate_media: !!_el('backup-include-frigate-media')?.checked,
         refetch_addons: !!_el('backup-refetch-addons')?.checked,
         encrypt_at_rest: !!_el('backup-encrypt-at-rest')?.checked,
-        remote: {
-            enabled: !!_el('backup-remote-enabled')?.checked,
-            provider,
-            upload_on_create: true,
-            retention_count: Math.max(0, parseInt(_el('backup_remote_retention')?.value || '5', 10) || 0),
-            s3: {
-                bucket: _el('backup_s3_bucket')?.value || '',
-                prefix: _el('backup_s3_prefix')?.value || 'hyve/',
-                region: _el('backup_s3_region')?.value || '',
-                endpoint_url: _el('backup_s3_endpoint')?.value || '',
-            },
-            sftp: {
-                host: _el('backup_sftp_host')?.value || '',
-                port: parseInt(_el('backup_sftp_port')?.value || '22', 10) || 22,
-                username: _el('backup_sftp_username')?.value || '',
-                password: _el('backup_sftp_password')?.value || '',
-                remote_path: _el('backup_sftp_path')?.value || '/backups/hyve',
-            },
-        },
     };
+    if (_remoteUiAvailable()) {
+        settings.remote = _remoteSettingsFromForm();
+    }
+    else if (_cachedBackupSettings?.remote) {
+        settings.remote = _cachedBackupSettings.remote;
+    }
+    return settings;
 }
 function _renderArchives(archives) {
     const list = _el('backup-list');
@@ -291,10 +326,11 @@ export async function loadBackupPanel() {
             throw new Error(translateApiDetail(err.detail) || res.statusText || t('common.error'));
         }
         const data = (await res.json());
+        _cachedBackupSettings = data.settings;
         _setMaintenanceBanner(!!data.maintenance, data.maintenance_reason || '');
         _applySettings(data.settings);
         _renderArchives(data.archives || []);
-        const showRemote = !!(data.remote_enabled && data.remote_configured);
+        const showRemote = _remoteUiAvailable() && !!(data.remote_enabled && data.remote_configured);
         _toggleRemoteArchivesSection(showRemote);
         if (showRemote)
             await loadRemoteBackupArchives();
@@ -412,6 +448,7 @@ export async function saveBackupSettings() {
         const data = (await res.json().catch(() => ({})));
         if (!res.ok)
             throw new Error(translateApiDetail(data.detail) || t('backup.failed'));
+        _cachedBackupSettings = data;
         _setStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(t('backup.settings_saved'))}`, 'success');
         _applySettings(data);
     }
@@ -516,6 +553,8 @@ if (typeof document !== 'undefined') {
     });
 }
 export async function testBackupRemote() {
+    if (!_remoteUiAvailable())
+        return;
     _setStatus(`<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('backup.testing_remote'))}`, 'info');
     try {
         await saveBackupSettings();

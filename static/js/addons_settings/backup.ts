@@ -56,6 +56,12 @@ interface BackupRemoteArchiveRow {
     provider?: string;
 }
 
+let _cachedBackupSettings: BackupSettings | undefined;
+
+function _remoteUiAvailable(): boolean {
+    return !!_el('backup-remote-enabled');
+}
+
 function _el<T extends HTMLElement>(id: string): T | null {
     return document.getElementById(id) as T | null;
 }
@@ -161,6 +167,7 @@ function _renderRemoteArchives(archives: BackupRemoteArchiveRow[]): void {
 }
 
 export async function loadRemoteBackupArchives(): Promise<void> {
+    if (!_remoteUiAvailable()) return;
     const list = _el('backup-remote-list');
     if (list) {
         list.innerHTML = `<div class="text-center py-6 text-slate-500 text-xs"><i class="fas fa-spinner fa-spin mr-2"></i>${escapeHtml(t('backup.remote_loading'))}</div>`;
@@ -240,6 +247,24 @@ function _applySettings(settings: BackupSettings | undefined): void {
     const encrypt = _el<HTMLInputElement>('backup-encrypt-at-rest');
     if (encrypt) encrypt.checked = !!settings.encrypt_at_rest;
 
+    if (!_remoteUiAvailable()) {
+        const last = _el('backup-last-scheduled');
+        if (last) {
+            if (settings.last_scheduled_at) {
+                const status = settings.last_scheduled_status === 'failed'
+                    ? t('backup.last_scheduled_failed')
+                    : t('backup.last_scheduled_ok');
+                last.textContent = t('backup.last_scheduled', {
+                    when: _formatWhen(settings.last_scheduled_at),
+                    status,
+                });
+            } else {
+                last.textContent = t('backup.last_scheduled_never');
+            }
+        }
+        return;
+    }
+
     const remote = settings.remote || {};
     const remoteEnabled = _el<HTMLInputElement>('backup-remote-enabled');
     if (remoteEnabled) remoteEnabled.checked = !!remote.enabled;
@@ -281,13 +306,36 @@ function _applySettings(settings: BackupSettings | undefined): void {
 }
 
 function _toggleRemoteFields(provider: string): void {
+    if (!_remoteUiAvailable()) return;
     _el('backup-remote-s3-fields')?.classList.toggle('hidden', provider !== 's3');
     _el('backup-remote-sftp-fields')?.classList.toggle('hidden', provider !== 'sftp');
 }
 
-function _settingsFromForm(): BackupSettings {
+function _remoteSettingsFromForm(): BackupRemoteSettings {
     const provider = _el<HTMLSelectElement>('backup_remote_provider')?.value || 'none';
     return {
+        enabled: !!_el<HTMLInputElement>('backup-remote-enabled')?.checked,
+        provider,
+        upload_on_create: true,
+        retention_count: Math.max(0, parseInt(_el<HTMLInputElement>('backup_remote_retention')?.value || '5', 10) || 0),
+        s3: {
+            bucket: _el<HTMLInputElement>('backup_s3_bucket')?.value || '',
+            prefix: _el<HTMLInputElement>('backup_s3_prefix')?.value || 'hyve/',
+            region: _el<HTMLInputElement>('backup_s3_region')?.value || '',
+            endpoint_url: _el<HTMLInputElement>('backup_s3_endpoint')?.value || '',
+        },
+        sftp: {
+            host: _el<HTMLInputElement>('backup_sftp_host')?.value || '',
+            port: parseInt(_el<HTMLInputElement>('backup_sftp_port')?.value || '22', 10) || 22,
+            username: _el<HTMLInputElement>('backup_sftp_username')?.value || '',
+            password: _el<HTMLInputElement>('backup_sftp_password')?.value || '',
+            remote_path: _el<HTMLInputElement>('backup_sftp_path')?.value || '/backups/hyve',
+        },
+    };
+}
+
+function _settingsFromForm(): BackupSettings {
+    const settings: BackupSettings = {
         schedule_interval: _el<HTMLInputElement>('backup_schedule_interval')?.value || 'never',
         retention_count: Math.max(1, parseInt(_el<HTMLInputElement>('backup_retention_count')?.value || '10', 10) || 10),
         pre_restore_retention_count: Math.max(
@@ -298,26 +346,13 @@ function _settingsFromForm(): BackupSettings {
         include_frigate_media: !!_el<HTMLInputElement>('backup-include-frigate-media')?.checked,
         refetch_addons: !!_el<HTMLInputElement>('backup-refetch-addons')?.checked,
         encrypt_at_rest: !!_el<HTMLInputElement>('backup-encrypt-at-rest')?.checked,
-        remote: {
-            enabled: !!_el<HTMLInputElement>('backup-remote-enabled')?.checked,
-            provider,
-            upload_on_create: true,
-            retention_count: Math.max(0, parseInt(_el<HTMLInputElement>('backup_remote_retention')?.value || '5', 10) || 0),
-            s3: {
-                bucket: _el<HTMLInputElement>('backup_s3_bucket')?.value || '',
-                prefix: _el<HTMLInputElement>('backup_s3_prefix')?.value || 'hyve/',
-                region: _el<HTMLInputElement>('backup_s3_region')?.value || '',
-                endpoint_url: _el<HTMLInputElement>('backup_s3_endpoint')?.value || '',
-            },
-            sftp: {
-                host: _el<HTMLInputElement>('backup_sftp_host')?.value || '',
-                port: parseInt(_el<HTMLInputElement>('backup_sftp_port')?.value || '22', 10) || 22,
-                username: _el<HTMLInputElement>('backup_sftp_username')?.value || '',
-                password: _el<HTMLInputElement>('backup_sftp_password')?.value || '',
-                remote_path: _el<HTMLInputElement>('backup_sftp_path')?.value || '/backups/hyve',
-            },
-        },
     };
+    if (_remoteUiAvailable()) {
+        settings.remote = _remoteSettingsFromForm();
+    } else if (_cachedBackupSettings?.remote) {
+        settings.remote = _cachedBackupSettings.remote;
+    }
+    return settings;
 }
 
 function _renderArchives(archives: BackupArchiveRow[]): void {
@@ -346,10 +381,11 @@ export async function loadBackupPanel(): Promise<void> {
             throw new Error(translateApiDetail(err.detail) || res.statusText || t('common.error'));
         }
         const data = (await res.json()) as BackupStatusResponse;
+        _cachedBackupSettings = data.settings;
         _setMaintenanceBanner(!!data.maintenance, data.maintenance_reason || '');
         _applySettings(data.settings);
         _renderArchives(data.archives || []);
-        const showRemote = !!(data.remote_enabled && data.remote_configured);
+        const showRemote = _remoteUiAvailable() && !!(data.remote_enabled && data.remote_configured);
         _toggleRemoteArchivesSection(showRemote);
         if (showRemote) await loadRemoteBackupArchives();
     } catch (e) {
@@ -489,6 +525,7 @@ export async function saveBackupSettings(): Promise<void> {
         });
         const data = (await res.json().catch(() => ({}))) as BackupSettings & { detail?: unknown };
         if (!res.ok) throw new Error(translateApiDetail(data.detail) || t('backup.failed'));
+        _cachedBackupSettings = data;
         _setStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(t('backup.settings_saved'))}`, 'success');
         _applySettings(data);
     } catch (e) {
@@ -594,6 +631,7 @@ if (typeof document !== 'undefined') {
 }
 
 export async function testBackupRemote(): Promise<void> {
+    if (!_remoteUiAvailable()) return;
     _setStatus(`<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('backup.testing_remote'))}`, 'info');
     try {
         await saveBackupSettings();

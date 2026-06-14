@@ -4,6 +4,17 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.7.4] — 2026-06
+
+Patch release: **Updates hub polish** — release notes modal, hub copy, backup UI trim.
+
+### Updates
+- **Release notes:** Hyve row in Actualizări has a notes button that opens a modal with GitHub release body (markdown) and link to the release page.
+- **Hub:** Integrations card shows a descriptive subtitle instead of listing integration names.
+
+### Backup
+- **UI:** Remote backup section (S3/SFTP) hidden for now; backend and saved settings are preserved when saving other backup options.
+
 ## [0.9.7.3] — 2026-06
 
 Patch release: **reliable in-app Hyve update** on git installs (Proxmox / self-hosted).

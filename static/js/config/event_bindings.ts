@@ -82,6 +82,12 @@ function _run(action: string, el: HTMLElement, event: Event): void {
     case 'applyHyveUpdate':
         _handlers.applyHyveUpdate?.(event, el);
         return;
+    case 'showUpdateReleaseNotes':
+        _handlers.showUpdateReleaseNotes?.(el.dataset.configTarget || 'hyve', event, el);
+        return;
+    case 'closeUpdateReleaseNotes':
+        _handlers.closeUpdateReleaseNotes?.(event, el);
+        return;
     case 'deleteUser':
         _handlers.deleteUser?.(Number(el.dataset.configUserId || 0), event, el);
         return;

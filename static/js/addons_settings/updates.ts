@@ -3,13 +3,22 @@
  */
 import { apiCall } from '../api.js';
 import { t } from '../lang/index.js';
-import { showConfirm, escapeHtml } from '../utils.js';
+import { showConfirm, escapeHtml, formatMarkdown } from '../utils.js';
 import { isExplicitNonAdmin } from '../user_context.js';
 import { translateApiDetail } from '../lang/index.js';
 import type { AddonUpdateRow, HyveUpdateStatus } from './types.js';
 
 let _addonUpdatesCache: AddonUpdateRow[] = [];
 let _hyveUpdateCache: HyveUpdateStatus | null = null;
+
+interface ReleaseNotesEntry {
+    title: string;
+    version: string;
+    body: string;
+    url: string;
+}
+
+const _releaseNotesCache = new Map<string, ReleaseNotesEntry>();
 
 function _updatesEl<T extends HTMLElement>(primaryId: string, ...legacyIds: string[]): T | null {
     return (document.getElementById(primaryId)
@@ -215,12 +224,108 @@ function _displayVersion(value: unknown): string {
     return raw;
 }
 
+function _cacheHyveReleaseNotes(hyve: HyveUpdateStatus): void {
+    const version = _displayVersion(hyve.latest || hyve.tag || hyve.current);
+    _releaseNotesCache.set('hyve', {
+        title: 'Hyve',
+        version,
+        body: String(hyve.release_notes || '').trim(),
+        url: String(hyve.release_url || '').trim(),
+    });
+}
+
+function _hasReleaseNotes(target: string): boolean {
+    const entry = _releaseNotesCache.get(target);
+    if (!entry) return false;
+    return !!(entry.body || entry.url);
+}
+
+function _releaseNotesBtnHtml(target: string): string {
+    if (!_hasReleaseNotes(target)) return '';
+    return `<button type="button" data-config-action="showUpdateReleaseNotes" data-config-target="${escapeHtml(target)}" class="upd-row-btn" title="${escapeHtml(t('updates.release_notes_btn'))}"><i class="fas fa-file-lines"></i></button>`;
+}
+
+function _ensureReleaseNotesModal(): HTMLElement {
+    let modal = document.getElementById('update-release-notes-modal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'update-release-notes-modal';
+    modal.className = 'modal-overlay app-modal fixed inset-0 z-[80] hidden flex items-center justify-center p-2 sm:p-4';
+    modal.innerHTML = `
+        <div class="glass app-modal-panel app-modal-content max-w-2xl w-full max-h-[85vh] flex flex-col">
+            <div class="app-modal-header flex-shrink-0">
+                <div class="min-w-0">
+                    <h3 id="update-release-notes-title" class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
+                        <i class="fas fa-file-lines"></i>
+                        <span></span>
+                    </h3>
+                    <p id="update-release-notes-subtitle" class="app-modal-subtitle"></p>
+                </div>
+                <button type="button" class="app-modal-close" data-config-action="closeUpdateReleaseNotes" aria-label="Close">
+                    <i class="fas fa-xmark"></i>
+                </button>
+            </div>
+            <div id="update-release-notes-body" class="app-modal-body overflow-y-auto prose prose-invert prose-sm max-w-none text-slate-300"></div>
+            <div id="update-release-notes-footer" class="flex-shrink-0 px-4 pb-4 pt-2 border-t border-white/[0.06] hidden">
+                <a id="update-release-notes-link" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-accent hover:text-accent-hover">
+                    <i class="fas fa-arrow-up-right-from-square"></i><span></span>
+                </a>
+            </div>
+        </div>`;
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) hideUpdateReleaseNotes();
+    });
+    modal.querySelector('.app-modal-panel')?.addEventListener('click', (e) => e.stopPropagation());
+    document.body.appendChild(modal);
+    return modal;
+}
+
+export function showUpdateReleaseNotes(target = 'hyve'): void {
+    const entry = _releaseNotesCache.get(target);
+    if (!entry) return;
+    const modal = _ensureReleaseNotesModal();
+    const titleSpan = modal.querySelector('#update-release-notes-title span');
+    const subtitle = modal.querySelector('#update-release-notes-subtitle');
+    const body = modal.querySelector('#update-release-notes-body');
+    const footer = modal.querySelector('#update-release-notes-footer');
+    const link = modal.querySelector('#update-release-notes-link') as HTMLAnchorElement | null;
+    const linkLabel = modal.querySelector('#update-release-notes-link span');
+
+    if (titleSpan) titleSpan.textContent = t('updates.release_notes_title', { name: entry.title });
+    if (subtitle) {
+        subtitle.textContent = entry.version && entry.version !== '?'
+            ? t('updates.release_notes_version', { version: entry.version })
+            : '';
+    }
+    if (body) {
+        body.innerHTML = entry.body
+            ? formatMarkdown(entry.body)
+            : `<p class="text-slate-500 text-sm">${escapeHtml(t('updates.release_notes_empty'))}</p>`;
+    }
+    if (footer && link && linkLabel) {
+        if (entry.url) {
+            link.href = entry.url;
+            linkLabel.textContent = t('updates.release_notes_github');
+            footer.classList.remove('hidden');
+        } else {
+            footer.classList.add('hidden');
+            link.href = '#';
+        }
+    }
+    modal.classList.remove('hidden');
+}
+
+export function hideUpdateReleaseNotes(): void {
+    document.getElementById('update-release-notes-modal')?.classList.add('hidden');
+}
+
 function _hyveRowHtml(hyve: HyveUpdateStatus): string {
+    _cacheHyveReleaseNotes(hyve);
     const current = _displayVersion(hyve.current);
     const latest = _displayVersion(hyve.latest);
     let versionHtml: string;
     let badge: string;
-    let actionHtml = '';
+    let actionHtml = _releaseNotesBtnHtml('hyve');
     let rowClass = 'upd-row';
 
     if (hyve.error?.key) {
@@ -232,7 +337,7 @@ function _hyveRowHtml(hyve: HyveUpdateStatus): string {
         badge = `<span class="upd-badge upd-badge--update"><i class="fas fa-arrow-up"></i>${escapeHtml(t('updates.badge_update'))}</span>`;
         rowClass += ' upd-row--outdated';
         if (hyve.git_available) {
-            actionHtml = `<button type="button" data-config-action="applyHyveUpdate" id="updates-hyve-upgrade-btn" class="upd-row-btn" title="${escapeHtml(t('updates.hyve_upgrade_btn'))}"><i class="fas fa-arrow-up"></i></button>`;
+            actionHtml += `<button type="button" data-config-action="applyHyveUpdate" id="updates-hyve-upgrade-btn" class="upd-row-btn" title="${escapeHtml(t('updates.hyve_upgrade_btn'))}"><i class="fas fa-arrow-up"></i></button>`;
         }
     } else {
         versionHtml = `<span class="font-mono text-slate-400">${escapeHtml(current)}</span>`;

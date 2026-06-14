@@ -18,6 +18,8 @@ export {
     loadUpdatesAddons,
     checkAddonUpdates,
     applyHyveUpdate,
+    showUpdateReleaseNotes,
+    hideUpdateReleaseNotes,
     updateAllAddons,
     updateSingleAddon,
     toggleUpdatesIntervalDropdown,
