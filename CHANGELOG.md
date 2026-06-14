@@ -4,6 +4,13 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.6.4] — 2026-06
+
+Patch release: **fix JS boot error** on fresh installs after 0.9.6.3.
+
+### First-run / install
+- **Fix:** remove stale `applyHyveUpdate` import from `app.js` (not exported in 0.9.6.3 `features.js`), which blocked the setup wizard with `Uncaught SyntaxError`.
+
 ## [0.9.6.3] — 2026-06
 
 Patch release: **first-run setup wizard fix** (Proxmox / fresh install) and **installer improvements**.

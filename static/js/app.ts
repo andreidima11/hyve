@@ -75,7 +75,7 @@ import {
     openBlueprintCreator, addBlueprintCreatorInput, removeBlueprintCreatorInput, changeBlueprintCreatorInputType, insertBlueprintCreatorPlaceholder, updateBlueprintCreatorYaml, saveCreatedBlueprint,
     switchAutomationEditorMode, addAutomationBuilderAction, removeAutomationBuilderAction, addAutomationBuilderTrigger, removeAutomationBuilderTrigger, addAutomationBuilderCondition, removeAutomationBuilderCondition, syncAutomationYamlFromBuilder, loadAutomationEditorHistory, updateAutomationStructuredServiceData,
     loadNotificationPrefs, saveNotificationSettings, selectNotifTransport, selectNotifChannel, testWsNotification, testFcmNotification, testNotification, refreshNotifWsNativeStatus,
-    switchMemorySubtab,     checkAddonUpdates, applyHyveUpdate, updateAllAddons, updateSingleAddon, closeAddonConfigModal, refreshUpdatesHeaderBadge, checkAddonHealth,
+    switchMemorySubtab,     checkAddonUpdates, updateAllAddons, updateSingleAddon, closeAddonConfigModal, refreshUpdatesHeaderBadge, checkAddonHealth,
     installAddon, uninstallAddon, toggleAddon, openAddonConfigModal, saveAddonConfig as saveAddonConfigModal,
 } from './features.js';
 import {
@@ -933,7 +933,6 @@ window.addEventListener('DOMContentLoaded', () => {
         requestStoragePermission: () => requestStoragePermission(),
         clearAppCache: () => clearAppCache(),
         checkAddonUpdates: () => checkAddonUpdates(),
-        applyHyveUpdate: () => applyHyveUpdate(),
         updateAllAddons: () => updateAllAddons(),
         closeAddonConfigModal: () => closeAddonConfigModal(),
         checkAddonHealth: () => checkAddonHealth(),
