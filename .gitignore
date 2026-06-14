@@ -40,7 +40,25 @@ sessions/
 !static/js/sessions/
 conferences/
 automations/user_*/
+core/automations/*
+!core/automations/README.md
+!core/automations/.gitkeep
 piper_models/
+
+# Post-install user data (dashboards, aliases, skills, automation YAML)
+dashboards/*
+!dashboards/README.md
+!dashboards/.gitkeep
+config/*
+!config/README.md
+!config/device_aliases.example.yaml
+skills/*.py
+!skills/__init__.py
+!skills/_sandbox_runner.py
+!skills/template.py
+skills/generated/*
+!skills/generated/.gitkeep
+skills/generated/__versions__/
 
 # Android local/build artifacts
 android/HyveBridge/.gradle/

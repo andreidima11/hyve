@@ -1,0 +1,3 @@
+# Device display-name overrides per integration slug.
+# Copy to device_aliases.yaml — Hyve creates this file automatically on first rename.
+aliases: {}

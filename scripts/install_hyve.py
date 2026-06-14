@@ -187,7 +187,7 @@ def ensure_config_file(port: int) -> None:
 
 
 def reset_first_run_state() -> None:
-    """Drop local DB + setup flag so the browser wizard runs again."""
+    """Drop local DB + setup flag + user-created files so the wizard runs again."""
     print_step("Resetting first-run state (fresh setup wizard)")
     for path in (ROOT / "hyve.db", ROOT / "users.db"):
         if path.exists():
@@ -198,6 +198,14 @@ def reset_first_run_state() -> None:
         data["setup_complete"] = False
         CONFIG_FILE.write_text(json.dumps(data, indent=4) + "\n", encoding="utf-8")
         print("  set config.json setup_complete=false")
+
+    from core.user_data import reset_user_data
+
+    cleared = reset_user_data()
+    for line in cleared:
+        print(f"  removed {line}")
+    if not cleared:
+        print("  user data dirs already empty")
 
 
 def bootstrap_admin(username: str, full_name: str, email: str, password: str) -> None:
@@ -340,7 +348,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--fresh",
         action="store_true",
-        help="Delete hyve.db/users.db and reset setup_complete before install (re-run wizard)",
+        help="Delete hyve.db/users.db, user dashboards/skills/automations, and reset setup_complete (re-run wizard)",
     )
     parser.add_argument(
         "--bootstrap-admin",
