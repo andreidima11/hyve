@@ -29,6 +29,7 @@ CRITICAL_FILES = (
     "users.db",
     "jobs.sqlite",
     "scheduler_meta.sqlite",
+    "config/integration_entries.sqlite",
     "config.json",
     "hyve.db",
     ".env",

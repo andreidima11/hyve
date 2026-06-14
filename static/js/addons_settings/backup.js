@@ -3,8 +3,9 @@
  */
 import { apiCall } from '../api.js';
 import { t, translateApiDetail } from '../lang/index.js';
-import { showConfirm, escapeHtml } from '../utils.js';
+import { showConfirm, escapeHtml, showToast } from '../utils.js';
 import { isExplicitNonAdmin } from '../user_context.js';
+import { watchServerRestartAndReload } from '../startup_status.js';
 let _cachedBackupSettings;
 let _cachedEncryptionKeyStatus;
 function _remoteUiAvailable() {
@@ -645,6 +646,21 @@ export async function verifyBackup(path) {
         _setStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`, 'error');
     }
 }
+function _handleRestoreSuccess(data) {
+    let msg = t('backup.restore_ok', { files: data.restored_files || 0 });
+    if (data.pre_restore_backup)
+        msg += ` ${t('backup.pre_restore_created')}`;
+    if (data.restarting) {
+        showToast(t('backup.restore_restarting'), 'info', 8000);
+        watchServerRestartAndReload();
+        msg += ` ${t('backup.restore_restarting')}`;
+    }
+    _setStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(msg)}`, 'success');
+}
+async function _afterRestoreComplete(restarting) {
+    if (!restarting)
+        await loadBackupPanel();
+}
 export async function restoreBackup(path) {
     if (!path)
         return;
@@ -670,11 +686,8 @@ export async function restoreBackup(path) {
         const data = (await res.json().catch(() => ({})));
         if (!res.ok)
             throw new Error(translateApiDetail(data.detail) || t('backup.failed'));
-        let msg = t('backup.restore_ok', { files: data.restored_files || 0 });
-        if (data.pre_restore_backup)
-            msg += ` ${t('backup.pre_restore_created')}`;
-        _setStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(msg)}`, 'success');
-        await loadBackupPanel();
+        _handleRestoreSuccess(data);
+        await _afterRestoreComplete(data.restarting);
     }
     catch (e) {
         _setStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`, 'error');
@@ -697,8 +710,15 @@ export async function rollbackBackup(path) {
         const data = (await res.json().catch(() => ({})));
         if (!res.ok)
             throw new Error(translateApiDetail(data.detail) || t('backup.failed'));
-        _setStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(t('backup.rollback_ok', { files: data.restored_files || 0 }))}`, 'success');
-        await loadBackupPanel();
+        let msg = t('backup.rollback_ok', { files: data.restored_files || 0 });
+        if (data.restarting) {
+            showToast(t('backup.restore_restarting'), 'info', 8000);
+            watchServerRestartAndReload();
+            msg += ` ${t('backup.restore_restarting')}`;
+        }
+        _setStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(msg)}`, 'success');
+        if (!data.restarting)
+            await loadBackupPanel();
     }
     catch (e) {
         _setStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`, 'error');
@@ -877,11 +897,8 @@ export async function restoreRemoteBackup(name) {
         const data = (await res.json().catch(() => ({})));
         if (!res.ok)
             throw new Error(translateApiDetail(data.detail) || t('backup.failed'));
-        let msg = t('backup.restore_ok', { files: data.restored_files || 0 });
-        if (data.pre_restore_backup)
-            msg += ` ${t('backup.pre_restore_created')}`;
-        _setStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(msg)}`, 'success');
-        await loadBackupPanel();
+        _handleRestoreSuccess(data);
+        await _afterRestoreComplete(data.restarting);
     }
     catch (e) {
         _setStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`, 'error');

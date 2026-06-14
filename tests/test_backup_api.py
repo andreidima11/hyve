@@ -63,7 +63,7 @@ def test_backup_create_and_status(backup_env):
     assert len(data["archives"]) == 1
 
 
-def test_backup_restore_with_pre_backup(backup_env):
+def test_backup_restore_with_pre_backup(backup_env, monkeypatch):
     client, _service, root, backups = backup_env
     dash = root / "dashboards"
     dash.mkdir()
@@ -74,6 +74,13 @@ def test_backup_restore_with_pre_backup(backup_env):
 
     (dash / "home.json").write_text('{"title":"Changed"}', encoding="utf-8")
 
+    restart_calls: list[str] = []
+
+    def _restart(**kwargs):
+        restart_calls.append(kwargs.get("log_msg") or "")
+
+    monkeypatch.setattr("core.server_restart.schedule_restart", _restart)
+
     res = client.post(
         "/api/backup/restore",
         json={"path": archive_path, "auto_pre_backup": True},
@@ -81,6 +88,8 @@ def test_backup_restore_with_pre_backup(backup_env):
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["pre_restore_backup"]
+    assert body.get("restarting") is True
+    assert restart_calls
     assert json.loads((dash / "home.json").read_text(encoding="utf-8"))["title"] == "Home"
     assert (backups / body["pre_restore_backup"]).is_file()
     assert (backups / archive_path).is_file()

@@ -170,7 +170,7 @@ class BackupService:
         archive_ref: str,
         *,
         options: BackupOptions | None = None,
-        refetch_addons: bool = False,
+        refetch_addons: bool = True,
         dry_run: bool = False,
         auto_pre_backup: bool = True,
         decryption_key: str | None = None,
@@ -219,6 +219,8 @@ class BackupService:
             dry_run=False,
         )
         self._record("restore", "ok", payload)
+        self._schedule_post_restore_restart()
+        payload["restarting"] = True
         return payload
 
     def rollback(self, archive_ref: str, *, decryption_key: str | None = None) -> dict[str, Any]:
@@ -230,6 +232,8 @@ class BackupService:
             self._cleanup_temp(cleanup)
         payload = self._restore_payload(result, pre_restore_path=None, dry_run=False)
         self._record("rollback", "ok", payload)
+        self._schedule_post_restore_restart()
+        payload["restarting"] = True
         return payload
 
     def test_remote_connection(self) -> dict[str, Any]:
@@ -262,7 +266,7 @@ class BackupService:
         name: str,
         *,
         options: BackupOptions | None = None,
-        refetch_addons: bool = False,
+        refetch_addons: bool = True,
         dry_run: bool = False,
         auto_pre_backup: bool = True,
         overwrite: bool = False,
@@ -391,7 +395,17 @@ class BackupService:
             "refetch_slugs": result.refetch_slugs,
             "refetch_log": result.refetch_log,
             "dry_run": dry_run,
+            "restarting": False,
         }
+
+    @staticmethod
+    def _schedule_post_restore_restart() -> None:
+        from core.server_restart import schedule_restart
+
+        schedule_restart(
+            delay=1.5,
+            log_msg="Backup restore complete — restarting Hyve to load restored data...",
+        )
 
     def _record(self, kind: str, status: str, detail: dict[str, Any]) -> None:
         self._last_operation = LastOperation(

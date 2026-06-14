@@ -91,6 +91,52 @@ def test_backup_roundtrip(tmp_path: Path):
     assert row[0] == "alice"
 
 
+def test_backup_includes_integration_entries_sqlite(tmp_path: Path):
+    root = tmp_path / "hyve"
+    root.mkdir()
+    (root / "config.json").write_text("{}", encoding="utf-8")
+    _init_users_db(root / "users.db")
+
+    entries_db = root / "config" / "integration_entries.sqlite"
+    entries_db.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(entries_db)
+    conn.execute(
+        """
+        CREATE TABLE integration_entries (
+            entry_id TEXT PRIMARY KEY,
+            slug TEXT NOT NULL,
+            title TEXT NOT NULL DEFAULT '',
+            data_json TEXT NOT NULL DEFAULT '{}',
+            enabled INTEGER NOT NULL DEFAULT 1,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        "INSERT INTO integration_entries(entry_id, slug, title, data_json, enabled, created_at, updated_at) "
+        "VALUES ('e1', 'demo', 'Demo account', '{}', 1, 1, 1)"
+    )
+    conn.commit()
+    conn.close()
+
+    archive = tmp_path / "integrations.hyvebak"
+    manifest = BackupCoordinator(root).create_backup(archive, BackupOptions())
+    paths = {f.path for f in manifest.files}
+    assert "config/integration_entries.sqlite" in paths
+
+    conn = sqlite3.connect(entries_db)
+    conn.execute("DELETE FROM integration_entries")
+    conn.commit()
+    conn.close()
+
+    BackupCoordinator(root).restore_backup(archive)
+    conn = sqlite3.connect(entries_db)
+    row = conn.execute("SELECT slug, title FROM integration_entries").fetchone()
+    conn.close()
+    assert row == ("demo", "Demo account")
+
+
 def test_collect_backup_entries_respects_optional(tmp_path: Path):
     root = tmp_path / "hyve"
     chroma = root / "chroma_db"

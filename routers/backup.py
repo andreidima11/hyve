@@ -37,7 +37,7 @@ class BackupPathBody(BaseModel):
 
 class BackupRestoreBody(BaseModel):
     path: str = Field(..., min_length=1)
-    refetch_addons: bool = False
+    refetch_addons: bool = True
     dry_run: bool = False
     auto_pre_backup: bool = True
     include_optional: bool = False
@@ -55,7 +55,7 @@ class BackupRemotePullBody(BackupRemoteNameBody):
 
 class BackupRemoteRestoreBody(BaseModel):
     name: str = Field(..., min_length=1)
-    refetch_addons: bool = False
+    refetch_addons: bool = True
     dry_run: bool = False
     auto_pre_backup: bool = True
     include_optional: bool = False

@@ -152,6 +152,7 @@ class BackupCoordinator:
     def _is_critical(rel: str) -> bool:
         critical = {
             "users.db",
+            "config/integration_entries.sqlite",
             "config.json",
             "secrets/integration_entries.key",
             "core/.secret_key",

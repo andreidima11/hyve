@@ -37,7 +37,7 @@ DEFAULT_BACKUP_CONFIG: dict[str, Any] = {
     "pre_restore_retention_count": 3,
     "include_optional": False,
     "include_frigate_media": False,
-    "refetch_addons": False,
+    "refetch_addons": True,
     "encrypt_at_rest": False,
     "remote": deepcopy(DEFAULT_REMOTE_CONFIG),
     "last_scheduled_at": None,

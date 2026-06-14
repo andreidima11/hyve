@@ -2095,6 +2095,7 @@ const en = {
         failed: "Backup operation failed.",
         create_ok: "Backup created ({files} files).",
         restore_ok: "Restore complete ({files} files).",
+        restore_restarting: "Server is restarting to load restored data.",
         rollback_ok: "Rollback complete ({files} files).",
         pre_restore_created: "A safety backup was saved before restore.",
         loading: "Loading…",

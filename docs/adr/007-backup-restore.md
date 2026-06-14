@@ -21,7 +21,7 @@ Fresh installs and git history cleanup showed that user data must never live in 
 
 | Tier | Contents | Default in backup |
 |------|----------|-------------------|
-| A (critical) | `users.db`, `jobs.sqlite`, `scheduler_meta.sqlite`, `config.json`, `secrets/integration_entries.key`, `core/.secret_key`, `.env` | always |
+| A (critical) | `users.db`, `config/integration_entries.sqlite`, `jobs.sqlite`, `scheduler_meta.sqlite`, `config.json`, `secrets/integration_entries.key`, `core/.secret_key`, `.env` | always |
 | B (user) | `dashboards/`, `core/automations/`, aliases, `derived_entities.json`, `skills/generated/`, `comfyui_workflows/`, `custom_addons/`, `custom_components/` | always |
 | C (optional) | `chroma_db/`, `sessions/`, `static/generated/`, `piper_models/` | off |
 | D (exclude) | `venv/`, `logs/`, live entity cache, add-on `runtime/` trees | never |

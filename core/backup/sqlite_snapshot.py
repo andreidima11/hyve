@@ -11,6 +11,7 @@ SQLITE_FILENAMES = frozenset(
         "jobs.sqlite",
         "scheduler_meta.sqlite",
         "hyve.db",
+        "integration_entries.sqlite",
     }
 )
 

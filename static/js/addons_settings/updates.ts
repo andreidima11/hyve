@@ -3,9 +3,10 @@
  */
 import { apiCall } from '../api.js';
 import { t } from '../lang/index.js';
-import { showConfirm, escapeHtml, formatMarkdown } from '../utils.js';
+import { showConfirm, escapeHtml, formatMarkdown, showToast } from '../utils.js';
 import { isExplicitNonAdmin } from '../user_context.js';
 import { translateApiDetail } from '../lang/index.js';
+import { watchServerRestartAndReload } from '../startup_status.js';
 import type { AddonUpdateRow, HyveUpdateStatus } from './types.js';
 
 let _addonUpdatesCache: AddonUpdateRow[] = [];
@@ -146,17 +147,21 @@ export async function applyHyveUpdate() {
         upgradeBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i>`;
     }
     _setUpdatesStatus(`<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('updates.hyve_installing'))}`, 'info');
+    let restarting = false;
     try {
         const res = await apiCall('/api/updates/hyve/apply', { method: 'POST', timeout: 300000 });
         const data = await res.json().catch(() => ({})) as { detail?: unknown; version?: string };
         if (!res.ok) {
             throw new Error(translateApiDetail(data.detail) || t('updates.save_error'));
         }
+        restarting = true;
         _setUpdatesStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(t('updates.hyve_updated_restarting', { version: data.version || latest }))}`, 'success');
+        showToast(t('config.restart_started'), 'info', 8000);
+        watchServerRestartAndReload();
     } catch (e) {
         _setUpdatesStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`, 'error');
     } finally {
-        if (upgradeBtn) {
+        if (upgradeBtn && !restarting) {
             upgradeBtn.disabled = false;
             upgradeBtn.innerHTML = `<i class="fas fa-arrow-up"></i>`;
         }

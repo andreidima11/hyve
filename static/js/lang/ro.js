@@ -2096,6 +2096,7 @@ const ro = {
         failed: "Operația de backup a eșuat.",
         create_ok: "Backup creat ({files} fișiere).",
         restore_ok: "Restore finalizat ({files} fișiere).",
+        restore_restarting: "Serverul repornește pentru a încărca datele restaurate.",
         rollback_ok: "Rollback finalizat ({files} fișiere).",
         pre_restore_created: "S-a salvat un backup de siguranță înainte de restore.",
         loading: "Se încarcă…",

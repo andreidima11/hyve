@@ -4,6 +4,23 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.7.7] — 2026-06
+
+Patch release: **complete backup restore** and **auto page reload after restart**.
+
+### Backup
+- **Fix:** integration config entries (`config/integration_entries.sqlite`) are now included in `.hyvebak` archives — restores integrations, accounts, and their settings on a new server.
+- **Auto-restart** after successful restore or rollback so Hyve reloads databases and config from disk.
+- **Refetch add-on runtime** is enabled by default on restore (Docker/npm artifacts reinstalled).
+- UI shows a restart message after restore; page reconnects automatically.
+
+### Updates
+- **Fix:** after a Hyve self-update, the browser polls until the server is back and **reloads the page** (same behavior as manual restart from Hub).
+
+### Tests
+- `tests/test_backup_roundtrip.py` — integration entries SQLite round-trip.
+- `tests/test_backup_api.py` — restore schedules server restart.
+
 ## [0.9.7.6] — 2026-06
 
 Patch release: **backup encryption key export** and **modal close fixes**.

@@ -3,8 +3,9 @@
  */
 import { apiCall } from '../api.js';
 import { t, translateApiDetail } from '../lang/index.js';
-import { showConfirm, escapeHtml } from '../utils.js';
+import { showConfirm, escapeHtml, showToast } from '../utils.js';
 import { isExplicitNonAdmin } from '../user_context.js';
+import { watchServerRestartAndReload } from '../startup_status.js';
 
 interface BackupArchiveRow {
     name: string;
@@ -724,6 +725,25 @@ export async function verifyBackup(path: string): Promise<void> {
     }
 }
 
+function _handleRestoreSuccess(data: {
+    restored_files?: number;
+    pre_restore_backup?: string | null;
+    restarting?: boolean;
+}): void {
+    let msg = t('backup.restore_ok', { files: data.restored_files || 0 });
+    if (data.pre_restore_backup) msg += ` ${t('backup.pre_restore_created')}`;
+    if (data.restarting) {
+        showToast(t('backup.restore_restarting'), 'info', 8000);
+        watchServerRestartAndReload();
+        msg += ` ${t('backup.restore_restarting')}`;
+    }
+    _setStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(msg)}`, 'success');
+}
+
+async function _afterRestoreComplete(restarting?: boolean): Promise<void> {
+    if (!restarting) await loadBackupPanel();
+}
+
 export async function restoreBackup(path: string): Promise<void> {
     if (!path) return;
     if (!(await showConfirm(t('backup.confirm_restore')))) return;
@@ -747,12 +767,11 @@ export async function restoreBackup(path: string): Promise<void> {
             detail?: unknown;
             restored_files?: number;
             pre_restore_backup?: string | null;
+            restarting?: boolean;
         };
         if (!res.ok) throw new Error(translateApiDetail(data.detail) || t('backup.failed'));
-        let msg = t('backup.restore_ok', { files: data.restored_files || 0 });
-        if (data.pre_restore_backup) msg += ` ${t('backup.pre_restore_created')}`;
-        _setStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(msg)}`, 'success');
-        await loadBackupPanel();
+        _handleRestoreSuccess(data);
+        await _afterRestoreComplete(data.restarting);
     } catch (e) {
         _setStatus(
             `<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`,
@@ -775,13 +794,17 @@ export async function rollbackBackup(path: string): Promise<void> {
         const data = (await res.json().catch(() => ({}))) as {
             detail?: unknown;
             restored_files?: number;
+            restarting?: boolean;
         };
         if (!res.ok) throw new Error(translateApiDetail(data.detail) || t('backup.failed'));
-        _setStatus(
-            `<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(t('backup.rollback_ok', { files: data.restored_files || 0 }))}`,
-            'success',
-        );
-        await loadBackupPanel();
+        let msg = t('backup.rollback_ok', { files: data.restored_files || 0 });
+        if (data.restarting) {
+            showToast(t('backup.restore_restarting'), 'info', 8000);
+            watchServerRestartAndReload();
+            msg += ` ${t('backup.restore_restarting')}`;
+        }
+        _setStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(msg)}`, 'success');
+        if (!data.restarting) await loadBackupPanel();
     } catch (e) {
         _setStatus(
             `<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`,
@@ -974,12 +997,11 @@ export async function restoreRemoteBackup(name: string): Promise<void> {
             detail?: unknown;
             restored_files?: number;
             pre_restore_backup?: string | null;
+            restarting?: boolean;
         };
         if (!res.ok) throw new Error(translateApiDetail(data.detail) || t('backup.failed'));
-        let msg = t('backup.restore_ok', { files: data.restored_files || 0 });
-        if (data.pre_restore_backup) msg += ` ${t('backup.pre_restore_created')}`;
-        _setStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(msg)}`, 'success');
-        await loadBackupPanel();
+        _handleRestoreSuccess(data);
+        await _afterRestoreComplete(data.restarting);
     } catch (e) {
         _setStatus(
             `<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`,
