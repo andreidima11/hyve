@@ -79,6 +79,9 @@ function _run(action: string, el: HTMLElement, event: Event): void {
     case 'updateSingleAddon':
         _handlers.updateSingleAddon?.(el.dataset.configSlug || '', event, el);
         return;
+    case 'applyHyveUpdate':
+        _handlers.applyHyveUpdate?.(event, el);
+        return;
     case 'deleteUser':
         _handlers.deleteUser?.(Number(el.dataset.configUserId || 0), event, el);
         return;

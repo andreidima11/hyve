@@ -4,6 +4,17 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.7.2] — 2026-06
+
+Patch release: **fix in-app Hyve update button** (Actualizări hub).
+
+### Updates
+- **Fix:** `applyHyveUpdate` was exported but not registered in config event handlers — clicking upgrade on the Hyve row did nothing.
+- Longer client timeout (5 min) while apply runs `git fetch`, `pip install`, and `js:build`.
+
+### Tests
+- `tests/test_updates_hyve_api.py` — apply endpoint happy path and error mapping.
+
 ## [0.9.7.1] — 2026-06
 
 Patch release: **backup create fix**, **download/import archives** for server migration.

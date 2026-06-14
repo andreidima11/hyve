@@ -142,7 +142,7 @@ export async function applyHyveUpdate() {
     }
     _setUpdatesStatus(`<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('updates.hyve_installing'))}`, 'info');
     try {
-        const res = await apiCall('/api/updates/hyve/apply', { method: 'POST' });
+        const res = await apiCall('/api/updates/hyve/apply', { method: 'POST', timeout: 300000 });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
             throw new Error(translateApiDetail(data.detail) || t('updates.save_error'));
