@@ -60,6 +60,16 @@ skills/generated/*
 !skills/generated/.gitkeep
 skills/generated/__versions__/
 
+# ComfyUI outputs + user-uploaded workflow templates
+static/generated/**
+!static/generated/vendor/
+!static/generated/vendor/**
+!static/generated/README.md
+!static/generated/.gitkeep
+comfyui_workflows/*
+!comfyui_workflows/README.md
+!comfyui_workflows/.gitkeep
+
 # Android local/build artifacts
 android/HyveBridge/.gradle/
 android/HyveBridge/build/

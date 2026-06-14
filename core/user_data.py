@@ -14,40 +14,52 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # Bundled skill modules kept in the repo (everything else under skills/ is local).
 _SKILLS_KEEP = frozenset({"__init__.py", "_sandbox_runner.py", "template.py"})
+_KEEP_NAMES = frozenset({".gitkeep", "README.md"})
+_GENERATED_MEDIA_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"})
+
+
+def _clear_user_dir(root: Path, *, keep_names: frozenset[str] = _KEEP_NAMES) -> list[str]:
+    """Remove everything under ``root`` except ``keep_names`` entries."""
+    removed: list[str] = []
+    if not root.is_dir():
+        return removed
+    for path in root.iterdir():
+        if path.name in keep_names:
+            continue
+        if path.is_dir():
+            shutil.rmtree(path, ignore_errors=True)
+            removed.append(f"{root.name}/{path.name}/")
+        else:
+            path.unlink(missing_ok=True)
+            removed.append(f"{root.name}/{path.name}")
+    return removed
 
 
 def reset_user_data() -> list[str]:
     """Delete user-created files. Returns human-readable log lines."""
     removed: list[str] = []
 
-    dashboards = ROOT / "dashboards"
-    if dashboards.is_dir():
-        for path in dashboards.iterdir():
-            if path.name in {".gitkeep", "README.md"}:
-                continue
-            if path.is_dir():
-                shutil.rmtree(path, ignore_errors=True)
-                removed.append(f"dashboards/{path.name}/")
-            else:
-                path.unlink(missing_ok=True)
-                removed.append(f"dashboards/{path.name}")
+    removed.extend(_clear_user_dir(ROOT / "dashboards"))
 
     aliases = ROOT / "config" / "device_aliases.yaml"
     if aliases.is_file():
         aliases.unlink()
         removed.append("config/device_aliases.yaml")
 
-    automations = ROOT / "core" / "automations"
-    if automations.is_dir():
-        for path in automations.iterdir():
-            if path.name in {".gitkeep", "README.md"}:
+    removed.extend(_clear_user_dir(ROOT / "core" / "automations"))
+    removed.extend(_clear_user_dir(ROOT / "comfyui_workflows"))
+
+    generated = ROOT / "static" / "generated"
+    if generated.is_dir():
+        for path in generated.iterdir():
+            if path.name in _KEEP_NAMES or path.name == "vendor":
                 continue
-            if path.is_dir():
-                shutil.rmtree(path, ignore_errors=True)
-                removed.append(f"core/automations/{path.name}/")
-            elif path.suffix == ".yaml":
+            if path.is_file() and path.suffix.lower() in _GENERATED_MEDIA_SUFFIXES:
                 path.unlink(missing_ok=True)
-                removed.append(f"core/automations/{path.name}")
+                removed.append(f"static/generated/{path.name}")
+            elif path.is_dir():
+                shutil.rmtree(path, ignore_errors=True)
+                removed.append(f"static/generated/{path.name}/")
 
     skills_dir = ROOT / "skills"
     if skills_dir.is_dir():

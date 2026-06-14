@@ -41,12 +41,25 @@ def test_reset_user_data_clears_dashboards_and_aliases(tmp_path, monkeypatch):
     versions.mkdir()
     (versions / "old.py").write_text("# old\n", encoding="utf-8")
 
+    comfy = tmp_path / "comfyui_workflows"
+    comfy.mkdir()
+    (comfy / "z_image_turbo.json").write_text("{}", encoding="utf-8")
+
+    media = tmp_path / "static" / "generated"
+    media.mkdir(parents=True)
+    vendor = media / "vendor"
+    vendor.mkdir()
+    (vendor / "dompurify.min.js").write_text("// keep", encoding="utf-8")
+    (media / "abc123.png").write_bytes(b"png")
+
     removed = user_data.reset_user_data()
     assert any("acasa.json" in line for line in removed)
     assert any("device_aliases" in line for line in removed)
     assert any("automations/user_1" in line for line in removed)
     assert any("skills/yahoo_finance.py" in line for line in removed)
     assert any("skills/generated" in line for line in removed)
+    assert any("comfyui_workflows/z_image_turbo.json" in line for line in removed)
+    assert any("static/generated/abc123.png" in line for line in removed)
 
     assert not (dash / "acasa.json").exists()
     assert (dash / "README.md").read_text(encoding="utf-8") == "keep"
@@ -55,6 +68,9 @@ def test_reset_user_data_clears_dashboards_and_aliases(tmp_path, monkeypatch):
     assert (skills / "__init__.py").is_file()
     assert not (gen / "weather.py").exists()
     assert not (skills / "yahoo_finance.py").exists()
+    assert not (comfy / "z_image_turbo.json").exists()
+    assert not (media / "abc123.png").exists()
+    assert (vendor / "dompurify.min.js").read_text(encoding="utf-8") == "// keep"
 
 
 def test_install_fresh_calls_user_data_reset(tmp_path, monkeypatch):
