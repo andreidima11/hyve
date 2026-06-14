@@ -45,6 +45,9 @@ def test_reset_user_data_clears_dashboards_and_aliases(tmp_path, monkeypatch):
     comfy.mkdir()
     (comfy / "z_image_turbo.json").write_text("{}", encoding="utf-8")
 
+    (tmp_path / "derived_entities.json").write_text("[{}]", encoding="utf-8")
+    (tmp_path / "device_names.yaml").write_text("version: 1\ndevices: {}\n", encoding="utf-8")
+
     media = tmp_path / "static" / "generated"
     media.mkdir(parents=True)
     vendor = media / "vendor"
@@ -60,6 +63,8 @@ def test_reset_user_data_clears_dashboards_and_aliases(tmp_path, monkeypatch):
     assert any("skills/generated" in line for line in removed)
     assert any("comfyui_workflows/z_image_turbo.json" in line for line in removed)
     assert any("static/generated/abc123.png" in line for line in removed)
+    assert "derived_entities.json" in removed
+    assert "device_names.yaml" in removed
 
     assert not (dash / "acasa.json").exists()
     assert (dash / "README.md").read_text(encoding="utf-8") == "keep"

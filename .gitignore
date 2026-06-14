@@ -70,6 +70,20 @@ comfyui_workflows/*
 !comfyui_workflows/README.md
 !comfyui_workflows/.gitkeep
 
+# Runtime sidecar files (repo root — created post-install)
+derived_entities.json
+device_names.yaml
+scheduler_meta.sqlite
+reminders_display.json
+reminders_display.json.migrated
+automation_specs.json
+automation_specs.json.migrated
+core/logs/
+
+# Never track bytecode under custom_components drop-ins
+custom_components/**/__pycache__/
+custom_components/**/*.pyc
+
 # Android local/build artifacts
 android/HyveBridge/.gradle/
 android/HyveBridge/build/

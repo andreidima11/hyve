@@ -49,6 +49,20 @@ def reset_user_data() -> list[str]:
     removed.extend(_clear_user_dir(ROOT / "core" / "automations"))
     removed.extend(_clear_user_dir(ROOT / "comfyui_workflows"))
 
+    for name in (
+        "derived_entities.json",
+        "device_names.yaml",
+        "scheduler_meta.sqlite",
+        "reminders_display.json",
+        "reminders_display.json.migrated",
+        "automation_specs.json",
+        "automation_specs.json.migrated",
+    ):
+        path = ROOT / name
+        if path.is_file():
+            path.unlink(missing_ok=True)
+            removed.append(name)
+
     generated = ROOT / "static" / "generated"
     if generated.is_dir():
         for path in generated.iterdir():
