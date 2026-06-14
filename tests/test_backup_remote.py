@@ -9,6 +9,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from cryptography.fernet import Fernet
+
 import core.auth as auth
 import core.settings as settings_mod
 from core.backup.encryption import decrypt_file, encrypt_file, is_encrypted_name
@@ -31,6 +33,27 @@ def test_encrypt_decrypt_roundtrip(tmp_path: Path, monkeypatch):
     out = tmp_path / "plain.hyvebak"
     decrypt_file(enc_path, out)
     assert out.read_bytes() == b"hyve-backup-test-data"
+
+
+def test_decrypt_with_explicit_key(tmp_path: Path, monkeypatch):
+    """Imported encrypted backup can be opened with the source server's key."""
+    import core.backup.encryption as enc
+
+    source_key = Fernet.generate_key()
+    dest_key_file = tmp_path / "backup_archive.key"
+    monkeypatch.setenv("HYVE_BACKUP_ENCRYPTION_KEY", "")
+    monkeypatch.setattr(enc, "_KEY_PATH", dest_key_file)
+    monkeypatch.setattr(enc, "_FERNET", None)
+    dest_key_file.write_bytes(Fernet.generate_key())
+
+    src = tmp_path / "sample.hyvebak"
+    src.write_bytes(b"hyve-backup-migrated")
+    enc_path = tmp_path / "sample.hyvebak.enc"
+    enc_path.write_bytes(Fernet(source_key).encrypt(src.read_bytes()))
+
+    out = tmp_path / "plain.hyvebak"
+    decrypt_file(enc_path, out, key=source_key.decode("utf-8"))
+    assert out.read_bytes() == b"hyve-backup-migrated"
 
 
 def test_create_encrypted_backup(tmp_path: Path, monkeypatch):

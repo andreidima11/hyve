@@ -142,8 +142,8 @@ class BackupService:
         self._record("create", "ok", payload)
         return payload
 
-    def verify(self, archive_ref: str) -> dict[str, Any]:
-        archive, cleanup = self._open_archive(archive_ref)
+    def verify(self, archive_ref: str, *, decryption_key: str | None = None) -> dict[str, Any]:
+        archive, cleanup = self._open_archive(archive_ref, decryption_key=decryption_key)
         try:
             manifest = self.coordinator.verify_archive(archive)
         finally:
@@ -166,9 +166,10 @@ class BackupService:
         refetch_addons: bool = False,
         dry_run: bool = False,
         auto_pre_backup: bool = True,
+        decryption_key: str | None = None,
     ) -> dict[str, Any]:
         options = options or BackupOptions()
-        archive, cleanup = self._open_archive(archive_ref)
+        archive, cleanup = self._open_archive(archive_ref, decryption_key=decryption_key)
         pre_restore_path: str | None = None
 
         if dry_run:
@@ -213,8 +214,8 @@ class BackupService:
         self._record("restore", "ok", payload)
         return payload
 
-    def rollback(self, archive_ref: str) -> dict[str, Any]:
-        archive, cleanup = self._open_archive(archive_ref)
+    def rollback(self, archive_ref: str, *, decryption_key: str | None = None) -> dict[str, Any]:
+        archive, cleanup = self._open_archive(archive_ref, decryption_key=decryption_key)
         try:
             with maintenance_mode("rollback"):
                 result = self.coordinator.restore_backup(archive)
@@ -258,6 +259,7 @@ class BackupService:
         dry_run: bool = False,
         auto_pre_backup: bool = True,
         overwrite: bool = False,
+        decryption_key: str | None = None,
     ) -> dict[str, Any]:
         from core.backup.remote.names import validate_remote_name
 
@@ -275,6 +277,7 @@ class BackupService:
             refetch_addons=refetch_addons,
             dry_run=dry_run,
             auto_pre_backup=auto_pre_backup,
+            decryption_key=decryption_key,
         )
         if pull:
             restore["remote_pull"] = pull
@@ -417,12 +420,18 @@ class BackupService:
             raise FileNotFoundError(f"backup.not_found:{ref}")
         return candidate
 
-    def _open_archive(self, archive_ref: str) -> tuple[Path, Path | None]:
+    def _open_archive(
+        self,
+        archive_ref: str,
+        *,
+        decryption_key: str | None = None,
+    ) -> tuple[Path, Path | None]:
         path = self._resolve_archive_path(archive_ref)
         if not is_encrypted_name(path.name):
             return path, None
         tmp = Path(tempfile.mkdtemp(prefix="hyve-backup-decrypt-")) / "archive.hyvebak"
-        decrypt_file(path, tmp)
+        key = (decryption_key or "").strip() or None
+        decrypt_file(path, tmp, key=key)
         return tmp, tmp
 
     @staticmethod

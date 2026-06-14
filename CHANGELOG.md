@@ -4,6 +4,20 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.7.5] — 2026-06
+
+Patch release: **backup migration** and **release notes button fix**.
+
+### Backup
+- **Restore encrypted archives on another server:** optional `decryption_key` on verify/restore/rollback API; UI modal prompts for the source server's Fernet key when opening `.hyvebak.enc`.
+- Clearer error when decryption fails (wrong/missing key after import).
+
+### Updates
+- **Fix:** release notes button in Actualizări no longer crashes (`showUpdateReleaseNotes` handler signature).
+
+### Tests
+- `tests/test_backup_remote.py` — decrypt imported archive with explicit source key.
+
 ## [0.9.7.4] — 2026-06
 
 Patch release: **Updates hub polish** — release notes modal, hub copy, backup UI trim.

@@ -32,6 +32,7 @@ class BackupCreateBody(BaseModel):
 
 class BackupPathBody(BaseModel):
     path: str = Field(..., min_length=1)
+    decryption_key: str | None = None
 
 
 class BackupRestoreBody(BaseModel):
@@ -41,6 +42,7 @@ class BackupRestoreBody(BaseModel):
     auto_pre_backup: bool = True
     include_optional: bool = False
     include_frigate_media: bool = False
+    decryption_key: str | None = None
 
 
 class BackupRemoteNameBody(BaseModel):
@@ -59,6 +61,7 @@ class BackupRemoteRestoreBody(BaseModel):
     include_optional: bool = False
     include_frigate_media: bool = False
     overwrite: bool = False
+    decryption_key: str | None = None
 
 
 class BackupRemoteS3Body(BaseModel):
@@ -167,7 +170,7 @@ async def backup_verify(
     service: BackupService = Depends(get_backup_service),
 ):
     try:
-        return await asyncio.to_thread(service.verify, body.path)
+        return await asyncio.to_thread(service.verify, body.path, decryption_key=body.decryption_key)
     except Exception as exc:
         raise _map_error(exc) from exc
 
@@ -186,6 +189,7 @@ async def backup_restore(
             refetch_addons=body.refetch_addons,
             dry_run=body.dry_run,
             auto_pre_backup=body.auto_pre_backup,
+            decryption_key=body.decryption_key,
         )
     except Exception as exc:
         raise _map_error(exc) from exc
@@ -198,7 +202,7 @@ async def backup_rollback(
     service: BackupService = Depends(get_backup_service),
 ):
     try:
-        return await asyncio.to_thread(service.rollback, body.path)
+        return await asyncio.to_thread(service.rollback, body.path, decryption_key=body.decryption_key)
     except Exception as exc:
         raise _map_error(exc) from exc
 
@@ -346,6 +350,7 @@ async def backup_restore_remote(
             dry_run=body.dry_run,
             auto_pre_backup=body.auto_pre_backup,
             overwrite=body.overwrite,
+            decryption_key=body.decryption_key,
         )
     except Exception as exc:
         raise _map_error(exc) from exc

@@ -126,6 +126,96 @@ export async function loadRemoteBackupArchives() {
         _setStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`, 'error');
     }
 }
+function _isEncryptedPath(path) {
+    return String(path || '').endsWith('.enc');
+}
+function _promptDecryptionKey() {
+    return new Promise((resolve) => {
+        let modal = document.getElementById('backup-decrypt-key-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'backup-decrypt-key-modal';
+            modal.className = 'modal-overlay app-modal fixed inset-0 z-[80] hidden flex items-center justify-center p-2 sm:p-4';
+            modal.innerHTML = `
+                <div class="glass app-modal-panel app-modal-content max-w-md w-full">
+                    <div class="app-modal-header">
+                        <h3 class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
+                            <i class="fas fa-lock"></i><span id="backup-decrypt-key-title"></span>
+                        </h3>
+                        <p id="backup-decrypt-key-prompt" class="app-modal-subtitle"></p>
+                    </div>
+                    <div class="app-modal-body space-y-3">
+                        <p id="backup-decrypt-key-hint" class="text-[11px] text-slate-500 leading-relaxed"></p>
+                        <input type="password" id="backup-decrypt-key-input" autocomplete="off"
+                            class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none" />
+                    </div>
+                    <div class="app-modal-footer justify-end gap-2">
+                        <button type="button" id="backup-decrypt-key-cancel" class="px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:bg-white/5 transition-colors"></button>
+                        <button type="button" id="backup-decrypt-key-skip" class="px-4 py-2 rounded-xl text-sm font-bold text-slate-300 hover:bg-white/5 transition-colors"></button>
+                        <button type="button" id="backup-decrypt-key-ok" class="px-4 py-2 rounded-xl text-sm font-bold text-white bg-accent hover:bg-accent-hover transition-colors"></button>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal)
+                    resolve(null);
+            });
+            modal.querySelector('.app-modal-panel')?.addEventListener('click', (e) => e.stopPropagation());
+        }
+        const title = modal.querySelector('#backup-decrypt-key-title');
+        const prompt = modal.querySelector('#backup-decrypt-key-prompt');
+        const hint = modal.querySelector('#backup-decrypt-key-hint');
+        const input = modal.querySelector('#backup-decrypt-key-input');
+        const cancelBtn = modal.querySelector('#backup-decrypt-key-cancel');
+        const skipBtn = modal.querySelector('#backup-decrypt-key-skip');
+        const okBtn = modal.querySelector('#backup-decrypt-key-ok');
+        if (title)
+            title.textContent = t('backup.decrypt_key_title');
+        if (prompt)
+            prompt.textContent = t('backup.decrypt_key_prompt');
+        if (hint)
+            hint.textContent = t('backup.decrypt_key_hint');
+        if (input) {
+            input.value = '';
+            input.placeholder = t('backup.decrypt_key_placeholder');
+        }
+        if (cancelBtn)
+            cancelBtn.textContent = t('common.cancel');
+        if (skipBtn)
+            skipBtn.textContent = t('backup.decrypt_key_skip');
+        if (okBtn)
+            okBtn.textContent = t('backup.decrypt_key_continue');
+        const close = (value) => {
+            modal?.classList.add('hidden');
+            resolve(value);
+        };
+        cancelBtn?.replaceWith(cancelBtn.cloneNode(true));
+        skipBtn?.replaceWith(skipBtn.cloneNode(true));
+        okBtn?.replaceWith(okBtn.cloneNode(true));
+        const newCancel = modal.querySelector('#backup-decrypt-key-cancel');
+        const newSkip = modal.querySelector('#backup-decrypt-key-skip');
+        const newOk = modal.querySelector('#backup-decrypt-key-ok');
+        newCancel?.addEventListener('click', () => close(null));
+        newSkip?.addEventListener('click', () => close(''));
+        newOk?.addEventListener('click', () => close(input?.value.trim() || ''));
+        input?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                close(input.value.trim() || '');
+            }
+        });
+        modal.classList.remove('hidden');
+        input?.focus();
+    });
+}
+async function _decryptionKeyForPath(path) {
+    if (!_isEncryptedPath(path))
+        return undefined;
+    const key = await _promptDecryptionKey();
+    if (key === null)
+        return null;
+    return key || undefined;
+}
 function _archiveRowHtml(row) {
     const isPreRestore = row.name.startsWith('pre-restore');
     const isEncrypted = row.name.endsWith('.enc');
@@ -373,9 +463,15 @@ export async function createBackup() {
 export async function verifyBackup(path) {
     if (!path)
         return;
+    const decryptionKey = await _decryptionKeyForPath(path);
+    if (decryptionKey === null)
+        return;
     _setStatus(`<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('backup.verifying'))}`, 'info');
     try {
-        const res = await apiCall('/api/backup/verify', { method: 'POST', body: { path } });
+        const res = await apiCall('/api/backup/verify', {
+            method: 'POST',
+            body: { path, decryption_key: decryptionKey },
+        });
         const data = (await res.json().catch(() => ({})));
         if (!res.ok)
             throw new Error(translateApiDetail(data.detail) || t('backup.failed'));
@@ -390,6 +486,9 @@ export async function restoreBackup(path) {
         return;
     if (!(await showConfirm(t('backup.confirm_restore'))))
         return;
+    const decryptionKey = await _decryptionKeyForPath(path);
+    if (decryptionKey === null)
+        return;
     _setStatus(`<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('backup.restoring'))}`, 'info');
     try {
         const opts = _optionsFromForm();
@@ -401,6 +500,7 @@ export async function restoreBackup(path) {
                 include_frigate_media: opts.include_frigate_media,
                 refetch_addons: opts.refetch_addons,
                 auto_pre_backup: true,
+                decryption_key: decryptionKey,
             },
         });
         const data = (await res.json().catch(() => ({})));
@@ -421,9 +521,15 @@ export async function rollbackBackup(path) {
         return;
     if (!(await showConfirm(t('backup.confirm_rollback'))))
         return;
+    const decryptionKey = await _decryptionKeyForPath(path);
+    if (decryptionKey === null)
+        return;
     _setStatus(`<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('backup.rollbacking'))}`, 'info');
     try {
-        const res = await apiCall('/api/backup/rollback', { method: 'POST', body: { path } });
+        const res = await apiCall('/api/backup/rollback', {
+            method: 'POST',
+            body: { path, decryption_key: decryptionKey },
+        });
         const data = (await res.json().catch(() => ({})));
         if (!res.ok)
             throw new Error(translateApiDetail(data.detail) || t('backup.failed'));

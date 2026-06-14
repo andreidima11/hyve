@@ -63,13 +63,20 @@ def encrypt_file(src: Path, dest: Path | None = None) -> Path:
     return out
 
 
-def decrypt_file(src: Path, dest: Path) -> Path:
+def _fernet_for_key(key: str | bytes | None = None) -> Fernet:
+    if key is None:
+        return _get_fernet()
+    raw = key.strip().encode("utf-8") if isinstance(key, str) else key.strip()
+    return Fernet(raw)
+
+
+def decrypt_file(src: Path, dest: Path, *, key: str | bytes | None = None) -> Path:
     src = src.resolve()
     dest = dest.resolve()
     if not src.is_file():
         raise FileNotFoundError(str(src))
     try:
-        plain = _get_fernet().decrypt(src.read_bytes())
+        plain = _fernet_for_key(key).decrypt(src.read_bytes())
     except InvalidToken as exc:
         raise ValueError("backup.decrypt_failed") from exc
     dest.parent.mkdir(parents=True, exist_ok=True)
