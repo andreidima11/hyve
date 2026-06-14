@@ -297,6 +297,36 @@ class BackupService:
         self._record("delete", "ok", payload)
         return payload
 
+    def resolve_archive_download(self, archive_ref: str) -> Path:
+        return self._resolve_archive_path(archive_ref)
+
+    def import_uploaded_archive(
+        self,
+        temp_path: Path,
+        original_name: str,
+        *,
+        overwrite: bool = False,
+    ) -> dict[str, Any]:
+        import shutil
+
+        from core.backup.remote.names import validate_upload_name
+
+        filename = validate_upload_name(original_name)
+        self.backups_dir.mkdir(parents=True, exist_ok=True)
+        dest = self.backups_dir / filename
+        if dest.exists() and not overwrite:
+            raise ValueError("backup.upload_already_exists")
+        if dest.exists():
+            dest.unlink()
+        shutil.move(str(temp_path), dest)
+        payload = {
+            "path": self._relative_archive_path(dest),
+            "name": dest.name,
+            "size": dest.stat().st_size,
+        }
+        self._record("upload", "ok", payload)
+        return payload
+
     def get_settings(self) -> dict[str, Any]:
         return get_backup_config(redact_secrets=True)
 

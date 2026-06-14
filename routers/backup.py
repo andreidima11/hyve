@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import tempfile
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 import core.auth as auth
@@ -113,7 +116,7 @@ def _map_error(exc: Exception) -> HTTPException:
             return HTTPException(400, error_detail("backup.checksum_mismatch", {"path": msg.split(":", 1)[1]}))
         if msg.startswith("unsupported_format_version:"):
             return HTTPException(400, error_detail("backup.unsupported_format"))
-        if msg in {"backup.invalid_path", "backup.decrypt_failed"}:
+        if msg in {"backup.invalid_path", "backup.decrypt_failed", "backup.upload_already_exists"}:
             return HTTPException(400, error_detail(msg))
         if msg.startswith("backup.remote."):
             return HTTPException(400, error_detail(msg))
@@ -234,6 +237,55 @@ async def backup_delete_archive(
     try:
         return await asyncio.to_thread(service.delete_archive, body.path)
     except Exception as exc:
+        raise _map_error(exc) from exc
+
+
+@router.get("/archives/download")
+async def backup_download_archive(
+    path: str = Query(..., min_length=1),
+    _: models.User = Depends(auth.get_current_admin),
+    service: BackupService = Depends(get_backup_service),
+):
+    try:
+        archive = await asyncio.to_thread(service.resolve_archive_download, path)
+    except Exception as exc:
+        raise _map_error(exc) from exc
+    return FileResponse(
+        archive,
+        media_type="application/gzip",
+        filename=archive.name,
+    )
+
+
+@router.post("/archives/upload")
+async def backup_upload_archive(
+    file: UploadFile = File(...),
+    overwrite: bool = False,
+    _: models.User = Depends(auth.get_current_admin),
+    service: BackupService = Depends(get_backup_service),
+):
+    temp_path: Path | None = None
+    try:
+        suffix = ".hyvebak"
+        original = (file.filename or "upload.hyvebak").strip()
+        if original.endswith(".hyvebak.enc"):
+            suffix = ".hyvebak.enc"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            temp_path = Path(tmp.name)
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                tmp.write(chunk)
+        return await asyncio.to_thread(
+            service.import_uploaded_archive,
+            temp_path,
+            original,
+            overwrite=overwrite,
+        )
+    except Exception as exc:
+        if temp_path:
+            temp_path.unlink(missing_ok=True)
         raise _map_error(exc) from exc
 
 

@@ -102,3 +102,24 @@ def test_collect_backup_entries_respects_optional(tmp_path: Path):
 
     optional = collect_backup_entries(root, BackupOptions(include_optional=True))
     assert any(p.endswith("chroma_db/index.bin") for _, p in optional)
+
+
+def test_backup_includes_non_sqlite_addon_db_files(tmp_path: Path):
+    root = tmp_path / "hyve"
+    root.mkdir()
+    (root / "config.json").write_text("{}", encoding="utf-8")
+    _init_users_db(root / "users.db")
+
+    mosq = root / "output" / "addons" / "mosquitto" / "data"
+    mosq.mkdir(parents=True)
+    (mosq / "mosquitto.db").write_bytes(b"\x00\xb5\x00mosquitto db\x00")
+
+    z2m = root / "output" / "addons" / "zigbee2mqtt" / "data"
+    z2m.mkdir(parents=True)
+    (z2m / "database.db").write_text('{"1": {"friendly_name": "test"}}', encoding="utf-8")
+
+    archive = tmp_path / "addon-db.hyvebak"
+    manifest = BackupCoordinator(root).create_backup(archive, BackupOptions())
+    paths = {f.path for f in manifest.files}
+    assert "output/addons/mosquitto/data/mosquitto.db" in paths
+    assert "output/addons/zigbee2mqtt/data/database.db" in paths

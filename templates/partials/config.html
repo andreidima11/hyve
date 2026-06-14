@@ -1324,12 +1324,19 @@
                                         </div>
                                     </div>
                                 </section>
-                                <div class="flex items-center justify-between gap-2">
+                                <div class="flex items-center justify-between gap-2 flex-wrap">
                                     <span id="backup-count" class="text-[11px] text-slate-500"></span>
-                                    <button type="button" data-config-action="createBackup" id="backup-create-btn" class="hy-btn hy-btn-primary text-[11px]">
-                                        <i class="fas fa-plus"></i><span data-i18n="backup.create_btn">Backup nou</span>
-                                    </button>
+                                    <div class="flex items-center gap-2 flex-wrap justify-end">
+                                        <input type="file" id="backup-upload-input" accept=".hyvebak,.hyvebak.enc,application/gzip" class="hidden">
+                                        <button type="button" data-config-action="pickBackupUpload" id="backup-upload-btn" class="hy-btn hy-btn-ghost text-[11px]">
+                                            <i class="fas fa-file-import"></i><span data-i18n="backup.upload_btn">Importă backup</span>
+                                        </button>
+                                        <button type="button" data-config-action="createBackup" id="backup-create-btn" class="hy-btn hy-btn-primary text-[11px]">
+                                            <i class="fas fa-plus"></i><span data-i18n="backup.create_btn">Backup nou</span>
+                                        </button>
+                                    </div>
                                 </div>
+                                <p class="text-[10px] text-slate-500 px-1" data-i18n="backup.upload_hint">Importă un .hyvebak de pe alt server Hyve, apoi fă restore.</p>
                                 <div id="backup-list" class="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
                                     <div class="text-center py-8 text-slate-500 text-xs"><i class="fas fa-spinner fa-spin mr-2"></i><span data-i18n="backup.loading">Se încarcă...</span></div>
                                 </div>

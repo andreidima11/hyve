@@ -39,4 +39,7 @@ export {
     loadRemoteBackupArchives,
     pullRemoteBackup,
     restoreRemoteBackup,
+    downloadBackupArchive,
+    pickBackupUpload,
+    uploadBackupArchive,
 } from './addons_settings/backup.js';

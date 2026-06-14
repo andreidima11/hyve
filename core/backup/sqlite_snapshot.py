@@ -14,10 +14,41 @@ SQLITE_FILENAMES = frozenset(
     }
 )
 
+_SQLITE_HEADER = b"SQLite format 3\x00"
+
+
+def is_core_sqlite_path(rel: str) -> bool:
+    return Path(rel).name in SQLITE_FILENAMES
+
+
+def is_sqlite_database_file(path: Path) -> bool:
+    """Return True when ``path`` is a readable SQLite database."""
+    if not path.is_file():
+        return False
+    try:
+        with path.open("rb") as fh:
+            if fh.read(len(_SQLITE_HEADER)) != _SQLITE_HEADER:
+                return False
+        conn = sqlite3.connect(f"file:{path.resolve()}?mode=ro", uri=True)
+        try:
+            conn.execute("SELECT 1 FROM sqlite_schema LIMIT 1")
+        finally:
+            conn.close()
+        return True
+    except (OSError, sqlite3.Error):
+        return False
+
+
+def should_snapshot_sqlite(path: Path, rel: str) -> bool:
+    """Use the online backup API only for Hyve core DBs or real SQLite files."""
+    if is_core_sqlite_path(rel):
+        return True
+    return is_sqlite_database_file(path)
+
 
 def is_sqlite_archive_path(rel: str) -> bool:
-    name = Path(rel).name
-    return name in SQLITE_FILENAMES or rel.endswith(".sqlite") or rel.endswith(".db")
+    """Legacy helper — prefer ``should_snapshot_sqlite`` when the file is available."""
+    return is_core_sqlite_path(rel)
 
 
 def read_alembic_revision(db_path: Path) -> str | None:

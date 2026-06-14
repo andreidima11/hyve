@@ -4,6 +4,19 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.7.1] — 2026-06
+
+Patch release: **backup create fix**, **download/import archives** for server migration.
+
+### Backup & restore
+- **Fix:** backup create no longer treats add-on `.db` files (Mosquitto, Zigbee2MQTT JSON DB) as SQLite — only Hyve core DBs and real SQLite files use the online snapshot API.
+- **Download** local archives via UI or `GET /api/backup/archives/download`.
+- **Import** `.hyvebak` / `.hyvebak.enc` from another instance via UI or `POST /api/backup/archives/upload`, then restore as usual.
+
+### Tests
+- Non-SQLite add-on DB files included in round-trip backup test.
+- API tests for download and upload endpoints.
+
 ## [0.9.7.0] — 2026-06
 
 Feature release: **backup & restore (AAA)**, **remote targets (S3/SFTP)**, and **Hyve self-update** from GitHub Releases.

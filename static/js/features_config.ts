@@ -75,6 +75,9 @@ export {
     loadRemoteBackupArchives,
     pullRemoteBackup,
     restoreRemoteBackup,
+    downloadBackupArchive,
+    pickBackupUpload,
+    uploadBackupArchive,
 } from './features_addons_settings.js';
 
 export {

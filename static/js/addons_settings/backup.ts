@@ -213,6 +213,7 @@ function _archiveRowHtml(row: BackupArchiveRow): string {
             </span>
         </div>
         <div class="upd-row-status flex items-center gap-1">${badge}
+            <button type="button" data-config-action="downloadBackupArchive" data-config-path="${escapeHtml(row.path)}" class="upd-row-btn" title="${escapeHtml(t('backup.download_btn'))}"><i class="fas fa-download"></i></button>
             <button type="button" data-config-action="verifyBackup" data-config-path="${escapeHtml(row.path)}" class="upd-row-btn" title="${escapeHtml(t('backup.verify_btn'))}"><i class="fas fa-circle-check"></i></button>
             ${restoreBtn}
             <button type="button" data-config-action="deleteBackupArchive" data-config-path="${escapeHtml(row.path)}" class="upd-row-btn" title="${escapeHtml(t('backup.delete_btn'))}"><i class="fas fa-trash-alt"></i></button>
@@ -669,4 +670,68 @@ export async function restoreRemoteBackup(name: string): Promise<void> {
             'error',
         );
     }
+}
+
+export async function downloadBackupArchive(path: string): Promise<void> {
+    if (!path) return;
+    _setStatus(`<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('backup.downloading'))}`, 'info');
+    try {
+        const res = await apiCall(`/api/backup/archives/download?path=${encodeURIComponent(path)}`);
+        if (!res.ok) {
+            const data = (await res.json().catch(() => ({}))) as { detail?: unknown };
+            throw new Error(translateApiDetail(data.detail) || t('backup.failed'));
+        }
+        const blob = await res.blob();
+        const name = path.split('/').pop() || 'backup.hyvebak';
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = objectUrl;
+        anchor.download = name;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(objectUrl);
+        _setStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(t('backup.download_ok'))}`, 'success');
+    } catch (e) {
+        _setStatus(
+            `<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`,
+            'error',
+        );
+    }
+}
+
+export function pickBackupUpload(): void {
+    _el<HTMLInputElement>('backup-upload-input')?.click();
+}
+
+export async function uploadBackupArchive(file: File): Promise<void> {
+    if (!file) return;
+    _setStatus(`<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('backup.uploading'))}`, 'info');
+    try {
+        const form = new FormData();
+        form.append('file', file, file.name);
+        const res = await apiCall('/api/backup/archives/upload', { method: 'POST', body: form });
+        const data = (await res.json().catch(() => ({}))) as { detail?: unknown; name?: string };
+        if (!res.ok) throw new Error(translateApiDetail(data.detail) || t('backup.failed'));
+        _setStatus(
+            `<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(t('backup.upload_ok', { name: data.name || file.name }))}`,
+            'success',
+        );
+        await loadBackupPanel();
+    } catch (e) {
+        _setStatus(
+            `<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`,
+            'error',
+        );
+    }
+}
+
+if (typeof document !== 'undefined') {
+    document.addEventListener('change', (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLInputElement) || target.id !== 'backup-upload-input') return;
+        const file = target.files?.[0];
+        target.value = '';
+        if (file) void uploadBackupArchive(file);
+    });
 }

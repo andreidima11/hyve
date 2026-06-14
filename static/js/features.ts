@@ -196,6 +196,9 @@ export {
     loadRemoteBackupArchives,
     pullRemoteBackup,
     restoreRemoteBackup,
+    downloadBackupArchive,
+    pickBackupUpload,
+    uploadBackupArchive,
     initGenericCustomSelects,
     upgradeNativeSelects,
 } from './features_config.js';

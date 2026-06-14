@@ -82,7 +82,8 @@ def test_backup_restore_with_pre_backup(backup_env):
     body = res.json()
     assert body["pre_restore_backup"]
     assert json.loads((dash / "home.json").read_text(encoding="utf-8"))["title"] == "Home"
-    assert len(list(backups.glob("*.hyvebak"))) >= 2
+    assert (backups / body["pre_restore_backup"]).is_file()
+    assert (backups / archive_path).is_file()
 
 
 def test_maintenance_blocks_api(backup_env):
@@ -114,3 +115,19 @@ def test_backup_requires_admin(backup_env):
     client = TestClient(bundle.app)
     res = client.get("/api/backup/status")
     assert res.status_code == 403
+
+
+def test_backup_download_and_upload(backup_env):
+    client, _service, _root, backups = backup_env
+    archive = backups / "hyve-export.hyvebak"
+    archive.write_bytes(b"hyve-archive-bytes")
+
+    dl = client.get("/api/backup/archives/download", params={"path": archive.name})
+    assert dl.status_code == 200
+    assert dl.content == b"hyve-archive-bytes"
+
+    files = {"file": ("imported-from-remote.hyvebak", b"imported-bytes", "application/gzip")}
+    up = client.post("/api/backup/archives/upload", files=files)
+    assert up.status_code == 200, up.text
+    assert up.json()["name"] == "imported-from-remote.hyvebak"
+    assert (backups / "imported-from-remote.hyvebak").read_bytes() == b"imported-bytes"

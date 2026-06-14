@@ -14,7 +14,7 @@ from core.backup.addons_policy import list_addon_slugs_with_data, slugs_needing_
 from core.backup.archive import create_archive, extract_archive
 from core.backup.manifest import BackupManifest, build_manifest, sha256_file
 from core.backup.paths import BackupOptions, collect_backup_entries
-from core.backup.sqlite_snapshot import is_sqlite_archive_path, read_alembic_revision, snapshot_sqlite
+from core.backup.sqlite_snapshot import read_alembic_revision, should_snapshot_sqlite, snapshot_sqlite
 
 log = logging.getLogger("backup")
 
@@ -47,7 +47,7 @@ class BackupCoordinator:
             alembic_revision: str | None = None
 
             for abs_path, rel in entries:
-                if is_sqlite_archive_path(rel):
+                if should_snapshot_sqlite(abs_path, rel):
                     staged = staging / rel
                     snapshot_sqlite(abs_path, staged)
                     payload.append((staged, rel))
@@ -128,7 +128,7 @@ class BackupCoordinator:
                         backup_path.relative_to(self.root).as_posix()
                     )
 
-                if is_sqlite_archive_path(entry.path):
+                if should_snapshot_sqlite(src, entry.path):
                     snapshot_sqlite(src, dest)
                 else:
                     shutil.copy2(src, dest)

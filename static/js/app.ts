@@ -79,6 +79,7 @@ import {
     loadBackupPanel, createBackup, verifyBackup, restoreBackup, rollbackBackup,
     saveBackupSettings, deleteBackupArchive, testBackupRemote,
     loadRemoteBackupArchives, pullRemoteBackup, restoreRemoteBackup,
+    downloadBackupArchive, pickBackupUpload, uploadBackupArchive,
     installAddon, uninstallAddon, toggleAddon, openAddonConfigModal, saveAddonConfig as saveAddonConfigModal,
 } from './features.js';
 import {
@@ -947,6 +948,8 @@ window.addEventListener('DOMContentLoaded', () => {
         loadRemoteBackupArchives: () => loadRemoteBackupArchives(),
         pullRemoteBackup: (_event, el) => pullRemoteBackup((el as HTMLElement).dataset.configName || ''),
         restoreRemoteBackup: (_event, el) => restoreRemoteBackup((el as HTMLElement).dataset.configName || ''),
+        downloadBackupArchive: (_event, el) => downloadBackupArchive((el as HTMLElement).dataset.configPath || ''),
+        pickBackupUpload: () => pickBackupUpload(),
         closeAddonConfigModal: () => closeAddonConfigModal(),
         checkAddonHealth: () => checkAddonHealth(),
         copyWebhook: () => copyWebhook(),
