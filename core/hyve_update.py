@@ -21,6 +21,12 @@ log = logging.getLogger(__name__)
 DEFAULT_GITHUB_REPO = "andreidima11/hyve"
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
+# Local rebuild outputs — do not block in-app update when only these differ.
+_DIRTY_IGNORE_PATHS = (
+    "static/css/tailwind.built.css",
+    "package-lock.json",
+)
+
 _last_hyve_check: dict[str, Any] = {
     "latest": None,
     "tag": None,
@@ -176,26 +182,71 @@ def _failed_check_state(cur: str, key: str, params: dict[str, Any] | None = None
 
 
 def _fetch_latest_release_with_fallback() -> dict[str, Any]:
-    last_http_err: HTTPError | None = None
+    return _resolve_latest_release()
+
+
+def _release_from_github() -> dict[str, Any] | None:
     try:
         release = fetch_latest_release()
         release["source"] = "github"
         return release
-    except HTTPError as exc:
-        last_http_err = exc
+    except HTTPError:
+        return None
+
+
+def _release_from_git_tag(tag: str) -> dict[str, Any]:
+    version = _normalize_tag(tag)
+    return {
+        "tag": tag,
+        "version": version,
+        "html_url": "",
+        "body": "",
+        "source": "git",
+    }
+
+
+def _resolve_latest_release() -> dict[str, Any]:
+    """Pick the newest semver from GitHub latest and remote git tags."""
+    candidates: list[dict[str, Any]] = []
+    github = _release_from_github()
+    if github:
+        candidates.append(github)
     git_tag = _git_remote_latest_tag()
     if git_tag:
-        version = _normalize_tag(git_tag)
-        return {
-            "tag": git_tag,
-            "version": version,
-            "html_url": "",
-            "body": "",
-            "source": "git",
-        }
-    if last_http_err is not None:
-        raise last_http_err
-    raise HyveUpdateError("updates.hyve_check_failed")
+        candidates.append(_release_from_git_tag(git_tag))
+    if not candidates:
+        raise HyveUpdateError("updates.hyve_check_failed")
+    return max(candidates, key=lambda row: _parse_version(str(row.get("version") or "")))
+
+
+def _dirty_path_from_porcelain(line: str) -> str:
+    raw = (line or "").strip()
+    if len(raw) >= 4 and raw[2] == " ":
+        return raw[3:].strip()
+    if len(raw) >= 3 and raw[2] != " ":
+        return raw[2:].strip()
+    return raw
+
+
+def _is_ignored_dirty_path(path: str) -> bool:
+    normalized = path.replace("\\", "/")
+    if normalized in _DIRTY_IGNORE_PATHS:
+        return True
+    if normalized.startswith("static/js/") and normalized.endswith(".js"):
+        return True
+    return False
+
+
+def _blocking_dirty_lines(porcelain: str) -> list[str]:
+    blocking: list[str] = []
+    for line in (porcelain or "").splitlines():
+        if not line.strip():
+            continue
+        path = _dirty_path_from_porcelain(line)
+        if _is_ignored_dirty_path(path):
+            continue
+        blocking.append(line)
+    return blocking
 
 
 def _git_remote_latest_tag() -> str | None:
@@ -282,9 +333,14 @@ def _git_extra_config() -> list[str]:
 def _assert_git_ready() -> None:
     if not is_git_install():
         raise HyveUpdateError("updates.hyve_not_git")
-    status = _run_cmd(["git", "status", "--porcelain"], check=True)
-    if status.stdout.strip():
-        raise HyveUpdateError("updates.hyve_dirty_tree")
+    status = _run_cmd(
+        ["git", "status", "--porcelain", "--untracked-files=no"],
+        check=True,
+    )
+    blocking = _blocking_dirty_lines(status.stdout)
+    if blocking:
+        detail = "\n".join(_dirty_path_from_porcelain(line) for line in blocking[:8])
+        raise HyveUpdateError("updates.hyve_dirty_tree", {"detail": detail})
 
 
 def _fetch_tags() -> None:
@@ -347,6 +403,7 @@ def _js_build() -> None:
 
 
 def apply_update() -> dict[str, Any]:
+    check_for_update()
     status = get_status()
     if not status.get("update_available"):
         raise HyveUpdateError("updates.hyve_already_latest")

@@ -4,6 +4,18 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.7.3] — 2026-06
+
+Patch release: **reliable in-app Hyve update** on git installs (Proxmox / self-hosted).
+
+### Updates
+- **Fix:** `apply_update()` refreshes GitHub/git tag info before checkout so stale cached releases (e.g. stuck on 0.9.7.0) no longer block upgrades.
+- **Fix:** latest version is the max semver from GitHub Releases **and** remote git tags.
+- **Fix:** dirty-tree guard ignores local rebuild outputs (`tailwind.built.css`, compiled `static/js/*.js`, `package-lock.json`) so server rebuilds do not block apply.
+
+### Tests
+- `tests/test_hyve_update.py` — semver resolution, dirty-tree ignore, apply refresh.
+
 ## [0.9.7.2] — 2026-06
 
 Patch release: **fix in-app Hyve update button** (Actualizări hub).

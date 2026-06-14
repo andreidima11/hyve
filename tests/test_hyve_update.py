@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from urllib.error import HTTPError
 
 import pytest
 
@@ -44,13 +43,13 @@ def test_check_for_update_marks_available(monkeypatch):
     monkeypatch.setattr(hu, "current_version", lambda: "0.9.6.2")
     monkeypatch.setattr(
         hu,
-        "fetch_latest_release",
-        lambda repo=None: {
+        "_resolve_latest_release",
+        lambda: {
             "tag": "0.9.6.3",
             "version": "0.9.6.3",
             "html_url": "https://example/release",
             "body": "Fixes",
-            "published_at": "2026-06-13",
+            "source": "github",
         },
     )
     status = hu.check_for_update()
@@ -60,22 +59,45 @@ def test_check_for_update_marks_available(monkeypatch):
     assert status["error"] is None
 
 
-def test_check_for_update_private_repo_404(monkeypatch):
+def test_check_for_update_no_release_sources(monkeypatch):
     monkeypatch.setattr(hu, "current_version", lambda: "0.9.6.2")
+    monkeypatch.setattr(hu, "_release_from_github", lambda: None)
     monkeypatch.setattr(hu, "_git_remote_latest_tag", lambda: None)
-
-    def _raise(*_a, **_k):
-        raise HTTPError("https://api.github.com/x", 404, "Not Found", hdrs=None, fp=None)
-
-    monkeypatch.setattr(hu, "fetch_latest_release", _raise)
     status = hu.check_for_update()
-    assert status["error"]["key"] == "updates.hyve_release_not_found"
+    assert status["error"]["key"] == "updates.hyve_check_failed"
     assert status["latest"] == "0.9.6.2"
     assert status["update_available"] is False
 
 
+def test_resolve_latest_release_picks_newest_semver(monkeypatch):
+    monkeypatch.setattr(
+        hu,
+        "_release_from_github",
+        lambda: {"version": "0.9.7.0", "tag": "0.9.7.0", "source": "github"},
+    )
+    monkeypatch.setattr(hu, "_git_remote_latest_tag", lambda: "0.9.7.3")
+    release = hu._resolve_latest_release()
+    assert release["version"] == "0.9.7.3"
+    assert release["source"] == "git"
+
+
+def test_blocking_dirty_lines_ignores_build_artifacts():
+    porcelain = "\n".join(
+        [
+            " M static/css/tailwind.built.css",
+            " M static/js/app.js",
+            " M package-lock.json",
+            " M config.json",
+        ]
+    )
+    blocking = hu._blocking_dirty_lines(porcelain)
+    assert len(blocking) == 1
+    assert "config.json" in hu._dirty_path_from_porcelain(blocking[0])
+
+
 def test_apply_update_requires_git(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(hu, "_PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(hu, "check_for_update", lambda: {"update_available": True})
     monkeypatch.setattr(hu, "get_status", lambda: {"update_available": True})
     monkeypatch.setattr(hu, "is_git_install", lambda: False)
     with pytest.raises(hu.HyveUpdateError) as exc:
@@ -89,6 +111,7 @@ def test_apply_update_checkout_and_restart(monkeypatch, tmp_path: Path):
 
     monkeypatch.setattr(hu, "_PROJECT_ROOT", tmp_path)
     monkeypatch.setattr(hu, "_last_hyve_check", {"tag": "0.9.6.3", "latest": "0.9.6.3"})
+    monkeypatch.setattr(hu, "check_for_update", lambda: {"update_available": True, "latest": "0.9.6.3"})
     monkeypatch.setattr(hu, "get_status", lambda: {"update_available": True, "latest": "0.9.6.3"})
     monkeypatch.setattr(hu, "_assert_git_ready", lambda: None)
     monkeypatch.setattr(hu, "_fetch_tags", lambda: None)
