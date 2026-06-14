@@ -86,6 +86,44 @@ def test_backup_restore_with_pre_backup(backup_env):
     assert (backups / archive_path).is_file()
 
 
+def test_backup_encryption_key_export(backup_env, monkeypatch, tmp_path):
+    client, _service, root, _backups = backup_env
+    key_file = root / "secrets" / "backup_archive.key"
+    key_file.parent.mkdir(parents=True, exist_ok=True)
+    test_key = "test-fernet-key-placeholder-not-valid"
+    key_file.write_text(test_key, encoding="utf-8")
+
+    import core.backup.encryption as enc
+
+    monkeypatch.setenv("HYVE_BACKUP_ENCRYPTION_KEY", "")
+    monkeypatch.setattr(enc, "_KEY_PATH", key_file)
+    monkeypatch.setattr(enc, "_FERNET", None)
+
+    missing = client.get("/api/backup/encryption-key")
+    # invalid fernet key in file - export still returns raw key string
+    assert missing.status_code == 200
+    assert missing.json()["key"] == test_key
+    assert missing.json()["source"] == "file"
+
+    status = client.get("/api/backup/status")
+    assert status.status_code == 200
+    assert status.json()["encryption_key"]["configured"] is True
+
+
+def test_backup_encryption_key_missing(backup_env, monkeypatch, tmp_path):
+    client, _service, root, _backups = backup_env
+    import core.backup.encryption as enc
+
+    key_file = tmp_path / "missing.key"
+    monkeypatch.setenv("HYVE_BACKUP_ENCRYPTION_KEY", "")
+    monkeypatch.setattr(enc, "_KEY_PATH", key_file)
+    monkeypatch.setattr(enc, "_FERNET", None)
+
+    res = client.get("/api/backup/encryption-key")
+    assert res.status_code == 400
+    assert res.json()["detail"]["key"] == "backup.encryption_key_missing"
+
+
 def test_maintenance_blocks_api(backup_env):
     client, _, _, _ = backup_env
     with maintenance_mod.maintenance_mode("restore"):

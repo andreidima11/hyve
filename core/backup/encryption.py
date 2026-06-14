@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -17,6 +18,40 @@ _FERNET: Fernet | None = None
 
 def is_encrypted_name(name: str) -> bool:
     return str(name or "").endswith(f".hyvebak{_ENC_SUFFIX}")
+
+
+def encryption_key_status() -> dict[str, Any]:
+    """Metadata about the active backup encryption key (never includes the key itself)."""
+    env_key = (os.environ.get("HYVE_BACKUP_ENCRYPTION_KEY") or "").strip()
+    if env_key:
+        return {
+            "configured": True,
+            "source": "env",
+            "file_path": None,
+        }
+    if _KEY_PATH.is_file() and _KEY_PATH.read_bytes().strip():
+        return {
+            "configured": True,
+            "source": "file",
+            "file_path": "secrets/backup_archive.key",
+        }
+    return {
+        "configured": False,
+        "source": None,
+        "file_path": "secrets/backup_archive.key",
+    }
+
+
+def export_encryption_key() -> dict[str, str]:
+    """Return the active Fernet key for admin export (does not create a new key)."""
+    env_key = (os.environ.get("HYVE_BACKUP_ENCRYPTION_KEY") or "").strip()
+    if env_key:
+        return {"source": "env", "key": env_key}
+    if _KEY_PATH.is_file():
+        key = _KEY_PATH.read_text(encoding="utf-8").strip()
+        if key:
+            return {"source": "file", "key": key}
+    raise ValueError("backup.encryption_key_missing")
 
 
 def encryption_available() -> bool:

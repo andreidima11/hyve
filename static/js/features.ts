@@ -201,6 +201,11 @@ export {
     downloadBackupArchive,
     pickBackupUpload,
     uploadBackupArchive,
+    showBackupEncryptionKey,
+    downloadBackupEncryptionKey,
+    downloadBackupEncryptionKeyFromModal,
+    copyBackupEncryptionKey,
+    hideBackupEncryptionKeyModal,
     initGenericCustomSelects,
     upgradeNativeSelects,
 } from './features_config.js';

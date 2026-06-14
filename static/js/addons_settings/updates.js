@@ -280,6 +280,10 @@ function _ensureReleaseNotesModal() {
             hideUpdateReleaseNotes();
     });
     modal.querySelector('.app-modal-panel')?.addEventListener('click', (e) => e.stopPropagation());
+    modal.querySelector('[data-config-action="closeUpdateReleaseNotes"]')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        hideUpdateReleaseNotes();
+    });
     document.body.appendChild(modal);
     return modal;
 }

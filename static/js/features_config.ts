@@ -80,6 +80,11 @@ export {
     downloadBackupArchive,
     pickBackupUpload,
     uploadBackupArchive,
+    showBackupEncryptionKey,
+    downloadBackupEncryptionKey,
+    downloadBackupEncryptionKeyFromModal,
+    copyBackupEncryptionKey,
+    hideBackupEncryptionKeyModal,
 } from './features_addons_settings.js';
 
 export {

@@ -4,6 +4,18 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.7.6] — 2026-06
+
+Patch release: **backup encryption key export** and **modal close fixes**.
+
+### Backup
+- **View / copy / download** the Fernet encryption key from Hub → Backup (admin API `GET /api/backup/encryption-key`).
+- UI section under “Criptează arhivele” with key source hint and download as `backup_archive.key`.
+- **Fix:** encryption-key and release-notes modals close correctly (X and backdrop) — they live outside `#view-config`.
+
+### Tests
+- `tests/test_backup_api.py` — encryption key export and missing-key error.
+
 ## [0.9.7.5] — 2026-06
 
 Patch release: **backup migration** and **release notes button fix**.

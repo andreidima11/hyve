@@ -44,4 +44,9 @@ export {
     downloadBackupArchive,
     pickBackupUpload,
     uploadBackupArchive,
+    showBackupEncryptionKey,
+    downloadBackupEncryptionKey,
+    downloadBackupEncryptionKeyFromModal,
+    copyBackupEncryptionKey,
+    hideBackupEncryptionKeyModal,
 } from './addons_settings/backup.js';

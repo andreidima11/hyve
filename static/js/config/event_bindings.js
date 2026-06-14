@@ -6,6 +6,11 @@ let _bound = false;
 function _inConfigScope(el) {
     return !!el?.closest('#view-config');
 }
+function _inGlobalConfigModal(el) {
+    if (!el)
+        return false;
+    return !!el.closest('#update-release-notes-modal, #backup-encryption-key-modal');
+}
 function _run(action, el, event) {
     if (!_handlers)
         return;
@@ -13,7 +18,7 @@ function _run(action, el, event) {
         _handlers.closeAddonWebUI?.(event, el);
         return;
     }
-    if (!_inConfigScope(el))
+    if (!_inConfigScope(el) && !_inGlobalConfigModal(el))
         return;
     if (el.dataset.configBackdropDismiss === 'true' && event.target !== el)
         return;

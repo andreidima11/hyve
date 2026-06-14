@@ -80,6 +80,8 @@ import {
     saveBackupSettings, deleteBackupArchive, testBackupRemote,
     loadRemoteBackupArchives, pullRemoteBackup, restoreRemoteBackup,
     downloadBackupArchive, pickBackupUpload, uploadBackupArchive,
+    showBackupEncryptionKey, downloadBackupEncryptionKey, downloadBackupEncryptionKeyFromModal,
+    copyBackupEncryptionKey, hideBackupEncryptionKeyModal,
     installAddon, uninstallAddon, toggleAddon, openAddonConfigModal, saveAddonConfig as saveAddonConfigModal,
 } from './features.js';
 import {
@@ -953,6 +955,11 @@ window.addEventListener('DOMContentLoaded', () => {
         restoreRemoteBackup: (_event, el) => restoreRemoteBackup((el as HTMLElement).dataset.configName || ''),
         downloadBackupArchive: (_event, el) => downloadBackupArchive((el as HTMLElement).dataset.configPath || ''),
         pickBackupUpload: () => pickBackupUpload(),
+        showBackupEncryptionKey: () => showBackupEncryptionKey(),
+        downloadBackupEncryptionKey: () => downloadBackupEncryptionKey(),
+        downloadBackupEncryptionKeyFromModal: () => downloadBackupEncryptionKeyFromModal(),
+        copyBackupEncryptionKey: () => copyBackupEncryptionKey(),
+        closeBackupEncryptionKeyModal: () => hideBackupEncryptionKeyModal(),
         closeAddonConfigModal: () => closeAddonConfigModal(),
         checkAddonHealth: () => checkAddonHealth(),
         copyWebhook: () => copyWebhook(),

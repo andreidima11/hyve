@@ -119,7 +119,7 @@ def _map_error(exc: Exception) -> HTTPException:
             return HTTPException(400, error_detail("backup.checksum_mismatch", {"path": msg.split(":", 1)[1]}))
         if msg.startswith("unsupported_format_version:"):
             return HTTPException(400, error_detail("backup.unsupported_format"))
-        if msg in {"backup.invalid_path", "backup.decrypt_failed", "backup.upload_already_exists"}:
+        if msg in {"backup.invalid_path", "backup.decrypt_failed", "backup.upload_already_exists", "backup.encryption_key_missing"}:
             return HTTPException(400, error_detail(msg))
         if msg.startswith("backup.remote."):
             return HTTPException(400, error_detail(msg))
@@ -138,6 +138,17 @@ async def backup_status(
     service: BackupService = Depends(get_backup_service),
 ):
     return service.status()
+
+
+@router.get("/encryption-key")
+async def backup_encryption_key(
+    _: models.User = Depends(auth.get_current_admin),
+    service: BackupService = Depends(get_backup_service),
+):
+    try:
+        return await asyncio.to_thread(service.get_encryption_key)
+    except Exception as exc:
+        raise _map_error(exc) from exc
 
 
 @router.get("/maintenance")

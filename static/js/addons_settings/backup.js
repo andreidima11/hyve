@@ -6,6 +6,7 @@ import { t, translateApiDetail } from '../lang/index.js';
 import { showConfirm, escapeHtml } from '../utils.js';
 import { isExplicitNonAdmin } from '../user_context.js';
 let _cachedBackupSettings;
+let _cachedEncryptionKeyStatus;
 function _remoteUiAvailable() {
     return !!_el('backup-remote-enabled');
 }
@@ -124,6 +125,167 @@ export async function loadRemoteBackupArchives() {
         if (list)
             list.innerHTML = '';
         _setStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`, 'error');
+    }
+}
+async function _fetchEncryptionKey() {
+    const res = await apiCall('/api/backup/encryption-key');
+    const data = (await res.json().catch(() => ({})));
+    if (!res.ok)
+        throw new Error(translateApiDetail(data.detail) || t('backup.failed'));
+    const key = String(data.key || '').trim();
+    if (!key)
+        throw new Error(t('backup.encryption_key_missing'));
+    return { source: String(data.source || 'file'), key };
+}
+function _downloadKeyFile(key) {
+    const blob = new Blob([key], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'backup_archive.key';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+function _updateEncryptionKeySection(settings, keyStatus) {
+    const section = _el('backup-encryption-key-section');
+    const statusEl = _el('backup-encryption-key-status');
+    const showBtn = _el('backup-show-key-btn');
+    const dlBtn = _el('backup-download-key-btn');
+    if (!section)
+        return;
+    const wantsEncrypt = !!settings?.encrypt_at_rest;
+    const configured = !!keyStatus?.configured;
+    section.classList.toggle('hidden', !(wantsEncrypt || configured));
+    if (wantsEncrypt || configured) {
+        if (statusEl) {
+            statusEl.textContent = configured
+                ? t(keyStatus?.source === 'env'
+                    ? 'backup.encryption_key_source_env'
+                    : 'backup.encryption_key_source_file', { path: keyStatus?.file_path || 'secrets/backup_archive.key' })
+                : t('backup.encryption_key_pending');
+        }
+        if (showBtn)
+            showBtn.disabled = !configured;
+        if (dlBtn)
+            dlBtn.disabled = !configured;
+    }
+}
+function _showEncryptionKeyModal(key, source) {
+    let modal = document.getElementById('backup-encryption-key-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'backup-encryption-key-modal';
+        modal.className = 'modal-overlay app-modal fixed inset-0 z-[80] hidden flex items-center justify-center p-2 sm:p-4';
+        modal.innerHTML = `
+            <div class="glass app-modal-panel app-modal-content max-w-lg w-full">
+                <div class="app-modal-header">
+                    <div class="min-w-0">
+                        <h3 class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
+                            <i class="fas fa-key"></i><span id="backup-encryption-key-modal-title"></span>
+                        </h3>
+                        <p id="backup-encryption-key-modal-subtitle" class="app-modal-subtitle"></p>
+                    </div>
+                    <button type="button" class="app-modal-close" data-config-action="closeBackupEncryptionKeyModal" aria-label="Close">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="app-modal-body space-y-3">
+                    <p id="backup-encryption-key-modal-warning" class="text-[11px] text-amber-200/90 leading-relaxed"></p>
+                    <input type="text" id="backup-encryption-key-modal-input" readonly
+                        class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-xs mono text-slate-200 select-all" />
+                </div>
+                <div class="app-modal-footer justify-end gap-2">
+                    <button type="button" data-config-action="copyBackupEncryptionKey" id="backup-encryption-key-copy-btn" class="hy-btn hy-btn-ghost text-[11px]"></button>
+                    <button type="button" data-config-action="downloadBackupEncryptionKeyFromModal" id="backup-encryption-key-modal-download-btn" class="hy-btn hy-btn-primary text-[11px]"></button>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal)
+                hideBackupEncryptionKeyModal();
+        });
+        modal.querySelector('.app-modal-panel')?.addEventListener('click', (e) => e.stopPropagation());
+        modal.querySelector('[data-config-action="closeBackupEncryptionKeyModal"]')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            hideBackupEncryptionKeyModal();
+        });
+    }
+    const title = modal.querySelector('#backup-encryption-key-modal-title');
+    const subtitle = modal.querySelector('#backup-encryption-key-modal-subtitle');
+    const warning = modal.querySelector('#backup-encryption-key-modal-warning');
+    const input = modal.querySelector('#backup-encryption-key-modal-input');
+    const copyBtn = modal.querySelector('#backup-encryption-key-copy-btn');
+    const dlBtn = modal.querySelector('#backup-encryption-key-modal-download-btn');
+    if (title)
+        title.textContent = t('backup.encryption_key_modal_title');
+    if (subtitle) {
+        subtitle.textContent = source === 'env'
+            ? t('backup.encryption_key_source_env')
+            : t('backup.encryption_key_source_file', { path: 'secrets/backup_archive.key' });
+    }
+    if (warning)
+        warning.textContent = t('backup.encryption_key_modal_warning');
+    if (input)
+        input.value = key;
+    if (copyBtn)
+        copyBtn.innerHTML = `<i class="fas fa-copy"></i><span>${escapeHtml(t('backup.copy_encryption_key'))}</span>`;
+    if (dlBtn)
+        dlBtn.innerHTML = `<i class="fas fa-download"></i><span>${escapeHtml(t('backup.download_encryption_key'))}</span>`;
+    modal.dataset.backupKey = key;
+    modal.classList.remove('hidden');
+    input?.focus();
+    input?.select();
+}
+export function hideBackupEncryptionKeyModal() {
+    document.getElementById('backup-encryption-key-modal')?.classList.add('hidden');
+}
+export async function showBackupEncryptionKey() {
+    if (!(await showConfirm(t('backup.encryption_key_confirm'))))
+        return;
+    _setStatus(`<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('backup.encryption_key_loading'))}`, 'info');
+    try {
+        const data = await _fetchEncryptionKey();
+        _setStatus('', 'hidden');
+        _showEncryptionKeyModal(data.key, data.source);
+    }
+    catch (e) {
+        _setStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`, 'error');
+    }
+}
+export function downloadBackupEncryptionKeyFromModal() {
+    const modal = document.getElementById('backup-encryption-key-modal');
+    const key = modal?.dataset.backupKey || '';
+    if (!key)
+        return;
+    _downloadKeyFile(key);
+    _setStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(t('backup.encryption_key_downloaded'))}`, 'success');
+}
+export async function downloadBackupEncryptionKey() {
+    if (!(await showConfirm(t('backup.encryption_key_confirm'))))
+        return;
+    try {
+        const data = await _fetchEncryptionKey();
+        _downloadKeyFile(data.key);
+        _setStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(t('backup.encryption_key_downloaded'))}`, 'success');
+    }
+    catch (e) {
+        _setStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`, 'error');
+    }
+}
+export async function copyBackupEncryptionKey() {
+    const modal = document.getElementById('backup-encryption-key-modal');
+    const key = modal?.dataset.backupKey || '';
+    if (!key)
+        return;
+    try {
+        await navigator.clipboard.writeText(key);
+        _setStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(t('backup.encryption_key_copied'))}`, 'success');
+    }
+    catch {
+        const input = modal?.querySelector('#backup-encryption-key-modal-input');
+        input?.select();
+        document.execCommand('copy');
+        _setStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(t('backup.encryption_key_copied'))}`, 'success');
     }
 }
 function _isEncryptedPath(path) {
@@ -417,8 +579,10 @@ export async function loadBackupPanel() {
         }
         const data = (await res.json());
         _cachedBackupSettings = data.settings;
+        _cachedEncryptionKeyStatus = data.encryption_key;
         _setMaintenanceBanner(!!data.maintenance, data.maintenance_reason || '');
         _applySettings(data.settings);
+        _updateEncryptionKeySection(data.settings, data.encryption_key);
         _renderArchives(data.archives || []);
         const showRemote = _remoteUiAvailable() && !!(data.remote_enabled && data.remote_configured);
         _toggleRemoteArchivesSection(showRemote);
@@ -771,6 +935,12 @@ export async function uploadBackupArchive(file) {
     }
 }
 if (typeof document !== 'undefined') {
+    document.addEventListener('change', (e) => {
+        const target = e.target;
+        if (target instanceof HTMLInputElement && target.id === 'backup-encrypt-at-rest') {
+            _updateEncryptionKeySection({ ..._cachedBackupSettings, encrypt_at_rest: target.checked }, _cachedEncryptionKeyStatus);
+        }
+    });
     document.addEventListener('change', (e) => {
         const target = e.target;
         if (!(target instanceof HTMLInputElement) || target.id !== 'backup-upload-input')

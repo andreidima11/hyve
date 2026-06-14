@@ -11,13 +11,18 @@ function _inConfigScope(el: Element | null | undefined): boolean {
     return !!el?.closest('#view-config');
 }
 
+function _inGlobalConfigModal(el: Element | null | undefined): boolean {
+    if (!el) return false;
+    return !!el.closest('#update-release-notes-modal, #backup-encryption-key-modal');
+}
+
 function _run(action: string, el: HTMLElement, event: Event): void {
     if (!_handlers) return;
     if (action === 'closeAddonWebUI') {
         _handlers.closeAddonWebUI?.(event, el);
         return;
     }
-    if (!_inConfigScope(el)) return;
+    if (!_inConfigScope(el) && !_inGlobalConfigModal(el)) return;
     if (el.dataset.configBackdropDismiss === 'true' && event.target !== el) return;
 
     switch (action) {

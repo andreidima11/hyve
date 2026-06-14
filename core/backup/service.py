@@ -12,7 +12,14 @@ from typing import Any
 from core.backup.archive import read_manifest_from_archive
 from core.backup.config_store import get_backup_config, save_backup_config
 from core.backup.coordinator import BackupCoordinator, RestoreResult
-from core.backup.encryption import decrypt_file, encrypt_file, encryption_available, is_encrypted_name
+from core.backup.encryption import (
+    decrypt_file,
+    encrypt_file,
+    encryption_available,
+    encryption_key_status,
+    export_encryption_key,
+    is_encrypted_name,
+)
 from core.backup.maintenance import maintenance_mode
 from core.backup.paths import BackupOptions
 from core.backup.remote import (
@@ -340,6 +347,9 @@ class BackupService:
         schedule_backup_job()
         return saved
 
+    def get_encryption_key(self) -> dict[str, str]:
+        return export_encryption_key()
+
     def status(self) -> dict[str, Any]:
         from core.backup.maintenance import get_status
 
@@ -353,6 +363,7 @@ class BackupService:
             "last_operation": self._last_operation.to_dict(),
             "settings": cfg,
             "encryption_available": encryption_available(),
+            "encryption_key": encryption_key_status(),
             "remote_enabled": remote_enabled(cfg),
             "remote_configured": remote_configured(cfg),
         }
