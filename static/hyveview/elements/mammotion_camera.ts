@@ -49,7 +49,8 @@ type MammotionTokens = {
 const AGORA_SDK_URL = 'https://download.agora.io/sdk/release/AgoraRTC_N.js';
 const MAMMOTION_CAMERA_API_TIMEOUT = 120_000;
 const JOIN_RELEASE_MS = 500;
-const PUBLISHER_WAKE_MS = 2500;
+const PUBLISHER_WAKE_MS = 3000;
+const POST_LEAVE_SETTLE_MS = 350;
 const VIDEO_WAIT_MS = 30000;
 const KEEPALIVE_MS = 90_000;
 const RECONNECT_BASE_MS = 2000;
@@ -182,13 +183,12 @@ class HyveMammotionCamera extends HTMLElement {
   private _joinGraceUntil = 0;
   private _pendingReconnectReason: string | null = null;
   private _reconnectQueued = false;
-  private _connectGen = 0;
+  private _connectOpId = 0;
   private _sessionEntity = '';
   private _onI18nLoaded = () => this._refreshVisibleText();
 
   private _logStreamEvent(event: string, detail: Record<string, unknown> = {}) {
     const payload = {
-      event,
       entity: this._entity,
       playing: this._playing,
       connecting: this._connecting,
@@ -198,7 +198,16 @@ class HyveMammotionCamera extends HTMLElement {
       ts: Date.now(),
       ...detail,
     };
-    console.warn('[hv-mammotion-camera]', payload);
+    console.warn(`[hv-mammotion-camera] ${event}`, payload);
+  }
+
+  private _bumpConnectOp(): number {
+    this._connectOpId += 1;
+    return this._connectOpId;
+  }
+
+  private _connectOpStale(opId: number): boolean {
+    return opId !== this._connectOpId;
   }
 
   connectedCallback() {
@@ -483,11 +492,10 @@ class HyveMammotionCamera extends HTMLElement {
         if (!this._shouldStayLive() || this._entity !== entity) return;
         const canProceed = await this._releaseOtherViewers();
         if (!canProceed) return;
-        await this._leaveClient();
-        if (!this._shouldStayLive() || this._entity !== entity) return;
+        const opId = this._bumpConnectOp();
         const tokens = await this._fetchTokens();
-        if (!this._shouldStayLive() || this._entity !== entity) return;
-        await this._connectAgora(tokens, 0);
+        if (!this._shouldStayLive() || this._entity !== entity || this._connectOpStale(opId)) return;
+        await this._connectAgora(tokens, 0, opId);
       });
       this._reconnectAttempts = 0;
       this._logStreamEvent('reconnect-success', { reason });
@@ -523,31 +531,44 @@ class HyveMammotionCamera extends HTMLElement {
     if (!other || other === this) return true;
     if (other._playing) return false;
     if (other._connecting) {
-      const deadline = Date.now() + 15000;
+      const deadline = Date.now() + 8000;
       while (other._connecting && Date.now() < deadline) {
         await _sleep(200);
       }
       if (other._playing) return false;
-      if (other._connecting) return false;
     }
     if (_entitySessions.get(this._entity) === other) {
+      other._bumpConnectOp();
       await other._teardown(false);
     }
     return true;
   }
 
+  private async _disconnectAgoraClient(client: AgoraRtcClient | null) {
+    if (!client) return;
+    if (this._client === client) {
+      this._client = null;
+      this._channelJoined = false;
+      this._joinGraceUntil = 0;
+    }
+    this._leavingChannel = true;
+    try {
+      await client.leave();
+    } catch { /* ignore */ }
+    finally {
+      this._leavingChannel = false;
+    }
+    await _sleep(POST_LEAVE_SETTLE_MS);
+  }
+
   private async _leaveClient() {
-    this._connectGen += 1;
+    this._bumpConnectOp();
     const client = this._client;
     this._client = null;
     this._channelJoined = false;
     this._joinGraceUntil = 0;
     this._sessionEntity = '';
-    if (!client) return;
-    this._leavingChannel = true;
-    try { await client.leave(); } catch { /* ignore */ }
-    finally { this._leavingChannel = false; }
-    await _sleep(200);
+    await this._disconnectAgoraClient(client);
   }
 
   private _clearVideoWaitTimer() {
@@ -602,8 +623,9 @@ class HyveMammotionCamera extends HTMLElement {
     }
   }
 
-  private async _connectAgora(tokens: MammotionTokens, attempt: number): Promise<void> {
+  private async _connectAgora(tokens: MammotionTokens, attempt: number, opId: number): Promise<void> {
     await loadAgoraSdk();
+    if (this._connectOpStale(opId)) return;
     if (!window.AgoraRTC) throw new Error(_mcam('mammotion_agora_unavailable'));
 
     const rtc = window.AgoraRTC as typeof window.AgoraRTC & {
@@ -615,12 +637,13 @@ class HyveMammotionCamera extends HTMLElement {
       rtc.enableLogUpload?.(false);
     } catch { /* optional SDK tuning */ }
 
-    await this._leaveClient();
+    await this._disconnectAgoraClient(this._client);
+    if (this._connectOpStale(opId)) return;
 
-    const connectGen = this._connectGen;
     const client = window.AgoraRTC.createClient({
       mode: 'live',
       codec: 'vp8',
+      role: 'host',
     });
     this._client = client;
     this._remoteUsers = [];
@@ -670,9 +693,9 @@ class HyveMammotionCamera extends HTMLElement {
       }
     });
 
-    client.on('connection-state-change', (state: unknown) => {
-      if (String(state || '') !== 'DISCONNECTED') return;
-      if (this._leavingChannel) return;
+    client.on('connection-state-change', (curState: unknown) => {
+      if (String(curState || '') !== 'DISCONNECTED') return;
+      if (this._client !== client || this._leavingChannel) return;
       if (Date.now() < this._joinGraceUntil) return;
       if (this._connecting && !this._playing) return;
       this._playing = false;
@@ -701,12 +724,14 @@ class HyveMammotionCamera extends HTMLElement {
         Number.isFinite(joinUid) ? joinUid : null,
       );
     } catch (err) {
+      if (this._client === client) this._client = null;
       if (_isUidConflict(err) && attempt < 2) {
-        await this._leaveClient();
+        await this._disconnectAgoraClient(client);
         await _stopRemoteSession(this._entity);
         const fresh = await this._fetchTokens();
         await _sleep(PUBLISHER_WAKE_MS);
-        return this._connectAgora(fresh, attempt + 1);
+        if (this._connectOpStale(opId)) return;
+        return this._connectAgora(fresh, attempt + 1, opId);
       }
       if (_isUidConflict(err)) {
         throw new Error(_mcam('mammotion_uid_conflict'));
@@ -714,9 +739,8 @@ class HyveMammotionCamera extends HTMLElement {
       throw err;
     }
 
-    if (connectGen !== this._connectGen || this._client !== client) {
-      try { await client.leave(); } catch { /* stale join */ }
-      if (this._client === client) this._client = null;
+    if (this._connectOpStale(opId) || this._client !== client) {
+      await this._disconnectAgoraClient(client);
       return;
     }
 
@@ -749,11 +773,10 @@ class HyveMammotionCamera extends HTMLElement {
           abort();
           return;
         }
-        await this._leaveClient();
-        if (this._paused || this._entity !== entity) { abort(); return; }
+        const opId = this._bumpConnectOp();
         const tokens = await this._fetchTokens();
-        if (this._paused || this._entity !== entity) { abort(); return; }
-        await this._connectAgora(tokens, 0);
+        if (this._paused || this._entity !== entity || this._connectOpStale(opId)) { abort(); return; }
+        await this._connectAgora(tokens, 0, opId);
       } catch (err) {
         this._connecting = false;
         this._playing = false;

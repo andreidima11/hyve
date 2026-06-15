@@ -377,7 +377,7 @@ async def start_mammotion_camera(hub: Any, device_name: str) -> dict[str, Any]:
     canonical_name, _iot_id = await _resolve_device_ref(hub, device_name)
     await _try_mqtt_camera_wake(hub, canonical_name)
     # Give the robot time to enter the Agora channel as publisher before the browser joins.
-    await asyncio.sleep(1.5)
+    await asyncio.sleep(2.5)
     return await refresh_mammotion_stream_tokens(hub, canonical_name, force=True)
 
 
