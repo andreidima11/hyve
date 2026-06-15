@@ -275,7 +275,23 @@ def _is_ignored_dirty_path(path: str) -> bool:
         return True
     if normalized.startswith("static/js/") and normalized.endswith(".js"):
         return True
+    if normalized.startswith("static/") and normalized.endswith(".js.map"):
+        return True
     return False
+
+
+def _ignored_dirty_paths_from_porcelain(porcelain: str) -> list[str]:
+    paths: list[str] = []
+    seen: set[str] = set()
+    for line in (porcelain or "").splitlines():
+        if not line.strip():
+            continue
+        path = _dirty_path_from_porcelain(line)
+        if not _is_ignored_dirty_path(path) or path in seen:
+            continue
+        seen.add(path)
+        paths.append(path)
+    return paths
 
 
 def _blocking_dirty_lines(porcelain: str) -> list[str]:
@@ -396,6 +412,26 @@ def _assert_git_ready() -> None:
     if blocking:
         detail = "\n".join(_dirty_path_from_porcelain(line) for line in blocking[:8])
         raise HyveUpdateError("updates.hyve_dirty_tree", {"detail": detail})
+
+
+def _reset_ignored_dirty_paths() -> list[str]:
+    """Discard local diffs on build artifacts so npm rebuilds do not block in-app update."""
+    if not is_git_install():
+        return []
+    status = _run_cmd(
+        ["git", "status", "--porcelain", "--untracked-files=no"],
+        check=True,
+    )
+    paths = _ignored_dirty_paths_from_porcelain(status.stdout)
+    if not paths:
+        return []
+    proc = _run_cmd(["git", "checkout", "--", *paths], check=False)
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()[:200]
+        log.warning("reset ignored dirty paths failed: %s", detail)
+    else:
+        log.info("reset ignored dirty paths before update (%d): %s", len(paths), ", ".join(paths[:8]))
+    return paths
 
 
 def _fetch_tags() -> None:
@@ -545,6 +581,7 @@ def apply_update() -> dict[str, Any]:
     if not tag:
         raise HyveUpdateError("updates.hyve_release_invalid")
 
+    _reset_ignored_dirty_paths()
     _assert_git_ready()
     _fetch_tags()
 

@@ -132,12 +132,48 @@ def test_blocking_dirty_lines_ignores_build_artifacts():
             " M package-lock.json",
             " M config.json",
             " M static/hyveview/elements/camera_stream.js",
+            " M static/hyveview/elements/mammotion_camera.js.map",
             " M core/settings.py",
         ]
     )
     blocking = hu._blocking_dirty_lines(porcelain)
     assert len(blocking) == 1
     assert "core/settings.py" in hu._dirty_path_from_porcelain(blocking[0])
+
+
+def test_ignored_dirty_paths_from_porcelain():
+    porcelain = "\n".join(
+        [
+            " M static/hyveview/elements/mammotion_camera.js.map",
+            " M static/css/tailwind.built.css",
+            " M core/settings.py",
+        ]
+    )
+    paths = hu._ignored_dirty_paths_from_porcelain(porcelain)
+    assert "static/hyveview/elements/mammotion_camera.js.map" in paths
+    assert "static/css/tailwind.built.css" in paths
+    assert "core/settings.py" not in paths
+
+
+def test_reset_ignored_dirty_paths_checkout(monkeypatch, tmp_path: Path):
+    (tmp_path / ".git").mkdir()
+    calls: list[list[str]] = []
+
+    def _fake_run(args, **kwargs):
+        calls.append(list(args))
+        class _Proc:
+            returncode = 0
+            stdout = " M static/hyveview/elements/mammotion_camera.js.map\n"
+            stderr = ""
+        return _Proc()
+
+    monkeypatch.setattr(hu, "_PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(hu, "is_git_install", lambda: True)
+    monkeypatch.setattr(hu, "_run_cmd", _fake_run)
+
+    reset = hu._reset_ignored_dirty_paths()
+    assert reset == ["static/hyveview/elements/mammotion_camera.js.map"]
+    assert ["git", "checkout", "--", "static/hyveview/elements/mammotion_camera.js.map"] in calls
 
 
 def test_apply_update_requires_git(monkeypatch, tmp_path: Path):
@@ -158,6 +194,7 @@ def test_apply_update_checkout_and_restart(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(hu, "_last_hyve_check", {"tag": "0.9.6.3", "latest": "0.9.6.3"})
     monkeypatch.setattr(hu, "check_for_update", lambda: {"update_available": True, "latest": "0.9.6.3"})
     monkeypatch.setattr(hu, "get_status", lambda: {"update_available": True, "latest": "0.9.6.3"})
+    monkeypatch.setattr(hu, "_reset_ignored_dirty_paths", lambda: [])
     monkeypatch.setattr(hu, "_assert_git_ready", lambda: None)
     monkeypatch.setattr(hu, "_fetch_tags", lambda: None)
     monkeypatch.setattr(hu, "_pip_install", lambda: None)
@@ -215,6 +252,7 @@ def test_apply_update_requires_npm_before_checkout(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(hu, "_last_hyve_check", {"tag": "0.9.6.3", "latest": "0.9.6.3"})
     monkeypatch.setattr(hu, "check_for_update", lambda: {"update_available": True})
     monkeypatch.setattr(hu, "get_status", lambda: {"update_available": True})
+    monkeypatch.setattr(hu, "_reset_ignored_dirty_paths", lambda: [])
     monkeypatch.setattr(hu, "_assert_git_ready", lambda: None)
     monkeypatch.setattr(hu, "_fetch_tags", lambda: None)
     monkeypatch.setattr(hu, "_frontend_build_required", lambda: True)
@@ -238,6 +276,7 @@ def test_apply_update_rolls_back_on_frontend_build_failure(monkeypatch, tmp_path
     monkeypatch.setattr(hu, "_last_hyve_check", {"tag": "0.9.6.3", "latest": "0.9.6.3"})
     monkeypatch.setattr(hu, "check_for_update", lambda: {"update_available": True})
     monkeypatch.setattr(hu, "get_status", lambda: {"update_available": True})
+    monkeypatch.setattr(hu, "_reset_ignored_dirty_paths", lambda: [])
     monkeypatch.setattr(hu, "_assert_git_ready", lambda: None)
     monkeypatch.setattr(hu, "_fetch_tags", lambda: None)
     monkeypatch.setattr(hu, "_pip_install", lambda: None)

@@ -11,6 +11,13 @@ import type { AddonRecord } from './types.js';
 import * as render from './render.js';
 
 let _currentAddonSlug: string | null = null;
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('hyve:i18n-bundles-loaded', () => {
+        if (document.getElementById('addons-list')) void loadAddons();
+    });
+}
+
 export async function loadAddons() {
     const container = document.getElementById('addons-list');
     if (!container) return;

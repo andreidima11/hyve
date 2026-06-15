@@ -4,6 +4,21 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.4] — 2026-06
+
+Patch release: **reliable in-app updates** and **add-on UI i18n refresh**.
+
+### Hyve self-update
+- **Fix:** Before checking the git tree, auto-reset ignored build artifacts (`static/hyveview/`, `static/dist/`, `static/js/*.js`, `*.js.map`, `tailwind.built.css`, `package-lock.json`) so `npm run js:build` no longer blocks updates.
+- **Fix:** Ignore tracked `static/**/*.js.map` source maps in dirty-tree checks.
+- **Fix:** Dirty-tree API errors append blocking file paths even when the UI string omits `{detail}`.
+
+### Frontend
+- **Fix:** Add-ons settings list and Updates panel re-render when `/api/i18n/bundles` finishes loading (`hy.addon_*`, `apps.*`, `updates.*`).
+
+### Tests
+- `tests/test_hyve_update.py` — ignored-path reset and `.js.map` coverage.
+
 ## [0.9.8.3] — 2026-06
 
 Patch release: **Mammotion camera** — shared i18n bundle, stream reconnect stability, and theme-aware play button.

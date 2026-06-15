@@ -22,6 +22,12 @@ interface ReleaseNotesEntry {
 
 const _releaseNotesCache = new Map<string, ReleaseNotesEntry>();
 
+if (typeof window !== 'undefined') {
+    window.addEventListener('hyve:i18n-bundles-loaded', () => {
+        if (_updatesListEl()) _renderUpdateRows();
+    });
+}
+
 function _updatesEl<T extends HTMLElement>(primaryId: string, ...legacyIds: string[]): T | null {
     return (document.getElementById(primaryId)
         ?? legacyIds.map(id => document.getElementById(id)).find(Boolean)

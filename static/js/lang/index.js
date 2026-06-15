@@ -101,7 +101,14 @@ export function t(key, params) {
 export function translateApiDetail(detail) {
     if (detail == null || detail === '') return '';
     if (typeof detail === 'object') {
-        if (typeof detail.key === 'string') return t(detail.key, detail.params);
+        if (typeof detail.key === 'string') {
+            const msg = t(detail.key, detail.params);
+            const extra = detail.params?.detail;
+            if (typeof extra === 'string' && extra.trim() && !msg.includes(extra.trim())) {
+                return `${msg}: ${extra.trim()}`;
+            }
+            return msg;
+        }
         if (detail.errors && typeof detail.errors === 'object') {
             return Object.values(detail.errors)
                 .map((v) => translateApiDetail(v))
