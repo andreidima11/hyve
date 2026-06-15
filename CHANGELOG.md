@@ -4,6 +4,14 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.5] — 2026-06
+
+Hotfix: **Vite chunk import paths** — fixes broken lazy modules, Mammotion camera, and add-ons UI.
+
+### Frontend
+- **Fix:** Lazy chunks imported `../static/dist/lang.js`, which browsers resolved to `/static/dist/static/dist/lang.js` (404). All `static/dist/**/*.js` outputs now use absolute `/static/dist/lang.js` imports (`scripts/fix-dist-imports.mjs` + Vite `generateBundle` hook).
+- **Fix:** Resolves `features_apps-*.js` dynamic import failures and `Funcția nu s-a putut încărca` when navigating between config sections.
+
 ## [0.9.8.4] — 2026-06
 
 Patch release: **reliable in-app updates** and **add-on UI i18n refresh**.

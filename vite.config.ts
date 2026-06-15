@@ -28,11 +28,19 @@ function externalizeSharedLang(): Plugin {
             return null;
         },
         generateBundle(_options, bundle) {
-            const app = bundle['app.js'];
-            if (!app || app.type !== 'chunk') return;
-            app.code = app.code
+            const fixLang = (code) => code
+                .replace(/from"\.\.\/static\/dist\/lang\.js"/g, 'from"/static/dist/lang.js"')
+                .replace(/from'\.\.\/static\/dist\/lang\.js'/g, "from'/static/dist/lang.js'")
                 .replace(/from"\.\/static\/dist\/lang\.js"/g, 'from"/static/dist/lang.js"')
-                .replace(/from'\.\/static\/dist\/lang\.js'/g, "from'/static/dist/lang.js'");
+                .replace(/from'\.\/static\/dist\/lang\.js'/g, "from'/static/dist/lang.js'")
+                .replace(/import"\.\.\/static\/dist\/lang\.js"/g, 'import"/static/dist/lang.js"')
+                .replace(/import'\.\.\/static\/dist\/lang\.js'/g, "import'/static/dist/lang.js'")
+                .replace(/import"\.\/static\/dist\/lang\.js"/g, 'import"/static/dist/lang.js"')
+                .replace(/import'\.\/static\/dist\/lang\.js'/g, "import'/static/dist/lang.js'");
+            for (const item of Object.values(bundle)) {
+                if (item.type !== 'chunk') continue;
+                item.code = fixLang(item.code);
+            }
         },
     };
 }
