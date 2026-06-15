@@ -4,6 +4,23 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.1] — 2026-06
+
+Patch release: **post-update stability** — shared auth token, safer in-app updates, Mammotion Agora session race.
+
+### Frontend
+- **Fix:** Hyveview and main app shared the same `api.js` module with separate JWT state — cameras and card-packages returned 401 after login; `resolveAuthToken()` reads `localStorage` on every request.
+- **Fix:** Custom dropdowns — explicit load of `generic.js` click handlers in app entry.
+- **Fix:** Mammotion live view — avoid tearing down an in-flight Agora join when two cards share one entity; teardown on `entity` change; quieter subscribe errors after `leave`.
+
+### Hyve self-update
+- **Fix:** In-app update requires `npm` and runs `npm ci && npm run js:build` before restart; rolls back git on build failure.
+- **New:** Update status shows frontend prerequisites and manual build commands in UI/i18n.
+- **New:** Startup warns when `static/dist/app.js` is missing.
+
+### Tests
+- `tests/test_hyve_update.py` — npm preflight, rollback on frontend build failure, prerequisites in status.
+
 ## [0.9.8.0] — 2026-06
 
 Minor release: **professionalization pass** — Vite frontend pipeline, security hardening, modular cameras API, Alembic-only schema bootstrap, and integration lifecycle.

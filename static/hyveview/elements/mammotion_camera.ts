@@ -181,6 +181,7 @@ class HyveMammotionCamera extends HTMLElement {
   private _leavingChannel = false;
   private _joinGraceUntil = 0;
   private _pendingReconnectReason: string | null = null;
+  private _sessionEntity = '';
 
   private _logStreamEvent(event: string, detail: Record<string, unknown> = {}) {
     const payload = {
@@ -224,6 +225,13 @@ class HyveMammotionCamera extends HTMLElement {
   attributeChangedCallback(name: string) {
     if (!this._stage) return;
     if (name === 'autoplay' || name === 'force-active' || name === 'entity') {
+      if (name === 'entity') {
+        const next = this._entity;
+        if (this._sessionEntity && next && this._sessionEntity !== next
+          && (this._playing || this._connecting || this._client)) {
+          void this._teardown(false);
+        }
+      }
       if (this._forceActive) {
         this._observer?.disconnect();
         this._observer = null;
@@ -450,7 +458,8 @@ class HyveMammotionCamera extends HTMLElement {
     try {
       await _withEntityJoinLock(entity, async () => {
         if (!this._shouldStayLive() || this._entity !== entity) return;
-        await this._releaseOtherViewers();
+        const canProceed = await this._releaseOtherViewers();
+        if (!canProceed) return;
         await this._leaveClient();
         if (!this._shouldStayLive() || this._entity !== entity) return;
         const tokens = await this._fetchTokens();
@@ -485,11 +494,22 @@ class HyveMammotionCamera extends HTMLElement {
     }
   }
 
-  private async _releaseOtherViewers() {
+  private async _releaseOtherViewers(): Promise<boolean> {
     const other = _entitySessions.get(this._entity);
-    if (other && other !== this) {
+    if (!other || other === this) return true;
+    if (other._playing) return false;
+    if (other._connecting) {
+      const deadline = Date.now() + 15000;
+      while (other._connecting && Date.now() < deadline) {
+        await _sleep(200);
+      }
+      if (other._playing) return false;
+      if (other._connecting) return false;
+    }
+    if (_entitySessions.get(this._entity) === other) {
       await other._teardown(false);
     }
+    return true;
   }
 
   private async _leaveClient() {
@@ -497,6 +517,7 @@ class HyveMammotionCamera extends HTMLElement {
     this._client = null;
     this._channelJoined = false;
     this._joinGraceUntil = 0;
+    this._sessionEntity = '';
     if (!client) return;
     this._leavingChannel = true;
     try { await client.leave(); } catch { /* ignore */ }
@@ -560,6 +581,15 @@ class HyveMammotionCamera extends HTMLElement {
     await loadAgoraSdk();
     if (!window.AgoraRTC) throw new Error(_mcam('mammotion_agora_unavailable'));
 
+    const rtc = window.AgoraRTC as typeof window.AgoraRTC & {
+      setLogLevel?: (level: number) => void;
+      enableLogUpload?: (enable: boolean) => void;
+    };
+    try {
+      rtc.setLogLevel?.(3);
+      rtc.enableLogUpload?.(false);
+    } catch { /* optional SDK tuning */ }
+
     await this._leaveClient();
 
     const client = window.AgoraRTC.createClient({
@@ -570,9 +600,11 @@ class HyveMammotionCamera extends HTMLElement {
     this._remoteUsers = [];
 
     client.on('user-published', async (user: unknown, mediaType: unknown) => {
+      if (this._client !== client || !this._channelJoined || this._leavingChannel) return;
       try {
         await this._subscribeRemote(client, user as AgoraRemoteUser, String(mediaType));
       } catch (err) {
+        if (this._client !== client || !this._channelJoined || this._leavingChannel) return;
         console.warn('[hv-mammotion-camera] subscribe failed', err);
       }
     });
@@ -658,6 +690,7 @@ class HyveMammotionCamera extends HTMLElement {
 
     this._channelJoined = true;
     this._joinGraceUntil = Date.now() + 8000;
+    this._sessionEntity = this._entity;
     _entitySessions.set(this._entity, this);
     await this._subscribeExistingPublishers(client);
     this._armVideoWaitTimer();
@@ -678,7 +711,11 @@ class HyveMammotionCamera extends HTMLElement {
         this._setIdleMessage();
       };
       try {
-        await this._releaseOtherViewers();
+        const canProceed = await this._releaseOtherViewers();
+        if (!canProceed) {
+          abort();
+          return;
+        }
         await this._leaveClient();
         if (this._paused || this._entity !== entity) { abort(); return; }
         const tokens = await this._fetchTokens();

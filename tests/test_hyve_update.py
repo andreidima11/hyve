@@ -160,6 +160,8 @@ def test_apply_update_checkout_and_restart(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(hu, "_fetch_tags", lambda: None)
     monkeypatch.setattr(hu, "_pip_install", lambda: None)
     monkeypatch.setattr(hu, "_js_build", lambda: None)
+    monkeypatch.setattr(hu, "_git_head_ref", lambda: "abc123")
+    monkeypatch.setattr(hu, "_frontend_build_required", lambda: False)
 
     def _record_checkout(tag: str):
         calls.append(["checkout", tag])
@@ -176,3 +178,84 @@ def test_apply_update_checkout_and_restart(monkeypatch, tmp_path: Path):
     assert calls == [["checkout", "0.9.6.3"]]
     assert result["version"] == "0.9.6.3"
     assert restarted
+
+
+def test_get_status_includes_prerequisites(monkeypatch):
+    monkeypatch.setattr(hu, "current_version", lambda: "0.9.6.2")
+    monkeypatch.setattr(
+        hu,
+        "_last_hyve_check",
+        {
+            "latest": "0.9.6.2",
+            "tag": "0.9.6.2",
+            "release_url": "",
+            "release_notes": "",
+            "checked_at": "2026-01-01T00:00:00+00:00",
+            "error": None,
+        },
+    )
+    monkeypatch.setattr(hu, "_npm_available", lambda: True)
+    monkeypatch.setattr(hu, "_frontend_dist_ready", lambda: False)
+    monkeypatch.setattr(hu, "_frontend_build_required", lambda: True)
+    status = hu.get_status()
+    prereq = status["prerequisites"]
+    assert prereq["npm_available"] is True
+    assert prereq["frontend_dist_ready"] is False
+    assert prereq["frontend_build_required"] is True
+    assert "npm ci" in prereq["frontend_build_commands"]
+
+
+def test_apply_update_requires_npm_before_checkout(monkeypatch, tmp_path: Path):
+    (tmp_path / ".git").mkdir()
+    checkout_called: list[str] = []
+
+    monkeypatch.setattr(hu, "_PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(hu, "_last_hyve_check", {"tag": "0.9.6.3", "latest": "0.9.6.3"})
+    monkeypatch.setattr(hu, "check_for_update", lambda: {"update_available": True})
+    monkeypatch.setattr(hu, "get_status", lambda: {"update_available": True})
+    monkeypatch.setattr(hu, "_assert_git_ready", lambda: None)
+    monkeypatch.setattr(hu, "_fetch_tags", lambda: None)
+    monkeypatch.setattr(hu, "_frontend_build_required", lambda: True)
+    monkeypatch.setattr(hu, "_npm_path", lambda: None)
+    monkeypatch.setattr(hu, "_checkout_tag", lambda tag: checkout_called.append(tag))
+    restarted: list[int] = []
+    monkeypatch.setattr("core.server_restart.schedule_restart", lambda **_: restarted.append(1))
+
+    with pytest.raises(hu.HyveUpdateError) as exc:
+        hu.apply_update()
+    assert exc.value.key == "updates.hyve_npm_required"
+    assert not checkout_called
+    assert not restarted
+
+
+def test_apply_update_rolls_back_on_frontend_build_failure(monkeypatch, tmp_path: Path):
+    (tmp_path / ".git").mkdir()
+    rollback_refs: list[str] = []
+
+    monkeypatch.setattr(hu, "_PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(hu, "_last_hyve_check", {"tag": "0.9.6.3", "latest": "0.9.6.3"})
+    monkeypatch.setattr(hu, "check_for_update", lambda: {"update_available": True})
+    monkeypatch.setattr(hu, "get_status", lambda: {"update_available": True})
+    monkeypatch.setattr(hu, "_assert_git_ready", lambda: None)
+    monkeypatch.setattr(hu, "_fetch_tags", lambda: None)
+    monkeypatch.setattr(hu, "_pip_install", lambda: None)
+    monkeypatch.setattr(hu, "_git_head_ref", lambda: "abc123")
+    monkeypatch.setattr(hu, "_checkout_tag", lambda _tag: None)
+    monkeypatch.setattr(hu, "_frontend_build_required", lambda: True)
+    monkeypatch.setattr(hu, "_npm_path", lambda: "/usr/bin/npm")
+    def _fail_build():
+        raise hu.HyveUpdateError(
+            "updates.hyve_frontend_build_failed",
+            {"detail": "boom", "commands": "npm ci && npm run js:build"},
+        )
+
+    monkeypatch.setattr(hu, "_js_build", _fail_build)
+    monkeypatch.setattr(hu, "_git_checkout_ref", lambda ref: rollback_refs.append(ref))
+    restarted: list[int] = []
+    monkeypatch.setattr("core.server_restart.schedule_restart", lambda **_: restarted.append(1))
+
+    with pytest.raises(hu.HyveUpdateError) as exc:
+        hu.apply_update()
+    assert exc.value.key == "updates.hyve_frontend_build_failed"
+    assert rollback_refs == ["abc123"]
+    assert not restarted

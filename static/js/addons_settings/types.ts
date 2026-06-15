@@ -68,4 +68,10 @@ export interface HyveUpdateStatus {
     git_available?: boolean;
     github_repo?: string;
     github_token_configured?: boolean;
+    prerequisites?: {
+        npm_available?: boolean;
+        frontend_dist_ready?: boolean;
+        frontend_build_required?: boolean;
+        frontend_build_commands?: string;
+    };
 }

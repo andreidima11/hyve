@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 import httpx
 
@@ -17,6 +18,19 @@ from core.startup_status import report_subsystem
 
 async def startup_infrastructure(app) -> None:
     print_banner()
+    dist_app = Path(__file__).resolve().parents[2] / "static" / "dist" / "app.js"
+    if not dist_app.is_file():
+        log_line(
+            "error",
+            "⚠️",
+            "FRONTEND",
+            "static/dist/app.js missing — run: npm ci && npm run js:build (then restart)",
+        )
+        report_subsystem(
+            "frontend",
+            "degraded",
+            message="static/dist/app.js missing — npm run js:build required",
+        )
     timeout = float(settings.CFG.get("llm", {}).get("timeout") or 120)
     app.state.http_client = httpx.AsyncClient(timeout=timeout)
 

@@ -27,6 +27,9 @@ _DIRTY_IGNORE_PATHS = (
     "package-lock.json",
 )
 
+_FRONTEND_DIST_APP = _PROJECT_ROOT / "static" / "dist" / "app.js"
+_FRONTEND_BUILD_COMMANDS = "npm ci && npm run js:build"
+
 _last_hyve_check: dict[str, Any] = {
     "latest": None,
     "tag": None,
@@ -265,6 +268,8 @@ def _is_ignored_dirty_path(path: str) -> bool:
     normalized = path.replace("\\", "/")
     if normalized in _DIRTY_IGNORE_PATHS:
         return True
+    if normalized.startswith("static/dist/"):
+        return True
     if normalized.startswith("static/js/") and normalized.endswith(".js"):
         return True
     return False
@@ -334,6 +339,12 @@ def get_status() -> dict[str, Any]:
         "git_available": is_git_install(),
         "github_repo": github_repo(),
         "github_token_configured": bool(github_token()),
+        "prerequisites": {
+            "npm_available": _npm_available(),
+            "frontend_dist_ready": _frontend_dist_ready(),
+            "frontend_build_required": _frontend_build_required(),
+            "frontend_build_commands": _FRONTEND_BUILD_COMMANDS,
+        },
     }
 
 
@@ -433,14 +444,93 @@ def _pip_install() -> None:
     _run_cmd([str(pip), "install", "-r", str(req)], cwd=_PROJECT_ROOT)
 
 
-def _js_build() -> None:
-    if not shutil.which("npm"):
-        log.info("npm not found — skipping js:build after Hyve update")
-        return
+def _npm_path() -> str | None:
+    npm = shutil.which("npm")
+    if npm:
+        return npm
+    for candidate in (
+        "/usr/local/bin/npm",
+        "/usr/bin/npm",
+        "/opt/homebrew/bin/npm",
+    ):
+        if Path(candidate).is_file():
+            return candidate
+    return None
+
+
+def _npm_available() -> bool:
+    return _npm_path() is not None
+
+
+def _frontend_dist_ready() -> bool:
+    return _FRONTEND_DIST_APP.is_file()
+
+
+def _frontend_build_required() -> bool:
     pkg = _PROJECT_ROOT / "package.json"
     if not pkg.is_file():
+        return False
+    try:
+        data = json.loads(pkg.read_text(encoding="utf-8"))
+        scripts = data.get("scripts") or {}
+        return "js:build" in scripts
+    except Exception:
+        return True
+
+
+def _require_npm_for_frontend() -> str:
+    npm = _npm_path()
+    if not npm:
+        raise HyveUpdateError(
+            "updates.hyve_npm_required",
+            {"commands": _FRONTEND_BUILD_COMMANDS},
+        )
+    return npm
+
+
+def _git_head_ref() -> str:
+    proc = _run_cmd(["git", "rev-parse", "HEAD"])
+    return (proc.stdout or "").strip()
+
+
+def _git_checkout_ref(ref: str) -> None:
+    proc = subprocess.run(
+        ["git", "checkout", "--force", ref],
+        cwd=str(_PROJECT_ROOT),
+        capture_output=True,
+        text=True,
+        env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+    )
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()[:400]
+        raise HyveUpdateError("updates.hyve_checkout_failed", {"detail": detail})
+
+
+def _js_build() -> None:
+    """Build Vite bundles into ``static/dist/``. Raises ``HyveUpdateError`` on failure."""
+    if not _frontend_build_required():
         return
-    _run_cmd(["npm", "run", "js:build"], cwd=_PROJECT_ROOT)
+    npm = _require_npm_for_frontend()
+    try:
+        if (_PROJECT_ROOT / "package-lock.json").is_file():
+            _run_cmd([npm, "ci"], cwd=_PROJECT_ROOT)
+        else:
+            _run_cmd([npm, "install"], cwd=_PROJECT_ROOT)
+        _run_cmd([npm, "run", "js:build"], cwd=_PROJECT_ROOT)
+    except HyveUpdateError as exc:
+        detail = str(exc.params.get("detail") or exc.key)
+        raise HyveUpdateError(
+            "updates.hyve_frontend_build_failed",
+            {"detail": detail, "commands": _FRONTEND_BUILD_COMMANDS},
+        ) from exc
+    if not _frontend_dist_ready():
+        raise HyveUpdateError(
+            "updates.hyve_frontend_build_failed",
+            {
+                "detail": "static/dist/app.js missing after build",
+                "commands": _FRONTEND_BUILD_COMMANDS,
+            },
+        )
 
 
 def apply_update() -> dict[str, Any]:
@@ -454,12 +544,29 @@ def apply_update() -> dict[str, Any]:
 
     _assert_git_ready()
     _fetch_tags()
-    _checkout_tag(tag)
-    _pip_install()
+
+    if _frontend_build_required():
+        _require_npm_for_frontend()
+
+    head_before = _git_head_ref()
     try:
+        _checkout_tag(tag)
+        _pip_install()
         _js_build()
-    except HyveUpdateError as exc:
-        log.warning("js:build after Hyve update failed: %s", exc.params.get("detail", exc.key))
+    except HyveUpdateError:
+        log.warning("Hyve update failed after checkout — rolling back to %s", head_before)
+        try:
+            _git_checkout_ref(head_before)
+        except HyveUpdateError:
+            log.exception("rollback to %s failed", head_before)
+        raise
+    except Exception as exc:
+        log.exception("Hyve update failed after checkout — rolling back to %s", head_before)
+        try:
+            _git_checkout_ref(head_before)
+        except HyveUpdateError:
+            log.exception("rollback to %s failed", head_before)
+        raise HyveUpdateError("updates.hyve_apply_failed", {"detail": str(exc)}) from exc
 
     from core.server_restart import schedule_restart
 
@@ -469,4 +576,5 @@ def apply_update() -> dict[str, Any]:
         "status": "restarting",
         "version": target,
         "message_key": "updates.hyve_updated_restarting",
+        "message_params": {"version": target},
     }

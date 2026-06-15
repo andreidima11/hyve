@@ -22,6 +22,20 @@ interface RememberPayload {
 }
 
 export let authToken: string | null = localStorage.getItem('hyve_token');
+
+/** Canonical bearer token — reads localStorage so every ESM copy stays in sync. */
+export function resolveAuthToken(): string | null {
+    try {
+        const stored = localStorage.getItem('hyve_token');
+        if (stored && stored !== 'null' && stored !== 'undefined') {
+            authToken = stored;
+            return stored;
+        }
+    } catch {
+        /* storage blocked */
+    }
+    return authToken;
+}
 let _refreshToken: string | null = localStorage.getItem('hyve_refresh_token');
 let _suppressLogout = false;
 let _refreshing: Promise<boolean> | null = null;
@@ -113,8 +127,9 @@ export async function apiCall(url: string, options: ApiCallOptions = {}): Promis
     const headers: Record<string, string> = {
         ...((rest.headers as Record<string, string> | undefined) || {}),
     };
-    if (authToken) {
-        headers.Authorization = `Bearer ${authToken}`;
+    const token = resolveAuthToken();
+    if (token) {
+        headers.Authorization = `Bearer ${token}`;
     }
 
     let body: BodyInit | null | undefined =
@@ -149,13 +164,14 @@ export async function apiCall(url: string, options: ApiCallOptions = {}): Promis
     }
 
     if (res.status === 401 && !_suppressLogout) {
-        const hadAuth = !!(authToken || headers.Authorization);
+        const hadAuth = !!resolveAuthToken();
         if (!hadAuth) {
             return res;
         }
         const refreshed = await _tryRefresh();
         if (refreshed) {
-            headers.Authorization = `Bearer ${authToken}`;
+            const retryToken = resolveAuthToken();
+            if (retryToken) headers.Authorization = `Bearer ${retryToken}`;
             return fetch(url, fetchOpts);
         }
         clearAuthToken();

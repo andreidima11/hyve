@@ -1,5 +1,6 @@
 /** Hyve app entry — wires boot, bindings, and nav bridge. */
 
+import './custom_selects/generic.js';
 import './features_custom_selects.js';
 import { sendMessage } from './chat.js';
 import { switchTab, closeSidebar, toggleSidebar, isSidebarOpen, openConfigSection } from './ui.js';

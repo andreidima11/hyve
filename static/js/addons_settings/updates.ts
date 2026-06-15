@@ -392,7 +392,14 @@ function _hyveRowHtml(hyve: HyveUpdateStatus): string {
         badge = `<span class="upd-badge upd-badge--update"><i class="fas fa-arrow-up"></i>${escapeHtml(t('updates.badge_update'))}</span>`;
         rowClass += ' upd-row--outdated';
         if (hyve.git_available) {
-            actionHtml += `<button type="button" data-config-action="applyHyveUpdate" id="updates-hyve-upgrade-btn" class="upd-row-btn" title="${escapeHtml(t('updates.hyve_upgrade_btn'))}"><i class="fas fa-arrow-up"></i></button>`;
+            const prereq = hyve.prerequisites;
+            const npmOk = !prereq?.frontend_build_required || prereq?.npm_available;
+            const buildCommands = prereq?.frontend_build_commands || 'npm ci && npm run js:build';
+            const btnTitle = npmOk
+                ? t('updates.hyve_upgrade_btn')
+                : t('updates.hyve_hint_npm_required', { commands: buildCommands });
+            const disabledAttr = npmOk ? '' : ' disabled';
+            actionHtml += `<button type="button" data-config-action="applyHyveUpdate" id="updates-hyve-upgrade-btn" class="upd-row-btn"${disabledAttr} title="${escapeHtml(btnTitle)}"><i class="fas fa-arrow-up"></i></button>`;
         }
     } else {
         versionHtml = `<span class="font-mono text-slate-400">${escapeHtml(current)}</span>`;
@@ -476,6 +483,16 @@ function _renderUpdateRows() {
 
     const hints: string[] = [];
     if (hyve && !hyve.git_available) hints.push(t('updates.hyve_hint_not_git'));
+    const prereq = hyve?.prerequisites;
+    const buildCommands = prereq?.frontend_build_commands || 'npm ci && npm run js:build';
+    if (prereq?.frontend_build_required) {
+        if (hyve?.update_available && hyve.git_available && !prereq.npm_available) {
+            hints.push(t('updates.hyve_hint_npm_required', { commands: buildCommands }));
+        }
+        if (!prereq.frontend_dist_ready) {
+            hints.push(t('updates.hyve_hint_frontend_dist_missing', { commands: buildCommands }));
+        }
+    }
     _setHyveHint(hints.length ? hints.join(' · ') : '');
 }
 
