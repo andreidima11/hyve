@@ -18,7 +18,7 @@
     "download_on_install": true,
     "bundled": false,
     "channel": "latest",
-    "notes": "Mosquitto nu este inclus în pachetul aplicației. Se descarcă la instalare prin Homebrew, cu ultima versiune stabilă disponibilă."
+    "notes": "Mosquitto nu este inclus în pachetul aplicației. Pe macOS se instalează prin Homebrew; pe Linux Debian/Ubuntu prin apt (mosquitto). Hyve pornește brokerul cu config propriu sub output/addons/mosquitto/."
   },
   "config_schema": [
     {

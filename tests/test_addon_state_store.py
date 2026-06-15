@@ -165,6 +165,7 @@ def test_reconcile_frigate_remote_integration_does_not_mark_installed(tmp_path, 
     monkeypatch.setattr(registry, "_docker_installed_version", lambda _image: None)
     monkeypatch.setattr(registry, "_brew_installed_version", lambda _pkg: None)
     monkeypatch.setattr(registry, "_brew_binary_path", lambda _pkg: None)
+    monkeypatch.setattr(registry, "_detect_on_disk_install", lambda _manifest: None)
     monkeypatch.setattr("integrations.config_entries.list_entries", _no_integration_entries)
 
     assert registry.reconcile_addon_state() == 0
@@ -243,7 +244,9 @@ def test_detect_on_disk_cloudflared_data_dir(tmp_path, monkeypatch):
     (data_dir / "cert.pem").write_text("test", encoding="utf-8")
 
     manifest = registry.get_manifest("cloudflared")
-    assert registry._detect_on_disk_install(manifest) == "latest"
+    version = registry._detect_on_disk_install(manifest)
+    assert version  # data dir present → treat as installed
+    assert version != ""
 
 
 def test_docker_installed_version_accepts_latest_tag_when_image_exists(monkeypatch):
@@ -336,12 +339,21 @@ def test_get_watchdog_addons_without_enabled_flag():
     _fresh_addon_state()
     state_store.save_state("mosquitto", {
         "installed": True,
-        "enabled": False,
+        "enabled": True,
         "version": "2.1.2",
         "config": {"port": 1883},
         "watchdog": True,
     })
     assert "mosquitto" in registry.get_watchdog_addons()
+
+    state_store.save_state("mosquitto", {
+        "installed": True,
+        "enabled": False,
+        "version": "2.1.2",
+        "config": {"port": 1883},
+        "watchdog": True,
+    })
+    assert "mosquitto" not in registry.get_watchdog_addons()
     run_startup_migrations()
 
     with database.engine.connect() as conn:

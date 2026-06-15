@@ -49,3 +49,59 @@ def test_create_entry_returns_before_slow_wire(admin_client, monkeypatch):
 
     stored = config_entries.list_entries("sun")
     assert any(e["entry_id"] == body["entry"]["entry_id"] for e in stored)
+
+
+def test_entry_test_omits_phase_for_providers_without_kwarg(admin_client, monkeypatch):
+    """Regression: generic integrations must not receive Tapo-only ``phase`` kwarg."""
+    captured: dict[str, Any] = {}
+
+    class FakeEntity:
+        CONFIG_SCHEMA: list[dict[str, Any]] = []
+
+        @classmethod
+        def get_config_schema(cls) -> list[dict[str, Any]]:
+            return []
+
+        @classmethod
+        async def async_test_connection(cls, data: dict[str, Any]) -> dict[str, Any]:
+            captured["data"] = data
+            return {"ok": True, "message": "ok"}
+
+    mgr = MagicMock()
+    mgr.get_class.return_value = FakeEntity
+    monkeypatch.setattr("integrations.get_integration_manager", lambda: mgr)
+
+    res = admin_client.post(
+        "/api/integrations/fake/entries/test",
+        json={"data": {"host": "1.2.3.4"}, "test_phase": "full"},
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["ok"] is True
+    assert captured.get("data") == {"host": "1.2.3.4"}
+
+
+def test_entry_test_passes_phase_for_tapo(admin_client, monkeypatch):
+    captured: dict[str, Any] = {}
+
+    class TapoLike:
+        CONFIG_SCHEMA: list[dict[str, Any]] = []
+
+        @classmethod
+        def get_config_schema(cls) -> list[dict[str, Any]]:
+            return []
+
+        @classmethod
+        async def async_test_connection(cls, data: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
+            captured["phase"] = kwargs.get("phase")
+            return {"ok": True}
+
+    mgr = MagicMock()
+    mgr.get_class.return_value = TapoLike
+    monkeypatch.setattr("integrations.get_integration_manager", lambda: mgr)
+
+    res = admin_client.post(
+        "/api/integrations/tapo/entries/test",
+        json={"data": {}, "test_phase": "api"},
+    )
+    assert res.status_code == 200, res.text
+    assert captured.get("phase") == "api"

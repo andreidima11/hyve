@@ -14,6 +14,7 @@ Provides:
 """
 
 import json
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket
 from fastapi.responses import StreamingResponse
 
@@ -26,6 +27,7 @@ from addons import ingress as addon_ingress
 from core.http.errors import error_detail
 
 router = APIRouter(prefix="/api/addons", tags=["addons"])
+log = logging.getLogger("addons.router")
 
 
 def _require_admin(user: models.User = Depends(auth.get_current_user)):
@@ -41,6 +43,9 @@ def _addon_http_exception(exc: Exception) -> HTTPException:
     if msg.startswith("Addon ") and msg.endswith(" is not installed"):
         slug = msg[6:-len(" is not installed")].strip()
         return HTTPException(status_code=400, detail=error_detail("hy.addon_not_installed", {"slug": slug}))
+    if msg.startswith("Addon ") and msg.endswith(" is disabled"):
+        slug = msg[6:-len(" is disabled")].strip()
+        return HTTPException(status_code=400, detail=error_detail("hy.addon_disabled", {"slug": slug}))
     return HTTPException(status_code=400, detail=error_detail("hy.addon_error", {"message": msg}))
 
 
@@ -172,6 +177,7 @@ async def install_addon_stream(slug: str, token: str | None = None, request: Req
 async def uninstall_addon(slug: str, user: models.User = Depends(_require_admin)):
     """Uninstall an addon."""
     try:
+        await process_manager.stop(slug)
         state = registry.uninstall_addon(slug)
         return {"slug": slug, "state": state}
     except ValueError as e:
@@ -183,6 +189,12 @@ async def enable_addon(slug: str, user: models.User = Depends(_require_admin)):
     """Enable an installed addon."""
     try:
         state = registry.set_addon_enabled(slug, True)
+        manifest = registry.get_manifest(slug)
+        if state.get("watchdog") and manifest and manifest.get("start_command"):
+            try:
+                await process_manager.start(slug)
+            except Exception as exc:
+                log.warning("Failed to auto-start %s after enable: %s", slug, exc)
         return {"slug": slug, "state": state}
     except ValueError as e:
         raise _addon_http_exception(e) from e
@@ -193,6 +205,7 @@ async def disable_addon(slug: str, user: models.User = Depends(_require_admin)):
     """Disable an addon."""
     try:
         state = registry.set_addon_enabled(slug, False)
+        await process_manager.stop(slug)
         return {"slug": slug, "state": state}
     except ValueError as e:
         raise _addon_http_exception(e) from e

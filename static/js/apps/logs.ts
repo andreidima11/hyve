@@ -1,5 +1,5 @@
 import { apiCall } from '../api.js';
-import { showToast, escapeHtml, showConfirm } from '../utils.js';
+import { showToast, escapeHtml, showConfirm, openSubPage, closeSubPage } from '../utils.js';
 import { t, translateApiDetail } from '../lang/index.js';
 import { switchTab, openConfigSection } from '../nav_bridge.js';
 import { appsState } from './state.js';
@@ -9,10 +9,9 @@ let _logPollTimer: ReturnType<typeof setInterval> | null = null;
 
 export function openAppLogModal(slug: string, name: string) {
     appsState.currentLogSlug = slug;
-    const modal = document.getElementById('app-log-modal');
     const title = document.getElementById('app-log-title');
     if (title) title.innerHTML = `<i class="fas fa-terminal"></i><span>${escapeHtml(t('apps.log_title', { name }))}</span>`;
-    if (modal) { modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
+    openSubPage('app-log-modal');
     refreshAppLogs();
     _stopLogPoll();
     _logPollTimer = setInterval(refreshAppLogs, 3000);
@@ -21,8 +20,7 @@ export function openAppLogModal(slug: string, name: string) {
 export function closeAppLogModal() {
     appsState.currentLogSlug = null;
     _stopLogPoll();
-    const modal = document.getElementById('app-log-modal');
-    if (modal) { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
+    closeSubPage('app-log-modal');
 }
 
 function _stopLogPoll() {

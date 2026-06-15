@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
+from typing import Any
 
 import core.auth as auth
 import core.models as models
@@ -18,6 +20,23 @@ from routers.integrations.models import ConfigEntryBody, ConfigEntryTestBody
 from routers.integrations.router import router
 
 log = logging.getLogger("integrations")
+
+
+def _test_connection_kwargs(cls: type, phase: str) -> dict[str, Any]:
+    """Only pass ``phase`` when the provider's test hook accepts it (e.g. Tapo)."""
+    normalized = str(phase or "full").strip().lower()
+    if normalized not in {"api", "full"}:
+        return {}
+    try:
+        sig = inspect.signature(cls.async_test_connection)
+    except (TypeError, ValueError):
+        return {}
+    params = sig.parameters
+    if "phase" in params:
+        return {"phase": normalized}
+    if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        return {"phase": normalized}
+    return {}
 
 
 @router.get("/{slug}/schema")
@@ -70,9 +89,7 @@ async def test_provider_entry(
     test_timeout = MAMMOTION_ENTRY_TEST_TIMEOUT_SECONDS if slug == "mammotion" else ENTRY_TEST_TIMEOUT_SECONDS
     phase = str(body.test_phase or "full").strip().lower()
     try:
-        test_kwargs: dict[str, Any] = {}
-        if phase in {"api", "full"}:
-            test_kwargs["phase"] = phase
+        test_kwargs = _test_connection_kwargs(cls, phase)
         result = await asyncio.wait_for(
             cls.async_test_connection(data, **test_kwargs),
             timeout=test_timeout,

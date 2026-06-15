@@ -8,7 +8,7 @@ from pathlib import Path
 from core.backup.addons_policy import (
     AddonsBackupOptions,
     iter_addon_files,
-    list_addon_slugs_with_data,
+    list_addon_slugs_for_backup,
 )
 
 _KEEP_DIR_NAMES = frozenset({".gitkeep", "README.md"})
@@ -24,6 +24,10 @@ class BackupOptions:
         self.addons.include_frigate_media = self.include_frigate_media
 
 
+_SKIP_DIR_NAMES = frozenset({"__pycache__", ".git"})
+_SKIP_FILE_NAMES = frozenset({".DS_Store"})
+_SKIP_FILE_SUFFIXES = frozenset({".pyc", ".pyo"})
+
 # Tier A — critical (single files at project root or fixed paths).
 CRITICAL_FILES = (
     "users.db",
@@ -37,7 +41,13 @@ CRITICAL_FILES = (
     "device_names.yaml",
     "config/device_aliases.yaml",
     "secrets/integration_entries.key",
+    "secrets/backup_archive.key",
     "core/.secret_key",
+    # Legacy JSON migrated into scheduler_meta.sqlite — still backed up if present.
+    "reminders_display.json",
+    "reminders_display.json.migrated",
+    "automation_specs.json",
+    "automation_specs.json.migrated",
 )
 
 # Tier B — directories (user content).
@@ -47,7 +57,7 @@ USER_DIRS = (
     "comfyui_workflows",
     "custom_addons",
     "custom_components",
-    "skills/generated",
+    "skills",
 )
 
 # Tier C — optional heavy / reproducible data.
@@ -59,6 +69,14 @@ OPTIONAL_DIRS = (
 )
 
 
+def _should_skip_backup_file(path: Path) -> bool:
+    if path.name in _SKIP_FILE_NAMES:
+        return True
+    if path.suffix in _SKIP_FILE_SUFFIXES:
+        return True
+    return any(part in _SKIP_DIR_NAMES for part in path.parts)
+
+
 def _iter_dir_files(root: Path, rel_dir: str) -> list[tuple[Path, str]]:
     base = root / rel_dir
     if not base.is_dir():
@@ -66,6 +84,8 @@ def _iter_dir_files(root: Path, rel_dir: str) -> list[tuple[Path, str]]:
     out: list[tuple[Path, str]] = []
     for path in base.rglob("*"):
         if not path.is_file():
+            continue
+        if _should_skip_backup_file(path):
             continue
         if path.name in _KEEP_DIR_NAMES and path.parent == base:
             continue
@@ -104,7 +124,7 @@ def collect_backup_entries(
             for path, rel in _iter_dir_files(root, rel_dir):
                 _add(path, rel)
 
-    addon_slugs = list_addon_slugs_with_data(root)
+    addon_slugs = list_addon_slugs_for_backup(root)
     for slug in addon_slugs:
         for path in iter_addon_files(root, slug, options=options.addons):
             rel = path.relative_to(root).as_posix()

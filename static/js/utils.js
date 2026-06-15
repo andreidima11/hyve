@@ -339,17 +339,25 @@ export function escapeHtmlAttr(s) {
 export function getSessionId() {
     return localStorage.getItem('hyve_session_id');
 }
-/* ─── Sub-page helpers ─── */
+function _resetAncestorScroll(el) {
+    const saved = [];
+    let node = el.parentElement;
+    while (node) {
+        if (node.scrollTop > 0) {
+            saved.push({ el: node, top: node.scrollTop });
+            node.scrollTop = 0;
+        }
+        node = node.parentElement;
+    }
+    return saved;
+}
 export function openSubPage(id) {
     const el = document.getElementById(id);
     if (!el)
         return;
-    /* Scroll any overflow-auto ancestor to top so the absolute-positioned
-       overlay covers the full viewport (not offset by scroll position). */
-    const p = el.parentElement;
-    if (p) {
-        el._savedParentScroll = p.scrollTop;
-        p.scrollTop = 0;
+    const saved = _resetAncestorScroll(el);
+    if (saved.length) {
+        el._savedAncestorScrolls = saved;
     }
     el.classList.add('open');
     el.setAttribute('aria-hidden', 'false');
@@ -360,10 +368,12 @@ export function closeSubPage(id) {
         return;
     el.classList.remove('open');
     el.setAttribute('aria-hidden', 'true');
-    const p = el.parentElement;
-    if (p && el._savedParentScroll != null) {
-        p.scrollTop = el._savedParentScroll;
-        delete el._savedParentScroll;
+    const saved = el._savedAncestorScrolls;
+    if (saved?.length) {
+        for (const { el: ancestor, top } of saved) {
+            ancestor.scrollTop = top;
+        }
+        delete el._savedAncestorScrolls;
     }
 }
 export function closeAllSubPages() {

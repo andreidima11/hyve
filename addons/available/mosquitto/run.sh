@@ -29,11 +29,11 @@ find_bin() {
   return 1
 }
 
-MOSQUITTO_BIN="$(find_bin mosquitto /opt/homebrew/sbin/mosquitto /opt/homebrew/bin/mosquitto /usr/local/sbin/mosquitto /usr/local/bin/mosquitto || true)"
-MOSQUITTO_PASSWD_BIN="$(find_bin mosquitto_passwd /opt/homebrew/bin/mosquitto_passwd /usr/local/bin/mosquitto_passwd || true)"
+MOSQUITTO_BIN="$(find_bin mosquitto /usr/sbin/mosquitto /usr/bin/mosquitto /opt/homebrew/sbin/mosquitto /opt/homebrew/bin/mosquitto /usr/local/sbin/mosquitto /usr/local/bin/mosquitto || true)"
+MOSQUITTO_PASSWD_BIN="$(find_bin mosquitto_passwd /usr/bin/mosquitto_passwd /opt/homebrew/bin/mosquitto_passwd /usr/local/bin/mosquitto_passwd || true)"
 
 if [[ -z "$MOSQUITTO_BIN" ]]; then
-  echo "Mosquitto nu este instalat. Rulează instalarea add-on-ului sau: brew install mosquitto" >&2
+  echo "Mosquitto nu este instalat. Rulează instalarea add-on-ului sau: brew install mosquitto (macOS) / apt install mosquitto (Linux)" >&2
   exit 1
 fi
 

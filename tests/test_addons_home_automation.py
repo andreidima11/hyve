@@ -56,6 +56,8 @@ def test_update_addon_preserves_existing_state(monkeypatch):
     })
 
     monkeypatch.setattr(registry, "_run_install_commands", lambda manifest: None)
+    monkeypatch.setattr(registry, "_resolve_installed_version", lambda _m: "2024.11.0")
+    monkeypatch.setattr(registry, "_resolve_channel_version", lambda _m, v: v)
 
     try:
         updated = registry.update_addon(slug)
@@ -69,13 +71,20 @@ def test_update_addon_preserves_existing_state(monkeypatch):
 
 
 def test_downloadable_addons_build_real_install_commands():
+    import sys
+
     mosquitto = registry.get_manifest("mosquitto")
     zigbee2mqtt = registry.get_manifest("zigbee2mqtt")
 
-    mosq_cmd = registry._build_install_cmd(mosquitto["install"]["method"], mosquitto["install"])
+    mosq_cmds = registry._build_install_cmds(mosquitto["install"]["method"], mosquitto["install"])
     zigbee_cmd = registry._build_install_cmd(zigbee2mqtt["install"]["method"], zigbee2mqtt["install"])
 
-    assert mosq_cmd and mosq_cmd[0] == "brew"
+    assert mosq_cmds
+    if sys.platform.startswith("linux"):
+        assert mosq_cmds[0][0] == "bash"
+        assert "apt-get install -y mosquitto" in " ".join(mosq_cmds[0])
+    else:
+        assert mosq_cmds[0][:2] == ["brew", "install"]
     assert zigbee_cmd and zigbee_cmd[0] == "npm"
 
 

@@ -507,7 +507,7 @@ function _applySettings(settings: BackupSettings | undefined): void {
     const frigate = _el<HTMLInputElement>('backup-include-frigate-media');
     if (frigate) frigate.checked = !!settings.include_frigate_media;
     const refetch = _el<HTMLInputElement>('backup-refetch-addons');
-    if (refetch) refetch.checked = !!settings.refetch_addons;
+    if (refetch) refetch.checked = settings.refetch_addons !== false;
     const encrypt = _el<HTMLInputElement>('backup-encrypt-at-rest');
     if (encrypt) encrypt.checked = !!settings.encrypt_at_rest;
 

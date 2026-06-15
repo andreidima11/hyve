@@ -51,6 +51,8 @@ export interface AddonUpdateRow {
     current?: string;
     latest?: string;
     update_available?: boolean;
+    release_notes?: string;
+    release_url?: string;
 }
 
 export interface HyveUpdateStatus {

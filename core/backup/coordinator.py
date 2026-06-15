@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from core.backup.addon_restore import AddonRestoreCoordinator
-from core.backup.addons_policy import list_addon_slugs_with_data, slugs_needing_artifact_refetch
+from core.backup.addons_policy import list_addon_slugs_for_backup, slugs_needing_artifact_refetch
 from core.backup.archive import create_archive, extract_archive
 from core.backup.manifest import BackupManifest, build_manifest, sha256_file
 from core.backup.paths import BackupOptions, collect_backup_entries
@@ -61,7 +61,7 @@ class BackupCoordinator:
                 if users_db.is_file():
                     alembic_revision = read_alembic_revision(users_db)
 
-            addon_slugs = list_addon_slugs_with_data(self.root)
+            addon_slugs = list_addon_slugs_for_backup(self.root)
             hyve_version = self._hyve_version()
             manifest = build_manifest(
                 hyve_version=hyve_version,

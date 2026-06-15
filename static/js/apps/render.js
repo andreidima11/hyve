@@ -173,6 +173,8 @@ export function _addonStatusBadge(addon, processStatus) {
     const enabled = addon.state?.enabled;
     if (!installed)
         return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400">${escapeHtml(t('hy.addon_status_available'))}</span>`;
+    if (!enabled)
+        return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('hy.addon_status_disabled'))}</span>`;
     if (addon.start_command && processStatus)
         return _statusBadge(processStatus.status || 'stopped');
     if (enabled)
@@ -218,11 +220,12 @@ export function _renderDetail(addon, status) {
     const icon = addon.icon || 'fas fa-puzzle-piece';
     const cm = _colorMap[addon.color || 'slate'] || _colorMap.slate;
     const st = status?.status || 'stopped';
-    const isRunning = st === 'running';
-    const pid = status?.pid || '—';
-    const up = _uptime(status?.uptime);
     const installed = addon.state?.installed;
     const enabled = addon.state?.enabled;
+    const isRunning = !!enabled && st === 'running';
+    const canStart = !!enabled && !isRunning;
+    const pid = status?.pid || '—';
+    const up = _uptime(status?.uptime);
     const hasProcess = !!addon.start_command;
     const isAdminUser = isAdmin();
     const hasConfigSchema = !!(addon.config_schema || []).length;
@@ -302,7 +305,7 @@ export function _renderDetail(addon, status) {
         <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 space-y-4">
             <div class="flex items-center justify-between">
                 <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${escapeHtml(t('apps.process_section'))}</span>
-                <div id="app-detail-badge">${_statusBadge(st)}</div>
+                <div id="app-detail-badge">${enabled ? _statusBadge(st) : `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('hy.addon_status_disabled'))}</span>`}</div>
             </div>
             <div class="flex items-center gap-4 text-xs text-slate-500">
                 <span><i class="fas fa-microchip mr-1 opacity-60"></i>PID: <span id="app-detail-pid">${pid}</span></span>
@@ -310,7 +313,7 @@ export function _renderDetail(addon, status) {
                 <span><i class="fas fa-tag mr-1 opacity-60"></i>${escapeHtml(_formatAddonVersion(displayVersion))}</span>
             </div>
             <div class="flex flex-wrap gap-2">
-                <button data-config-action="appAction" data-config-slug="${slug}" data-config-app-action="start" id="app-detail-start" class="px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${isRunning ? 'bg-white/[0.03] text-slate-600 cursor-not-allowed' : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'}" ${isRunning ? 'disabled' : ''}>
+                <button data-config-action="appAction" data-config-slug="${slug}" data-config-app-action="start" id="app-detail-start" class="px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${!canStart ? 'bg-white/[0.03] text-slate-600 cursor-not-allowed' : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'}" ${!canStart ? 'disabled' : ''}>
                     <i class="fas fa-play mr-1.5"></i>${escapeHtml(t('apps.start'))}
                 </button>
                 <button data-config-action="appAction" data-config-slug="${slug}" data-config-app-action="stop" id="app-detail-stop" class="px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${!isRunning ? 'bg-white/[0.03] text-slate-600 cursor-not-allowed' : 'bg-red-500/10 text-red-400 hover:bg-red-500/20'}" ${!isRunning ? 'disabled' : ''}>

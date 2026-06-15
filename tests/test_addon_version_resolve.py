@@ -70,6 +70,27 @@ def test_resolve_display_version_uses_github_for_cloudflared(monkeypatch):
     assert registry._resolve_display_version(manifest, state) == "2025.4.0"
 
 
+def test_resolve_display_version_installed_cloudflared_skips_docker_latest(monkeypatch):
+    manifest = registry.get_manifest("cloudflared")
+    assert manifest is not None
+    state = {
+        "installed": True,
+        "enabled": True,
+        "version": "latest",
+        "config": {},
+    }
+
+    monkeypatch.setattr(
+        registry,
+        "_github_latest_version",
+        lambda repo: "2026.6.0" if repo == "cloudflare/cloudflared" else None,
+    )
+    monkeypatch.setattr(registry, "_http_runtime_version", lambda m, s: None)
+    monkeypatch.setattr(registry, "_docker_installed_version", lambda image: "latest")
+
+    assert registry._resolve_display_version(manifest, state) == "2026.6.0"
+
+
 def test_addon_entry_overrides_manifest_channel_tag(monkeypatch):
     manifest = registry.get_manifest("frigate")
     assert manifest is not None

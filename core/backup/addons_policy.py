@@ -90,6 +90,24 @@ def list_addon_slugs_with_data(root: Path) -> list[str]:
     )
 
 
+def list_addon_slugs_for_backup(root: Path) -> list[str]:
+    """Filesystem add-on trees plus installed slugs from registry (config in users.db)."""
+    slugs = set(list_addon_slugs_with_data(root))
+    try:
+        from addons import registry
+
+        for manifest in registry.list_available():
+            slug = str(manifest.get("slug") or "").strip()
+            if not slug:
+                continue
+            state = registry.get_state(slug)
+            if state.get("installed"):
+                slugs.add(slug)
+    except Exception:
+        pass
+    return sorted(slugs)
+
+
 def should_include_addon_file(
     slug: str,
     rel_to_slug: Path,

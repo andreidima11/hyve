@@ -91,6 +91,11 @@ _processes: dict[str, _ManagedProcess] = {}
 _intentionally_stopped: set[str] = set()
 
 
+def _addon_enabled(slug: str) -> bool:
+    """Return whether the addon is enabled in registry state."""
+    return bool(registry.get_state(slug).get("enabled"))
+
+
 def _resolve_args(args: list[str], config: dict) -> list[str]:
     """Replace {key} placeholders in args with values from config."""
     resolved = []
@@ -230,6 +235,13 @@ async def _kill_pids(pids: list[int], timeout: float = 5.0) -> list[int]:
 
 async def start(slug: str) -> dict:
     """Start the addon process. Returns status dict."""
+    manifest = registry.get_manifest(slug)
+    if not manifest:
+        raise ValueError(f"Unknown addon: {slug}")
+
+    if not _addon_enabled(slug):
+        raise ValueError(f"Addon {slug} is disabled")
+
     # Explicit start clears any prior intentional-stop flag
     _intentionally_stopped.discard(slug)
     registry.set_process_user_stopped(slug, False)
@@ -237,10 +249,6 @@ async def start(slug: str) -> dict:
     if slug in _processes and _processes[slug].running:
         _watchdog_on_success(slug)
         return _status_dict(slug)
-
-    manifest = registry.get_manifest(slug)
-    if not manifest:
-        raise ValueError(f"Unknown addon: {slug}")
 
     start_cmd = manifest.get("start_command")
     if not start_cmd:
@@ -353,6 +361,9 @@ def get_status(slug: str) -> dict:
 
 async def get_status_async(slug: str) -> dict:
     """Return current status, checking port for external processes."""
+    if not _addon_enabled(slug):
+        return {"slug": slug, "status": "stopped", "pid": None, "uptime": None, "disabled": True}
+
     mp = _processes.get(slug)
     if mp and mp.running:
         return _status_dict(slug)
@@ -505,6 +516,8 @@ async def _watchdog_loop():
         try:
             slugs = registry.get_watchdog_addons()
             for slug in slugs:
+                if not _addon_enabled(slug):
+                    continue
                 if slug in _intentionally_stopped:
                     continue
                 if not _watchdog_can_retry(slug):
@@ -553,6 +566,8 @@ async def auto_start_watchdog_addons():
         return
     log.info("Auto-starting watchdog addons: %s", ", ".join(slugs))
     for slug in slugs:
+        if not _addon_enabled(slug):
+            continue
         if slug in _intentionally_stopped or registry.is_process_user_stopped(slug):
             continue
         try:

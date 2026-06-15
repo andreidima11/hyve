@@ -24,6 +24,8 @@ import re
 import shutil
 import subprocess
 import sys
+import time
+import urllib.parse
 from pathlib import Path
 from typing import Any
 
@@ -300,6 +302,8 @@ def _brew_binary_path(pkg: str) -> str | None:
         os.path.join("/opt/homebrew/bin", pkg),
         os.path.join("/usr/local/sbin", pkg),
         os.path.join("/usr/local/bin", pkg),
+        os.path.join("/usr/sbin", pkg),
+        os.path.join("/usr/bin", pkg),
     ]
     for path in candidates:
         if path and os.path.isfile(path) and os.access(path, os.X_OK):
@@ -412,22 +416,94 @@ def _github_repo(manifest: dict) -> str:
     return str(install.get("version_github") or install.get("github_repo") or "").strip()
 
 
-def _github_latest_version(repo: str) -> str | None:
+_release_info_cache: dict[str, tuple[float, dict[str, str]]] = {}
+_RELEASE_INFO_TTL = 3600.0
+
+
+def _github_release_info(repo: str, tag: str | None = None) -> dict[str, str] | None:
+    """Fetch {version, body, url} from GitHub releases (cached)."""
     repo = str(repo or "").strip().strip("/")
     if not repo or "/" not in repo:
         return None
+    cache_key = f"{repo}:{tag or 'latest'}"
+    now = time.monotonic()
+    cached = _release_info_cache.get(cache_key)
+    if cached and now - cached[0] < _RELEASE_INFO_TTL:
+        return cached[1]
+
     import urllib.request
+
     try:
-        url = f"https://api.github.com/repos/{repo}/releases/latest"
-        req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
+        if tag:
+            safe_tag = urllib.parse.quote(str(tag).strip(), safe="")
+            url = f"https://api.github.com/repos/{repo}/releases/tags/{safe_tag}"
+        else:
+            url = f"https://api.github.com/repos/{repo}/releases/latest"
+        req = urllib.request.Request(
+            url,
+            headers={"Accept": "application/vnd.github+json", "User-Agent": "Hyve"},
+        )
         with urllib.request.urlopen(req, timeout=12) as resp:
             data = json.loads(resp.read().decode("utf-8", "replace"))
-        tag = str(data.get("tag_name") or data.get("name") or "").strip()
-        normalized = _plausible_version_string(_normalize_version_string(tag))
-        return normalized or None
+        tag_name = str(data.get("tag_name") or data.get("name") or "").strip()
+        result = {
+            "version": _normalize_version_string(tag_name) or tag_name,
+            "body": str(data.get("body") or "").strip(),
+            "url": str(data.get("html_url") or "").strip(),
+        }
+        _release_info_cache[cache_key] = (now, result)
+        return result
     except Exception as e:
-        log.debug("github latest failed for %s: %s", repo, e)
+        log.debug("github release info failed for %s (%s): %s", repo, tag, e)
+        if tag:
+            return _github_release_info(repo, None)
         return None
+
+
+def addon_release_notes(manifest: dict, version: str | None = None) -> dict[str, str]:
+    """Best-effort release notes for update UI (GitHub releases or project URL)."""
+    install = manifest.get("install") or {}
+    ver = str(version or manifest.get("version") or "").strip()
+    repo = _github_repo(manifest)
+    info: dict[str, str] | None = None
+    if repo:
+        if ver and not _is_channel_tag(ver):
+            info = _github_release_info(repo, ver)
+        if not info or not info.get("body"):
+            latest_info = _github_release_info(repo, None)
+            if latest_info:
+                info = latest_info if not info else {
+                    **info,
+                    "body": info.get("body") or latest_info.get("body") or "",
+                    "url": info.get("url") or latest_info.get("url") or "",
+                }
+    project_url = str(manifest.get("url") or install.get("url") or "").strip()
+    if info:
+        return {
+            "version": info.get("version") or ver,
+            "body": info.get("body") or "",
+            "url": info.get("url") or project_url,
+        }
+    return {"version": ver, "body": "", "url": project_url}
+
+
+def _github_latest_version(repo: str) -> str | None:
+    info = _github_release_info(repo, None)
+    if not info:
+        return None
+    normalized = _plausible_version_string(_normalize_version_string(info.get("version") or ""))
+    return normalized or None
+
+
+def _resolve_channel_version(manifest: dict, ref: str) -> str:
+    """Map Docker channel tags (latest/stable/…) to a concrete version when possible."""
+    raw = str(ref or "").strip()
+    if raw and not _is_channel_tag(raw):
+        return raw
+    latest = _github_latest_version(_github_repo(manifest))
+    if latest:
+        return latest
+    return raw or str(manifest.get("version") or "").strip() or "?"
 
 
 def _docker_installed_version(image: str) -> str | None:
@@ -486,8 +562,10 @@ def _resolve_display_version(manifest: dict, state: dict) -> str:
         if runtime:
             return runtime
         resolved = _resolve_installed_version(manifest)
-        if resolved:
+        if resolved and not _is_channel_tag(resolved):
             return resolved
+        channel_ref = resolved or saved or manifest_ver
+        return _resolve_channel_version(manifest, channel_ref)
 
     install = manifest.get("install") or {}
     docker_tag: str | None = None
@@ -496,16 +574,7 @@ def _resolve_display_version(manifest: dict, state: dict) -> str:
         if docker_tag and not _is_channel_tag(docker_tag):
             return docker_tag
 
-    channel_ref = docker_tag or manifest_ver
-    if _is_channel_tag(channel_ref):
-        latest = _github_latest_version(_github_repo(manifest))
-        if latest:
-            return latest
-
-    if docker_tag:
-        return docker_tag
-
-    return manifest_ver or "?"
+    return _resolve_channel_version(manifest, docker_tag or manifest_ver)
 
 
 def addon_entry(manifest: dict, state: dict | None = None) -> dict:
@@ -642,6 +711,16 @@ def refresh_addon_versions(slug: str) -> dict:
         if latest is not None and state.get("latest_version") != latest:
             state["latest_version"] = latest
             changed = True
+        if latest is not None:
+            notes = addon_release_notes(manifest, latest)
+            body = str(notes.get("body") or "").strip()
+            url = str(notes.get("url") or "").strip()
+            if body and state.get("release_notes") != body:
+                state["release_notes"] = body
+                changed = True
+            if url and state.get("release_url") != url:
+                state["release_url"] = url
+                changed = True
     except Exception as e:
         log.debug("latest version resolve failed for %s: %s", slug, e)
 
@@ -681,7 +760,7 @@ def _detect_on_disk_install(manifest: dict) -> str | None:
     if slug == "cloudflared":
         data_dir = _PROJECT_ROOT / "output" / "addons" / "cloudflared" / "data"
         if data_dir.is_dir() and any(data_dir.iterdir()):
-            return manifest.get("version") or "latest"
+            return _resolve_channel_version(manifest, manifest.get("version") or "latest")
     return None
 
 
@@ -935,11 +1014,39 @@ async def preflight_check(slug: str) -> list[dict]:
             ))
 
     if method == "brew":
-        checks.append(await _check_command(
-            ["brew", "--version"],
-            name="Homebrew",
-            fix_key="apps.preflight_fix_brew",
-        ))
+        packages = install.get("packages", []) or []
+        requirements = install.get("requirements", []) or []
+        all_pkgs = [_strip_pkg_version(p) for p in requirements + packages]
+        missing = [p for p in all_pkgs if p and not _brew_binary_present(p)]
+        if not missing:
+            label = packages[0] if packages else (requirements[0] if requirements else "Package")
+            checks.append(_preflight_item(str(label), True))
+        elif sys.platform == "darwin":
+            checks.append(await _check_command(
+                ["brew", "--version"],
+                name="Homebrew",
+                fix_key="apps.preflight_fix_brew",
+            ))
+        elif sys.platform.startswith("linux") and shutil.which("apt-get"):
+            label = missing[0] if missing else "Package"
+            checks.append(_preflight_item(
+                str(label),
+                True,
+                detail_key="apps.preflight_brew_auto_install_linux",
+            ))
+        else:
+            label = missing[0] if missing else "Package"
+            fix_key = (
+                "apps.preflight_fix_install_brew"
+                if sys.platform == "darwin"
+                else "apps.preflight_fix_install_brew_linux"
+            )
+            checks.append(_preflight_item(
+                str(label),
+                False,
+                detail_key="apps.preflight_brew_missing",
+                fix_key=fix_key,
+            ))
 
     if method == "npm":
         checks.append(await _check_command(
@@ -1077,10 +1184,7 @@ def update_addon(slug: str) -> dict:
         resolved = _resolve_installed_version(manifest)
         if resolved:
             version = resolved
-        elif _is_channel_tag(version):
-            latest = _github_latest_version(_github_repo(manifest))
-            if latest:
-                version = latest
+        version = _resolve_channel_version(manifest, str(version))
     except Exception:
         pass
 
@@ -1167,6 +1271,21 @@ async def install_addon_stream(slug: str):
 
 # ── install helpers ──────────────────────────────────────────────────────
 
+def _apt_install_cmd(packages: list[str]) -> list[str]:
+    """Non-interactive apt install for Linux hosts without Homebrew."""
+    pkgs = [str(p).strip() for p in packages if str(p).strip()]
+    if not pkgs:
+        return []
+    joined = " ".join(pkgs)
+    return [
+        "bash",
+        "-lc",
+        "export DEBIAN_FRONTEND=noninteractive && "
+        "apt-get update -qq && "
+        f"apt-get install -y {joined}",
+    ]
+
+
 def _build_install_cmds(method: str, install: dict) -> list[list[str]]:
     """Build one or more install commands, with requirements executed before main packages."""
     requirements = install.get("requirements", []) or []
@@ -1190,6 +1309,13 @@ def _build_install_cmds(method: str, install: dict) -> list[list[str]]:
         return []
 
     if method == "brew":
+        requirements = [_strip_pkg_version(p) for p in requirements]
+        packages = [_strip_pkg_version(p) for p in packages]
+        if sys.platform.startswith("linux") and shutil.which("apt-get"):
+            apt_pkgs = [p for p in requirements + packages if p]
+            if apt_pkgs:
+                return [_apt_install_cmd(apt_pkgs)]
+            return []
         if requirements:
             cmds.append(["brew", "install"] + requirements)
         if packages:
@@ -1335,10 +1461,7 @@ def _finalize_install(slug: str, manifest: dict) -> dict:
         resolved = _resolve_installed_version(manifest)
         if resolved:
             version = resolved
-        elif _is_channel_tag(version):
-            latest = _github_latest_version(_github_repo(manifest))
-            if latest:
-                version = latest
+        version = _resolve_channel_version(manifest, str(version))
     except Exception:
         pass
 
@@ -1453,7 +1576,7 @@ def get_watchdog_addons() -> list[str]:
     for manifest in list_available():
         slug = manifest["slug"]
         state = get_state(slug)
-        if not state.get("installed") or not state.get("watchdog"):
+        if not state.get("installed") or not state.get("enabled") or not state.get("watchdog"):
             continue
         if not manifest.get("start_command"):
             continue

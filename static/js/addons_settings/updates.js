@@ -234,11 +234,22 @@ function _displayVersion(value) {
 }
 function _cacheHyveReleaseNotes(hyve) {
     const version = _displayVersion(hyve.latest || hyve.tag || hyve.current);
+    const repo = String(hyve.github_repo || '').trim();
+    const fallbackUrl = repo ? `https://github.com/${repo}/releases` : '';
     _releaseNotesCache.set('hyve', {
         title: 'Hyve',
         version,
         body: String(hyve.release_notes || '').trim(),
-        url: String(hyve.release_url || '').trim(),
+        url: String(hyve.release_url || '').trim() || fallbackUrl,
+    });
+}
+function _cacheAddonReleaseNotes(a) {
+    const version = _displayVersion(a.update_available ? (a.latest || a.current) : (a.current || a.latest));
+    _releaseNotesCache.set(a.slug, {
+        title: a.name || a.slug,
+        version,
+        body: String(a.release_notes || '').trim(),
+        url: String(a.release_url || '').trim(),
     });
 }
 function _hasReleaseNotes(target) {
@@ -250,7 +261,17 @@ function _hasReleaseNotes(target) {
 function _releaseNotesBtnHtml(target) {
     if (!_hasReleaseNotes(target))
         return '';
-    return `<button type="button" data-config-action="showUpdateReleaseNotes" data-config-target="${escapeHtml(target)}" class="upd-row-btn" title="${escapeHtml(t('updates.release_notes_btn'))}"><i class="fas fa-file-lines"></i></button>`;
+    return `<button type="button" data-config-action="showUpdateReleaseNotes" data-config-target="${escapeHtml(target)}" class="upd-row-btn upd-row-btn--notes" title="${escapeHtml(t('updates.release_notes_btn'))}"><i class="fas fa-file-lines"></i></button>`;
+}
+function _formatReleaseNotesBody(body) {
+    if (!body)
+        return '';
+    return `<div class="release-notes-content prose prose-invert prose-sm max-w-none">${formatMarkdown(body)}</div>`;
+}
+function _releaseNotesLinkLabel(url) {
+    return /github\.com/i.test(url)
+        ? t('updates.release_notes_github')
+        : t('updates.release_notes_open');
 }
 function _ensureReleaseNotesModal() {
     let modal = document.getElementById('update-release-notes-modal');
@@ -260,22 +281,26 @@ function _ensureReleaseNotesModal() {
     modal.id = 'update-release-notes-modal';
     modal.className = 'modal-overlay app-modal fixed inset-0 z-[80] hidden flex items-center justify-center p-2 sm:p-4';
     modal.innerHTML = `
-        <div class="glass app-modal-panel app-modal-content max-w-2xl w-full max-h-[85vh] flex flex-col">
-            <div class="app-modal-header flex-shrink-0">
-                <div class="min-w-0">
-                    <h3 id="update-release-notes-title" class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
-                        <i class="fas fa-file-lines"></i>
-                        <span></span>
+        <div class="glass app-modal-panel app-modal-content update-release-notes-modal max-w-2xl w-full max-h-[85vh] flex flex-col">
+            <div class="app-modal-header flex-shrink-0 border-b border-white/[0.06]">
+                <div class="min-w-0 flex-1">
+                    <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-1">${escapeHtml(t('updates.release_notes_btn'))}</p>
+                    <h3 id="update-release-notes-title" class="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
+                        <i class="fas fa-file-lines text-accent text-sm"></i>
+                        <span class="truncate"></span>
                     </h3>
-                    <p id="update-release-notes-subtitle" class="app-modal-subtitle"></p>
+                    <div class="flex flex-wrap items-center gap-2 mt-2">
+                        <span id="update-release-notes-version-badge" class="release-notes-version-badge hidden"></span>
+                        <p id="update-release-notes-subtitle" class="text-[11px] text-slate-500 hidden"></p>
+                    </div>
                 </div>
                 <button type="button" class="app-modal-close" data-config-action="closeUpdateReleaseNotes" aria-label="Close">
                     <i class="fas fa-xmark"></i>
                 </button>
             </div>
-            <div id="update-release-notes-body" class="app-modal-body overflow-y-auto prose prose-invert prose-sm max-w-none text-slate-300"></div>
-            <div id="update-release-notes-footer" class="flex-shrink-0 px-4 pb-4 pt-2 border-t border-white/[0.06] hidden">
-                <a id="update-release-notes-link" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-accent hover:text-accent-hover">
+            <div id="update-release-notes-body" class="app-modal-body overflow-y-auto release-notes-body"></div>
+            <div id="update-release-notes-footer" class="release-notes-footer flex-shrink-0 hidden">
+                <a id="update-release-notes-link" href="#" target="_blank" rel="noopener noreferrer" class="release-notes-external-link">
                     <i class="fas fa-arrow-up-right-from-square"></i><span></span>
                 </a>
             </div>
@@ -299,26 +324,37 @@ export function showUpdateReleaseNotes(target = 'hyve') {
     const modal = _ensureReleaseNotesModal();
     const titleSpan = modal.querySelector('#update-release-notes-title span');
     const subtitle = modal.querySelector('#update-release-notes-subtitle');
+    const versionBadge = modal.querySelector('#update-release-notes-version-badge');
     const body = modal.querySelector('#update-release-notes-body');
     const footer = modal.querySelector('#update-release-notes-footer');
     const link = modal.querySelector('#update-release-notes-link');
     const linkLabel = modal.querySelector('#update-release-notes-link span');
     if (titleSpan)
-        titleSpan.textContent = t('updates.release_notes_title', { name: entry.title });
+        titleSpan.textContent = entry.title;
+    const hasVersion = !!(entry.version && entry.version !== '?');
+    if (versionBadge) {
+        if (hasVersion) {
+            versionBadge.textContent = t('updates.release_notes_version', { version: entry.version });
+            versionBadge.classList.remove('hidden');
+        }
+        else {
+            versionBadge.textContent = '';
+            versionBadge.classList.add('hidden');
+        }
+    }
     if (subtitle) {
-        subtitle.textContent = entry.version && entry.version !== '?'
-            ? t('updates.release_notes_version', { version: entry.version })
-            : '';
+        subtitle.classList.add('hidden');
+        subtitle.textContent = '';
     }
     if (body) {
         body.innerHTML = entry.body
-            ? formatMarkdown(entry.body)
-            : `<p class="text-slate-500 text-sm">${escapeHtml(t('updates.release_notes_empty'))}</p>`;
+            ? _formatReleaseNotesBody(entry.body)
+            : `<div class="release-notes-empty"><i class="fas fa-scroll text-slate-600 text-2xl mb-3"></i><p>${escapeHtml(t('updates.release_notes_empty'))}</p></div>`;
     }
     if (footer && link && linkLabel) {
         if (entry.url) {
             link.href = entry.url;
-            linkLabel.textContent = t('updates.release_notes_github');
+            linkLabel.textContent = _releaseNotesLinkLabel(entry.url);
             footer.classList.remove('hidden');
         }
         else {
@@ -366,22 +402,22 @@ function _hyveRowHtml(hyve) {
     </div>`;
 }
 function _addonRowHtml(a) {
+    _cacheAddonReleaseNotes(a);
     const iconColor = _ADDON_COLOR_MAP[a.color || ''] || _ADDON_COLOR_MAP.slate;
     const iconHtml = a.image
         ? `<img src="${escapeHtml(a.image)}" alt="" class="w-4 h-4 rounded object-contain" loading="lazy">`
         : `<i class="${escapeHtml(a.icon || 'fas fa-puzzle-piece')} ${iconColor}"></i>`;
     let versionHtml;
     let badge;
-    let actionHtml;
+    let actionHtml = _releaseNotesBtnHtml(a.slug);
     if (a.update_available) {
         versionHtml = `<span class="font-mono text-slate-400">${escapeHtml(_displayVersion(a.current))}</span><i class="fas fa-arrow-right text-[8px] text-amber-400 mx-1"></i><span class="font-mono text-amber-400 font-semibold">${escapeHtml(_displayVersion(a.latest))}</span>`;
         badge = `<span class="upd-badge upd-badge--update"><i class="fas fa-arrow-up"></i>${escapeHtml(t('updates.badge_update'))}</span>`;
-        actionHtml = `<button type="button" data-config-action="updateSingleAddon" data-config-slug="${escapeHtml(a.slug)}" class="upd-row-btn" title="${escapeHtml(t('updates.upgrade_btn'))}"><i class="fas fa-arrow-up"></i></button>`;
+        actionHtml += `<button type="button" data-config-action="updateSingleAddon" data-config-slug="${escapeHtml(a.slug)}" class="upd-row-btn" title="${escapeHtml(t('updates.upgrade_btn'))}"><i class="fas fa-arrow-up"></i></button>`;
     }
     else {
         versionHtml = `<span class="font-mono text-slate-400">${escapeHtml(_displayVersion(a.current || a.latest))}</span>`;
         badge = `<span class="upd-badge upd-badge--ok"><i class="fas fa-check"></i>${escapeHtml(t('updates.badge_up_to_date'))}</span>`;
-        actionHtml = '';
     }
     return `<div class="upd-row${a.update_available ? ' upd-row--outdated' : ''}">
         <div class="upd-row-main">

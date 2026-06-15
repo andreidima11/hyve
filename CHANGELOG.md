@@ -4,6 +4,28 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.7.10] — 2026-06
+
+Patch release: **add-on enable/disable lifecycle**, **Mosquitto on Linux**, **backup coverage**, and **integration test fix**.
+
+### Add-ons
+- **Fix:** disabling an add-on now **stops its process** and prevents watchdog / manual start until re-enabled; uninstall also stops the process first.
+- **UI:** disabled add-ons show a clear “Disabled” badge; Start is blocked when the add-on is off.
+- **Mosquitto (Linux):** `brew` install method uses `apt-get install mosquitto` on Linux; `run.sh` finds binaries under `/usr/sbin` and `/usr/bin`.
+- **Updates:** release notes dialog works for all add-ons (not only Hyve self-update), with improved styling.
+
+### Backup
+- Broader archive coverage: full `skills/`, legacy JSON config files, encryption key path, Linux user-data paths.
+- Installed add-on slugs merged from registry + filesystem for restore refetch.
+- UI checklist in the backup panel; `refetch_addons` enabled by default on restore.
+
+### Integrations
+- **Fix:** “Test connection” no longer fails with `async_test_connection() got an unexpected keyword argument 'phase'` for integrations that do not support phased tests (e.g. Tapo).
+
+### Tests
+- `tests/test_addon_enable_lifecycle.py`, `tests/test_addon_brew_linux.py`, `tests/test_backup_coverage.py`, `tests/test_addon_release_notes.py`
+- `tests/test_integration_config_entries_api.py` — phased vs non-phased test connection
+
 ## [0.9.7.9] — 2026-06
 
 Patch release: **add-on install UX**, **Cloudflared version display**, and **Linux Docker bootstrap**.

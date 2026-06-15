@@ -434,7 +434,7 @@ function _applySettings(settings) {
         frigate.checked = !!settings.include_frigate_media;
     const refetch = _el('backup-refetch-addons');
     if (refetch)
-        refetch.checked = !!settings.refetch_addons;
+        refetch.checked = settings.refetch_addons !== false;
     const encrypt = _el('backup-encrypt-at-rest');
     if (encrypt)
         encrypt.checked = !!settings.encrypt_at_rest;

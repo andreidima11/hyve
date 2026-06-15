@@ -1,4 +1,6 @@
 import { apiCall } from '../api.js';
+import { escapeHtml } from '../utils.js';
+import { t } from '../lang/index.js';
 import { appsState } from './state.js';
 import * as render from './render.js';
 export async function refreshDetailStatus(slug) {
@@ -10,11 +12,19 @@ export async function refreshDetailStatus(slug) {
     catch (_) { }
 }
 function updateDetailUI(s) {
-    const st = s?.status || 'stopped';
-    const isRunning = st === 'running';
+    const detail = document.getElementById('app-detail');
+    const slug = detail?.dataset.slug;
+    const cached = slug ? appsState.addonsCache.find(a => a.slug === slug) : undefined;
+    const enabled = !!cached?.state?.enabled;
+    const st = enabled ? (s?.status || 'stopped') : 'stopped';
+    const isRunning = enabled && st === 'running';
+    const canStart = enabled && !isRunning;
     const badge = document.getElementById('app-detail-badge');
-    if (badge)
-        badge.innerHTML = render._statusBadge(st);
+    if (badge) {
+        badge.innerHTML = enabled
+            ? render._statusBadge(st)
+            : `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('hy.addon_status_disabled'))}</span>`;
+    }
     const pidEl = document.getElementById('app-detail-pid');
     if (pidEl)
         pidEl.textContent = String(s?.pid ?? '—');
@@ -28,8 +38,8 @@ function updateDetailUI(s) {
     const stopBtn = document.getElementById('app-detail-stop');
     const restartBtn = document.getElementById('app-detail-restart');
     if (startBtn) {
-        startBtn.disabled = isRunning;
-        startBtn.classList.toggle('opacity-40', isRunning);
+        startBtn.disabled = !canStart;
+        startBtn.classList.toggle('opacity-40', !canStart);
     }
     if (stopBtn) {
         stopBtn.disabled = !isRunning;
@@ -69,10 +79,10 @@ export function startPoll() {
                 const s = statuses[slug];
                 if (!s)
                     return;
+                const cached = appsState.addonsCache.find(a => a.slug === slug);
                 const badgeWrap = card.querySelector('.app-summary-badge');
-                if (badgeWrap) {
-                    const cached = appsState.addonsCache.find(a => a.slug === slug);
-                    badgeWrap.innerHTML = render._updateIndicator(cached) + render._statusBadge(s.status || 'stopped') + '<i class="fas fa-chevron-right text-slate-600 text-xs ml-3"></i>';
+                if (badgeWrap && cached) {
+                    badgeWrap.innerHTML = render._updateIndicator(cached) + render._addonStatusBadge(cached, s) + '<i class="fas fa-chevron-right text-slate-600 text-xs ml-3"></i>';
                 }
             });
         }

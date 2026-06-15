@@ -82,6 +82,38 @@ def _refresh_all_addon_versions() -> None:
             log.warning("Failed to refresh versions for %s: %s", slug, e)
 
 
+def _addon_update_row(addon: dict) -> dict[str, Any]:
+    """Build a single add-on row for the updates API."""
+    state = addon.get("state") or {}
+    available = bool(addon.get("update_available"))
+    version_for_notes = (
+        state.get("latest_version") if available
+        else state.get("version") or state.get("latest_version")
+    )
+    cached_body = str(state.get("release_notes") or "").strip()
+    cached_url = str(state.get("release_url") or "").strip()
+    if cached_body or cached_url:
+        release = {
+            "version": str(version_for_notes or ""),
+            "body": cached_body,
+            "url": cached_url,
+        }
+    else:
+        release = registry.addon_release_notes(addon, str(version_for_notes or "") or None)
+    return {
+        "slug": addon.get("slug", ""),
+        "name": addon.get("name", addon.get("slug", "")),
+        "icon": addon.get("icon", "fas fa-puzzle-piece"),
+        "color": addon.get("color", "slate"),
+        "image": addon.get("image", ""),
+        "current": state.get("version") or "",
+        "latest": state.get("latest_version") or addon.get("version") or "",
+        "update_available": available,
+        "release_notes": release.get("body") or "",
+        "release_url": release.get("url") or "",
+    }
+
+
 def _collect_addon_updates() -> list[dict[str, Any]]:
     """Return installed add-ons that have a newer version available.
 
@@ -92,15 +124,17 @@ def _collect_addon_updates() -> list[dict[str, Any]]:
     for addon in registry.list_all():
         if not addon.get("update_available"):
             continue
-        state = addon.get("state") or {}
+        row = _addon_update_row(addon)
         updates.append({
-            "slug": addon.get("slug", ""),
-            "name": addon.get("name", addon.get("slug", "")),
-            "icon": addon.get("icon", "fas fa-puzzle-piece"),
-            "color": addon.get("color", "slate"),
-            "image": addon.get("image", ""),
-            "current": state.get("version") or "",
-            "latest": state.get("latest_version") or addon.get("version") or "",
+            "slug": row["slug"],
+            "name": row["name"],
+            "icon": row["icon"],
+            "color": row["color"],
+            "image": row["image"],
+            "current": row["current"],
+            "latest": row["latest"],
+            "release_notes": row["release_notes"],
+            "release_url": row["release_url"],
         })
     updates.sort(key=lambda a: a["name"].lower())
     return updates
@@ -149,19 +183,10 @@ async def list_addon_updates(_: models.User = Depends(_require_admin)):
         state = addon.get("state") or {}
         if not state.get("installed"):
             continue
-        available = bool(addon.get("update_available"))
-        if available:
+        row = _addon_update_row(addon)
+        if row["update_available"]:
             update_count += 1
-        addons.append({
-            "slug": addon.get("slug", ""),
-            "name": addon.get("name", addon.get("slug", "")),
-            "icon": addon.get("icon", "fas fa-puzzle-piece"),
-            "color": addon.get("color", "slate"),
-            "image": addon.get("image", ""),
-            "current": state.get("version") or "",
-            "latest": state.get("latest_version") or addon.get("version") or "",
-            "update_available": available,
-        })
+        addons.append(row)
     addons.sort(key=lambda a: (not a["update_available"], a["name"].lower()))
     hyve = get_hyve_status()
     total_updates = update_count + _hyve_update_count()

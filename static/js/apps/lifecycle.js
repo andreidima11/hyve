@@ -1,5 +1,5 @@
 import { apiCall } from '../api.js';
-import { showToast, escapeHtml, showConfirm } from '../utils.js';
+import { showToast, escapeHtml, showConfirm, openSubPage, closeSubPage } from '../utils.js';
 import { t, translateApiDetail } from '../lang/index.js';
 import { switchTab, openConfigSection } from '../nav_bridge.js';
 import { isAdmin } from '../user_context.js';
@@ -72,17 +72,8 @@ export async function runPreflight(slug) {
     }
 }
 let _installEventSource = null;
-function _prepareAppSubpageOpen() {
-    const viewConfig = document.getElementById('view-config');
-    if (viewConfig) {
-        viewConfig.scrollTop = 0;
-    }
-    document.querySelector('#app-main-wrap .flex-1')?.scrollTo?.(0, 0);
-}
 export async function installApp(slug) {
-    _prepareAppSubpageOpen();
     // Open install-log modal and stream progress via SSE
-    const modal = document.getElementById('app-install-modal');
     const title = document.getElementById('app-install-title');
     const content = document.getElementById('app-install-content');
     const status = document.getElementById('app-install-status');
@@ -95,10 +86,7 @@ export async function installApp(slug) {
         status.innerHTML = `<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('config.app_install_status'))}`;
     if (closeBtn)
         closeBtn.classList.add('hidden');
-    if (modal) {
-        modal.classList.add('open');
-        modal.setAttribute('aria-hidden', 'false');
-    }
+    openSubPage('app-install-modal');
     // Get short-lived exchange token for SSE (avoids passing long-lived JWT in URL)
     let token;
     try {
@@ -171,11 +159,7 @@ export function closeInstallLogModal() {
         _installEventSource.close();
         _installEventSource = null;
     }
-    const modal = document.getElementById('app-install-modal');
-    if (modal) {
-        modal.classList.remove('open');
-        modal.setAttribute('aria-hidden', 'true');
-    }
+    closeSubPage('app-install-modal');
 }
 /** Navigate to the Updates page where add-on updates are applied (generic, no slug needed). */
 export function goToAddonUpdates() {

@@ -342,15 +342,27 @@ export function getSessionId() {
 
 /* ─── Sub-page helpers ─── */
 
+type SavedScroll = { el: HTMLElement; top: number };
+
+function _resetAncestorScroll(el: HTMLElement): SavedScroll[] {
+    const saved: SavedScroll[] = [];
+    let node: HTMLElement | null = el.parentElement;
+    while (node) {
+        if (node.scrollTop > 0) {
+            saved.push({ el: node, top: node.scrollTop });
+            node.scrollTop = 0;
+        }
+        node = node.parentElement;
+    }
+    return saved;
+}
+
 export function openSubPage(id: string) {
     const el = document.getElementById(id);
     if (!el) return;
-    /* Scroll any overflow-auto ancestor to top so the absolute-positioned
-       overlay covers the full viewport (not offset by scroll position). */
-    const p = el.parentElement;
-    if (p) {
-        el._savedParentScroll = p.scrollTop;
-        p.scrollTop = 0;
+    const saved = _resetAncestorScroll(el);
+    if (saved.length) {
+        (el as HTMLElement & { _savedAncestorScrolls?: SavedScroll[] })._savedAncestorScrolls = saved;
     }
     el.classList.add('open');
     el.setAttribute('aria-hidden', 'false');
@@ -361,10 +373,12 @@ export function closeSubPage(id: string) {
     if (!el) return;
     el.classList.remove('open');
     el.setAttribute('aria-hidden', 'true');
-    const p = el.parentElement;
-    if (p && el._savedParentScroll != null) {
-        p.scrollTop = el._savedParentScroll;
-        delete el._savedParentScroll;
+    const saved = (el as HTMLElement & { _savedAncestorScrolls?: SavedScroll[] })._savedAncestorScrolls;
+    if (saved?.length) {
+        for (const { el: ancestor, top } of saved) {
+            ancestor.scrollTop = top;
+        }
+        delete (el as HTMLElement & { _savedAncestorScrolls?: SavedScroll[] })._savedAncestorScrolls;
     }
 }
 

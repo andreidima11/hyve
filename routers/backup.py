@@ -94,7 +94,7 @@ class BackupSettingsBody(BaseModel):
     pre_restore_retention_count: int = Field(3, ge=1, le=20)
     include_optional: bool = False
     include_frigate_media: bool = False
-    refetch_addons: bool = False
+    refetch_addons: bool = True
     encrypt_at_rest: bool = False
     remote: BackupRemoteBody = Field(default_factory=BackupRemoteBody)
 
