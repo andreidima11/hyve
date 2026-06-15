@@ -52,6 +52,7 @@ export interface AddonCatalogEntry {
     start_command?: string;
     update_available?: boolean;
     config_schema?: AddonConfigField[];
+    config_suggestions?: Record<string, unknown>;
     web_ui?: AddonWebUiConfig;
     state?: AddonState;
 }

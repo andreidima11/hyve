@@ -29,3 +29,8 @@ def test_format_setup_banner_wizard():
 def test_format_setup_banner_bootstrap():
     text = ih.format_setup_banner(complete=True, bootstrap=True)
     assert "bootstrap" in text.lower() or "admin" in text.lower()
+
+
+def test_venv_has_pip_false_when_python_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr(ih, "VENV_PYTHON", tmp_path / "missing" / "python")
+    assert ih.venv_has_pip() is False

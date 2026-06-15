@@ -4,6 +4,24 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.7.8] — 2026-06
+
+Patch release: **Cloudflared add-on**, **save-config fix**, and **installer / add-on state** hardening.
+
+### Add-ons
+- **New:** Cloudflared add-on (`addons/available/cloudflared`) — Cloudflare Tunnel for remote Hyve access (token or local tunnel mode, Docker).
+- **Fix:** Apps / Hub **Save configuration** button no longer silently no-ops (modal `open` class detection; shared `config_form` for collect/render).
+- **Fix:** Docker add-ons (e.g. Cloudflared) no longer marked uninstalled after restart when Docker is slow or image uses `:latest` tag.
+- **Cloudflared:** optional Cloudflare API sync for token mode (push origin URL from Hyve); LAN origin URL suggestions in UI.
+
+### Installer
+- **Fix:** `install_hyve.py --fresh` runs after venv/deps are ready (no `ModuleNotFoundError: core`).
+- **Fix:** broken `.venv` without pip is detected and recreated automatically; `--recreate-venv` flag added.
+
+### Tests
+- `tests/test_cloudflared_addon.py`, `tests/test_cloudflared_config.py`, `tests/test_network_utils.py`
+- `tests/test_addon_state_store.py` — docker daemon / cloudflared data-dir repair cases
+
 ## [0.9.7.7] — 2026-06
 
 Patch release: **complete backup restore** and **auto page reload after restart**.

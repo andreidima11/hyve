@@ -1025,9 +1025,10 @@ window.addEventListener('DOMContentLoaded', () => {
         saveAddonConfig: (slug) => {
             const s = _str(slug);
             const modal = document.getElementById('addon-config-modal');
-            const modalOpen = modal && !modal.classList.contains('hidden');
-            if (modalOpen || !s) return saveAddonConfigModal();
-            return _lazyAction(_loadAppsModule, 'saveAddonConfig')(s);
+            const modalOpen = !!modal?.classList.contains('open');
+            if (modalOpen) return saveAddonConfigModal();
+            if (s) return _lazyAction(_loadAppsModule, 'saveAddonConfig')(s);
+            return saveAddonConfigModal();
         },
         copyPreflightFix: (text) => { const s = _str(text); if (s) navigator.clipboard.writeText(s).catch(() => {}); },
         toggleAddonWatchdog: (slug, enabled) => _lazyAction(_loadAppsModule, 'toggleAddonWatchdog')(slug, enabled),

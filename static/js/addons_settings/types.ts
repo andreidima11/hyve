@@ -33,6 +33,7 @@ export interface AddonRecord {
     icon?: string;
     state?: AddonState;
     config_schema?: AddonConfigField[];
+    config_suggestions?: Record<string, unknown>;
     integration_key?: string;
     start_command?: {
         command?: string;

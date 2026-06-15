@@ -42,9 +42,16 @@ def test_resolve_display_version_prefers_runtime_when_installed(monkeypatch):
     assert registry._resolve_display_version(manifest, state) == "0.16.2"
 
 
-def test_docker_installed_version_from_image_tag():
+def test_docker_installed_version_from_image_tag(monkeypatch):
+    monkeypatch.setattr(registry, "_docker_image_exists", lambda _image: True)
     assert registry._docker_installed_version("ghcr.io/example/app:0.14.0") == "0.14.0"
-    assert registry._docker_installed_version("ghcr.io/example/app:stable") is None
+    assert registry._docker_installed_version("ghcr.io/example/app:stable") == "stable"
+    assert registry._docker_installed_version("ghcr.io/example/app:latest") == "latest"
+
+
+def test_docker_installed_version_missing_image(monkeypatch):
+    monkeypatch.setattr(registry, "_docker_image_exists", lambda _image: False)
+    assert registry._docker_installed_version("ghcr.io/example/app:0.14.0") is None
 
 
 def test_addon_entry_overrides_manifest_channel_tag(monkeypatch):

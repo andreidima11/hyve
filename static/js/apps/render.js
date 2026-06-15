@@ -1,6 +1,7 @@
 import { escapeHtml } from '../utils.js';
 import { t, translateApiDetail } from '../lang/index.js';
 import { isAdmin } from '../user_context.js';
+import { renderAddonConfigField, resolveAddonConfigValue } from '../addons/config_form.js';
 export function _errMsg(err) {
     if (err instanceof Error) {
         const msg = err.message.trim();
@@ -106,53 +107,15 @@ export function _buildAddonWebUrl(addon) {
     return `${protocol}://${rawHost}${port}${path}`;
 }
 function _renderConfigField(field, value, isAdmin) {
-    const key = field.key || '';
-    const label = field.label || key;
-    const desc = field.description || '';
-    const placeholder = field.placeholder || '';
-    const type = (field.type || 'text').toLowerCase();
-    const safeValue = value ?? field.default ?? '';
-    const disabled = isAdmin ? '' : 'disabled';
-    const wideClass = type === 'textarea' ? 'sm:col-span-2' : '';
-    if (type === 'checkbox' || type === 'boolean') {
-        return `
-        <label class="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 flex items-start gap-3 cursor-pointer">
-            <input type="checkbox" data-addon-config="${escapeHtml(key)}" ${safeValue ? 'checked' : ''} ${disabled}
-                class="mt-0.5 rounded border-white/10 bg-slate-900 text-accent focus:ring-accent/40">
-            <span class="min-w-0">
-                <span class="block text-sm text-white">${escapeHtml(label)}</span>
-                ${desc ? `<span class="block text-[11px] text-slate-500 mt-1">${escapeHtml(desc)}</span>` : ''}
-            </span>
-        </label>`;
-    }
-    if (type === 'select' && Array.isArray(field.options)) {
-        const options = field.options.map((opt) => {
-            const option = typeof opt === 'object' ? opt : { value: opt, label: opt };
-            const val = `${option.value ?? option.label ?? ''}`;
-            const selected = `${safeValue}` === val ? 'selected' : '';
-            return `<option value="${escapeHtml(val)}" ${selected}>${escapeHtml(option.label ?? val)}</option>`;
-        }).join('');
-        return `
-        <label class="block space-y-1.5 ${wideClass}">
-            <span class="text-xs font-semibold text-slate-300">${escapeHtml(label)}</span>
-            <select data-addon-config="${escapeHtml(key)}" ${disabled}
-                class="w-full rounded-xl border border-white/[0.06] bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40">
-                ${options}
-            </select>
-            ${desc ? `<p class="text-[11px] text-slate-500">${escapeHtml(desc)}</p>` : ''}
-        </label>`;
-    }
-    if (type === 'textarea') {
-        return `
-        <label class="block space-y-1.5 ${wideClass}">
-            <span class="text-xs font-semibold text-slate-300">${escapeHtml(label)}</span>
-            <textarea data-addon-config="${escapeHtml(key)}" placeholder="${escapeHtml(placeholder)}" ${disabled}
-                class="w-full min-h-[96px] rounded-xl border border-white/[0.06] bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40">${escapeHtml(String(safeValue))}</textarea>
-            ${desc ? `<p class="text-[11px] text-slate-500">${escapeHtml(desc)}</p>` : ''}
-        </label>`;
-    }
-    const inputType = ['number', 'password', 'url'].includes(type) ? type : 'text';
     if (field.detect === 'serial') {
+        const key = field.key || '';
+        const label = field.label || key;
+        const desc = field.description || '';
+        const placeholder = field.placeholder || '';
+        const type = (field.type || 'text').toLowerCase();
+        const safeValue = value ?? field.default ?? '';
+        const disabled = isAdmin ? '' : 'disabled';
+        const inputType = ['number', 'password', 'url'].includes(type) ? type : 'text';
         return `
         <label class="block space-y-1.5 sm:col-span-2">
             <span class="text-xs font-semibold text-slate-300">${escapeHtml(label)}</span>
@@ -169,23 +132,22 @@ function _renderConfigField(field, value, isAdmin) {
             ${desc ? `<p class="text-[11px] text-slate-500">${escapeHtml(desc)}</p>` : ''}
         </label>`;
     }
-    return `
-    <label class="block space-y-1.5 ${wideClass}">
-        <span class="text-xs font-semibold text-slate-300">${escapeHtml(label)}</span>
-        <input type="${escapeHtml(inputType)}" data-addon-config="${escapeHtml(key)}" value="${escapeHtml(String(safeValue))}" placeholder="${escapeHtml(placeholder)}" ${disabled}
-            class="w-full rounded-xl border border-white/[0.06] bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40">
-        ${desc ? `<p class="text-[11px] text-slate-500">${escapeHtml(desc)}</p>` : ''}
-    </label>`;
+    return renderAddonConfigField(field, value, isAdmin, 'data-addon-config');
 }
 function _renderConfigSection(addon, isAdmin) {
     const schema = addon.config_schema || [];
     if (!schema.length)
         return '';
     const cfg = addon.state?.config || {};
+    const suggestions = addon.config_suggestions;
     const webUrl = _buildAddonWebUrl(addon);
     const intro = addon.state?.installed
         ? t('apps.config_intro_installed')
         : t('apps.config_intro_not_installed');
+    const tokenMode = addon.slug === 'cloudflared' && `${cfg.tunnel_token || ''}`.trim().length > 0;
+    const tokenBanner = tokenMode
+        ? `<div class="sm:col-span-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-100/90 leading-relaxed">${escapeHtml(t('apps.cloudflared_token_origin_hint'))}</div>`
+        : '';
     return `
     <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 space-y-4">
         <div class="flex items-start justify-between gap-3">
@@ -196,7 +158,8 @@ function _renderConfigSection(addon, isAdmin) {
             ${isAdmin ? `<button type="button" data-config-action="saveAddonConfig" data-config-slug="${escapeHtml(addon.slug)}" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors flex-shrink-0 shadow-lg shadow-accent/20"><i class="fas fa-check"></i>${escapeHtml(t('apps.save_config'))}</button>` : ''}
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            ${schema.map((field) => _renderConfigField(field, cfg[field.key ?? ''], isAdmin)).join('')}
+            ${tokenBanner}
+            ${schema.map((field) => _renderConfigField(field, resolveAddonConfigValue(field, cfg, suggestions), isAdmin)).join('')}
         </div>
         <div class="flex flex-wrap gap-2">
             ${isAdmin ? `<button type="button" data-config-action="testAddonHealth" data-config-slug="${escapeHtml(addon.slug)}" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] transition-all"><i class="fas fa-heart-pulse mr-1.5"></i>${escapeHtml(t('apps.test_connection'))}</button>` : ''}

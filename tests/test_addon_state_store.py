@@ -111,6 +111,7 @@ def test_reconcile_addon_state_from_integration_and_disk(tmp_path, monkeypatch):
     models_dir.mkdir()
     (models_dir / "test.onnx").write_text("x", encoding="utf-8")
     monkeypatch.setattr(registry, "_PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(registry, "_docker_installed_version", lambda _image: None)
     monkeypatch.setattr(registry, "_brew_installed_version", lambda _pkg: None)
     monkeypatch.setattr(registry, "_brew_binary_path", lambda _pkg: None)
     monkeypatch.setattr("integrations.config_entries.list_entries", _no_integration_entries)
@@ -194,12 +195,62 @@ def test_repair_clears_false_installed_docker_addon(tmp_path, monkeypatch):
     monkeypatch.setattr(registry, "_brew_installed_version", lambda _pkg: None)
     monkeypatch.setattr(registry, "_brew_binary_path", lambda _pkg: None)
     monkeypatch.setattr(registry, "_detect_on_disk_install", lambda _manifest: None)
+    monkeypatch.setattr(registry, "_docker_daemon_reachable", lambda: True)
     monkeypatch.setattr("integrations.config_entries.list_entries", _no_integration_entries)
 
     assert registry.reconcile_addon_state() == 1
     frigate = state_store.get_state("frigate")
     assert frigate["installed"] is False
     assert frigate["enabled"] is False
+
+
+def test_repair_skips_docker_addon_when_daemon_unreachable(tmp_path, monkeypatch):
+    _fresh_addon_state()
+    state_store.save_state("cloudflared", {
+        "installed": True,
+        "enabled": True,
+        "version": "latest",
+        "config": {"origin_url": "http://192.168.0.10:8082", "tunnel_token": "tok"},
+        "watchdog": False,
+    })
+
+    import core.settings as settings_mod
+    from addons import registry
+
+    cfg_path = tmp_path / "config.json"
+    cfg_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(settings_mod, "CONFIG_FILE", str(cfg_path))
+    monkeypatch.setattr(settings_mod, "_load_config_raw", lambda: {})
+    monkeypatch.setattr(settings_mod, "CFG", {})
+    monkeypatch.setattr(registry, "_PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(registry, "_detect_on_disk_install", lambda _manifest: None)
+    monkeypatch.setattr(registry, "_docker_daemon_reachable", lambda: False)
+    monkeypatch.setattr("integrations.config_entries.list_entries", _no_integration_entries)
+
+    assert registry.reconcile_addon_state() == 0
+    cloudflared = state_store.get_state("cloudflared")
+    assert cloudflared["installed"] is True
+    assert cloudflared["config"]["origin_url"] == "http://192.168.0.10:8082"
+
+
+def test_detect_on_disk_cloudflared_data_dir(tmp_path, monkeypatch):
+    from addons import registry
+
+    monkeypatch.setattr(registry, "_PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(registry, "_docker_installed_version", lambda _image: None)
+    data_dir = tmp_path / "output" / "addons" / "cloudflared" / "data"
+    data_dir.mkdir(parents=True)
+    (data_dir / "cert.pem").write_text("test", encoding="utf-8")
+
+    manifest = registry.get_manifest("cloudflared")
+    assert registry._detect_on_disk_install(manifest) == "latest"
+
+
+def test_docker_installed_version_accepts_latest_tag_when_image_exists(monkeypatch):
+    from addons import registry
+
+    monkeypatch.setattr(registry, "_docker_image_exists", lambda _image: True)
+    assert registry._docker_installed_version("cloudflare/cloudflared:latest") == "latest"
 
 
 def test_reconcile_restores_brew_addon_when_binary_present(tmp_path, monkeypatch):

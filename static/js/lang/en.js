@@ -587,6 +587,7 @@ const en = {
         config_intro_installed: "Adjust this add-on's local settings.",
         config_intro_not_installed: "Settings apply after local installation.",
         save_config: "Save configuration",
+        cloudflared_token_origin_hint: "Token mode: Cloudflare ignores Hyve origin unless you add a Cloudflare API token + external hostname and save. Otherwise logs will still show localhost from the dashboard.",
         test_connection: "Check connection",
         open_web_ui: "Open Web UI",
         local_install_title: "Local installation",

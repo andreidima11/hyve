@@ -47,16 +47,9 @@ def run(cmd: list[str], *, cwd: Path = ROOT, check: bool = True) -> subprocess.C
 
 def detect_lan_ip() -> str | None:
     """Best-effort LAN address (for Proxmox / NAS install hints)."""
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            sock.connect(("8.8.8.8", 80))
-            ip = str(sock.getsockname()[0] or "").strip()
-            return ip or None
-        finally:
-            sock.close()
-    except OSError:
-        return None
+    from core.network_utils import detect_lan_ip as _detect_lan_ip
+
+    return _detect_lan_ip()
 
 
 def build_access_urls(port: int, *, lan_ip: str | None = None) -> list[str]:
@@ -87,12 +80,38 @@ def fetch_setup_status(port: int, *, timeout: float = 5.0) -> dict | None:
         return None
 
 
-def ensure_venv() -> None:
-    if VENV_PYTHON.exists():
-        print_step("Reusing existing virtual environment")
-        return
+def venv_has_pip() -> bool:
+    if not VENV_PYTHON.is_file():
+        return False
+    proc = subprocess.run(
+        [str(VENV_PYTHON), "-m", "pip", "--version"],
+        capture_output=True,
+        text=True,
+    )
+    return proc.returncode == 0
+
+
+def recreate_venv() -> None:
+    if VENV_DIR.exists():
+        print_step(f"Removing virtual environment ({VENV_DIR.name})")
+        shutil.rmtree(VENV_DIR)
     print_step("Creating virtual environment")
     run([sys.executable, "-m", "venv", str(VENV_DIR)])
+    if not venv_has_pip():
+        print_step("Bootstrapping pip (python3-venv / ensurepip)")
+        run([str(VENV_PYTHON), "-m", "ensurepip", "--upgrade"])
+
+
+def ensure_venv(*, force_recreate: bool = False) -> None:
+    if force_recreate:
+        recreate_venv()
+        return
+    if VENV_PYTHON.is_file() and venv_has_pip():
+        print_step("Reusing existing virtual environment")
+        return
+    if VENV_PYTHON.is_file():
+        print_step("Virtual environment is incomplete (pip missing) — recreating")
+    recreate_venv()
 
 
 def install_python_dependencies() -> None:
@@ -199,13 +218,50 @@ def reset_first_run_state() -> None:
         CONFIG_FILE.write_text(json.dumps(data, indent=4) + "\n", encoding="utf-8")
         print("  set config.json setup_complete=false")
 
-    from core.user_data import reset_user_data
-
-    cleared = reset_user_data()
+    cleared = _reset_user_data_dirs()
     for line in cleared:
         print(f"  removed {line}")
     if not cleared:
         print("  user data dirs already empty")
+
+
+def _reset_user_data_dirs() -> list[str]:
+    """Clear dashboards/skills/etc. Uses project venv when available."""
+    if VENV_PYTHON.is_file():
+        proc = subprocess.run(
+            [
+                str(VENV_PYTHON),
+                "-c",
+                (
+                    "import json, sys; "
+                    f"sys.path.insert(0, {str(ROOT)!r}); "
+                    "from core.user_data import reset_user_data; "
+                    "print(json.dumps(reset_user_data()))"
+                ),
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode == 0:
+            raw = (proc.stdout or "").strip()
+            if raw:
+                return json.loads(raw)
+            return []
+        err = (proc.stderr or proc.stdout or "").strip()
+        print(f"  warning: could not clear user data dirs ({err or 'venv import failed'})")
+        print("  run: python3 scripts/install_hyve.py --no-start  (reinstalls deps, then retry --fresh)")
+        return []
+
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    try:
+        from core.user_data import reset_user_data
+
+        return reset_user_data()
+    except ModuleNotFoundError:
+        print("  skipped user data dirs (no venv yet — run install_hyve.py to create one)")
+        return []
 
 
 def bootstrap_admin(username: str, full_name: str, email: str, password: str) -> None:
@@ -346,6 +402,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-start", action="store_true", help="Install only; do not start uvicorn")
     parser.add_argument("--no-open-browser", action="store_true")
     parser.add_argument(
+        "--recreate-venv",
+        action="store_true",
+        help="Delete and recreate .venv before installing dependencies",
+    )
+    parser.add_argument(
         "--fresh",
         action="store_true",
         help="Delete hyve.db/users.db, user dashboards/skills/automations, and reset setup_complete (re-run wizard)",
@@ -368,10 +429,12 @@ def main() -> int:
     bootstrap = bool(args.bootstrap_admin)
 
     if args.fresh:
+        ensure_venv(force_recreate=args.recreate_venv)
+        install_python_dependencies()
         reset_first_run_state()
-
-    ensure_venv()
-    install_python_dependencies()
+    else:
+        ensure_venv(force_recreate=args.recreate_venv)
+        install_python_dependencies()
     install_node_dependencies(skip_npm=args.skip_npm)
     ensure_env_file()
     ensure_config_file(port)

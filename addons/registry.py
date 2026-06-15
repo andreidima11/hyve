@@ -375,6 +375,38 @@ def _docker_image(manifest: dict) -> str:
     return str((manifest.get("install") or {}).get("image") or "").strip()
 
 
+def _docker_image_exists(image: str) -> bool:
+    if not image or not shutil.which("docker"):
+        return False
+    try:
+        r = subprocess.run(
+            ["docker", "image", "inspect", image],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        return r.returncode == 0
+    except Exception as e:
+        log.debug("docker image inspect failed for %s: %s", image, e)
+        return False
+
+
+def _docker_daemon_reachable() -> bool:
+    if not shutil.which("docker"):
+        return False
+    try:
+        r = subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            text=True,
+            timeout=8,
+        )
+        return r.returncode == 0
+    except Exception as e:
+        log.debug("docker info failed: %s", e)
+        return False
+
+
 def _github_repo(manifest: dict) -> str:
     install = manifest.get("install") or {}
     return str(install.get("version_github") or install.get("github_repo") or "").strip()
@@ -399,7 +431,7 @@ def _github_latest_version(repo: str) -> str | None:
 
 
 def _docker_installed_version(image: str) -> str | None:
-    if not image or not shutil.which("docker"):
+    if not image or not _docker_image_exists(image):
         return None
     fmt = '{{index .Config.Labels "org.opencontainers.image.version"}}'
     label = _run_capture(["docker", "image", "inspect", image, "--format", fmt], timeout=15)
@@ -409,11 +441,10 @@ def _docker_installed_version(image: str) -> str | None:
             return normalized
     if ":" in image:
         tag = image.rsplit(":", 1)[-1].strip()
-        if tag and not _is_channel_tag(tag):
+        if tag:
             normalized = _normalize_version_string(tag)
-            if normalized:
-                return normalized
-    return None
+            return normalized or tag
+    return "installed"
 
 
 def _http_runtime_version(manifest: dict, state: dict) -> str | None:
@@ -475,12 +506,17 @@ def _resolve_display_version(manifest: dict, state: dict) -> str:
 def addon_entry(manifest: dict, state: dict | None = None) -> dict:
     """Manifest + state enriched with a resolved catalog version for the UI."""
     state = state if state is not None else get_state(manifest["slug"])
-    return {
+    entry = {
         **manifest,
         "version": _resolve_display_version(manifest, state),
         "state": state,
         "update_available": is_update_available(manifest, state),
     }
+    if manifest.get("slug") == "cloudflared":
+        from addons.cloudflared_hints import enrich_addon_entry
+
+        entry = enrich_addon_entry(entry)
+    return entry
 
 
 def _pip_installed_version(pkg: str) -> str | None:
@@ -637,6 +673,10 @@ def _detect_on_disk_install(manifest: dict) -> str | None:
         models_dir = _PROJECT_ROOT / "piper_models"
         if models_dir.is_dir() and any(models_dir.glob("*.onnx")):
             return manifest.get("version") or None
+    if slug == "cloudflared":
+        data_dir = _PROJECT_ROOT / "output" / "addons" / "cloudflared" / "data"
+        if data_dir.is_dir() and any(data_dir.iterdir()):
+            return manifest.get("version") or "latest"
     return None
 
 
@@ -678,6 +718,13 @@ def _repair_false_installed_flags() -> int:
         if not _install_requires_artifacts(manifest):
             continue
         if _detect_on_disk_install(manifest):
+            continue
+        install = manifest.get("install") or {}
+        if install.get("method") == "docker" and not _docker_daemon_reachable():
+            log.debug(
+                "Skipping false-installed repair for %s (docker daemon unavailable)",
+                slug,
+            )
             continue
         new_state = dict(state)
         new_state["installed"] = False
@@ -1308,7 +1355,20 @@ def update_addon_config(slug: str, config: dict) -> dict:
     state["config"].update(config)
     _save_addon_state(slug, state)
     integration_sync.sync_config_fields(slug, config)
+    if slug == "cloudflared":
+        _maybe_sync_cloudflared_to_cloudflare(state["config"])
     return state
+
+
+def _maybe_sync_cloudflared_to_cloudflare(config: dict) -> None:
+    try:
+        from addons.cloudflared_config import maybe_sync_from_addon_config
+
+        maybe_sync_from_addon_config(config)
+    except ValueError as exc:
+        log.warning("Cloudflared Cloudflare sync skipped: %s", exc)
+    except Exception as exc:
+        log.warning("Cloudflared Cloudflare sync failed: %s", exc)
 
 
 def set_addon_enabled(slug: str, enabled: bool) -> dict:

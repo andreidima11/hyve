@@ -94,7 +94,7 @@ def test_install_fresh_calls_user_data_reset(tmp_path, monkeypatch):
         calls.append("user_data")
         return []
 
-    monkeypatch.setattr("core.user_data.reset_user_data", _fake_reset)
+    monkeypatch.setattr(ih, "_reset_user_data_dirs", _fake_reset)
 
     ih.reset_first_run_state()
 

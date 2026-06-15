@@ -1,0 +1,137 @@
+{
+  "slug": "cloudflared",
+  "name": "Cloudflared",
+  "description": "Cloudflare Tunnel pentru acces remote la Hyve fără port forwarding.",
+  "long_description": "Expune Hyve (și alte servicii locale) printr-un tunel Cloudflare securizat — similar add-on-ului Home Assistant. Suportă tunel gestionat din Cloudflare Zero Trust (token) sau tunel local creat automat (hostname + DNS). După activare, verifică logurile add-on-ului pentru URL-ul de autentificare Cloudflare la prima rulare.",
+  "version": "latest",
+  "icon": "fab fa-cloudflare",
+  "color": "orange",
+  "author": "Cloudflare",
+  "url": "https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/",
+  "category": "service",
+  "install": {
+    "method": "docker",
+    "image": "cloudflare/cloudflared:latest",
+    "download_on_install": true,
+    "bundled": false,
+    "channel": "latest",
+    "notes": "Imaginea oficială cloudflare/cloudflared se descarcă la instalare. Necesită Docker (sau Colima pe macOS)."
+  },
+  "config_schema": [
+    {
+      "key": "tunnel_token",
+      "label": "Tunnel token (Zero Trust)",
+      "type": "password",
+      "default": "",
+      "placeholder": "eyJhIjoi…",
+      "description": "Opțional. Token din Cloudflare Zero Trust → Networks → Tunnels → Configure. Fără API token Cloudflare, originea din Hyve NU se aplică — rămâne ce e în dashboard (de ex. localhost)."
+    },
+    {
+      "key": "external_hostname",
+      "label": "Hostname extern (Hyve)",
+      "type": "text",
+      "default": "",
+      "placeholder": "hyve.example.com",
+      "description": "Subdomeniul public (ex. hv.serverdma.ro). Obligatoriu pentru sync origine în mod token și pentru tunel local."
+    },
+    {
+      "key": "tunnel_name",
+      "label": "Nume tunel",
+      "type": "text",
+      "default": "hyve",
+      "placeholder": "hyve",
+      "description": "Numele tunelului în contul Cloudflare (trebuie să fie unic)."
+    },
+    {
+      "key": "origin_url",
+      "label": "URL origine Hyve",
+      "type": "text",
+      "default": "",
+      "placeholder": "http://192.168.1.50:8082",
+      "description": "URL-ul unde cloudflared ajunge la Hyve. Cu sync Cloudflare activ + API token, se aplică automat în mod token."
+    },
+    {
+      "key": "sync_origin_to_cloudflare",
+      "label": "Sync origine către Cloudflare (mod token)",
+      "type": "checkbox",
+      "default": true,
+      "description": "La salvare/pornire, actualizează Public Hostname → Service în Cloudflare folosind URL origine de mai sus. Necesită API token Cloudflare."
+    },
+    {
+      "key": "cloudflare_api_token",
+      "label": "Cloudflare API token",
+      "type": "password",
+      "default": "",
+      "placeholder": "Token cu permisiune Cloudflare One / Tunnel Edit",
+      "description": "Din Cloudflare → My Profile → API Tokens. Permisiuni: Account → Cloudflare One Connectors → Edit. Necesar ca originea Hyve să înlocuiască localhost din dashboard."
+    },
+    {
+      "key": "additional_hosts",
+      "label": "Hosturi suplimentare (JSON)",
+      "type": "textarea",
+      "default": "[]",
+      "placeholder": "[{\"hostname\":\"router.example.com\",\"service\":\"http://192.168.1.1\"}]",
+      "description": "Listă JSON cu hostname + service (ca în add-on-ul HA). Exemplu: [{\"hostname\":\"nas.example.com\",\"service\":\"https://192.168.1.2:5001\"}]"
+    },
+    {
+      "key": "catch_all_service",
+      "label": "Catch-all service",
+      "type": "text",
+      "default": "",
+      "placeholder": "http://192.168.1.100",
+      "description": "Opțional. Forward pentru hostname-uri nedefinite. Altfel, răspuns 404."
+    },
+    {
+      "key": "metrics_port",
+      "label": "Port metrics",
+      "type": "number",
+      "default": 36500,
+      "placeholder": "36500",
+      "description": "Port local pentru metrici cloudflared (health check)."
+    },
+    {
+      "key": "log_level",
+      "label": "Nivel log",
+      "type": "select",
+      "default": "info",
+      "options": [
+        { "value": "trace", "label": "trace" },
+        { "value": "debug", "label": "debug" },
+        { "value": "info", "label": "info" },
+        { "value": "warn", "label": "warn" },
+        { "value": "error", "label": "error" }
+      ],
+      "description": "Verbozitate log cloudflared."
+    },
+    {
+      "key": "post_quantum",
+      "label": "Post-quantum cryptography",
+      "type": "checkbox",
+      "default": false,
+      "description": "Activează criptografia post-quantum pentru tunel (experimental)."
+    }
+  ],
+  "health_check": {
+    "type": "tcp",
+    "host": "localhost",
+    "port_key": "metrics_port"
+  },
+  "start_command": {
+    "command": "bash",
+    "args": [
+      "run.sh",
+      "{tunnel_token}",
+      "{external_hostname}",
+      "{tunnel_name}",
+      "{origin_url}",
+      "{additional_hosts}",
+      "{catch_all_service}",
+      "{metrics_port}",
+      "{log_level}",
+      "{post_quantum}",
+      "{sync_origin_to_cloudflare}",
+      "{cloudflare_api_token}"
+    ],
+    "description": "Pornește cloudflared în Docker (--network host) cu tunel token sau configurare locală."
+  }
+}

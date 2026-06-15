@@ -588,6 +588,7 @@ const ro = {
         config_intro_installed: "Ajustează setările acestui add-on local.",
         config_intro_not_installed: "Setările se aplică după instalarea locală a add-on-ului.",
         save_config: "Salvează configurația",
+        cloudflared_token_origin_hint: "Mod token: Cloudflare ignoră originea din Hyve dacă nu adaugi API token Cloudflare + hostname extern și salvezi. Altfel, logurile vor arăta în continuare localhost din dashboard.",
         test_connection: "Verifică conexiunea",
         open_web_ui: "Open Web UI",
         local_install_title: "Instalare locală",

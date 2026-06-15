@@ -24,6 +24,7 @@ DEFAULT_REFETCH_SLUGS = frozenset(
         "piper",
         "whisper",
         "openwakeword",
+        "cloudflared",
     }
 )
 
@@ -56,6 +57,9 @@ SLUG_POLICIES: dict[str, SlugPolicy] = {
     "piper": SlugPolicy(
         include_globs=("data/**", "config/**"),
         exclude_globs=("models/**", "piper_models/**"),
+    ),
+    "cloudflared": SlugPolicy(
+        include_globs=("data/**", "config/**"),
     ),
 }
 

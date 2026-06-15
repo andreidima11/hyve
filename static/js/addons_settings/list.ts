@@ -5,6 +5,8 @@ import { apiCall } from '../api.js';
 import { t, translateApiDetail } from '../lang/index.js';
 import { showToast, showConfirm, escapeHtml, openSubPage, closeSubPage } from '../utils.js';
 import { loadIntegrationEntities } from '../features_integrations_settings.js';
+import { collectAddonConfig, renderAddonConfigField, resolveAddonConfigValue } from '../addons/config_form.js';
+import { isAdmin } from '../user_context.js';
 import type { AddonRecord } from './types.js';
 import * as render from './render.js';
 
@@ -100,27 +102,12 @@ export async function openAddonConfigModal(slug: string) {
 
     const schema = addon.config_schema || [];
     const cfg = addon.state?.config || {};
+    const suggestions = (addon as AddonRecord & { config_suggestions?: Record<string, unknown> }).config_suggestions;
+    const admin = isAdmin();
 
-    fieldsEl.innerHTML = schema.map(field => {
-        const val = cfg[field.key] ?? field.default ?? '';
-        const key = escapeHtml(field.key);
-        const label = escapeHtml(field.label || field.key);
-        const desc = field.description ? `<p class="text-[10px] text-slate-500 mt-0.5">${escapeHtml(field.description)}</p>` : '';
-        const ph = escapeHtml(field.placeholder || '');
-
-        if (field.type === 'number') {
-            return `<div class="space-y-1">
-                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${label}</label>
-                <input type="number" data-addon-key="${key}" value="${escapeHtml(String(val))}" placeholder="${ph}" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none">
-                ${desc}
-            </div>`;
-        }
-        return `<div class="space-y-1">
-            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${label}</label>
-            <input type="text" data-addon-key="${key}" value="${escapeHtml(String(val))}" placeholder="${ph}" class="w-full bg-slate-900 border border-white/5 rounded-xl p-3 text-xs mono text-slate-300 focus:border-accent outline-none">
-            ${desc}
-        </div>`;
-    }).join('');
+    fieldsEl.innerHTML = schema.map(field =>
+        renderAddonConfigField(field, resolveAddonConfigValue(field, cfg, suggestions), admin, 'data-addon-key'),
+    ).join('');
 
     if (addon.start_command) {
         const args = (addon.start_command.args || []).map(a =>
@@ -167,14 +154,36 @@ export function closeAddonConfigModal() {
 export async function saveAddonConfig() {
     if (!_currentAddonSlug) return;
     const slug = _currentAddonSlug;
-    const fields = document.querySelectorAll('#addon-config-fields [data-addon-key]');
-    const config: Record<string, unknown> = {};
-    fields.forEach(f => {
-        const el = f as HTMLInputElement;
-        const key = el.dataset.addonKey;
-        if (!key) return;
-        config[key] = el.type === 'number' ? Number(el.value) : el.value;
-    });
+    const fieldsEl = document.getElementById('addon-config-fields');
+    const config = fieldsEl ? collectAddonConfig(fieldsEl) : {};
+
+    let addon: AddonRecord | null = null;
+    try {
+        const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}`);
+        if (res.ok) addon = await res.json() as AddonRecord;
+    } catch (_) {}
+
+    for (const field of addon?.config_schema || []) {
+        const key = field.key || '';
+        if ((field.type || '').toLowerCase() === 'password' && !config[key]) {
+            delete config[key];
+        }
+    }
+
+    try {
+        const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/config`, {
+            method: 'PATCH',
+            body: config,
+        });
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            showToast(translateApiDetail(data.detail) || t('hy.addon_config_save_error'), 'error');
+            return;
+        }
+    } catch (e) {
+        showToast(t('hy.network_error'), 'error');
+        return;
+    }
 
     const watchdogToggle = document.getElementById('addon-watchdog-toggle') as HTMLInputElement | null;
     if (watchdogToggle && !watchdogToggle.closest('.hidden')) {
@@ -185,27 +194,11 @@ export async function saveAddonConfig() {
             });
             if (!wdRes.ok) {
                 const data = await wdRes.json().catch(() => ({}));
-                showToast(translateApiDetail(data.detail) || t('apps.watchdog_save_error'), 'error');
-                return;
+                showToast(translateApiDetail(data.detail) || t('apps.watchdog_save_error'), 'warning');
             }
-        } catch (e) {
-            showToast(t('hy.network_error'), 'error');
-            return;
+        } catch (_) {
+            /* config already saved */
         }
-    }
-
-    try {
-        const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/config`, {
-            method: 'PATCH',
-            body: config,
-        });
-        if (!res.ok) {
-            showToast(t('hy.addon_config_save_error'), 'error');
-            return;
-        }
-    } catch (e) {
-        showToast(t('hy.network_error'), 'error');
-        return;
     }
 
     showToast(t('hy.addon_config_saved'), 'success');

@@ -5,6 +5,7 @@ import { switchTab, openConfigSection } from '../nav_bridge.js';
 import { isAdmin } from '../user_context.js';
 import { appsState } from './state.js';
 import * as render from './render.js';
+import { collectAddonConfig } from '../addons/config_form.js';
 import { stopPoll, refreshDetailStatus } from './poll.js';
 import { openAppDetail, loadApps } from './core.js';
 function _preflightField(check, field) {
@@ -291,60 +292,57 @@ export async function saveAddonConfig(slug) {
     const detail = document.getElementById('app-detail');
     if (!detail)
         return;
-    const fields = detail.querySelectorAll('[data-addon-config]');
-    const body = {};
-    fields.forEach((field) => {
-        const el = field;
-        const key = el.dataset.addonConfig;
-        if (!key)
-            return;
-        if (el.type === 'checkbox') {
-            body[key] = !!el.checked;
-            return;
-        }
-        if (el.type === 'number') {
-            const raw = `${el.value || ''}`.trim();
-            body[key] = raw === '' ? '' : Number(raw);
-            return;
-        }
-        body[key] = `${el.value || ''}`.trim();
-    });
-    // Persist watchdog state alongside config.
-    const watchdogCb = document.getElementById(`addon-watchdog-${slug}`);
-    if (watchdogCb) {
-        const wdRes = await apiCall(`/api/addons/${encodeURIComponent(slug)}/watchdog`, {
-            method: 'POST',
-            body: { enabled: !!watchdogCb.checked },
-        });
-        if (!wdRes.ok) {
-            const data = await wdRes.json().catch(() => ({}));
-            throw new Error(translateApiDetail(data.detail) || t('apps.watchdog_save_error'));
-        }
-        const idx = appsState.addonsCache.findIndex(a => a.slug === slug);
-        if (idx >= 0) {
-            appsState.addonsCache[idx].state = {
-                ...(appsState.addonsCache[idx].state || {}),
-                watchdog: !!watchdogCb.checked,
-            };
+    const body = collectAddonConfig(detail);
+    const addon = appsState.addonsCache.find(a => a.slug === slug);
+    for (const field of addon?.config_schema || []) {
+        const key = field.key || '';
+        if ((field.type || '').toLowerCase() === 'password' && !body[key]) {
+            delete body[key];
         }
     }
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/config`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
+            body,
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             throw new Error(translateApiDetail(err.detail) || 'Config save failed');
         }
-        showToast(t('hy.addon_config_saved'), 'success');
-        appsState.openSlug = slug;
-        await openAppDetail(slug);
     }
     catch (e) {
         showToast(render._errMsg(e) || t('hy.addon_config_save_error'), 'error');
+        return;
     }
+    // Persist watchdog state alongside config.
+    const watchdogCb = document.getElementById(`addon-watchdog-${slug}`);
+    if (watchdogCb) {
+        try {
+            const wdRes = await apiCall(`/api/addons/${encodeURIComponent(slug)}/watchdog`, {
+                method: 'POST',
+                body: { enabled: !!watchdogCb.checked },
+            });
+            if (!wdRes.ok) {
+                const data = await wdRes.json().catch(() => ({}));
+                showToast(translateApiDetail(data.detail) || t('apps.watchdog_save_error'), 'warning');
+            }
+            else {
+                const idx = appsState.addonsCache.findIndex(a => a.slug === slug);
+                if (idx >= 0) {
+                    appsState.addonsCache[idx].state = {
+                        ...(appsState.addonsCache[idx].state || {}),
+                        watchdog: !!watchdogCb.checked,
+                    };
+                }
+            }
+        }
+        catch (_) {
+            /* config already saved */
+        }
+    }
+    showToast(t('hy.addon_config_saved'), 'success');
+    appsState.openSlug = slug;
+    await openAppDetail(slug);
 }
 export async function testAddonHealth(slug) {
     try {
