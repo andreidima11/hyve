@@ -90,16 +90,14 @@ def _addon_update_row(addon: dict) -> dict[str, Any]:
         state.get("latest_version") if available
         else state.get("version") or state.get("latest_version")
     )
+    live = registry.addon_release_notes(addon, str(version_for_notes or "") or None)
     cached_body = str(state.get("release_notes") or "").strip()
     cached_url = str(state.get("release_url") or "").strip()
-    if cached_body or cached_url:
-        release = {
-            "version": str(version_for_notes or ""),
-            "body": cached_body,
-            "url": cached_url,
-        }
-    else:
-        release = registry.addon_release_notes(addon, str(version_for_notes or "") or None)
+    release = {
+        "version": str(version_for_notes or ""),
+        "body": str(live.get("body") or cached_body or "").strip(),
+        "url": str(live.get("url") or cached_url or "").strip(),
+    }
     return {
         "slug": addon.get("slug", ""),
         "name": addon.get("name", addon.get("slug", "")),

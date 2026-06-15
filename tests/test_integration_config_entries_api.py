@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -105,3 +106,92 @@ def test_entry_test_passes_phase_for_tapo(admin_client, monkeypatch):
     )
     assert res.status_code == 200, res.text
     assert captured.get("phase") == "api"
+
+
+def test_patch_entry_runs_validate_for_xiaomi_auth_code(admin_client, monkeypatch):
+    """PATCH must exchange a pasted OAuth code (same as POST create)."""
+    from integrations import config_entries
+
+    entry = config_entries.create_entry(
+        "xiaomi_home",
+        title="Xiaomi",
+        data={"cloud_server": "de", "scan_interval": 60},
+        schema=[],
+        enabled=True,
+    )
+    entry_id = entry["entry_id"]
+
+    import components.xiaomi_home.entity as xiaomi_entity
+
+    async def _fake_exchange(cloud_server: str, code: str):
+        assert cloud_server == "de"
+        assert "abc123" in code
+        return {
+            "access_token": "at-test",
+            "refresh_token": "rt-test",
+            "expires_in": 3600,
+            "expires_ts": 9_999_999,
+        }
+
+    monkeypatch.setattr(xiaomi_entity.xh, "exchange_code", _fake_exchange)
+
+    res = admin_client.patch(
+        f"/api/integrations/xiaomi_home/entries/{entry_id}",
+        json={
+            "data": {
+                "cloud_server": "de",
+                "auth_code": "http://homeassistant.local:8123/?code=abc123&state=x",
+            }
+        },
+    )
+    assert res.status_code == 200, res.text
+    stored = config_entries.get_entry(entry_id)
+    assert stored is not None
+    oauth = (stored.get("data") or {}).get("_oauth") or {}
+    assert oauth.get("access_token") == "at-test"
+    assert oauth.get("refresh_token") == "rt-test"
+    assert stored["data"].get("auth_code") == ""
+
+
+def test_entry_test_merges_existing_oauth(admin_client, monkeypatch):
+    from integrations import config_entries
+
+    entry = config_entries.create_entry(
+        "xiaomi_home",
+        title="Xiaomi",
+        data={
+            "cloud_server": "de",
+            "_oauth": {
+                "access_token": "at-keep",
+                "refresh_token": "rt-keep",
+                "expires_ts": 9_999_999,
+                "cloud_server": "de",
+            },
+        },
+        schema=[],
+        enabled=True,
+    )
+    captured: dict[str, Any] = {}
+
+    class FakeXiaomi:
+        CONFIG_SCHEMA: list[dict[str, Any]] = []
+
+        @classmethod
+        def get_config_schema(cls) -> list[dict[str, Any]]:
+            return []
+
+        @classmethod
+        async def async_test_connection(cls, data: dict[str, Any]) -> dict[str, Any]:
+            captured["oauth"] = (data or {}).get("_oauth")
+            return {"ok": True}
+
+    mgr = MagicMock()
+    mgr.get_class.return_value = FakeXiaomi
+    monkeypatch.setattr("integrations.get_integration_manager", lambda: mgr)
+
+    res = admin_client.post(
+        "/api/integrations/xiaomi_home/entries/test",
+        json={"entry_id": entry["entry_id"], "data": {"cloud_server": "de"}},
+    )
+    assert res.status_code == 200, res.text
+    assert (captured.get("oauth") or {}).get("access_token") == "at-keep"

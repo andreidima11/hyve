@@ -18,6 +18,7 @@
     "download_on_install": true,
     "bundled": false,
     "channel": "latest",
+    "version_github": "eclipse/mosquitto",
     "notes": "Mosquitto nu este inclus în pachetul aplicației. Pe macOS se instalează prin Homebrew; pe Linux Debian/Ubuntu prin apt (mosquitto). Hyve pornește brokerul cu config propriu sub output/addons/mosquitto/."
   },
   "config_schema": [

@@ -17,6 +17,7 @@
         "download_on_install": true,
         "bundled": false,
         "channel": "latest",
+        "version_github": "rhasspy/piper",
         "notes": "Piper nu este inclus în pachetul aplicației. Se descarcă la instalare din sursa oficială și pornește local cu cea mai recentă versiune disponibilă."
     },
 

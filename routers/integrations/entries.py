@@ -81,9 +81,10 @@ async def test_provider_entry(
     if body.entry_id:
         existing = config_entries.get_entry(body.entry_id)
         if existing:
+            data = {**(existing.get("data") or {}), **data}
             for f in schema:
                 if f.get("secret"):
-                    v = data.get(f["key"])
+                    v = (body.data or {}).get(f["key"])
                     if not v or (isinstance(v, str) and set(v) <= {"•", "*"}):
                         data[f["key"]] = existing["data"].get(f["key"], "")
     test_timeout = MAMMOTION_ENTRY_TEST_TIMEOUT_SECONDS if slug == "mammotion" else ENTRY_TEST_TIMEOUT_SECONDS
@@ -200,15 +201,40 @@ async def update_provider_entry(
     from integrations import config_entries, get_integration_manager
 
     meta = helpers.provider_meta(slug)
+    existing = config_entries.get_entry(entry_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail={"key": "integrations.entry_not_found"})
+
+    cls = get_integration_manager().get_class(slug)
+    data_to_save = None
+    if body.data is not None:
+        data = {**(existing.get("data") or {}), **(body.data or {})}
+        for f in meta["schema"]:
+            if f.get("secret"):
+                v = (body.data or {}).get(f["key"])
+                if not v or (isinstance(v, str) and set(v) <= {"•", "*"}):
+                    data[f["key"]] = existing["data"].get(f["key"], "")
+        try:
+            validation = await cls.async_validate_entry(data)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail={"key": "integrations.validation_failed", "params": {"detail": str(exc)}},
+            ) from exc
+        if not validation.get("ok", True):
+            raise HTTPException(status_code=400, detail={"errors": validation.get("errors", {})})
+        extra = validation.get("data")
+        if isinstance(extra, dict):
+            data = {**data, **extra}
+        data_to_save = data
+
     entry = config_entries.update_entry(
         entry_id,
         title=body.title,
-        data=body.data,
+        data=data_to_save,
         enabled=body.enabled,
         schema=meta["schema"],
     )
-    if not entry:
-        raise HTTPException(status_code=404, detail={"key": "integrations.entry_not_found"})
 
     if body.enabled is not None:
         from addons import integration_sync

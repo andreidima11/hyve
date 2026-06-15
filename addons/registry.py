@@ -413,7 +413,57 @@ def _docker_daemon_reachable() -> bool:
 
 def _github_repo(manifest: dict) -> str:
     install = manifest.get("install") or {}
-    return str(install.get("version_github") or install.get("github_repo") or "").strip()
+    repo = str(install.get("version_github") or install.get("github_repo") or "").strip()
+    if repo:
+        return repo.strip("/")
+    for raw in (manifest.get("url"), install.get("url")):
+        url = str(raw or "").strip()
+        match = re.match(r"https?://github\.com/([^/#?]+/[^/#?]+)", url, re.I)
+        if match:
+            return match.group(1).strip("/")
+    return ""
+
+
+def _github_tag_candidates(tag: str) -> list[str]:
+    """Try common GitHub release tag spellings (1.2.3 vs v1.2.3)."""
+    raw = str(tag or "").strip()
+    if not raw:
+        return []
+    out: list[str] = []
+    for candidate in (raw, _normalize_version_string(raw)):
+        if candidate and candidate not in out:
+            out.append(candidate)
+    base = out[0] if out else raw
+    if base and not base.lower().startswith("v"):
+        prefixed = f"v{base}"
+        if prefixed not in out:
+            out.append(prefixed)
+    return out
+
+
+def _github_release_info_request(repo: str, tag: str | None) -> dict[str, str] | None:
+    import urllib.request
+
+    repo = str(repo or "").strip().strip("/")
+    if not repo or "/" not in repo:
+        return None
+    if tag:
+        safe_tag = urllib.parse.quote(str(tag).strip(), safe="")
+        url = f"https://api.github.com/repos/{repo}/releases/tags/{safe_tag}"
+    else:
+        url = f"https://api.github.com/repos/{repo}/releases/latest"
+    req = urllib.request.Request(
+        url,
+        headers={"Accept": "application/vnd.github+json", "User-Agent": "Hyve"},
+    )
+    with urllib.request.urlopen(req, timeout=12) as resp:
+        data = json.loads(resp.read().decode("utf-8", "replace"))
+    tag_name = str(data.get("tag_name") or data.get("name") or "").strip()
+    return {
+        "version": _normalize_version_string(tag_name) or tag_name,
+        "body": str(data.get("body") or "").strip(),
+        "url": str(data.get("html_url") or "").strip(),
+    }
 
 
 _release_info_cache: dict[str, tuple[float, dict[str, str]]] = {}
@@ -431,26 +481,20 @@ def _github_release_info(repo: str, tag: str | None = None) -> dict[str, str] | 
     if cached and now - cached[0] < _RELEASE_INFO_TTL:
         return cached[1]
 
-    import urllib.request
-
     try:
         if tag:
-            safe_tag = urllib.parse.quote(str(tag).strip(), safe="")
-            url = f"https://api.github.com/repos/{repo}/releases/tags/{safe_tag}"
+            result = None
+            for candidate in _github_tag_candidates(tag):
+                try:
+                    result = _github_release_info_request(repo, candidate)
+                    if result:
+                        break
+                except Exception:
+                    continue
+            if not result:
+                return _github_release_info(repo, None)
         else:
-            url = f"https://api.github.com/repos/{repo}/releases/latest"
-        req = urllib.request.Request(
-            url,
-            headers={"Accept": "application/vnd.github+json", "User-Agent": "Hyve"},
-        )
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            data = json.loads(resp.read().decode("utf-8", "replace"))
-        tag_name = str(data.get("tag_name") or data.get("name") or "").strip()
-        result = {
-            "version": _normalize_version_string(tag_name) or tag_name,
-            "body": str(data.get("body") or "").strip(),
-            "url": str(data.get("html_url") or "").strip(),
-        }
+            result = _github_release_info_request(repo, None)
         _release_info_cache[cache_key] = (now, result)
         return result
     except Exception as e:
@@ -669,6 +713,8 @@ def _resolve_latest_version(manifest: dict) -> str | None:
     method = install.get("method", "pip")
     if method == "docker":
         return _github_latest_version(_github_repo(manifest))
+    if method == "brew" and _github_repo(manifest):
+        return _github_latest_version(_github_repo(manifest))
     packages = install.get("packages") or []
     if not packages:
         return None
@@ -711,8 +757,9 @@ def refresh_addon_versions(slug: str) -> dict:
         if latest is not None and state.get("latest_version") != latest:
             state["latest_version"] = latest
             changed = True
-        if latest is not None:
-            notes = addon_release_notes(manifest, latest)
+        note_version = latest or state.get("version")
+        if note_version is not None:
+            notes = addon_release_notes(manifest, str(note_version))
             body = str(notes.get("body") or "").strip()
             url = str(notes.get("url") or "").strip()
             if body and state.get("release_notes") != body:

@@ -19,6 +19,7 @@
     "download_on_install": true,
     "bundled": false,
     "channel": "latest",
+    "version_github": "Koenkk/zigbee2mqtt",
     "notes": "Zigbee2MQTT nu vine în pachetul aplicației. La instalare se descarcă automat ultima versiune stabilă direct din registry-ul npm, împreună cu prerechizitele necesare."
   },
   "config_schema": [

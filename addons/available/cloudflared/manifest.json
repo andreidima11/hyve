@@ -5,6 +5,7 @@
   "long_description": "Expune Hyve (și alte servicii locale) printr-un tunel Cloudflare securizat — similar add-on-ului Home Assistant. Suportă tunel gestionat din Cloudflare Zero Trust (token) sau tunel local creat automat (hostname + DNS). După activare, verifică logurile add-on-ului pentru URL-ul de autentificare Cloudflare la prima rulare.",
   "version": "latest",
   "icon": "fab fa-cloudflare",
+  "image": "/static/icons/integrations/cloudflared.webp",
   "color": "orange",
   "author": "Cloudflare",
   "url": "https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/",

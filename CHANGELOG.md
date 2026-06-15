@@ -4,6 +4,22 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.7.11] — 2026-06
+
+Patch release: **add-on GitHub release notes**, **Xiaomi Home OAuth on save**, and **Cloudflared icon**.
+
+### Add-ons
+- **Updates:** release notes fetched live from GitHub Releases (like Hyve) — tag variants (`1.2.3` / `v1.2.3`), repo from `version_github` or GitHub project URL.
+- **`version_github`** on Mosquitto, Zigbee2MQTT, and Piper manifests; fix empty-notes cache skipping GitHub lookup.
+- **Cloudflared:** custom icon (`cloudflare.webp`) in the add-on catalog.
+
+### Integrations
+- **Fix:** Xiaomi Home — saving an existing entry now exchanges the pasted OAuth code (PATCH runs validation); test connection keeps stored `_oauth` tokens when editing.
+
+### Tests
+- `tests/test_addon_release_notes.py` — GitHub tag variants, live notes merge
+- `tests/test_integration_config_entries_api.py` — Xiaomi PATCH validate, OAuth merge on test
+
 ## [0.9.7.10] — 2026-06
 
 Patch release: **add-on enable/disable lifecycle**, **Mosquitto on Linux**, **backup coverage**, and **integration test fix**.
