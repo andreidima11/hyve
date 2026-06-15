@@ -18,7 +18,7 @@ export function renderUserPhonesList(phones: string[]) {
         const safeNum = escapeHtml(num);
         const escNum = num.replace(/'/g, "\\'");
         return `
-        <div class="flex items-center justify-between gap-2 py-1.5 px-2 rounded-lg bg-white/[0.02] border border-white/5">
+        <div class="flex items-center justify-between gap-2 py-1.5 px-2 rounded-lg bg-white/[0.02] border border-theme-subtle">
             <span class="mono text-slate-300">${safeNum}</span>
             <button type="button" data-config-action="unlinkUserPhone" data-config-phone="${escNum}" class="text-[10px] text-red-400 hover:bg-red-500/20 px-2 py-0.5 rounded">${t('common.delete')}</button>
         </div>`;

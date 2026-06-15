@@ -184,7 +184,7 @@ def test_migrate_custom_name_fills_empty_registry_name():
 
 
 def test_apply_overrides_keeps_registry_friendly_name():
-    from addons.entity_store import get_entity_store
+    from core.entity_store import get_entity_store
 
     entity_registry.register_entity({
         "unique_id": "mqtt:bed_light",

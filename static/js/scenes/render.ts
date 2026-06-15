@@ -33,7 +33,7 @@ export function _serviceSelectHtml(idx: number, currentService: string) {
     const opts = _SERVICE_VALUES.map(v =>
         `<option value="${v}" ${v === currentService ? 'selected' : ''}>${_escapeHtml(labels[v] || v)}</option>`
     ).join('');
-    return `<select data-scene-entry-service="${idx}" class="bg-slate-900 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:border-accent outline-none">${opts}</select>`;
+    return `<select data-scene-entry-service="${idx}" class="bg-slate-900 border border-theme-subtle rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:border-accent outline-none">${opts}</select>`;
 }
 
 export function _entryRowHtml(entry: SceneEntry, idx: number) {
@@ -41,14 +41,14 @@ export function _entryRowHtml(entry: SceneEntry, idx: number) {
     const service = entry.service || 'turn_on';
     const dataJson = entry.service_data ? _escapeHtml(JSON.stringify(entry.service_data)) : '';
     return `
-        <div class="rounded-xl border border-white/5 bg-white/[0.02] p-3 space-y-2" data-scene-entry-row="${idx}">
+        <div class="rounded-xl border border-theme-subtle bg-white/[0.02] p-3 space-y-2" data-scene-entry-row="${idx}">
             <div class="flex items-center gap-2">
                 <span class="text-[10px] font-bold text-slate-500 w-6">${idx + 1}.</span>
                 <input type="text" data-scene-entry-entity="${idx}" value="${eid}"
                     placeholder="${_escapeHtml(t('scenes.entity_id_ph'))}"
-                    class="flex-1 min-w-0 bg-slate-900 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 mono focus:border-accent outline-none">
+                    class="flex-1 min-w-0 bg-slate-900 border border-theme-subtle rounded-lg px-2 py-1.5 text-xs text-slate-200 mono focus:border-accent outline-none">
                 <button type="button" data-config-action="openSceneEntityPicker" data-config-index="${idx}"
-                    class="px-2 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/5 border border-white/10" title="${_escapeHtml(t('scenes.pick_entity_title'))}">
+                    class="px-2 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/5 border border-theme-subtle" title="${_escapeHtml(t('scenes.pick_entity_title'))}">
                     <i class="fas fa-magnifying-glass"></i>
                 </button>
                 ${_serviceSelectHtml(idx, String(service))}
@@ -61,7 +61,7 @@ export function _entryRowHtml(entry: SceneEntry, idx: number) {
                 <summary class="cursor-pointer select-none hover:text-slate-200">${_escapeHtml(t('scenes.service_data_summary'))}</summary>
                 <input type="text" data-scene-entry-data="${idx}" value="${dataJson}"
                     placeholder="${_escapeHtml(t('scenes.service_data_ph'))}"
-                    class="mt-1 w-full bg-slate-900 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-300 mono focus:border-accent outline-none">
+                    class="mt-1 w-full bg-slate-900 border border-theme-subtle rounded-lg px-2 py-1.5 text-xs text-slate-300 mono focus:border-accent outline-none">
             </details>
         </div>`;
 }
@@ -70,7 +70,7 @@ export function _renderEditorEntries() {
     const wrap = document.getElementById('scene-entries-list');
     if (!wrap) return;
     if (!sceneState.editorState.entries.length) {
-        wrap.innerHTML = `<div class="rounded-xl border border-dashed border-white/10 p-6 text-center text-xs text-slate-500">
+        wrap.innerHTML = `<div class="rounded-xl border border-dashed border-theme-subtle p-6 text-center text-xs text-slate-500">
             ${t('scenes.entries_empty_html')}
         </div>`;
         return;
@@ -131,7 +131,7 @@ export function _renderScenesList() {
             : '';
         const countBadge = `<span class="inline-flex items-center gap-1 text-[10px] text-slate-400"><i class="fas fa-list-ol text-[9px]"></i>${count}</span>`;
         return `
-            <div class="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors"
+            <div class="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-theme-subtle hover:border-theme-subtle transition-colors"
                  data-scene-card="${_escapeHtml(s.id)}">
                 <div class="flex items-center gap-3 min-w-0 flex-1">
                     <span class="w-9 h-9 rounded-xl bg-accent/10 text-accent flex items-center justify-center shrink-0" ${colorStyle}><i class="${icon}"></i></span>
@@ -175,7 +175,7 @@ export function _renderEntityPickerList(query: string) {
         const source = _escapeHtml(e.source || '');
         return `
             <button type="button" data-config-action="pickSceneEntity" data-config-entity-id="${eid}"
-                class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 border border-transparent hover:border-white/10 flex items-center gap-2">
+                class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 border border-transparent hover:border-theme-subtle flex items-center gap-2">
                 <span class="text-[10px] uppercase tracking-widest text-slate-500 w-20 flex-shrink-0">${domain}</span>
                 <span class="flex-1 min-w-0">
                     <span class="block text-xs text-slate-200 truncate">${label}</span>

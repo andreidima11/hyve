@@ -18,6 +18,7 @@ import core.settings as settings
 import core.storage as storage
 import core.auth as auth
 from core.http.errors import error_detail
+from core.http.limiter import limiter
 from core.json_fast import jdumps as _jdumps
 from core.log_stream import _MAX_LOG_STREAMS, log_buffer, log_line, log_queues
 from routers.ollama_proxy import list_models as ollama_list_models
@@ -29,7 +30,7 @@ _THEMES_CACHE: dict[str, Any] = {"sig": None, "data": None}
 
 
 @router.get("/api/tags")
-async def api_tags():
+async def api_tags(_: models.User = Depends(auth.get_current_user)):
     return await ollama_list_models()
 
 @router.get("/api/themes")
@@ -135,7 +136,8 @@ async def get_health(request: Request, db: Session = Depends(database.get_db)):
     return JSONResponse(status_code=200 if overall_ok else 503, content=health)
 
 @router.post("/api/restart")
-def restart_server(_: models.User = Depends(auth.get_current_admin)):
+@limiter.limit("5/minute")
+def restart_server(request: Request, _: models.User = Depends(auth.get_current_admin)):
     # This endpoint is a sync handler, so it can run in a threadpool where
     # `asyncio.get_event_loop()` may fail with "There is no current event loop".
     # Use the dedicated thread-based restarter, safe for sync/async callers.
@@ -143,6 +145,7 @@ def restart_server(_: models.User = Depends(auth.get_current_admin)):
     return {"ok": True, "message": "Restarting..."}
 
 @router.get("/api/logs")
+@limiter.limit("20/minute")
 async def stream_logs(request: Request, token: Optional[str] = None, db: Session = Depends(database.get_db)):
     # SSE (EventSource) can't send headers, so only accept a short-lived exchange token in the URL.
     if not token:

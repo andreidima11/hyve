@@ -128,13 +128,13 @@ def install_python_dependencies() -> None:
 def install_node_dependencies(skip_npm: bool) -> None:
     if skip_npm:
         print_step("Skipping Node.js dependencies by request")
-        print("  Note: use committed static/js/*.js or run: npm ci && npm run js:build")
+        print("  Note: run npm ci && npm run js:build (outputs static/dist/app.js)")
         return
 
     npm = shutil.which("npm")
     if not npm:
         print_step("npm not found; skipping Node.js build")
-        print("  Warning: without npm run js:build, use a release tag with prebuilt static/js assets.")
+        print("  Warning: without npm run js:build, use a release tag with prebuilt static/dist assets.")
         return
 
     print_step("Installing Node.js dependencies")

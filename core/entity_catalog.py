@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 import core.area_resolver as area_resolver
 import core.derived_entities as derived_entities
-from addons.entity_store import get_entity_store
+from core.entity_store import get_entity_store
 from integrations import get_integration_manager
 from core.smart_home_registry import normalize_entity_record
 

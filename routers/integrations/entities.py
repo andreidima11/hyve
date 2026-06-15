@@ -7,7 +7,7 @@ import core.database as database
 import core.models as models
 from core.auth import get_current_user
 from core.http.errors import error_detail
-from addons.entity_store import get_entity_store
+from core.entity_store import get_entity_store
 from fastapi import Depends, HTTPException, Query
 from sqlalchemy import text
 from core.ui_catalog import integration_catalog

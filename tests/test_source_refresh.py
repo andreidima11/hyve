@@ -70,7 +70,7 @@ def _fake_store(monkeypatch, cached: dict | None = None):
         def source_is_reachable(self, key):
             return True
 
-    monkeypatch.setattr("addons.entity_store.get_entity_store", lambda: Store())
+    monkeypatch.setattr("core.entity_store.get_entity_store", lambda: Store())
 
 
 def test_runner_uses_fetch_when_layers_disabled(monkeypatch):

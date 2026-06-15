@@ -1,4 +1,4 @@
-import { t } from '../lang/index.js';
+import { localeTag, t } from '../lang/index.js';
 import { escapeHtml, escapeHtmlAttr } from '../utils.js';
 import type { AutomationListItem } from '../types/features_automations.js';
 
@@ -58,9 +58,9 @@ export function formatAutoTimestamp(isoStr: string) {
         if (diffMs < 60000) return 'acum';
         if (diffMs < 3600000) return `${Math.floor(diffMs / 60000)} min`;
         if (diffMs < 86400000) {
-            return d.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
+            return d.toLocaleTimeString(localeTag(), { hour: '2-digit', minute: '2-digit' });
         }
-        return d.toLocaleDateString('ro-RO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        return d.toLocaleDateString(localeTag(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     } catch (_) { return ''; }
 }
 

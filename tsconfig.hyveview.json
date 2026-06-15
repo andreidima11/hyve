@@ -16,10 +16,15 @@
       "@hyve/icon_utils.js": ["static/js/icon_utils.ts"],
       "@hyve/icon_picker.js": ["static/js/icon_picker.ts"],
       "@hyve/lang/index.js": ["static/js/lang/index.d.ts"],
-      "../../js/camera_live.js": ["static/js/camera_live.d.ts"],
-      "../../js/camera_auth.js": ["static/js/camera_auth.d.ts"],
-      "../../js/camera_loader.js": ["static/js/camera_loader.d.ts"],
-      "../../js/api.js": ["static/js/api.ts"]
+      "../../js/camera_live.js": ["static/js/camera_live.ts"],
+      "../../js/camera_auth.js": ["static/js/camera_auth.ts"],
+      "../../js/camera_loader.js": ["static/js/camera_loader.ts"],
+      "../../js/api.js": ["static/js/api.ts"],
+      "../../../js/camera_live.js": ["static/js/camera_live.ts"],
+      "../../../js/camera_auth.js": ["static/js/camera_auth.ts"],
+      "../../../js/camera_loader.js": ["static/js/camera_loader.ts"],
+      "../../../js/lang/index.js": ["static/js/lang/index.d.ts"],
+      "../../js/lang/index.js": ["static/js/lang/index.d.ts"]
     }
   },
   "include": [

@@ -4,7 +4,7 @@ import difflib
 from typing import Optional, Tuple, Dict, Any
 import core.settings as settings_mod
 from core.logger import log_line
-from addons.entity_store import get_entity_store
+from core.entity_store import get_entity_store
 
 RE_NON_ALPHANUM = re.compile(r"[^a-z0-9\s]")
 DEVICE_MATCH_THRESHOLD = 55.0

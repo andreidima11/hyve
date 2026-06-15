@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 import core.auth as auth
@@ -26,6 +26,7 @@ from core.hyve_update import HyveUpdateError, apply_update as apply_hyve_update
 from core.hyve_update import check_for_update as check_hyve_update
 from core.hyve_update import get_status as get_hyve_status
 from core.http.errors import error_detail
+from core.http.limiter import limiter
 
 log = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ router = APIRouter(prefix="/api/updates", tags=["updates"])
 
 def _require_admin(user: models.User = Depends(auth.get_current_user)):
     if not user.is_admin:
-        raise HTTPException(403, "Admin only")
+        raise HTTPException(status_code=403, detail=error_detail("common.admin_required"))
 
 
 # ---------------------------------------------------------------------------
@@ -98,6 +99,10 @@ def _addon_update_row(addon: dict) -> dict[str, Any]:
         "body": str(live.get("body") or cached_body or "").strip(),
         "url": str(live.get("url") or cached_url or "").strip(),
     }
+    github_repo = registry._github_repo(addon)
+    release_url = str(release.get("url") or "").strip()
+    if not release_url and github_repo:
+        release_url = f"https://github.com/{github_repo}/releases"
     return {
         "slug": addon.get("slug", ""),
         "name": addon.get("name", addon.get("slug", "")),
@@ -108,7 +113,8 @@ def _addon_update_row(addon: dict) -> dict[str, Any]:
         "latest": state.get("latest_version") or addon.get("version") or "",
         "update_available": available,
         "release_notes": release.get("body") or "",
-        "release_url": release.get("url") or "",
+        "release_url": release_url,
+        "github_repo": github_repo,
     }
 
 
@@ -159,7 +165,8 @@ async def check_hyve_updates(_: models.User = Depends(_require_admin)):
 
 
 @router.post("/hyve/apply")
-async def apply_hyve_updates(_: models.User = Depends(_require_admin)):
+@limiter.limit("3/minute")
+async def apply_hyve_updates(request: Request, _: models.User = Depends(_require_admin)):
     import asyncio
 
     try:
@@ -239,7 +246,12 @@ async def update_addons(body: _UpdateBody, _: models.User = Depends(_require_adm
         targets = list(body.slugs or [])
 
     if not targets:
-        return {"status": "ok", "message": "Toate add-on-urile sunt la zi.", "updated": [], "failed": []}
+        return {
+            "status": "ok",
+            "message_key": "updates.addons_all_up_to_date",
+            "updated": [],
+            "failed": [],
+        }
 
     updated: list[dict[str, str]] = []
     failed: list[dict[str, str]] = []
@@ -259,12 +271,21 @@ async def update_addons(body: _UpdateBody, _: models.User = Depends(_require_adm
 
     status = "ok" if not failed else ("partial" if updated else "error")
     if status == "ok":
-        message = f"{len(updated)} add-on-uri actualizate."
+        message_key = "updates.addons_batch_updated"
+        message_params: dict[str, Any] = {"count": len(updated)}
     elif status == "partial":
-        message = f"{len(updated)} actualizate, {len(failed)} eșuate."
+        message_key = "updates.addons_batch_partial"
+        message_params = {"updated": len(updated), "failed": len(failed)}
     else:
-        message = "Actualizarea add-on-urilor a eșuat."
-    return {"status": status, "message": message, "updated": updated, "failed": failed}
+        message_key = "updates.addons_batch_failed"
+        message_params = {}
+    return {
+        "status": status,
+        "message_key": message_key,
+        "message_params": message_params,
+        "updated": updated,
+        "failed": failed,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -278,8 +299,11 @@ def _notify_addon_updates(updates: list[dict]):
 
     count = len(updates)
     names = ", ".join(u["name"] for u in updates[:5])
-    suffix = f" și alte {count - 5}" if count > 5 else ""
-    body = f"{count} add-on-uri au versiuni noi: {names}{suffix}."
+    extra = count - 5 if count > 5 else 0
+    body_key = "updates.addon_updates_notify_body_extra" if extra > 0 else "updates.addon_updates_notify_body"
+    body_params: dict[str, Any] = {"count": count, "names": names}
+    if extra > 0:
+        body_params["extra"] = extra
 
     db = next(database.get_db())
     try:
@@ -290,12 +314,17 @@ def _notify_addon_updates(updates: list[dict]):
         for user in admins:
             notification_service.create_and_dispatch(
                 user_id=user.id,
-                title="Actualizări add-on disponibile",
-                body=body,
+                title="Hyve",
+                body="",
                 category="updates",
                 severity="info",
                 action_url="#updates/addons",
                 dedupe_key="addon_updates_available",
+                payload={
+                    "title_key": "updates.addon_updates_notify_title",
+                    "body_key": body_key,
+                    "body_params": body_params,
+                },
             )
     finally:
         db.close()

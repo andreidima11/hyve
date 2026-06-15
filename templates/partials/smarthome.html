@@ -44,11 +44,11 @@
                                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                     <div>
                                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1" data-i18n="derived.name">Name</label>
-                                        <input type="text" id="derived-name" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white focus:outline-none focus:border-accent/40" placeholder="e.g. Total power">
+                                        <input type="text" id="derived-name" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-theme-subtle text-sm text-white focus:outline-none focus:border-accent/40" placeholder="e.g. Total power">
                                     </div>
                                     <div>
                                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1" data-i18n="derived.value_type">Value type</label>
-                                        <select id="derived-value-type" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white focus:outline-none focus:border-accent/40">
+                                        <select id="derived-value-type" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-theme-subtle text-sm text-white focus:outline-none focus:border-accent/40">
                                             <option value="number">number</option>
                                             <option value="string">string</option>
                                             <option value="boolean">boolean</option>
@@ -56,7 +56,7 @@
                                     </div>
                                     <div>
                                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1" data-i18n="derived.unit">Unit</label>
-                                        <input type="text" id="derived-unit" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white focus:outline-none focus:border-accent/40" placeholder="W, °C, ...">
+                                        <input type="text" id="derived-unit" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-theme-subtle text-sm text-white focus:outline-none focus:border-accent/40" placeholder="W, °C, ...">
                                     </div>
                                 </div>
 
@@ -70,7 +70,7 @@
                                 <!-- Builder panes -->
                                 <div id="derived-pane-preset" class="space-y-2">
                                     <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="derived.preset">Preset</label>
-                                    <select id="derived-preset" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white focus:outline-none focus:border-accent/40">
+                                    <select id="derived-preset" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-theme-subtle text-sm text-white focus:outline-none focus:border-accent/40">
                                         <option value="sum">sum</option>
                                         <option value="avg">avg</option>
                                         <option value="min">min</option>
@@ -84,7 +84,7 @@
                                 <div id="derived-pane-transform" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-3">
                                     <div>
                                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1" data-i18n="derived.transform_filter">Filter</label>
-                                        <select id="derived-transform-filter" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white focus:outline-none focus:border-accent/40">
+                                        <select id="derived-transform-filter" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-theme-subtle text-sm text-white focus:outline-none focus:border-accent/40">
                                             <option value="none">none</option>
                                             <option value="abs">abs</option>
                                             <option value="round">round</option>
@@ -94,19 +94,19 @@
                                     </div>
                                     <div>
                                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1" data-i18n="derived.transform_scale">Scale</label>
-                                        <input type="number" step="any" id="derived-transform-scale" value="1" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white focus:outline-none focus:border-accent/40">
+                                        <input type="number" step="any" id="derived-transform-scale" value="1" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-theme-subtle text-sm text-white focus:outline-none focus:border-accent/40">
                                     </div>
                                     <div>
                                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1" data-i18n="derived.transform_offset">Offset</label>
-                                        <input type="number" step="any" id="derived-transform-offset" value="0" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white focus:outline-none focus:border-accent/40">
+                                        <input type="number" step="any" id="derived-transform-offset" value="0" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-theme-subtle text-sm text-white focus:outline-none focus:border-accent/40">
                                     </div>
                                 </div>
 
                                 <div id="derived-pane-expression" class="hidden space-y-2">
                                     <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="derived.expression">Expression</label>
-                                    <textarea id="derived-expression" rows="3" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white font-mono focus:outline-none focus:border-accent/40" placeholder="e.g. sensor.a + sensor.b"></textarea>
+                                    <textarea id="derived-expression" rows="3" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-theme-subtle text-sm text-white font-mono focus:outline-none focus:border-accent/40" placeholder="e.g. sensor.a + sensor.b"></textarea>
                                     <div class="flex items-center gap-2">
-                                        <select id="derived-expression-insert" class="flex-1 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-xs text-white focus:outline-none focus:border-accent/40"></select>
+                                        <select id="derived-expression-insert" class="flex-1 px-3 py-2 rounded-lg bg-white/[0.03] border border-theme-subtle text-xs text-white focus:outline-none focus:border-accent/40"></select>
                                         <button data-smarthome-action="insertDerivedExpressionEntity" class="px-3 py-2 rounded-lg text-xs font-bold bg-white/[0.05] text-slate-200 hover:bg-white/[0.08] transition-colors" data-i18n="derived.insert">Insert</button>
                                     </div>
                                 </div>
@@ -118,8 +118,8 @@
                                         <span class="text-[10px] text-slate-500"><span data-i18n="derived.selected">Selected</span>: <span id="derived-inputs-count">0</span></span>
                                     </div>
                                     <p id="derived-inputs-helper" class="text-[10px] text-slate-500"></p>
-                                    <input type="text" id="derived-inputs-search" data-smarthome-input="filterDerivedCandidates" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-sm text-white focus:outline-none focus:border-accent/40" placeholder="Search entities...">
-                                    <div id="derived-candidates-list" class="max-h-64 overflow-y-auto rounded-lg border border-white/5 bg-white/[0.02] divide-y divide-white/[0.03]"></div>
+                                    <input type="text" id="derived-inputs-search" data-smarthome-input="filterDerivedCandidates" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-theme-subtle text-sm text-white focus:outline-none focus:border-accent/40" placeholder="Search entities...">
+                                    <div id="derived-candidates-list" class="max-h-64 overflow-y-auto rounded-lg border border-theme-subtle bg-white/[0.02] divide-y divide-white/[0.03]"></div>
                                 </div>
                             </div>
 
@@ -129,11 +129,11 @@
                                     <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest" for="derived-yaml" data-i18n="derived.yaml">YAML</label>
                                     <button data-smarthome-action="reloadDerivedYaml" class="text-[10px] font-bold text-accent hover:text-accent-hover uppercase tracking-widest" data-i18n="derived.reload_yaml">Reload from form</button>
                                 </div>
-                                <textarea id="derived-yaml" rows="14" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-xs text-white font-mono focus:outline-none focus:border-accent/40"></textarea>
+                                <textarea id="derived-yaml" rows="14" class="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-theme-subtle text-xs text-white font-mono focus:outline-none focus:border-accent/40"></textarea>
                             </div>
 
                             <!-- Preview -->
-                            <div class="rounded-lg border border-white/5 bg-white/[0.02] p-3 space-y-2">
+                            <div class="rounded-lg border border-theme-subtle bg-white/[0.02] p-3 space-y-2">
                                 <div class="flex items-center justify-between">
                                     <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest" data-i18n="derived.preview">Preview</span>
                                     <span id="derived-preview-value" class="text-base font-bold text-accent">—</span>
@@ -166,21 +166,21 @@
                             <i class="fas fa-copy text-xs"></i>
                         </button>
                     </div>
-                    <div class="hy-row-actions-state-block py-3 px-4 rounded-xl bg-white/5 border border-white/5">
+                    <div class="hy-row-actions-state-block py-3 px-4 rounded-xl bg-white/5 border border-theme-subtle">
                         <span class="hy-row-actions-state-label block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1" data-i18n="hy.col_state">Stare</span>
                         <span id="hy-row-actions-state" class="hy-row-actions-state-value text-sm font-medium text-slate-200"></span>
                     </div>
                     <div id="hy-row-actions-control" class="hidden"></div>
                     <div class="flex flex-col gap-3">
-                        <button type="button" id="hy-row-action-alias" class="hy-row-action-btn w-full py-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left px-4 flex items-center gap-3">
+                        <button type="button" id="hy-row-action-alias" class="hy-row-action-btn w-full py-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-theme-subtle text-left px-4 flex items-center gap-3">
                             <i class="fas fa-tag text-accent w-5 text-center"></i>
                             <span data-i18n="hy.col_alias">Alias</span>
                         </button>
-                        <button type="button" id="hy-row-action-toggle" class="hy-row-action-btn hidden w-full py-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left px-4 flex items-center gap-3">
+                        <button type="button" id="hy-row-action-toggle" class="hy-row-action-btn hidden w-full py-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-theme-subtle text-left px-4 flex items-center gap-3">
                             <i class="fas fa-power-off text-accent w-5 text-center"></i>
                             <span data-i18n="hy.row_action_toggle">On / Off</span>
                         </button>
-                        <label class="hy-row-action-btn w-full py-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer px-4 flex items-center gap-3">
+                        <label class="hy-row-action-btn w-full py-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-theme-subtle cursor-pointer px-4 flex items-center gap-3">
                             <i class="fas fa-robot text-purple-400 w-5 text-center"></i>
                             <span class="flex-1" data-i18n="hy.row_action_ai">Include în AI</span>
                             <input type="checkbox" id="hy-row-action-ai-cb" class="accent-accent w-5 h-5">
@@ -221,7 +221,7 @@
                     <div class="app-modal-body space-y-4">
                         <p class="text-[11px] text-slate-500 mono truncate" id="hy-alias-modal-entity"></p>
                         <div id="hy-alias-inputs" class="space-y-2 max-h-[40vh] overflow-y-auto"></div>
-                        <button type="button" data-smarthome-action="addAliasInput" class="w-full py-2 rounded-xl border border-dashed border-white/20 text-slate-400 hover:text-accent hover:border-accent/50 flex items-center justify-center gap-2 text-sm transition-colors" data-i18n="hy.alias_add_more"><i class="fas fa-plus"></i> Alt alias</button>
+                        <button type="button" data-smarthome-action="addAliasInput" class="w-full py-2 rounded-xl border border-dashed border-theme-medium text-slate-400 hover:text-accent hover:border-accent/50 flex items-center justify-center gap-2 text-sm transition-colors" data-i18n="hy.alias_add_more"><i class="fas fa-plus"></i> Alt alias</button>
                     </div>
                     <div class="app-modal-footer justify-end">
                         <button type="button" data-smarthome-action="closeAliasModal" class="px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:bg-white/5 transition-colors" data-i18n="common.cancel">Cancel</button>

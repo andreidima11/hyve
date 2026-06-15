@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 import core.auth as auth
 import core.database as database
 import core.models as models
+from core.http.errors import error_detail
 from core.smart_home_registry import entity_domain, is_controllable_domain
 
 router = APIRouter(prefix="/api/scenes", tags=["scenes"])
@@ -73,18 +74,18 @@ class SceneUpdateBody(BaseModel):
 
 def _normalize_entries(entries: list[SceneEntryBody]) -> list[dict[str, Any]]:
     if len(entries) > _MAX_ENTRIES:
-        raise HTTPException(400, f"Too many entries (max {_MAX_ENTRIES})")
+        raise HTTPException(400, detail=error_detail("scenes.too_many_entries", {"max": _MAX_ENTRIES}))
     out: list[dict[str, Any]] = []
     for raw in entries:
         eid = raw.entity_id.strip()
         if "." not in eid:
-            raise HTTPException(400, f"Invalid entity_id '{eid}'")
+            raise HTTPException(400, detail=error_detail("scenes.invalid_entity_id", {"entity_id": eid}))
         domain = entity_domain(eid)
         service = raw.service
         if service is None:
             service = "turn_on" if is_controllable_domain(domain) else "turn_on"
         if service not in _ALLOWED_SERVICES:
-            raise HTTPException(400, f"Unsupported service '{service}'")
+            raise HTTPException(400, detail=error_detail("scenes.unsupported_service", {"service": service}))
         item: dict[str, Any] = {"entity_id": eid, "service": service}
         if raw.service_data and isinstance(raw.service_data, dict):
             item["service_data"] = raw.service_data
@@ -124,18 +125,18 @@ def _query_visible(db: Session, user: models.User):
 def _load_owned(db: Session, scene_id: str, user: models.User) -> models.Scene:
     scene = db.query(models.Scene).filter(models.Scene.id == scene_id).first()
     if not scene:
-        raise HTTPException(404, "Scene not found")
+        raise HTTPException(404, detail=error_detail("scenes.not_found"))
     if scene.owner_id != user.id and not user.is_admin:
-        raise HTTPException(403, "Not allowed")
+        raise HTTPException(403, detail=error_detail("scenes.forbidden"))
     return scene
 
 
 def _load_visible(db: Session, scene_id: str, user: models.User) -> models.Scene:
     scene = db.query(models.Scene).filter(models.Scene.id == scene_id).first()
     if not scene:
-        raise HTTPException(404, "Scene not found")
+        raise HTTPException(404, detail=error_detail("scenes.not_found"))
     if scene.owner_id != user.id and not scene.is_shared and not user.is_admin:
-        raise HTTPException(403, "Not allowed")
+        raise HTTPException(403, detail=error_detail("scenes.forbidden"))
     return scene
 
 
@@ -236,14 +237,14 @@ async def activate_scene(
 async def activate_scene_internal(db: Session, scene: models.Scene) -> dict[str, Any]:
     """Reusable scene activation core (callable from other routers, e.g. dashboard)."""
     if not scene.enabled:
-        raise HTTPException(409, "Scene is disabled")
+        raise HTTPException(409, detail=error_detail("scenes.disabled"))
 
     try:
         entries = json.loads(scene.entries_json or "[]")
     except (TypeError, ValueError):
         entries = []
     if not isinstance(entries, list) or not entries:
-        raise HTTPException(409, "Scene has no entries to activate")
+        raise HTTPException(409, detail=error_detail("scenes.no_entries"))
 
     results: list[dict[str, Any]] = []
     success = 0

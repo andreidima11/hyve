@@ -10,8 +10,9 @@ import core.database as database
 import core.scheduler_service as scheduler_service
 import core.settings as settings
 import core.storage as storage
-from addons.entity_store import get_entity_store
+from core.entity_store import get_entity_store
 from core.log_stream import log_line, print_banner
+from core.startup_status import report_subsystem
 
 
 async def startup_infrastructure(app) -> None:
@@ -25,6 +26,7 @@ async def startup_infrastructure(app) -> None:
         start_loop_watchdog(threshold_seconds=2.0, poll_seconds=0.25, dump_cooldown=30.0)
     except Exception as exc:
         log_line("error", "⚠️", "WATCHDOG", f"loop watchdog failed to start: {exc}")
+        report_subsystem("watchdog", "degraded", message=str(exc))
 
 
 def _purge_removed_scheduler_jobs() -> None:
@@ -52,6 +54,7 @@ async def startup_scheduler() -> None:
         log_line("success", "⏰", "SCHEDULER", "Service started.")
     except Exception as exc:
         log_line("error", "❌", "SCHEDULER", f"Failed: {exc}")
+        report_subsystem("scheduler", "degraded", message=str(exc))
 
 
 async def startup_entity_store() -> None:
@@ -61,12 +64,13 @@ async def startup_entity_store() -> None:
         log_line("success", "🔄", "ENTITIES", "Entity store initialized.")
     except Exception as exc:
         log_line("error", "❌", "ENTITIES", f"Failed to initialize entity store: {exc}")
+        report_subsystem("entities", "fatal", message=str(exc))
 
 
 async def startup_integrations(mark_startup_task_done) -> None:
     try:
         from integrations import get_integration_manager
-        from addons.entity_store import get_entity_store as entity_store
+        from core.entity_store import get_entity_store as entity_store
 
         try:
             from components.sun.entity import ensure_default_entry as sun_default
@@ -74,6 +78,7 @@ async def startup_integrations(mark_startup_task_done) -> None:
             sun_default()
         except Exception as exc:
             log_line("error", "⚠️", "SUN", f"auto-entry failed: {exc}")
+            report_subsystem("sun", "degraded", message=str(exc))
 
         try:
             from integrations.config_entries import migrate_from_cfg
@@ -90,6 +95,7 @@ async def startup_integrations(mark_startup_task_done) -> None:
                 )
         except Exception as exc:
             log_line("error", "⚠️", "INTEGRATIONS", f"Legacy config migration failed: {exc}")
+            report_subsystem("integrations", "degraded", message=str(exc))
 
         async def _bootstrap_integrations_background():
             await asyncio.sleep(1)
@@ -110,33 +116,26 @@ async def startup_integrations(mark_startup_task_done) -> None:
                 )
             except Exception as exc:
                 log_line("error", "⚠️", "INTEGRATIONS", f"Bootstrap failed: {exc}")
+                report_subsystem("integrations", "degraded", message=str(exc))
             finally:
                 mark_startup_task_done("integrations")
 
         asyncio.create_task(_bootstrap_integrations_background(), name="integration-bootstrap")
     except Exception as exc:
         log_line("error", "⚠️", "INTEGRATIONS", f"Bootstrap failed: {exc}")
+        report_subsystem("integrations", "degraded", message=str(exc))
         mark_startup_task_done("integrations")
 
 
 async def startup_mqtt_bridges() -> None:
+    """Run integration ``startup_all`` lifecycle hooks (MQTT bridges, etc.)."""
     try:
-        from integrations import get_integration_manager
-        from components.mosquitto import bridge as mosquitto_bridge
+        from integrations import lifecycle as integration_lifecycle
 
-        for inst in get_integration_manager().entries_for("mosquitto"):
-            section = inst.config_section(settings.CFG)
-            host = (section.get("host") or "").strip() or "localhost"
-            try:
-                await asyncio.wait_for(
-                    mosquitto_bridge.start_bridge({**section, "host": host}, key=inst.entry_id),
-                    timeout=5.0,
-                )
-                log_line("success", "📡", "MQTT BRIDGE", f"connected to {host}:{section.get('port', 1883)}")
-            except asyncio.TimeoutError:
-                log_line("error", "⚠️", "MQTT BRIDGE", f"{host}: setup timed out; continuing without this bridge")
+        await integration_lifecycle.run_startup_hooks()
     except Exception as exc:
-        log_line("error", "⚠️", "MQTT BRIDGE", f"Setup failed: {exc}")
+        log_line("error", "⚠️", "INTEGRATION LIFECYCLE", f"Startup hooks failed: {exc}")
+        report_subsystem("integration_lifecycle", "degraded", message=str(exc))
 
 
 async def startup_intelligence(mark_startup_task_done) -> None:
@@ -157,12 +156,14 @@ async def startup_intelligence(mark_startup_task_done) -> None:
                 await start_watchdog()
             except Exception as exc:
                 log_line("error", "⚠️", "WATCHDOG", f"Failed to start: {exc}")
+                report_subsystem("addons", "degraded", message=str(exc))
             finally:
                 mark_startup_task_done("addons")
 
         asyncio.create_task(_start_addon_watchdog_background(), name="addon-watchdog-startup")
     except Exception as exc:
         log_line("error", "⚠️", "WATCHDOG", f"Failed to start: {exc}")
+        report_subsystem("addons", "degraded", message=str(exc))
         mark_startup_task_done("addons")
 
     try:
@@ -171,6 +172,7 @@ async def startup_intelligence(mark_startup_task_done) -> None:
         start_history_recorder()
     except Exception as exc:
         log_line("error", "⚠️", "HISTORY", f"Failed to start: {exc}")
+        report_subsystem("history", "degraded", message=str(exc))
 
     try:
         from core import state_observer
@@ -183,6 +185,7 @@ async def startup_intelligence(mark_startup_task_done) -> None:
         log_line("success", "📡", "ENTITY MIRROR", "shared snapshot loop started")
     except Exception as exc:
         log_line("error", "⚠️", "ENTITY MIRROR", f"Failed to start: {exc}")
+        report_subsystem("entity_mirror", "degraded", message=str(exc))
 
 async def startup_maintenance_tasks() -> None:
     async def _run_startup_db_maintenance():
@@ -199,15 +202,20 @@ async def startup_maintenance_tasks() -> None:
                 db.close()
         except Exception as exc:
             log_line("error", "⚠️", "AUTH", str(exc))
+            report_subsystem("auth", "degraded", message=str(exc))
 
     asyncio.create_task(_run_startup_db_maintenance(), name="startup-db-maintenance")
 
     try:
+        from core.i18n.bundles import warm_cache as warm_i18n_bundles
+
+        warm_i18n_bundles()
         from integrations.component_i18n import warm_cache
 
         warm_cache()
     except Exception as exc:
         log_line("error", "⚠️", "I18N", f"component translations preload failed: {exc}")
+        report_subsystem("i18n", "degraded", message=str(exc))
 
     async def _warm_memory_storage():
         try:
@@ -215,6 +223,7 @@ async def startup_maintenance_tasks() -> None:
             log_line("success", "🧠", "MEMORY", "Chroma collection ready.")
         except Exception as exc:
             log_line("error", "⚠️", "MEMORY", f"Chroma warm-up failed: {exc}")
+            report_subsystem("memory", "degraded", message=str(exc))
 
     asyncio.create_task(_warm_memory_storage(), name="warm-chroma")
 
@@ -258,11 +267,11 @@ async def shutdown_services(app) -> None:
     except Exception as exc:
         log_line("error", "⚠️", "SHUTDOWN", f"history.stop: {exc}")
     try:
-        from components.mosquitto import bridge as mosquitto_bridge
+        from integrations import lifecycle as integration_lifecycle
 
-        await mosquitto_bridge.stop_bridge()
+        await integration_lifecycle.run_shutdown_hooks()
     except Exception as exc:
-        log_line("error", "⚠️", "SHUTDOWN", f"mosquitto_bridge.stop: {exc}")
+        log_line("error", "⚠️", "SHUTDOWN", f"integration lifecycle shutdown: {exc}")
     try:
         from addons.process_manager import stop_all
 

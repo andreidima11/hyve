@@ -13,7 +13,6 @@ import core.database as database
 import core.models as models
 from core.live_entity_hub import LiveEntityWsHub, diff_snapshot, entity_signature
 from core.ws_live_session import run_entity_live_ws
-from routers.dashboard import _available_entities
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard-ws"])
 
@@ -33,6 +32,8 @@ async def _enrich_dashboard_items(items: list, user: models.User) -> list:
 def get_dashboard_live_hub() -> LiveEntityWsHub:
     global _hub
     if _hub is None:
+        from routers.dashboard.entities import _available_entities
+
         _hub = LiveEntityWsHub(
             name="dash",
             poll_interval_sec=_POLL_INTERVAL_SEC,

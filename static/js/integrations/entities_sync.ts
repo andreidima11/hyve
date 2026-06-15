@@ -64,7 +64,7 @@ function _ensureEntitySection(slug: string): HTMLElement | null {
     if (existing) return existing;
     const panel = document.getElementById('addon-entities-container');
     if (!panel) return null;
-    const html = `<div id="${slug}-entities-section" class="mt-4 border-t border-white/5 pt-4 hidden">
+    const html = `<div id="${slug}-entities-section" class="mt-4 border-t border-theme-subtle pt-4 hidden">
         <div class="flex items-center justify-between mb-2">
             <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${escapeHtml(t('integrations.synced_entities'))}</span>
             <div class="flex items-center gap-2">
@@ -139,7 +139,7 @@ export async function loadIntegrationEntities(slug: string) {
             else if ((value as Record<string, unknown>)?.error) count = entityDetailText('error_badge');
 
             const card = document.createElement('div');
-            card.className = 'entity-card bg-white/[0.03] border border-white/5 rounded-lg p-2.5 text-center cursor-pointer hover:bg-white/[0.06] hover:border-orange-500/20 transition-all';
+            card.className = 'entity-card bg-white/[0.03] border border-theme-subtle rounded-lg p-2.5 text-center cursor-pointer hover:bg-white/[0.06] hover:border-orange-500/20 transition-all';
             card.dataset.entityKey = key;
             card.innerHTML = `<i class="fas ${meta.icon} text-orange-400/60 text-sm mb-1"></i>`
                 + `<div class="text-[10px] font-bold text-slate-400">${escapeHtml(meta.label)}</div>`

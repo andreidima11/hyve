@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from addons.entity_store import IntegrationEntityStore, SyncThrottledError
+from core.entity_store import IntegrationEntityStore, SyncThrottledError
 
 
 @pytest.fixture

@@ -484,7 +484,7 @@ def _status_overview() -> str:
     lines.append(f"- Themes: {len(manifest.get('themes') or [])}")
     lines.append(f"- Dashboard card types: {len(manifest.get('cards') or [])}")
     try:
-        from addons.entity_store import get_entity_store
+        from core.entity_store import get_entity_store
         count = len(get_entity_store().get_all_entities())
         lines.append(f"- Entities in store: {count}")
     except Exception:
@@ -541,7 +541,7 @@ def _status_entities(filters: dict[str, Any]) -> str:
     domain = (filters.get("domain") or "").strip().lower()
     limit = max(1, min(int(filters.get("limit") or 40), 200))
     try:
-        from addons.entity_store import get_entity_store
+        from core.entity_store import get_entity_store
         entities = get_entity_store().get_all_entities()
     except Exception:
         return "Entity store unavailable."

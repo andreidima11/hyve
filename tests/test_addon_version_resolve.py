@@ -96,6 +96,9 @@ def test_addon_entry_overrides_manifest_channel_tag(monkeypatch):
     assert manifest is not None
 
     monkeypatch.setattr(registry, "_resolve_display_version", lambda m, s: "0.17.1")
+    from addons import versions as addon_versions
+
+    monkeypatch.setattr(addon_versions, "_resolve_display_version", lambda m, s: "0.17.1")
     entry = registry.addon_entry(manifest, {"installed": False, "enabled": False, "config": {}})
 
     assert entry["version"] == "0.17.1"

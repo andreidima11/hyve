@@ -190,7 +190,7 @@ function _renderDevicesSection(section: HTMLElement, group: IntegrationDeviceSec
         .join('');
 
     const pagerHtml = pages > 1
-        ? `<div class="flex items-center justify-between gap-2 mt-1 pt-2 border-t border-white/5" data-device-pager>
+        ? `<div class="flex items-center justify-between gap-2 mt-1 pt-2 border-t border-theme-subtle" data-device-pager>
             <button type="button" data-device-page-prev ${page === 0 ? 'disabled' : ''}
                 class="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] transition-all disabled:opacity-30 disabled:cursor-not-allowed">
                 <i class="fas fa-chevron-left mr-1"></i>${escapeHtml(t('common.prev'))}
@@ -247,7 +247,7 @@ function _devCardHtml(d: IntegrationDeviceGroup, idx: number, slug: string, show
     }
     const chips = Object.entries(tally).slice(0, 4).map(([dom, n]) => {
         const ic = getDomainIcon(dom);
-        return `<span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-white/[0.04] border border-white/5 text-slate-400 uppercase tracking-wider"><i class="fas ${ic} text-[9px]"></i>${escapeHtml(dom)}<span class="text-slate-300">${n}</span></span>`;
+        return `<span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-white/[0.04] border border-theme-subtle text-slate-400 uppercase tracking-wider"><i class="fas ${ic} text-[9px]"></i>${escapeHtml(dom)}<span class="text-slate-300">${n}</span></span>`;
     }).join('');
     // Primary readout: battery / state count (no on-count badge)
     let primary = `<span class="text-[10px] text-slate-500">${escapeHtml(t('integrations.entities_short', { count: total }))}</span>`;
@@ -262,7 +262,7 @@ function _devCardHtml(d: IntegrationDeviceGroup, idx: number, slug: string, show
     return `
     <div class="flex flex-col min-w-0">
         ${entryHeader}
-        <div class="bg-white/[0.03] border border-white/5 rounded-xl p-4 hover:bg-white/[0.06] hover:border-accent/20 transition-all cursor-pointer overflow-hidden"
+        <div class="bg-white/[0.03] border border-theme-subtle rounded-xl p-4 hover:bg-white/[0.06] hover:border-accent/20 transition-all cursor-pointer overflow-hidden"
              data-entity-action="openDeviceModal" data-int-index="${idx}" data-int-slug="${sslug}">
             <div class="flex items-start justify-between gap-3 min-w-0">
                 <div class="min-w-0 flex-1">
@@ -399,21 +399,21 @@ function _renderEntityControlRow(ent: HyveEntity, slug: string): string {
     if (controllable && (dom === 'switch' || dom === 'light' || dom === 'input_boolean' || dom === 'fan' || dom === 'humidifier' || dom === 'water_heater' || dom === 'climate')) {
         const action = isOn ? 'turn_off' : 'turn_on';
         control = `<button type="button" role="switch" aria-checked="${isOn}"
-            class="px-3 py-1.5 rounded-full text-[11px] font-bold border transition-colors shrink-0 ${isOn ? 'bg-accent/20 border-accent/40 text-accent' : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'}"
+            class="px-3 py-1.5 rounded-full text-[11px] font-bold border transition-colors shrink-0 ${isOn ? 'bg-accent/20 border-accent/40 text-accent' : 'bg-white/5 border-theme-subtle text-slate-300 hover:bg-white/10'}"
             ${_intCtrlAttrs(slug, eid, action, null, { stop: true })}>
             ${isOn ? escapeHtml(tState('on')).toUpperCase() : escapeHtml(tState('off')).toUpperCase()}
         </button>`;
     } else if (controllable && (dom === 'cover' || dom === 'lock')) {
         const action = isOn ? (dom === 'lock' ? 'lock' : 'close_cover') : (dom === 'lock' ? 'unlock' : 'open_cover');
         control = `<button type="button"
-            class="px-3 py-1.5 rounded-full text-[11px] font-bold border bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 shrink-0"
+            class="px-3 py-1.5 rounded-full text-[11px] font-bold border bg-white/5 border-theme-subtle text-slate-300 hover:bg-white/10 shrink-0"
             ${_intCtrlAttrs(slug, eid, action, null, { stop: true })}>
             ${escapeHtml(action.replace('_', ' '))}
         </button>`;
     } else if (controllable && dom === 'vacuum') {
         const stateLbl = tState(lower);
         const vBtn = (vacAction: string, ic: string, title: string) => `<button type="button" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"
-            class="w-8 h-8 rounded-full border bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-accent shrink-0 flex items-center justify-center transition-colors"
+            class="w-8 h-8 rounded-full border bg-white/5 border-theme-subtle text-slate-300 hover:bg-white/10 hover:text-accent shrink-0 flex items-center justify-center transition-colors"
             ${_intCtrlAttrs(slug, eid, vacAction, null, { stop: true })}>
             <i class="fas ${ic} text-[11px]"></i>
         </button>`;
@@ -426,7 +426,7 @@ function _renderEntityControlRow(ent: HyveEntity, slug: string): string {
     } else if (controllable && dom === 'lawn_mower') {
         const stateLbl = tState(lower);
         const mBtn = (mowAction: string, ic: string, title: string) => `<button type="button" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"
-            class="w-8 h-8 rounded-full border bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-accent shrink-0 flex items-center justify-center transition-colors"
+            class="w-8 h-8 rounded-full border bg-white/5 border-theme-subtle text-slate-300 hover:bg-white/10 hover:text-accent shrink-0 flex items-center justify-center transition-colors"
             ${_intCtrlAttrs(slug, eid, mowAction, null, { stop: true })}>
             <i class="fas ${ic} text-[11px]"></i>
         </button>`;
@@ -464,7 +464,7 @@ function _renderEntityControlRow(ent: HyveEntity, slug: string): string {
         const nudgeDisabled = isNudgeButton && ent.available === false;
         const btnTitle = nudgeHintKey ? t(nudgeHintKey) : t('entity.render.send');
         const btnClass = nudgeDisabled
-            ? 'px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-500 text-[11px] font-semibold shrink-0 opacity-60 cursor-not-allowed'
+            ? 'px-3 py-1.5 rounded-lg bg-white/5 border border-theme-subtle text-slate-500 text-[11px] font-semibold shrink-0 opacity-60 cursor-not-allowed'
             : 'px-3 py-1.5 rounded-lg bg-accent/15 border border-accent/30 text-accent text-[11px] font-semibold shrink-0';
         const pressAttrs = nudgeDisabled ? '' : _intCtrlAttrs(slug, eid, 'press', null, { stop: true });
         control = `<button type="button"
@@ -479,7 +479,7 @@ function _renderEntityControlRow(ent: HyveEntity, slug: string): string {
     const encoded = encodeURIComponent(JSON.stringify(ent)).replace(/'/g, '%27');
     const stateHtml = `<span class="text-[11px] mono ${tone} truncate max-w-[9rem] text-right justify-self-end" data-entity-state="${eidA}">${escapeHtml(state)}${unit}</span>`;
     const controlHtml = control || stateHtml;
-    const rowHtml = `<div class="int-entity-row px-3 py-3 bg-white/[0.03] border border-white/5 rounded-xl cursor-pointer hover:bg-white/[0.06] hover:border-accent/20 transition-colors"
+    const rowHtml = `<div class="int-entity-row px-3 py-3 bg-white/[0.03] border border-theme-subtle rounded-xl cursor-pointer hover:bg-white/[0.06] hover:border-accent/20 transition-colors"
         data-entity-action="openCard" data-int-encoded="${encoded}">
         <i class="fas ${icon} text-accent/70 text-sm w-4 text-center shrink-0"></i>
         <div class="int-entity-row__label">
@@ -505,9 +505,9 @@ function _renderEntityControlRow(ent: HyveEntity, slug: string): string {
             { compact: true },
         );
         if (lightExtras) {
-            return `<div class="rounded-xl border border-white/5 bg-white/[0.03] overflow-hidden">
+            return `<div class="rounded-xl border border-theme-subtle bg-white/[0.03] overflow-hidden">
                 ${rowHtml.replace(' rounded-xl', '')}
-                <div class="px-3 pb-3 border-t border-white/5" data-int-light-controls="1">${lightExtras}</div>
+                <div class="px-3 pb-3 border-t border-theme-subtle" data-int-light-controls="1">${lightExtras}</div>
             </div>`;
         }
     }
@@ -541,7 +541,7 @@ function _renderPaginatedEntityList(ents: HyveEntity[], slug: string, deviceId: 
     const prevDisabled = page === 0;
     const nextDisabled = page >= pages - 1;
     const pager = `
-    <div class="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-white/5" data-entity-pager>
+    <div class="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-theme-subtle" data-entity-pager>
         <button type="button" data-entity-page-prev
             ${prevDisabled ? 'disabled' : ''}
             class="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] transition-all disabled:opacity-30 disabled:cursor-not-allowed">

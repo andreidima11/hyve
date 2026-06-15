@@ -165,11 +165,21 @@ export interface NotificationTimerHandle {
 
 export type ThinkingMode = 'auto' | 'think' | 'no_think';
 
+export interface StartupSubsystemIssue {
+    name?: string;
+    label?: string;
+    level?: 'ok' | 'degraded' | 'fatal';
+    message?: string;
+}
+
 export interface StartupStatusResponse {
     ready?: boolean;
     pending?: string[];
     pending_labels?: string[];
     progress?: number;
+    health?: 'ok' | 'degraded' | 'fatal';
+    issues?: StartupSubsystemIssue[];
+    subsystems?: StartupSubsystemIssue[];
 }
 
 export interface DashboardWidgetLocateResult {

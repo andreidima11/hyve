@@ -36,17 +36,17 @@ let _activeResolve: ((result: HyveviewEditorResult) => void) | null = null;
 let _backdrop: HTMLDivElement | null = null;
 let _cssInjected = false;
 
-const PANEL_CLASS = 'dashboard-modal-card glass rounded-3xl border border-white/10 shadow-2xl';
-const PANEL_CLASS_XL = 'dashboard-modal-card dashboard-modal-card--xl glass rounded-3xl border border-white/10 shadow-2xl';
-const HEADER_CLASS = 'flex items-center justify-between gap-3 px-4 sm:px-5 py-4 border-b border-white/10';
+const PANEL_CLASS = 'dashboard-modal-card glass rounded-3xl border border-theme-subtle shadow-2xl';
+const PANEL_CLASS_XL = 'dashboard-modal-card dashboard-modal-card--xl glass rounded-3xl border border-theme-subtle shadow-2xl';
+const HEADER_CLASS = 'flex items-center justify-between gap-3 px-4 sm:px-5 py-4 border-b border-theme-subtle';
 const TITLE_CLASS = 'text-base font-semibold text-white';
 const CLOSE_CLASS = 'app-modal-close touch-manipulation';
 const BODY_CLASS = 'p-4 sm:p-5 space-y-4 overflow-y-auto';
-const FOOTER_CLASS = 'flex items-center justify-between gap-2 px-4 sm:px-5 py-4 border-t border-white/10';
+const FOOTER_CLASS = 'flex items-center justify-between gap-2 px-4 sm:px-5 py-4 border-t border-theme-subtle';
 const BTN_PRIMARY = 'px-4 py-2 rounded-xl text-sm font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors';
 const BTN_GHOST = 'px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:bg-white/5 transition-colors';
 const BTN_DANGER = 'px-4 py-2 rounded-xl text-sm font-bold text-red-400 hover:bg-red-500/10 transition-colors';
-const BTN_SOFT = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 transition-colors';
+const BTN_SOFT = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-slate-200 border border-theme-subtle transition-colors';
 
 function _must<T extends Element>(root: ParentNode, sel: string): T {
     return root.querySelector(sel) as T;

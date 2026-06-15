@@ -75,11 +75,9 @@ def github_repo() -> str:
 
 
 def github_token() -> str:
-    for name in ("HYVE_GITHUB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN"):
-        val = str(os.environ.get(name) or "").strip()
-        if val:
-            return val
-    return ""
+    from core.github_api import github_token as _token
+
+    return _token()
 
 
 def current_version() -> str:
@@ -109,15 +107,9 @@ def is_newer(latest: str, current: str) -> bool:
 
 
 def _github_request(url: str) -> dict[str, Any]:
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "User-Agent": "Hyve",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-    token = github_token()
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    req = Request(url, headers=headers)
+    from core.github_api import github_api_headers
+
+    req = Request(url, headers=github_api_headers())
     with urlopen(req, timeout=15) as resp:
         return json.loads(resp.read().decode("utf-8", "replace"))
 
@@ -216,7 +208,48 @@ def _resolve_latest_release() -> dict[str, Any]:
         candidates.append(_release_from_git_tag(git_tag))
     if not candidates:
         raise HyveUpdateError("updates.hyve_check_failed")
-    return max(candidates, key=lambda row: _parse_version(str(row.get("version") or "")))
+    best = max(candidates, key=lambda row: _parse_version(str(row.get("version") or "")))
+    if github and not str(best.get("body") or "").strip():
+        best = {
+            **best,
+            "body": github.get("body") or "",
+            "html_url": str(best.get("html_url") or "").strip() or str(github.get("html_url") or ""),
+        }
+    return best
+
+
+def _enrich_release_notes_from_github(version: str) -> dict[str, str]:
+    """Best-effort release notes when the last check did not persist GitHub body."""
+    repo = github_repo()
+    ver = str(version or "").strip()
+    try:
+        from addons.github_releases import github_release_info as _github_release_info
+
+        info = None
+        if ver:
+            info = _github_release_info(repo, ver)
+        if not info or not str(info.get("body") or "").strip():
+            latest = _github_release_info(repo, None)
+            if latest:
+                if info:
+                    info = {
+                        **info,
+                        "body": info.get("body") or latest.get("body") or "",
+                        "url": info.get("url") or latest.get("url") or "",
+                    }
+                else:
+                    info = latest
+        if info:
+            return {
+                "body": str(info.get("body") or "").strip(),
+                "url": str(info.get("url") or "").strip(),
+            }
+    except Exception as exc:
+        log.debug("enrich hyve release notes failed: %s", exc)
+    tag = str(_last_hyve_check.get("tag") or ver or "").strip()
+    if tag:
+        return {"body": "", "url": f"https://github.com/{repo}/releases/tag/{tag}"}
+    return {"body": "", "url": f"https://github.com/{repo}/releases"}
 
 
 def _dirty_path_from_porcelain(line: str) -> str:
@@ -280,13 +313,21 @@ def get_status() -> dict[str, Any]:
     err = _last_hyve_check.get("error")
     latest = str(_last_hyve_check.get("latest") or cur)
     update_available = not err and bool(latest and is_newer(latest, cur))
+    release_notes = str(_last_hyve_check.get("release_notes") or "")
+    release_url = str(_last_hyve_check.get("release_url") or "")
+    if not release_notes.strip() or not release_url.strip():
+        enriched = _enrich_release_notes_from_github(latest)
+        if not release_notes.strip():
+            release_notes = enriched.get("body") or release_notes
+        if not release_url.strip():
+            release_url = enriched.get("url") or release_url
     return {
         "current": cur,
         "latest": latest,
         "tag": _last_hyve_check.get("tag") or latest,
         "update_available": update_available,
-        "release_url": _last_hyve_check.get("release_url") or "",
-        "release_notes": _last_hyve_check.get("release_notes") or "",
+        "release_url": release_url,
+        "release_notes": release_notes,
         "checked_at": _last_hyve_check.get("checked_at"),
         "error": err,
         "source": _last_hyve_check.get("source"),

@@ -25,6 +25,7 @@ from addons import registry
 from addons import process_manager
 from addons import ingress as addon_ingress
 from core.http.errors import error_detail
+from core.http.limiter import limiter
 
 router = APIRouter(prefix="/api/addons", tags=["addons"])
 log = logging.getLogger("addons.router")
@@ -125,7 +126,8 @@ async def preflight(slug: str, user: models.User = Depends(_require_admin)):
 
 
 @router.post("/{slug}/install")
-async def install_addon(slug: str, user: models.User = Depends(_require_admin)):
+@limiter.limit("5/minute")
+async def install_addon(request: Request, slug: str, user: models.User = Depends(_require_admin)):
     """Install an addon (downloads dependencies)."""
     try:
         state = registry.install_addon(slug)
@@ -140,7 +142,12 @@ async def install_addon(slug: str, user: models.User = Depends(_require_admin)):
 
 
 @router.get("/{slug}/install/stream")
-async def install_addon_stream(slug: str, token: str | None = None, request: Request = None):
+@limiter.limit("10/minute")
+async def install_addon_stream(
+    request: Request,
+    slug: str,
+    token: str | None = None,
+):
     """SSE endpoint: install addon with live progress logs.
 
     Uses token query param for auth (EventSource can't send headers).
@@ -174,7 +181,8 @@ async def install_addon_stream(slug: str, token: str | None = None, request: Req
 
 
 @router.post("/{slug}/uninstall")
-async def uninstall_addon(slug: str, user: models.User = Depends(_require_admin)):
+@limiter.limit("10/minute")
+async def uninstall_addon(request: Request, slug: str, user: models.User = Depends(_require_admin)):
     """Uninstall an addon."""
     try:
         await process_manager.stop(slug)

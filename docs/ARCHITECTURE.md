@@ -40,7 +40,7 @@ Hyve is **one process**: web UI, API, sync loops, scheduler, and AI agent share 
 ```
 Browser: features.js → GET /api/integrations/all-entities
 Router:  routers/integrations.py
-Store:   addons/entity_store.py (cached payloads per store_key)
+Store:   core/entity_store.py (cached payloads per store_key)
 Source:  IntegrationManager → provider.fetch_entities → extract_entities
 Live:    WS /api/integrations/ws/live (entity state patches)
 ```
@@ -93,6 +93,10 @@ User fills form (CONFIG_SCHEMA)
 
 `store_key` = `{slug}` (legacy) or `{slug}:{entry_id[:8]}` (multi-instance).
 
+### Lifecycle hooks (`integrations/lifecycle.py`)
+
+Integrations with `lifecycle.py` + `lifecycle_module` in `manifest.json` run platform hooks at boot, entry create, rename, and shutdown — without `if slug == …` in core routers. See [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) § Lifecycle.
+
 ### Provider contract (`integrations/base.py`)
 
 | Method / attr | Role |
@@ -105,7 +109,7 @@ User fills form (CONFIG_SCHEMA)
 | `async_validate_entry()` | Optional validation/OAuth exchange |
 | `control_entity()` | Optional device control |
 
-### Entity store (`addons/entity_store.py`)
+### Entity store (`core/entity_store.py`)
 
 - Background sync loops per `store_key`
 - `scan_interval` from config entry (manual sync throttled — `SyncThrottledError`)
@@ -182,6 +186,22 @@ Add-ons may run processes (MQTT, Zigbee2MQTT); integrations **consume** entities
 Custom elements (`<hv-card-tile>`, …) mounted inside legacy grid `<article>` shells.  
 Bridge: `static/hyveview/bridge.js` — registers types, patches entity state without full grid re-render.
 
+### i18n (traduceri)
+
+Shell strings: `static/js/lang/en.js` + `ro.js`. Everything else is **decentralised** — see [I18N.md](I18N.md).
+
+```
+Browser boot
+    → initI18n() loads mother lang
+    → loadBundledTranslations() → GET /api/i18n/bundles
+Backend merge (core/i18n/bundles.py)
+    → core/i18n/<bundle>/translations/
+    → components/*/translations/
+    → addons/translations/ + addons/available/*/translations/
+```
+
+API errors use `{ key, params }` via `core/http/errors.py` → `translateApiDetail()` in the UI.
+
 ---
 
 ## Brain / automations
@@ -253,4 +273,5 @@ See [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) for workflows.
 ## Related docs
 
 - [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) — provider authoring
+- [I18N.md](I18N.md) — decentralised translations
 - [CARDS_AND_INTEGRATIONS.md](CARDS_AND_INTEGRATIONS.md) — catalog + cards

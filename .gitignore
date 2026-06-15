@@ -1,4 +1,14 @@
 node_modules/
+
+# Vite browser bundles (npm run js:build)
+static/dist/
+
+# Legacy tsc emit beside .ts — edit .ts only; superseded by Vite for the main app
+static/js/**/*.js
+!static/js/lang/*.js
+# Hyveview custom elements (vite build --config vite.hyveview.config.ts)
+static/hyveview/**/*.js
+!static/hyveview/**/*.d.ts
 venv/
 .venv/
 __pycache__/

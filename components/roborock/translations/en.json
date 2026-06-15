@@ -6,5 +6,6 @@
     "battery": "Battery",
     "fan_speed": "Fan speed",
     "cleaning_area": "Cleaning area"
-  }
+  },
+  "catalog_desc": "Roborock robot vacuums (local LAN + cloud fallback)"
 }

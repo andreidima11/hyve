@@ -87,7 +87,7 @@ class SourceRefreshRunner:
 
     def _load_cached_payload(self) -> dict[str, Any]:
         try:
-            from addons.entity_store import get_entity_store
+            from core.entity_store import get_entity_store
 
             stored = get_entity_store().get_entities(self.store_key) or {}
             payload = stored.get("entities") or {}

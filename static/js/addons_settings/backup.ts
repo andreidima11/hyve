@@ -2,6 +2,7 @@
  * Settings → Backup & restore hub panel.
  */
 import { apiCall } from '../api.js';
+import { upgradeNativeSelect } from '../features_custom_selects.js';
 import { t, translateApiDetail } from '../lang/index.js';
 import { showConfirm, escapeHtml, showToast } from '../utils.js';
 import { isExplicitNonAdmin } from '../user_context.js';
@@ -267,7 +268,7 @@ function _showEncryptionKeyModal(key: string, source: string): void {
                 <div class="app-modal-body space-y-3">
                     <p id="backup-encryption-key-modal-warning" class="text-[11px] text-amber-200/90 leading-relaxed"></p>
                     <input type="text" id="backup-encryption-key-modal-input" readonly
-                        class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-xs mono text-slate-200 select-all" />
+                        class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-xs mono text-slate-200 select-all" />
                 </div>
                 <div class="app-modal-footer justify-end gap-2">
                     <button type="button" data-config-action="copyBackupEncryptionKey" id="backup-encryption-key-copy-btn" class="hy-btn hy-btn-ghost text-[11px]"></button>
@@ -386,7 +387,7 @@ function _promptDecryptionKey(): Promise<string | null> {
                     <div class="app-modal-body space-y-3">
                         <p id="backup-decrypt-key-hint" class="text-[11px] text-slate-500 leading-relaxed"></p>
                         <input type="password" id="backup-decrypt-key-input" autocomplete="off"
-                            class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none" />
+                            class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none" />
                     </div>
                     <div class="app-modal-footer justify-end gap-2">
                         <button type="button" id="backup-decrypt-key-cancel" class="px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:bg-white/5 transition-colors"></button>
@@ -859,66 +860,17 @@ export async function deleteBackupArchive(path: string): Promise<void> {
     }
 }
 
-function _intervalLabel(val: string): string {
-    const key = ({
-        never: 'updates.interval_never',
-        daily: 'updates.interval_daily',
-        weekly: 'updates.interval_weekly',
-        monthly: 'updates.interval_monthly',
-    } as Record<string, string>)[val];
-    return key ? t(key) : val;
-}
-
-let _backupDropdownBound = false;
-
-if (typeof document !== 'undefined' && !_backupDropdownBound) {
-    _backupDropdownBound = true;
-    document.addEventListener('click', (e) => {
-        const dd = document.getElementById('backup_schedule_dropdown');
-        if (!dd) return;
-        const target = e.target;
-        if (!(target instanceof Element)) return;
-        const toggleBtn = target.closest('[data-action="toggle-backup-schedule"]');
-        if (toggleBtn && dd.contains(toggleBtn)) {
-            e.preventDefault();
-            e.stopPropagation();
-            dd.dataset.open = dd.dataset.open === 'true' ? 'false' : 'true';
-            return;
-        }
-        const opt = target.closest('.dashboard-custom-select__option');
-        if (opt && dd.contains(opt)) {
-            e.preventDefault();
-            e.stopPropagation();
-            const value = (opt as HTMLElement).dataset.value || '';
-            const labelKey = (opt as HTMLElement).dataset.labelKey;
-            const label = labelKey ? t(labelKey) : (opt.textContent || '').trim();
-            setBackupScheduleInterval(value, label);
-            return;
-        }
-        if (!dd.contains(target)) dd.dataset.open = 'false';
-    });
-}
-
-export function setBackupScheduleInterval(value: string, label?: string): void {
-    const dd = document.getElementById('backup_schedule_dropdown');
-    const hidden = document.getElementById('backup_schedule_interval') as HTMLInputElement | null;
-    const lbl = label || _intervalLabel(value);
-    if (dd) {
-        dd.dataset.open = 'false';
-        const valueEl = dd.querySelector('.dashboard-custom-select__value');
-        if (valueEl) valueEl.textContent = lbl;
-        dd.querySelectorAll('.dashboard-custom-select__option').forEach((o) => {
-            const opt = o as HTMLElement;
-            opt.dataset.selected = opt.dataset.value === value ? 'true' : 'false';
-        });
-    }
-    if (hidden) hidden.value = value;
+export function setBackupScheduleInterval(value: string): void {
+    const select = document.getElementById('backup_schedule_interval') as HTMLSelectElement | null;
+    if (!select) return;
+    select.value = value;
+    upgradeNativeSelect(select);
 }
 
 export function syncBackupScheduleDropdown(): void {
-    const hidden = document.getElementById('backup_schedule_interval') as HTMLInputElement | null;
-    if (!hidden) return;
-    setBackupScheduleInterval(hidden.value || 'never');
+    const select = document.getElementById('backup_schedule_interval') as HTMLSelectElement | null;
+    if (!select) return;
+    upgradeNativeSelect(select);
 }
 
 if (typeof document !== 'undefined') {

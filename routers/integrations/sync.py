@@ -4,7 +4,7 @@ import logging
 
 import core.auth as auth
 import core.models as models
-from addons.entity_store import SyncThrottledError, get_entity_store
+from core.entity_store import SyncThrottledError, get_entity_store
 from fastapi import Depends, HTTPException
 from core.http.errors import error_detail
 from integrations.errors import integration_retry_after, integration_sync_detail

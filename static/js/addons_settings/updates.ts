@@ -2,6 +2,7 @@
  * Add-ons settings: Updates hub (Hyve + add-ons) + check interval dropdown.
  */
 import { apiCall } from '../api.js';
+import { upgradeNativeSelect } from '../features_custom_selects.js';
 import { t } from '../lang/index.js';
 import { showConfirm, escapeHtml, formatMarkdown, showToast } from '../utils.js';
 import { isExplicitNonAdmin } from '../user_context.js';
@@ -191,15 +192,19 @@ async function _runAddonUpdate(body: { all?: boolean; slugs?: string[] }) {
         const data = await res.json() as {
             status?: string;
             updated?: unknown[];
-            message?: string;
+            message_key?: string;
+            message_params?: Record<string, unknown>;
             failed?: Array<{ slug?: string; error?: string }>;
         };
+        const apiMessage = data.message_key
+            ? t(data.message_key, data.message_params as Record<string, string | number> | undefined)
+            : '';
         if (data.status === 'ok') {
-            _setUpdatesStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(t('updates.addons_updated', { count: (data.updated || []).length }))}`, 'success');
+            _setUpdatesStatus(`<i class="fas fa-circle-check mr-1.5"></i>${escapeHtml(apiMessage || t('updates.addons_updated', { count: (data.updated || []).length }))}`, 'success');
         } else if (data.status === 'partial') {
-            _setUpdatesStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(data.message || '')}`, 'warning');
+            _setUpdatesStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(apiMessage)}`, 'warning');
         } else {
-            let html = `<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(data.message || t('updates.save_error'))}`;
+            let html = `<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(apiMessage || t('updates.save_error'))}`;
             if (data.failed && data.failed.length) {
                 html += `<ul class="mt-2 ml-4 list-disc text-[10px] space-y-0.5">`;
                 for (const f of data.failed) html += `<li><strong>${escapeHtml(f.slug)}</strong> — ${escapeHtml(f.error || '')}</li>`;
@@ -245,11 +250,13 @@ function _cacheAddonReleaseNotes(a: AddonUpdateRow): void {
     const version = _displayVersion(
         a.update_available ? (a.latest || a.current) : (a.current || a.latest),
     );
+    const repo = String(a.github_repo || '').trim();
+    const fallbackUrl = repo ? `https://github.com/${repo}/releases` : '';
     _releaseNotesCache.set(a.slug, {
         title: a.name || a.slug,
         version,
         body: String(a.release_notes || '').trim(),
-        url: String(a.release_url || '').trim(),
+        url: String(a.release_url || '').trim() || fallbackUrl,
     });
 }
 
@@ -283,7 +290,7 @@ function _ensureReleaseNotesModal(): HTMLElement {
     modal.className = 'modal-overlay app-modal fixed inset-0 z-[80] hidden flex items-center justify-center p-2 sm:p-4';
     modal.innerHTML = `
         <div class="glass app-modal-panel app-modal-content update-release-notes-modal max-w-2xl w-full max-h-[85vh] flex flex-col">
-            <div class="app-modal-header flex-shrink-0 border-b border-white/[0.06]">
+            <div class="app-modal-header flex-shrink-0 border-b border-theme-light">
                 <div class="min-w-0 flex-1">
                     <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-1">${escapeHtml(t('updates.release_notes_btn'))}</p>
                     <h3 id="update-release-notes-title" class="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
@@ -499,80 +506,21 @@ function _setHyveHint(text: string) {
     el.textContent = text;
 }
 
-// --- Updates interval custom dropdown ---
+// --- Updates interval select (custom overlay via upgradeNativeSelect) ---
 
-function _intervalLabel(val: string) {
-    const key = ({ never: 'updates.interval_never', daily: 'updates.interval_daily', weekly: 'updates.interval_weekly', monthly: 'updates.interval_monthly' } as Record<string, string>)[val];
-    return key ? t(key) : val;
-}
-
-let _updatesDropdownBound = false;
-
-if (typeof document !== 'undefined' && !_updatesDropdownBound) {
-    _updatesDropdownBound = true;
-    document.addEventListener('click', (e) => {
-        const dd = document.getElementById('updates_interval_dropdown');
-        if (!dd) return;
-        const target = e.target;
-        if (!(target instanceof Element)) return;
-        const toggleBtn = target.closest('[data-action="toggle-updates-interval"]');
-        if (toggleBtn && dd.contains(toggleBtn)) {
-            e.preventDefault();
-            e.stopPropagation();
-            dd.dataset.open = dd.dataset.open === 'true' ? 'false' : 'true';
-            return;
-        }
-        const opt = target.closest('.dashboard-custom-select__option');
-        if (opt && dd.contains(opt)) {
-            e.preventDefault();
-            e.stopPropagation();
-            const value = (opt as HTMLElement).dataset.value || '';
-            const labelKey = (opt as HTMLElement).dataset.labelKey;
-            const label = labelKey ? t(labelKey) : (opt.textContent || '').trim();
-            setUpdatesInterval(value, label);
-            return;
-        }
-        if (!dd.contains(target)) dd.dataset.open = 'false';
-    });
-}
-
-function _bindUpdatesIntervalDropdownOnce() { /* legacy stub */ }
-
-export function toggleUpdatesIntervalDropdown() {
-    const dd = document.getElementById('updates_interval_dropdown');
-    if (!dd) return;
-    dd.dataset.open = dd.dataset.open === 'true' ? 'false' : 'true';
-}
-
-export function setUpdatesInterval(value: string, label?: string) {
-    const dd = document.getElementById('updates_interval_dropdown');
-    const hidden = document.getElementById('updates_addons_check_interval') as HTMLInputElement | null;
-    const lbl = label || _intervalLabel(value);
-    if (dd) {
-        dd.dataset.open = 'false';
-        const valueEl = dd.querySelector('.dashboard-custom-select__value');
-        if (valueEl) valueEl.textContent = lbl;
-        dd.querySelectorAll('.dashboard-custom-select__option').forEach(o => {
-            const opt = o as HTMLElement;
-            opt.dataset.selected = opt.dataset.value === value ? 'true' : 'false';
-        });
-    }
-    if (hidden) {
-        hidden.value = value;
-        try { hidden.dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
+export function setUpdatesInterval(value: string) {
+    const select = document.getElementById('updates_addons_check_interval') as HTMLSelectElement | null;
+    if (!select) return;
+    const changed = select.value !== value;
+    select.value = value;
+    upgradeNativeSelect(select);
+    if (changed) {
+        try { select.dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
     }
 }
 
 export function syncUpdatesIntervalDropdown() {
-    _bindUpdatesIntervalDropdownOnce();
-    const hidden = document.getElementById('updates_addons_check_interval') as HTMLInputElement | null;
-    const dd = document.getElementById('updates_interval_dropdown');
-    if (!hidden || !dd) return;
-    const val = hidden.value || 'never';
-    const valueEl = dd.querySelector('.dashboard-custom-select__value');
-    if (valueEl) valueEl.textContent = _intervalLabel(val);
-    dd.querySelectorAll('.dashboard-custom-select__option').forEach(o => {
-        const opt = o as HTMLElement;
-        opt.dataset.selected = opt.dataset.value === val ? 'true' : 'false';
-    });
+    const select = document.getElementById('updates_addons_check_interval') as HTMLSelectElement | null;
+    if (!select) return;
+    upgradeNativeSelect(select);
 }

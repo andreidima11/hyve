@@ -91,7 +91,7 @@ export function switchIntegrationSubtab(tab: string) {
         btnActive.classList.toggle('border-accent/40', tab === 'active');
         btnActive.classList.toggle('bg-white/5', tab !== 'active');
         btnActive.classList.toggle('text-slate-400', tab !== 'active');
-        btnActive.classList.toggle('border-white/10', tab !== 'active');
+        btnActive.classList.toggle('border-theme-subtle', tab !== 'active');
     }
     if (btnAvail) {
         btnAvail.classList.toggle('bg-accent/20', tab === 'available');
@@ -99,7 +99,7 @@ export function switchIntegrationSubtab(tab: string) {
         btnAvail.classList.toggle('border-accent/40', tab === 'available');
         btnAvail.classList.toggle('bg-white/5', tab !== 'available');
         btnAvail.classList.toggle('text-slate-400', tab !== 'available');
-        btnAvail.classList.toggle('border-white/10', tab !== 'available');
+        btnAvail.classList.toggle('border-theme-subtle', tab !== 'available');
     }
     updateIntegrationSubtab();
 };

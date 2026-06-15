@@ -173,19 +173,19 @@ function _renderBlueprintCreatorInputs(): void {
     host.innerHTML = _blueprintCreatorInputs.map((input, idx) => {
         const choicesVisible = input.type === 'select' ? '' : 'hidden';
         return `
-            <div data-bp-creator-input-row="${idx}" class="rounded-xl border border-white/5 bg-slate-950/60 p-3 space-y-3">
+            <div data-bp-creator-input-row="${idx}" class="rounded-xl border border-theme-subtle bg-slate-950/60 p-3 space-y-3">
                 <div class="grid grid-cols-1 sm:grid-cols-[1fr_1fr_140px_auto] gap-2 items-end">
                     <div class="space-y-1">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">ID</label>
-                        <input type="text" data-bp-creator-field="id" value="${escapeHtml(input.id)}" data-memory-input="updateBlueprintCreatorYaml" class="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs mono text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-bp-creator-field="id" value="${escapeHtml(input.id)}" data-memory-input="updateBlueprintCreatorYaml" class="w-full bg-slate-950 border border-theme-subtle rounded-lg px-3 py-2 text-xs mono text-slate-200 focus:border-accent outline-none">
                     </div>
                     <div class="space-y-1">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Label</label>
-                        <input type="text" data-bp-creator-field="label" value="${escapeHtml(input.label)}" data-memory-input="updateBlueprintCreatorYaml" class="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-bp-creator-field="label" value="${escapeHtml(input.label)}" data-memory-input="updateBlueprintCreatorYaml" class="w-full bg-slate-950 border border-theme-subtle rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-accent outline-none">
                     </div>
                     <div class="space-y-1">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Tip</label>
-                        <select data-bp-creator-field="type" data-memory-input="changeBlueprintCreatorInputType" data-memory-index="${idx}" class="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-accent outline-none">
+                        <select data-bp-creator-field="type" data-memory-input="changeBlueprintCreatorInputType" data-memory-index="${idx}" class="w-full bg-slate-950 border border-theme-subtle rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-accent outline-none">
                             ${['string', 'number', 'boolean', 'entity', 'area', 'select', 'duration'].map(type => `<option value="${type}" ${input.type === type ? 'selected' : ''}>${type}</option>`).join('')}
                         </select>
                     </div>
@@ -194,16 +194,16 @@ function _renderBlueprintCreatorInputs(): void {
                 <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
                     <div class="space-y-1">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Default</label>
-                        <input type="text" data-bp-creator-field="default" value="${escapeHtml(input.default)}" data-memory-input="updateBlueprintCreatorYaml" class="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-bp-creator-field="default" value="${escapeHtml(input.default)}" data-memory-input="updateBlueprintCreatorYaml" class="w-full bg-slate-950 border border-theme-subtle rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-accent outline-none">
                     </div>
-                    <label class="inline-flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-xs text-slate-300">
-                        <input type="checkbox" data-bp-creator-field="required" ${input.required ? 'checked' : ''} data-memory-input="updateBlueprintCreatorYaml" class="w-4 h-4 rounded accent-blue-500 bg-slate-900 border-white/10">
+                    <label class="inline-flex items-center gap-2 rounded-lg border border-theme-subtle bg-white/[0.02] px-3 py-2 text-xs text-slate-300">
+                        <input type="checkbox" data-bp-creator-field="required" ${input.required ? 'checked' : ''} data-memory-input="updateBlueprintCreatorYaml" class="w-4 h-4 rounded accent-blue-500 bg-slate-900 border-theme-subtle">
                         Obligatoriu
                     </label>
                 </div>
                 <div class="space-y-1 ${choicesVisible}">
                     <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${escapeHtml(t('blueprints.options_label'))}</label>
-                    <input type="text" data-bp-creator-field="choices" value="${escapeHtml(input.choices)}" data-memory-input="updateBlueprintCreatorYaml" class="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-accent outline-none">
+                    <input type="text" data-bp-creator-field="choices" value="${escapeHtml(input.choices)}" data-memory-input="updateBlueprintCreatorYaml" class="w-full bg-slate-950 border border-theme-subtle rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-accent outline-none">
                 </div>
             </div>
         `;
@@ -370,7 +370,7 @@ export async function loadBlueprints(): Promise<void> {
     }
     emptyEl?.classList.add('hidden');
     listEl.innerHTML = _blueprints.map(bp => `
-        <button type="button" data-bp-id="${escapeHtml(bp.id)}" class="bp-pick-row w-full text-left flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 hover:bg-white/[0.04] transition-colors">
+        <button type="button" data-bp-id="${escapeHtml(bp.id)}" class="bp-pick-row w-full text-left flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-theme-subtle hover:border-theme-subtle hover:bg-white/[0.04] transition-colors">
             <div class="flex items-center gap-3 min-w-0 flex-1">
                 <span class="w-9 h-9 rounded-xl bg-accent/10 text-accent flex items-center justify-center shrink-0"><i class="fas fa-cube text-sm"></i></span>
                 <div class="min-w-0 flex-1">
@@ -463,7 +463,7 @@ async function selectBlueprint(blueprintId: string) {
 function _renderBlueprintInputField(spec: Record<string, unknown>) {
     const id = `bp-input-${spec.id}`;
     const labelHtml = `<label for="${id}" class="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1">${escapeHtml(spec.label || spec.id)}${spec.required ? ' <span class="text-red-400">*</span>' : ''}</label>`;
-    const baseCls = 'w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent outline-none';
+    const baseCls = 'w-full bg-slate-950 border border-theme-subtle rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent outline-none';
     let field = '';
     const defaultVal = spec.default == null ? '' : String(spec.default);
     if (spec.type === 'entity') {

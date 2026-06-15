@@ -32,6 +32,6 @@ set_status_attrs(attributes, key="fully_charged", label="Fully charged")
 
 ## Component-specific labels
 
-Integration-specific strings (config titles, sensor names) live in `components/<domain>/translations/{lang}.json` and are exposed via `GET /api/i18n/components` under the `components.<domain>.*` namespace.
+Integration-specific strings (config titles, sensor names, catalog description) live in `components/<domain>/translations/{lang}.json` under the `components.<domain>.*` namespace. The UI loads them via `GET /api/i18n/bundles` (merged at runtime). See [I18N.md](I18N.md).
 
 See also [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md).

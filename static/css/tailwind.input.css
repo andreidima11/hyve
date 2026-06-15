@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+    .border-theme-subtle {
+        border-color: var(--border-subtle);
+    }
+    .border-theme-light {
+        border-color: var(--border-light);
+    }
+    .border-theme-medium {
+        border-color: var(--border-medium);
+    }
+}

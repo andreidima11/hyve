@@ -135,7 +135,7 @@ function _renderEntriesList(): void {
     if (empty) empty.classList.add('hidden');
     _entriesCurrent.entries.forEach(entry => {
         const row = document.createElement('div');
-        row.className = 'flex items-center justify-between gap-2 bg-white/[0.03] border border-white/5 rounded-lg p-2.5';
+        row.className = 'flex items-center justify-between gap-2 bg-white/[0.03] border border-theme-subtle rounded-lg p-2.5';
         row.dataset.entryId = String(entry.entry_id ?? '');
         const enabled = entry.enabled !== false;
         const entryId = String(entry.entry_id ?? '');
@@ -275,14 +275,14 @@ function openEntryEditor(entry: Record<string, unknown> | null): void {
             </a>`;
         } else if (field.type === 'select' && Array.isArray(field.options)) {
             const opts = field.options.map(o => `<option value="${escapeHtml(o.value)}" ${String(o.value)===String(value)?'selected':''}>${escapeHtml(o.label)}</option>`).join('');
-            input = `<select id="${id}" name="${fkey}" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-accent outline-none">${opts}</select>`;
+            input = `<select id="${id}" name="${fkey}" class="w-full bg-slate-800 border border-theme-subtle rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-accent outline-none">${opts}</select>`;
         } else if (field.type === 'bool' || field.type === 'boolean') {
             input = `<label class="flex items-center gap-2 text-sm text-slate-200"><input type="checkbox" id="${id}" name="${fkey}" ${value?'checked':''} class="accent-accent"> <span>${escapeHtml(field.label || fkey)}</span></label>`;
         } else {
             const t = field.type === 'number' ? 'number' : (field.type === 'password' ? 'password' : (field.type === 'url' ? 'url' : 'text'));
             const minAttr = field.min != null ? ` min="${escapeHtmlAttr(field.min)}"` : '';
             const maxAttr = field.max != null ? ` max="${escapeHtmlAttr(field.max)}"` : '';
-            input = `<input type="${t}" id="${id}" name="${fkey}"${minAttr}${maxAttr} ${placeholder} value="${escapeHtml(String(value ?? ''))}" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-accent outline-none">`;
+            input = `<input type="${t}" id="${id}" name="${fkey}"${minAttr}${maxAttr} ${placeholder} value="${escapeHtml(String(value ?? ''))}" class="w-full bg-slate-800 border border-theme-subtle rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-accent outline-none">`;
         }
         if (field.type === 'bool' || field.type === 'boolean') {
             wrap.innerHTML = input;

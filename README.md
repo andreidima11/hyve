@@ -2,7 +2,7 @@
 
 Self-hosted smart home hub with an integrated AI assistant. One FastAPI process serves the web UI, device integrations, automations, dashboards, and chat — with a built-in LLM agent for control, memory, and skills.
 
-**Current version:** 0.9.7.13
+**Current version:** 0.9.8.0
 
 ## Features
 
@@ -14,7 +14,7 @@ Self-hosted smart home hub with an integrated AI assistant. One FastAPI process 
 - **Integrations** — declarative config entries, encrypted secrets, periodic sync
 - **Add-ons** — optional bundled or custom services (MQTT broker, Whisper, Piper, etc.)
 - **Android app** — native shell in `android/HyveBridge/` (WebView + background services)
-- **i18n** — English and Romanian UI
+- **i18n** — English and Romanian UI; strings decentralised per module ([docs/I18N.md](docs/I18N.md))
 
 ## Requirements
 
@@ -123,7 +123,7 @@ python main.py
 - **Port in use** — change `port` in `config.json` or pass `--port` to the installer.
 - **Setup wizard does not appear** — an admin user may already exist; log in or reset the `users` table on a fresh install.
 - **CSS looks broken** — run `npm install && npm run css:build`.
-- **JS changes not showing** — run `npm run js:build` after editing `.ts` files in `static/js/`.
+- **JS changes not showing** — run `npm run js:build` (outputs `static/dist/app.js`).
 - **Server logs** — `logs/install-server.log` when started via `install_hyve.py`; otherwise check the terminal running `main.py`.
 
 ## Configuration
@@ -152,12 +152,14 @@ HYVE_DEV=1 python main.py
 
 ### Frontend TypeScript
 
-Sources live in `static/js/**/*.ts`; the browser loads emitted `.js` beside them (same import paths). i18n dictionaries stay plain JS in `static/js/lang/`.
+Sources live in `static/js/**/*.ts`. **Vite** bundles the browser app to `static/dist/app.js` (see `vite.config.ts`). Edit `.ts` only — do not commit emitted `static/js/**/*.js` (except `static/js/lang/*.js`). Hyveview custom elements compile via `vite.hyveview.config.ts` to `static/hyveview/`; shared runtime modules (`api`, camera helpers, icons) build to `static/dist/`.
+
+**Translations:** shell strings in `static/js/lang/`; everything else per module — [docs/I18N.md](docs/I18N.md). Run `python scripts/check_i18n_keys.py` before PRs that add `t('…')` keys.
 
 ```bash
 npm install
 npm run js:check    # strict typecheck (no emit)
-npm run js:build    # compile .ts → .js after edits
+npm run js:build    # Vite → static/dist/ + shared modules + hyveview
 npm run js:watch    # rebuild on save
 ```
 

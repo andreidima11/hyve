@@ -146,7 +146,7 @@ function _renderDetailVehicule(data: Record<string, unknown>): string {
         if (alerte.rca_notificare_sms) notifs.push('SMS');
         if (alerte.rca_notificare_email) notifs.push('Email');
         const notifStr = notifs.length ? `<div class="text-[9px] text-slate-600">${escapeHtml(_ed('rca_notifications', { channels: notifs.join(', ') }))}</div>` : '';
-        return `<div class="space-y-0.5 pb-1.5 ${data.indexOf(v) < data.length - 1 ? 'border-b border-white/5 mb-1.5' : ''}">`
+        return `<div class="space-y-0.5 pb-1.5 ${data.indexOf(v) < data.length - 1 ? 'border-b border-theme-subtle mb-1.5' : ''}">`
             + `<div class="flex items-center justify-between"><span class="text-slate-300 font-mono font-bold">${plate}</span><span class="${statusCls} text-[10px] font-semibold">${escapeHtml(status)}</span></div>`
             + `<div class="text-[10px] flex flex-wrap gap-x-1.5 gap-y-0.5">${tags.join('')}</div>`
             + notifStr
@@ -159,7 +159,7 @@ function _renderDetailFacturi(data: Record<string, unknown>): string {
     const total = data.reduce((s, b) => s + (b.suma_datorata || 0), 0);
     const today = new Date().toISOString().slice(0, 10);
     const restante = data.filter(b => b.scadenta && b.scadenta <= today).length;
-    let header = `<div class="flex justify-between gap-2 pb-1 mb-1 border-b border-white/5">`
+    let header = `<div class="flex justify-between gap-2 pb-1 mb-1 border-b border-theme-subtle">`
         + `<span class="text-slate-400">${escapeHtml(_ed('total_due'))}</span>`
         + `<span class="text-slate-200 font-mono font-bold">${total.toFixed(2)} RON</span></div>`;
     if (restante > 0) {
@@ -186,7 +186,7 @@ function _renderDetailConturiFurnizori(data: Record<string, unknown>): string {
         const paymentLine = suma != null
             ? `<div class="text-[10px] text-slate-400">${escapeHtml(_ed('last_payment', { amount: `${Number(suma).toFixed(2)} RON`, when }))}</div>`
             : '';
-        return `<div class="space-y-0.5 pb-1 ${data.indexOf(c) < data.length - 1 ? 'border-b border-white/5 mb-1' : ''}">`
+        return `<div class="space-y-0.5 pb-1 ${data.indexOf(c) < data.length - 1 ? 'border-b border-theme-subtle mb-1' : ''}">`
             + `<div class="flex items-center justify-between gap-2"><span class="text-slate-300 font-semibold">${name}</span>${auto}</div>`
             + (loc ? `<div class="text-[10px] text-slate-500"><i class="fas fa-map-marker-alt text-[8px] mr-1"></i>${loc}${c.tip_locatie ? ' · ' + c.tip_locatie : ''}</div>` : '')
             + paymentLine
@@ -282,7 +282,7 @@ function _renderDetailFusionStations(data: Record<string, unknown>): string {
     if (!Array.isArray(data) || !data.length) return `<span class="text-slate-500 text-[10px]">${escapeHtml(_ed('no_stations'))}</span>`;
     return data.map((item, i) => {
         const rows = _fusionSummaryRows(item as Record<string, unknown>);
-        return `<div class="space-y-0.5 pb-1.5 ${i < data.length - 1 ? 'border-b border-white/5 mb-1.5' : ''}">`
+        return `<div class="space-y-0.5 pb-1.5 ${i < data.length - 1 ? 'border-b border-theme-subtle mb-1.5' : ''}">`
             + `<div class="text-slate-300 font-semibold">${escapeHtml(item.station_name || item.station_code || _ed('default_station'))}</div>`
             + rows.map(([lk, v]) => _detailRow(lk, v)).join('')
             + `</div>`;
@@ -298,7 +298,7 @@ function _renderDetailFusionRealtime(data: Record<string, unknown>): string {
             item.month_energy_kwh != null ? ['field_month', `${Number(item.month_energy_kwh).toFixed(2)} kWh`] : null,
             item.lifetime_energy_kwh != null ? ['field_total', `${Number(item.lifetime_energy_kwh).toFixed(2)} kWh`] : null,
         ].filter(Boolean) as FusionDetailRow[];
-        return `<div class="space-y-0.5 pb-1.5 ${i < data.length - 1 ? 'border-b border-white/5 mb-1.5' : ''}">`
+        return `<div class="space-y-0.5 pb-1.5 ${i < data.length - 1 ? 'border-b border-theme-subtle mb-1.5' : ''}">`
             + `<div class="text-slate-300 font-semibold">${escapeHtml(String(item.station_name || item.station_code || _ed('default_station')))}</div>`
             + rows.map(([lk, v]) => _detailRow(lk, v)).join('')
             + `</div>`;
@@ -315,7 +315,7 @@ function _renderDetailFusionYearly(data: Record<string, unknown>): string {
         const yearLabel = ct ? new Date(ct).getFullYear() : '?';
         const rows = _fusionYearlyKpiRows(kpi as Record<string, unknown>);
         if (!rows.length) return '';
-        return `<div class="space-y-0.5 pb-1.5 ${i < data.length - 1 ? 'border-b border-white/5 mb-1.5' : ''}">`
+        return `<div class="space-y-0.5 pb-1.5 ${i < data.length - 1 ? 'border-b border-theme-subtle mb-1.5' : ''}">`
             + `<div class="text-slate-300 font-semibold">${escapeHtml(code)} <span class="text-amber-400 text-xs ml-1">${escapeHtml(_ed('year_label', { year: yearLabel }))}</span></div>`
             + rows.map(([lk, v]) => _detailRow(lk, v)).join('')
             + `</div>`;
@@ -331,7 +331,7 @@ function _renderDetailFusionYearlyCurrent(data: Record<string, unknown>): string
         const yearLabel = ct ? new Date(ct).getFullYear() : new Date().getFullYear();
         const rows = _fusionYearlyKpiRows(kpi as Record<string, unknown>);
         if (!rows.length) return '';
-        return `<div class="space-y-0.5 pb-1.5 ${i < arr.length - 1 ? 'border-b border-white/5 mb-1.5' : ''}">`
+        return `<div class="space-y-0.5 pb-1.5 ${i < arr.length - 1 ? 'border-b border-theme-subtle mb-1.5' : ''}">`
             + `<div class="text-slate-300 font-semibold">${escapeHtml(code)} <span class="text-amber-400 text-xs ml-1">${escapeHtml(_ed('year_label', { year: yearLabel }))}</span></div>`
             + rows.map(([lk, v]) => _detailRow(lk, v)).join('')
             + `</div>`;
@@ -354,7 +354,7 @@ function _renderDetailFusionYearlyLifetime(data: Record<string, unknown>): strin
             kpi.reduction_total_tree != null ? ['field_tree_equivalent', `${Number(kpi.reduction_total_tree).toFixed(0)}`] : null,
         ].filter(Boolean) as FusionDetailRow[];
         if (!rows.length) return '';
-        return `<div class="space-y-0.5 pb-1.5 ${i < arr.length - 1 ? 'border-b border-white/5 mb-1.5' : ''}">`
+        return `<div class="space-y-0.5 pb-1.5 ${i < arr.length - 1 ? 'border-b border-theme-subtle mb-1.5' : ''}">`
             + `<div class="text-slate-300 font-semibold">${escapeHtml(code)} <span class="text-purple-400 text-xs ml-1">${escapeHtml(_ed('lifetime_tag'))}</span></div>`
             + rows.map(([lk, v]) => _detailRow(lk, v)).join('')
             + `</div>`;
@@ -389,7 +389,7 @@ function _renderDetailFusionDevices(data: Record<string, unknown>): string {
             if ('rawKey' in row) return `<div class="flex justify-between gap-2"><span class="text-slate-500">${escapeHtml(row.rawKey)}</span><span class="text-slate-300 text-right">${escapeHtml(row.value)}</span></div>`;
             return '';
         };
-        return `<div class="space-y-0.5 pb-1.5 ${i < data.length - 1 ? 'border-b border-white/5 mb-1.5' : ''}">`
+        return `<div class="space-y-0.5 pb-1.5 ${i < data.length - 1 ? 'border-b border-theme-subtle mb-1.5' : ''}">`
             + `<div class="text-slate-300 font-semibold">${escapeHtml(String(devRec.device_name || devRec.device_id || _ed('default_device')))} <span class="text-sky-400 text-xs ml-1">${escapeHtml(String(devRec.device_type || ''))}</span></div>`
             + allRows.map(rowHtml).join('')
             + `</div>`;

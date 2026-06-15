@@ -1,10 +1,15 @@
 /**
  * i18n: extensible language system (default: English).
  *
+ * Mother dictionaries (en.js / ro.js) hold shell UI only. Integration, add-on, and
+ * platform strings live in decentralised JSON bundles — see docs/I18N.md.
+ * After login, loadBundledTranslations() merges GET /api/i18n/bundles into the active dict.
+ *
  * To add a new language (e.g. German):
- * 1. Create lang/de.js with the same key structure as en.js (copy en.js, translate values).
+ * 1. Create lang/de.js with the same key structure as en.js (shell keys only).
  * 2. In this file: add "import de from './de.js'", add de to LANGUAGES, add { code: 'de', nameKey: 'config.language_de' } to AVAILABLE_LANGUAGES.
- * 3. In en.js and ro.js (and de.js): add config.language_de: "Deutsch" (or "German", etc.) so the settings dropdown shows the label.
+ * 3. Add de.json to every translations/ folder (components, addons, core/i18n/*).
+ * 4. In en.js and ro.js (and de.js): add config.language_de so the settings dropdown shows the label.
  */
 import en from './en.js';
 import ro from './ro.js';
@@ -40,8 +45,8 @@ function deepMerge(base, overlay) {
     return out;
 }
 
-/** Deep-merge component translation payload into the active language dictionary. */
-export function mergeComponentTranslations(payload) {
+/** Deep-merge component/add-on/platform translation payload into the active dictionary. */
+export function mergeBundledTranslations(payload) {
     if (!payload || typeof payload !== 'object') return;
     const lang = currentLanguage in dictionaries ? currentLanguage : DEFAULT_LANG;
     dictionaries[lang] = deepMerge(dictionaries[lang] || {}, payload);
@@ -50,22 +55,30 @@ export function mergeComponentTranslations(payload) {
     }
 }
 
-/** Fetch configured component translations from the API and merge them. */
-export async function loadComponentTranslations(lang) {
+/** @deprecated Use mergeBundledTranslations */
+export const mergeComponentTranslations = mergeBundledTranslations;
+
+/** Fetch decentralised translations (components, add-ons, platform bundles) and merge them. */
+export async function loadBundledTranslations(lang) {
     const token = (() => {
         try { return localStorage.getItem('hyve_token') || ''; } catch (_) { return ''; }
     })();
     if (!token) return;
     const queryLang = lang || currentLanguage || DEFAULT_LANG;
     try {
-        const res = await fetch(`/api/i18n/components?lang=${encodeURIComponent(queryLang)}`, {
+        const res = await fetch(`/api/i18n/bundles?lang=${encodeURIComponent(queryLang)}`, {
             headers: { Authorization: 'Bearer ' + token },
         });
         if (!res.ok) return;
         const payload = await res.json();
-        mergeComponentTranslations(payload);
+        mergeBundledTranslations(payload);
         applyTranslations();
     } catch (_) {}
+}
+
+/** @deprecated Use loadBundledTranslations */
+export async function loadComponentTranslations(lang) {
+    return loadBundledTranslations(lang);
 }
 
 /** Replace {key} placeholders in str with values from params */
@@ -194,6 +207,13 @@ export function tRaw(key) {
 
 export function getLanguage() {
     return currentLanguage;
+}
+
+/** BCP 47 locale tag for Intl / toLocale* (maps ui.language codes). */
+export function localeTag(lang) {
+    const code = lang || currentLanguage || DEFAULT_LANG;
+    if (code === 'ro') return 'ro-RO';
+    return 'en-US';
 }
 
 /** List of { code, label } for current language (for settings dropdown) */

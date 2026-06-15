@@ -1,14 +1,15 @@
 {
     "name": "hyve",
-    "version": "0.9.7.13",
+    "version": "0.9.8.0",
     "description": "",
     "private": true,
     "scripts": {
         "css:build": "tailwindcss -i static/css/tailwind.input.css -o static/css/tailwind.built.css --minify",
         "css:watch": "tailwindcss -i static/css/tailwind.input.css -o static/css/tailwind.built.css --watch",
-        "js:build": "tsc -p tsconfig.build.json && tsc -p tsconfig.hyveview.build.json",
-        "js:watch": "tsc -p tsconfig.build.json --watch",
-        "js:check": "tsc --noEmit && tsc -p tsconfig.hyveview.json --noEmit"
+        "js:build": "vite build && vite build --config vite.shared.config.ts && node scripts/clean-hyveview-js.mjs && vite build --config vite.hyveview.config.ts && node scripts/fix-hyveview-imports.mjs",
+        "js:watch": "vite build --watch",
+        "js:check": "tsc --noEmit && tsc -p tsconfig.hyveview.json --noEmit",
+        "js:legacy-tsc": "tsc -p tsconfig.build.json && tsc -p tsconfig.hyveview.build.json"
     },
     "keywords": [],
     "author": "",
@@ -17,7 +18,8 @@
         "autoprefixer": "^10.4.24",
         "postcss": "^8.5.6",
         "tailwindcss": "^3.4.19",
-        "typescript": "^5.8.2"
+        "typescript": "^5.8.2",
+        "vite": "^6.4.3"
     },
     "dependencies": {
         "@fortawesome/fontawesome-free": "^6.4.0",

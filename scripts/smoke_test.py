@@ -27,7 +27,7 @@ def main() -> int:
 
     for url in (
         "/static/css/base.css?v=smoke",
-        "/static/js/app.js?v=smoke",
+        "/static/dist/app.js?v=smoke",
     ):
         res = client.get(url)
         if res.status_code != 200:

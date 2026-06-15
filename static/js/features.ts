@@ -184,7 +184,6 @@ export {
     hideUpdateReleaseNotes,
     updateAllAddons,
     updateSingleAddon,
-    toggleUpdatesIntervalDropdown,
     setUpdatesInterval,
     syncUpdatesIntervalDropdown,
     loadBackupPanel,

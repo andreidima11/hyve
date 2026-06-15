@@ -35,7 +35,7 @@ export function _renderAddonCard(addon: AddonRecord) {
             statusBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30 text-amber-400 bg-amber-500/10">${escapeHtml(t('hy.addon_status_installed'))}</span>`;
         }
         actions = `
-            <button type="button" data-config-action="openAddonConfigModal" data-config-slug="${slug}" class="px-4 py-2 rounded-xl text-xs font-medium bg-white/5 hover:${c.btnBg} text-slate-300 hover:${c.btnText} border border-white/10 transition-colors">
+            <button type="button" data-config-action="openAddonConfigModal" data-config-slug="${slug}" class="px-4 py-2 rounded-xl text-xs font-medium bg-white/5 hover:${c.btnBg} text-slate-300 hover:${c.btnText} border border-theme-subtle transition-colors">
                 <i class="fas fa-cog mr-1"></i> ${escapeHtml(t('hy.addon_configure'))}
             </button>
             ${enabled

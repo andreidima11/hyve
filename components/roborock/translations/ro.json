@@ -6,5 +6,6 @@
     "battery": "Baterie",
     "fan_speed": "Putere aspirare",
     "cleaning_area": "Suprafață curățată"
-  }
+  },
+  "catalog_desc": "Aspiratoare robot Roborock (local LAN + cloud fallback)"
 }

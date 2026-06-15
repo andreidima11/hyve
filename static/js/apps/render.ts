@@ -130,7 +130,7 @@ function _renderConfigField(field: AddonConfigField, value: unknown, isAdmin: bo
             <span class="text-xs font-semibold text-slate-300">${escapeHtml(label)}</span>
             <div class="flex gap-2">
                 <input type="${escapeHtml(inputType)}" data-addon-config="${escapeHtml(key)}" value="${escapeHtml(String(safeValue))}" placeholder="${escapeHtml(placeholder)}" ${disabled}
-                    class="flex-1 rounded-xl border border-white/[0.06] bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40">
+                    class="flex-1 rounded-xl border border-theme-light bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40">
                 <button type="button" data-config-action="detectAddonSerialPorts" data-config-key="${escapeHtml(key)}" ${disabled}
                     class="px-3 py-2 rounded-xl text-xs font-semibold bg-accent/15 text-accent hover:bg-accent/25 transition-colors whitespace-nowrap"
                     title="${escapeHtml(t('apps.detect_serial_title'))}">
@@ -160,7 +160,7 @@ function _renderConfigSection(addon: AddonCatalogEntry, isAdmin: boolean) {
         : '';
 
     return `
-    <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 space-y-4">
+    <div class="rounded-xl border border-theme-light bg-white/[0.02] p-4 sm:p-5 space-y-4">
         <div class="flex items-start justify-between gap-3">
             <div class="space-y-1 min-w-0">
                 <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${escapeHtml(t('apps.config_section'))}</span>
@@ -208,7 +208,7 @@ export function _renderSummaryCard(addon: AddonCatalogEntry, status: AddonProces
 
     return `
     <button type="button" data-config-action="openAppDetail" data-config-slug="${escapeHtml(slug)}"
-        class="app-summary w-full text-left rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 transition-all hover:border-white/[0.12] hover:bg-white/[0.04] active:scale-[0.995]"
+        class="app-summary w-full text-left rounded-2xl border border-theme-light bg-white/[0.02] p-4 sm:p-5 transition-all hover:border-theme-medium hover:bg-white/[0.04] active:scale-[0.995]"
         data-slug="${escapeHtml(slug)}">
         <div class="flex items-center justify-between gap-4">
             <div class="flex items-center gap-3.5 min-w-0">
@@ -247,13 +247,19 @@ export function _renderDetail(addon: AddonCatalogEntry, status: AddonProcessStat
     // Show the real installed version (resolved from the package) when installed;
     // fall back to the manifest version for not-installed add-ons.
     const displayVersion = addon.version || addon.state?.version || '?';
+    const descriptionText = String(addon.long_description || addon.description || '').trim();
+    const descriptionHtml = descriptionText ? `
+        <div class="rounded-xl border border-theme-light bg-white/[0.02] p-4 sm:p-5 space-y-3">
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${escapeHtml(t('apps.description_section'))}</span>
+            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">${escapeHtml(descriptionText)}</p>
+        </div>` : '';
 
     // Lifecycle controls (install / enable-disable / uninstall) — admin only
     let lifecycleHtml = '';
     if (isAdminUser) {
         if (!installed) {
             lifecycleHtml = `
-            <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 space-y-3">
+            <div class="rounded-xl border border-theme-light bg-white/[0.02] p-4 sm:p-5 space-y-3">
                 <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${escapeHtml(t('apps.local_install_title'))}</span>
                 <div id="preflight-area" class="hidden space-y-2"></div>
                 <p class="text-xs text-slate-500">${escapeHtml(t('apps.local_install_desc'))}</p>
@@ -272,16 +278,16 @@ export function _renderDetail(addon: AddonCatalogEntry, status: AddonProcessStat
                 ? `<button type="button" data-config-action="saveAddonConfig" data-config-slug="${escapeHtml(slug)}" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors flex-shrink-0 shadow-lg shadow-accent/20"><i class="fas fa-check"></i>${escapeHtml(t('apps.save_config'))}</button>`
                 : '';
             lifecycleHtml = `
-            <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 space-y-3">
+            <div class="rounded-xl border border-theme-light bg-white/[0.02] p-4 sm:p-5 space-y-3">
                 <div class="flex items-start justify-between gap-3">
                     <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${escapeHtml(t('apps.admin_section'))}</span>
                     ${adminSaveBtn}
                 </div>
                 ${hasProcess ? `
-                <label class="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 flex items-start gap-3 cursor-pointer">
+                <label class="rounded-xl border border-theme-light bg-white/[0.02] px-3 py-2.5 flex items-start gap-3 cursor-pointer">
                     <input type="checkbox" id="addon-watchdog-${escapeHtml(slug)}" ${watchdogOn ? 'checked' : ''}
                         data-addon-watchdog="${escapeHtml(slug)}"
-                        class="mt-0.5 rounded border-white/10 bg-slate-900 text-accent focus:ring-accent/40">
+                        class="mt-0.5 rounded border-theme-subtle bg-slate-900 text-accent focus:ring-accent/40">
                     <span class="min-w-0">
                         <span class="block text-sm text-white"><i class="fas fa-shield-halved mr-1.5 opacity-70"></i>${escapeHtml(t('apps.watchdog_auto_restart'))}</span>
                         <span class="block text-[11px] text-slate-500 mt-1">${escapeHtml(t('apps.watchdog_auto_restart_hint'))}</span>
@@ -312,13 +318,14 @@ export function _renderDetail(addon: AddonCatalogEntry, status: AddonProcessStat
                 : `<div class="w-10 h-10 rounded-xl ${cm.bg} flex items-center justify-center flex-shrink-0"><i class="${escapeHtml(icon)} ${cm.text}"></i></div>`}
             <div class="min-w-0 flex-1">
                 <h2 class="text-white font-semibold text-lg">${escapeHtml(addon.name)}</h2>
-                <p class="text-slate-500 text-xs">${escapeHtml(addon.long_description || addon.description || '')}</p>
             </div>
         </div>
 
+        ${descriptionHtml}
+
         ${hasProcess && installed ? `
         <!-- Status + Controls -->
-        <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5 space-y-4">
+        <div class="rounded-xl border border-theme-light bg-white/[0.02] p-4 sm:p-5 space-y-4">
             <div class="flex items-center justify-between">
                 <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${escapeHtml(t('apps.process_section'))}</span>
                 <div id="app-detail-badge">${enabled ? _statusBadge(st) : `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('hy.addon_status_disabled'))}</span>`}</div>
@@ -345,7 +352,7 @@ export function _renderDetail(addon: AddonCatalogEntry, status: AddonProcessStat
         </div>
         ` : !installed ? `
         <!-- Not installed info -->
-        <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
+        <div class="rounded-xl border border-theme-light bg-white/[0.02] p-4 sm:p-5">
             <div class="flex items-center gap-2 text-xs text-slate-500">
                 <i class="fas fa-tag mr-1 opacity-60"></i>${escapeHtml(_formatAddonVersion(displayVersion))}
                 <span class="ml-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400">${escapeHtml(t('hy.addon_status_available'))}</span>
@@ -353,7 +360,7 @@ export function _renderDetail(addon: AddonCatalogEntry, status: AddonProcessStat
         </div>
         ` : `
         <!-- Installed but no process -->
-        <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
+        <div class="rounded-xl border border-theme-light bg-white/[0.02] p-4 sm:p-5">
             <div class="flex items-center gap-2 text-xs text-slate-500">
                 <i class="fas fa-tag mr-1 opacity-60"></i>${escapeHtml(_formatAddonVersion(displayVersion))}
                 ${enabled

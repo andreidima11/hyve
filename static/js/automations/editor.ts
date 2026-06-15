@@ -281,7 +281,7 @@ function _renderAutomationDryRunTrace(result: Record<string, unknown>) {
             const branchHint = depth > 0
                 ? `<span class="text-slate-700 font-mono mr-1">${'│ '.repeat(Math.max(0, depth - 1))}└─</span>`
                 : '';
-            return `<div class="text-[11px] flex gap-2 items-baseline border-l border-white/5" style="${indentStyle}">
+            return `<div class="text-[11px] flex gap-2 items-baseline border-l border-theme-subtle" style="${indentStyle}">
                 <span class="inline-block w-1.5 h-1.5 rounded-full ${dotTone} flex-none mt-1"></span>
                 <span class="text-slate-600 font-mono text-[10px] flex-none">${escapeHtml(ms)}${escapeHtml(dur)}</span>
                 <span class="${tone} font-bold uppercase text-[10px] flex-none">${escapeHtml(String(s.status || '?'))}</span>
@@ -290,7 +290,7 @@ function _renderAutomationDryRunTrace(result: Record<string, unknown>) {
             </div>`;
         }).join('');
     listEl.innerHTML = `
-        <div class="rounded-lg bg-white/5 border border-white/10 p-3 space-y-2">
+        <div class="rounded-lg bg-white/5 border border-theme-subtle p-3 space-y-2">
             <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-slate-200"><i class="fas fa-flask text-emerald-400 mr-1"></i>${escapeHtml(headerLabel)}</span>
                 <span class="text-[10px] font-bold ${statusColor}">${escapeHtml(statusLabel)}</span>

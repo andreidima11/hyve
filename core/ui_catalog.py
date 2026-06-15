@@ -212,7 +212,7 @@ def _normalize_integration_entry(entry: dict[str, Any]) -> dict[str, Any]:
         "toggle_slug": toggle_slug,
         "label": str(entry.get("label") or slug.replace("_", " ").title()).strip(),
         "title_key": str(entry.get("title_key") or f"config.{slug}_section").strip(),
-        "description_key": str(entry.get("description_key") or f"integrations.catalog.{slug}_desc").strip(),
+        "description_key": str(entry.get("description_key") or f"components.{slug}.catalog_desc").strip(),
         "description": str(entry.get("description") or "").strip(),
         "icon": str(entry.get("icon") or "fa-puzzle-piece").strip(),
         "image": str(entry.get("image") or "").strip(),

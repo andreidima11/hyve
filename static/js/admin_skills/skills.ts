@@ -25,7 +25,7 @@ export async function loadSkills() {
             const shortDesc = isLong ? desc.slice(0, DESC_MAX) + '…' : desc;
             const fullDescEscaped = escapeHtml(desc).replace(/"/g, '&quot;');
             return `
-            <div class="cfg-section border-white/10 flex flex-col sm:flex-row flex-wrap sm:items-center justify-between gap-3 sm:gap-4 p-4 ${s.disabled ? 'opacity-60' : ''}" data-skill-name="${escapeHtml(s.name)}">
+            <div class="cfg-section border-theme-subtle flex flex-col sm:flex-row flex-wrap sm:items-center justify-between gap-3 sm:gap-4 p-4 ${s.disabled ? 'opacity-60' : ''}" data-skill-name="${escapeHtml(s.name)}">
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="font-bold text-white">${escapeHtml(s.name)}</span>

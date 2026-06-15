@@ -44,7 +44,7 @@ export function _renderAreas() {
         const entBadge = `<span class="inline-flex items-center gap-1 text-[10px] text-slate-400"><i class="fas fa-microchip text-[9px]"></i>${_esc(t('areas.entities_count', { count: entCount }))}</span>`;
         const deleteBtn = `<button type="button" data-config-action="deleteArea" data-config-area-id="${id}" class="text-rose-400/70 hover:text-rose-300 px-2 py-1.5 rounded-lg text-[11px] inline-flex items-center" title="${_esc(t('common.delete'))}"><i class="fas fa-trash text-[10px]"></i></button>`;
         return `
-            <div class="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors">
+            <div class="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-theme-subtle hover:border-theme-subtle transition-colors">
                 <div class="flex items-center gap-3 min-w-0 flex-1">
                     <span class="w-9 h-9 rounded-xl bg-accent/10 text-accent flex items-center justify-center shrink-0"><i class="${_esc(iconClass)}"></i></span>
                     <div class="min-w-0 flex-1">
@@ -79,7 +79,7 @@ export function _renderEditorEntities() {
         const label = meta?.name || meta?.friendly_name || eid;
         const dom = (eid.split('.')[0] || '').toLowerCase();
         const src = meta?.source ? ` · ${_esc(meta.source)}` : '';
-        return `<span class="inline-flex items-center gap-1.5 text-[11px] bg-white/5 border border-white/10 rounded-full pl-2 pr-1 py-0.5 text-slate-300" title="${_esc(eid)}">
+        return `<span class="inline-flex items-center gap-1.5 text-[11px] bg-white/5 border border-theme-subtle rounded-full pl-2 pr-1 py-0.5 text-slate-300" title="${_esc(eid)}">
             <i class="fas fa-microchip text-[9px] text-slate-500"></i>
             <span class="truncate max-w-[140px]">${_esc(label)}</span>
             <span class="text-[9px] text-slate-500">${_esc(dom)}${src}</span>

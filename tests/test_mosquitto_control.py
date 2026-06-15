@@ -58,7 +58,7 @@ def test_z2m_expose_parser_populates_command_capabilities():
         "zigbee2mqtt/0xa4c138fe8b1226ab": {"state_l3": "OFF"},
     }
     with patch(
-        "components.mosquitto.extract._resolve_z2m_display_name",
+        "components.mosquitto.parse._resolve_z2m_display_name",
         return_value="0xa4c138fe8b1226ab",
     ):
         entities = _entities_from_z2m_exposes(device, states)

@@ -136,16 +136,10 @@ def resolve_client_host(request: Request) -> str:
 
 
 def decode_media_url_token(raw_token: str) -> Optional[dict]:
-    """Short-lived camera_stream token or access JWT for media URL query auth."""
+    """Short-lived camera_stream token for media URL query auth (no access JWT)."""
     if not raw_token:
         return None
-    payload = verify_camera_stream_token(raw_token)
-    if payload:
-        return payload
-    payload = decode_token_payload(raw_token)
-    if payload and is_access_token_payload(payload):
-        return payload
-    return None
+    return verify_camera_stream_token(raw_token)
 
 
 def _client_is_loopback(request: Request) -> bool:

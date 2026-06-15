@@ -99,13 +99,13 @@ export function renderExtractionExamples(examples: MemoryExtractionExample[] | u
             <div class="flex-1 min-w-0 space-y-1 w-full">
                 <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Input</label>
                 <input type="text" data-ex-idx="${i}" data-ex-field="input"
-                    class="extraction-ex-input w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-xs mono text-slate-300 focus:border-accent outline-none"
+                    class="extraction-ex-input w-full bg-slate-900 border border-theme-subtle rounded-xl p-2.5 text-xs mono text-slate-300 focus:border-accent outline-none"
                     value="${(ex.input || '').replace(/"/g, '&quot;')}" placeholder="e.g. mi-e pofta de paste">
             </div>
             <div class="flex-1 min-w-0 space-y-1 w-full">
                 <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Output facts (comma-separated)</label>
                 <input type="text" data-ex-idx="${i}" data-ex-field="output"
-                    class="extraction-ex-output w-full bg-slate-900 border border-white/5 rounded-xl p-2.5 text-xs mono text-slate-300 focus:border-accent outline-none"
+                    class="extraction-ex-output w-full bg-slate-900 border border-theme-subtle rounded-xl p-2.5 text-xs mono text-slate-300 focus:border-accent outline-none"
                     value="${(Array.isArray(ex.output) ? ex.output.join(', ') : (ex.output || '')).replace(/"/g, '&quot;')}" placeholder="e.g. Is craving pasta">
             </div>
             <button type="button" data-memory-action="removeExtractionExample" data-memory-index="${i}"
@@ -213,7 +213,7 @@ export function switchMemorySubtab(tab: string) {
             btn.classList.toggle('border-accent/40', active);
             btn.classList.toggle('bg-white/5', !active);
             btn.classList.toggle('text-slate-400', !active);
-            btn.classList.toggle('border-white/10', !active);
+            btn.classList.toggle('border-theme-subtle', !active);
         }
     });
     if (tab === 'log') {

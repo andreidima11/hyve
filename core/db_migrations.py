@@ -22,3 +22,13 @@ def add_sqlite_column_if_missing(
     if column in sqlite_columns(connection, table):
         return
     connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}"))
+
+
+def create_orm_tables_if_missing(connection: Connection) -> None:
+    """Create SQLAlchemy ORM tables when absent (``checkfirst=True``)."""
+    import core.models as _models  # noqa: F401 — register tables on Base.metadata
+
+    from core.database import Base
+
+    _ = _models
+    Base.metadata.create_all(bind=connection, checkfirst=True)

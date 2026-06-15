@@ -115,9 +115,9 @@ export async function openAddonConfigModal(slug: string) {
         );
         const cmd = `${addon.start_command.command} ${args.join(' ')}`;
         fieldsEl.innerHTML += `
-            <div class="mt-4 pt-4 border-t border-white/5 space-y-2">
+            <div class="mt-4 pt-4 border-t border-theme-subtle space-y-2">
                 <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${escapeHtml(t('hy.addon_start_command_label'))}</p>
-                <code class="block bg-slate-900 border border-white/5 rounded-xl p-3 text-[11px] mono text-slate-400 break-all select-all">${escapeHtml(cmd)}</code>
+                <code class="block bg-slate-900 border border-theme-subtle rounded-xl p-3 text-[11px] mono text-slate-400 break-all select-all">${escapeHtml(cmd)}</code>
                 <p class="text-[10px] text-slate-600">${escapeHtml(addon.start_command.description || '')}</p>
             </div>
         `;
@@ -209,7 +209,7 @@ export async function checkAddonHealth() {
     const resultEl = document.getElementById('addon-health-result');
     const btn = document.getElementById('addon-health-btn') as HTMLButtonElement | null;
     if (btn) btn.disabled = true;
-    if (resultEl) { resultEl.classList.remove('hidden'); resultEl.className = 'text-xs rounded-xl p-3 bg-slate-900 border border-white/5 text-slate-400'; resultEl.textContent = t('common.checking'); }
+    if (resultEl) { resultEl.classList.remove('hidden'); resultEl.className = 'text-xs rounded-xl p-3 bg-slate-900 border border-theme-subtle text-slate-400'; resultEl.textContent = t('common.checking'); }
 
     const formatHealthError = (detail: unknown) => {
         const raw = String(detail || '').trim();

@@ -7,15 +7,12 @@ from typing import Any
 
 import core.auth as auth
 import core.models as models
-from addons.entity_store import SyncThrottledError, get_entity_store
+from core.entity_store import SyncThrottledError, get_entity_store
 from fastapi import BackgroundTasks, Depends, HTTPException
 
 from core.http.errors import error_detail
 from routers.integrations import helpers
-from routers.integrations.constants import (
-    ENTRY_TEST_TIMEOUT_SECONDS,
-    MAMMOTION_ENTRY_TEST_TIMEOUT_SECONDS,
-)
+from routers.integrations.constants import ENTRY_TEST_TIMEOUT_SECONDS
 from routers.integrations.models import ConfigEntryBody, ConfigEntryTestBody
 from routers.integrations.router import router
 
@@ -87,7 +84,12 @@ async def test_provider_entry(
                     v = (body.data or {}).get(f["key"])
                     if not v or (isinstance(v, str) and set(v) <= {"•", "*"}):
                         data[f["key"]] = existing["data"].get(f["key"], "")
-    test_timeout = MAMMOTION_ENTRY_TEST_TIMEOUT_SECONDS if slug == "mammotion" else ENTRY_TEST_TIMEOUT_SECONDS
+    from integrations import lifecycle as integration_lifecycle
+
+    test_timeout = integration_lifecycle.entry_test_timeout_seconds(
+        slug,
+        default=ENTRY_TEST_TIMEOUT_SECONDS,
+    )
     phase = str(body.test_phase or "full").strip().lower()
     try:
         test_kwargs = _test_connection_kwargs(cls, phase)
@@ -103,13 +105,12 @@ async def test_provider_entry(
 
 
 async def wire_new_entry(manager, slug: str, entry_id: str) -> None:
+    from integrations import lifecycle as integration_lifecycle
+
     # Yield once so the HTTP response for create/update can flush before a slow
     # initial sync (e.g. Mammotion cloud login + MQTT) monopolizes the loop.
     await asyncio.sleep(0)
-    if slug == "mammotion":
-        # UI "Test connection" often logs in seconds before Save — brief pause
-        # reduces Mammotion cloud rate-limit failures on the first real sync.
-        await asyncio.sleep(3)
+    await integration_lifecycle.before_initial_sync(slug, manager, entry_id)
     try:
         store = get_entity_store()
         inst = manager.get_by_entry(entry_id)
@@ -138,17 +139,7 @@ async def wire_new_entry(manager, slug: str, entry_id: str) -> None:
     except Exception as exc:
         log.warning("Post-create wiring failed for %s: %s", slug, exc)
 
-    if slug == "mosquitto":
-        try:
-            from components.mosquitto import bridge as mosquitto_bridge
-
-            inst2 = manager.get_by_entry(entry_id)
-            if inst2:
-                section = inst2.config_section(__import__("settings").CFG)
-                host = (section.get("host") or "").strip() or "localhost"
-                await mosquitto_bridge.start_bridge({**section, "host": host}, key=inst2.entry_id)
-        except Exception as exc:
-            log.warning("MQTT bridge start failed for new entry: %s", exc)
+    await integration_lifecycle.after_entry_wired(slug, manager, entry_id)
 
 
 @router.post("/{slug}/entries")

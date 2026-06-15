@@ -86,7 +86,11 @@ async def refresh_access_token(request: Request, db: Session = Depends(database.
 
 
 @router.post("/api/token/sse")
-async def get_sse_exchange_token(current_user: models.User = Depends(auth.get_current_user)):
+@limiter.limit("60/minute")
+async def get_sse_exchange_token(
+    request: Request,
+    current_user: models.User = Depends(auth.get_current_user),
+):
     """Get a short-lived (30s) single-use token for SSE/WebSocket connections.
 
     This avoids passing the long-lived JWT in query params where it would

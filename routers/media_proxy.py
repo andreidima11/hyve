@@ -6,8 +6,8 @@ endpoints fetch the resource from our backend and stream the bytes back with a
 permissive same-origin content type, while enforcing SSRF protection so callers
 can't probe the internal network.
 
-Auth: short-lived ``camera_stream`` JWT or access token via ``?token=`` query param
-(same pattern as ``/api/cameras/*``).
+Auth: short-lived ``camera_stream`` JWT via ``?token=`` query param
+(same pattern as ``/api/cameras/*``; access tokens are not accepted in URLs).
 """
 
 from __future__ import annotations

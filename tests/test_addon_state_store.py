@@ -114,6 +114,16 @@ def test_reconcile_addon_state_from_integration_and_disk(tmp_path, monkeypatch):
     monkeypatch.setattr(registry, "_docker_installed_version", lambda _image: None)
     monkeypatch.setattr(registry, "_brew_installed_version", lambda _pkg: None)
     monkeypatch.setattr(registry, "_brew_binary_path", lambda _pkg: None)
+    from addons import versions as versions_mod
+
+    _real_resolve = versions_mod._resolve_installed_version
+
+    def _resolve_isolated(manifest):
+        if manifest.get("slug") == "zigbee2mqtt":
+            return _real_resolve(manifest)
+        return None
+
+    monkeypatch.setattr(registry, "_resolve_installed_version", _resolve_isolated)
     monkeypatch.setattr("integrations.config_entries.list_entries", _no_integration_entries)
 
     z2m_prefix = tmp_path / "output/addons/zigbee2mqtt/runtime"
@@ -370,4 +380,4 @@ def test_get_watchdog_addons_without_enabled_flag():
 
     assert "addon_state" in tables
     assert {"slug", "installed", "enabled", "version", "config_json", "watchdog"}.issubset(cols)
-    assert version == "007_addon_state"
+    assert version == "008_scenes_areas"

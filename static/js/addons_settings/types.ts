@@ -53,6 +53,7 @@ export interface AddonUpdateRow {
     update_available?: boolean;
     release_notes?: string;
     release_url?: string;
+    github_repo?: string;
 }
 
 export interface HyveUpdateStatus {

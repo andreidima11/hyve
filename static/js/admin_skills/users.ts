@@ -27,7 +27,7 @@ export async function loadAdminUsers() {
             const phones = u.phones || [];
             const phonesStr = phones.length ? escapeHtml(phones.join(', ')) : '—';
             return `
-            <div class="flex items-center justify-between gap-4 p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:border-white/10 transition-colors">
+            <div class="flex items-center justify-between gap-4 p-4 rounded-xl border border-theme-subtle bg-white/[0.02] hover:border-theme-subtle transition-colors">
                 <div class="min-w-0">
                     <div class="font-semibold text-white truncate">${displayName}</div>
                     <div class="text-[11px] text-slate-500 mono">${userName}${u.is_admin ? ' • Admin' : ''}</div>

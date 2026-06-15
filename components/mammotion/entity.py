@@ -127,7 +127,7 @@ class MammotionEntity(BaseEntity):
             try:
                 session = await self._get_session()
                 payload = await session._hub.build_live_payload()
-                from addons.entity_store import get_entity_store
+                from core.entity_store import get_entity_store
                 from core.entity_mirror import signal_source_refresh
 
                 store = get_entity_store()

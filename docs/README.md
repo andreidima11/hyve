@@ -8,6 +8,7 @@ Developer and operator documentation for Hyve.
 |----------|--------|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Repo map, data flow, frontend/backend layout |
 | [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) | Entity integrations (providers, config entries, sync) |
+| [I18N.md](I18N.md) | **Traduceri decentralizate** — unde pui stringuri, API, erori, unelte |
 | [CARDS_AND_INTEGRATIONS.md](CARDS_AND_INTEGRATIONS.md) | Dashboard cards, `ui_catalog.json`, settings integrations |
 | [ENTITY_CONTRACT.md](ENTITY_CONTRACT.md) | Entity payload shape for UI and AI |
 | [dashboard_layout_design.md](dashboard_layout_design.md) | Dashboard layout, mobile reorder, per-user pages |

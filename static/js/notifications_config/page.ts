@@ -71,13 +71,13 @@ export function selectNotifChannel(channel: NotifChannel, opts: { persist?: bool
         if (!card) continue;
         const radio = card.querySelector('input[type="radio"]') as HTMLInputElement | null;
         if (key === channel) {
-            card.classList.remove('border-white/10', 'bg-transparent');
+            card.classList.remove('border-theme-subtle', 'bg-transparent');
             card.classList.add(key === 'app' ? 'border-blue-500/40' : 'border-emerald-500/40',
                               key === 'app' ? 'bg-blue-500/5' : 'bg-emerald-500/5');
             if (radio) radio.checked = true;
         } else {
             card.classList.remove('border-blue-500/40', 'border-emerald-500/40', 'bg-blue-500/5', 'bg-emerald-500/5');
-            card.classList.add('border-white/10', 'bg-transparent');
+            card.classList.add('border-theme-subtle', 'bg-transparent');
             if (radio) radio.checked = false;
         }
     }
@@ -112,13 +112,13 @@ export function selectNotifTransport(transport: NotifTransport, opts: { persist?
         if (!card) continue;
         const radio = card.querySelector('input[type="radio"]') as HTMLInputElement | null;
         if (key === transport) {
-            card.classList.remove('border-white/10', 'bg-transparent');
+            card.classList.remove('border-theme-subtle', 'bg-transparent');
             card.classList.add(key === 'websocket' ? 'border-emerald-500/40' : 'border-orange-500/40',
                               key === 'websocket' ? 'bg-emerald-500/5' : 'bg-orange-500/5');
             if (radio) radio.checked = true;
         } else {
             card.classList.remove('border-emerald-500/40', 'border-orange-500/40', 'bg-emerald-500/5', 'bg-orange-500/5');
-            card.classList.add('border-white/10', 'bg-transparent');
+            card.classList.add('border-theme-subtle', 'bg-transparent');
             if (radio) radio.checked = false;
         }
     }

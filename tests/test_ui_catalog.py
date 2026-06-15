@@ -25,7 +25,7 @@ def test_integration_catalog_has_i18n_keys_for_all_entries():
     for entry in entries:
         slug = entry["slug"]
         assert entry.get("title_key") == f"config.{slug}_section"
-        assert entry.get("description_key") == f"integrations.catalog.{slug}_desc"
+        assert entry.get("description_key") == f"components.{slug}.catalog_desc"
 
 
 def test_integration_catalog_orders_are_unique():

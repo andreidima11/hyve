@@ -64,7 +64,7 @@ async def _exec_control_device(args: Dict) -> str:
         return "Error: action is required (turn_on, turn_off, toggle, set)."
 
     from integrations import get_integration_manager
-    from addons.entity_store import get_entity_store
+    from core.entity_store import get_entity_store
 
     store = get_entity_store()
     all_entities = store.get_all_entities()
@@ -127,7 +127,7 @@ def _format_home_status_entry(e: Dict) -> str:
 
 
 async def _exec_get_home_status(args: Dict) -> str:
-    from addons.entity_store import get_entity_store
+    from core.entity_store import get_entity_store
 
     store = get_entity_store()
     all_entities = store.get_all_entities()
@@ -191,7 +191,7 @@ async def _exec_get_device_state(args: Dict) -> str:
     entity_id = (args.get("entity_id") or "").strip()
     if not entity_id:
         return "Error: entity_id is required."
-    from addons.entity_store import get_entity_store
+    from core.entity_store import get_entity_store
 
     store = get_entity_store()
     for ent in store.get_all_entities():

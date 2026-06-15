@@ -86,14 +86,14 @@ def test_names_match_slugified():
 
 
 def test_is_mammotion_camera_accepts_stream_type():
-    from routers.cameras import _is_mammotion_camera
+    from components.mammotion.camera_stream import is_mammotion_webrtc_camera
 
     ent = {
         "source": "mammotion",
         "entity_id": "camera.luba_webrtc",
         "attributes": {"stream_type": "agora_webrtc"},
     }
-    assert _is_mammotion_camera(ent) is True
+    assert is_mammotion_webrtc_camera(ent) is True
 
 
 def test_keepalive_mammotion_camera_wakes_and_refreshes_tokens(monkeypatch):

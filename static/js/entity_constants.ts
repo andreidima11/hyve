@@ -85,6 +85,6 @@ export function renderSelectControlHtml(
         const selected = v.toLowerCase() === lower || lbl.toLowerCase() === lower;
         return `<option value="${escapeHtmlAttr(v)}"${selected ? ' selected' : ''}>${escapeHtml(lbl)}</option>`;
     }).join('');
-    return `<select class="w-full bg-white/5 border border-white/10 rounded-lg text-[11px] text-slate-200 px-2 py-1.5"
+    return `<select class="w-full bg-white/5 border border-theme-subtle rounded-lg text-[11px] text-slate-200 px-2 py-1.5"
         ${ctrlAttrs(slug, eid, 'set', null, { stop: true })} data-int-input="valueString" data-entity-stop="1">${options}</select>`;
 }

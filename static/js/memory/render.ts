@@ -27,7 +27,7 @@ export function renderMemoryEventsTable(events: MemoryLogEvent[]) {
             <td class="p-3 text-center">${hasDetails ? `<button type="button" data-memory-action="toggleMemLogDetails" data-memory-details-id="${detailsId}" class="text-accent hover:underline text-[10px]">${t('memory.log_details')}</button>` : '—'}
             </td>
         </tr>
-        <tr id="${detailsId}" class="hidden bg-white/[0.02] border-b border-white/5"><td colspan="4" class="p-3"><pre class="text-[10px] mono text-slate-500 overflow-x-auto whitespace-pre-wrap break-all">${escapeHtml(detailsJson)}</pre></td></tr>`;
+        <tr id="${detailsId}" class="hidden bg-white/[0.02] border-b border-theme-subtle"><td colspan="4" class="p-3"><pre class="text-[10px] mono text-slate-500 overflow-x-auto whitespace-pre-wrap break-all">${escapeHtml(detailsJson)}</pre></td></tr>`;
     }).join('');
 }
 
@@ -94,10 +94,10 @@ export function renderMemoryTable() {
         const fd = formatMemoryDate(ts);
         const dateLine = fd.dateTime !== '—' ? `${fd.age}` : (t('memory.no_date'));
         return `
-        <div class="mem-card group relative rounded-xl border border-white/5 bg-white/[0.02] hover:border-accent/20 hover:bg-white/[0.04] transition-all overflow-hidden">
+        <div class="mem-card group relative rounded-xl border border-theme-subtle bg-white/[0.02] hover:border-accent/20 hover:bg-white/[0.04] transition-all overflow-hidden">
             <div class="absolute top-0 left-0 w-0.5 h-full bg-accent/40 group-hover:bg-accent transition-colors"></div>
             <div class="flex items-start gap-2.5 p-3 pl-3.5">
-                <input type="checkbox" class="mem-bulk-check accent-accent mt-0.5 w-3.5 h-3.5 rounded border-white/10 bg-white/5 flex-shrink-0" value="${escapeHtml(m.id)}" data-memory-input="updateMemBulkCount">
+                <input type="checkbox" class="mem-bulk-check accent-accent mt-0.5 w-3.5 h-3.5 rounded border-theme-subtle bg-white/5 flex-shrink-0" value="${escapeHtml(m.id)}" data-memory-input="updateMemBulkCount">
                 <div class="flex-1 min-w-0">
                     <p class="text-[12px] text-slate-200 leading-relaxed line-clamp-3" title="${escapeHtml(m.document)}">${escapeHtml(m.document)}</p>
                     <p class="text-[10px] text-slate-500 mt-1.5 flex items-center gap-1"><i class="far fa-clock text-[8px]"></i>${escapeHtml(dateLine)}</p>

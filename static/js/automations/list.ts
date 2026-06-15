@@ -152,7 +152,7 @@ export async function loadAutomations(): Promise<void> {
                 const toggleLabel = a.enabled ? (t('automations.disable')) : (t('automations.enable'));
                 const toggleIcon = a.enabled ? 'fa-pause' : 'fa-play-circle';
                 return `
-                <div class="py-2 px-3 rounded-lg bg-white/[0.02] border border-white/5 automation-card" data-automation-card="${escapeHtmlAttr(a.id)}">
+                <div class="py-2 px-3 rounded-lg bg-white/[0.02] border border-theme-subtle automation-card" data-automation-card="${escapeHtmlAttr(a.id)}">
                     <div class="flex items-center justify-between gap-2">
                         <div class="min-w-0 flex-1 flex items-center gap-2">
                             ${automationDot(a)}

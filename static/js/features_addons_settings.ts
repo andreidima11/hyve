@@ -22,7 +22,6 @@ export {
     hideUpdateReleaseNotes,
     updateAllAddons,
     updateSingleAddon,
-    toggleUpdatesIntervalDropdown,
     setUpdatesInterval,
     syncUpdatesIntervalDropdown,
 } from './addons_settings/updates.js';

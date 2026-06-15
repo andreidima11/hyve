@@ -64,13 +64,7 @@ export function peekCameraStreamToken(): string {
 }
 
 function _peekMediaAuthToken(): string {
-    const cached = peekCameraStreamToken();
-    if (cached) return cached;
-    try {
-        return localStorage.getItem('hyve_token') || '';
-    } catch {
-        return '';
-    }
+    return peekCameraStreamToken();
 }
 
 /** Append cached short-lived media token to same-origin proxy URLs. */

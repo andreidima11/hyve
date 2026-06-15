@@ -451,7 +451,7 @@ async def chat_web_impl(request: Request, req: ChatRequest, background_tasks: Ba
 
             user_content = effective_message
             if req.image and not user_content:
-                user_content = "[Imagine atașată]"
+                user_content = "[Image attached]"
             session["messages"].append({"role": "user", "content": user_content, "timestamp": time.time()})
             # Compute thinking for persistence
             think_part_save, content_part_save = brain.strip_think_content(full_response)

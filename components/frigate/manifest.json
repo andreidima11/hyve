@@ -3,5 +3,7 @@
   "name": "Frigate NVR",
   "version": "1.0.0",
   "integration_type": "entity",
-  "dependencies": []
+  "dependencies": [],
+  "capabilities": ["streaming", "go2rtc"],
+  "router_module": "router"
 }

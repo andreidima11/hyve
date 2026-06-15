@@ -131,28 +131,22 @@ class DeviceRenameService:
         canonical_id: str,
         old_names_for_purge: list[str],
     ) -> int:
-        if slug != "mosquitto":
-            return 0
         try:
-            from components.mosquitto import bridge as mosquitto_bridge
-            from integrations import get_integration_manager
+            from integrations import get_integration_manager, lifecycle as integration_lifecycle
 
-            removed = 0
-            for inst in get_integration_manager().entries_for(slug):
-                br = mosquitto_bridge.get_bridge(inst.entry_id)
-                if br is not None:
-                    removed += br.purge_discovery_for_device(
-                        canonical_id,
-                        old_friendly_names=old_names_for_purge,
-                    )
-            return removed
+            return integration_lifecycle.purge_discovery_on_rename(
+                slug,
+                canonical_id=canonical_id,
+                old_names=old_names_for_purge,
+                manager=get_integration_manager(),
+            )
         except Exception as exc:
             log.debug("bridge discovery purge failed: %s", exc)
             return 0
 
     async def _resync_after_rename(self, slug: str) -> None:
         try:
-            from addons.entity_store import get_entity_store
+            from core.entity_store import get_entity_store
             from integrations import get_integration_manager
 
             store = get_entity_store()

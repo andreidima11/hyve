@@ -639,7 +639,7 @@ function _patchRowInPlace(d: SmarthomeEntity) {
             btn.setAttribute('aria-checked', String(isOn));
             (btn as HTMLElement).dataset.smarthomeDeviceAction = newAction;
             btn.textContent = isOn ? 'ON' : 'OFF';
-            btn.className = `px-3 py-1.5 rounded-full text-[11px] font-bold border transition-colors shrink-0 ${isOn ? 'bg-accent/20 border-accent/40 text-accent' : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'}`;
+            btn.className = `px-3 py-1.5 rounded-full text-[11px] font-bold border transition-colors shrink-0 ${isOn ? 'bg-accent/20 border-accent/40 text-accent' : 'bg-white/5 border-theme-subtle text-slate-300 hover:bg-white/10'}`;
         }
     }
 }

@@ -66,5 +66,6 @@
         "command": "wyoming-piper",
         "args": ["--voice", "{voice}", "--data-dir", "./piper_models", "--download-dir", "./piper_models", "--uri", "tcp://0.0.0.0:{port}"],
         "description": "Pornește serverul Piper cu vocea configurată."
-    }
+    },
+    "lifecycle_module": "lifecycle"
 }

@@ -124,12 +124,12 @@ function renderDashboardPanelPagesEditor() {
         return;
     }
     pagesList.innerHTML = _modalPages.map((page, index) => `
-        <div class="grid grid-cols-[1fr_1fr_auto] gap-2 rounded-xl border border-white/10 bg-slate-950/35 p-2" data-panel-page-row="${index}">
+        <div class="grid grid-cols-[1fr_1fr_auto] gap-2 rounded-xl border border-theme-subtle bg-slate-950/35 p-2" data-panel-page-row="${index}">
             <input type="text" value="${escapeHtml(page.title || '')}" placeholder="Titlu pagină"
-                class="min-w-0 rounded-lg bg-slate-950/60 border border-white/10 px-2.5 py-2 text-xs text-slate-100 outline-none focus:border-accent/50"
+                class="min-w-0 rounded-lg bg-slate-950/60 border border-theme-subtle px-2.5 py-2 text-xs text-slate-100 outline-none focus:border-accent/50"
                 data-panel-page-title="${index}">
             <input type="text" value="${escapeHtml(page.icon || '')}" placeholder="Icon"
-                class="min-w-0 rounded-lg bg-slate-950/60 border border-white/10 px-2.5 py-2 text-xs text-slate-100 outline-none focus:border-accent/50"
+                class="min-w-0 rounded-lg bg-slate-950/60 border border-theme-subtle px-2.5 py-2 text-xs text-slate-100 outline-none focus:border-accent/50"
                 data-panel-page-icon="${index}" data-icon-picker>
             <button type="button" class="w-9 h-9 rounded-lg bg-white/5 hover:bg-red-500/10 text-slate-400 hover:text-red-300"
                 aria-label="Șterge pagina" data-panel-page-remove="${index}"><i class="fas fa-trash"></i></button>
@@ -226,11 +226,11 @@ export function addDashboardPanelVisibilityCondition(cond: Record<string, unknow
     const idx = ++_panelVisCondSeq;
     const type = String((cond && (cond.condition || cond.type)) || 'entity').toLowerCase();
     const row = document.createElement('div');
-    row.className = 'rounded-xl border border-white/10 bg-white/[0.02] p-2 space-y-2';
+    row.className = 'rounded-xl border border-theme-subtle bg-white/[0.02] p-2 space-y-2';
     row.dataset.panelCond = String(idx);
     row.innerHTML = `
         <div class="flex items-center gap-2">
-            <select data-pvis-field="type" class="rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
+            <select data-pvis-field="type" class="rounded-lg bg-slate-950/60 border border-theme-subtle px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
                 <option value="entity">Entitate</option>
                 <option value="user">Utilizator</option>
                 <option value="screen">Ecran / dispozitiv</option>
@@ -260,12 +260,12 @@ function panelVisibilityFieldsHtml(type: string, idx: number, cond: Record<strin
         const op = cond?.operator === 'is_not' ? 'is_not' : 'is';
         return `
             <div class="flex items-center gap-2">
-                <select data-pvis-field="op" class="rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
+                <select data-pvis-field="op" class="rounded-lg bg-slate-950/60 border border-theme-subtle px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
                     <option value="is"${op === 'is' ? ' selected' : ''}>este</option>
                     <option value="is_not"${op === 'is_not' ? ' selected' : ''}>nu este</option>
                 </select>
                 <input type="text" data-pvis-field="users" value="${escapeHtml(users)}" placeholder="utilizatori (separați prin virgulă)"
-                    class="flex-1 min-w-0 rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
+                    class="flex-1 min-w-0 rounded-lg bg-slate-950/60 border border-theme-subtle px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
             </div>`;
     }
     if (type === 'screen') {
@@ -273,7 +273,7 @@ function panelVisibilityFieldsHtml(type: string, idx: number, cond: Record<strin
         const listId = `pvis-screen-${idx}`;
         return `
             <input type="text" list="${listId}" data-pvis-field="media" value="${escapeHtml(media)}" placeholder="(max-width: 1023px)"
-                class="w-full rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
+                class="w-full rounded-lg bg-slate-950/60 border border-theme-subtle px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
             <datalist id="${listId}">${_SCREEN_PRESETS.map(p => `<option value="${escapeHtml(p.value)}">${escapeHtml(p.label)}</option>`).join('')}</datalist>`;
     }
     const cache = d.getDashboardCache();
@@ -287,13 +287,13 @@ function panelVisibilityFieldsHtml(type: string, idx: number, cond: Record<strin
     return `
         <div class="flex items-center gap-2">
             <input type="text" list="${listId}" data-pvis-field="entity" value="${ent}" placeholder="entity_id"
-                class="flex-1 min-w-0 rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
+                class="flex-1 min-w-0 rounded-lg bg-slate-950/60 border border-theme-subtle px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
             <datalist id="${listId}">${opts}</datalist>
-            <select data-pvis-field="op" class="rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
+            <select data-pvis-field="op" class="rounded-lg bg-slate-950/60 border border-theme-subtle px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
                 ${opSel('is', '=')}${opSel('is_not', '≠')}${opSel('>', '&gt;')}${opSel('>=', '≥')}${opSel('<', '&lt;')}${opSel('<=', '≤')}
             </select>
             <input type="text" data-pvis-field="value" value="${val}" placeholder="valoare"
-                class="w-24 rounded-lg bg-slate-950/60 border border-white/10 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
+                class="w-24 rounded-lg bg-slate-950/60 border border-theme-subtle px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-accent/50">
         </div>`;
 }
 

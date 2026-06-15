@@ -1,10 +1,10 @@
 /**
- * UI language dropdown + search tendency hint.
+ * UI language select + search tendency hint.
  */
 import { apiCall } from '../api.js';
 import { setLanguage, getLanguage, t, getAvailableLanguages, loadComponentTranslations } from '../lang/index.js';
-import { showToast } from '../utils.js';
-import { initGenericCustomSelects } from '../features_custom_selects.js';
+import { escapeHtml, escapeHtmlAttr, showToast } from '../utils.js';
+import { upgradeNativeSelect } from '../features_custom_selects.js';
 import { cfgField } from './utils.js';
 
 const _SEARCH_TENDENCY_HINTS: Record<number, string> = {
@@ -23,55 +23,25 @@ export function updateSearchTendencyHint(val: number) {
 let _uiLanguageSaveSeq = 0;
 
 export function refreshUiLanguageSelect(language: string) {
-    const uiLangSelect = cfgField('ui_language');
-    const dd = cfgField('ui_language_dropdown');
-    if (!uiLangSelect) return;
+    const uiLangSelect = cfgField('ui_language') as HTMLSelectElement | null;
+    if (!uiLangSelect || uiLangSelect.tagName !== 'SELECT') return;
     const value = language || uiLangSelect.value || getLanguage();
     const opts = getAvailableLanguages();
+    uiLangSelect.innerHTML = opts.map((o) =>
+        `<option value="${escapeHtmlAttr(o.code)}">${escapeHtml(o.label)}</option>`,
+    ).join('');
     uiLangSelect.value = value;
-    if (!dd) return;
-    const menu = dd.querySelector('.dashboard-custom-select__menu');
-    const valueEl = dd.querySelector('.dashboard-custom-select__value');
-    const selectedLabel = (opts.find(o => o.code === value)?.label) || (opts[0]?.label) || '—';
-    if (valueEl) valueEl.textContent = selectedLabel;
-    if (menu) {
-        menu.innerHTML = opts.map(o => {
-            const isSelected = o.code === value;
-            return `<button type="button" class="dashboard-custom-select__option" data-value="${o.code}" data-selected="${isSelected ? 'true' : 'false'}">${o.label}</button>`;
-        }).join('');
-    }
+    upgradeNativeSelect(uiLangSelect);
 }
 
-let _uiLanguageDropdownBound = false;
+let _uiLanguageChangeBound = false;
 
-if (typeof document !== 'undefined' && !_uiLanguageDropdownBound) {
-    _uiLanguageDropdownBound = true;
-    document.addEventListener('click', (e: MouseEvent) => {
-        const dd = cfgField('ui_language_dropdown');
-        if (!dd) return;
-        const tgt = e.target as HTMLElement | null;
-        if (!tgt) return;
-        const toggleBtn = tgt.closest('[data-action="toggle-ui-language"]');
-        if (toggleBtn && dd.contains(toggleBtn)) {
-            e.preventDefault();
-            e.stopPropagation();
-            dd.dataset.open = dd.dataset.open === 'true' ? 'false' : 'true';
-            return;
-        }
-        const opt = tgt.closest('.dashboard-custom-select__option');
-        if (opt && dd.contains(opt)) {
-            e.preventDefault();
-            e.stopPropagation();
-            const value = (opt as HTMLElement).dataset.value;
-            dd.dataset.open = 'false';
-            const hidden = cfgField('ui_language');
-            if (hidden && value && hidden.value !== value) {
-                hidden.value = value;
-                applyAndSaveUiLanguage(value);
-            }
-            return;
-        }
-        if (!dd.contains(tgt)) dd.dataset.open = 'false';
+if (typeof document !== 'undefined' && !_uiLanguageChangeBound) {
+    _uiLanguageChangeBound = true;
+    document.addEventListener('change', (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLSelectElement) || target.id !== 'ui_language') return;
+        void applyAndSaveUiLanguage(target.value);
     });
 }
 
@@ -79,14 +49,13 @@ async function applyAndSaveUiLanguage(language: string) {
     if (!language) return;
     const previousLanguage = getLanguage();
     const saveSeq = ++_uiLanguageSaveSeq;
-    const dd = cfgField('ui_language_dropdown');
+    const select = cfgField('ui_language') as HTMLSelectElement | null;
 
     try {
         setLanguage(language);
         await loadComponentTranslations(language);
         refreshUiLanguageSelect(language);
-        try { initGenericCustomSelects(); } catch (_) {}
-        if (dd) dd.dataset.disabled = 'true';
+        if (select) select.disabled = true;
         await apiCall('/api/config', { method: 'PATCH', body: { ui: { language } } });
     } catch (err) {
         if (saveSeq === _uiLanguageSaveSeq) {
@@ -97,6 +66,6 @@ async function applyAndSaveUiLanguage(language: string) {
             showToast(t('config.save_error'), 'error');
         }
     } finally {
-        if (dd && saveSeq === _uiLanguageSaveSeq) dd.dataset.disabled = 'false';
+        if (select && saveSeq === _uiLanguageSaveSeq) select.disabled = false;
     }
 }

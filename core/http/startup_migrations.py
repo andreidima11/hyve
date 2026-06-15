@@ -8,7 +8,6 @@ import sys
 
 import core.automation_definitions as automation_definitions
 import core.database as database
-import core.models as models
 from sqlalchemy import text
 from core.log_stream import log_line
 
@@ -39,14 +38,12 @@ def _import_alembic_command():
 
 
 def run_startup_migrations() -> None:
-    """Ensure ORM tables exist, then apply Alembic revisions (idempotent).
+    """Apply Alembic revisions (idempotent).
 
     New schema changes belong in ``migrations/versions/`` only — do not add
-    ad-hoc ``ALTER TABLE`` here. ``create_all`` bootstraps tables declared on
-    SQLAlchemy models for fresh installs; Alembic brings existing DBs to head.
+    ad-hoc ``ALTER TABLE`` here. Revision ``000_orm_baseline`` creates ORM
+    tables; later revisions add integration/registry tables and columns.
     """
-    models.Base.metadata.create_all(bind=database.engine)
-
     try:
         command, Config = _import_alembic_command()
         ini_path = os.path.join(os.path.dirname(__file__), "..", "..", "alembic.ini")

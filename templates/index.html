@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ro" data-theme="canvas">
+<html lang="en" data-theme="canvas">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
@@ -177,6 +177,14 @@
             filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent, #38bdf8) 35%, transparent));
         }
         .hub-startup-indicator.hidden { display: none; }
+        .hub-startup-indicator--degraded {
+            color: var(--warning, #f59e0b);
+            filter: drop-shadow(0 0 6px color-mix(in srgb, var(--warning, #f59e0b) 35%, transparent));
+        }
+        .hub-startup-indicator--fatal {
+            color: var(--error, #ef4444);
+            filter: drop-shadow(0 0 6px color-mix(in srgb, var(--error, #ef4444) 35%, transparent));
+        }
         .notification-badge--nav {
             position: absolute;
             top: 50%;
@@ -603,23 +611,23 @@
             </div>
             <form id="setup-form" class="space-y-4" autocomplete="off">
                 <div id="setup-step-account" class="space-y-4">
-                    <input type="text" id="setup-username" class="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.username_placeholder" placeholder="Admin username" required minlength="3" autocapitalize="off" autocomplete="username">
-                    <input type="text" id="setup-fullname" class="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.fullname_placeholder" placeholder="Display name (optional)" autocomplete="name">
-                    <input type="password" id="setup-password" class="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.password_placeholder" placeholder="Password" required minlength="8" autocomplete="new-password">
-                    <input type="password" id="setup-password-confirm" class="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.password_confirm_placeholder" placeholder="Confirm password" required minlength="8" autocomplete="new-password">
+                    <input type="text" id="setup-username" class="w-full bg-white/[0.03] border border-theme-light rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.username_placeholder" placeholder="Admin username" required minlength="3" autocapitalize="off" autocomplete="username">
+                    <input type="text" id="setup-fullname" class="w-full bg-white/[0.03] border border-theme-light rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.fullname_placeholder" placeholder="Display name (optional)" autocomplete="name">
+                    <input type="password" id="setup-password" class="w-full bg-white/[0.03] border border-theme-light rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.password_placeholder" placeholder="Password" required minlength="8" autocomplete="new-password">
+                    <input type="password" id="setup-password-confirm" class="w-full bg-white/[0.03] border border-theme-light rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.password_confirm_placeholder" placeholder="Confirm password" required minlength="8" autocomplete="new-password">
                 </div>
                 <div id="setup-step-preferences" class="space-y-4 hidden">
-                    <input type="text" id="setup-server-name" class="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.server_name_placeholder" placeholder="Home name">
-                    <select id="setup-language" class="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all">
+                    <input type="text" id="setup-server-name" class="w-full bg-white/[0.03] border border-theme-light rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.server_name_placeholder" placeholder="Home name">
+                    <select id="setup-language" class="w-full bg-white/[0.03] border border-theme-light rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all">
                         <option value="en">English</option>
                         <option value="ro">Română</option>
                     </select>
-                    <select id="setup-timezone" class="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all"></select>
+                    <select id="setup-timezone" class="w-full bg-white/[0.03] border border-theme-light rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all"></select>
                     <p class="text-[10px] text-slate-500" data-i18n="setup.timezone_hint">Used for reminders and AI date/time context.</p>
                 </div>
                 <div id="setup-error" class="text-red-400 text-[10px] text-center hidden"></div>
                 <div class="flex gap-3 pt-1">
-                    <button type="button" id="setup-back-btn" class="hidden flex-1 py-3 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-slate-200 transition-colors" data-i18n="setup.back">Back</button>
+                    <button type="button" id="setup-back-btn" class="hidden flex-1 py-3 rounded-xl border border-theme-subtle text-sm text-slate-400 hover:text-slate-200 transition-colors" data-i18n="setup.back">Back</button>
                     <button type="submit" id="setup-next-btn" class="flex-1 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-accent/15 hover:shadow-accent/25" style="background: linear-gradient(to right, var(--accent), var(--accent-hover));" data-i18n="setup.next">Continue</button>
                 </div>
             </form>
@@ -640,11 +648,11 @@
                 <p class="text-sm text-slate-500 mt-2" data-i18n="login.title">Log in</p>
             </div>
             <form id="login-form" class="space-y-5">
-                <input type="text" id="login-user" class="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all focus:bg-white/[0.04] focus:shadow-lg focus:shadow-accent/5" data-i18n-placeholder="login.user_placeholder" placeholder="Utilizator" required>
-                <input type="password" id="login-pass" class="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all focus:bg-white/[0.04] focus:shadow-lg focus:shadow-accent/5" data-i18n-placeholder="login.pass_placeholder" placeholder="Criptocheie" required>
+                <input type="text" id="login-user" class="w-full bg-white/[0.03] border border-theme-light rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all focus:bg-white/[0.04] focus:shadow-lg focus:shadow-accent/5" data-i18n-placeholder="login.user_placeholder" placeholder="Utilizator" required>
+                <input type="password" id="login-pass" class="w-full bg-white/[0.03] border border-theme-light rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all focus:bg-white/[0.04] focus:shadow-lg focus:shadow-accent/5" data-i18n-placeholder="login.pass_placeholder" placeholder="Criptocheie" required>
                 <div id="login-error" class="text-red-400 text-[10px] text-center hidden" data-i18n="login.error">Access denied.</div>
                 <label class="flex items-center gap-2.5 cursor-pointer select-none">
-                    <input type="checkbox" id="login-remember" class="w-4 h-4 rounded accent-accent bg-slate-900 border-white/10">
+                    <input type="checkbox" id="login-remember" class="w-4 h-4 rounded accent-accent bg-slate-900 border-theme-subtle">
                     <span class="text-xs text-slate-500" data-i18n="login.remember_me">Remember me</span>
                 </label>
                 <button type="submit" class="w-full text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-accent/15 hover:shadow-accent/25 hover:translate-y-[-1px]" style="background: linear-gradient(to right, var(--accent), var(--accent-hover));" data-i18n="login.button">LOGIN</button>
@@ -673,7 +681,7 @@
     </div>
 
     <div id="sidebar-backdrop" data-nav-action="toggleSidebar"></div>
-    <div id="sidebar" class="w-72 sm:w-80 lg:w-[17rem] bg-bg-side border-r border-white/[0.03] flex flex-col justify-between transition-transform duration-250 ease-out absolute z-40 h-full lg:static -translate-x-full lg:translate-x-0 shadow-2xl lg:shadow-none">
+    <div id="sidebar" class="w-72 sm:w-80 lg:w-[17rem] bg-bg-side border-r border-theme-subtle flex flex-col justify-between transition-transform duration-250 ease-out absolute z-40 h-full lg:static -translate-x-full lg:translate-x-0 shadow-2xl lg:shadow-none">
         <div class="flex flex-col h-full">
             <div class="p-3 sm:p-5 lg:p-6 flex items-start justify-between gap-3 sm:gap-4 min-h-[56px] sm:min-h-[64px] lg:min-h-[68px]">
                 <div class="flex items-center gap-2.5 min-w-0 flex-1">
@@ -709,8 +717,8 @@
                     <div class="flex items-center justify-between px-2">
                         <span class="text-[8px] font-semibold tracking-[0.2em] uppercase text-slate-600" data-i18n="nav.sessions">Conversații</span>
                         <div class="flex items-center gap-1">
-                            <button type="button" id="btn-clear-context" data-nav-action="clearSessionContext" class="chat-clear-context-btn hidden min-w-[36px] min-h-[36px] w-8 h-8 rounded-lg border border-white/[0.04] hover:border-amber-500/20 hover:bg-amber-500/10 text-slate-500 hover:text-amber-400 flex items-center justify-center transition-all touch-manipulation" data-i18n-aria-label="chat.clear_context" aria-label="Clear context"><i class="fas fa-eraser text-[10px]"></i></button>
-                            <button type="button" data-nav-action="newChatSession" class="min-w-[36px] min-h-[36px] w-8 h-8 rounded-lg border border-white/[0.04] hover:border-accent/20 hover:bg-accent/5 text-slate-500 hover:text-accent flex items-center justify-center transition-all touch-manipulation" data-i18n-aria-label="chat.new_chat" aria-label="New conversation"><i class="fas fa-plus text-[10px]"></i></button>
+                            <button type="button" id="btn-clear-context" data-nav-action="clearSessionContext" class="chat-clear-context-btn hidden min-w-[36px] min-h-[36px] w-8 h-8 rounded-lg border border-theme-subtle hover:border-amber-500/20 hover:bg-amber-500/10 text-slate-500 hover:text-amber-400 flex items-center justify-center transition-all touch-manipulation" data-i18n-aria-label="chat.clear_context" aria-label="Clear context"><i class="fas fa-eraser text-[10px]"></i></button>
+                            <button type="button" data-nav-action="newChatSession" class="min-w-[36px] min-h-[36px] w-8 h-8 rounded-lg border border-theme-subtle hover:border-accent/20 hover:bg-accent/5 text-slate-500 hover:text-accent flex items-center justify-center transition-all touch-manipulation" data-i18n-aria-label="chat.new_chat" aria-label="New conversation"><i class="fas fa-plus text-[10px]"></i></button>
                         </div>
                     </div>
                     <div id="sessions-list" class="space-y-0.5 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1 -webkit-overflow-scrolling-touch">
@@ -729,12 +737,12 @@
                     <i class="fas fa-sliders w-5 sm:w-5 flex-shrink-0 text-sm group-hover:text-accent transition-colors"></i>
                     <span class="font-medium text-sm truncate flex-1 text-left" data-i18n="nav.config">Hub</span>
                     <span id="nav-hub-startup-indicator" class="hub-startup-indicator hidden flex-shrink-0 self-center" aria-live="polite" aria-hidden="true">
-                        <i class="fas fa-circle-notch fa-spin"></i>
+                        <i id="nav-hub-startup-icon" class="fas fa-circle-notch fa-spin"></i>
                     </span>
                 </button>
             </div>
 
-            <div class="px-4 sm:px-5 lg:px-6 py-2.5 border-t border-white/[0.03] flex-shrink-0">
+            <div class="px-4 sm:px-5 lg:px-6 py-2.5 border-t border-theme-subtle flex-shrink-0">
                 <div class="text-[8px] sm:text-[9px] font-mono tracking-widest uppercase text-slate-600">
                     <span class="text-accent/60">{{ app_version }}</span>
                 </div>
@@ -744,11 +752,11 @@
 
     <div id="app-main-wrap" class="flex-1 flex flex-col min-h-0 min-w-0">
     <main class="flex-1 flex flex-col min-h-0 relative w-full bg-bg-main">
-        <header class="h-12 sm:h-14 lg:h-16 border-b border-white/[0.03] flex items-center justify-between gap-2 px-3 sm:px-6 lg:px-8 bg-bg-main/70 backdrop-blur-md lg:backdrop-blur-xl z-30 flex-shrink-0">
+        <header class="h-12 sm:h-14 lg:h-16 border-b border-theme-subtle flex items-center justify-between gap-2 px-3 sm:px-6 lg:px-8 bg-bg-main/70 backdrop-blur-md lg:backdrop-blur-xl z-30 flex-shrink-0">
             <div class="flex items-center gap-2 sm:gap-4 min-w-0">
                 <button type="button" id="app-header-menu-btn" data-nav-action="toggleSidebar" class="lg:hidden min-w-[40px] min-h-[40px] w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 touch-manipulation text-slate-500 hover:text-slate-300 hover:bg-white/[0.03] transition-all" data-i18n-aria-label="nav.menu" aria-label="Menu"><i class="fas fa-bars text-sm"></i></button>
                 <h2 id="current-view-title" class="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.15em] sm:tracking-[0.2em] text-slate-500 truncate" data-i18n="header.dashboard">Dashboard</h2>
-                <span id="current-view-meta" class="hidden px-2 py-1 rounded-full border border-white/[0.08] bg-white/[0.03] text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 whitespace-nowrap"></span>
+                <span id="current-view-meta" class="hidden px-2 py-1 rounded-full border border-theme-light bg-white/[0.03] text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 whitespace-nowrap"></span>
             </div>
             <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                 <div id="view-header-actions" class="hidden items-center gap-1 sm:gap-2"></div>
@@ -799,17 +807,9 @@
     <!-- Old overlay kept for backward compat, hidden by CSS since sidebar-backdrop handles this now -->
     <div id="overlay" class="hidden" aria-hidden="true"></div>
 
-    <script>
-        // Micro-time update for local clock
-        setInterval(() => {
-            const now = new Date();
-            const el = document.getElementById('local-time');
-            if(el) el.innerText = now.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        }, 1000);
-    </script>
     <script>window.__appVersion = '{{ app_version }}'; window.__cacheBust = '{{ cache_bust }}';</script>
-        <script type="module" src="/static/js/icon_picker.js?v={{ cache_bust }}"></script>
-        <script type="module" src="/static/js/app.js?v={{ cache_bust }}"></script>
+        <script type="module" src="/static/dist/icon_picker.js?v={{ cache_bust }}"></script>
+        <script type="module" src="/static/dist/app.js?v={{ cache_bust }}"></script>
     <script>
       if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('/sw.js?v={{ cache_bust }}');

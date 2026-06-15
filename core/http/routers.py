@@ -12,7 +12,6 @@ from routers import backup as backup_router
 from routers import cameras as cameras_router
 from routers import cctv as cctv_router
 from routers import chat_web as chat_web_router
-from routers import comfyui as comfyui_router
 from routers import config_profiles as config_profiles_router
 from routers import i18n as i18n_router
 from routers import dashboard as dashboard_router
@@ -28,7 +27,6 @@ from routers import notifications_push as notifications_push_router
 from routers import notifications_ws as notifications_ws_router
 from routers import ollama_proxy as ollama_proxy_router
 from routers import openai_proxy as openai_proxy_router
-from routers import piper as piper_router
 from routers import scenes as scenes_router
 from routers import setup as setup_router
 from routers import sessions as sessions_router
@@ -39,7 +37,8 @@ from routers import system as system_router
 from routers import updates as updates_router
 from routers import users_auth as users_auth_router
 from routers import webhook_waha as webhook_waha_router
-from routers import whisper as whisper_router
+
+from integrations.capability_routers import register_component_routers
 
 
 def register_routers(app: FastAPI) -> None:
@@ -65,9 +64,6 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(notifications_ws_router.router)
     app.include_router(openai_proxy_router.router)
     app.include_router(ollama_proxy_router.router)
-    app.include_router(whisper_router.router)
-    app.include_router(piper_router.router)
-    app.include_router(comfyui_router.router)
     app.include_router(entries_router.router)
     app.include_router(addons_router.router)
     app.include_router(integrations_router.router)
@@ -79,3 +75,4 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(derived_router.router)
     app.include_router(media_proxy_router.router)
     app.include_router(updates_router.router)
+    register_component_routers(app)

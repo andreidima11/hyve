@@ -81,6 +81,49 @@ def test_resolve_latest_release_picks_newest_semver(monkeypatch):
     assert release["source"] == "git"
 
 
+def test_resolve_latest_release_merges_github_notes_when_git_wins(monkeypatch):
+    monkeypatch.setattr(
+        hu,
+        "_release_from_github",
+        lambda: {
+            "version": "0.9.7.0",
+            "tag": "0.9.7.0",
+            "source": "github",
+            "body": "GitHub notes",
+            "html_url": "https://github.com/example/hyve/releases/tag/0.9.7.0",
+        },
+    )
+    monkeypatch.setattr(hu, "_git_remote_latest_tag", lambda: "0.9.7.3")
+    release = hu._resolve_latest_release()
+    assert release["version"] == "0.9.7.3"
+    assert release["body"] == "GitHub notes"
+    assert release["html_url"] == "https://github.com/example/hyve/releases/tag/0.9.7.0"
+
+
+def test_get_status_enriches_empty_release_notes(monkeypatch):
+    monkeypatch.setattr(hu, "current_version", lambda: "0.9.7.13")
+    monkeypatch.setattr(
+        hu,
+        "_last_hyve_check",
+        {
+            "latest": "0.9.7.13",
+            "tag": "0.9.7.13",
+            "release_url": "",
+            "release_notes": "",
+            "checked_at": "2026-01-01T00:00:00+00:00",
+            "error": None,
+        },
+    )
+    monkeypatch.setattr(
+        hu,
+        "_enrich_release_notes_from_github",
+        lambda _v: {"body": "Enriched", "url": "https://github.com/org/hyve/releases/tag/0.9.7.13"},
+    )
+    status = hu.get_status()
+    assert status["release_notes"] == "Enriched"
+    assert status["release_url"].endswith("/releases/tag/0.9.7.13")
+
+
 def test_blocking_dirty_lines_ignores_build_artifacts():
     porcelain = "\n".join(
         [

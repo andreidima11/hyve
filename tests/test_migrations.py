@@ -2,7 +2,8 @@
 
 import os
 
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 
 import core.database as database
 import core.models as models
@@ -17,12 +18,53 @@ def test_startup_migrations_idempotent():
         user_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(users)"))}
         entry_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(entries)"))}
         version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
+        tables = {
+            row[0]
+            for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+        }
 
     assert "location" in user_cols
     assert "about_me" in user_cols
     assert "default_profile_id" in user_cols
     assert "event_color" in entry_cols
-    assert version == "007_addon_state"
+    assert "scenes" in tables
+    assert "areas" in tables
+    assert version == "008_scenes_areas"
+
+
+def test_fresh_install_schema_via_alembic_only(tmp_path, monkeypatch):
+    """Empty SQLite file gets full schema from Alembic (no startup create_all)."""
+    db_path = tmp_path / "fresh.db"
+    db_url = f"sqlite:///{db_path}"
+    engine = create_engine(
+        db_url,
+        connect_args={"check_same_thread": False},
+    )
+    SessionLocal = sessionmaker(bind=engine)
+    monkeypatch.setattr(database, "SQLALCHEMY_DATABASE_URL", db_url)
+    monkeypatch.setattr(database, "engine", engine)
+    monkeypatch.setattr(database, "SessionLocal", SessionLocal)
+
+    run_startup_migrations()
+
+    with engine.connect() as conn:
+        tables = {
+            row[0]
+            for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+        }
+        version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
+        user_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(users)"))}
+
+    assert version == "008_scenes_areas"
+    assert "users" in tables
+    assert "entries" in tables
+    assert "automation_definitions" in tables
+    assert "integration_entities" in tables
+    assert "entity_registry" in tables
+    assert "addon_state" in tables
+    assert "scenes" in tables
+    assert "areas" in tables
+    assert "default_profile_id" in user_cols
 
 
 def test_users_db_uses_wal():
@@ -120,7 +162,7 @@ def test_device_registry_table_from_migrations():
 def test_entity_store_initialize_schema_verifies_tables():
     import asyncio
 
-    from addons.entity_store import IntegrationEntityStore
+    from core.entity_store import IntegrationEntityStore
 
     run_startup_migrations()
     asyncio.run(IntegrationEntityStore().initialize_schema())

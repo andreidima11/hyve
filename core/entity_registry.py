@@ -388,7 +388,7 @@ def migrate_legacy_custom_name_overrides() -> int:
     ``entity_registry.name`` (HA-style). Returns the number of rows migrated.
     """
     try:
-        from addons.entity_store import get_entity_store
+        from core.entity_store import get_entity_store
     except Exception:
         return 0
 

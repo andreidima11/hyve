@@ -4,5 +4,7 @@
   "version": "1.0.0",
   "integration_type": "entity",
   "documentation": "",
-  "dependencies": []
+  "dependencies": [],
+  "capabilities": ["wyoming_stt"],
+  "router_module": "router"
 }

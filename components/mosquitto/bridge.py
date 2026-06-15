@@ -668,7 +668,7 @@ class MosquittoBridge:
             return
         store_key = self._store_key()
         try:
-            from addons.entity_store import get_entity_store
+            from core.entity_store import get_entity_store
 
             store = get_entity_store()
             row = store.get_entities(store_key) or {}

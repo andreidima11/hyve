@@ -81,6 +81,8 @@ Supported fields include:
 - `title_key`
 - `description_key` (preferred; falls back to `description`)
 - `description` (legacy fallback label)
+
+**i18n:** `title_key` and `description_key` must resolve via `t()` after bundle load. Prefer `components.<slug>.catalog_desc` for descriptions (set `catalog_desc` in `components/<slug>/translations/`). Default `description_key` from the server is `components.<slug>.catalog_desc` — see [I18N.md](I18N.md). Do not add catalog strings to `static/js/lang/en.js`.
 - `icon`
 - `accent`
 - `icon_background`
@@ -106,6 +108,7 @@ Checklist:
 3. Add its metadata to [ui_catalog.json](ui_catalog.json).
 4. Declare `CONFIG_SCHEMA` on the entity class (multi-field forms are auto-rendered in the integration config modal).
 5. Add tests for discovery, sync behavior, or any custom `list_entities()` path.
+6. Add `components/<slug>/translations/{en,ro}.json` (including `catalog_desc` for the settings list). See [I18N.md](I18N.md).
 
 Do not:
 

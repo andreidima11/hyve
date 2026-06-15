@@ -135,5 +135,6 @@
       "{cloudflare_api_token}"
     ],
     "description": "Pornește cloudflared în Docker (--network host) cu tunel token sau configurare locală."
-  }
+  },
+  "lifecycle_module": "lifecycle"
 }

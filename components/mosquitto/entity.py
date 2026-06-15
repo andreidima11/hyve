@@ -79,7 +79,7 @@ class MosquittoEntity(BaseEntity):
 
     def _stored_payload(self) -> dict[str, Any]:
         try:
-            from addons.entity_store import get_entity_store
+            from core.entity_store import get_entity_store
 
             stored = (get_entity_store().get_entities(self.store_key) or {}).get("entities") or {}
             return stored if isinstance(stored, dict) else {}
@@ -147,7 +147,7 @@ class MosquittoEntity(BaseEntity):
     # ── Control ────────────────────────────────────────────────────────────
 
     def _live_entity_items(self) -> list[dict[str, Any]]:
-        from addons.entity_store import get_entity_store
+        from core.entity_store import get_entity_store
 
         store = get_entity_store()
         cached = store.get_entities(self.store_key) or {}

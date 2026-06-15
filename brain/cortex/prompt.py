@@ -272,7 +272,7 @@ def _build_dynamic_prompt_suffix(conversation_summary: Optional[str] = None,
     integration_block = ""
     if not light_context:
         try:
-            from addons.entity_store import get_entity_store
+            from core.entity_store import get_entity_store
             integration_ctx = get_entity_store().get_context_for_ai()
             if integration_ctx:
                 integration_block = f"\n[INTEGRATION DATA]\n{integration_ctx}\n"
@@ -289,7 +289,7 @@ def _build_dynamic_prompt_suffix(conversation_summary: Optional[str] = None,
             if not items:
                 # Fallback: at least surface the entity_ids the user toggled
                 # so the AI knows they exist (no live state in this branch).
-                from addons.entity_store import get_entity_store as _ges
+                from core.entity_store import get_entity_store as _ges
                 for eid, ov in (_ges().get_overrides() or {}).items():
                     if ov.get("selected"):
                         from core import entity_registry
@@ -356,7 +356,7 @@ def _build_proactive_hints() -> str:
     hints = []
 
     try:
-        from addons.entity_store import get_entity_store
+        from core.entity_store import get_entity_store
         store = get_entity_store()
         entities = store.get_all_entities()
         on_states = {"on", "open", "unlocked", "heat", "cool", "playing"}

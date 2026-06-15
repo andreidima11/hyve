@@ -2,9 +2,31 @@
 
 Hyve folosește un model **declarativ pe foldere**: un folder per integrare +
 `manifest.json` + schemă declarativă = UI auto-generat, multi-cont, secrete
-criptate, sync periodic și control. **Nu trebuie modificat niciun alt fișier sursă.**
+criptate, sync periodic și control.
 
-> Drop a folder in [components/](../components/) (bundled) or [custom_components/](../custom_components/) (user) → restart → integrarea apare în UI.
+## Tier A — path generic (țintă)
+
+Pentru integrări care expun entități, acceptă config entries și nu necesită
+streaming sau protocoale speciale:
+
+> Drop a folder in [components/](../components/) (bundled) or [custom_components/](../custom_components/) → restart → integrarea apare în UI.
+
+**Nu ar trebui** să atingi routere platformă, `features.js`, sau `startup_phases.py`.
+
+## Tier B — excepții documentate (încă necesită cod platformă)
+
+Unele capabilități nu încap în schema generică. Dacă adaugi una din acestea,
+planifică și cod în `routers/` sau `core/http/startup_phases.py`:
+
+| Capabilitate | Exemple | Unde trăiește azi |
+|--------------|---------|-------------------|
+| Streaming video / WebSocket camere | Tapo, Reolink, Mammotion | `components/mammotion/router.py` (Mammotion); rest în `routers/cameras.py` |
+| Wyoming voice (TTS/STT) | Piper, Whisper | `components/piper/router.py`, `components/whisper/router.py` |
+| Workflow UI extern | ComfyUI | `components/comfyui/router.py` |
+| MQTT bridge la boot | Mosquitto | `components/mosquitto/bridge.py`, `startup_phases.py` |
+| Webhook inbound | WAHA | `routers/webhook_waha.py` |
+
+**Ținta pe termen mediu:** capabilities în `manifest.json` + hook-uri `lifecycle.py` (în loc de `if slug == …` în platformă). Exemple live: `mosquitto` (`mqtt_bridge`), `mammotion` (`streaming`).
 
 ---
 
@@ -16,6 +38,7 @@ Integrările noi ar trebui livrate ca folder cu `manifest.json`:
 components/my_service/          # sau custom_components/my_service/
 ├── manifest.json               # domain, name, version (obligatoriu)
 ├── entity.py                   # clasă BaseEntity (sau integration.py)
+├── lifecycle.py                # opțional: startup, wiring, rename, shutdown
 ├── extract.py                  # opțional: transformă payload în entități
 ├── client.py                   # opțional
 └── translations/
@@ -35,6 +58,71 @@ components/my_service/          # sau custom_components/my_service/
 ```
 
 `domain` trebuie să coincidă cu `slug` din clasă și (de preferință) cu numele folderului.
+
+### Lifecycle (`lifecycle.py`)
+
+Pentru comportament la boot, după creare entry, rename sau shutdown — **nu** adăuga `if slug == "my_service"` în `startup_phases.py` sau `entries.py`.
+
+În `manifest.json`:
+
+```json
+{
+  "capabilities": ["mqtt_bridge"],
+  "lifecycle_module": "lifecycle"
+}
+```
+
+`capabilities` documentează ce face integrarea (ex. `mqtt_bridge`, `streaming`). Platforma le poate indexa fără import hardcodat.
+
+În `components/<slug>/lifecycle.py` implementează doar hook-urile necesare (toate opționale):
+
+| Hook | Când rulează |
+|------|----------------|
+| `ENTRY_TEST_TIMEOUT_SECONDS` | Timeout la `POST …/entries/test` |
+| `before_initial_sync(manager, entry_id, slug)` | Înainte de primul sync după create |
+| `after_entry_wired(manager, entry_id, slug)` | După wiring fetcher/sync |
+| `startup_all(manager, slug)` | La boot Hyve (toate entry-urile) |
+| `shutdown(slug)` | La oprire proces |
+| `purge_discovery_on_rename(manager, slug, canonical_id, old_names)` | După rename device |
+
+Dispatcher: `integrations/lifecycle.py`. Teste: `tests/test_integration_lifecycle.py`.
+
+### HTTP router (`router.py`)
+
+Pentru rute API specifice integrării (streaming, Wyoming, workflow extern) — **nu**
+adăuga import în `core/http/routers.py` per slug.
+
+În `manifest.json` (opțional):
+
+```json
+{
+  "router_module": "router"
+}
+```
+
+În `components/<slug>/router.py`:
+
+```python
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/api/my_service", tags=["my_service"])
+```
+
+La boot, `integrations/capability_routers.py` descoperă modulele și le înregistrează
+automat. Rutele rămase în `routers/cameras.py`, `routers/comfyui.py`, … se
+migrează treptat în folderele lor.
+
+Teste: `tests/test_capability_routers.py`.
+
+### Traduceri
+
+Vezi **[I18N.md](I18N.md)** — reguli complete. Pe scurt:
+
+- Shell UI → `static/js/lang/en.js` + `ro.js`
+- Integrare → `components/<slug>/translations/`
+- Add-on → `addons/translations/` + `addons/available/<slug>/translations/`
+- Platformă (camere, scene, …) → `core/i18n/<bundle>/translations/`
+- UI încarcă totul prin `GET /api/i18n/bundles` — **nu** adăuga stringuri de integrare în mother lang.
 
 **Override utilizator:** copiază folderul în `custom_components/` sau setează `HYVE_CUSTOM_COMPONENTS_DIR`. Custom suprascrie același `domain` din `components/`.
 

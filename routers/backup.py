@@ -188,19 +188,19 @@ async def backup_verify(
 
 @router.post("/restore")
 async def backup_restore(
-    body: BackupRestoreBody,
+    payload: BackupRestoreBody,
     _: models.User = Depends(auth.get_current_admin),
     service: BackupService = Depends(get_backup_service),
 ):
     try:
         return await asyncio.to_thread(
             service.restore,
-            body.path,
-            options=_options(body),
-            refetch_addons=body.refetch_addons,
-            dry_run=body.dry_run,
-            auto_pre_backup=body.auto_pre_backup,
-            decryption_key=body.decryption_key,
+            payload.path,
+            options=_options(payload),
+            refetch_addons=payload.refetch_addons,
+            dry_run=payload.dry_run,
+            auto_pre_backup=payload.auto_pre_backup,
+            decryption_key=payload.decryption_key,
         )
     except Exception as exc:
         raise _map_error(exc) from exc
@@ -208,12 +208,12 @@ async def backup_restore(
 
 @router.post("/rollback")
 async def backup_rollback(
-    body: BackupPathBody,
+    payload: BackupPathBody,
     _: models.User = Depends(auth.get_current_admin),
     service: BackupService = Depends(get_backup_service),
 ):
     try:
-        return await asyncio.to_thread(service.rollback, body.path, decryption_key=body.decryption_key)
+        return await asyncio.to_thread(service.rollback, payload.path, decryption_key=payload.decryption_key)
     except Exception as exc:
         raise _map_error(exc) from exc
 
@@ -345,23 +345,23 @@ async def backup_pull_remote(
 
 @router.post("/remote/restore")
 async def backup_restore_remote(
-    body: BackupRemoteRestoreBody,
+    payload: BackupRemoteRestoreBody,
     _: models.User = Depends(auth.get_current_admin),
     service: BackupService = Depends(get_backup_service),
 ):
     try:
         return await asyncio.to_thread(
             service.restore_from_remote,
-            body.name,
+            payload.name,
             options=BackupOptions(
-                include_optional=body.include_optional,
-                include_frigate_media=body.include_frigate_media,
+                include_optional=payload.include_optional,
+                include_frigate_media=payload.include_frigate_media,
             ),
-            refetch_addons=body.refetch_addons,
-            dry_run=body.dry_run,
-            auto_pre_backup=body.auto_pre_backup,
-            overwrite=body.overwrite,
-            decryption_key=body.decryption_key,
+            refetch_addons=payload.refetch_addons,
+            dry_run=payload.dry_run,
+            auto_pre_backup=payload.auto_pre_backup,
+            overwrite=payload.overwrite,
+            decryption_key=payload.decryption_key,
         )
     except Exception as exc:
         raise _map_error(exc) from exc

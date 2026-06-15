@@ -18,7 +18,7 @@ from typing import List, Optional, Tuple
 import httpx
 
 import core.settings as settings_mod
-from addons.entity_store import get_entity_store
+from core.entity_store import get_entity_store
 from core.device_control import ControlTargetNotFound, control_entity
 from core.logger import log_line
 

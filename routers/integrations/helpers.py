@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import HTTPException
 
 from core.http.errors import error_detail
-from addons.entity_store import get_entity_store
+from core.entity_store import get_entity_store
 from core.entity_catalog import (
     build_entities_uncached,
     get_entities,
@@ -30,7 +30,7 @@ def invalidate_all_entities_cache() -> None:
 
 def register_instance_fetcher(store, inst) -> str:
     """Register an integration instance fetcher with its per-provider timeout."""
-    from addons.entity_store import FETCH_TIMEOUT_SECONDS
+    from core.entity_store import FETCH_TIMEOUT_SECONDS
 
     key = inst.store_key
     timeout = float(getattr(inst, "fetch_timeout_seconds", FETCH_TIMEOUT_SECONDS))
@@ -152,7 +152,7 @@ def group_entities_into_devices(
 
 def refresh_meta_for_store_key(store_key: str) -> dict[str, Any]:
     """Runtime refresh status for one entity-store key."""
-    from addons.entity_store import get_entity_store
+    from core.entity_store import get_entity_store
     from integrations.source_refresh import get_refresh_runner
 
     key = str(store_key or "").strip()

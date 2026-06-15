@@ -279,6 +279,18 @@ def _resolve_mammotion_integration(ent: dict[str, Any], device_name: str) -> Any
     return None
 
 
+def is_mammotion_webrtc_camera(ent: dict[str, Any]) -> bool:
+    if str(ent.get("source") or "").strip().lower() != "mammotion":
+        return False
+    attrs = ent.get("attributes") if isinstance(ent.get("attributes"), dict) else {}
+    if str(attrs.get("mammotion_key") or "") == "webrtc":
+        return True
+    if str(attrs.get("stream_type") or "") == "agora_webrtc":
+        return True
+    eid = str(ent.get("entity_id") or "")
+    return eid.endswith("_webrtc")
+
+
 async def mammotion_hub_for_camera_entity(ent: dict[str, Any]) -> tuple[Any, str]:
     """Return ``(hub, device_name)`` for a Mammotion ``camera.*_webrtc`` entity."""
     source = str(ent.get("source") or "").lower()

@@ -71,9 +71,9 @@ export function renderAddonConfigField(
 
     if (type === 'checkbox' || type === 'boolean') {
         return `
-        <label class="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 flex items-start gap-3 cursor-pointer ${wideClass}">
+        <label class="rounded-xl border border-theme-light bg-white/[0.02] px-3 py-2.5 flex items-start gap-3 cursor-pointer ${wideClass}">
             <input type="checkbox" ${attrName}="${escapeHtml(key)}" ${safeValue ? 'checked' : ''} ${disabled}
-                class="mt-0.5 rounded border-white/10 bg-slate-900 text-accent focus:ring-accent/40">
+                class="mt-0.5 rounded border-theme-subtle bg-slate-900 text-accent focus:ring-accent/40">
             <span class="min-w-0">
                 <span class="block text-sm text-white">${escapeHtml(label)}</span>
                 ${desc ? `<span class="block text-[11px] text-slate-500 mt-1">${escapeHtml(desc)}</span>` : ''}
@@ -92,7 +92,7 @@ export function renderAddonConfigField(
         <label class="block space-y-1.5 ${wideClass}">
             <span class="text-xs font-semibold text-slate-300">${escapeHtml(label)}</span>
             <select ${attrName}="${escapeHtml(key)}" ${disabled}
-                class="w-full rounded-xl border border-white/[0.06] bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40">
+                class="w-full rounded-xl border border-theme-light bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40">
                 ${options}
             </select>
             ${desc ? `<p class="text-[11px] text-slate-500">${escapeHtml(desc)}</p>` : ''}
@@ -104,7 +104,7 @@ export function renderAddonConfigField(
         <label class="block space-y-1.5 ${wideClass}">
             <span class="text-xs font-semibold text-slate-300">${escapeHtml(label)}</span>
             <textarea ${attrName}="${escapeHtml(key)}" placeholder="${escapeHtml(placeholder)}" ${disabled}
-                class="w-full min-h-[96px] rounded-xl border border-white/[0.06] bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40 font-mono text-[12px]">${escapeHtml(String(safeValue))}</textarea>
+                class="w-full min-h-[96px] rounded-xl border border-theme-light bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40 font-mono text-[12px]">${escapeHtml(String(safeValue))}</textarea>
             ${desc ? `<p class="text-[11px] text-slate-500">${escapeHtml(desc)}</p>` : ''}
         </label>`;
     }
@@ -114,7 +114,7 @@ export function renderAddonConfigField(
     <label class="block space-y-1.5 ${wideClass}">
         <span class="text-xs font-semibold text-slate-300">${escapeHtml(label)}</span>
         <input type="${escapeHtml(inputType)}" ${attrName}="${escapeHtml(key)}" value="${escapeHtml(String(safeValue))}" placeholder="${escapeHtml(placeholder)}" ${disabled}
-            class="w-full rounded-xl border border-white/[0.06] bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40${inputType === 'password' ? '' : ' font-mono text-[12px]'}">
+            class="w-full rounded-xl border border-theme-light bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40${inputType === 'password' ? '' : ' font-mono text-[12px]'}">
         ${desc ? `<p class="text-[11px] text-slate-500">${escapeHtml(desc)}</p>` : ''}
     </label>`;
 }

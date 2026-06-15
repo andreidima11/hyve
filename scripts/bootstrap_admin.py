@@ -14,10 +14,11 @@ if str(ROOT) not in sys.path:
 import core.auth as auth
 import core.database as database
 import core.models as models
+from core.http.startup_migrations import run_startup_migrations
 
 
 def upsert_admin(username: str, password: str, full_name: str, email: str | None) -> str:
-    database.Base.metadata.create_all(bind=database.engine)
+    run_startup_migrations()
     db = database.SessionLocal()
     try:
         user = db.query(models.User).filter(models.User.username == username).first()

@@ -29,7 +29,7 @@ def _format_bootstrap_deferred_message(wait_seconds: float) -> str:
     )
 
 try:
-    from addons.entity_store import FETCH_TIMEOUT_SECONDS, SyncThrottledError
+    from core.entity_store import FETCH_TIMEOUT_SECONDS, SyncThrottledError
 except ImportError:  # pragma: no cover
     FETCH_TIMEOUT_SECONDS = 60.0
 

@@ -31,7 +31,7 @@ def test_namespace_merge_for_configured_domain(monkeypatch, tmp_path: Path):
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(component_i18n, "_configured_domains", lambda: {"demo_sensor"})
+    monkeypatch.setattr(component_i18n, "configured_domains", lambda: {"demo_sensor"})
     monkeypatch.setattr(component_i18n, "_component_dir_for_domain", lambda _slug: component_dir)
 
     payload = component_i18n.get_component_translations("ro")
@@ -51,7 +51,7 @@ def test_falls_back_to_english_when_lang_missing(monkeypatch, tmp_path: Path):
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(component_i18n, "_configured_domains", lambda: {"roborock"})
+    monkeypatch.setattr(component_i18n, "configured_domains", lambda: {"roborock"})
     monkeypatch.setattr(component_i18n, "_component_dir_for_domain", lambda _slug: component_dir)
 
     payload = component_i18n.get_component_translations("ro")

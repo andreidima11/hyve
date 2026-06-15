@@ -4,5 +4,6 @@
   },
   "vacuum": {
     "charging_state": "Charging state"
-  }
+  },
+  "catalog_desc": "Xiaomi / Mi Home devices (MIoT cloud)"
 }

@@ -10,6 +10,7 @@ services (MQTT broker, STT, etc.) rather than entity integrations.
 custom_addons/
 └── my_addon/
     ├── manifest.json     # Required — same schema as bundled addons
+    ├── lifecycle.py      # Optional — on-disk install detect, config hooks (see docs/I18N.md)
     ├── run.sh            # Optional — referenced from start_command.args
     ├── icon.png          # Optional
     └── README.md         # Optional
@@ -36,9 +37,12 @@ Same JSON schema as `addons/available/<slug>/manifest.json`. Minimum:
   },
   "config_schema": [
     {"key": "host", "label": "Host", "type": "text", "default": "localhost"}
-  ]
+  ],
+  "lifecycle_module": "lifecycle"
 }
 ```
+
+Optional `lifecycle.py` hooks: `detect_on_disk_version`, `after_config_update`, `enrich_catalog_entry`. See [docs/I18N.md](../docs/I18N.md) (add-on workflow).
 
 Supported `install.method`: `pip`, `brew`, `npm`, `docker`, `wyoming`, `binary`.
 

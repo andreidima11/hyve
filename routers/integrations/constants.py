@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 ENTRY_TEST_TIMEOUT_SECONDS = 50.0
-MAMMOTION_ENTRY_TEST_TIMEOUT_SECONDS = 120.0
 LIVE_POLL_INTERVAL_SEC = 2.0
 
 SOURCE_META: dict[str, dict[str, str]] = {

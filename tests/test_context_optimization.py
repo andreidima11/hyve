@@ -84,7 +84,7 @@ def test_get_home_status_caps_large_entity_lists(monkeypatch):
         def get_all_entities(self):
             return entities
 
-    monkeypatch.setattr("addons.entity_store.get_entity_store", lambda: _FakeStore())
+    monkeypatch.setattr("core.entity_store.get_entity_store", lambda: _FakeStore())
 
     result = asyncio.run(_exec_get_home_status({}))
     assert "60 entities" in result

@@ -2,7 +2,8 @@
 module.exports = {
   content: [
     './templates/**/*.html',
-    './static/js/**/*.js',
+    './static/js/**/*.{js,ts}',
+    './static/hyveview/**/*.ts',
   ],
   theme: {
     extend: {

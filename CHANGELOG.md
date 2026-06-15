@@ -4,6 +4,24 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.0] — 2026-06
+
+Minor release: **professionalization pass** — Vite frontend pipeline, security hardening, modular cameras API, Alembic-only schema bootstrap, and integration lifecycle.
+
+### Frontend
+- **New:** Vite bundles for main app (`static/dist/app.js`), shared modules, and Hyveview custom elements; drop committed `static/js/**/*.js` emit.
+- **New:** Theme border tokens (`border-theme-*`) across templates and TS sources; global native `<select>` auto-upgrade to custom dropdowns.
+- **Fix:** `icon_picker` ESM exports for Hyveview schema forms; lazy-loaded feature chunks (`features_apps`, planner, …) use static `import()` so Vite emits hashed chunks.
+
+### Security
+- Rate limits on auth, admin destructive actions, and add-on install streams.
+- Camera streams: query `?token=` accepts only `camera_stream` JWT; `/api/tags` requires auth.
+
+### Backend / architecture
+- Split `routers/cameras.py` into `core/cameras/` + vendor `camera_proxy` modules.
+- Alembic `000_orm_baseline` replaces startup `create_all`; integration capability routers and addon/component lifecycle hooks.
+- Decentralised i18n bundles (`GET /api/i18n/bundles`); CI router contract checks and HTTP contract smoke tests.
+
 ## [0.9.7.13] — 2026-06
 
 Hotfix: **Mammotion camera connect regression** (0.9.7.12) and **boot overlay polish**.

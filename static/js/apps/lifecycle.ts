@@ -250,7 +250,7 @@ export async function detectAddonSerialPorts(fieldKey: string) {
         results.innerHTML = `
             <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Adaptoare detectate (${ports.length})</div>
             ${ports.map(p => `
-                <button type="button" data-detect-pick="${escapeHtml(p.path)}" class="w-full text-left px-3 py-2 rounded-lg bg-slate-950/80 hover:bg-slate-900 border border-white/[0.06] hover:border-accent/40 transition-colors flex items-center gap-2">
+                <button type="button" data-detect-pick="${escapeHtml(p.path)}" class="w-full text-left px-3 py-2 rounded-lg bg-slate-950/80 hover:bg-slate-900 border border-theme-light hover:border-accent/40 transition-colors flex items-center gap-2">
                     <i class="fas fa-plug text-accent text-xs"></i>
                     <span class="font-mono text-[11px] text-slate-300 flex-1 truncate">${escapeHtml(p.path)}</span>
                     <span class="text-[10px] text-accent">${escapeHtml(t('apps.select_port'))}</span>
