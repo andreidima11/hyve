@@ -7,7 +7,7 @@
  */
 
 import { apiCall } from '../../js/api.js';
-import { t, translateApiDetail } from '../../js/lang/index.js';
+import { t, translateApiDetail, loadBundledTranslations } from '../../js/lang/index.js';
 import {
   cameraLoaderMarkup,
   hideCameraLoader,
@@ -181,7 +181,10 @@ class HyveMammotionCamera extends HTMLElement {
   private _leavingChannel = false;
   private _joinGraceUntil = 0;
   private _pendingReconnectReason: string | null = null;
+  private _reconnectQueued = false;
+  private _connectGen = 0;
   private _sessionEntity = '';
+  private _onI18nLoaded = () => this._refreshVisibleText();
 
   private _logStreamEvent(event: string, detail: Record<string, unknown> = {}) {
     const payload = {
@@ -214,10 +217,14 @@ class HyveMammotionCamera extends HTMLElement {
       this._scheduleAutoplay();
     }
     document.addEventListener('visibilitychange', this._onVisibility);
+    document.addEventListener('hyve:i18n-bundles-loaded', this._onI18nLoaded);
+    void loadBundledTranslations().catch(() => {});
+    this._refreshVisibleText();
   }
 
   disconnectedCallback() {
     document.removeEventListener('visibilitychange', this._onVisibility);
+    document.removeEventListener('hyve:i18n-bundles-loaded', this._onI18nLoaded);
     this._observer?.disconnect();
     void this._teardown(true);
   }
@@ -277,6 +284,7 @@ class HyveMammotionCamera extends HTMLElement {
     if (this._reconnectTimer) {
       window.clearTimeout(this._reconnectTimer);
       this._reconnectTimer = null;
+      this._reconnectQueued = false;
     }
   }
 
@@ -287,6 +295,7 @@ class HyveMammotionCamera extends HTMLElement {
       this._pendingReconnectReason = reason;
       return;
     }
+    this._reconnectQueued = true;
     const delay = Math.min(
       RECONNECT_MAX_MS,
       RECONNECT_BASE_MS * Math.pow(1.5, this._reconnectAttempts),
@@ -334,7 +343,21 @@ class HyveMammotionCamera extends HTMLElement {
   private _maybeAutoplay() {
     if (!this._wantsAutoplay() || this._paused || !this._effectivelyVisible || document.hidden) return;
     if (this._playing || this._connecting || !this._entity) return;
+    if (this._reconnectQueued || this._reconnectTimer) return;
     void this._startPlayback();
+  }
+
+  private _refreshVisibleText() {
+    if (this._playing) return;
+    const state = this.dataset.state || 'idle';
+    if (state === 'loading') {
+      const key = this._reconnectQueued || this._reconnectAttempts > 0
+        ? 'mammotion_reconnecting'
+        : 'mammotion_connecting';
+      this._setIdleMessage(_mcam(key));
+      return;
+    }
+    if (state !== 'error') this._setIdleMessage();
   }
 
   private _onVisibility = () => {
@@ -354,7 +377,7 @@ class HyveMammotionCamera extends HTMLElement {
         <button type="button" class="hy-mammotion-camera__play" data-mammotion-play aria-label="Play">
           <i class="fas fa-play ml-0.5"></i>
         </button>
-        <div class="hy-mammotion-camera__hint absolute inset-x-0 bottom-3 text-center text-[11px] text-slate-300 px-3 pointer-events-none" data-mammotion-hint></div>
+        <div class="hy-mammotion-camera__hint absolute inset-x-0 bottom-3 text-center text-[11px] px-3 pointer-events-none" data-mammotion-hint></div>
       </div>`;
     this._stage = this.querySelector('.hy-mammotion-camera__stage');
     this._videoHost = this.querySelector('[data-mammotion-video-host]');
@@ -484,6 +507,7 @@ class HyveMammotionCamera extends HTMLElement {
       }
       this._scheduleReconnect(reason);
     } finally {
+      this._reconnectQueued = false;
       if (!this._playing) this._connecting = false;
     }
   }
@@ -513,6 +537,7 @@ class HyveMammotionCamera extends HTMLElement {
   }
 
   private async _leaveClient() {
+    this._connectGen += 1;
     const client = this._client;
     this._client = null;
     this._channelJoined = false;
@@ -592,6 +617,7 @@ class HyveMammotionCamera extends HTMLElement {
 
     await this._leaveClient();
 
+    const connectGen = this._connectGen;
     const client = window.AgoraRTC.createClient({
       mode: 'live',
       codec: 'vp8',
@@ -688,6 +714,12 @@ class HyveMammotionCamera extends HTMLElement {
       throw err;
     }
 
+    if (connectGen !== this._connectGen || this._client !== client) {
+      try { await client.leave(); } catch { /* stale join */ }
+      if (this._client === client) this._client = null;
+      return;
+    }
+
     this._channelJoined = true;
     this._joinGraceUntil = Date.now() + 8000;
     this._sessionEntity = this._entity;
@@ -699,6 +731,7 @@ class HyveMammotionCamera extends HTMLElement {
 
   private async _startPlayback() {
     if (this._playing || this._connecting || this._paused || !this._entity) return;
+    if (this._reconnectQueued || this._reconnectTimer) return;
     const entity = this._entity;
     await _withEntityJoinLock(entity, async () => {
       if (this._playing || this._connecting || this._paused || this._entity !== entity) return;

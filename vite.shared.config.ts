@@ -13,6 +13,7 @@ export default defineConfig({
         lib: {
             entry: {
                 api: path.join(sharedJs, 'api.ts'),
+                lang: path.join(sharedJs, 'lang/index.js'),
                 camera_auth: path.join(sharedJs, 'camera_auth.ts'),
                 camera_live: path.join(sharedJs, 'camera_live.ts'),
                 camera_loader: path.join(sharedJs, 'camera_loader.ts'),

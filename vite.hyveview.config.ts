@@ -41,7 +41,7 @@ function hyveviewRuntimeImports(): Plugin {
         enforce: 'pre',
         resolveId(source) {
             if (LANG_IMPORTS.has(source)) {
-                return { id: '/static/js/lang/index.js', external: true };
+                return { id: '/static/dist/lang.js', external: true };
             }
             const mapped = RUNTIME_IMPORTS[source];
             if (mapped) return { id: mapped, external: true };
@@ -94,7 +94,7 @@ export default defineConfig({
                 },
             },
             external: (id) => {
-                if (id.startsWith('/static/dist/') || id.startsWith('/static/js/lang/')) return true;
+                if (id.startsWith('/static/dist/')) return true;
                 return isSharedJsModule(id);
             },
         },

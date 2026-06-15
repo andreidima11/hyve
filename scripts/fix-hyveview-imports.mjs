@@ -18,8 +18,8 @@ function walk(dir, fn) {
 const fixImport = (code) => code
     .replace(/from\s*(['"])(?:\.\.\/)+static\/dist\//g, 'from $1/static/dist/')
     .replace(/from\s*(['"])\.\/static\/dist\//g, 'from $1/static/dist/')
-    .replace(/from\s*(['"])(?:\.\.\/)+static\/js\/lang\//g, 'from $1/static/js/lang/')
-    .replace(/from\s*(['"])\.\/static\/js\/lang\//g, 'from $1/static/js/lang/');
+    .replace(/from\s*(['"])(?:\.\.\/)+static\/js\/lang\//g, 'from $1/static/dist/lang.js')
+    .replace(/from\s*(['"])\.\/static\/js\/lang\//g, 'from $1/static/dist/lang.js');
 
 walk(root, (file) => {
     const next = fixImport(readFileSync(file, 'utf8'));

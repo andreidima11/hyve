@@ -20,7 +20,7 @@
   "hyve_release_not_found": "Nu am găsit release pe GitHub (verifică vizibilitatea sau token-ul)",
   "hyve_check_failed": "Nu am putut verifica actualizările Hyve",
   "hyve_not_git": "Hyve nu e instalat din git — actualizează manual",
-  "hyve_dirty_tree": "Comite sau stochează modificările locale înainte de update",
+  "hyve_dirty_tree": "Comite sau stochează modificările locale înainte de update: {detail}",
   "hyve_git_failed": "Comanda git a eșuat: {detail}",
   "hyve_checkout_failed": "Nu am putut face checkout la release: {detail}",
   "hyve_pip_missing": "pip lipsă — instalează dependențele Python manual",

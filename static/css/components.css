@@ -950,20 +950,38 @@
     height: 3.5rem;
     margin: 0;
     padding: 0;
-    border: 0;
+    border: 1px solid color-mix(in oklab, var(--accent) 55%, transparent);
     border-radius: 9999px;
     transform: translate(-50%, -50%);
-    background: color-mix(in oklab, var(--accent, #3b82f6) 90%, transparent);
-    color: #fff;
+    background: var(--accent);
+    color: var(--text-on-accent);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 8px 24px var(--accent-glow), var(--shadow-md);
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.hy-mammotion-camera__play:hover:not(:disabled) {
+    background: var(--accent-hover);
+    border-color: color-mix(in oklab, var(--accent-hover) 65%, transparent);
+    box-shadow: 0 10px 28px var(--accent-glow), var(--shadow-lg);
+    transform: translate(-50%, -50%) scale(1.04);
+}
+.hy-mammotion-camera__play:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 3px color-mix(in oklab, var(--accent) 35%, transparent),
+        0 8px 24px var(--accent-glow),
+        var(--shadow-md);
 }
 .hy-mammotion-camera__play:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+}
+.hy-mammotion-camera__hint {
+    color: color-mix(in oklab, var(--camera-footer-fg) 78%, transparent);
+    text-shadow: var(--camera-title-shadow);
 }
 .hy-mammotion-camera__video video {
     width: 100%;

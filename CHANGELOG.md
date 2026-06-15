@@ -4,6 +4,22 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.3] — 2026-06
+
+Patch release: **Mammotion camera** — shared i18n bundle, stream reconnect stability, and theme-aware play button.
+
+### Frontend
+- **Fix:** Mammotion card showed raw i18n keys (`mammotion_press_play`) — app and Hyveview now share one `/static/dist/lang.js` module so `/api/i18n/bundles` merges apply to camera cards.
+- **Fix:** Mammotion Agora live view — avoid autoplay/reconnect races (`_reconnectQueued`, `_connectGen`), stale `join()` abort after `leave()`, and refresh hint text when bundles load.
+- **Fix:** Mammotion play button and hint use theme CSS variables (`--accent`, `--text-on-accent`, `--camera-footer-fg`) instead of hardcoded colors.
+
+### Hyve self-update
+- **Fix:** In-app update no longer blocks on local `config.json`, `static/hyveview/` rebuild outputs, or other server-specific dirty paths.
+- **New:** Dirty-tree error lists the blocking file paths (`{detail}`).
+
+### Tests
+- `tests/test_hyve_update.py` — expanded dirty-tree ignore coverage.
+
 ## [0.9.8.2] — 2026-06
 
 Patch release: **Scenes & Zones UI** — modal buttons, missing i18n bundles, and scene editor open action.

@@ -21,8 +21,9 @@ log = logging.getLogger(__name__)
 DEFAULT_GITHUB_REPO = "andreidima11/hyve"
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-# Local rebuild outputs — do not block in-app update when only these differ.
+# Local rebuild outputs and server-specific files — do not block in-app update.
 _DIRTY_IGNORE_PATHS = (
+    "config.json",
     "static/css/tailwind.built.css",
     "package-lock.json",
 )
@@ -269,6 +270,8 @@ def _is_ignored_dirty_path(path: str) -> bool:
     if normalized in _DIRTY_IGNORE_PATHS:
         return True
     if normalized.startswith("static/dist/"):
+        return True
+    if normalized.startswith("static/hyveview/"):
         return True
     if normalized.startswith("static/js/") and normalized.endswith(".js"):
         return True

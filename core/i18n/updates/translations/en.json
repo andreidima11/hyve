@@ -20,7 +20,7 @@
   "hyve_release_not_found": "No GitHub release found (check repo visibility or token)",
   "hyve_check_failed": "Could not check for Hyve updates",
   "hyve_not_git": "Hyve was not installed from git — update manually",
-  "hyve_dirty_tree": "Commit or stash local changes before updating Hyve",
+  "hyve_dirty_tree": "Commit or stash local changes before updating Hyve: {detail}",
   "hyve_git_failed": "Git command failed: {detail}",
   "hyve_checkout_failed": "Could not checkout release: {detail}",
   "hyve_pip_missing": "pip not found — install Python dependencies manually",

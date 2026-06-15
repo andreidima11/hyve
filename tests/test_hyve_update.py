@@ -131,11 +131,13 @@ def test_blocking_dirty_lines_ignores_build_artifacts():
             " M static/js/app.js",
             " M package-lock.json",
             " M config.json",
+            " M static/hyveview/elements/camera_stream.js",
+            " M core/settings.py",
         ]
     )
     blocking = hu._blocking_dirty_lines(porcelain)
     assert len(blocking) == 1
-    assert "config.json" in hu._dirty_path_from_porcelain(blocking[0])
+    assert "core/settings.py" in hu._dirty_path_from_porcelain(blocking[0])
 
 
 def test_apply_update_requires_git(monkeypatch, tmp_path: Path):
