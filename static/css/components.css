@@ -983,6 +983,12 @@
     color: color-mix(in oklab, var(--camera-footer-fg) 78%, transparent);
     text-shadow: var(--camera-title-shadow);
 }
+.hy-mammotion-camera__video {
+    width: 100%;
+    height: 100%;
+    min-height: 8rem;
+    position: relative;
+}
 .hy-mammotion-camera__video video {
     width: 100%;
     height: 100%;

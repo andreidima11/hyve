@@ -726,7 +726,7 @@ function renderCamera(entity, slug) {
     if (cameraIsMammotionEntity(eid, attrs)) {
         return `
     <div class="hy-entity-camera-shell mb-3">
-        <hv-mammotion-camera entity="${escapeHtml(eid)}" alt="${safeTitle}" autoplay="true" force-active="true"></hv-mammotion-camera>
+        <hv-mammotion-camera entity="${escapeHtml(eid)}" alt="${safeTitle}" autoplay="true"></hv-mammotion-camera>
     </div>
     ${_renderCameraPtzPad(entity, slug)}`;
     }

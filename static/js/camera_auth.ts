@@ -146,18 +146,42 @@ export function stopCameraPreviewRefresh(): void {
     }
 }
 
-type PausableStream = HTMLElement & { pauseStream?: () => void };
+type PausableStream = HTMLElement & {
+    pauseStream?: () => void;
+    resumeStream?: () => void;
+};
+
+const _CAMERA_STREAM_SELECTOR = 'hv-camera-stream, hv-mammotion-camera, hv-camera-carousel';
+
+function _forEachCameraStream(
+    root: ParentNode,
+    fn: (el: PausableStream) => void,
+    except?: ParentNode | null,
+): void {
+    root.querySelectorAll(_CAMERA_STREAM_SELECTOR).forEach((el) => {
+        if (except?.contains(el)) return;
+        try {
+            fn(el as PausableStream);
+        } catch {
+            /* ignore */
+        }
+    });
+}
+
+/** Pause dashboard/background camera streams so a modal viewer can take the Agora slot. */
+export function pauseBackgroundCameraStreams(exceptRoot: ParentNode | null = null): void {
+    _forEachCameraStream(document, (el) => el.pauseStream?.(), exceptRoot);
+}
+
+/** Resume camera streams outside the entity detail modal after it closes. */
+export function resumeBackgroundCameraStreams(exceptRoot: ParentNode | null = null): void {
+    _forEachCameraStream(document, (el) => el.resumeStream?.(), exceptRoot);
+}
 
 /** Stop live previews in the entity detail modal (MJPEG/WebM and Mammotion Agora). */
 export function pauseEntityDetailCameraStreams(
     root: ParentNode | null = document.getElementById('entity-detail-modal'),
 ): void {
     if (!root) return;
-    root.querySelectorAll('hv-camera-stream, hv-mammotion-camera').forEach((el) => {
-        try {
-            (el as PausableStream).pauseStream?.();
-        } catch {
-            /* ignore */
-        }
-    });
+    _forEachCameraStream(root, (el) => el.pauseStream?.());
 }

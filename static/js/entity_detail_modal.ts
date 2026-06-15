@@ -2,7 +2,9 @@
  * Unified entity detail modal — Integrations + Devices + Smart home.
  */
 import {
+    pauseBackgroundCameraStreams,
     pauseEntityDetailCameraStreams,
+    resumeBackgroundCameraStreams,
     startCameraPreviewRefresh,
     stopCameraPreviewRefresh,
 } from './camera_auth.js';
@@ -29,6 +31,7 @@ export function openEntityDetailModal(entity: HyveEntity, options: EntityDetailM
     if (!modal || !body || !entity) return;
 
     stopCameraPreviewRefresh();
+    pauseBackgroundCameraStreams(modal);
     pauseEntityDetailCameraStreams(modal);
 
     const slug = options.slug || resolveEntityControlSlug(entity);
@@ -69,4 +72,5 @@ export function closeEntityDetailModal(): void {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
+    resumeBackgroundCameraStreams(modal);
 }

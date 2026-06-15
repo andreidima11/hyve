@@ -1,7 +1,7 @@
 /**
  * Unified entity detail modal — Integrations + Devices + Smart home.
  */
-import { pauseEntityDetailCameraStreams, startCameraPreviewRefresh, stopCameraPreviewRefresh, } from './camera_auth.js';
+import { pauseBackgroundCameraStreams, pauseEntityDetailCameraStreams, resumeBackgroundCameraStreams, startCameraPreviewRefresh, stopCameraPreviewRefresh, } from './camera_auth.js';
 import { integrationIdForSourceSlug } from './integrations/catalog_meta.js';
 import { getDomainIcon, renderEntityModal, renderEntityFriendlyNameSection, wireEntityRegistryEditor, wireEntityFriendlyNameEditor, entityDisplayName } from './entity_renderers.js';
 export function resolveEntityControlSlug(entity) {
@@ -18,6 +18,7 @@ export function openEntityDetailModal(entity, options = {}) {
     if (!modal || !body || !entity)
         return;
     stopCameraPreviewRefresh();
+    pauseBackgroundCameraStreams(modal);
     pauseEntityDetailCameraStreams(modal);
     const slug = options.slug || resolveEntityControlSlug(entity);
     const dom = String(entity.domain || String(entity.entity_id || '').split('.')[0] || '').toLowerCase();
@@ -59,4 +60,5 @@ export function closeEntityDetailModal() {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
+    resumeBackgroundCameraStreams(modal);
 }

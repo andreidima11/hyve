@@ -185,6 +185,7 @@ class HyveMammotionCamera extends HTMLElement {
   private _reconnectQueued = false;
   private _connectOpId = 0;
   private _sessionEntity = '';
+  private _autoplayBlockedUntil = 0;
   private _onI18nLoaded = () => this._refreshVisibleText();
 
   private _logStreamEvent(event: string, detail: Record<string, unknown> = {}) {
@@ -235,6 +236,9 @@ class HyveMammotionCamera extends HTMLElement {
     document.removeEventListener('visibilitychange', this._onVisibility);
     document.removeEventListener('hyve:i18n-bundles-loaded', this._onI18nLoaded);
     this._observer?.disconnect();
+    this._playing = false;
+    this._connecting = false;
+    this._unregisterSession();
     void this._teardown(true);
   }
 
@@ -353,6 +357,7 @@ class HyveMammotionCamera extends HTMLElement {
     if (!this._wantsAutoplay() || this._paused || !this._effectivelyVisible || document.hidden) return;
     if (this._playing || this._connecting || !this._entity) return;
     if (this._reconnectQueued || this._reconnectTimer) return;
+    if (Date.now() < this._autoplayBlockedUntil) return;
     void this._startPlayback();
   }
 
@@ -547,17 +552,27 @@ class HyveMammotionCamera extends HTMLElement {
   private async _releaseOtherViewers(): Promise<boolean> {
     const other = _entitySessions.get(this._entity);
     if (!other || other === this) return true;
-    if (other._playing) {
-      this._logStreamEvent('viewer-blocked', { otherPlaying: true });
-      return false;
-    }
-    if (other._connecting) {
-      const deadline = Date.now() + 8000;
-      while (other._connecting && Date.now() < deadline) {
-        await _sleep(200);
+
+    const otherDetached = !other.isConnected;
+    const otherHidden = !other._effectivelyVisible;
+    const shouldPreempt = otherDetached
+      || otherHidden
+      || (this._effectivelyVisible && !other._effectivelyVisible);
+
+    if (other._playing || other._connecting) {
+      if (!shouldPreempt) {
+        this._autoplayBlockedUntil = Date.now() + 4000;
+        this._logStreamEvent('viewer-blocked', { otherPlaying: other._playing });
+        return false;
       }
-      if (other._playing) return false;
+      this._logStreamEvent('viewer-preempt', {
+        otherPlaying: other._playing,
+        otherConnecting: other._connecting,
+        otherDetached,
+        otherHidden,
+      });
     }
+
     if (_entitySessions.get(this._entity) === other) {
       other._bumpConnectOp();
       await other._teardown(false);
@@ -631,7 +646,9 @@ class HyveMammotionCamera extends HTMLElement {
 
   private async _subscribeRemote(client: AgoraRtcClient, remote: AgoraRemoteUser, mediaType: string) {
     await client.subscribe(remote, mediaType);
-    if (mediaType === 'video') await this._playRemoteVideo(remote);
+    if (mediaType === 'video' && this._client === client && !this._leavingChannel) {
+      await this._playRemoteVideo(remote);
+    }
     if (mediaType === 'audio' && remote.audioTrack) remote.audioTrack.play();
   }
 
@@ -670,11 +687,11 @@ class HyveMammotionCamera extends HTMLElement {
     this._remoteUsers = [];
 
     client.on('user-published', async (user: unknown, mediaType: unknown) => {
-      if (this._client !== client || !this._channelJoined || this._leavingChannel) return;
+      if (this._client !== client || this._leavingChannel) return;
       try {
         await this._subscribeRemote(client, user as AgoraRemoteUser, String(mediaType));
       } catch (err) {
-        if (this._client !== client || !this._channelJoined || this._leavingChannel) return;
+        if (this._client !== client || this._leavingChannel) return;
         console.warn('[hv-mammotion-camera] subscribe failed', err);
       }
     });

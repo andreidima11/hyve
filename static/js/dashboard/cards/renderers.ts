@@ -160,8 +160,7 @@ export function renderCameraCard(widget: DashboardWidget, ctx: CardRenderCtx): s
                 class="hyve-dashboard-card__camera-player hv-camera-carousel__stream--agora"
                 entity="${esc(ent.entity_id)}"
                 alt="${esc(ent.title || ent.entity_id)}"
-                autoplay="${autoplay ? 'true' : 'false'}"
-                force-active="true"></hv-mammotion-camera>`;
+                autoplay="${autoplay ? 'true' : 'false'}"></hv-mammotion-camera>`;
     } else {
         mediaMarkup = `<hv-camera-carousel
                 class="hyve-dashboard-card__camera-player"

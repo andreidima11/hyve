@@ -125,16 +125,30 @@ export function stopCameraPreviewRefresh() {
         _cameraPreviewTimer = null;
     }
 }
-/** Stop live previews in the entity detail modal (MJPEG/WebM and Mammotion Agora). */
-export function pauseEntityDetailCameraStreams(root = document.getElementById('entity-detail-modal')) {
-    if (!root)
-        return;
-    root.querySelectorAll('hv-camera-stream, hv-mammotion-camera').forEach((el) => {
+/** Pause dashboard/background camera streams so a modal viewer can take the Agora slot. */
+export function pauseBackgroundCameraStreams(exceptRoot = null) {
+    _forEachCameraStream(document, (el) => el.pauseStream?.(), exceptRoot);
+}
+/** Resume camera streams outside the entity detail modal after it closes. */
+export function resumeBackgroundCameraStreams(exceptRoot = null) {
+    _forEachCameraStream(document, (el) => el.resumeStream?.(), exceptRoot);
+}
+const _CAMERA_STREAM_SELECTOR = 'hv-camera-stream, hv-mammotion-camera, hv-camera-carousel';
+function _forEachCameraStream(root, fn, except) {
+    root.querySelectorAll(_CAMERA_STREAM_SELECTOR).forEach((el) => {
+        if (except?.contains(el))
+            return;
         try {
-            el.pauseStream?.();
+            fn(el);
         }
         catch {
             /* ignore */
         }
     });
+}
+/** Stop live previews in the entity detail modal (MJPEG/WebM and Mammotion Agora). */
+export function pauseEntityDetailCameraStreams(root = document.getElementById('entity-detail-modal')) {
+    if (!root)
+        return;
+    _forEachCameraStream(root, (el) => el.pauseStream?.());
 }

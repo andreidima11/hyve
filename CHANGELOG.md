@@ -4,6 +4,16 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.10] — 2026-06
+
+Hotfix: **Mammotion viewer-blocked loop** — one Agora session per entity, no duplicate card fights.
+
+### Frontend
+- **Fix:** Opening the entity detail modal pauses dashboard/background Mammotion streams; closing resumes them.
+- **Fix:** Dashboard Mammotion card no longer uses `force-active` (was streaming while off-screen and blocking other viewers).
+- **Fix:** Hidden/detached peer viewers are preempted instead of permanently blocking connect (`viewer-blocked` spam).
+- **Fix:** `user-published` no longer ignored before `_channelJoined` is set; video host sizing improved.
+
 ## [0.9.8.9] — 2026-06
 
 Hotfix: **Mammotion reconnect loop** — stop re-waking the mower on every Agora retry.
