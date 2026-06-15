@@ -277,6 +277,10 @@ def _is_ignored_dirty_path(path: str) -> bool:
         return True
     if normalized.startswith("static/") and normalized.endswith(".js.map"):
         return True
+    if "/__pycache__/" in normalized or normalized.startswith("__pycache__/"):
+        return True
+    if normalized.endswith(".pyc"):
+        return True
     return False
 
 

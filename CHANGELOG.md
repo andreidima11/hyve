@@ -4,6 +4,14 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.6] — 2026-06
+
+Hotfix: **in-app update** no longer blocked by Python `__pycache__` / `.pyc` files.
+
+### Hyve self-update
+- **Fix:** Ignore and auto-reset dirty `__pycache__/` and `*.pyc` paths during update checks (runtime bytecode cache).
+- **Fix:** Remove accidentally tracked `custom_components/demo_sensor/__pycache__/entity.cpython-313.pyc` from the repo.
+
 ## [0.9.8.5] — 2026-06
 
 Hotfix: **Vite chunk import paths** — fixes broken lazy modules, Mammotion camera, and add-ons UI.

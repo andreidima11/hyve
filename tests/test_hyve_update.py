@@ -133,6 +133,7 @@ def test_blocking_dirty_lines_ignores_build_artifacts():
             " M config.json",
             " M static/hyveview/elements/camera_stream.js",
             " M static/hyveview/elements/mammotion_camera.js.map",
+            " M custom_components/demo_sensor/__pycache__/entity.cpython-313.pyc",
             " M core/settings.py",
         ]
     )
