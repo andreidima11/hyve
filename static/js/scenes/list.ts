@@ -16,6 +16,15 @@ import * as render from './render.js';
 
 import { ensureEntityCatalog } from './editor.js';
 
+function _refreshScenesI18n() {
+    if (!document.getElementById('scenes-list')) return;
+    render._renderScenesList();
+}
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('hyve:i18n-bundles-loaded', _refreshScenesI18n);
+}
+
 export async function loadScenes() {
     const wrap = document.getElementById('scenes-list');
     if (wrap && !sceneState.scenesCache.length) {

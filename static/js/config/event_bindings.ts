@@ -11,9 +11,22 @@ function _inConfigScope(el: Element | null | undefined): boolean {
     return !!el?.closest('#view-config');
 }
 
+const _CONFIG_MODAL_SELECTORS = [
+    '#update-release-notes-modal',
+    '#backup-encryption-key-modal',
+    '#scene-editor-modal',
+    '#scene-entity-picker-modal',
+    '#area-editor-modal',
+    '#area-entity-picker-modal',
+].join(', ');
+
 function _inGlobalConfigModal(el: Element | null | undefined): boolean {
     if (!el) return false;
-    return !!el.closest('#update-release-notes-modal, #backup-encryption-key-modal');
+    return !!el.closest(_CONFIG_MODAL_SELECTORS);
+}
+
+function _inDelegatedConfigScope(el: Element | null | undefined): boolean {
+    return _inConfigScope(el) || _inGlobalConfigModal(el);
 }
 
 function _run(action: string, el: HTMLElement, event: Event): void {
@@ -22,7 +35,7 @@ function _run(action: string, el: HTMLElement, event: Event): void {
         _handlers.closeAddonWebUI?.(event, el);
         return;
     }
-    if (!_inConfigScope(el) && !_inGlobalConfigModal(el)) return;
+    if (!_inDelegatedConfigScope(el)) return;
     if (el.dataset.configBackdropDismiss === 'true' && event.target !== el) return;
 
     switch (action) {
@@ -194,7 +207,7 @@ function _onClick(event: MouseEvent): void {
 
 function _onInput(event: Event): void {
     const el = (event.target as Element | null)?.closest('[data-config-input]') as HTMLInputElement | null;
-    if (!el || !_inConfigScope(el)) return;
+    if (!el || !_inDelegatedConfigScope(el)) return;
     const kind = el.dataset.configInput;
     if (!kind || !_handlers) return;
     if (kind === 'filterSceneEntityPicker') _handlers.filterSceneEntityPicker?.(event, el);
@@ -203,7 +216,7 @@ function _onInput(event: Event): void {
 
 function _onChange(event: Event): void {
     const el = (event.target as Element | null)?.closest('[data-config-input]') as HTMLInputElement | null;
-    if (!el || !_inConfigScope(el)) return;
+    if (!el || !_inDelegatedConfigScope(el)) return;
     const kind = el.dataset.configInput;
     if (!kind || !_handlers) return;
     if (kind === 'onProfileProviderChange') _handlers.onProfileProviderChange?.(event, el);

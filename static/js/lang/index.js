@@ -13,6 +13,7 @@
  */
 import en from './en.js';
 import ro from './ro.js';
+import { resolveAuthToken } from '../api.js';
 import { initDashboardSidebarNav } from '../nav_bridge.js';
 
 // Registry: add new language by adding one entry here and creating <code>.js
@@ -60,9 +61,7 @@ export const mergeComponentTranslations = mergeBundledTranslations;
 
 /** Fetch decentralised translations (components, add-ons, platform bundles) and merge them. */
 export async function loadBundledTranslations(lang) {
-    const token = (() => {
-        try { return localStorage.getItem('hyve_token') || ''; } catch (_) { return ''; }
-    })();
+    const token = resolveAuthToken();
     if (!token) return;
     const queryLang = lang || currentLanguage || DEFAULT_LANG;
     try {
@@ -73,6 +72,9 @@ export async function loadBundledTranslations(lang) {
         const payload = await res.json();
         mergeBundledTranslations(payload);
         applyTranslations();
+        try {
+            window.dispatchEvent(new CustomEvent('hyve:i18n-bundles-loaded'));
+        } catch (_) {}
     } catch (_) {}
 }
 

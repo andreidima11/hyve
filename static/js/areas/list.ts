@@ -9,6 +9,15 @@ import type { AreaEntityRef, HyveArea } from './state.js';
 import { areaState } from './state.js';
 import * as render from './render.js';
 
+function _refreshAreasI18n() {
+    if (!document.getElementById('areas-list')) return;
+    render._renderAreas();
+}
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('hyve:i18n-bundles-loaded', _refreshAreasI18n);
+}
+
 export async function loadAreas() {
     const list = document.getElementById('areas-list');
     if (list && !areaState.areasCache.length) {

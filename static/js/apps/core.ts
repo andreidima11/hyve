@@ -20,6 +20,14 @@ import * as render from './render.js';
 import { startPoll, stopPoll, refreshDetailStatus } from './poll.js';
 import { toggleAddonWatchdog } from './lifecycle.js';
 
+if (typeof window !== 'undefined') {
+    window.addEventListener('hyve:i18n-bundles-loaded', () => {
+        if (document.getElementById('apps-list') && appsState.addonsCache.length) {
+            void loadApps();
+        }
+    });
+}
+
 function _wireAddonDetailControls(slug: string) {
     const cb = document.getElementById(`addon-watchdog-${slug}`) as HTMLInputElement | null;
     if (!cb || cb.dataset.watchdogBound === '1') return;

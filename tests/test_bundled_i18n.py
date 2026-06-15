@@ -24,6 +24,12 @@ def test_platform_cameras_namespace():
     assert isinstance(payload["cameras"].get("not_found"), str)
 
 
+def test_platform_scenes_namespace():
+    payload = get_platform_translations("en", force=True)
+    assert "scenes" in payload
+    assert isinstance(payload["scenes"].get("new_scene"), str)
+
+
 def test_bundled_merge_includes_apps(monkeypatch):
     monkeypatch.setattr(
         bundle_i18n.component_i18n,

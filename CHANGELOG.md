@@ -4,6 +4,19 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.2] — 2026-06
+
+Patch release: **Scenes & Zones UI** — modal buttons, missing i18n bundles, and scene editor open action.
+
+### Frontend
+- **Fix:** Area editor modal is moved to `document.body` for overlay — config delegated handlers now include scene/area modals and entity pickers in scope (Save, Cancel, Add entities work again).
+- **Fix:** `openSceneEditor` handler registered — “New scene” and edit buttons open the editor.
+- **Fix:** Bundled translations (`scenes.*`, `apps.*`, `hy.*`) — `resolveAuthToken()` for `/api/i18n/bundles`; dynamic lists re-render on `hyve:i18n-bundles-loaded`.
+- **Fix:** `api.js` exports `resolveAuthToken()` (sync with `api.ts`) for Vite shared bundle.
+
+### Tests
+- `tests/test_bundled_i18n.py` — platform `scenes` namespace in bundles.
+
 ## [0.9.8.1] — 2026-06
 
 Patch release: **post-update stability** — shared auth token, safer in-app updates, Mammotion Agora session race.

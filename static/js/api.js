@@ -1,5 +1,20 @@
 /** HTTP client with JWT refresh for Hyve API routes. */
 export let authToken = localStorage.getItem('hyve_token');
+
+/** Canonical bearer token — reads localStorage so every ESM copy stays in sync. */
+export function resolveAuthToken() {
+    try {
+        const stored = localStorage.getItem('hyve_token');
+        if (stored && stored !== 'null' && stored !== 'undefined') {
+            authToken = stored;
+            return stored;
+        }
+    }
+    catch {
+        /* storage blocked */
+    }
+    return authToken;
+}
 let _refreshToken = localStorage.getItem('hyve_refresh_token');
 let _suppressLogout = false;
 let _refreshing = null;
@@ -92,8 +107,9 @@ export async function apiCall(url, options = {}) {
     const headers = {
         ...(rest.headers || {}),
     };
-    if (authToken) {
-        headers.Authorization = `Bearer ${authToken}`;
+    const token = resolveAuthToken();
+    if (token) {
+        headers.Authorization = `Bearer ${token}`;
     }
     let body = rawBody === null ? null : rawBody;
     if (rawBody && typeof rawBody === 'object' && !(rawBody instanceof FormData) && !headers['Content-Type']) {
@@ -125,13 +141,15 @@ export async function apiCall(url, options = {}) {
             clearTimeout(timeoutId);
     }
     if (res.status === 401 && !_suppressLogout) {
-        const hadAuth = !!(authToken || headers.Authorization);
+        const hadAuth = !!resolveAuthToken();
         if (!hadAuth) {
             return res;
         }
         const refreshed = await _tryRefresh();
         if (refreshed) {
-            headers.Authorization = `Bearer ${authToken}`;
+            const retryToken = resolveAuthToken();
+            if (retryToken)
+                headers.Authorization = `Bearer ${retryToken}`;
             return fetch(url, fetchOpts);
         }
         clearAuthToken();
