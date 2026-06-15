@@ -4,6 +4,15 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.7] — 2026-06
+
+Patch release: **permanent in-app update hygiene** — central runtime-artifact rules + CI gate.
+
+### Hyve self-update
+- **New:** `core/update_git_tree.py` — single classifier for safe runtime dirty paths (`__pycache__`, `.pyc`, `static/dist/`, `static/hyveview/`, legacy `static/js/*.js`, caches, logs, etc.).
+- **New:** Before each update, Hyve auto-resets all paths classified as runtime artifacts (`git checkout --`), then only blocks on real source edits.
+- **New:** `scripts/check_tracked_artifacts.py` + release/CI check — fails if `__pycache__`, `.pyc`, or `static/dist/` are accidentally committed again.
+
 ## [0.9.8.6] — 2026-06
 
 Hotfix: **in-app update** no longer blocked by Python `__pycache__` / `.pyc` files.

@@ -15,18 +15,12 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import core.settings as settings
+from core.update_git_tree import is_safe_runtime_dirty_path
 
 log = logging.getLogger(__name__)
 
 DEFAULT_GITHUB_REPO = "andreidima11/hyve"
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
-# Local rebuild outputs and server-specific files — do not block in-app update.
-_DIRTY_IGNORE_PATHS = (
-    "config.json",
-    "static/css/tailwind.built.css",
-    "package-lock.json",
-)
 
 _FRONTEND_DIST_APP = _PROJECT_ROOT / "static" / "dist" / "app.js"
 _FRONTEND_BUILD_COMMANDS = "npm ci && npm run js:build"
@@ -266,22 +260,7 @@ def _dirty_path_from_porcelain(line: str) -> str:
 
 
 def _is_ignored_dirty_path(path: str) -> bool:
-    normalized = path.replace("\\", "/")
-    if normalized in _DIRTY_IGNORE_PATHS:
-        return True
-    if normalized.startswith("static/dist/"):
-        return True
-    if normalized.startswith("static/hyveview/"):
-        return True
-    if normalized.startswith("static/js/") and normalized.endswith(".js"):
-        return True
-    if normalized.startswith("static/") and normalized.endswith(".js.map"):
-        return True
-    if "/__pycache__/" in normalized or normalized.startswith("__pycache__/"):
-        return True
-    if normalized.endswith(".pyc"):
-        return True
-    return False
+    return is_safe_runtime_dirty_path(path)
 
 
 def _ignored_dirty_paths_from_porcelain(porcelain: str) -> list[str]:
@@ -419,7 +398,7 @@ def _assert_git_ready() -> None:
 
 
 def _reset_ignored_dirty_paths() -> list[str]:
-    """Discard local diffs on build artifacts so npm rebuilds do not block in-app update."""
+    """Discard local diffs on runtime/build artifacts (see ``core/update_git_tree.py``)."""
     if not is_git_install():
         return []
     status = _run_cmd(

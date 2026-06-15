@@ -47,10 +47,22 @@ def _strict_runtime_checks() -> list[str]:
     return settings.get_runtime_requirement_errors(settings.CFG, env=env_view)
 
 
+def _tracked_artifact_checks() -> list[str]:
+    from scripts.check_tracked_artifacts import forbidden_tracked_files
+
+    bad = forbidden_tracked_files()
+    if not bad:
+        return []
+    preview = ", ".join(bad[:5])
+    suffix = f" (+{len(bad) - 5} more)" if len(bad) > 5 else ""
+    return [f"Forbidden tracked artifacts in git: {preview}{suffix} — run: python scripts/check_tracked_artifacts.py"]
+
+
 def main() -> int:
     issues = []
     issues.extend(_version_checks())
     issues.extend(_strict_runtime_checks())
+    issues.extend(_tracked_artifact_checks())
 
     if issues:
         print("Release checks failed:")
