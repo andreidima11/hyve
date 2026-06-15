@@ -94,3 +94,35 @@ def test_is_mammotion_camera_accepts_stream_type():
         "attributes": {"stream_type": "agora_webrtc"},
     }
     assert _is_mammotion_camera(ent) is True
+
+
+def test_keepalive_mammotion_camera_wakes_and_refreshes_tokens(monkeypatch):
+    import asyncio
+
+    from components.mammotion import camera_stream as mod
+
+    wake_calls: list[str] = []
+    refresh_calls: list[tuple[str, bool]] = []
+
+    async def _wake(hub, name):
+        wake_calls.append(name)
+
+    async def _refresh(hub, name, *, force=False):
+        refresh_calls.append((name, force))
+        return {"appid": "a", "channelName": "c", "token": "t", "uid": 1}
+
+    async def _ensure(hub):
+        return hub
+
+    async def _resolve(hub, name):
+        return name, "iot"
+
+    monkeypatch.setattr(mod, "_ensure_cloud_http", _ensure)
+    monkeypatch.setattr(mod, "_resolve_device_ref", _resolve)
+    monkeypatch.setattr(mod, "_try_mqtt_camera_wake", _wake)
+    monkeypatch.setattr(mod, "refresh_mammotion_stream_tokens", _refresh)
+
+    out = asyncio.run(mod.keepalive_mammotion_camera(object(), "Luba-VID01"))
+    assert wake_calls == ["Luba-VID01"]
+    assert refresh_calls == [("Luba-VID01", True)]
+    assert out["token"] == "t"

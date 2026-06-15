@@ -58,8 +58,18 @@ def get_startup_status() -> dict[str, Any]:
             message = pending[0]
         else:
             message = "starting"
+        task_total = len(_tasks)
+        task_done = task_total - len(pending)
 
     elapsed = max(0.0, time.time() - _started_at)
+    if ready:
+        progress = 100
+    elif not _core_ready:
+        progress = min(18, int(8 + elapsed * 2))
+    else:
+        # Core HTTP is up; background tasks (integrations, addons) finish loading.
+        progress = 35 + int(55 * task_done / max(task_total, 1))
+
     return {
         "ready": ready,
         "core_ready": _core_ready,
@@ -68,4 +78,5 @@ def get_startup_status() -> dict[str, Any]:
         "pending": pending,
         "pending_labels": [_TASK_LABELS.get(p, p) for p in pending],
         "elapsed_seconds": round(elapsed, 1),
+        "progress": progress,
     }

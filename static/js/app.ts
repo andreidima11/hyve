@@ -21,6 +21,7 @@ import { toggleModelSelector, closeModelSelector } from './chat/model_selector.j
 import { setUserProfileContext, loadUserProfilePage, switchUserProfileTab, saveUserProfileGeneral, saveUserProfileSecurity } from './user_profile.js';
 import { initNotifications, loadUserNotifications, switchUserNotificationFilter, toggleUserNotificationFilterMenu, markUserNotificationRead, archiveUserNotification, deleteUserNotification, clearAllUserNotifications, changeUserNotificationsPage, loadNotificationCounts, updateNotificationBadge, navigateNotification } from './notifications.js';
 import { startStartupStatusPolling, showHubStartupLoadingAfterRestart } from './startup_status.js';
+import { completeBootProgress, refreshBootProgress, resetBootProgress } from './boot_progress.js';
 import { importWithCacheBust } from './asset_version.js';
 import { setIsAdmin, setNotificationTimer } from './user_context.js';
 import {
@@ -722,9 +723,11 @@ async function bootHyve() {
     // Always start with overlay visible. CSS transition handles the fade.
     const overlay = document.getElementById('boot-overlay');
     if (overlay) overlay.classList.remove('is-hidden');
-    setBootMessage('Se încarcă...');
+    resetBootProgress();
+    await refreshBootProgress(0, t('app.boot_loading'));
 
     suppressLogout(true);
+    await refreshBootProgress(8, t('app.boot_step_setup'));
     let setupStatus: HyveSetupStatus | null = null;
     try {
         setupStatus = await withDashboardTimeout(
@@ -748,6 +751,7 @@ async function bootHyve() {
     suppressLogout(false);
 
     // Step 1: ensure we have a valid token (existing → autologin → fail)
+    await refreshBootProgress(22, t('app.boot_step_auth'));
     const stored = localStorage.getItem('hyve_token');
     let hasToken = stored && stored !== 'null' && stored !== 'undefined';
     let profile: (UserProfileResponse & { id?: string | number }) | null = null;
@@ -781,21 +785,25 @@ async function bootHyve() {
 
     // Step 2: profile loaded. Respect deep links before the dashboard default.
     applyProfileFlags(profile);
+    await refreshBootProgress(42, t('app.boot_step_config'));
     await syncUiLanguageFromConfig();
     try { initDashboardSidebarNav(); } catch (_) {}
     hideLoginScreen();
     if (routeHashToView()) {
+        completeBootProgress(t('app.boot_step_ready'));
         hideBootOverlay();
         startBackgroundLoaders(profile);
         return;
     }
 
     // No deep link: switch to dashboard FIRST (cheap), then reveal.
+    await refreshBootProgress(58, t('app.boot_step_dashboard'));
     try { switchTab('dashboard'); } catch (e) { console.warn('switchTab failed', e); }
 
     // Step 2b: wait for the dashboard's first paint (entities + render).
     // switchTab() already kicked off loadDashboard(); the in-flight dedup
     // means this just awaits the same promise instead of double-fetching.
+    await refreshBootProgress(72, t('app.boot_step_dashboard'));
     try {
         await withDashboardTimeout(loadDashboard(), 20000, 'Dashboard boot timeout');
     } catch (e) {
@@ -803,6 +811,7 @@ async function bootHyve() {
     }
 
     // Step 3: reveal app — dashboard is already populated. Heavy loaders run in background.
+    completeBootProgress(t('app.boot_step_ready'));
     hideBootOverlay();
     startBackgroundLoaders(profile);
 }

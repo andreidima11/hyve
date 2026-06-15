@@ -349,6 +349,14 @@ async def _try_mqtt_camera_prep(hub: Any, device_name: str) -> None:
         log.debug("mammotion camera mqtt prep for %s: %s", device_name, exc)
 
 
+async def keepalive_mammotion_camera(hub: Any, device_name: str) -> dict[str, Any]:
+    """Keep the mower encoder awake and return a fresh Agora token (viewer keepalive)."""
+    await _ensure_cloud_http(hub)
+    canonical_name, _iot_id = await _resolve_device_ref(hub, device_name)
+    await _try_mqtt_camera_wake(hub, canonical_name)
+    return await refresh_mammotion_stream_tokens(hub, canonical_name, force=True)
+
+
 async def start_mammotion_camera(hub: Any, device_name: str) -> dict[str, Any]:
     """Wake the mower encoder (when MQTT is up) and return fresh Agora tokens."""
     import asyncio

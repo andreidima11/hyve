@@ -6,14 +6,22 @@
  *   alt     — accessible label
  */
 import { apiCall } from '../../js/api.js';
-import { translateApiDetail } from '../../js/lang/index.js';
+import { t, translateApiDetail } from '../../js/lang/index.js';
 import { cameraLoaderMarkup, hideCameraLoader, showCameraLoaderError, showCameraLoaderLoading, } from '../../js/camera_loader.js';
 const AGORA_SDK_URL = 'https://download.agora.io/sdk/release/AgoraRTC_N.js';
 const MAMMOTION_CAMERA_API_TIMEOUT = 120000;
 const JOIN_RELEASE_MS = 500;
 const PUBLISHER_WAKE_MS = 2500;
 const VIDEO_WAIT_MS = 30000;
+const KEEPALIVE_MS = 90000;
+const RECONNECT_BASE_MS = 2000;
+const RECONNECT_MAX_MS = 30000;
 let _agoraSdkPromise = null;
+function _mcam(key, params) {
+    const full = `cameras.${key}`;
+    const out = t(full, params);
+    return out !== full ? out : key;
+}
 /** One live Agora viewer per camera entity — avoids UID_CONFLICT across tabs/cards. */
 const _entitySessions = new Map();
 const _joinChains = new Map();
@@ -62,7 +70,7 @@ async function mammotionCameraApi(url, init = {}) {
     }
     if (!res.ok) {
         const detail = translateApiDetail(data.detail) || String(data.message || '').trim();
-        throw new Error(detail || raw.slice(0, 240) || `Cerere eșuată (${res.status})`);
+        throw new Error(detail || raw.slice(0, 240) || t('common.error'));
     }
     return data;
 }
@@ -86,11 +94,11 @@ function loadAgoraSdk() {
                 if (window.AgoraRTC)
                     resolve();
                 else
-                    fail('Agora SDK indisponibil după încărcare');
+                    fail(_mcam('mammotion_agora_unavailable'));
             }, { once: true });
             existing.addEventListener('error', () => {
                 existing.remove();
-                fail('Nu s-a putut încărca SDK-ul Agora (verifică conexiunea)');
+                fail(_mcam('mammotion_agora_load_failed'));
             }, { once: true });
             return;
         }
@@ -102,11 +110,11 @@ function loadAgoraSdk() {
             if (window.AgoraRTC)
                 resolve();
             else
-                fail('Agora SDK indisponibil după încărcare');
+                fail(_mcam('mammotion_agora_unavailable'));
         };
         script.onerror = () => {
             script.remove();
-            fail('Nu s-a putut încărca SDK-ul Agora (verifică conexiunea)');
+            fail(_mcam('mammotion_agora_load_failed'));
         };
         document.head.appendChild(script);
     });
@@ -127,6 +135,9 @@ class HyveMammotionCamera extends HTMLElement {
         this._visible = false;
         this._paused = false;
         this._videoWaitTimer = null;
+        this._keepaliveTimer = null;
+        this._reconnectTimer = null;
+        this._reconnectAttempts = 0;
         this._onVisibility = () => {
             if (document.hidden)
                 this.pauseStream();
@@ -134,6 +145,20 @@ class HyveMammotionCamera extends HTMLElement {
     }
     static get observedAttributes() {
         return ['entity', 'alt', 'autoplay', 'force-active'];
+    }
+    _logStreamEvent(event, detail = {}) {
+        const payload = {
+            event,
+            entity: this._entity,
+            playing: this._playing,
+            connecting: this._connecting,
+            reconnectAttempts: this._reconnectAttempts,
+            autoplay: this._wantsAutoplay(),
+            visible: this._effectivelyVisible,
+            ts: Date.now(),
+            ...detail,
+        };
+        console.warn('[hv-mammotion-camera]', payload);
     }
     connectedCallback() {
         if (!this._stage)
@@ -193,6 +218,43 @@ class HyveMammotionCamera extends HTMLElement {
     get _effectivelyVisible() {
         return this._forceActive || this._visible;
     }
+    _shouldStayLive() {
+        return !this._paused
+            && this._effectivelyVisible
+            && !document.hidden
+            && !!this._entity
+            && (this._wantsAutoplay() || this._playing || this._connecting);
+    }
+    _clearReconnectTimer() {
+        if (this._reconnectTimer) {
+            window.clearTimeout(this._reconnectTimer);
+            this._reconnectTimer = null;
+        }
+    }
+    _scheduleReconnect(reason) {
+        if (!this._shouldStayLive())
+            return;
+        if (this._reconnectTimer || this._connecting)
+            return;
+        const delay = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * Math.pow(1.5, this._reconnectAttempts));
+        this._logStreamEvent('reconnect-scheduled', { reason, delayMs: delay });
+        this._reconnectTimer = window.setTimeout(() => {
+            this._reconnectTimer = null;
+            void this._attemptReconnect(reason);
+        }, delay);
+    }
+    _stopKeepalive() {
+        if (this._keepaliveTimer) {
+            window.clearInterval(this._keepaliveTimer);
+            this._keepaliveTimer = null;
+        }
+    }
+    _startKeepalive() {
+        this._stopKeepalive();
+        this._keepaliveTimer = window.setInterval(() => {
+            void this._keepaliveTick();
+        }, KEEPALIVE_MS);
+    }
     _scheduleAutoplay() {
         if (!this._wantsAutoplay() || this._paused || !this._effectivelyVisible || document.hidden)
             return;
@@ -205,7 +267,7 @@ class HyveMammotionCamera extends HTMLElement {
         if (this._playing || this._connecting)
             return;
         this._setState('loading');
-        this._setIdleMessage('Conectare…');
+        this._setIdleMessage(_mcam('mammotion_connecting'));
     }
     _maybeAutoplay() {
         if (!this._wantsAutoplay() || this._paused || !this._effectivelyVisible || document.hidden)
@@ -240,10 +302,10 @@ class HyveMammotionCamera extends HTMLElement {
         hideCameraLoader(this._loader);
         this.dataset.state = 'idle';
     }
-    _setIdleMessage(msg = 'Apasă play pentru live') {
+    _setIdleMessage(msg) {
         const hint = this.querySelector('[data-mammotion-hint]');
         if (hint)
-            hint.textContent = msg;
+            hint.textContent = msg ?? _mcam('mammotion_press_play');
     }
     _setState(state) {
         this.dataset.state = state;
@@ -265,7 +327,95 @@ class HyveMammotionCamera extends HTMLElement {
         const started = await mammotionCameraApi(`/api/cameras/${eid}/mammotion/start`, { method: 'POST' });
         if (started?.tokens?.appid)
             return started.tokens;
-        throw new Error('Token video indisponibil');
+        throw new Error(_mcam('mammotion_token_unavailable'));
+    }
+    async _fetchKeepaliveTokens() {
+        const eid = encodeURIComponent(this._entity);
+        const resp = await mammotionCameraApi(`/api/cameras/${eid}/mammotion/keepalive`, { method: 'POST' });
+        if (resp?.tokens?.appid)
+            return resp.tokens;
+        throw new Error(_mcam('mammotion_token_unavailable'));
+    }
+    async _renewClientToken(token) {
+        const client = this._client;
+        if (!client)
+            return;
+        try {
+            await client.renewToken(token);
+        }
+        catch (err) {
+            console.warn('[hv-mammotion-camera] renewToken failed', err);
+            throw err;
+        }
+    }
+    async _refreshAgoraToken(wakeRobot) {
+        if (!this._client || !this._entity)
+            return;
+        const tokens = wakeRobot
+            ? await this._fetchKeepaliveTokens()
+            : await mammotionCameraApi(`/api/cameras/${encodeURIComponent(this._entity)}/mammotion/tokens`).then((r) => r.tokens);
+        if (tokens?.token)
+            await this._renewClientToken(tokens.token);
+    }
+    async _keepaliveTick() {
+        if (!this._playing || this._paused || !this._shouldStayLive())
+            return;
+        try {
+            await this._refreshAgoraToken(true);
+            this._reconnectAttempts = 0;
+        }
+        catch (err) {
+            this._logStreamEvent('keepalive-failed', { error: String(err) });
+            if (this._playing && this._shouldStayLive())
+                this._scheduleReconnect('keepalive-failed');
+        }
+    }
+    async _attemptReconnect(reason) {
+        if (!this._shouldStayLive())
+            return;
+        if (this._connecting)
+            return;
+        const entity = this._entity;
+        if (!entity)
+            return;
+        this._logStreamEvent('reconnect-start', { reason });
+        this._connecting = true;
+        this._setState('loading');
+        this._setIdleMessage(_mcam('mammotion_reconnecting'));
+        try {
+            await _withEntityJoinLock(entity, async () => {
+                if (!this._shouldStayLive() || this._entity !== entity)
+                    return;
+                await this._releaseOtherViewers();
+                await this._leaveClient();
+                if (!this._shouldStayLive() || this._entity !== entity)
+                    return;
+                const tokens = await this._fetchTokens();
+                if (!this._shouldStayLive() || this._entity !== entity)
+                    return;
+                await this._connectAgora(tokens, 0);
+            });
+            this._reconnectAttempts = 0;
+            this._logStreamEvent('reconnect-success', { reason });
+        }
+        catch (err) {
+            this._logStreamEvent('reconnect-failed', { reason, error: String(err) });
+            this._reconnectAttempts += 1;
+            if (this._reconnectAttempts >= 8 || !this._wantsAutoplay()) {
+                this._unregisterSession();
+                const msg = err instanceof Error ? err.message : _mcam('mammotion_connection_lost_short');
+                this._setIdleMessage(this._wantsAutoplay()
+                    ? `${msg} ${_mcam('mammotion_press_play_suffix')}`
+                    : _mcam('mammotion_connection_lost'));
+                this._setState('idle');
+                return;
+            }
+            this._scheduleReconnect(reason);
+        }
+        finally {
+            if (!this._playing)
+                this._connecting = false;
+        }
     }
     _unregisterSession() {
         if (this._entity && _entitySessions.get(this._entity) === this) {
@@ -305,7 +455,8 @@ class HyveMammotionCamera extends HTMLElement {
             void this._leaveClient();
             this._unregisterSession();
             this._setState('idle');
-            this._setIdleMessage('Robotul nu trimite video — pornește camera în app Mammotion, apoi reîncearcă');
+            this._setIdleMessage(_mcam('mammotion_no_video'));
+            this._logStreamEvent('video-wait-timeout');
         }, VIDEO_WAIT_MS);
     }
     async _playRemoteVideo(remote) {
@@ -318,6 +469,9 @@ class HyveMammotionCamera extends HTMLElement {
         this._playing = true;
         this._connecting = false;
         this._clearVideoWaitTimer();
+        this._reconnectAttempts = 0;
+        this._startKeepalive();
+        this._logStreamEvent('playing');
         this._setState('ready');
         this._setIdleMessage('');
     }
@@ -340,7 +494,7 @@ class HyveMammotionCamera extends HTMLElement {
     async _connectAgora(tokens, attempt) {
         await loadAgoraSdk();
         if (!window.AgoraRTC)
-            throw new Error('Agora SDK indisponibil');
+            throw new Error(_mcam('mammotion_agora_unavailable'));
         await this._leaveClient();
         const client = window.AgoraRTC.createClient({
             mode: 'live',
@@ -363,19 +517,49 @@ class HyveMammotionCamera extends HTMLElement {
             this._remoteUsers = this._remoteUsers.filter(u => u.uid !== remote.uid);
             if (!this._remoteUsers.length) {
                 this._playing = false;
-                this._setState('idle');
-                this._setIdleMessage('Stream oprit — apasă play');
+                this._stopKeepalive();
                 if (this._videoHost)
                     this._videoHost.innerHTML = '';
+                if (this._shouldStayLive() && this._wantsAutoplay()) {
+                    this._logStreamEvent('publisher-left');
+                    this._setState('loading');
+                    this._setIdleMessage(_mcam('mammotion_reconnecting'));
+                    this._scheduleReconnect('publisher-left');
+                }
+                else {
+                    this._setState('idle');
+                    this._setIdleMessage(_mcam('mammotion_stream_stopped'));
+                }
+            }
+        });
+        client.on('token-privilege-will-expire', () => {
+            this._logStreamEvent('token-will-expire');
+            void this._refreshAgoraToken(false).catch((err) => {
+                this._logStreamEvent('token-refresh-failed', { error: String(err) });
+            });
+        });
+        client.on('token-privilege-did-expire', () => {
+            this._logStreamEvent('token-expired');
+            if (this._shouldStayLive()) {
+                this._scheduleReconnect('token-expired');
             }
         });
         client.on('connection-state-change', (state) => {
             if (state === 'DISCONNECTED') {
                 this._playing = false;
                 this._connecting = false;
-                this._unregisterSession();
-                this._setState('idle');
-                this._setIdleMessage('Conexiune pierdută — apasă play');
+                this._stopKeepalive();
+                if (this._shouldStayLive() && this._wantsAutoplay()) {
+                    this._logStreamEvent('disconnected');
+                    this._setState('loading');
+                    this._setIdleMessage(_mcam('mammotion_reconnecting'));
+                    this._scheduleReconnect('disconnected');
+                }
+                else {
+                    this._unregisterSession();
+                    this._setState('idle');
+                    this._setIdleMessage(_mcam('mammotion_connection_lost'));
+                }
             }
         });
         // HA parity: host role + token uid (viewer slot from Mammotion cloud).
@@ -393,7 +577,7 @@ class HyveMammotionCamera extends HTMLElement {
                 return this._connectAgora(fresh, attempt + 1);
             }
             if (_isUidConflict(err)) {
-                throw new Error('Camera deja folosită (închide app Mammotion sau alte ferestre Hyve cu live), apoi apasă play din nou.');
+                throw new Error(_mcam('mammotion_uid_conflict'));
             }
             throw err;
         }
@@ -410,11 +594,11 @@ class HyveMammotionCamera extends HTMLElement {
                 return;
             this._connecting = true;
             this._setState('loading');
-            this._setIdleMessage('Conectare…');
+            this._setIdleMessage(_mcam('mammotion_connecting'));
             const abort = () => {
                 this._connecting = false;
                 this._setState('idle');
-                this._setIdleMessage('Apasă play pentru live');
+                this._setIdleMessage();
             };
             try {
                 await this._releaseOtherViewers();
@@ -434,15 +618,18 @@ class HyveMammotionCamera extends HTMLElement {
                 this._connecting = false;
                 this._playing = false;
                 this._unregisterSession();
-                const msg = err instanceof Error ? err.message : 'Eroare cameră';
+                const msg = err instanceof Error ? err.message : _mcam('mammotion_camera_error');
                 this._setIdleMessage(msg);
                 this._setState('error');
-                console.warn('[hv-mammotion-camera]', err);
+                this._logStreamEvent('playback-failed', { error: msg });
             }
         });
     }
     async _teardown(stopDevice) {
         this._clearVideoWaitTimer();
+        this._clearReconnectTimer();
+        this._stopKeepalive();
+        this._reconnectAttempts = 0;
         this._connecting = false;
         this._playing = false;
         this._unregisterSession();
@@ -454,7 +641,7 @@ class HyveMammotionCamera extends HTMLElement {
             await _stopRemoteSession(this._entity);
         }
         this._setState('idle');
-        this._setIdleMessage('Apasă play pentru live');
+        this._setIdleMessage();
     }
 }
 if (!customElements.get('hv-mammotion-camera')) {

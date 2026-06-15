@@ -169,6 +169,7 @@ export interface StartupStatusResponse {
     ready?: boolean;
     pending?: string[];
     pending_labels?: string[];
+    progress?: number;
 }
 
 export interface DashboardWidgetLocateResult {

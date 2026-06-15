@@ -99,6 +99,31 @@
             color: rgba(148, 163, 184, 0.75);
             letter-spacing: 0.08em;
         }
+        .hyve-boot__progress-wrap {
+            width: min(220px, 72vw);
+        }
+        .hyve-boot__progress-track {
+            height: 3px;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--accent, #38bdf8) 14%, transparent);
+            overflow: hidden;
+        }
+        .hyve-boot__progress-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: inherit;
+            background: var(--accent, #38bdf8);
+            transition: width 360ms ease;
+            box-shadow: 0 0 12px color-mix(in srgb, var(--accent, #38bdf8) 45%, transparent);
+        }
+        .hyve-boot__progress-wrap.is-indeterminate .hyve-boot__progress-fill {
+            width: 38% !important;
+            animation: hyveBootIndeterminate 1.15s ease-in-out infinite;
+        }
+        @keyframes hyveBootIndeterminate {
+            0% { transform: translateX(-120%); }
+            100% { transform: translateX(320%); }
+        }
         [data-theme="light"] .hyve-boot__logo .hyve-me {
             color: #0f172a;
         }
@@ -639,6 +664,11 @@
                 </div>
             </div>
             <p id="boot-overlay-text" class="hyve-boot__text" data-i18n="app.boot_loading">Loading…</p>
+            <div id="boot-overlay-progress" class="hyve-boot__progress-wrap is-indeterminate" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="boot-overlay-text">
+                <div class="hyve-boot__progress-track">
+                    <div id="boot-overlay-progress-fill" class="hyve-boot__progress-fill"></div>
+                </div>
+            </div>
         </div>
     </div>
 

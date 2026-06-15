@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 import core.auth as auth
 import core.database as database
 import core.models as models
+from core.http.errors import error_detail
 
 router = APIRouter(prefix="/api/cameras", tags=["cameras"])
 log = logging.getLogger("cameras")
@@ -214,7 +215,7 @@ async def _camera_entity(entity_id: str) -> dict[str, Any]:
 
     needle = (entity_id or "").strip()
     if not needle:
-        raise HTTPException(404, f"Camera {entity_id!r} not found.")
+        raise HTTPException(404, error_detail("cameras.not_found", {"entity_id": entity_id}))
     needle_lower = needle.lower()
 
     for ent in await get_entities():
@@ -228,7 +229,7 @@ async def _camera_entity(entity_id: str) -> dict[str, Any]:
         if _camera_entity_matches(ent, needle, needle_lower):
             return dict(ent)
     log.warning("camera entity lookup missed %r (not in unified registry)", entity_id)
-    raise HTTPException(404, f"Camera {entity_id!r} not found.")
+    raise HTTPException(404, error_detail("cameras.not_found", {"entity_id": entity_id}))
 
 
 async def _image_entity(entity_id: str) -> dict[str, Any]:
@@ -238,7 +239,7 @@ async def _image_entity(entity_id: str) -> dict[str, Any]:
         if ent.get("entity_id") == entity_id and (ent.get("domain") == "image"
                                                   or str(entity_id).startswith("image.")):
             return dict(ent)
-    raise HTTPException(404, f"Image entity {entity_id!r} nu există.")
+    raise HTTPException(404, error_detail("cameras.image_not_found", {"entity_id": entity_id}))
 
 
 async def _camera_attrs(entity_id: str) -> dict[str, Any]:
@@ -419,7 +420,7 @@ async def camera_snapshot(
                 headers={"Cache-Control": "no-store"},
             )
         except asyncio.TimeoutError:
-            raise HTTPException(504, "Snapshot timeout")
+            raise HTTPException(504, error_detail("cameras.snapshot_timeout"))
         except Exception as exc:
             log.warning("reolink snapshot %s failed, trying RTSP: %s", entity_id, exc)
 
@@ -427,12 +428,8 @@ async def camera_snapshot(
     url = str(attrs.get("snapshot_url") or "").strip()
     if not url and not rtsp_url:
         if _is_tapo_entity(ent):
-            raise HTTPException(
-                404,
-                "Camera Tapo fără RTSP. Setează Cont cameră în Tapo App "
-                "(Setări → Avansate → Cont cameră) și completează rtsp_username/rtsp_password în integrare.",
-            )
-        raise HTTPException(404, "Camera nu expune snapshot.")
+            raise HTTPException(404, error_detail("cameras.tapo_no_rtsp"))
+        raise HTTPException(404, error_detail("cameras.no_snapshot"))
     try:
         if _prefer_http_snapshot(ent, attrs) and url:
 
@@ -471,15 +468,14 @@ async def camera_snapshot(
 
             resp = await asyncio.wait_for(_fetch(), timeout=_SNAPSHOT_DEADLINE)
     except asyncio.TimeoutError:
-        raise HTTPException(504, "Snapshot timeout")
+        raise HTTPException(504, error_detail("cameras.snapshot_timeout"))
     except Exception as exc:
         if _is_tapo_entity(ent):
             raise HTTPException(
                 502,
-                "Snapshot Tapo indisponibil. RTSP folosește Cont cameră (Tapo App → Setări cameră → "
-                f"Setări avansate → Cont cameră), nu neapărat contul cloud. Detaliu: {exc}",
+                error_detail("cameras.tapo_snapshot_failed", {"error": str(exc)}),
             ) from exc
-        raise HTTPException(502, f"Snapshot indisponibil: {exc}") from exc
+        raise HTTPException(502, error_detail("cameras.snapshot_unavailable", {"error": str(exc)})) from exc
     body = resp.content
     return Response(
         content=body,
@@ -508,7 +504,7 @@ async def image_snapshot(
         if state.startswith("http"):
             url = state
     if not url:
-        raise HTTPException(404, "Entitatea image nu expune o imagine.")
+        raise HTTPException(404, error_detail("cameras.image_no_url"))
     try:
         async def _fetch() -> httpx.Response:
             if _is_frigate_entity(ent):
@@ -519,9 +515,9 @@ async def image_snapshot(
                 return r
         resp = await asyncio.wait_for(_fetch(), timeout=_SNAPSHOT_DEADLINE)
     except asyncio.TimeoutError:
-        raise HTTPException(504, "Image snapshot timeout")
+        raise HTTPException(504, error_detail("cameras.image_snapshot_timeout"))
     except Exception as exc:
-        raise HTTPException(502, f"Image indisponibilă: {exc}")
+        raise HTTPException(502, error_detail("cameras.image_unavailable", {"error": str(exc)}))
     return Response(
         content=resp.content,
         media_type=resp.headers.get("content-type", "image/jpeg"),
@@ -539,7 +535,7 @@ async def camera_stream(
     url = _http_stream_url(attrs)
     rtsp_url = "" if url else await _resolve_rtsp_for_entity(ent, attrs)
     if not url and not rtsp_url:
-        raise HTTPException(404, "Camera does not expose an MJPEG or RTSP stream.")
+        raise HTTPException(404, error_detail("cameras.no_stream"))
 
     if rtsp_url:
         import core.cctv_capture as cctv_capture
@@ -613,10 +609,10 @@ async def camera_play(
     ent = await _camera_entity(entity_id)
     attrs = dict(ent.get("attributes") or {})
     if not _supports_webm_live(attrs):
-        raise HTTPException(404, "Camera nu suportă redare WebM live.")
+        raise HTTPException(404, error_detail("cameras.no_webm_live"))
     rtsp_url = await _resolve_rtsp_for_entity(ent, attrs)
     if not rtsp_url:
-        raise HTTPException(404, "Camera nu expune stream RTSP pentru redare WebM.")
+        raise HTTPException(404, error_detail("cameras.no_rtsp_for_webm"))
 
     import core.cctv_capture as cctv_capture
 
@@ -761,12 +757,12 @@ async def _tapo_device_for_entity(ent: dict[str, Any]) -> Any:
     manager = get_integration_manager()
     integration = manager.get_by_entry(entry_id) if entry_id else manager.get("tapo")
     if not integration or getattr(integration, "slug", "") != "tapo":
-        raise HTTPException(404, "Integrarea Tapo nu este disponibilă.")
+        raise HTTPException(404, error_detail("cameras.tapo_unavailable"))
     attrs = ent.get("attributes") or {}
     dev = await integration._connect()
     target = integration._find_device(dev, attrs.get("tapo_device_key"))
     if target is None:
-        raise HTTPException(404, "Dispozitivul Tapo nu a fost găsit.")
+        raise HTTPException(404, error_detail("cameras.tapo_device_not_found"))
     return integration, target
 
 
@@ -774,7 +770,7 @@ async def _apply_tapo_audio(target: Any, body: CameraAudioBody) -> None:
     action = (body.action or "").strip().lower()
     if action == "set_speaker_muted":
         if body.enabled is None:
-            raise HTTPException(400, "Câmpul enabled este obligatoriu.")
+            raise HTTPException(400, error_detail("cameras.field_enabled_required"))
         # Tapo has no global speaker mute — volume 0 is the closest match.
         volume = 0 if body.enabled else 50
         await target._raw_query({
@@ -784,7 +780,7 @@ async def _apply_tapo_audio(target: Any, body: CameraAudioBody) -> None:
         return
     if action == "set_microphone_muted":
         if body.enabled is None:
-            raise HTTPException(400, "Câmpul enabled este obligatoriu.")
+            raise HTTPException(400, error_detail("cameras.field_enabled_required"))
         await target._raw_query({
             "method": "set",
             "audio_config": {"microphone": {"mute": "on" if body.enabled else "off"}},
@@ -792,42 +788,42 @@ async def _apply_tapo_audio(target: Any, body: CameraAudioBody) -> None:
         return
     if action == "set_speaker_volume":
         if body.volume is None:
-            raise HTTPException(400, "Câmpul volume este obligatoriu.")
+            raise HTTPException(400, error_detail("cameras.field_volume_required"))
         await target._raw_query({
             "method": "set",
             "audio_config": {"speaker": {"volume": int(body.volume)}},
         })
         return
-    raise HTTPException(400, f"Acțiune audio Tapo necunoscută: {action}")
+    raise HTTPException(400, error_detail("cameras.tapo_audio_action_unknown", {"action": action}))
 
 
 async def _apply_reolink_audio(ent: dict[str, Any], attrs: dict[str, Any], body: CameraAudioBody) -> None:
     inst = _reolink_instance_for(ent)
     if not inst:
-        raise HTTPException(404, "Integrarea Reolink nu este disponibilă.")
+        raise HTTPException(404, error_detail("cameras.reolink_unavailable"))
     api = await inst._connect()
     ch = attrs.get("reolink_channel")
     if ch is None:
-        raise HTTPException(400, "Canalul Reolink lipsește din atribute.")
+        raise HTTPException(400, error_detail("cameras.reolink_channel_missing"))
     channel = int(ch)
     action = (body.action or "").strip().lower()
     if action == "set_speaker_volume":
         if body.volume is None:
-            raise HTTPException(400, "Câmpul volume este obligatoriu.")
+            raise HTTPException(400, error_detail("cameras.field_volume_required"))
         await api.set_volume(channel, volume_speak=int(body.volume))
         return
     if action == "set_microphone_muted":
         if body.enabled is None:
-            raise HTTPException(400, "Câmpul enabled este obligatoriu.")
+            raise HTTPException(400, error_detail("cameras.field_enabled_required"))
         await api.set_audio(channel, enable=not body.enabled)
         return
     if action == "set_speaker_muted":
         if body.enabled is None:
-            raise HTTPException(400, "Câmpul enabled este obligatoriu.")
+            raise HTTPException(400, error_detail("cameras.field_enabled_required"))
         if body.enabled:
             await api.set_volume(channel, volume_speak=0)
         return
-    raise HTTPException(400, f"Acțiune audio Reolink necunoscută: {action}")
+    raise HTTPException(400, error_detail("cameras.reolink_audio_action_unknown", {"action": action}))
 
 
 @router.post("/{entity_id}/audio")
@@ -846,13 +842,13 @@ async def camera_audio_settings(
         elif source == "reolink":
             await _apply_reolink_audio(ent, attrs, body)
         else:
-            raise HTTPException(400, "Setările audio nu sunt suportate pentru această cameră.")
+            raise HTTPException(400, error_detail("cameras.audio_not_supported"))
         return {"ok": True, "entity_id": entity_id, "action": body.action}
     except HTTPException:
         raise
     except Exception as exc:
         log.warning("camera audio %s failed: %s", entity_id, exc)
-        raise HTTPException(502, f"Setare audio eșuată: {exc}") from exc
+        raise HTTPException(502, error_detail("cameras.audio_settings_failed", {"error": str(exc)})) from exc
 
 
 async def _go2rtc_play_file(inst: Any, stream_name: str, file_path: Path) -> None:
@@ -885,34 +881,28 @@ async def camera_talk_push(
     suffix = Path(audio.filename or "clip.webm").suffix or ".webm"
     data = await audio.read()
     if not data:
-        raise HTTPException(400, "Fișierul audio este gol.")
+        raise HTTPException(400, error_detail("cameras.audio_file_empty"))
     tmp_path: Path | None = None
     try:
         if _is_frigate_entity(ent) and stream_name:
             inst = _frigate_instance_for(ent)
             if not inst:
-                raise HTTPException(404, "Integrarea Frigate nu este disponibilă.")
+                raise HTTPException(404, error_detail("cameras.frigate_unavailable"))
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                 tmp.write(data)
                 tmp_path = Path(tmp.name)
             await _go2rtc_play_file(inst, stream_name, tmp_path)
             return {"ok": True, "method": "go2rtc", "entity_id": entity_id}
         if source == "tapo" and attrs.get("two_way_audio"):
-            raise HTTPException(
-                501,
-                "Talk-back direct Tapo nu este încă disponibil. Folosește Frigate+go2rtc cu sursă ONVIF sau aplicația Tapo.",
-            )
+            raise HTTPException(501, error_detail("cameras.tapo_talk_not_available"))
         if source == "reolink" and attrs.get("two_way_audio"):
-            raise HTTPException(
-                501,
-                "Talk-back Reolink necesită go2rtc cu sursă ONVIF în stream sau integrarea reolink_talk.",
-            )
-        raise HTTPException(400, "Camera nu suportă redare audio către difuzor.")
+            raise HTTPException(501, error_detail("cameras.reolink_talk_not_available"))
+        raise HTTPException(400, error_detail("cameras.audio_play_not_supported"))
     except HTTPException:
         raise
     except Exception as exc:
         log.warning("camera talk %s failed: %s", entity_id, exc)
-        raise HTTPException(502, f"Redare audio eșuată: {exc}") from exc
+        raise HTTPException(502, error_detail("cameras.audio_play_failed", {"error": str(exc)})) from exc
     finally:
         if tmp_path and tmp_path.exists():
             try:
@@ -942,7 +932,7 @@ async def mammotion_camera_start(
 
     ent = await _camera_entity(entity_id)
     if not _is_mammotion_camera(ent):
-        raise HTTPException(400, "Camera nu este Mammotion WebRTC.")
+        raise HTTPException(400, error_detail("cameras.mammotion_not_webrtc"))
     try:
         hub, device_name = await mammotion_hub_for_camera_entity(ent)
         tokens = await start_mammotion_camera(hub, device_name)
@@ -953,22 +943,23 @@ async def mammotion_camera_start(
         raise HTTPException(400, str(exc)) from exc
     except Exception as exc:
         log.warning("mammotion camera start %s failed: %s", entity_id, exc, exc_info=True)
-        raise HTTPException(502, f"Pornire cameră eșuată: {exc}") from exc
+        raise HTTPException(502, error_detail("cameras.mammotion_start_failed", {"error": str(exc)})) from exc
 
 
 @router.get("/{entity_id}/mammotion/tokens")
 async def mammotion_camera_tokens(
     entity_id: str,
+    force: bool = True,
     user: models.User = Depends(_get_camera_user),
 ):
     from components.mammotion.camera_stream import mammotion_hub_for_camera_entity, refresh_mammotion_stream_tokens
 
     ent = await _camera_entity(entity_id)
     if not _is_mammotion_camera(ent):
-        raise HTTPException(400, "Camera nu este Mammotion WebRTC.")
+        raise HTTPException(400, error_detail("cameras.mammotion_not_webrtc"))
     try:
         hub, device_name = await mammotion_hub_for_camera_entity(ent)
-        tokens = await refresh_mammotion_stream_tokens(hub, device_name)
+        tokens = await refresh_mammotion_stream_tokens(hub, device_name, force=force)
         return {"ok": True, "entity_id": entity_id, "tokens": tokens}
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
@@ -976,7 +967,30 @@ async def mammotion_camera_tokens(
         raise HTTPException(400, str(exc)) from exc
     except Exception as exc:
         log.warning("mammotion camera tokens %s failed: %s", entity_id, exc, exc_info=True)
-        raise HTTPException(502, f"Token video eșuat: {exc}") from exc
+        raise HTTPException(502, error_detail("cameras.mammotion_token_failed", {"error": str(exc)})) from exc
+
+
+@router.post("/{entity_id}/mammotion/keepalive")
+async def mammotion_camera_keepalive(
+    entity_id: str,
+    user: models.User = Depends(_get_camera_user),
+):
+    from components.mammotion.camera_stream import keepalive_mammotion_camera, mammotion_hub_for_camera_entity
+
+    ent = await _camera_entity(entity_id)
+    if not _is_mammotion_camera(ent):
+        raise HTTPException(400, error_detail("cameras.mammotion_not_webrtc"))
+    try:
+        hub, device_name = await mammotion_hub_for_camera_entity(ent)
+        tokens = await keepalive_mammotion_camera(hub, device_name)
+        return {"ok": True, "entity_id": entity_id, "tokens": tokens}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        log.warning("mammotion camera keepalive %s failed: %s", entity_id, exc, exc_info=True)
+        raise HTTPException(502, error_detail("cameras.mammotion_keepalive_failed", {"error": str(exc)})) from exc
 
 
 @router.post("/{entity_id}/mammotion/stop")
@@ -988,7 +1002,7 @@ async def mammotion_camera_stop(
 
     ent = await _camera_entity(entity_id)
     if not _is_mammotion_camera(ent):
-        raise HTTPException(400, "Camera nu este Mammotion WebRTC.")
+        raise HTTPException(400, error_detail("cameras.mammotion_not_webrtc"))
     try:
         hub, device_name = await mammotion_hub_for_camera_entity(ent)
         await stop_mammotion_camera(hub, device_name)
@@ -997,4 +1011,4 @@ async def mammotion_camera_stop(
         raise HTTPException(400, str(exc)) from exc
     except Exception as exc:
         log.warning("mammotion camera stop %s failed: %s", entity_id, exc)
-        raise HTTPException(502, f"Oprire cameră eșuată: {exc}") from exc
+        raise HTTPException(502, error_detail("cameras.mammotion_stop_failed", {"error": str(exc)})) from exc

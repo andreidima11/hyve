@@ -4,6 +4,28 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.7.12] — 2026-06
+
+Patch release: **boot progress bar**, **Mammotion camera stability**, and **camera API i18n**.
+
+### Boot / UX
+- **New:** startup overlay shows a progress bar with translated steps (setup → auth → dashboard).
+- Progress blends client boot steps with server `/api/startup/status` (integrations / add-ons loading).
+
+### Mammotion camera
+- **Fix:** live feed no longer dies silently — Agora token keepalive (~90s), `renewToken`, and auto-reconnect on disconnect / publisher left.
+- **New:** `POST /api/cameras/{entity}/mammotion/keepalive` — light MQTT wake + fresh token.
+- Stream lifecycle events logged to the browser console (`[hv-mammotion-camera]`) for debugging.
+- UI strings and API errors use i18n keys (`cameras.mammotion_*`).
+
+### API / i18n
+- **Cameras router:** all HTTP errors use structured `{ key, params }` (snapshot, stream, Tapo, Reolink, Frigate, audio, Mammotion).
+- **`/api/startup/status`:** adds `progress` (0–100) for loading indicators.
+
+### Tests
+- `tests/test_cameras_api_errors.py`, `tests/test_startup_status.py`
+- `tests/test_mammotion_camera_stream.py` — keepalive helper
+
 ## [0.9.7.11] — 2026-06
 
 Patch release: **add-on GitHub release notes**, **Xiaomi Home OAuth on save**, and **Cloudflared icon**.
