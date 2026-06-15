@@ -54,6 +54,22 @@ def test_docker_installed_version_missing_image(monkeypatch):
     assert registry._docker_installed_version("ghcr.io/example/app:0.14.0") is None
 
 
+def test_resolve_display_version_uses_github_for_cloudflared(monkeypatch):
+    manifest = registry.get_manifest("cloudflared")
+    assert manifest is not None
+    assert manifest["install"].get("version_github") == "cloudflare/cloudflared"
+    state = {"installed": False, "enabled": False, "version": None, "config": {}}
+
+    monkeypatch.setattr(
+        registry,
+        "_github_latest_version",
+        lambda repo: "2025.4.0" if repo == "cloudflare/cloudflared" else None,
+    )
+    monkeypatch.setattr(registry, "_docker_installed_version", lambda image: "latest")
+
+    assert registry._resolve_display_version(manifest, state) == "2025.4.0"
+
+
 def test_addon_entry_overrides_manifest_channel_tag(monkeypatch):
     manifest = registry.get_manifest("frigate")
     assert manifest is not None

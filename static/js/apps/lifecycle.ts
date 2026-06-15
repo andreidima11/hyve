@@ -82,7 +82,16 @@ export async function runPreflight(slug: string) {
 
 let _installEventSource: EventSource | null = null;
 
+function _prepareAppSubpageOpen() {
+    const viewConfig = document.getElementById('view-config');
+    if (viewConfig) {
+        viewConfig.scrollTop = 0;
+    }
+    document.querySelector('#app-main-wrap .flex-1')?.scrollTo?.(0, 0);
+}
+
 export async function installApp(slug: string) {
+    _prepareAppSubpageOpen();
     // Open install-log modal and stream progress via SSE
     const modal   = document.getElementById('app-install-modal');
     const title   = document.getElementById('app-install-title');

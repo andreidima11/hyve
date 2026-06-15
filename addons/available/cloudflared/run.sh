@@ -56,6 +56,19 @@ ensure_docker_daemon() {
     }
     return 0
   fi
+  if command -v systemctl >/dev/null 2>&1; then
+    echo "Pornesc serviciul Docker..." >&2
+    systemctl enable --now docker >&2 2>/dev/null || systemctl start docker >&2 || true
+    if "$DOCKER_BIN" info >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+  if command -v service >/dev/null 2>&1; then
+    service docker start >&2 2>/dev/null || true
+    if "$DOCKER_BIN" info >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
   echo "Docker daemon nu rulează." >&2
   exit 1
 }

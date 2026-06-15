@@ -579,7 +579,8 @@ function _setModalScrollLocked(locked: boolean) {
 
 function _syncModalScrollLock() {
     const hasOpenModal = !!document.querySelector('.modal-overlay:not(.hidden)');
-    _setModalScrollLocked(hasOpenModal);
+    const hasOpenSubpage = !!document.querySelector('.app-subpage.open');
+    _setModalScrollLocked(hasOpenModal || hasOpenSubpage);
 }
 
 function _initModalScrollLockObserver() {

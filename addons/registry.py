@@ -490,15 +490,20 @@ def _resolve_display_version(manifest: dict, state: dict) -> str:
             return resolved
 
     install = manifest.get("install") or {}
+    docker_tag: str | None = None
     if install.get("method") == "docker":
-        resolved = _docker_installed_version(_docker_image(manifest))
-        if resolved:
-            return resolved
+        docker_tag = _docker_installed_version(_docker_image(manifest))
+        if docker_tag and not _is_channel_tag(docker_tag):
+            return docker_tag
 
-    if _is_channel_tag(manifest_ver):
+    channel_ref = docker_tag or manifest_ver
+    if _is_channel_tag(channel_ref):
         latest = _github_latest_version(_github_repo(manifest))
         if latest:
             return latest
+
+    if docker_tag:
+        return docker_tag
 
     return manifest_ver or "?"
 
@@ -893,24 +898,40 @@ async def preflight_check(slug: str) -> list[dict]:
     if method in ("pip", "wyoming") and any("pyaudio" in p.lower() for p in packages):
         checks.append(await _check_portaudio())
 
-    # docker method needs docker — but if it's missing we auto-install
-    # Colima via Homebrew during the install step, so the preflight passes
-    # as long as either docker OR brew is available.
+    # docker method needs docker — auto-install on macOS (Colima/brew) or Linux (apt).
     if method == "docker":
-        if shutil.which("docker"):
+        if _docker_daemon_reachable():
             checks.append(_preflight_item("Docker", True))
-        elif shutil.which("brew"):
+        elif sys.platform == "darwin" and shutil.which("brew"):
             checks.append(_preflight_item(
                 "Docker",
                 True,
                 detail_key="apps.preflight_docker_auto_install",
             ))
+        elif sys.platform.startswith("linux") and shutil.which("apt-get"):
+            checks.append(_preflight_item(
+                "Docker",
+                True,
+                detail_key="apps.preflight_docker_auto_install_linux",
+            ))
+        elif shutil.which("docker"):
+            checks.append(_preflight_item(
+                "Docker",
+                False,
+                detail_key="apps.preflight_docker_daemon_down",
+                fix_key="apps.preflight_fix_start_docker",
+            ))
         else:
+            fix_key = (
+                "apps.preflight_fix_install_brew"
+                if sys.platform == "darwin"
+                else "apps.preflight_fix_install_docker_linux"
+            )
             checks.append(_preflight_item(
                 "Docker",
                 False,
                 detail_key="apps.preflight_docker_missing",
-                fix_key="apps.preflight_fix_install_brew",
+                fix_key=fix_key,
             ))
 
     if method == "brew":
@@ -1189,23 +1210,25 @@ def _build_install_cmds(method: str, install: dict) -> list[list[str]]:
 
 
 def _bootstrap_cmds_for_method(method: str) -> list[list[str]]:
-    """Return commands needed to make `method` usable, or [] if already ready.
-
-    For ``docker`` on macOS this auto-installs Colima (a free, headless Docker
-    runtime) and starts its VM, so the user can install Docker-based add-ons
-    with one click instead of downloading Docker Desktop manually.
-    """
-    cmds: list[list[str]] = []
+    """Return commands needed to make `method` usable, or [] if already ready."""
     if method != "docker":
-        return cmds
+        return []
+    if _docker_daemon_reachable():
+        return []
+    if sys.platform == "darwin":
+        return _bootstrap_docker_macos()
+    if sys.platform.startswith("linux"):
+        return _bootstrap_docker_linux()
+    return []
 
+
+def _bootstrap_docker_macos() -> list[list[str]]:
+    """Auto-install Colima + docker CLI via Homebrew on macOS."""
+    cmds: list[list[str]] = []
     docker_cli = shutil.which("docker")
     colima_cli = shutil.which("colima")
-
-    # Need Homebrew to bootstrap anything on macOS.
     brew = shutil.which("brew")
 
-    # Install missing CLIs via brew.
     missing_pkgs: list[str] = []
     if not docker_cli:
         missing_pkgs.append("docker")
@@ -1215,13 +1238,30 @@ def _bootstrap_cmds_for_method(method: str) -> list[list[str]]:
         if brew:
             cmds.append(["brew", "install"] + missing_pkgs)
         else:
-            # No brew → can't bootstrap. Let the docker pull fail with a
-            # clear message instead of pretending we can fix it.
             return []
 
-    # Ensure the Colima daemon is running. `colima start` is idempotent —
-    # exits 0 quickly if the VM is already up, otherwise creates it.
     cmds.append(["bash", "-lc", "colima start || true"])
+    return cmds
+
+
+def _bootstrap_docker_linux() -> list[list[str]]:
+    """Auto-install docker.io via apt and start the daemon on Debian/Ubuntu."""
+    cmds: list[list[str]] = []
+    if not shutil.which("docker"):
+        if not shutil.which("apt-get"):
+            return []
+        cmds.append([
+            "bash",
+            "-lc",
+            "export DEBIAN_FRONTEND=noninteractive && "
+            "apt-get update -qq && "
+            "apt-get install -y docker.io",
+        ])
+    cmds.append([
+        "bash",
+        "-lc",
+        "systemctl enable --now docker 2>/dev/null || service docker start 2>/dev/null || true",
+    ])
     return cmds
 
 

@@ -4,6 +4,18 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.7.9] — 2026-06
+
+Patch release: **add-on install UX**, **Cloudflared version display**, and **Linux Docker bootstrap**.
+
+### Add-ons
+- **Cloudflared:** catalog version now resolves from GitHub releases (`cloudflare/cloudflared`) instead of showing the Docker tag `latest`.
+- **Fix:** install log sub-page stays fixed on screen — background no longer scrolls behind `.app-subpage` overlays.
+- **Linux:** Docker-based add-ons can auto-install `docker.io` via apt and start the daemon (Proxmox LXC still needs nesting).
+
+### Tests
+- `tests/test_addon_docker_bootstrap.py`, `tests/test_addon_version_resolve.py` — cloudflared GitHub version resolution
+
 ## [0.9.7.8] — 2026-06
 
 Patch release: **Cloudflared add-on**, **save-config fix**, and **installer / add-on state** hardening.

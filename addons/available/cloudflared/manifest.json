@@ -15,7 +15,8 @@
     "download_on_install": true,
     "bundled": false,
     "channel": "latest",
-    "notes": "Imaginea oficială cloudflare/cloudflared se descarcă la instalare. Necesită Docker (sau Colima pe macOS)."
+    "version_github": "cloudflare/cloudflared",
+    "notes": "Imaginea oficială cloudflare/cloudflared se descarcă la instalare. Necesită Docker pe host (Proxmox LXC: container privilegiat + nesting, apt install docker.io)."
   },
   "config_schema": [
     {
