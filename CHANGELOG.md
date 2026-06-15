@@ -4,6 +4,18 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.9] — 2026-06
+
+Hotfix: **Mammotion reconnect loop** — stop re-waking the mower on every Agora retry.
+
+### Frontend
+- **Fix:** Reconnect uses `/mammotion/keepalive` (token refresh) instead of `/mammotion/start` unless the publisher left or tokens expired — avoids join/leave storms and Agora WebSocket abort spam.
+- **Fix:** Aborted Agora joins no longer leave the card stuck in “connecting”.
+- **Fix:** Clear message when another card already holds the live viewer session.
+
+### Backend
+- **Fix:** `start_mammotion_camera` publisher wait increased to 3s before returning tokens.
+
 ## [0.9.8.8] — 2026-06
 
 Hotfix: **Mammotion Agora connect** — stop join/leave races that abort WebSocket before connect.

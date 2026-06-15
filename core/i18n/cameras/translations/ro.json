@@ -42,6 +42,7 @@
   "mammotion_press_play_suffix": "— apasă play",
   "mammotion_no_video": "Robotul nu trimite video — pornește camera în app Mammotion, apoi reîncearcă",
   "mammotion_uid_conflict": "Camera deja folosită (închide app Mammotion sau alte ferestre Hyve cu live), apoi apasă play din nou.",
+  "mammotion_viewer_busy": "Live-ul este deja deschis în alt card — închide-l mai întâi.",
   "mammotion_agora_unavailable": "Agora SDK indisponibil după încărcare",
   "mammotion_agora_load_failed": "Nu s-a putut încărca SDK-ul Agora (verifică conexiunea)",
   "mammotion_token_unavailable": "Token video indisponibil",

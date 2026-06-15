@@ -42,6 +42,7 @@
   "mammotion_press_play_suffix": "— press play",
   "mammotion_no_video": "Robot is not sending video — start the camera in the Mammotion app, then try again",
   "mammotion_uid_conflict": "Camera already in use (close the Mammotion app or other Hyve windows with live), then press play again.",
+  "mammotion_viewer_busy": "Live view is already open in another card — close it first.",
   "mammotion_agora_unavailable": "Agora SDK unavailable after load",
   "mammotion_agora_load_failed": "Could not load Agora SDK (check your connection)",
   "mammotion_token_unavailable": "Video token unavailable",
