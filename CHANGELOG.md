@@ -4,6 +4,18 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.7.13] — 2026-06
+
+Hotfix: **Mammotion camera connect regression** (0.9.7.12) and **boot overlay polish**.
+
+### Mammotion camera
+- **Fix:** auto-reconnect no longer aborts the initial connect — grace period after Agora `join`, ignore transient `DISCONNECTED`, only reconnect after video was actually playing.
+- **Fix:** `renewToken` falls back to full reconnect when the Agora SDK build lacks the method.
+
+### Boot / UX
+- Complete progress bar before login, setup wizard, or boot failure paths.
+- Boot overlay clears `aria-busy` when hidden; server startup poll works without auth token.
+
 ## [0.9.7.12] — 2026-06
 
 Patch release: **boot progress bar**, **Mammotion camera stability**, and **camera API i18n**.

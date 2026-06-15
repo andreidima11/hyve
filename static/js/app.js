@@ -557,6 +557,7 @@ function hideBootOverlay() {
     if (!overlay)
         return;
     overlay.classList.add('is-hidden');
+    overlay.setAttribute('aria-busy', 'false');
 }
 function setBootMessage(message) {
     if (typeof message !== 'string' || !message.trim())
@@ -683,6 +684,7 @@ async function bootHyve() {
         suppressLogout(false);
         hideLoginScreen();
         showSetupWizard(setupStatus);
+        completeBootProgress();
         hideBootOverlay();
         return;
     }
@@ -720,6 +722,7 @@ async function bootHyve() {
         }
     }
     if (!profile) {
+        completeBootProgress();
         showLoginScreen();
         return;
     }
@@ -1142,6 +1145,7 @@ window.addEventListener('DOMContentLoaded', () => {
             clearAuthToken();
         }
         catch (_) { }
+        completeBootProgress();
         showLoginScreen();
     });
     window.addEventListener('hashchange', routeHashToView);

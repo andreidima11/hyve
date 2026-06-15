@@ -47,15 +47,10 @@ export function mergeBootProgress(clientPercent: number, serverPercent: number, 
 
 export async function pollServerBootProgressOnce(): Promise<number> {
     try {
-        const token = localStorage.getItem('hyve_token');
-        const headers: Record<string, string> = { Accept: 'application/json' };
-        if (token && token !== 'null' && token !== 'undefined') {
-            headers.Authorization = `Bearer ${token}`;
-        }
         const res = await fetch('/api/startup/status', {
             method: 'GET',
             credentials: 'same-origin',
-            headers,
+            headers: { Accept: 'application/json' },
         });
         if (!res.ok) return 0;
         const data = await res.json() as { progress?: number };

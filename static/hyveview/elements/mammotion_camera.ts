@@ -177,6 +177,10 @@ class HyveMammotionCamera extends HTMLElement {
   private _keepaliveTimer: ReturnType<typeof setInterval> | null = null;
   private _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private _reconnectAttempts = 0;
+  private _channelJoined = false;
+  private _leavingChannel = false;
+  private _joinGraceUntil = 0;
+  private _pendingReconnectReason: string | null = null;
 
   private _logStreamEvent(event: string, detail: Record<string, unknown> = {}) {
     const payload = {
@@ -270,7 +274,11 @@ class HyveMammotionCamera extends HTMLElement {
 
   private _scheduleReconnect(reason: string) {
     if (!this._shouldStayLive()) return;
-    if (this._reconnectTimer || this._connecting) return;
+    if (this._reconnectTimer) return;
+    if (this._connecting) {
+      this._pendingReconnectReason = reason;
+      return;
+    }
     const delay = Math.min(
       RECONNECT_MAX_MS,
       RECONNECT_BASE_MS * Math.pow(1.5, this._reconnectAttempts),
@@ -280,6 +288,12 @@ class HyveMammotionCamera extends HTMLElement {
       this._reconnectTimer = null;
       void this._attemptReconnect(reason);
     }, delay);
+  }
+
+  private _flushPendingReconnect() {
+    const reason = this._pendingReconnectReason;
+    this._pendingReconnectReason = null;
+    if (reason) this._scheduleReconnect(reason);
   }
 
   private _stopKeepalive() {
@@ -389,6 +403,10 @@ class HyveMammotionCamera extends HTMLElement {
   private async _renewClientToken(token: string) {
     const client = this._client;
     if (!client) return;
+    if (typeof client.renewToken !== 'function') {
+      this._scheduleReconnect('renew-token-unsupported');
+      return;
+    }
     try {
       await client.renewToken(token);
     } catch (err) {
@@ -477,8 +495,12 @@ class HyveMammotionCamera extends HTMLElement {
   private async _leaveClient() {
     const client = this._client;
     this._client = null;
+    this._channelJoined = false;
+    this._joinGraceUntil = 0;
     if (!client) return;
+    this._leavingChannel = true;
     try { await client.leave(); } catch { /* ignore */ }
+    finally { this._leavingChannel = false; }
     await _sleep(200);
   }
 
@@ -500,6 +522,7 @@ class HyveMammotionCamera extends HTMLElement {
       this._setState('idle');
       this._setIdleMessage(_mcam('mammotion_no_video'));
       this._logStreamEvent('video-wait-timeout');
+      this._flushPendingReconnect();
     }, VIDEO_WAIT_MS);
   }
 
@@ -559,15 +582,16 @@ class HyveMammotionCamera extends HTMLElement {
       const remote = user as AgoraRemoteUser;
       this._remoteUsers = this._remoteUsers.filter(u => u.uid !== remote.uid);
       if (!this._remoteUsers.length) {
+        const hadVideo = this._playing;
         this._playing = false;
         this._stopKeepalive();
         if (this._videoHost) this._videoHost.innerHTML = '';
-        if (this._shouldStayLive() && this._wantsAutoplay()) {
+        if (hadVideo && this._shouldStayLive() && this._wantsAutoplay()) {
           this._logStreamEvent('publisher-left');
           this._setState('loading');
           this._setIdleMessage(_mcam('mammotion_reconnecting'));
           this._scheduleReconnect('publisher-left');
-        } else {
+        } else if (!this._connecting) {
           this._setState('idle');
           this._setIdleMessage(_mcam('mammotion_stream_stopped'));
         }
@@ -589,20 +613,22 @@ class HyveMammotionCamera extends HTMLElement {
     });
 
     client.on('connection-state-change', (state: unknown) => {
-      if (state === 'DISCONNECTED') {
-        this._playing = false;
-        this._connecting = false;
-        this._stopKeepalive();
-        if (this._shouldStayLive() && this._wantsAutoplay()) {
-          this._logStreamEvent('disconnected');
-          this._setState('loading');
-          this._setIdleMessage(_mcam('mammotion_reconnecting'));
-          this._scheduleReconnect('disconnected');
-        } else {
-          this._unregisterSession();
-          this._setState('idle');
-          this._setIdleMessage(_mcam('mammotion_connection_lost'));
-        }
+      if (String(state || '') !== 'DISCONNECTED') return;
+      if (this._leavingChannel) return;
+      if (Date.now() < this._joinGraceUntil) return;
+      if (this._connecting && !this._playing) return;
+      this._playing = false;
+      this._connecting = false;
+      this._stopKeepalive();
+      if (this._shouldStayLive() && this._wantsAutoplay()) {
+        this._logStreamEvent('disconnected');
+        this._setState('loading');
+        this._setIdleMessage(_mcam('mammotion_reconnecting'));
+        this._scheduleReconnect('disconnected');
+      } else if (!this._connecting) {
+        this._unregisterSession();
+        this._setState('idle');
+        this._setIdleMessage(_mcam('mammotion_connection_lost'));
       }
     });
 
@@ -630,9 +656,12 @@ class HyveMammotionCamera extends HTMLElement {
       throw err;
     }
 
+    this._channelJoined = true;
+    this._joinGraceUntil = Date.now() + 8000;
     _entitySessions.set(this._entity, this);
     await this._subscribeExistingPublishers(client);
     this._armVideoWaitTimer();
+    this._flushPendingReconnect();
   }
 
   private async _startPlayback() {
@@ -672,6 +701,7 @@ class HyveMammotionCamera extends HTMLElement {
     this._clearReconnectTimer();
     this._stopKeepalive();
     this._reconnectAttempts = 0;
+    this._pendingReconnectReason = null;
     this._connecting = false;
     this._playing = false;
     this._unregisterSession();

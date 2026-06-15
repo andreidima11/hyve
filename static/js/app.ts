@@ -641,6 +641,7 @@ function hideBootOverlay() {
     const overlay = document.getElementById('boot-overlay');
     if (!overlay) return;
     overlay.classList.add('is-hidden');
+    overlay.setAttribute('aria-busy', 'false');
 }
 
 function setBootMessage(message: string) {
@@ -745,6 +746,7 @@ async function bootHyve() {
         suppressLogout(false);
         hideLoginScreen();
         showSetupWizard(setupStatus);
+        completeBootProgress();
         hideBootOverlay();
         return;
     }
@@ -779,6 +781,7 @@ async function bootHyve() {
     }
 
     if (!profile) {
+        completeBootProgress();
         showLoginScreen();
         return;
     }
@@ -1195,6 +1198,7 @@ window.addEventListener('DOMContentLoaded', () => {
     bootHyve().catch(err => {
         console.error('bootHyve failed', err);
         try { clearAuthToken(); } catch (_) {}
+        completeBootProgress();
         showLoginScreen();
     });
     window.addEventListener('hashchange', routeHashToView);
