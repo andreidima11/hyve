@@ -182,10 +182,7 @@ initConfigEventBindings({
     closeAppLogModal: _lazyAction(_loadAppsModule, 'closeAppLogModal'),
     refreshAppLogs: _lazyAction(_loadAppsModule, 'refreshAppLogs'),
     closeInstallLogModal: _lazyAction(_loadAppsModule, 'closeInstallLogModal'),
-    openSceneEditor: (_event, el) => {
-        const sceneId = (el as HTMLElement).dataset.configSceneId || '';
-        return _lazyAction(_loadScenesModule, 'openSceneEditor')(sceneId || null);
-    },
+    openSceneEditor: (sceneId) => _lazyAction(_loadScenesModule, 'openSceneEditor')(sceneId ? _str(sceneId) : null),
     closeSceneEditor: _lazyAction(_loadScenesModule, 'closeSceneEditor'),
     addSceneEntry: _lazyAction(_loadScenesModule, 'addSceneEntry'),
     deleteSceneFromEditor: _lazyAction(_loadScenesModule, 'deleteSceneFromEditor'),

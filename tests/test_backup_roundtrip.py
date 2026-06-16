@@ -137,6 +137,40 @@ def test_backup_includes_integration_entries_sqlite(tmp_path: Path):
     assert row == ("demo", "Demo account")
 
 
+def test_backup_includes_memory_log_sqlite(tmp_path: Path):
+    root = tmp_path / "hyve"
+    root.mkdir()
+    (root / "config.json").write_text("{}", encoding="utf-8")
+    _init_users_db(root / "users.db")
+
+    mem_log = root / "memory_log.sqlite"
+    conn = sqlite3.connect(mem_log)
+    conn.execute(
+        "CREATE TABLE memory_events (id INTEGER PRIMARY KEY, event_type TEXT, payload TEXT)"
+    )
+    conn.execute(
+        "INSERT INTO memory_events (event_type, payload) VALUES ('fact_added', '{\"fact\":\"coffee\"}')"
+    )
+    conn.commit()
+    conn.close()
+
+    archive = tmp_path / "memory-log.hyvebak"
+    manifest = BackupCoordinator(root).create_backup(archive, BackupOptions())
+    paths = {f.path for f in manifest.files}
+    assert "memory_log.sqlite" in paths
+
+    conn = sqlite3.connect(mem_log)
+    conn.execute("DELETE FROM memory_events")
+    conn.commit()
+    conn.close()
+
+    BackupCoordinator(root).restore_backup(archive)
+    conn = sqlite3.connect(mem_log)
+    row = conn.execute("SELECT event_type, payload FROM memory_events").fetchone()
+    conn.close()
+    assert row == ("fact_added", '{"fact":"coffee"}')
+
+
 def test_collect_backup_entries_respects_optional(tmp_path: Path):
     root = tmp_path / "hyve"
     chroma = root / "chroma_db"

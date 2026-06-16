@@ -76,9 +76,25 @@
       "label": "Port adaptor Zigbee",
       "type": "text",
       "default": "/dev/ttyUSB0",
-      "placeholder": "/dev/ttyUSB0",
+      "placeholder": "/dev/serial/by-id/usb-...",
       "detect": "serial",
-      "description": "Calea către dongle-ul Zigbee pentru rulare locală. Apasă „Detectează” ca să vezi adaptoarele USB conectate."
+      "description": "Calea serială a dongle-ului (pe Linux preferă /dev/serial/by-id/...). Apasă „Detectează”."
+    },
+    {
+      "key": "adapter",
+      "label": "Tip adaptor serial",
+      "type": "select",
+      "default": "ember",
+      "options": [
+        { "value": "ember", "label": "ember — Sonoff ZBDongle-E, EFR32" },
+        { "value": "zstack", "label": "zstack — Sonoff ZBDongle-P, CC2652/CC2531" },
+        { "value": "ezsp", "label": "ezsp — Silicon Labs (firmware EZSP vechi)" },
+        { "value": "deconz", "label": "deconz — Conbee II / RaspBee" },
+        { "value": "zigate", "label": "zigate — ZiGate" },
+        { "value": "zoh", "label": "zoh — Zigbee over HTTP" },
+        { "value": "zboss", "label": "zboss — Nordic ZBOSS" }
+      ],
+      "description": "Obligatoriu în Zigbee2MQTT 2.x. Sonoff ZBDongle-E folosește ember."
     },
     {
       "key": "permit_join",
@@ -117,6 +133,7 @@
       "{mqtt_user}",
       "{mqtt_password}",
       "{serial_port}",
+      "{adapter}",
       "{permit_join}",
       "{frontend_enabled}"
     ],

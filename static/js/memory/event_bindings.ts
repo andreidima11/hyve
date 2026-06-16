@@ -16,6 +16,7 @@ function _inMemoryScope(el: Element | null | undefined): boolean {
         el.closest('#view-memory')
         || el.closest('#intelligence-panel-automations')
         || el.closest('#intelligence-panel-memories')
+        || el.closest('#config-standalone')
         || el.closest('#automation-editor-modal')
         || el.closest('#auto-menu-portal')
     );

@@ -26,6 +26,7 @@ export type AreaEntityRef = HyveEntity & {
 
 export const areaState = {
     areasCache: [] as HyveArea[],
+    listFilter: '',
     allEntitiesCache: [] as AreaEntityRef[],
     entitiesCacheTime: 0,
     editorState: {

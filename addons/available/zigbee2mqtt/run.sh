@@ -7,8 +7,9 @@ MQTT_PORT="${3:-1883}"
 MQTT_USER="${4:-}"
 MQTT_PASSWORD="${5:-}"
 SERIAL_PORT="${6:-/dev/ttyUSB0}"
-PERMIT_JOIN="${7:-false}"
-FRONTEND_ENABLED="${8:-true}"
+SERIAL_ADAPTER="${7:-ember}"
+PERMIT_JOIN="${8:-false}"
+FRONTEND_ENABLED="${9:-true}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 BASE_DIR="$ROOT/output/addons/zigbee2mqtt"
@@ -85,6 +86,9 @@ if [[ -n "$SERIAL_PORT" && "$SERIAL_PORT" != "external" && "$SERIAL_PORT" != "no
   {
     echo "serial:"
     echo "  port: ${SERIAL_PORT}"
+    if [[ -n "$SERIAL_ADAPTER" && "$SERIAL_ADAPTER" != "auto" && "$SERIAL_ADAPTER" != "none" ]]; then
+      echo "  adapter: ${SERIAL_ADAPTER}"
+    fi
   } >> "$CONFIG_FILE"
 fi
 

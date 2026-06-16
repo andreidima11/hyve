@@ -18,54 +18,82 @@ export function _iconClass(spec: unknown, fallback = 'fas fa-location-dot') {
     if (/\bfa[srlbd]?\b/.test(raw) || raw.startsWith('fa-')) return raw.startsWith('fa-') ? `fas ${raw}` : raw;
     return raw;
 }
+
+function _filteredAreas() {
+    const q = areaState.listFilter;
+    if (!q) return areaState.areasCache;
+    return areaState.areasCache.filter((a) => {
+        const aliases = Array.isArray(a.aliases) ? a.aliases.join(' ') : '';
+        const hay = `${a.name || ''} ${a.id || ''} ${a.floor || ''} ${aliases}`.toLowerCase();
+        return hay.includes(q);
+    });
+}
+
+function _areaRowActions(areaId: string) {
+    const id = _esc(areaId);
+    return `<div class="hyd-row-actions" role="group">
+        <button type="button" data-config-action="editArea" data-config-area-id="${id}" class="hyd-row-actions__btn" title="${_esc(t('common.edit'))}"><i class="fas fa-pen" aria-hidden="true"></i></button>
+        <button type="button" data-config-action="deleteArea" data-config-area-id="${id}" class="hyd-row-actions__btn hyd-row-actions__btn--danger" title="${_esc(t('common.delete'))}"><i class="fas fa-trash-can" aria-hidden="true"></i></button>
+    </div>`;
+}
+
 export function _renderAreas() {
     const list = document.getElementById('areas-list');
     const empty = document.getElementById('areas-empty');
-    const toolbar = document.getElementById('areas-toolbar');
     if (!list) return;
+
     if (!areaState.areasCache.length) {
         list.innerHTML = '';
-        if (toolbar) toolbar.classList.add('hidden');
-        if (empty) empty.classList.remove('hidden');
+        if (empty) {
+            empty.classList.remove('hidden');
+            empty.innerHTML = `
+                <i class="fas fa-house-chimney-window hyd-list-placeholder__icon" aria-hidden="true"></i>
+                <p>${_esc(t('areas.empty_list'))}</p>
+                <button type="button" data-config-action="openCreateAreaModal" class="hyd-btn hyd-btn--glow">
+                    <i class="fas fa-plus" aria-hidden="true"></i><span>${_esc(t('areas.new_area'))}</span>
+                </button>`;
+        }
         return;
     }
+
+    const areas = _filteredAreas();
+    if (!areas.length) {
+        list.innerHTML = '';
+        if (empty) {
+            empty.classList.remove('hidden');
+            empty.innerHTML = `<i class="fas fa-magnifying-glass hyd-list-placeholder__icon" aria-hidden="true"></i><p>${_esc(t('hy.entity_search_no_results'))}</p>`;
+        }
+        return;
+    }
+
     if (empty) empty.classList.add('hidden');
-    if (toolbar) toolbar.classList.remove('hidden');
-    list.innerHTML = areaState.areasCache.map((a) => {
+    list.innerHTML = areas.map((a) => {
         const id = _esc(a.id);
         const name = _esc(a.name || a.id);
         const aliases = Array.isArray(a.aliases) ? a.aliases : [];
-        const aliasText = aliases.length
-            ? `<span class="text-[10px] text-slate-500 truncate">${_esc(aliases.join(', '))}</span>`
-            : '';
-        const iconClass = _iconClass(a.icon || 'fa-house-chimney-window', 'fas fa-house-chimney-window');
-        const floor = a.floor ? `<span class="text-[10px] text-slate-500">· ${_esc(a.floor)}</span>` : '';
+        const aliasText = aliases.length ? aliases.join(', ') : '';
+        const iconClass = _esc(_iconClass(a.icon || 'fa-house-chimney-window', 'fas fa-house-chimney-window'));
+        const floor = a.floor ? _esc(a.floor) : '';
         const entCount = Array.isArray(a.extra_entities) ? a.extra_entities.length : 0;
-        const entBadge = `<span class="inline-flex items-center gap-1 text-[10px] text-slate-400"><i class="fas fa-microchip text-[9px]"></i>${_esc(t('areas.entities_count', { count: entCount }))}</span>`;
-        const deleteBtn = `<button type="button" data-config-action="deleteArea" data-config-area-id="${id}" class="text-rose-400/70 hover:text-rose-300 px-2 py-1.5 rounded-lg text-[11px] inline-flex items-center" title="${_esc(t('common.delete'))}"><i class="fas fa-trash text-[10px]"></i></button>`;
+        const sub = aliasText || floor || id;
+        const tags = `<span class="hyd-row-badge"><i class="fas fa-microchip" aria-hidden="true"></i>${_esc(t('areas.entities_count', { count: entCount }))}</span>${floor ? `<span class="hyd-row-badge">${floor}</span>` : ''}`;
         return `
-            <div class="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-theme-subtle hover:border-theme-subtle transition-colors">
-                <div class="flex items-center gap-3 min-w-0 flex-1">
-                    <span class="w-9 h-9 rounded-xl bg-accent/10 text-accent flex items-center justify-center shrink-0"><i class="${_esc(iconClass)}"></i></span>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="text-sm font-semibold text-white truncate">${name}</span>
-                            ${entBadge}
-                            ${floor}
-                        </div>
-                        ${aliasText}
-                    </div>
+            <article class="hyd-entity-row hyd-entity-row--static" data-area-card="${id}" role="listitem">
+                <span class="hyd-icon hyd-icon--list hyd-glow--default"><i class="${iconClass}" aria-hidden="true"></i></span>
+                <div class="hyd-entity-row__body">
+                    <div class="hyd-entity-row__name">${name}</div>
+                    <div class="hyd-entity-row__sub">${_esc(sub)}</div>
+                    <div class="hyd-entity-row__tags">${tags}</div>
                 </div>
-                <div class="flex items-center gap-1.5 shrink-0">
-                    <button type="button" data-config-action="editArea" data-config-area-id="${id}" class="text-slate-400 hover:text-white px-2 py-1.5 rounded-lg text-[11px] inline-flex items-center" title="${_esc(t('common.edit'))}"><i class="fas fa-pen text-[10px]"></i></button>
-                    ${deleteBtn}
-                </div>
-            </div>`;
+                ${_areaRowActions(String(a.id))}
+            </article>`;
     }).join('');
 }
+
 export function _entityLookup(eid: string) {
     return areaState.allEntitiesCache.find(e => e.entity_id === eid);
 }
+
 export function _renderEditorEntities() {
     const wrap = document.getElementById('area-editor-entities');
     if (!wrap) return;
@@ -87,6 +115,7 @@ export function _renderEditorEntities() {
         </span>`;
     }).join('');
 }
+
 export function _renderPickerList() {
     const list = document.getElementById('area-entity-picker-list');
     const counter = document.getElementById('area-entity-picker-count');

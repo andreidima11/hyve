@@ -409,6 +409,14 @@
     display: grid;
     gap: 3px;
 }
+/* Portaled to document.body — parent [data-open] no longer wraps the menu */
+.dashboard-custom-select__menu--portaled {
+    display: grid !important;
+    gap: 3px;
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+}
 .dashboard-custom-select__option {
     width: 100%;
     min-height: 34px;

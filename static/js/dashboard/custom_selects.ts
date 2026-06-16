@@ -4,21 +4,57 @@
 
 import { DASHBOARD_CUSTOM_SELECT_IDS } from './constants.js';
 import { escapeHtml } from './helpers.js';
+import {
+    portalSelectMenu,
+    positionPortaledSelectMenu,
+    restorePortaledSelectMenu,
+    bindPortaledSelectMenuReposition,
+} from '../custom_selects/portal.js';
+import type { PortaledSelectMenu } from '../custom_selects/types.js';
 import type { DashboardCustomSelectState } from '../types/dashboard.js';
 
-const _dashboardCustomSelects = new WeakMap<HTMLSelectElement, DashboardCustomSelectState>();
+type DashboardPortaledMenu = PortaledSelectMenu;
+
+interface DashboardCustomSelectUiState extends DashboardCustomSelectState {
+    portaledMenu: DashboardPortaledMenu | null;
+}
+
+const _dashboardCustomSelects = new WeakMap<HTMLSelectElement, DashboardCustomSelectUiState>();
 let _dashboardCustomSelectOutsideBound = false;
 
 function dashboardSelectLabel(option: HTMLOptionElement | null | undefined): string {
     return String(option?.label || option?.textContent || option?.value || '').trim() || '—';
 }
 
+function _positionDashboardMenu(state: DashboardCustomSelectUiState): void {
+    const menu = state.portaledMenu || state.menu;
+    if (!menu) return;
+    positionPortaledSelectMenu(state.button, menu);
+}
+
+function _openDashboardMenu(state: DashboardCustomSelectUiState): void {
+    portalSelectMenu(state.wrap, state.menu as DashboardPortaledMenu);
+    state.portaledMenu = state.menu as DashboardPortaledMenu;
+    _positionDashboardMenu(state);
+}
+
+function _closeDashboardMenu(state: DashboardCustomSelectUiState): void {
+    restorePortaledSelectMenu(state.wrap, state.portaledMenu);
+    state.portaledMenu = null;
+}
+
 export function closeDashboardCustomSelects(exceptWrap: HTMLElement | null = null): void {
     document.querySelectorAll('.dashboard-custom-select[data-open="true"]').forEach((wrap) => {
         if (exceptWrap && wrap === exceptWrap) return;
+        if (wrap.classList.contains('js-generic-select')) return;
         (wrap as HTMLElement).dataset.open = 'false';
         const button = wrap.querySelector('.dashboard-custom-select__button');
         if (button) button.setAttribute('aria-expanded', 'false');
+        const select = wrap.previousElementSibling;
+        if (select instanceof HTMLSelectElement) {
+            const state = _dashboardCustomSelects.get(select);
+            if (state) _closeDashboardMenu(state);
+        }
     });
 }
 
@@ -72,7 +108,7 @@ export function enhanceDashboardCustomSelect(select: HTMLSelectElement | null): 
         const button = wrap.querySelector('.dashboard-custom-select__button') as HTMLButtonElement;
         const value = wrap.querySelector('.dashboard-custom-select__value') as HTMLSpanElement;
         const menu = wrap.querySelector('.dashboard-custom-select__menu') as HTMLDivElement;
-        state = { wrap, button, value, menu };
+        state = { wrap, button, value, menu, portaledMenu: null };
         _dashboardCustomSelects.set(select, state);
 
         state.button.addEventListener('click', (event) => {
@@ -80,8 +116,15 @@ export function enhanceDashboardCustomSelect(select: HTMLSelectElement | null): 
             event.stopPropagation();
             const willOpen = state!.wrap.dataset.open !== 'true';
             closeDashboardCustomSelects(state!.wrap);
-            state!.wrap.dataset.open = willOpen ? 'true' : 'false';
-            state!.button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+            if (willOpen) {
+                state!.wrap.dataset.open = 'true';
+                state!.button.setAttribute('aria-expanded', 'true');
+                _openDashboardMenu(state!);
+            } else {
+                state!.wrap.dataset.open = 'false';
+                state!.button.setAttribute('aria-expanded', 'false');
+                _closeDashboardMenu(state!);
+            }
         });
         state.button.addEventListener('keydown', (event) => {
             if (!['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) return;
@@ -89,6 +132,7 @@ export function enhanceDashboardCustomSelect(select: HTMLSelectElement | null): 
             closeDashboardCustomSelects(state!.wrap);
             state!.wrap.dataset.open = 'true';
             state!.button.setAttribute('aria-expanded', 'true');
+            _openDashboardMenu(state!);
             const selectedButton = state!.menu.querySelector('[data-selected="true"]') as HTMLButtonElement | null
                 || state!.menu.querySelector('.dashboard-custom-select__option:not(:disabled)') as HTMLButtonElement | null;
             selectedButton?.focus?.();
@@ -134,12 +178,25 @@ export function enhanceDashboardCustomSelect(select: HTMLSelectElement | null): 
         _dashboardCustomSelectOutsideBound = true;
         document.addEventListener('click', (event) => {
             const target = event.target as Element | null;
+            if (target?.closest('.dashboard-custom-select[data-target]')) return;
+            const portaledMenu = target?.closest('.dashboard-custom-select__menu') as DashboardPortaledMenu | null;
+            if (portaledMenu?.__ownerDd) return;
             if (target?.closest('.dashboard-custom-select')) return;
             closeDashboardCustomSelects();
         });
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') closeDashboardCustomSelects();
         });
+        bindPortaledSelectMenuReposition(
+            '.dashboard-custom-select:not(.js-generic-select)',
+            (owner) => {
+                for (const menu of document.body.querySelectorAll('.dashboard-custom-select__menu')) {
+                    const portaled = menu as DashboardPortaledMenu;
+                    if (portaled.__ownerDd === owner) return menu as HTMLElement;
+                }
+                return null;
+            },
+        );
     }
 }
 

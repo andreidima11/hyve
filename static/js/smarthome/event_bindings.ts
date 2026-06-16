@@ -111,9 +111,11 @@ function _run(action: string, el: HTMLElement, event: Event): void {
         _handlers.setDevicesPage?.(Number(el.dataset.smarthomePage || 0), event, el);
         return;
     case 'togglePicker':
+        event.stopPropagation();
         _handlers.toggleSmarthomePicker?.(_delegatedEvent(event, el));
         return;
     case 'selectPickerOption':
+        event.stopPropagation();
         _handlers.selectSmarthomePickerOption?.(_delegatedEvent(event, el));
         return;
     case 'openAliasModalFromDetail':

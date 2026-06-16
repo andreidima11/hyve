@@ -4,6 +4,27 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.11] — 2026-06
+
+Patch release: **custom dropdowns work again**, config hub list pages match Devices UI, backup includes memory log, Zigbee2MQTT adapter setting.
+
+### Frontend
+- **Fix:** Custom selects (`dashboard-custom-select`, Devices `hy-picker`) — portaled menus keep visibility via `--portaled` CSS; remove stale `static/js/custom_selects/*.js` that shadowed TypeScript sources in Vite builds.
+- **Fix:** Unified dropdown handler for all `[data-target]` overlays (settings, add-ons, integrations, memory log filter).
+- **Fix:** Devices filter pickers portal menus to `document.body` (no longer clipped by `overflow: hidden`).
+- **Fix:** «Scenă nouă» opened the wrong handler (delegated `openSceneEditor` argument order).
+- **UI:** Scenes, Areas, and Automations standalone pages use Devices-style masthead, search, and `hyd-entity-row` list rows.
+
+### Add-ons
+- **New:** Zigbee2MQTT config field `adapter` (default `ember` for Sonoff ZBDongle-E); written into `configuration.yaml` on start.
+
+### Backup
+- **New:** `memory_log.sqlite` included in critical backup tier and optional ChromaDB snapshot copy.
+- **UI:** Backup settings label «Include faptele de memorie AI (ChromaDB)» clarified.
+
+### Tests
+- `test_backup_includes_memory_log_sqlite`, Zigbee2MQTT adapter manifest/run tests.
+
 ## [0.9.8.10] — 2026-06
 
 Hotfix: **Mammotion viewer-blocked loop** — one Agora session per entity, no duplicate card fights.

@@ -5,6 +5,7 @@
 import { listEntities } from './store.js';
 import { normalizeIconClass } from '../../js/icon_utils.js';
 import { attachIconPicker } from '../../js/icon_picker.js';
+import { upgradeNativeSelects, initGenericCustomSelects } from '../../js/features_custom_selects.js';
 import type {
     HyveviewCardSchema,
     HyveviewEntityState,
@@ -234,6 +235,11 @@ export function renderSchemaForm(
         container.appendChild(wrap);
         inputs.set(f.key, { input, field: f });
     }
+
+    try {
+        upgradeNativeSelects(container);
+        initGenericCustomSelects(container);
+    } catch (_) {}
 
     function read(): Record<string, unknown> {
         const out: Record<string, unknown> = {};

@@ -3,7 +3,15 @@
  */
 import { escapeHtml } from '../utils.js';
 import type { GenericCustomSelectElement, PortaledSelectMenu } from './types.js';
+import {
+    bindPortaledSelectMenuReposition,
+    portalSelectMenu,
+    positionPortaledSelectMenu,
+    restorePortaledSelectMenu,
+} from './portal.js';
 import { selectUiState } from './state.js';
+
+const DD_SELECTOR = '.dashboard-custom-select[data-target]';
 
 function escapeHtmlAttr(s: unknown): string {
     if (s == null) return '';
@@ -14,88 +22,132 @@ function escapeHtmlAttr(s: unknown): string {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
 }
+
+function _resolveCustomSelectFromTarget(target: Element): {
+    dd: GenericCustomSelectElement;
+    btn: HTMLElement;
+} | null {
+    const btn = target.closest('.dashboard-custom-select__button');
+    if (!(btn instanceof HTMLElement)) return null;
+    const dd = btn.closest(DD_SELECTOR) as GenericCustomSelectElement | null;
+    if (!dd) return null;
+    return { dd, btn };
+}
+
+function _resolveCustomSelectFromOption(target: Element): {
+    dd: GenericCustomSelectElement;
+    opt: HTMLElement;
+} | null {
+    const opt = target.closest('.dashboard-custom-select__option');
+    if (!opt) return null;
+    const menuEl = opt.closest('.dashboard-custom-select__menu') as PortaledSelectMenu | null;
+    const dd = (menuEl?.__ownerDd
+        || opt.closest(DD_SELECTOR)) as GenericCustomSelectElement | null;
+    if (!dd) return null;
+    return { dd, opt: opt as HTMLElement };
+}
+
+function _syncCustomSelectValue(dd: GenericCustomSelectElement, current: string) {
+    const menu = dd.__portaledMenu || dd.querySelector('.dashboard-custom-select__menu');
+    const valueEl = dd.querySelector('.dashboard-custom-select__value');
+    if (!menu || !valueEl) return;
+    let selectedLabel = '';
+    menu.querySelectorAll('.dashboard-custom-select__option').forEach((node) => {
+        const el = node as HTMLElement;
+        const selected = el.dataset.value === current;
+        el.dataset.selected = selected ? 'true' : 'false';
+        if (selected) selectedLabel = (el.textContent || '').trim();
+    });
+    if (selectedLabel) valueEl.textContent = selectedLabel;
+}
+
 export function rebuildGenericSelect(dd: GenericCustomSelectElement) {
-    const target = document.getElementById(dd.dataset.target || '') as HTMLSelectElement | null;
-    if (!target) return;
+    const target = document.getElementById(dd.dataset.target || '');
     const menu = dd.querySelector('.dashboard-custom-select__menu') || dd.__portaledMenu;
     const valueEl = dd.querySelector('.dashboard-custom-select__value');
     if (!menu || !valueEl) return;
-    const current = target.value;
-    const opts = Array.from(target.options || []);
-    menu.innerHTML = opts.map(o => {
-        const sel = o.value === current;
-        return `<button type="button" class="dashboard-custom-select__option" data-value="${escapeHtmlAttr(o.value)}" data-selected="${sel ? 'true' : 'false'}">${escapeHtml((o.textContent || '').trim())}</button>`;
-    }).join('');
-    const selOpt = opts.find(o => o.value === current) || opts[0];
-    valueEl.textContent = selOpt ? (selOpt.textContent || '').trim() : '—';
+
+    if (target instanceof HTMLSelectElement) {
+        const current = target.value;
+        const opts = Array.from(target.options || []);
+        menu.innerHTML = opts.map(o => {
+            const sel = o.value === current;
+            return `<button type="button" class="dashboard-custom-select__option" data-value="${escapeHtmlAttr(o.value)}" data-selected="${sel ? 'true' : 'false'}">${escapeHtml((o.textContent || '').trim())}</button>`;
+        }).join('');
+        const selOpt = opts.find(o => o.value === current) || opts[0];
+        valueEl.textContent = selOpt ? (selOpt.textContent || '').trim() : '—';
+        return;
+    }
+
+    if (target instanceof HTMLInputElement) {
+        _syncCustomSelectValue(dd, target.value);
+    }
 }
 
 export function initGenericCustomSelects(root?: ParentNode) {
     const scope = root || document;
-    scope.querySelectorAll('.dashboard-custom-select.js-generic-select[data-target]').forEach((dd) => {
+    scope.querySelectorAll(DD_SELECTOR).forEach((dd) => {
         rebuildGenericSelect(dd as GenericCustomSelectElement);
     });
 }
-const GENERIC_MENU_Z = 9999;
+
 function _positionGenericMenu(dd: GenericCustomSelectElement) {
     const menu = dd.__portaledMenu;
-    if (!menu) return;
     const btn = dd.querySelector('.dashboard-custom-select__button');
-    if (!btn) return;
-    const r = btn.getBoundingClientRect();
-    menu.style.position = 'fixed';
-    menu.style.left = Math.round(r.left) + 'px';
-    menu.style.top = Math.round(r.bottom + 6) + 'px';
-    menu.style.right = 'auto';
-    menu.style.width = Math.round(r.width) + 'px';
-    menu.style.minWidth = Math.round(r.width) + 'px';
-    menu.style.zIndex = String(GENERIC_MENU_Z);
-    const mh = menu.offsetHeight;
-    if (r.bottom + 6 + mh > window.innerHeight && r.top - 6 - mh > 0) {
-        menu.style.top = Math.round(r.top - 6 - mh) + 'px';
-    }
+    if (!menu || !(btn instanceof HTMLElement)) return;
+    positionPortaledSelectMenu(btn, menu);
 }
+
+function _setCustomSelectOpen(dd: GenericCustomSelectElement, open: boolean) {
+    const btn = dd.querySelector('.dashboard-custom-select__button');
+    dd.dataset.open = open ? 'true' : 'false';
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
 function _openGenericSelect(dd: GenericCustomSelectElement) {
     rebuildGenericSelect(dd);
-    dd.dataset.open = 'true';
-    const menu = dd.querySelector('.dashboard-custom-select__menu') as PortaledSelectMenu | null;
-    if (menu && menu.parentElement !== document.body) {
-        const ph = document.createComment('cselect-menu');
-        menu.__placeholder = ph;
-        menu.__ownerDd = dd;
-        menu.parentElement!.insertBefore(ph, menu);
-        document.body.appendChild(menu);
+    _setCustomSelectOpen(dd, true);
+    const menu = (dd.__portaledMenu
+        || dd.querySelector('.dashboard-custom-select__menu')) as PortaledSelectMenu | null;
+    if (menu) {
+        portalSelectMenu(dd, menu);
         dd.__portaledMenu = menu;
-        menu.style.display = 'grid';
-        menu.style.gap = '3px';
     }
     _positionGenericMenu(dd);
 }
+
 function _closeGenericSelect(dd: GenericCustomSelectElement) {
-    dd.dataset.open = 'false';
+    _setCustomSelectOpen(dd, false);
     const menu = dd.__portaledMenu;
-    if (menu) {
-        menu.style.display = '';
-        menu.style.position = '';
-        menu.style.left = '';
-        menu.style.top = '';
-        menu.style.right = '';
-        menu.style.width = '';
-        menu.style.minWidth = '';
-        menu.style.zIndex = '';
-        menu.style.gap = '';
-        if (menu.__placeholder && menu.__placeholder.parentElement) {
-            menu.__placeholder.parentElement.insertBefore(menu, menu.__placeholder);
-            menu.__placeholder.remove();
-        }
-        menu.__placeholder = null;
-        dd.__portaledMenu = null;
-    }
+    restorePortaledSelectMenu(dd, menu);
+    dd.__portaledMenu = null;
 }
+
 function _closeAllGenericSelects(except: GenericCustomSelectElement | null) {
-    document.querySelectorAll('.dashboard-custom-select.js-generic-select[data-open="true"]').forEach(o => {
+    document.querySelectorAll(`${DD_SELECTOR}[data-open="true"]`).forEach(o => {
         if (o !== except) _closeGenericSelect(o as GenericCustomSelectElement);
     });
+}
+
+function _applyCustomSelectValue(dd: GenericCustomSelectElement, value: string, label: string) {
+    const selectTarget = document.getElementById(dd.dataset.target || '');
+    if (selectTarget instanceof HTMLSelectElement) {
+        if (selectTarget.value !== value) {
+            selectTarget.value = value;
+            try { selectTarget.dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
+        }
+    } else if (selectTarget instanceof HTMLInputElement) {
+        if (selectTarget.value !== value) {
+            selectTarget.value = value;
+            try { selectTarget.dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
+        }
+    }
+    const menuRoot = dd.__portaledMenu || dd;
+    menuRoot.querySelectorAll('.dashboard-custom-select__option').forEach(o => {
+        (o as HTMLElement).dataset.selected = (o as HTMLElement).dataset.value === value ? 'true' : 'false';
+    });
+    const valueEl = dd.querySelector('.dashboard-custom-select__value');
+    if (valueEl) valueEl.textContent = label || value || '—';
 }
 
 if (typeof document !== 'undefined' && !selectUiState.genericSelectBound) {
@@ -103,10 +155,10 @@ if (typeof document !== 'undefined' && !selectUiState.genericSelectBound) {
     document.addEventListener('click', (e) => {
         const target = e.target;
         if (!(target instanceof Element)) return;
-        const btn = target.closest('.dashboard-custom-select.js-generic-select .dashboard-custom-select__button');
-        if (btn) {
-            const dd = btn.closest('.dashboard-custom-select.js-generic-select') as GenericCustomSelectElement | null;
-            if (!dd) return;
+
+        const toggle = _resolveCustomSelectFromTarget(target);
+        if (toggle) {
+            const { dd } = toggle;
             e.preventDefault();
             e.stopPropagation();
             const willOpen = dd.dataset.open !== 'true';
@@ -114,40 +166,27 @@ if (typeof document !== 'undefined' && !selectUiState.genericSelectBound) {
             if (willOpen) _openGenericSelect(dd); else _closeGenericSelect(dd);
             return;
         }
-        const opt = target.closest('.dashboard-custom-select.js-generic-select .dashboard-custom-select__option, .dashboard-custom-select__menu .dashboard-custom-select__option');
-        if (opt) {
-            const menuEl = opt.closest('.dashboard-custom-select__menu') as PortaledSelectMenu | null;
-            const dd = (menuEl && menuEl.__ownerDd) || opt.closest('.dashboard-custom-select.js-generic-select') as GenericCustomSelectElement | null;
-            if (!dd) return;
+
+        const picked = _resolveCustomSelectFromOption(target);
+        if (picked) {
+            const { dd, opt } = picked;
             e.preventDefault();
             e.stopPropagation();
-            const selectTarget = document.getElementById(dd.dataset.target || '') as HTMLSelectElement | null;
-            const value = (opt as HTMLElement).dataset.value;
-            if (selectTarget && value != null && selectTarget.value !== value) {
-                selectTarget.value = value;
-                try { selectTarget.dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
-            }
-            const menuRoot = dd.__portaledMenu || dd;
-            menuRoot.querySelectorAll('.dashboard-custom-select__option').forEach(o => {
-                (o as HTMLElement).dataset.selected = (o as HTMLElement).dataset.value === value ? 'true' : 'false';
-            });
-            const valueEl = dd.querySelector('.dashboard-custom-select__value');
-            if (valueEl) valueEl.textContent = (opt.textContent || '').trim();
+            const value = opt.dataset.value ?? '';
+            _applyCustomSelectValue(dd, value, (opt.textContent || '').trim());
             _closeGenericSelect(dd);
             return;
         }
-        document.querySelectorAll('.dashboard-custom-select.js-generic-select[data-open="true"]').forEach(o => {
+
+        document.querySelectorAll(`${DD_SELECTOR}[data-open="true"]`).forEach(o => {
             const el = o as GenericCustomSelectElement;
             const m = el.__portaledMenu;
             if (!o.contains(target) && !(m && m.contains(target))) _closeGenericSelect(el);
         });
     }, true);
 
-    const _repositionOpenGenericMenus = () => {
-        document.querySelectorAll('.dashboard-custom-select.js-generic-select[data-open="true"]').forEach((o) => {
-            _positionGenericMenu(o as GenericCustomSelectElement);
-        });
-    };
-    window.addEventListener('resize', _repositionOpenGenericMenus);
-    document.addEventListener('scroll', _repositionOpenGenericMenus, true);
+    bindPortaledSelectMenuReposition(
+        DD_SELECTOR,
+        (owner) => (owner as GenericCustomSelectElement).__portaledMenu,
+    );
 }

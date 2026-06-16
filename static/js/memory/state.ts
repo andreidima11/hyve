@@ -15,6 +15,6 @@ export const memoryState = {
 };
 
 export const memoryUiState = {
-    memLogTypeDropdownBound: false,
+    memLogTypeFilterBound: false,
 };
 

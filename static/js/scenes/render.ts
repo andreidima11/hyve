@@ -5,6 +5,24 @@ import { t } from '../lang/index.js';
 import type { SceneEntry, SceneSummary, SceneService } from '../types/scenes.js';
 import { _SERVICE_VALUES, sceneState } from './state.js';
 
+function _filteredScenes(): SceneSummary[] {
+    const q = sceneState.listFilter;
+    if (!q) return sceneState.scenesCache;
+    return sceneState.scenesCache.filter((s) => {
+        const hay = `${s.name || ''} ${s.description || ''} ${s.id || ''}`.toLowerCase();
+        return hay.includes(q);
+    });
+}
+
+function _sceneRowActions(sceneId: string) {
+    const id = _escapeHtml(sceneId);
+    return `<div class="hyd-row-actions" role="group">
+        <button type="button" data-config-action="activateScene" data-config-scene-id="${id}" class="hyd-row-actions__btn hyd-row-actions__btn--accent" title="${_escapeHtml(t('scenes.activate_title'))}"><i class="fas fa-play" aria-hidden="true"></i></button>
+        <button type="button" data-config-action="openSceneEditor" data-config-scene-id="${id}" class="hyd-row-actions__btn" title="${_escapeHtml(t('scenes.edit_title'))}"><i class="fas fa-pen" aria-hidden="true"></i></button>
+        <button type="button" data-config-action="deleteScene" data-config-scene-id="${id}" class="hyd-row-actions__btn hyd-row-actions__btn--danger" title="${_escapeHtml(t('scenes.delete_title'))}"><i class="fas fa-trash-can" aria-hidden="true"></i></button>
+    </div>`;
+}
+
 export function _escapeHtml(value: unknown) {
     return String(value ?? '').replace(/[&<>"']/g, ch => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -104,53 +122,58 @@ export function _readEditorEntriesFromDOM(): SceneEntry[] {
 }
 export function _renderScenesList() {
     const wrap = document.getElementById('scenes-list');
+    const empty = document.getElementById('scenes-empty');
     if (!wrap) return;
+
+    const scenes = _filteredScenes();
     if (!sceneState.scenesCache.length) {
-        wrap.innerHTML = `
-            <div class="flex flex-col items-center justify-center text-center py-12">
-                <div class="text-5xl text-slate-600 mb-3"><i class="fas fa-film"></i></div>
-                <p class="text-sm text-slate-500 mb-4">${_escapeHtml(t('scenes.empty_list'))}</p>
-                <button type="button" data-config-action="openSceneEditor"
-                    class="px-3 py-2 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors">
-                    <i class="fas fa-plus mr-1.5"></i>${_escapeHtml(t('scenes.new_scene'))}
-                </button>
-            </div>`;
+        wrap.innerHTML = '';
+        if (empty) {
+            empty.classList.remove('hidden');
+            empty.innerHTML = `
+                <i class="fas fa-film hyd-list-placeholder__icon" aria-hidden="true"></i>
+                <p>${_escapeHtml(t('scenes.empty_list'))}</p>
+                <button type="button" data-config-action="openSceneEditor" class="hyd-btn hyd-btn--glow">
+                    <i class="fas fa-plus" aria-hidden="true"></i><span>${_escapeHtml(t('scenes.new_scene'))}</span>
+                </button>`;
+        }
         return;
     }
-    wrap.innerHTML = sceneState.scenesCache.map((s) => {
+
+    if (!scenes.length) {
+        wrap.innerHTML = '';
+        if (empty) {
+            empty.classList.remove('hidden');
+            empty.innerHTML = `<i class="fas fa-magnifying-glass hyd-list-placeholder__icon" aria-hidden="true"></i><p>${_escapeHtml(t('hy.entity_search_no_results'))}</p>`;
+        }
+        return;
+    }
+
+    if (empty) empty.classList.add('hidden');
+    wrap.innerHTML = scenes.map((s) => {
         const icon = _escapeHtml(_iconClass(s.icon || 'fas fa-film'));
         const name = _escapeHtml(s.name || t('scenes.untitled'));
         const desc = _escapeHtml(s.description || '');
         const count = Number(s.entry_count || 0);
-        const colorStyle = s.color ? `style="color: ${_escapeHtml(s.color)}"` : '';
-        const enabledDot = s.enabled
-            ? `<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" title="${_escapeHtml(t('scenes.enabled_badge_title'))}"></span>`
-            : `<span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-600" title="${_escapeHtml(t('scenes.disabled_badge_title'))}"></span>`;
+        const colorStyle = s.color ? ` style="color: ${_escapeHtml(s.color)}"` : '';
+        const statusDot = s.enabled
+            ? `<span class="hyd-status-dot hyd-status-dot--on" title="${_escapeHtml(t('scenes.enabled_badge_title'))}"></span>`
+            : `<span class="hyd-status-dot hyd-status-dot--off" title="${_escapeHtml(t('scenes.disabled_badge_title'))}"></span>`;
         const sharedBadge = s.is_shared
-            ? `<span class="inline-flex items-center gap-1 text-[9px] font-bold text-sky-300 bg-white/5 rounded-full px-2 py-0.5"><i class="fas fa-users text-[8px]"></i>${_escapeHtml(t('scenes.shared_badge'))}</span>`
+            ? `<span class="hyd-row-badge">${_escapeHtml(t('scenes.shared_badge'))}</span>`
             : '';
-        const countBadge = `<span class="inline-flex items-center gap-1 text-[10px] text-slate-400"><i class="fas fa-list-ol text-[9px]"></i>${count}</span>`;
+        const meta = `${statusDot}${sharedBadge}<span class="hyd-row-badge"><i class="fas fa-list-ol" aria-hidden="true"></i>${count}</span>`;
+        const sub = desc || String(s.id || '');
         return `
-            <div class="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-theme-subtle hover:border-theme-subtle transition-colors"
-                 data-scene-card="${_escapeHtml(s.id)}">
-                <div class="flex items-center gap-3 min-w-0 flex-1">
-                    <span class="w-9 h-9 rounded-xl bg-accent/10 text-accent flex items-center justify-center shrink-0" ${colorStyle}><i class="${icon}"></i></span>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            ${enabledDot}
-                            <span class="text-sm font-semibold text-white truncate">${name}</span>
-                            ${countBadge}
-                            ${sharedBadge}
-                        </div>
-                        ${desc ? `<span class="text-[10px] text-slate-500 truncate block">${desc}</span>` : ''}
-                    </div>
+            <article class="hyd-entity-row hyd-entity-row--static" data-scene-card="${_escapeHtml(s.id)}" role="listitem">
+                <span class="hyd-icon hyd-icon--list hyd-glow--default"${colorStyle}><i class="${icon}" aria-hidden="true"></i></span>
+                <div class="hyd-entity-row__body">
+                    <div class="hyd-entity-row__name">${name}</div>
+                    <div class="hyd-entity-row__sub">${sub}</div>
+                    <div class="hyd-entity-row__tags">${meta}</div>
                 </div>
-                <div class="flex items-center gap-1.5 shrink-0">
-                    <button type="button" data-config-action="activateScene" data-config-scene-id="${_escapeHtml(s.id)}" class="text-accent hover:text-accent-hover px-2 py-1.5 rounded-lg text-[11px] inline-flex items-center" title="${_escapeHtml(t('scenes.activate_title'))}"><i class="fas fa-play text-[10px]"></i></button>
-                    <button type="button" data-config-action="openSceneEditor" data-config-scene-id="${_escapeHtml(s.id)}" class="text-slate-400 hover:text-white px-2 py-1.5 rounded-lg text-[11px] inline-flex items-center" title="${_escapeHtml(t('scenes.edit_title'))}"><i class="fas fa-pen text-[10px]"></i></button>
-                    <button type="button" data-config-action="deleteScene" data-config-scene-id="${_escapeHtml(s.id)}" class="text-rose-400/70 hover:text-rose-300 px-2 py-1.5 rounded-lg text-[11px] inline-flex items-center" title="${_escapeHtml(t('scenes.delete_title'))}"><i class="fas fa-trash text-[10px]"></i></button>
-                </div>
-            </div>`;
+                ${_sceneRowActions(String(s.id))}
+            </article>`;
     }).join('');
 }
 export function _renderEntityPickerList(query: string) {

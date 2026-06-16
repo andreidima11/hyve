@@ -62,7 +62,7 @@
                         <div class="flex items-center justify-between gap-2">
                                 <input type="hidden" id="mem-log-type-filter" value="">
                                 <div class="relative dashboard-custom-select dashboard-custom-select--compact" id="mem_log_type_dropdown" data-open="false" data-target="mem-log-type-filter">
-                                    <button type="button" class="dashboard-custom-select__button" data-action="toggle-mem-log-type" style="min-height:32px;height:32px;">
+                                    <button type="button" class="dashboard-custom-select__button" style="min-height:32px;height:32px;">
                                         <span class="dashboard-custom-select__value" data-i18n="memory.log_type_all">Toate</span>
                                         <i class="fas fa-chevron-down"></i>
                                     </button>
@@ -108,22 +108,21 @@
                     </section>
                     </div><!-- /mem-panel-log -->
                     </div><!-- /intelligence-panel-memories -->
-                    <div id="intelligence-panel-automations" class="intelligence-panel hidden">
-                        <div class="cfg-section mb-6">
-                            <div class="flex items-center justify-between gap-4 mb-4">
-                                <h2 class="text-sm font-bold text-accent uppercase tracking-widest" data-i18n="automations.title">Automatizări</h2>
-                                <div class="flex items-center gap-2">
-                                    <button type="button" data-memory-action="openAutomationEditor" class="h-9 w-9 rounded-lg bg-accent text-bg-main hover:bg-accent-hover inline-flex items-center justify-center transition-colors" data-i18n-title="automations.new_button" title="Nouă"><i class="fas fa-plus text-xs"></i></button>
-                                    <button type="button" data-memory-action="openBlueprintPicker" class="h-9 px-3 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 text-violet-300 text-xs font-bold inline-flex items-center transition-colors" data-i18n-title="automations.blueprint_button_title" title="Creează dintr-un blueprint"><span data-i18n="automations.blueprint_button">Blueprint</span></button>
-                                    <button type="button" data-memory-action="loadAutomations" class="h-9 w-9 rounded-lg bg-white/5 hover:bg-white/10 inline-flex items-center justify-center text-slate-400 hover:text-accent transition-colors" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-rotate text-xs"></i></button>
+                    <div id="intelligence-panel-automations" class="intelligence-panel hidden hyd-config-page">
+                        <section class="hyd-toolbar" data-i18n-aria-label="hy.device_tools_aria" aria-label="Search">
+                            <div class="hy-search-wrap hyd-search-wrap">
+                                <i class="fas fa-magnifying-glass hy-search-icon" aria-hidden="true"></i>
+                                <input type="search" id="automations-search" class="hy-search-input" data-i18n-placeholder="hy.search_placeholder" placeholder="Search..." autocomplete="off">
+                            </div>
+                        </section>
+                        <section class="hyd-list-shell">
+                            <div class="hyd-gallery">
+                                <div id="automations-list" class="hyd-entity-list" role="list">
+                                    <div class="hyd-list-placeholder" role="status"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i><span data-i18n="automations.loading">Se încarcă...</span></div>
                                 </div>
+                                <div id="automations-empty" class="hyd-list-placeholder hidden" role="status"></div>
                             </div>
-                            <p class="text-[11px] text-slate-500 mb-4" data-i18n="automations.subtitle">Automatizări declarative stocate ca YAML. Le poți crea din chat sau edita direct aici.</p>
-                            <div id="automations-list" class="space-y-3">
-                                <p class="text-slate-500 text-sm" data-i18n="automations.loading">Se încarcă...</p>
-                            </div>
-                            <div id="automations-empty" class="hidden py-8 text-center text-slate-500 text-sm" data-i18n="automations.empty">Nicio automatizare activă.</div>
-                        </div>
+                        </section>
                         <div id="automation-editor-modal" class="app-subpage" aria-hidden="true">
                             <div class="app-subpage-header">
                                 <button type="button" data-memory-action="closeAutomationEditor" class="app-subpage-back" aria-label="Back"><i class="fas fa-arrow-left"></i></button>

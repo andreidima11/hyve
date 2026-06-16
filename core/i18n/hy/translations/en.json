@@ -7,6 +7,7 @@
   "active_now": "Active",
   "ai_selected": "AI",
   "search_placeholder": "Search...",
+  "entity_search_no_results": "No results for this search.",
   "add_devices": "Add Devices",
   "add_devices_title": "Add devices",
   "add_devices_sub": "Select the entities you want to manage",

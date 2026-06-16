@@ -155,7 +155,7 @@ export async function deleteMementoBulk() {}
 export function toggleMemLogTypeDropdown() {
     const dd = document.getElementById('mem_log_type_dropdown');
     if (!dd) return;
-    dd.dataset.open = dd.dataset.open === 'true' ? 'false' : 'true';
+    dd.querySelector<HTMLButtonElement>('.dashboard-custom-select__button')?.click();
 }
 
 export function setMemLogType(value: string, label: string) {
@@ -173,30 +173,12 @@ export function setMemLogType(value: string, label: string) {
     loadMemoryEvents(0);
 }
 
-
-if (typeof document !== 'undefined' && !memoryUiState.memLogTypeDropdownBound) {
-    memoryUiState.memLogTypeDropdownBound = true;
-    document.addEventListener('click', e => {
-        const dd = document.getElementById('mem_log_type_dropdown');
-        if (!dd) return;
+if (typeof document !== 'undefined' && !memoryUiState.memLogTypeFilterBound) {
+    memoryUiState.memLogTypeFilterBound = true;
+    document.addEventListener('change', (e) => {
         const target = e.target;
-        if (!(target instanceof Element)) return;
-        const toggleBtn = target.closest('[data-action="toggle-mem-log-type"]');
-        if (toggleBtn && dd.contains(toggleBtn)) {
-            e.preventDefault();
-            e.stopPropagation();
-            dd.dataset.open = dd.dataset.open === 'true' ? 'false' : 'true';
-            return;
-        }
-        const opt = target.closest('.dashboard-custom-select__option');
-        if (opt && dd.contains(opt)) {
-            e.preventDefault();
-            e.stopPropagation();
-            setMemLogType((opt as HTMLElement).dataset.value || '', (opt.textContent || '').trim());
-            return;
-        }
-        if (dd.dataset.open === 'true' && !dd.contains(target)) {
-            dd.dataset.open = 'false';
+        if (target instanceof HTMLInputElement && target.id === 'mem-log-type-filter') {
+            loadMemoryEvents(0);
         }
     });
 }

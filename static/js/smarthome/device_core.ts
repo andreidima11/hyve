@@ -31,6 +31,13 @@ import {
 } from '../devices_group.js';
 import { renameIntegrationDevice } from '../integrations/exposed_devices.js';
 import {
+    portalSelectMenu,
+    positionPortaledSelectMenu,
+    restorePortaledSelectMenu,
+    bindPortaledSelectMenuReposition,
+} from '../custom_selects/portal.js';
+import type { PortaledSelectMenu } from '../custom_selects/types.js';
+import {
     renderEntityCategoryTabs,
     renderEntityDetailPage,
     renderDeviceListCard,
@@ -1295,10 +1302,12 @@ function _syncSmarthomeFilterPicker(id: string, value: string) {
 
 function _closeSmarthomeFilterPickers(except: HTMLElement | null = null) {
     document.querySelectorAll('.hy-picker[data-open="true"]').forEach(picker => {
-        const pickerEl = picker as HTMLElement;
+        const pickerEl = picker as HTMLElement & { __portaledMenu?: PortaledSelectMenu | null };
         if (except && pickerEl === except) return;
         pickerEl.dataset.open = 'false';
         pickerEl.querySelector('[data-hy-picker-toggle]')?.setAttribute('aria-expanded', 'false');
+        restorePortaledSelectMenu(pickerEl, pickerEl.__portaledMenu, 'hy-picker-menu--portaled');
+        pickerEl.__portaledMenu = null;
     });
 }
 
@@ -1327,12 +1336,25 @@ export function toggleSmarthomePicker(event: Event) {
     const toggle = current?.matches?.('[data-hy-picker-toggle]')
         ? current
         : tgt?.closest?.('[data-hy-picker-toggle]') as HTMLElement | null;
-    const picker = toggle?.closest?.('.hy-picker') as HTMLElement | null;
+    const picker = toggle?.closest?.('.hy-picker') as (HTMLElement & { __portaledMenu?: PortaledSelectMenu | null }) | null;
     if (!picker || !toggle) return;
-    const open = picker.dataset.open === 'true';
+    const wasOpen = picker.dataset.open === 'true';
     _closeSmarthomeFilterPickers(picker);
-    picker.dataset.open = open ? 'false' : 'true';
-    toggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+    const willOpen = !wasOpen;
+    picker.dataset.open = willOpen ? 'true' : 'false';
+    toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    if (willOpen) {
+        const menu = (picker.__portaledMenu
+            || picker.querySelector('.hy-picker-menu')) as PortaledSelectMenu | null;
+        if (menu) {
+            portalSelectMenu(picker, menu, 'hy-picker-menu--portaled');
+            picker.__portaledMenu = menu;
+            positionPortaledSelectMenu(toggle, menu);
+        }
+    } else {
+        restorePortaledSelectMenu(picker, picker.__portaledMenu, 'hy-picker-menu--portaled');
+        picker.__portaledMenu = null;
+    }
 }
 
 export function selectSmarthomePickerOption(event: Event) {
@@ -1361,8 +1383,14 @@ function _wireSmarthomeFilterPickerEvents() {
         if (!tgt) return;
         if (tgt.closest('[data-smarthome-action="togglePicker"], [data-smarthome-action="selectPickerOption"]')) return;
         if (tgt.closest('[data-smarthome-action="selectDevicePrimaryEntity"]')) return;
+        const portaledMenu = tgt.closest('.hy-picker-menu') as PortaledSelectMenu | null;
+        if (portaledMenu?.__ownerDd) return;
         if (!tgt.closest('.hy-picker')) _closeSmarthomeFilterPickers();
     });
+    bindPortaledSelectMenuReposition(
+        '.hy-picker',
+        (owner) => (owner as HTMLElement & { __portaledMenu?: PortaledSelectMenu | null }).__portaledMenu,
+    );
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape') {
             _closeSmarthomeFilterPickers();

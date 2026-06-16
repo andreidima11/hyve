@@ -6,6 +6,7 @@ import { t, translateApiDetail } from '../lang/index.js';
 import { showToast, showConfirm, escapeHtml, openSubPage, closeSubPage } from '../utils.js';
 import { loadIntegrationEntities } from '../features_integrations_settings.js';
 import { collectAddonConfig, renderAddonConfigField, resolveAddonConfigValue } from '../addons/config_form.js';
+import { upgradeNativeSelects, initGenericCustomSelects } from '../features_custom_selects.js';
 import { isAdmin } from '../user_context.js';
 import type { AddonRecord } from './types.js';
 import * as render from './render.js';
@@ -149,6 +150,9 @@ export async function openAddonConfigModal(slug: string) {
     if (addonEntContainer) addonEntContainer.innerHTML = '';
     const entitySlug = addon.integration_key || slug;
     loadIntegrationEntities(entitySlug);
+
+    upgradeNativeSelects(fieldsEl);
+    initGenericCustomSelects(fieldsEl);
 
     openSubPage('addon-config-modal');
 }

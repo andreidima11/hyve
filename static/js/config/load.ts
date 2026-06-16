@@ -13,6 +13,7 @@ import {
 import { getTts } from '../chat.js';
 import { setIsAdmin } from '../user_context.js';
 import { syncUpdatesIntervalDropdown } from '../features_addons_settings.js';
+import { initGenericCustomSelects, upgradeNativeSelects } from '../features_custom_selects.js';
 import { cfgField, findIntegrationCheckbox } from './utils.js';
 import { refreshUiLanguageSelect, updateSearchTendencyHint } from './ui_language.js';
 import { renderUserPhonesList, addUserPhone } from './user_phones.js';
@@ -410,6 +411,12 @@ export async function loadConfig() {
             }
         }
         syncIntegrationToggles();
+    } catch (_) {}
+
+    try {
+        const configRoot = document.getElementById('view-config') || document;
+        upgradeNativeSelects(configRoot);
+        initGenericCustomSelects(configRoot);
     } catch (_) {}
 
     _configAutoSavePauseUntil = Date.now() + 350;

@@ -4,7 +4,7 @@ import { loadPlanner, loadApps, loadScenes, loadAreas, populateAppTab, closeAddo
 import { loadDashboard, dashboardHasRenderedContent, resetDashboardEditingState, disconnectDashboardLive, initDashboardSidebarNav } from './dashboard.js';
 import { applyDashboardEditAccess } from './dashboard/edit_access.js';
 import { closeAllSubPages } from './utils.js';
-import { t } from './lang/index.js';
+import { t, applyTranslations } from './lang/index.js';
 import type { SidebarGestureMode, StandaloneActivePanel, SwitchTabOptions } from './types/ui.js';
 
 let logEventSource: EventSource | null = null;
@@ -454,6 +454,23 @@ const _sectionPanelIds: Record<string, string> = {
 // Track where we moved the panel from so we can return it
 let _standaloneActivePanel: StandaloneActivePanel | null = null;
 
+function _setStandaloneActions(section: string) {
+    const actionsEl = document.getElementById('config-standalone-actions');
+    if (!actionsEl) return;
+    let html = '';
+    if (section === 'scenes') {
+        html = `<button type="button" data-config-action="openSceneEditor" class="hyd-btn hyd-btn--glow"><i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="scenes.new_scene">New scene</span></button>`;
+    } else if (section === 'areas') {
+        html = `<button type="button" data-config-action="openCreateAreaModal" class="hyd-btn hyd-btn--glow"><i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="areas.new_area">New area</span></button>`;
+    } else if (section === 'automations') {
+        html = `<button type="button" data-memory-action="loadAutomations" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
+            <button type="button" data-memory-action="openBlueprintPicker" class="hyd-btn hyd-btn--glass"><i class="fas fa-puzzle-piece" aria-hidden="true"></i><span data-i18n="automations.blueprint_button">Blueprint</span></button>
+            <button type="button" data-memory-action="openAutomationEditor" class="hyd-btn hyd-btn--glow"><i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="automations.new_button">New</span></button>`;
+    }
+    actionsEl.innerHTML = html;
+    applyTranslations();
+}
+
 export function openConfigSection(section: string) {
     // External views — navigate away from config
     if (section === 'smarthome') { switchTab('smarthome'); return; }
@@ -472,11 +489,14 @@ export function openConfigSection(section: string) {
 
         const titleEl = document.getElementById('config-standalone-title');
         const subtitleEl = document.getElementById('config-standalone-subtitle');
-        const actionsEl = document.getElementById('config-standalone-actions');
         if (titleEl) titleEl.textContent = t(_configSectionTitles[section] || section);
-        if (subtitleEl) subtitleEl.textContent = _configSectionSubtitles[section] ? t(_configSectionSubtitles[section]) : '';
+        if (subtitleEl) {
+            const subtitle = _configSectionSubtitles[section] ? t(_configSectionSubtitles[section]) : '';
+            subtitleEl.textContent = subtitle;
+            subtitleEl.classList.toggle('hidden', !subtitle);
+        }
 
-        if (actionsEl) actionsEl.innerHTML = '';
+        _setStandaloneActions(section);
 
         // Move the cfg-tab panel into standalone body
         const panelId = _sectionPanelIds[section] || `cfg-tab-${section}`;
@@ -531,6 +551,8 @@ export function closeConfigSection() {
     if (hub) hub.classList.remove('hidden');
     if (detail) detail.classList.add('hidden');
     if (standalone) standalone.classList.add('hidden');
+    const actionsEl = document.getElementById('config-standalone-actions');
+    if (actionsEl) actionsEl.innerHTML = '';
 }
 
 export async function startLogStream() {

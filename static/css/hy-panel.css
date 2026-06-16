@@ -601,6 +601,12 @@
     transform: translateY(0) scale(1);
     pointer-events: auto;
 }
+.hy-picker-menu--portaled {
+    opacity: 1 !important;
+    transform: translateY(0) scale(1) !important;
+    pointer-events: auto !important;
+    z-index: 9999;
+}
 .hy-picker-option {
     width: 100%;
     min-height: 1.62rem;

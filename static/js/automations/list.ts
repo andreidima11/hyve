@@ -2,6 +2,7 @@ import { apiCall } from '../api.js';
 import { t } from '../lang/index.js';
 import { escapeHtml, escapeHtmlAttr } from '../utils.js';
 import type { AutomationListItem } from '../types/features_automations.js';
+import { listShellErrorHtml, listShellLoadingHtml, wireConfigListSearch } from '../config/list_shell.js';
 import {
     automationDot,
     formatAutomationNextRun,
@@ -10,6 +11,8 @@ import {
 } from './format.js';
 
 let _autoStatusTimer: ReturnType<typeof setInterval> | null = null;
+let _automationsCache: AutomationListItem[] = [];
+let _automationsListFilter = '';
 
 function _startAutoStatusPoll(): void {
     _stopAutoStatusPoll();
@@ -129,57 +132,98 @@ async function _pollAutoStatuses(): Promise<void> {
     } catch (_) {}
 }
 
-export async function loadAutomations(): Promise<void> {
+function _filteredAutomations(): AutomationListItem[] {
+    const q = _automationsListFilter;
+    if (!q) return _automationsCache;
+    return _automationsCache.filter((a) => {
+        const hay = `${a.title || ''} ${a.id || ''} ${a.description || ''}`.toLowerCase();
+        return hay.includes(q);
+    });
+}
+
+function _ensureAutomationsSearch(): void {
+    wireConfigListSearch('automations-search', (query) => {
+        _automationsListFilter = query;
+        _renderAutomationsList();
+    });
+}
+
+function _renderAutomationsList(): void {
     const listEl = document.getElementById('automations-list');
     const emptyEl = document.getElementById('automations-empty');
     if (!listEl) return;
-    listEl.innerHTML = `<p class="text-[11px] text-slate-500">${t('automations.loading')}</p>`;
+
+    if (!_automationsCache.length) {
+        listEl.innerHTML = '';
+        if (emptyEl) {
+            emptyEl.classList.remove('hidden');
+            emptyEl.innerHTML = `
+                <i class="fas fa-robot hyd-list-placeholder__icon" aria-hidden="true"></i>
+                <p>${escapeHtml(t('automations.empty'))}</p>
+                <button type="button" data-memory-action="openAutomationEditor" class="hyd-btn hyd-btn--glow">
+                    <i class="fas fa-plus" aria-hidden="true"></i><span>${escapeHtml(t('automations.new_button'))}</span>
+                </button>`;
+        }
+        return;
+    }
+
+    const automations = _filteredAutomations();
+    if (!automations.length) {
+        listEl.innerHTML = '';
+        if (emptyEl) {
+            emptyEl.classList.remove('hidden');
+            emptyEl.innerHTML = `<i class="fas fa-magnifying-glass hyd-list-placeholder__icon" aria-hidden="true"></i><p>${escapeHtml(t('hy.entity_search_no_results'))}</p>`;
+        }
+        return;
+    }
+
+    if (emptyEl) emptyEl.classList.add('hidden');
+    listEl.innerHTML = automations.map((a: AutomationListItem) => {
+        const defId = escapeHtml(a.id).replace(/"/g, '&quot;');
+        const title = escapeHtml(a.title || a.id || '—');
+        const desc = escapeHtml(a.description || '');
+        const lastTime = a.last_run_at ? formatAutoTimestamp(String(a.last_run_at)) : '—';
+        const nextTime = escapeHtml(formatAutomationNextRun(a));
+        const toggleLabel = a.enabled ? t('automations.disable') : t('automations.enable');
+        const toggleIcon = a.enabled ? 'fa-pause' : 'fa-play-circle';
+        const sub = desc || escapeHtml(a.id || '');
+        const meta = `<span class="hyd-row-badge">${escapeHtml(t('automations.last_run_label'))}: <span data-auto-last-time="${escapeHtmlAttr(a.id)}">${lastTime}</span></span><span class="hyd-row-badge">${escapeHtml(t('automations.next_run'))}: ${nextTime}</span>`;
+        return `
+            <article class="hyd-entity-row hyd-entity-row--static automation-card" data-automation-card="${escapeHtmlAttr(a.id)}" role="listitem">
+                <span class="hyd-icon hyd-icon--list hyd-glow--default"><i class="fas fa-robot" aria-hidden="true"></i></span>
+                <div class="hyd-entity-row__body">
+                    <div class="hyd-entity-row__name">${title}</div>
+                    <div class="hyd-entity-row__sub">${sub}</div>
+                    <div class="hyd-entity-row__tags">${automationDot(a)}${meta}</div>
+                </div>
+                <div class="relative shrink-0">
+                    <button type="button" data-memory-action="toggleAutoMenu" data-memory-def-id="${defId}" class="hyd-row-actions__btn" aria-label="Menu"><i class="fas fa-ellipsis-vertical" aria-hidden="true"></i></button>
+                    <div id="auto-menu-${defId}" class="dashboard-more-menu hidden" style="width:200px">
+                        <button type="button" data-memory-action="runAutomationDefinition" data-memory-def-id="${defId}" data-memory-close-menu="true" class="dashboard-more-menu__item"><i class="fas fa-play text-emerald-400"></i><span>${t('automations.run')}</span></button>
+                        <button type="button" data-memory-action="openAutomationEditorFromList" data-memory-def-id="${defId}" data-memory-close-menu="true" class="dashboard-more-menu__item"><i class="fas fa-pen"></i><span>${t('automations.edit')}</span></button>
+                        <button type="button" data-memory-action="toggleAutomationDefinition" data-memory-def-id="${defId}" data-memory-enabled="${!!a.enabled}" data-memory-revision="${a.revision || 1}" data-memory-close-menu="true" class="dashboard-more-menu__item"><i class="fas ${toggleIcon} text-amber-400"></i><span>${toggleLabel}</span></button>
+                        <div class="dashboard-more-menu__sep"></div>
+                        <button type="button" data-memory-action="deleteAutomation" data-memory-def-id="${defId}" data-memory-close-menu="true" class="dashboard-more-menu__item" style="color:var(--red-400,#f87171)"><i class="fas fa-trash-alt" style="color:inherit"></i><span>${t('automations.delete')}</span></button>
+                    </div>
+                </div>
+            </article>`;
+    }).join('');
+}
+
+export async function loadAutomations(): Promise<void> {
+    _ensureAutomationsSearch();
+    const listEl = document.getElementById('automations-list');
+    const emptyEl = document.getElementById('automations-empty');
+    if (!listEl) return;
+    listEl.innerHTML = listShellLoadingHtml(escapeHtml(t('automations.loading')));
+    if (emptyEl) emptyEl.classList.add('hidden');
     try {
         const res = await apiCall('/api/automations/definitions');
         const data = await res.json();
-        const automations = Array.isArray(data.items) ? data.items : [];
-        if (!automations.length) {
-            listEl.classList.add('hidden');
-            if (emptyEl) emptyEl.classList.remove('hidden');
-        } else {
-            listEl.classList.remove('hidden');
-            if (emptyEl) emptyEl.classList.add('hidden');
-            listEl.innerHTML = automations.map((a: AutomationListItem) => {
-                const defId = escapeHtml(a.id).replace(/"/g, '&quot;');
-                const desc = escapeHtml(a.description || '');
-                const lastTime = a.last_run_at ? formatAutoTimestamp(String(a.last_run_at)) : '—';
-                const nextTime = escapeHtml(formatAutomationNextRun(a));
-                const toggleLabel = a.enabled ? (t('automations.disable')) : (t('automations.enable'));
-                const toggleIcon = a.enabled ? 'fa-pause' : 'fa-play-circle';
-                return `
-                <div class="py-2 px-3 rounded-lg bg-white/[0.02] border border-theme-subtle automation-card" data-automation-card="${escapeHtmlAttr(a.id)}">
-                    <div class="flex items-center justify-between gap-2">
-                        <div class="min-w-0 flex-1 flex items-center gap-2">
-                            ${automationDot(a)}
-                            <span class="text-[13px] text-slate-200 font-medium truncate">${escapeHtml(a.title || a.id || '—')}</span>
-                        </div>
-                        <div class="relative shrink-0">
-                            <button type="button" data-memory-action="toggleAutoMenu" data-memory-def-id="${defId}" class="dashboard-kebab-btn" style="width:28px;height:28px"><i class="fas fa-ellipsis-vertical"></i></button>
-                            <div id="auto-menu-${defId}" class="dashboard-more-menu hidden" style="width:200px">
-                                <button type="button" data-memory-action="runAutomationDefinition" data-memory-def-id="${defId}" data-memory-close-menu="true" class="dashboard-more-menu__item"><i class="fas fa-play text-emerald-400"></i><span>${t('automations.run')}</span></button>
-                                <button type="button" data-memory-action="openAutomationEditorFromList" data-memory-def-id="${defId}" data-memory-close-menu="true" class="dashboard-more-menu__item"><i class="fas fa-pen"></i><span>${t('automations.edit')}</span></button>
-                                <button type="button" data-memory-action="toggleAutomationDefinition" data-memory-def-id="${defId}" data-memory-enabled="${!!a.enabled}" data-memory-revision="${a.revision || 1}" data-memory-close-menu="true" class="dashboard-more-menu__item"><i class="fas ${toggleIcon} text-amber-400"></i><span>${toggleLabel}</span></button>
-                                <div class="dashboard-more-menu__sep"></div>
-                                <button type="button" data-memory-action="deleteAutomation" data-memory-def-id="${defId}" data-memory-close-menu="true" class="dashboard-more-menu__item" style="color:var(--red-400,#f87171)"><i class="fas fa-trash-alt" style="color:inherit"></i><span>${t('automations.delete')}</span></button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-x-3 gap-y-0 text-[10px] text-slate-500 mt-0.5 pl-4">
-                        ${desc ? `<span class="text-slate-400">${desc}</span><span class="text-slate-600">·</span>` : ''}
-                        <span>${t('automations.last_run_label')}: <span data-auto-last-time="${escapeHtmlAttr(a.id)}">${lastTime}</span></span>
-                        <span class="text-slate-600">·</span>
-                        <span>${t('automations.next_run')}: ${nextTime}</span>
-                    </div>
-                </div>`;
-            }).join('');
-        }
+        _automationsCache = Array.isArray(data.items) ? data.items : [];
+        _renderAutomationsList();
     } catch (e) {
-        listEl.innerHTML = '<p class="text-red-400 text-sm">' + (t('automations.error')) + '</p>';
+        listEl.innerHTML = listShellErrorHtml(escapeHtml(t('automations.error')));
         if (emptyEl) emptyEl.classList.add('hidden');
     }
     const panel = document.getElementById('intelligence-panel-automations');

@@ -8,6 +8,7 @@ import type { IntegrationConfigEntriesState } from '../types/features_integratio
 import { errMsg, intEl } from './utils.js';
 import { integrationDefinition } from './catalog_meta.js';
 import { loadIntegrationExposedEntities } from './exposed_devices.js';
+import { upgradeNativeSelects, initGenericCustomSelects } from '../features_custom_selects.js';
 
 let _entriesCurrent: IntegrationConfigEntriesState = { slug: null, schema: [], entries: [], supportsMultiple: false, label: '' };
 const _syncingEntryIds = new Set<string>();
@@ -294,6 +295,8 @@ function openEntryEditor(entry: Record<string, unknown> | null): void {
     };
 
     renderFields();
+    upgradeNativeSelects(fieldsEl);
+    initGenericCustomSelects(fieldsEl);
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     const close = () => { modal.classList.add('hidden'); modal.classList.remove('flex'); };

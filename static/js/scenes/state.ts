@@ -19,6 +19,7 @@ export interface SceneEditorState {
 
 export const sceneState = {
     scenesCache: [] as SceneSummary[],
+    listFilter: '',
     entityCatalog: [] as SceneEntityCatalogItem[],
     entityCatalogLoaded: false,
     editorState: {

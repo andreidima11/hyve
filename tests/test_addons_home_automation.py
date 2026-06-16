@@ -1,3 +1,10 @@
+"""Home automation add-on registry and config tests."""
+
+import json
+import subprocess
+import time
+from pathlib import Path
+
 from addons import registry
 
 
@@ -24,7 +31,7 @@ def test_zigbee2mqtt_manifest_supports_local_config_and_web_ui():
     assert manifest is not None
     schema_keys = {field["key"] for field in manifest.get("config_schema", [])}
 
-    assert {"port", "mqtt_host", "mqtt_port", "web_port", "serial_port"}.issubset(schema_keys)
+    assert {"port", "mqtt_host", "mqtt_port", "web_port", "serial_port", "adapter"}.issubset(schema_keys)
     assert "host" not in schema_keys
     assert "webui_url" not in schema_keys
 
@@ -42,6 +49,69 @@ def test_zigbee2mqtt_manifest_supports_local_config_and_web_ui():
     packages = install.get("packages") or []
     assert any(str(pkg).startswith("pnpm@") for pkg in requirements)
     assert any(str(pkg).startswith("zigbee2mqtt@") for pkg in packages)
+
+
+Z2M_RUN_SH = Path(__file__).resolve().parents[1] / "addons" / "available" / "zigbee2mqtt" / "run.sh"
+
+
+def test_zigbee2mqtt_start_command_includes_adapter():
+    from addons.process_manager import _effective_config, _resolve_args
+
+    manifest = registry.get_manifest("zigbee2mqtt")
+    assert manifest is not None
+    merged = _effective_config(
+        manifest,
+        {
+            "web_port": 8080,
+            "mqtt_host": "localhost",
+            "mqtt_port": 1883,
+            "serial_port": "/dev/serial/by-id/usb-test",
+            "adapter": "ember",
+            "permit_join": False,
+            "frontend_enabled": True,
+        },
+    )
+    args = _resolve_args(manifest["start_command"]["args"], merged)
+    assert args[6] == "/dev/serial/by-id/usb-test"
+    assert args[7] == "ember"
+
+
+def test_zigbee2mqtt_run_sh_writes_adapter(tmp_path):
+    root = tmp_path / "hyve"
+    addon_dir = root / "addons" / "available" / "zigbee2mqtt"
+    addon_dir.mkdir(parents=True)
+    (addon_dir / "run.sh").write_text(Z2M_RUN_SH.read_text(encoding="utf-8"), encoding="utf-8")
+
+    proc = subprocess.Popen(
+        ["bash", str(addon_dir / "run.sh"), "8080", "localhost", "1883", "", "", "/dev/ttyUSB0", "ember", "false", "true"],
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        config = root / "output" / "addons" / "zigbee2mqtt" / "data" / "configuration.yaml"
+        for _ in range(50):
+            if config.is_file():
+                break
+            proc.poll()
+            if proc.returncode is not None and not config.is_file():
+                _, err = proc.communicate(timeout=1)
+                raise AssertionError(f"config missing after exit {proc.returncode}: {err}")
+            time.sleep(0.05)
+        assert config.is_file()
+        text = config.read_text(encoding="utf-8")
+        assert "port: /dev/ttyUSB0" in text
+        assert "adapter: ember" in text
+    finally:
+        proc.kill()
+        proc.wait(timeout=5)
+
+
+def test_zigbee2mqtt_run_sh_syntax():
+    assert Z2M_RUN_SH.is_file()
+    proc = subprocess.run(["bash", "-n", str(Z2M_RUN_SH)], capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr
 
 
 def test_update_addon_preserves_existing_state(monkeypatch):

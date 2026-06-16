@@ -1,6 +1,6 @@
 export interface PortaledSelectMenu extends HTMLDivElement {
     __placeholder?: Comment | null;
-    __ownerDd?: GenericCustomSelectElement | null;
+    __ownerDd?: HTMLElement | null;
 }
 
 export interface GenericCustomSelectElement extends HTMLElement {

@@ -13,6 +13,7 @@ import type {
 } from '../types/scenes.js';
 import { _MAX_ENTRIES, sceneState } from './state.js';
 import * as render from './render.js';
+import { wireConfigListSearch, listShellLoadingHtml, listShellErrorHtml } from '../config/list_shell.js';
 
 import { ensureEntityCatalog } from './editor.js';
 
@@ -25,12 +26,18 @@ if (typeof window !== 'undefined') {
     window.addEventListener('hyve:i18n-bundles-loaded', _refreshScenesI18n);
 }
 
+function _ensureScenesSearch() {
+    wireConfigListSearch('scenes-search', (query) => {
+        sceneState.listFilter = query;
+        render._renderScenesList();
+    });
+}
+
 export async function loadScenes() {
+    _ensureScenesSearch();
     const wrap = document.getElementById('scenes-list');
     if (wrap && !sceneState.scenesCache.length) {
-        wrap.innerHTML = `<div class="col-span-full text-center text-xs text-slate-500 py-10">
-            <i class="fas fa-spinner fa-spin mr-1.5"></i>${render._escapeHtml(t('scenes.loading'))}
-        </div>`;
+        wrap.innerHTML = listShellLoadingHtml(render._escapeHtml(t('scenes.loading')));
     }
     try {
         const res = await apiCall('/api/scenes');
@@ -40,9 +47,7 @@ export async function loadScenes() {
         render._renderScenesList();
     } catch (e) {
         if (wrap) {
-            wrap.innerHTML = `<div class="col-span-full text-center text-xs text-red-400 py-10">
-                ${render._escapeHtml(t('scenes.load_failed', { message: e instanceof Error ? e.message : String(e) }))}
-            </div>`;
+            wrap.innerHTML = listShellErrorHtml(render._escapeHtml(t('scenes.load_failed', { message: e instanceof Error ? e.message : String(e) })));
         }
     }
 }

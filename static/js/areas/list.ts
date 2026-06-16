@@ -8,6 +8,7 @@ import type { HyveEntity } from '../types/entity.js';
 import type { AreaEntityRef, HyveArea } from './state.js';
 import { areaState } from './state.js';
 import * as render from './render.js';
+import { listShellErrorHtml, listShellLoadingHtml, wireConfigListSearch } from '../config/list_shell.js';
 
 function _refreshAreasI18n() {
     if (!document.getElementById('areas-list')) return;
@@ -18,10 +19,18 @@ if (typeof window !== 'undefined') {
     window.addEventListener('hyve:i18n-bundles-loaded', _refreshAreasI18n);
 }
 
+function _ensureAreasSearch() {
+    wireConfigListSearch('areas-search', (query) => {
+        areaState.listFilter = query;
+        render._renderAreas();
+    });
+}
+
 export async function loadAreas() {
+    _ensureAreasSearch();
     const list = document.getElementById('areas-list');
     if (list && !areaState.areasCache.length) {
-        list.innerHTML = `<div class="text-center text-xs text-slate-500 py-8"><i class="fas fa-spinner fa-spin mr-1.5"></i>${render._esc(t('areas.loading'))}</div>`;
+        list.innerHTML = listShellLoadingHtml(render._esc(t('areas.loading')));
     }
     try {
         const res = await apiCall('/api/areas');
@@ -31,7 +40,7 @@ export async function loadAreas() {
         render._renderAreas();
     } catch (err) {
         console.error('loadAreas failed', err);
-        if (list) list.innerHTML = `<div class="text-center text-xs text-red-400 py-8">${render._esc(t('areas.load_list_error'))}</div>`;
+        if (list) list.innerHTML = listShellErrorHtml(render._esc(t('areas.load_list_error')));
     }
 }
 
