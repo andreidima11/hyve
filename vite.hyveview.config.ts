@@ -40,7 +40,11 @@ function hyveviewRuntimeImports(): Plugin {
         name: 'hyveview-runtime-imports',
         enforce: 'pre',
         resolveId(source) {
-            if (LANG_IMPORTS.has(source)) {
+            if (
+                LANG_IMPORTS.has(source)
+                || source.includes('/lang/index.js')
+                || source.includes('/lang/index.ts')
+            ) {
                 return { id: '/static/dist/lang.js', external: true };
             }
             const mapped = RUNTIME_IMPORTS[source];

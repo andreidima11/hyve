@@ -1,7 +1,6 @@
 /**
  * Custom dropdown — rebuild, portal menu, document bindings.
  */
-import { escapeHtml } from '../utils.js';
 import type { GenericCustomSelectElement, PortaledSelectMenu } from './types.js';
 import {
     bindPortaledSelectMenuReposition,
@@ -72,7 +71,7 @@ export function rebuildGenericSelect(dd: GenericCustomSelectElement) {
         const opts = Array.from(target.options || []);
         menu.innerHTML = opts.map(o => {
             const sel = o.value === current;
-            return `<button type="button" class="dashboard-custom-select__option" data-value="${escapeHtmlAttr(o.value)}" data-selected="${sel ? 'true' : 'false'}">${escapeHtml((o.textContent || '').trim())}</button>`;
+            return `<button type="button" class="dashboard-custom-select__option" data-value="${escapeHtmlAttr(o.value)}" data-selected="${sel ? 'true' : 'false'}">${escapeHtmlAttr((o.textContent || '').trim())}</button>`;
         }).join('');
         const selOpt = opts.find(o => o.value === current) || opts[0];
         valueEl.textContent = selOpt ? (selOpt.textContent || '').trim() : '—';

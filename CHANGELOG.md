@@ -4,6 +4,15 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.12] — 2026-06
+
+Hotfix: **Hyveview 404 on lang bundle** after dashboard card editor / custom selects build.
+
+### Frontend
+- **Fix:** `static/hyveview/js/utils.js` no longer bundles `utils.js` with a machine-specific `lang/index.js` path (404 as `/static/hyveview/opt/hyve/static/js/lang/index.js` on Linux).
+- **Fix:** `custom_selects/generic.ts` inlines HTML escaping — Hyveview schema dropdowns no longer pull the full app `utils` module.
+- **Fix:** `fix-hyveview-imports.mjs` rewrites any stray `lang/index` imports to `/static/dist/lang.js` and removes orphan `hyveview/js/utils.js`.
+
 ## [0.9.8.11] — 2026-06
 
 Patch release: **custom dropdowns work again**, config hub list pages match Devices UI, backup includes memory log, Zigbee2MQTT adapter setting.
