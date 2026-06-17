@@ -462,58 +462,11 @@ const _sectionPanelIds: Record<string, string> = {
 // Track where we moved the panel from so we can return it
 let _standaloneActivePanel: StandaloneActivePanel | null = null;
 
-function _mastIconBtn(opts: {
-    action: string;
-    bus?: 'config' | 'memory';
-    icon: string;
-    titleKey?: string;
-    extraClass?: string;
-    id?: string;
-    hidden?: boolean;
-}): string {
-    const bus = opts.bus || 'config';
-    const attr = bus === 'memory' ? 'data-memory-action' : 'data-config-action';
-    const hiddenCls = opts.hidden ? ' hidden' : '';
-    const titleKey = opts.titleKey || 'common.refresh';
-    const idAttr = opts.id ? ` id="${opts.id}"` : '';
-    const extra = opts.extraClass ? ` ${opts.extraClass}` : '';
-    return `<button type="button" ${attr}="${opts.action}"${idAttr} class="hyd-mast__back hyd-mast__back--icon${extra}${hiddenCls}" data-i18n-title="${titleKey}" title="Refresh"><i class="fas ${opts.icon}" aria-hidden="true"></i></button>`;
-}
-
 function _setStandaloneActions(section: string) {
-    const actionsEl = document.getElementById('config-standalone-actions');
-    if (!actionsEl) return;
-    let html = '';
-    if (section === 'scenes') {
-        html = `${_mastIconBtn({ action: 'loadScenes', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' })}
-            ${_mastIconBtn({ action: 'openSceneEditor', icon: 'fa-plus', titleKey: 'scenes.new_scene', extraClass: 'hyd-mast__back--accent' })}`;
-    } else if (section === 'areas') {
-        html = `${_mastIconBtn({ action: 'loadAreas', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' })}
-            ${_mastIconBtn({ action: 'openCreateAreaModal', icon: 'fa-plus', titleKey: 'areas.new_area', extraClass: 'hyd-mast__back--accent' })}`;
-    } else if (section === 'automations') {
-        html = `${_mastIconBtn({ action: 'loadAutomations', bus: 'memory', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' })}
-            ${_mastIconBtn({ action: 'openBlueprintPicker', bus: 'memory', icon: 'fa-puzzle-piece', titleKey: 'automations.blueprint_button' })}
-            ${_mastIconBtn({ action: 'openAutomationEditor', bus: 'memory', icon: 'fa-plus', titleKey: 'automations.new_button', extraClass: 'hyd-mast__back--accent' })}`;
-    } else if (section === 'app') {
-        html = _mastIconBtn({ action: 'refreshAppTab', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' });
-    } else if (section === 'integrations') {
-        html = _mastIconBtn({ action: 'refreshIntegrationsSettings', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' });
-    } else if (section === 'addons') {
-        html = _mastIconBtn({ action: 'loadApps', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' });
-    } else if (section === 'memories') {
-        html = _mastIconBtn({ action: 'loadMemory', bus: 'memory', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' });
-    } else if (section === 'users') {
-        html = _mastIconBtn({ action: 'loadAdminUsers', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' });
-    } else if (section === 'logs') {
-        html = _mastIconBtn({ action: 'refreshLogs', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' });
-    } else if (section === 'updates') {
-        html = `${_mastIconBtn({ action: 'checkAddonUpdates', icon: 'fa-arrows-rotate', titleKey: 'common.refresh', id: 'updates-mast-check-btn' })}
-            ${_mastIconBtn({ action: 'updateAllAddons', icon: 'fa-arrow-up', titleKey: 'updates.upgrade_all_btn', extraClass: 'hyd-mast__back--accent', id: 'updates-mast-upgrade-btn', hidden: true })}`;
-    } else if (section === 'backup') {
-        html = _mastIconBtn({ action: 'loadBackupPanel', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' });
-    }
-    actionsEl.innerHTML = html;
-    applyTranslations();
+    document.querySelectorAll('[data-standalone-actions]').forEach((el) => {
+        const group = el as HTMLElement;
+        group.classList.toggle('hidden', group.dataset.standaloneActions !== section);
+    });
 }
 
 export function openConfigSection(section: string) {
@@ -542,8 +495,7 @@ export function openConfigSection(section: string) {
         }
 
         _setStandaloneActions(section);
-
-        // Move the cfg-tab panel into standalone body
+        applyTranslations();
         const panelId = _sectionPanelIds[section] || `cfg-tab-${section}`;
         const panel = document.getElementById(panelId);
         const body = document.getElementById('config-standalone-body');
@@ -574,8 +526,7 @@ export function openConfigSection(section: string) {
         // --- Settings with tabs ---
         _restoreStandalonePanel();
         if (standalone) standalone.classList.add('hidden');
-        const actionsEl = document.getElementById('config-standalone-actions');
-        if (actionsEl) actionsEl.innerHTML = '';
+        _setStandaloneActions('');
         if (detail) detail.classList.remove('hidden');
         switchConfigTab('general');
     }
@@ -594,8 +545,7 @@ export function closeConfigSection() {
     if (hub) hub.classList.remove('hidden');
     if (detail) detail.classList.add('hidden');
     if (standalone) standalone.classList.add('hidden');
-    const actionsEl = document.getElementById('config-standalone-actions');
-    if (actionsEl) actionsEl.innerHTML = '';
+    _setStandaloneActions('');
 }
 
 export async function startLogStream() {

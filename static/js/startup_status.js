@@ -5,6 +5,30 @@ let _visible = false;
 function _indicatorEl() {
     return document.getElementById('nav-hub-startup-indicator');
 }
+function _indicatorIconEl() {
+    return document.getElementById('nav-hub-startup-icon');
+}
+function _subsystemLabel(issue) {
+    const key = `startup.subsystem_${issue.name}`;
+    const translated = t(key);
+    return translated !== key ? translated : (issue.label || issue.name || '');
+}
+function _issuesMessage(data) {
+    const issues = Array.isArray(data.issues) ? data.issues : [];
+    if (!issues.length) {
+        return data.health === 'fatal'
+            ? (t('startup.fatal_summary') || 'Critical startup failure')
+            : (t('startup.degraded_summary') || 'Some services started with issues');
+    }
+    const first = issues[0];
+    const label = _subsystemLabel(first);
+    const detail = String(first.message || '').trim();
+    if (detail) {
+        return t('startup.issue_detail', { subsystem: label, message: detail })
+            || `${label}: ${detail}`;
+    }
+    return t('startup.issue_one', { subsystem: label }) || label;
+}
 function _statusMessage(data) {
     if (!data || data.ready)
         return '';
@@ -17,16 +41,47 @@ function _statusMessage(data) {
     }
     return t('startup.loading') || 'Starting up…';
 }
-export function setHubStartupLoading(visible, message = '') {
+function _setIndicatorMode(mode, message = '') {
     const el = _indicatorEl();
+    const icon = _indicatorIconEl();
     if (!el)
         return;
-    _visible = !!visible;
-    el.classList.toggle('hidden', !visible);
-    el.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    if (mode === 'hidden') {
+        _visible = false;
+        el.classList.add('hidden');
+        el.classList.remove('hub-startup-indicator--degraded', 'hub-startup-indicator--fatal');
+        el.setAttribute('aria-hidden', 'true');
+        if (icon) {
+            icon.className = 'fas fa-circle-notch fa-spin';
+        }
+        return;
+    }
+    _visible = true;
+    el.classList.remove('hidden');
+    el.classList.toggle('hub-startup-indicator--degraded', mode === 'degraded');
+    el.classList.toggle('hub-startup-indicator--fatal', mode === 'fatal');
+    el.setAttribute('aria-hidden', 'false');
+    if (icon) {
+        if (mode === 'loading') {
+            icon.className = 'fas fa-circle-notch fa-spin';
+        }
+        else if (mode === 'fatal') {
+            icon.className = 'fas fa-circle-exclamation';
+        }
+        else {
+            icon.className = 'fas fa-triangle-exclamation';
+        }
+    }
     const text = message || (t('startup.loading') || 'Starting up…');
     el.setAttribute('title', text);
     el.setAttribute('aria-label', text);
+}
+export function setHubStartupLoading(visible, message = '') {
+    if (!visible) {
+        _setIndicatorMode('hidden');
+        return;
+    }
+    _setIndicatorMode('loading', message);
 }
 export function stopStartupStatusPolling() {
     if (_pollTimer) {
@@ -46,27 +101,32 @@ async function _pollStartupStatus() {
             return;
         const data = await res.json();
         if (data.ready) {
-            setHubStartupLoading(false);
             stopStartupStatusPolling();
+            const health = data.health || 'ok';
+            if (health === 'ok') {
+                _setIndicatorMode('hidden');
+                return;
+            }
+            _setIndicatorMode(health === 'fatal' ? 'fatal' : 'degraded', _issuesMessage(data));
             return;
         }
-        setHubStartupLoading(true, _statusMessage(data));
+        _setIndicatorMode('loading', _statusMessage(data));
     }
     catch {
         if (_visible) {
-            setHubStartupLoading(true, t('startup.reconnecting') || 'Reconnecting…');
+            _setIndicatorMode('loading', t('startup.reconnecting') || 'Reconnecting…');
         }
     }
 }
 export function startStartupStatusPolling({ immediate = true } = {}) {
     stopStartupStatusPolling();
-    setHubStartupLoading(true);
+    _setIndicatorMode('loading');
     if (immediate)
         void _pollStartupStatus();
     _pollTimer = setInterval(() => { void _pollStartupStatus(); }, 1500);
 }
 export function showHubStartupLoadingAfterRestart() {
-    setHubStartupLoading(true, t('startup.restarting') || 'Restarting…');
+    _setIndicatorMode('loading', t('startup.restarting') || 'Restarting…');
     startStartupStatusPolling({ immediate: false });
 }
 /** Show restart UI, poll until the server responds, then reload the page. */

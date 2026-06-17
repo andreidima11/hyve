@@ -314,8 +314,8 @@ export function renderLightControlsMarkup(entity, slug, ctrlAttrs, esc, escAttr,
         return '';
     const compact = options?.compact ?? false;
     const sectionClass = compact
-        ? 'pt-2 border-t border-white/5 first:pt-0 first:border-t-0'
-        : 'mt-3 pt-3 border-t border-white/5';
+        ? 'pt-2 border-t border-theme-subtle first:pt-0 first:border-t-0'
+        : 'mt-3 pt-3 border-t border-theme-subtle';
     const parts = [];
     if (flags.hasBrightness) {
         const pct = Math.round((flags.brightnessValue / flags.brightnessScale) * 100);

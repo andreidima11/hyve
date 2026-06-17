@@ -1,6 +1,5 @@
 /** HTTP client with JWT refresh for Hyve API routes. */
 export let authToken = localStorage.getItem('hyve_token');
-
 /** Canonical bearer token — reads localStorage so every ESM copy stays in sync. */
 export function resolveAuthToken() {
     try {

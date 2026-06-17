@@ -320,7 +320,7 @@ export function renderEntityFriendlyNameSection(entity) {
     const eid = String(entity.entity_id || '');
     const display = escapeHtml(entityDisplayName(entity) || eid);
     return `
-    <div class="rounded-2xl bg-white/5 border border-white/10 p-3 mb-3" data-entity-friendly-name-root>
+    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-3 mb-3" data-entity-friendly-name-root>
         <div class="flex items-center gap-2 text-[9px] uppercase tracking-widest text-slate-500">
             <span>${escapeHtml(_er('friendly_name'))}</span>
             <button type="button" data-entity-friendly-name-edit class="hover:text-accent transition-colors" title="${escapeHtml(_er('friendly_name'))}">
@@ -334,11 +334,11 @@ export function renderEntityFriendlyNameSection(entity) {
         <div data-entity-friendly-name-edit-panel class="hidden mt-2 flex flex-col gap-2">
             <div class="flex items-center gap-2">
                 <input type="text" data-entity-friendly-name-input value="${_attr(entityDisplayName(entity) || eid)}"
-                    class="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-accent/40">
+                    class="flex-1 min-w-0 bg-white/5 border border-theme-subtle rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-accent/40">
                 <button type="button" data-entity-friendly-name-save class="px-2 py-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent text-[11px] font-semibold hover:bg-accent/30 shrink-0">
                     <i class="fas fa-check"></i>
                 </button>
-                <button type="button" data-entity-friendly-name-cancel class="px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-[11px] hover:bg-white/10 shrink-0">
+                <button type="button" data-entity-friendly-name-cancel class="px-2 py-1.5 rounded-lg bg-white/5 border border-theme-subtle text-slate-300 text-[11px] hover:bg-white/10 shrink-0">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -351,7 +351,7 @@ export function renderEntityRegistrySection(entity) {
     const { domain, objectId } = splitEntityId(eid);
     const canEdit = !!uid;
     return `
-    <div class="rounded-2xl bg-white/5 border border-white/10 p-3 mb-3" data-entity-registry-root>
+    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-3 mb-3" data-entity-registry-root>
         <div class="flex items-center gap-2 text-[9px] uppercase tracking-widest text-slate-500">
             <span>${escapeHtml(_er('entity_id'))}</span>
             ${canEdit ? `<button type="button" data-entity-registry-edit class="hover:text-accent transition-colors" title="${escapeHtml(_er('entity_id'))}">
@@ -366,11 +366,11 @@ export function renderEntityRegistrySection(entity) {
             <div class="flex items-center gap-1.5">
                 <span class="text-[11px] mono text-slate-400 shrink-0">${escapeHtml(domain)}.</span>
                 <input type="text" data-entity-registry-object-id value="${_attr(objectId)}"
-                    class="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-slate-100 mono focus:outline-none focus:border-accent/40">
+                    class="flex-1 min-w-0 bg-white/5 border border-theme-subtle rounded-lg px-2 py-1.5 text-sm text-slate-100 mono focus:outline-none focus:border-accent/40">
                 <button type="button" data-entity-registry-save class="px-2 py-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent text-[11px] font-semibold hover:bg-accent/30 shrink-0">
                     <i class="fas fa-check"></i>
                 </button>
-                <button type="button" data-entity-registry-cancel class="px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-[11px] hover:bg-white/10 shrink-0">
+                <button type="button" data-entity-registry-cancel class="px-2 py-1.5 rounded-lg bg-white/5 border border-theme-subtle text-slate-300 text-[11px] hover:bg-white/10 shrink-0">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -495,7 +495,7 @@ function renderSwitch(entity, slug) {
                 <span class="app-toggle-thumb"></span>
             </button>` : '';
     return `
-    <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
+    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-4 mb-3">
         <div class="flex items-center justify-between gap-4">
             <div class="min-w-0">
                 <div class="text-[11px] uppercase tracking-wider text-slate-400">${escapeHtml(_er('state'))}</div>
@@ -517,7 +517,7 @@ function renderLight(entity, slug) {
                 <span class="app-toggle-thumb"></span>
             </button>` : '';
     return `
-    <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
+    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-4 mb-3">
         <div class="flex items-center justify-between gap-4">
             <div class="min-w-0">
                 <div class="text-[11px] uppercase tracking-wider text-slate-400">${escapeHtml(_er('light'))}</div>
@@ -538,7 +538,7 @@ function renderNumber(entity, slug) {
     const current = Number.isFinite(value) ? value : min;
     const unit = entity.unit || caps.unit || '';
     return `
-    <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3" data-number-control-wrap="${escapeHtml(eid)}">
+    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-4 mb-3" data-number-control-wrap="${escapeHtml(eid)}">
         <div class="flex items-center justify-between text-[11px] text-slate-400 mb-2">
             <span>${escapeHtml(_er('value'))}</span>
             <span class="mono text-slate-200 text-sm" data-entity-state="${escapeHtml(eid)}" data-number-live-value="${escapeHtml(eid)}">${escapeHtml(String(current))}${unit ? ' ' + escapeHtml(unit) : ''}</span>
@@ -561,7 +561,7 @@ function renderSelect(entity, slug) {
     if (!selectHtml)
         return '';
     return `
-    <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
+    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-4 mb-3">
         ${selectHtml}
     </div>`;
 }
@@ -577,7 +577,7 @@ function renderButton(entity, slug) {
     }[String(ptzAction)];
     if (attrs.tapo_button_kind === 'ptz' && ptzUi) {
         return `
-        <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3 flex items-center justify-between gap-3">
+        <div class="rounded-2xl bg-white/5 border border-theme-subtle p-4 mb-3 flex items-center justify-between gap-3">
             <div>
                 <div class="text-[11px] uppercase tracking-wider text-slate-400">${escapeHtml(_er('pan_tilt'))}</div>
                 <div class="text-sm font-semibold text-slate-100 mt-0.5">${escapeHtml(ptzUi.label)}</div>
@@ -590,7 +590,7 @@ function renderButton(entity, slug) {
         </div>`;
     }
     return `
-    <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3 flex items-center justify-between gap-3">
+    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-4 mb-3 flex items-center justify-between gap-3">
         <div class="text-[11px] uppercase tracking-wider text-slate-400">${escapeHtml(_er('action'))}</div>
         <button type="button" class="px-4 py-2 rounded-xl bg-accent/15 border border-accent/30 text-accent text-xs font-semibold hover:bg-accent/25"
                 ${_ctrlAttrs(slug, eid, 'press')}>
@@ -602,7 +602,7 @@ function renderLock(entity, slug) {
     const eid = entity.entity_id;
     const isLocked = String(entity.state || '').toLowerCase() === 'locked' || String(entity.state || '').toLowerCase() === 'off';
     return `
-    <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3 flex items-center justify-between gap-3">
+    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-4 mb-3 flex items-center justify-between gap-3">
         <div>
             <div class="text-[11px] uppercase tracking-wider text-slate-400">${escapeHtml(_er('lock'))}</div>
             <div class="text-sm font-semibold text-slate-100 mt-0.5">${escapeHtml(isLocked ? _er('locked') : _er('unlocked'))}</div>
@@ -616,20 +616,20 @@ function renderLock(entity, slug) {
 function renderCover(entity, slug) {
     const eid = entity.entity_id;
     return `
-    <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
+    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-4 mb-3">
         <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">${escapeHtml(_er('cover'))}</div>
         <div class="flex gap-2">
-            <button type="button" class="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-200 text-xs hover:bg-white/10"
+            <button type="button" class="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-theme-subtle text-slate-200 text-xs hover:bg-white/10"
                     ${_ctrlAttrs(slug, eid, 'turn_on')}><i class="fas fa-arrow-up mr-1"></i>${escapeHtml(_er('up'))}</button>
-            <button type="button" class="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-200 text-xs hover:bg-white/10"
+            <button type="button" class="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-theme-subtle text-slate-200 text-xs hover:bg-white/10"
                     ${_ctrlAttrs(slug, eid, 'set', { value: 'STOP' })}><i class="fas fa-stop mr-1"></i>${escapeHtml(_er('stop'))}</button>
-            <button type="button" class="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-200 text-xs hover:bg-white/10"
+            <button type="button" class="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-theme-subtle text-slate-200 text-xs hover:bg-white/10"
                     ${_ctrlAttrs(slug, eid, 'turn_off')}><i class="fas fa-arrow-down mr-1"></i>${escapeHtml(_er('down'))}</button>
         </div>
     </div>`;
 }
 function _mobilityActionBtn(slug, eid, action, icon, label) {
-    return `<button type="button" class="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-200 text-xs hover:bg-white/10 hover:text-accent"
+    return `<button type="button" class="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-theme-subtle text-slate-200 text-xs hover:bg-white/10 hover:text-accent"
         ${_ctrlAttrs(slug, eid, action, null, { stop: true })}>
         <i class="fas ${icon} mr-1"></i>${escapeHtml(label)}
     </button>`;
@@ -637,7 +637,7 @@ function _mobilityActionBtn(slug, eid, action, icon, label) {
 function renderLawnMower(entity, slug) {
     const eid = entity.entity_id || '';
     return `
-    <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
+    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-4 mb-3">
         <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">${escapeHtml(_er('action'))}</div>
         <div class="grid grid-cols-2 gap-2">
             ${_mobilityActionBtn(slug, eid, 'start', 'fa-play', _er('lawn_mower_start'))}
@@ -650,7 +650,7 @@ function renderLawnMower(entity, slug) {
 function renderVacuum(entity, slug) {
     const eid = entity.entity_id || '';
     return `
-    <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
+    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-4 mb-3">
         <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">${escapeHtml(_er('action'))}</div>
         <div class="grid grid-cols-2 gap-2">
             ${_mobilityActionBtn(slug, eid, 'start', 'fa-play', _er('vacuum_start'))}
@@ -672,7 +672,7 @@ function renderSensor(entity /*, slug */) {
     if (!interesting.length)
         return '';
     return `
-    <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">
+    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-4 mb-3">
         <div class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">${escapeHtml(_er('telemetry'))}</div>
         <div class="grid grid-cols-2 gap-2">
             ${interesting.map(([k, v]) => `
@@ -760,7 +760,7 @@ function _renderLightControlsSection(entity, slug) {
     const controls = renderLightControlsMarkup(entity, slug, _ctrlAttrs, escapeHtml, _attr, { brightness: _er('brightness'), color: _er('color'), color_temp: _er('color_temp'), hue: _er('hue') });
     if (!controls)
         return '';
-    return `<div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3">${controls}</div>`;
+    return `<div class="rounded-2xl bg-white/5 border border-theme-subtle p-4 mb-3">${controls}</div>`;
 }
 const RENDERERS = {
     switch: renderSwitch,
@@ -810,7 +810,7 @@ export function renderEntityModal(entity, slug, options = {}) {
         .slice(0, 30);
     if (flatAttrs.length) {
         body += `
-        <details class="rounded-2xl bg-white/5 border border-white/10 p-3 mb-3">
+        <details class="rounded-2xl bg-white/5 border border-theme-subtle p-3 mb-3">
             <summary class="text-[11px] uppercase tracking-wider text-slate-400 cursor-pointer select-none">${escapeHtml(_er('attributes'))}</summary>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-3">
                 ${flatAttrs.map(([k, v]) => `
@@ -824,7 +824,7 @@ export function renderEntityModal(entity, slug, options = {}) {
     }
     // Raw JSON (collapsed, for debugging)
     body += `
-    <details class="rounded-2xl bg-white/5 border border-white/10 p-3">
+    <details class="rounded-2xl bg-white/5 border border-theme-subtle p-3">
         <summary class="text-[11px] uppercase tracking-wider text-slate-400 cursor-pointer select-none">${escapeHtml(_er('raw_json'))}</summary>
         <pre class="text-[10px] text-slate-400 mono whitespace-pre-wrap break-all mt-2 max-h-64 overflow-auto">${escapeHtml(JSON.stringify(entity, null, 2))}</pre>
     </details>`;
@@ -859,7 +859,7 @@ export function renderEntityCard(entity, slug) {
             <span class="app-toggle-thumb"></span>
         </button>`;
     }
-    return `<div class="bg-white/[0.03] border border-white/5 rounded-xl p-3 hover:bg-white/[0.06] hover:border-accent/20 transition-all cursor-pointer"
+    return `<div class="bg-white/[0.03] border border-theme-subtle rounded-xl p-3 hover:bg-white/[0.06] hover:border-accent/20 transition-all cursor-pointer"
             data-entity-action="openCard" data-int-encoded="${encoded}">
         <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
@@ -871,7 +871,7 @@ export function renderEntityCard(entity, slug) {
             </div>
             ${inlineCtl}
         </div>
-        <div class="flex items-center justify-between gap-3 mt-2.5 pt-2.5 border-t border-white/5">
+        <div class="flex items-center justify-between gap-3 mt-2.5 pt-2.5 border-t border-theme-subtle">
             <span class="text-[10px] uppercase tracking-widest text-slate-500">${escapeHtml(entity.domain || '')}</span>
             <span class="text-[12px] mono ${tone} truncate" data-entity-state="${escapeHtml(eid)}">${escapeHtml(state)}${unit}</span>
         </div>
@@ -920,7 +920,7 @@ export function renderDeviceCard(group, slug) {
         acc[d] = (acc[d] || 0) + 1;
         return acc;
     }, {});
-    const chips = Object.entries(tally).slice(0, 4).map(([d, n]) => `<span class="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/5 text-slate-400 uppercase tracking-wider">${escapeHtml(d)} ${n}</span>`).join('');
+    const chips = Object.entries(tally).slice(0, 4).map(([d, n]) => `<span class="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.04] border border-theme-subtle text-slate-400 uppercase tracking-wider">${escapeHtml(d)} ${n}</span>`).join('');
     let primaryReadout = '';
     if (switches.length) {
         const allOff = onCount === 0;
@@ -942,7 +942,7 @@ export function renderDeviceCard(group, slug) {
     }
     const subtitle = [model, manuf].filter(Boolean).join(' · ');
     const encoded = encodeURIComponent(JSON.stringify(group)).replace(/'/g, '%27');
-    return `<div class="bg-white/[0.03] border border-white/5 rounded-xl p-4 hover:bg-white/[0.06] hover:border-accent/20 transition-all cursor-pointer"
+    return `<div class="bg-white/[0.03] border border-theme-subtle rounded-xl p-4 hover:bg-white/[0.06] hover:border-accent/20 transition-all cursor-pointer"
             data-device-card="${escapeHtml(group.device_id || '')}"
             data-entity-action="openDeviceCard" data-int-encoded="${encoded}" data-int-slug="${_attr(slug)}">
         <div class="flex items-start justify-between gap-3">
@@ -956,7 +956,7 @@ export function renderDeviceCard(group, slug) {
             </div>
             ${primaryReadout}
         </div>
-        <div class="flex items-center gap-1 mt-3 pt-3 border-t border-white/5 flex-wrap">
+        <div class="flex items-center gap-1 mt-3 pt-3 border-t border-theme-subtle flex-wrap">
             ${chips || `<span class="text-[10px] text-slate-500">${total} entități</span>`}
         </div>
     </div>`;
@@ -1008,7 +1008,7 @@ function renderDeviceEntityRow(entity, slug) {
         }
         else if (dom === 'vacuum' || dom === 'lawn_mower') {
             const vBtn = (vacAction, ic, title) => `<button type="button" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"
-                class="w-8 h-8 rounded-full border bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-accent shrink-0 flex items-center justify-center transition-colors"
+                class="w-8 h-8 rounded-full border bg-white/5 border-theme-subtle text-slate-300 hover:bg-white/10 hover:text-accent shrink-0 flex items-center justify-center transition-colors"
                 ${_ctrlAttrs(slug, eid, vacAction, null, { stop: true })}>
                 <i class="fas ${ic} text-[11px]"></i>
             </button>`;
@@ -1025,7 +1025,7 @@ function renderDeviceEntityRow(entity, slug) {
     const encoded = encodeURIComponent(JSON.stringify(entity)).replace(/'/g, '%27');
     const stateHtml = `<span class="text-[12px] mono ${tone} truncate max-w-[9rem] shrink-0" data-entity-state="${escapeHtml(eid)}">${escapeHtml(state)}${unit}</span>`;
     const controlHtml = control || stateHtml;
-    return `<div class="int-entity-row px-3 py-2.5 bg-white/[0.03] border border-white/5 rounded-xl hover:bg-white/[0.06] hover:border-accent/20 transition-colors cursor-pointer"
+    return `<div class="int-entity-row px-3 py-2.5 bg-white/[0.03] border border-theme-subtle rounded-xl hover:bg-white/[0.06] hover:border-accent/20 transition-colors cursor-pointer"
         data-entity-action="openCard" data-int-encoded="${encoded}">
         <i class="fas ${icon} text-accent/70 text-sm w-4 text-center shrink-0"></i>
         <div class="int-entity-row__label">
@@ -1050,7 +1050,7 @@ export function renderDeviceModal(group, slug) {
         return String(a.name || '').localeCompare(String(b.name || ''));
     });
     const hero = `
-    <div class="rounded-2xl bg-white/5 border border-white/10 p-4 mb-3 flex items-start gap-3">
+    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-4 mb-3 flex items-start gap-3">
         <div class="w-11 h-11 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
             <i class="fas fa-plug text-accent text-base"></i>
         </div>

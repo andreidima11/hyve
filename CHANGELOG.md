@@ -4,6 +4,15 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.16] — 2026-06
+
+Hotfix: **Hub mast actions actually render** — static HTML + synced JS build pipeline.
+
+### Frontend
+- **Fix:** Scene / Zone / Automations / Updates mast buttons live in `config.html` (Devices layout); JS only toggles the active group instead of wiping `innerHTML`.
+- **Fix:** Stale `static/js/ui.js` no longer cleared mast actions on every hub navigation.
+- **Build:** `npm run js:build` runs `tsc` before Vite so emitted `.js` beside `.ts` stays in sync.
+
 ## [0.9.8.15] — 2026-06
 
 Patch release: **Hub mast actions and updates page** — icon toolbar like Devices, release notes, layout on mobile.

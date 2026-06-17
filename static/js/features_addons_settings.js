@@ -2,5 +2,5 @@
  * Settings → Add-ons list + Updates hub (install/enable/update add-ons).
  */
 export { loadAddons, installAddon, uninstallAddon, toggleAddon, openAddonConfigModal, closeAddonConfigModal, saveAddonConfig, checkAddonHealth, } from './addons_settings/list.js';
-export { updateHeaderUpdatesBadge, refreshUpdatesHeaderBadge, loadUpdatesAddons, checkAddonUpdates, applyHyveUpdate, showUpdateReleaseNotes, hideUpdateReleaseNotes, updateAllAddons, updateSingleAddon, toggleUpdatesIntervalDropdown, setUpdatesInterval, syncUpdatesIntervalDropdown, } from './addons_settings/updates.js';
+export { updateHeaderUpdatesBadge, refreshUpdatesHeaderBadge, loadUpdatesAddons, checkAddonUpdates, applyHyveUpdate, showUpdateReleaseNotes, hideUpdateReleaseNotes, updateAllAddons, updateSingleAddon, setUpdatesInterval, syncUpdatesIntervalDropdown, } from './addons_settings/updates.js';
 export { loadBackupPanel, createBackup, verifyBackup, restoreBackup, rollbackBackup, saveBackupSettings, deleteBackupArchive, setBackupScheduleInterval, syncBackupScheduleDropdown, testBackupRemote, loadRemoteBackupArchives, pullRemoteBackup, restoreRemoteBackup, downloadBackupArchive, pickBackupUpload, uploadBackupArchive, showBackupEncryptionKey, downloadBackupEncryptionKey, downloadBackupEncryptionKeyFromModal, copyBackupEncryptionKey, hideBackupEncryptionKeyModal, } from './addons_settings/backup.js';

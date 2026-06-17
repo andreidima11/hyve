@@ -1680,22 +1680,22 @@
     flex-shrink: 0;
 }
 
-.hyd-config-standalone__mast .hyd-mast__row {
+.hyd-config-standalone__mast .hyd-mast__actions {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    width: 100%;
-    flex-wrap: nowrap;
-}
-
-.hyd-config-standalone__mast .hyd-mast__lead {
-    flex: 1;
-    min-width: 0;
-}
-
-.hyd-config-standalone__mast .hyd-mast__actions {
+    gap: 0.65rem;
     flex-shrink: 0;
+}
+
+.hyd-standalone-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-shrink: 0;
+}
+
+.hyd-standalone-actions.hidden {
+    display: none !important;
 }
 
 .hyd-mast__back--accent {

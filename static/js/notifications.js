@@ -301,7 +301,7 @@ function _renderNotificationPagination(total) {
     return `
         <nav class="pt-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[11px] text-slate-500" aria-label="${escapeHtml(t('notifications.pagination_aria'))}">
             <span class="font-medium">${escapeHtml(t('notifications.status_range', { start, end, total }))}</span>
-            <div class="inline-flex items-center gap-2 self-start sm:self-auto rounded-xl border border-white/10 bg-white/[0.025] p-1">
+            <div class="inline-flex items-center gap-2 self-start sm:self-auto rounded-xl border border-theme-subtle bg-white/[0.025] p-1">
                 <button type="button" data-user-action="notifPage" data-user-delta="-1" ${prevDisabled ? 'disabled' : ''} aria-label="${escapeHtml(t('notifications.prev_page'))}" class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:text-slate-400"><i class="fas fa-chevron-left text-[10px]"></i></button>
                 <span class="min-w-[74px] text-center text-[10px] font-bold uppercase text-slate-400">${escapeHtml(t('notifications.page_of', { page: _notificationPage, total: pageCount }))}</span>
                 <button type="button" data-user-action="notifPage" data-user-delta="1" ${nextDisabled ? 'disabled' : ''} aria-label="${escapeHtml(t('notifications.next_page'))}" class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:text-slate-400"><i class="fas fa-chevron-right text-[10px]"></i></button>
@@ -314,8 +314,15 @@ function _renderNotificationItem(item) {
     const category = escapeHtml(_categoryLabel(item.category));
     const severity = escapeHtml(item.severity || 'info');
     const severityClasses = _severityClasses(item.severity);
-    const title = escapeHtml(item.title || t('notifications.default_title'));
-    const body = escapeHtml(item.body || '');
+    const payload = (item.payload && typeof item.payload === 'object') ? item.payload : {};
+    const titleKey = typeof payload.title_key === 'string' ? payload.title_key : '';
+    const bodyKey = typeof payload.body_key === 'string' ? payload.body_key : '';
+    const titleParams = (payload.title_params && typeof payload.title_params === 'object')
+        ? payload.title_params : {};
+    const bodyParams = (payload.body_params && typeof payload.body_params === 'object')
+        ? payload.body_params : {};
+    const title = escapeHtml(titleKey ? t(titleKey, titleParams) : (item.title || t('notifications.default_title')));
+    const body = escapeHtml(bodyKey ? t(bodyKey, bodyParams) : (item.body || ''));
     const id = escapeHtml(item.id);
     const actionUrl = item.action_url || '';
     const hasAction = !!actionUrl;

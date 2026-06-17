@@ -32,9 +32,9 @@ export function updateThinkingModeUi(mode = getThinkingMode()) {
         btn.classList.add(`mode-${normalized}`);
     }
     if (list) {
-        list.querySelectorAll('.thinking-segment-btn[data-mode]').forEach((el) => {
+        list.querySelectorAll('.hyd-chip--menu[data-mode]').forEach((el) => {
             const active = el.getAttribute('data-mode') === normalized;
-            el.classList.toggle('active', active);
+            el.classList.toggle('is-active', active);
             el.setAttribute('aria-checked', active ? 'true' : 'false');
         });
     }

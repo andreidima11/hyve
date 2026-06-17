@@ -1468,17 +1468,60 @@
                 <div id="config-standalone" class="hidden hy-page hyd-config-standalone">
                     <div class="hyd-stage">
                         <header class="hyd-mast hyd-top hyd-config-standalone__mast">
-                            <div class="hyd-mast__row">
-                                <div class="hyd-mast__lead min-w-0">
-                                    <button type="button" data-config-action="closeSection" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="hy.back" aria-label="Back">
-                                        <i class="fas fa-arrow-left" aria-hidden="true"></i>
-                                    </button>
-                                    <div class="min-w-0">
-                                        <h1 id="config-standalone-title" class="hyd-mast__title hyd-top__title" data-i18n="config.hub_integrations_title">Integrări</h1>
-                                        <p id="config-standalone-subtitle" class="hyd-mast__subtitle hidden sm:block"></p>
-                                    </div>
+                            <div class="hyd-mast__lead min-w-0">
+                                <button type="button" data-config-action="closeSection" class="hyd-mast__back" data-i18n-title="hy.back" aria-label="Back">
+                                    <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                                </button>
+                                <div class="min-w-0">
+                                    <h1 id="config-standalone-title" class="hyd-mast__title hyd-top__title" data-i18n="config.hub_integrations_title">Integrări</h1>
+                                    <p id="config-standalone-subtitle" class="hyd-mast__subtitle hidden sm:block"></p>
                                 </div>
-                                <div id="config-standalone-actions" class="hyd-mast__actions"></div>
+                            </div>
+                            <div id="config-standalone-actions" class="hyd-mast__actions">
+                                <div class="hyd-standalone-actions hidden" data-standalone-actions="scenes">
+                                    <button type="button" data-config-action="loadScenes" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
+                                    <button type="button" data-config-action="openSceneEditor" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n-title="scenes.new_scene">
+                                        <i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="scenes.new_scene">New scene</span>
+                                    </button>
+                                </div>
+                                <div class="hyd-standalone-actions hidden" data-standalone-actions="areas">
+                                    <button type="button" data-config-action="loadAreas" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
+                                    <button type="button" data-config-action="openCreateAreaModal" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n-title="areas.new_area">
+                                        <i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="areas.new_area">New area</span>
+                                    </button>
+                                </div>
+                                <div class="hyd-standalone-actions hidden" data-standalone-actions="automations">
+                                    <button type="button" data-memory-action="loadAutomations" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
+                                    <button type="button" data-memory-action="openBlueprintPicker" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="automations.blueprint_button" title="Blueprint"><i class="fas fa-puzzle-piece" aria-hidden="true"></i></button>
+                                    <button type="button" data-memory-action="openAutomationEditor" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n-title="automations.new_button">
+                                        <i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="automations.new_button">New</span>
+                                    </button>
+                                </div>
+                                <div class="hyd-standalone-actions hidden" data-standalone-actions="updates">
+                                    <button type="button" data-config-action="checkAddonUpdates" id="updates-mast-check-btn" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
+                                    <button type="button" data-config-action="updateAllAddons" id="updates-mast-upgrade-btn" class="hyd-mast__back hyd-mast__back--icon hyd-mast__back--accent hidden" data-i18n-title="updates.upgrade_all_btn" title="Update"><i class="fas fa-arrow-up" aria-hidden="true"></i></button>
+                                </div>
+                                <div class="hyd-standalone-actions hidden" data-standalone-actions="integrations">
+                                    <button type="button" data-config-action="refreshIntegrationsSettings" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
+                                </div>
+                                <div class="hyd-standalone-actions hidden" data-standalone-actions="addons">
+                                    <button type="button" data-config-action="loadApps" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
+                                </div>
+                                <div class="hyd-standalone-actions hidden" data-standalone-actions="memories">
+                                    <button type="button" data-memory-action="loadMemory" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
+                                </div>
+                                <div class="hyd-standalone-actions hidden" data-standalone-actions="users">
+                                    <button type="button" data-config-action="loadAdminUsers" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
+                                </div>
+                                <div class="hyd-standalone-actions hidden" data-standalone-actions="logs">
+                                    <button type="button" data-config-action="refreshLogs" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
+                                </div>
+                                <div class="hyd-standalone-actions hidden" data-standalone-actions="backup">
+                                    <button type="button" data-config-action="loadBackupPanel" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
+                                </div>
+                                <div class="hyd-standalone-actions hidden" data-standalone-actions="app">
+                                    <button type="button" data-config-action="refreshAppTab" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
+                                </div>
                             </div>
                         </header>
                         <div id="config-standalone-body" class="hyd-config-standalone__body"></div>

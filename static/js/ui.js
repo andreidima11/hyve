@@ -4,7 +4,7 @@ import { loadPlanner, loadApps, loadScenes, loadAreas, populateAppTab, closeAddo
 import { loadDashboard, dashboardHasRenderedContent, resetDashboardEditingState, disconnectDashboardLive, initDashboardSidebarNav } from './dashboard.js';
 import { applyDashboardEditAccess } from './dashboard/edit_access.js';
 import { closeAllSubPages } from './utils.js';
-import { t } from './lang/index.js';
+import { t, applyTranslations } from './lang/index.js';
 let logEventSource = null;
 let _logReconnectTimer = null;
 let _dashboardReturnRetryTimer = null;
@@ -382,23 +382,31 @@ export function switchTab(tabId, options = {}) {
         catch (_) { }
     }
 }
+function _restoreStandalonePanel() {
+    if (!_standaloneActivePanel)
+        return;
+    const { panel, parent } = _standaloneActivePanel;
+    if (parent && panel) {
+        parent.appendChild(panel);
+        panel.classList.add('hidden');
+    }
+    _standaloneActivePanel = null;
+}
 export function switchConfigTab(tabName) {
-    // Auto-detect: ascundem TOATE panourile și dezactivăm TOATE butoanele
-    document.querySelectorAll('.cfg-tab-panel').forEach(panel => {
+    document.querySelectorAll('#config-panels > .cfg-tab-panel').forEach(panel => {
         panel.classList.add('hidden');
     });
     document.querySelectorAll('[id^="tab-btn-"]').forEach(btn => {
-        btn.classList.remove('border-accent', 'text-accent', 'config-tab-btn--active');
-        btn.classList.add('border-transparent', 'text-slate-500');
+        btn.classList.remove('is-active', 'config-tab-btn--active', 'border-accent', 'text-accent', 'border-transparent', 'text-slate-500');
+        btn.setAttribute('aria-selected', 'false');
     });
-    // Afișăm tab-ul selectat
     const targetContent = document.getElementById(`cfg-tab-${tabName}`);
     const targetBtn = document.getElementById(`tab-btn-${tabName}`);
     if (targetContent)
         targetContent.classList.remove('hidden');
     if (targetBtn) {
-        targetBtn.classList.remove('border-transparent', 'text-slate-500');
-        targetBtn.classList.add('border-accent', 'text-accent', 'config-tab-btn--active');
+        targetBtn.classList.add('is-active', 'config-tab-btn--active');
+        targetBtn.setAttribute('aria-selected', 'true');
     }
     if (tabName === 'users')
         loadAdminUsers();
@@ -455,6 +463,12 @@ const _sectionPanelIds = {
 };
 // Track where we moved the panel from so we can return it
 let _standaloneActivePanel = null;
+function _setStandaloneActions(section) {
+    document.querySelectorAll('[data-standalone-actions]').forEach((el) => {
+        const group = el;
+        group.classList.toggle('hidden', group.dataset.standaloneActions !== section);
+    });
+}
 export function openConfigSection(section) {
     // External views — navigate away from config
     if (section === 'smarthome') {
@@ -482,17 +496,21 @@ export function openConfigSection(section) {
             standalone.classList.remove('hidden');
         const titleEl = document.getElementById('config-standalone-title');
         const subtitleEl = document.getElementById('config-standalone-subtitle');
-        const actionsEl = document.getElementById('config-standalone-actions');
         if (titleEl)
             titleEl.textContent = t(_configSectionTitles[section] || section);
-        if (subtitleEl)
-            subtitleEl.textContent = _configSectionSubtitles[section] ? t(_configSectionSubtitles[section]) : '';
-        if (actionsEl)
-            actionsEl.innerHTML = '';
-        // Move the cfg-tab panel into standalone body
+        if (subtitleEl) {
+            const subtitle = _configSectionSubtitles[section] ? t(_configSectionSubtitles[section]) : '';
+            subtitleEl.textContent = subtitle;
+            subtitleEl.classList.toggle('hidden', !subtitle);
+        }
+        _setStandaloneActions(section);
+        applyTranslations();
         const panelId = _sectionPanelIds[section] || `cfg-tab-${section}`;
         const panel = document.getElementById(panelId);
         const body = document.getElementById('config-standalone-body');
+        if (_standaloneActivePanel?.panel?.id !== panelId) {
+            _restoreStandalonePanel();
+        }
         if (panel && body) {
             _standaloneActivePanel = { panel, parent: panel.parentElement };
             body.appendChild(panel);
@@ -526,8 +544,10 @@ export function openConfigSection(section) {
     }
     else {
         // --- Settings with tabs ---
+        _restoreStandalonePanel();
         if (standalone)
             standalone.classList.add('hidden');
+        _setStandaloneActions('');
         if (detail)
             detail.classList.remove('hidden');
         switchConfigTab('general');
@@ -537,15 +557,7 @@ export function closeConfigSection() {
     closeAddonWebUI();
     // Stop log SSE stream when leaving the config section
     stopLogStream();
-    // Return any standalone panel to its original parent
-    if (_standaloneActivePanel) {
-        const { panel, parent } = _standaloneActivePanel;
-        if (parent && panel) {
-            parent.appendChild(panel);
-            panel.classList.add('hidden');
-        }
-        _standaloneActivePanel = null;
-    }
+    _restoreStandalonePanel();
     const hub = document.getElementById('config-hub');
     const detail = document.getElementById('config-detail');
     const standalone = document.getElementById('config-standalone');
@@ -555,6 +567,7 @@ export function closeConfigSection() {
         detail.classList.add('hidden');
     if (standalone)
         standalone.classList.add('hidden');
+    _setStandaloneActions('');
 }
 export async function startLogStream() {
     if (logEventSource)
