@@ -1165,14 +1165,6 @@
                                 <div id="updates-status" class="hidden text-[11px] rounded-xl p-3 border"></div>
                                 <div class="flex items-center justify-between gap-2">
                                     <span id="updates-count" class="text-[11px] text-slate-500"></span>
-                                    <div class="flex items-center gap-2">
-                                        <button type="button" data-config-action="checkAddonUpdates" id="updates-check-btn" class="hyd-btn hyd-btn--ghost hyd-btn--sm">
-                                            <i class="fas fa-arrows-rotate" aria-hidden="true"></i><span data-i18n="updates.check_btn">Verifică</span>
-                                        </button>
-                                        <button type="button" data-config-action="updateAllAddons" id="updates-upgrade-all-btn" class="hyd-btn hyd-btn--glow hyd-btn--sm hidden">
-                                            <i class="fas fa-arrow-up" aria-hidden="true"></i><span data-i18n="updates.upgrade_all_btn">Actualizează</span>
-                                        </button>
-                                    </div>
                                 </div>
                                 <section class="hyd-list-shell">
                                     <div class="hyd-gallery">
@@ -1475,17 +1467,19 @@
                 <!-- ═══ CONFIG STANDALONE PAGE (for sections pulled out of Settings tabs) ═══ -->
                 <div id="config-standalone" class="hidden hy-page hyd-config-standalone">
                     <div class="hyd-stage">
-                        <header class="hyd-mast hyd-top">
-                            <div class="hyd-mast__lead">
-                                <button type="button" data-config-action="closeSection" class="hyd-mast__back" data-i18n-title="hy.back" aria-label="Back">
-                                    <i class="fas fa-arrow-left" aria-hidden="true"></i>
-                                </button>
-                                <div class="min-w-0">
-                                    <h1 id="config-standalone-title" class="hyd-mast__title hyd-top__title" data-i18n="config.hub_integrations_title">Integrări</h1>
-                                    <p id="config-standalone-subtitle" class="hyd-mast__subtitle hidden sm:block"></p>
+                        <header class="hyd-mast hyd-top hyd-config-standalone__mast">
+                            <div class="hyd-mast__row">
+                                <div class="hyd-mast__lead min-w-0">
+                                    <button type="button" data-config-action="closeSection" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="hy.back" aria-label="Back">
+                                        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                                    </button>
+                                    <div class="min-w-0">
+                                        <h1 id="config-standalone-title" class="hyd-mast__title hyd-top__title" data-i18n="config.hub_integrations_title">Integrări</h1>
+                                        <p id="config-standalone-subtitle" class="hyd-mast__subtitle hidden sm:block"></p>
+                                    </div>
                                 </div>
+                                <div id="config-standalone-actions" class="hyd-mast__actions"></div>
                             </div>
-                            <div id="config-standalone-actions" class="hyd-mast__actions"></div>
                         </header>
                         <div id="config-standalone-body" class="hyd-config-standalone__body"></div>
                     </div>

@@ -4,6 +4,17 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.15] — 2026-06
+
+Patch release: **Hub mast actions and updates page** — icon toolbar like Devices, release notes, layout on mobile.
+
+### Frontend
+- **Fix:** Scene / Zone / Automations hub pages show refresh + add icons in the standalone masthead (Devices pattern).
+- **Fix:** Config standalone pages use full-height scroll shell (header fixed, body scrolls) — fixes vertical clipping on mobile add-on detail.
+- **Fix:** `.hyd-btn.hidden` respected — updates «upgrade all» no longer shows when nothing to update.
+- **UI:** Updates page — check = refresh icon only in mast; batch upgrade = icon, visible only when add-on updates exist.
+- **Fix:** Release notes button always shown per Hyve/add-on row after list render; notes modal opens with body or GitHub link.
+
 ## [0.9.8.14] — 2026-06
 
 Hotfix: **Hub config layout** — settings tabs and list pages no longer stack all panels; empty states match Devices masthead pattern.

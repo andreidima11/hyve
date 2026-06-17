@@ -462,36 +462,55 @@ const _sectionPanelIds: Record<string, string> = {
 // Track where we moved the panel from so we can return it
 let _standaloneActivePanel: StandaloneActivePanel | null = null;
 
+function _mastIconBtn(opts: {
+    action: string;
+    bus?: 'config' | 'memory';
+    icon: string;
+    titleKey?: string;
+    extraClass?: string;
+    id?: string;
+    hidden?: boolean;
+}): string {
+    const bus = opts.bus || 'config';
+    const attr = bus === 'memory' ? 'data-memory-action' : 'data-config-action';
+    const hiddenCls = opts.hidden ? ' hidden' : '';
+    const titleKey = opts.titleKey || 'common.refresh';
+    const idAttr = opts.id ? ` id="${opts.id}"` : '';
+    const extra = opts.extraClass ? ` ${opts.extraClass}` : '';
+    return `<button type="button" ${attr}="${opts.action}"${idAttr} class="hyd-mast__back hyd-mast__back--icon${extra}${hiddenCls}" data-i18n-title="${titleKey}" title="Refresh"><i class="fas ${opts.icon}" aria-hidden="true"></i></button>`;
+}
+
 function _setStandaloneActions(section: string) {
     const actionsEl = document.getElementById('config-standalone-actions');
     if (!actionsEl) return;
     let html = '';
     if (section === 'scenes') {
-        html = `<button type="button" data-config-action="loadScenes" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
-            <button type="button" data-config-action="openSceneEditor" class="hyd-btn hyd-btn--glow"><i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="scenes.new_scene">New scene</span></button>`;
+        html = `${_mastIconBtn({ action: 'loadScenes', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' })}
+            ${_mastIconBtn({ action: 'openSceneEditor', icon: 'fa-plus', titleKey: 'scenes.new_scene', extraClass: 'hyd-mast__back--accent' })}`;
     } else if (section === 'areas') {
-        html = `<button type="button" data-config-action="loadAreas" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
-            <button type="button" data-config-action="openCreateAreaModal" class="hyd-btn hyd-btn--glow"><i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="areas.new_area">New area</span></button>`;
+        html = `${_mastIconBtn({ action: 'loadAreas', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' })}
+            ${_mastIconBtn({ action: 'openCreateAreaModal', icon: 'fa-plus', titleKey: 'areas.new_area', extraClass: 'hyd-mast__back--accent' })}`;
     } else if (section === 'automations') {
-        html = `<button type="button" data-memory-action="loadAutomations" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
-            <button type="button" data-memory-action="openBlueprintPicker" class="hyd-btn hyd-btn--glass"><i class="fas fa-puzzle-piece" aria-hidden="true"></i><span data-i18n="automations.blueprint_button">Blueprint</span></button>
-            <button type="button" data-memory-action="openAutomationEditor" class="hyd-btn hyd-btn--glow"><i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="automations.new_button">New</span></button>`;
+        html = `${_mastIconBtn({ action: 'loadAutomations', bus: 'memory', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' })}
+            ${_mastIconBtn({ action: 'openBlueprintPicker', bus: 'memory', icon: 'fa-puzzle-piece', titleKey: 'automations.blueprint_button' })}
+            ${_mastIconBtn({ action: 'openAutomationEditor', bus: 'memory', icon: 'fa-plus', titleKey: 'automations.new_button', extraClass: 'hyd-mast__back--accent' })}`;
     } else if (section === 'app') {
-        html = `<button type="button" data-config-action="refreshAppTab" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>`;
+        html = _mastIconBtn({ action: 'refreshAppTab', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' });
     } else if (section === 'integrations') {
-        html = `<button type="button" data-config-action="refreshIntegrationsSettings" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>`;
+        html = _mastIconBtn({ action: 'refreshIntegrationsSettings', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' });
     } else if (section === 'addons') {
-        html = `<button type="button" data-config-action="loadApps" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>`;
+        html = _mastIconBtn({ action: 'loadApps', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' });
     } else if (section === 'memories') {
-        html = `<button type="button" data-memory-action="loadMemory" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>`;
+        html = _mastIconBtn({ action: 'loadMemory', bus: 'memory', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' });
     } else if (section === 'users') {
-        html = `<button type="button" data-config-action="loadAdminUsers" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>`;
+        html = _mastIconBtn({ action: 'loadAdminUsers', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' });
     } else if (section === 'logs') {
-        html = `<button type="button" data-config-action="refreshLogs" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>`;
+        html = _mastIconBtn({ action: 'refreshLogs', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' });
     } else if (section === 'updates') {
-        html = `<button type="button" data-config-action="checkAddonUpdates" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>`;
+        html = `${_mastIconBtn({ action: 'checkAddonUpdates', icon: 'fa-arrows-rotate', titleKey: 'common.refresh', id: 'updates-mast-check-btn' })}
+            ${_mastIconBtn({ action: 'updateAllAddons', icon: 'fa-arrow-up', titleKey: 'updates.upgrade_all_btn', extraClass: 'hyd-mast__back--accent', id: 'updates-mast-upgrade-btn', hidden: true })}`;
     } else if (section === 'backup') {
-        html = `<button type="button" data-config-action="loadBackupPanel" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>`;
+        html = _mastIconBtn({ action: 'loadBackupPanel', icon: 'fa-arrows-rotate', titleKey: 'common.refresh' });
     }
     actionsEl.innerHTML = html;
     applyTranslations();

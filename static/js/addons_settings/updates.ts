@@ -53,6 +53,24 @@ function _setListLoading(): void {
     if (list) list.innerHTML = html;
 }
 
+function _updatesCheckButtons(): HTMLButtonElement[] {
+    const ids = ['updates-mast-check-btn', 'updates-check-btn'];
+    return ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLButtonElement[];
+}
+
+function _setUpdatesUpgradeVisible(visible: boolean): void {
+    document.getElementById('updates-mast-upgrade-btn')?.classList.toggle('hidden', !visible);
+    document.getElementById('updates-upgrade-all-btn')?.classList.toggle('hidden', !visible);
+}
+
+function _setCheckButtonsBusy(busy: boolean): void {
+    const icon = busy ? 'fa-spinner fa-spin' : 'fa-arrows-rotate';
+    for (const btn of _updatesCheckButtons()) {
+        btn.disabled = busy;
+        btn.innerHTML = `<i class="fas ${icon}" aria-hidden="true"></i>`;
+    }
+}
+
 function _setListError(msg: string): void {
     const html = `<div class="text-center py-8 text-red-400 text-xs"><i class="fas fa-triangle-exclamation mr-2"></i>${msg}</div>`;
     const list = _updatesListEl();
@@ -112,8 +130,7 @@ export async function loadUpdatesAddons() {
 }
 
 export async function checkAddonUpdates() {
-    const btn = _updatesEl<HTMLButtonElement>('updates-check-btn', 'updates-addons-check-btn');
-    if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>${escapeHtml(t('updates.check_btn'))}</span>`; }
+    _setCheckButtonsBusy(true);
     _setUpdatesStatus(`<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('updates.checking'))}`, 'info');
     try {
         const results = await Promise.allSettled([
@@ -138,7 +155,7 @@ export async function checkAddonUpdates() {
     } catch (e) {
         _setUpdatesStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`, 'error');
     } finally {
-        if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fas fa-rotate"></i><span>${escapeHtml(t('updates.check_btn'))}</span>`; }
+        _setCheckButtonsBusy(false);
     }
 }
 
@@ -190,8 +207,11 @@ export async function updateSingleAddon(slug: string) {
 }
 
 async function _runAddonUpdate(body: { all?: boolean; slugs?: string[] }) {
-    const upgradeBtn = _updatesEl<HTMLButtonElement>('updates-upgrade-all-btn', 'updates-addons-upgrade-btn');
-    if (upgradeBtn) { upgradeBtn.disabled = true; upgradeBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>${escapeHtml(t('updates.upgrade_btn_loading'))}</span>`; }
+    const upgradeBtn = _updatesEl<HTMLButtonElement>('updates-mast-upgrade-btn', 'updates-upgrade-all-btn', 'updates-addons-upgrade-btn');
+    if (upgradeBtn) {
+        upgradeBtn.disabled = true;
+        upgradeBtn.innerHTML = `<i class="fas fa-spinner fa-spin" aria-hidden="true"></i>`;
+    }
     _setUpdatesStatus(`<i class="fas fa-spinner fa-spin mr-1.5"></i>${escapeHtml(t('updates.installing'))}`, 'info');
     try {
         const res = await apiCall('/api/updates/addons/update', { method: 'POST', body });
@@ -222,7 +242,10 @@ async function _runAddonUpdate(body: { all?: boolean; slugs?: string[] }) {
     } catch (e) {
         _setUpdatesStatus(`<i class="fas fa-triangle-exclamation mr-1.5"></i>${escapeHtml(e instanceof Error ? e.message : String(e))}`, 'error');
     } finally {
-        if (upgradeBtn) { upgradeBtn.disabled = false; upgradeBtn.innerHTML = `<i class="fas fa-arrow-up"></i><span>${escapeHtml(t('updates.upgrade_all_btn'))}</span>`; }
+        if (upgradeBtn) {
+            upgradeBtn.disabled = false;
+            upgradeBtn.innerHTML = `<i class="fas fa-arrow-up" aria-hidden="true"></i>`;
+        }
     }
 }
 
@@ -267,14 +290,12 @@ function _cacheAddonReleaseNotes(a: AddonUpdateRow): void {
 }
 
 function _hasReleaseNotes(target: string): boolean {
-    const entry = _releaseNotesCache.get(target);
-    if (!entry) return false;
-    return !!(entry.body || entry.url);
+    return _releaseNotesCache.has(target);
 }
 
 function _releaseNotesBtnHtml(target: string): string {
     if (!_hasReleaseNotes(target)) return '';
-    return `<button type="button" data-config-action="showUpdateReleaseNotes" data-config-target="${escapeHtml(target)}" class="hyd-row-actions__btn" title="${escapeHtml(t('updates.release_notes_btn'))}"><i class="fas fa-file-lines" aria-hidden="true"></i></button>`;
+    return `<button type="button" data-config-action="showUpdateReleaseNotes" data-config-target="${escapeHtml(target)}" class="hyd-row-actions__btn" title="${escapeHtml(t('updates.release_notes_btn'))}" aria-label="${escapeHtml(t('updates.release_notes_btn'))}"><i class="fas fa-file-lines" aria-hidden="true"></i></button>`;
 }
 
 function _updBadge(kind: 'update' | 'ok' | 'warn', icon: string, text: string): string {
@@ -521,8 +542,7 @@ function _renderUpdateRows() {
             : t('updates.no_addons');
     }
 
-    const upgradeBtn = _updatesEl('updates-upgrade-all-btn', 'updates-addons-upgrade-btn');
-    if (upgradeBtn) upgradeBtn.classList.toggle('hidden', addonPending === 0);
+    _setUpdatesUpgradeVisible(addonPending > 0);
 
     if (!hyve && !addonTotal) {
         list.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">${escapeHtml(t('updates.no_addons'))}</div>`;
