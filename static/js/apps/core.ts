@@ -33,11 +33,25 @@ function _wireAddonDetailControls(slug: string) {
     });
 }
 
+function _syncAppsSubviewChrome(mode: 'list' | 'detail') {
+    const isDetail = mode === 'detail';
+    document.getElementById('config-standalone')?.classList.toggle('hyd-config-standalone--subview', isDetail);
+    document.getElementById('cfg-tab-addons')?.classList.toggle('hyd-config-page--detail', isDetail);
+}
+
 function _setAppsViewMode(mode: 'list' | 'detail') {
     document.getElementById('apps-list-chrome')?.classList.toggle('hidden', mode === 'detail');
     document.getElementById('apps-list-shell')?.classList.toggle('hidden', mode === 'detail');
     const detailView = document.getElementById('apps-detail-view');
     if (detailView) detailView.classList.toggle('hidden', mode !== 'detail');
+    _syncAppsSubviewChrome(mode);
+}
+
+export function resetAppsDetailView() {
+    appsState.openSlug = null;
+    _setAppsViewMode('list');
+    const detailView = document.getElementById('apps-detail-view');
+    if (detailView) detailView.innerHTML = '';
 }
 
 function _ensureAppsSearch() {

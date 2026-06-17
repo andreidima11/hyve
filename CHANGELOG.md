@@ -4,6 +4,15 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.17] — 2026-06
+
+Hotfix: **single back navigation on add-on detail** and mobile overflow on add-on pages.
+
+### Frontend
+- **Fix:** Add-on detail hides the Hub mast back arrow — one back button returns to the add-on list (Devices pattern).
+- **Fix:** Hub `closeSection` walks sub-views first (add-on detail, log modals, editors) before leaving the section.
+- **Fix:** Mobile horizontal scroll on add-on detail — clipped overflow, wrapped metadata/button rows, stacked serial-detect controls.
+
 ## [0.9.8.16] — 2026-06
 
 Hotfix: **Hub mast actions actually render** — static HTML + synced JS build pipeline.

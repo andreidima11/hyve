@@ -532,10 +532,37 @@ export function openConfigSection(section: string) {
     }
 }
 
+export function navigateConfigBack() {
+    const openPages = document.querySelectorAll('.app-subpage.open');
+    if (openPages.length) {
+        const last = openPages[openPages.length - 1] as HTMLElement;
+        const closeBtn = last.querySelector<HTMLElement>(
+            '[data-config-action^="close"], [data-memory-action^="close"], [data-skills-action^="close"]',
+        );
+        if (closeBtn) {
+            closeBtn.click();
+            return;
+        }
+        last.classList.remove('open');
+        last.setAttribute('aria-hidden', 'true');
+        return;
+    }
+
+    const detailView = document.getElementById('apps-detail-view');
+    if (detailView && !detailView.classList.contains('hidden')) {
+        void import('./apps/core.js').then((m) => m.closeAppDetail());
+        return;
+    }
+
+    closeConfigSection();
+}
+
 export function closeConfigSection() {
     closeAddonWebUI();
     // Stop log SSE stream when leaving the config section
     stopLogStream();
+
+    void import('./apps/core.js').then((m) => m.resetAppsDetailView());
 
     _restoreStandalonePanel();
 
@@ -544,7 +571,10 @@ export function closeConfigSection() {
     const standalone = document.getElementById('config-standalone');
     if (hub) hub.classList.remove('hidden');
     if (detail) detail.classList.add('hidden');
-    if (standalone) standalone.classList.add('hidden');
+    if (standalone) {
+        standalone.classList.add('hidden');
+        standalone.classList.remove('hyd-config-standalone--subview');
+    }
     _setStandaloneActions('');
 }
 

@@ -5,7 +5,7 @@ import { authToken, clearAuthToken, suppressLogout } from '../../api.js';
 import { showToast, debounce, showConfirm, showSourcesModal } from '../../utils.js';
 import { handleLogin, loadUserProfile, restoreRememberedCredentials, tryAutoLogin } from '../../auth.js';
 import { initSetupWizard, showSetupWizard, fetchSetupStatus } from '../../setup.js';
-import { setTheme, loadThemeSelector, toggleSidebar, closeSidebar, isSidebarOpen, switchTab, switchConfigTab, openConfigSection, closeConfigSection, startLogStream, initSidebarGestures, getStoredThemeId } from '../../ui.js';
+import { setTheme, loadThemeSelector, toggleSidebar, closeSidebar, isSidebarOpen, switchTab, switchConfigTab, openConfigSection, closeConfigSection, navigateConfigBack, startLogStream, initSidebarGestures, getStoredThemeId } from '../../ui.js';
 import { initI18n, setLanguage, t, loadComponentTranslations } from '../../lang/index.js';
 import { applyDashboardEditAccess } from '../../dashboard/edit_access.js';
 import { sendMessage, stopStreaming, currentSessionId, addAttachedImage, addAttachedDocument, applyInitialGreeting, handleSlashInput, handleSlashKeydown } from '../../chat.js';
@@ -131,7 +131,7 @@ initConfigEventBindings({
     saveConfig: (event) => saveConfig(event as import('../../types/features_config.js').SaveConfigOptions | Event),
     setTheme: (themeId) => setTheme(_str(themeId)),
     openSection: (section) => openConfigSection(_str(section)),
-    closeSection: () => closeConfigSection(),
+    closeSection: () => navigateConfigBack(),
     switchTab: (tab) => switchConfigTab(_str(tab)),
     restartServer: () => restartServer(),
     showProfileEditor: () => showProfileEditor(),

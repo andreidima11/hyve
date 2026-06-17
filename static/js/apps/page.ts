@@ -1,7 +1,7 @@
 /**
  * Apps page facade.
  */
-export { loadApps, openAppDetail, closeAppDetail, appAction } from './core.js';
+export { loadApps, openAppDetail, closeAppDetail, resetAppsDetailView, appAction } from './core.js';
 export { openAppLogModal, closeAppLogModal, refreshAppLogs } from './logs.js';
 export {
     runPreflight,

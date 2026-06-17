@@ -127,13 +127,13 @@ function _renderConfigField(field: AddonConfigField, value: unknown, isAdmin: bo
         const disabled = isAdmin ? '' : 'disabled';
         const inputType = ['number', 'password', 'url'].includes(type) ? type : 'text';
         return `
-        <label class="block space-y-1.5 sm:col-span-2">
+        <label class="block space-y-1.5 sm:col-span-2 min-w-0">
             <span class="text-xs font-semibold text-slate-300">${escapeHtml(label)}</span>
-            <div class="flex gap-2">
+            <div class="flex flex-col sm:flex-row gap-2 min-w-0">
                 <input type="${escapeHtml(inputType)}" data-addon-config="${escapeHtml(key)}" value="${escapeHtml(String(safeValue))}" placeholder="${escapeHtml(placeholder)}" ${disabled}
-                    class="flex-1 rounded-xl border border-theme-light bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40">
+                    class="min-w-0 flex-1 rounded-xl border border-theme-light bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40">
                 <button type="button" data-config-action="detectAddonSerialPorts" data-config-key="${escapeHtml(key)}" ${disabled}
-                    class="px-3 py-2 rounded-xl text-xs font-semibold bg-accent/15 text-accent hover:bg-accent/25 transition-colors whitespace-nowrap"
+                    class="w-full sm:w-auto px-3 py-2 rounded-xl text-xs font-semibold bg-accent/15 text-accent hover:bg-accent/25 transition-colors whitespace-nowrap flex-shrink-0"
                     title="${escapeHtml(t('apps.detect_serial_title'))}">
                     <i class="fas fa-magnifying-glass mr-1"></i>${escapeHtml(t('apps.detect_serial'))}
                 </button>
@@ -163,12 +163,12 @@ function _renderConfigSection(addon: AddonCatalogEntry, isAdmin: boolean) {
     return `
     <section class="hyd-app-card space-y-4">
         <header class="hyd-app-card__head">
-            <div class="flex items-start justify-between gap-3 w-full">
-                <div class="space-y-1 min-w-0">
+            <div class="flex flex-wrap items-start justify-between gap-3 w-full min-w-0">
+                <div class="space-y-1 min-w-0 flex-1">
                     <h2 class="hyd-app-card__title">${escapeHtml(t('apps.config_section'))}</h2>
                     <p class="hyd-app-card__hint">${escapeHtml(intro)}</p>
                 </div>
-                ${isAdmin ? `<button type="button" data-config-action="saveAddonConfig" data-config-slug="${escapeHtml(addon.slug)}" class="hyd-btn hyd-btn--glow hyd-btn--sm flex-shrink-0"><i class="fas fa-check" aria-hidden="true"></i><span>${escapeHtml(t('apps.save_config'))}</span></button>` : ''}
+                ${isAdmin ? `<button type="button" data-config-action="saveAddonConfig" data-config-slug="${escapeHtml(addon.slug)}" class="hyd-btn hyd-btn--glow hyd-btn--sm flex-shrink-0 max-w-full"><i class="fas fa-check" aria-hidden="true"></i><span>${escapeHtml(t('apps.save_config'))}</span></button>` : ''}
             </div>
         </header>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -349,8 +349,8 @@ export function _renderDetail(addon: AddonCatalogEntry, status: AddonProcessStat
             lifecycleHtml = `
             <section class="hyd-app-card space-y-3">
                 <header class="hyd-app-card__head">
-                    <div class="flex items-start justify-between gap-3 w-full">
-                        <h2 class="hyd-app-card__title">${escapeHtml(t('apps.admin_section'))}</h2>
+                    <div class="flex flex-wrap items-start justify-between gap-3 w-full min-w-0">
+                        <h2 class="hyd-app-card__title min-w-0">${escapeHtml(t('apps.admin_section'))}</h2>
                         ${adminSaveBtn}
                     </div>
                 </header>
@@ -378,30 +378,30 @@ export function _renderDetail(addon: AddonCatalogEntry, status: AddonProcessStat
     }
 
     return `
-    <div id="app-detail" class="space-y-5" data-slug="${escapeHtml(slug)}">
-        <div class="flex items-center gap-3">
-            <button type="button" data-config-action="closeAppDetail" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="hy.back" aria-label="Back">
+    <div id="app-detail" class="space-y-5 min-w-0 max-w-full" data-slug="${escapeHtml(slug)}">
+        <header class="hyd-page__header min-w-0">
+            <button type="button" data-config-action="closeAppDetail" class="hyd-page__back" data-i18n-title="hy.back" aria-label="Back">
                 <i class="fas fa-arrow-left" aria-hidden="true"></i>
             </button>
-            ${addon.image
-                ? `<img src="${escapeHtml(addon.image)}" alt="" class="w-10 h-10 rounded-xl object-contain flex-shrink-0" loading="lazy">`
-                : `<div class="w-10 h-10 rounded-xl ${cm.bg} flex items-center justify-center flex-shrink-0"><i class="${escapeHtml(icon)} ${cm.text}"></i></div>`}
-            <div class="min-w-0 flex-1">
-                <h2 class="text-white font-semibold text-lg">${escapeHtml(addon.name)}</h2>
+            <div class="hyd-page__titles min-w-0 flex items-center gap-3">
+                ${addon.image
+                    ? `<img src="${escapeHtml(addon.image)}" alt="" class="w-10 h-10 rounded-xl object-contain flex-shrink-0" loading="lazy">`
+                    : `<div class="w-10 h-10 rounded-xl ${cm.bg} flex items-center justify-center flex-shrink-0"><i class="${escapeHtml(icon)} ${cm.text}"></i></div>`}
+                <h2 class="text-white font-semibold text-lg truncate min-w-0">${escapeHtml(addon.name)}</h2>
             </div>
-        </div>
+        </header>
 
         ${descriptionHtml}
 
         ${hasProcess && installed ? `
         <section class="hyd-app-card space-y-4">
             <header class="hyd-app-card__head">
-                <div class="flex items-center justify-between gap-3 w-full">
-                    <h2 class="hyd-app-card__title">${escapeHtml(t('apps.process_section'))}</h2>
-                    <div id="app-detail-badge">${enabled ? _statusBadge(st) : `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('hy.addon_status_disabled'))}</span>`}</div>
+                <div class="flex flex-wrap items-center justify-between gap-3 w-full min-w-0">
+                    <h2 class="hyd-app-card__title min-w-0">${escapeHtml(t('apps.process_section'))}</h2>
+                    <div id="app-detail-badge" class="flex-shrink-0">${enabled ? _statusBadge(st) : `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400"><i class="fas fa-circle text-[6px]"></i>${escapeHtml(t('hy.addon_status_disabled'))}</span>`}</div>
                 </div>
             </header>
-            <div class="flex items-center gap-4 text-xs text-slate-500">
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500 min-w-0">
                 <span><i class="fas fa-microchip mr-1 opacity-60"></i>PID: <span id="app-detail-pid">${pid}</span></span>
                 <span id="app-detail-uptime-wrap" class="${up ? '' : 'hidden'}"><i class="fas fa-clock mr-1 opacity-60"></i>${escapeHtml(t('apps.uptime'))}: <span id="app-detail-uptime">${up}</span></span>
                 <span><i class="fas fa-tag mr-1 opacity-60"></i>${escapeHtml(_formatAddonVersion(displayVersion))}</span>
