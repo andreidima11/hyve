@@ -190,12 +190,8 @@ export function switchMemorySubtab(tab: string) {
         const active = id === tab;
         if (panel) panel.classList.toggle('hidden', !active);
         if (btn) {
-            btn.classList.toggle('bg-accent/20', active);
-            btn.classList.toggle('text-accent', active);
-            btn.classList.toggle('border-accent/40', active);
-            btn.classList.toggle('bg-white/5', !active);
-            btn.classList.toggle('text-slate-400', !active);
-            btn.classList.toggle('border-theme-subtle', !active);
+            btn.classList.toggle('is-active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
         }
     });
     if (tab === 'log') {

@@ -32,7 +32,7 @@ export function toggleAllMem(checked: boolean) {
 export function updateMemBulkCount() {
     const count = document.querySelectorAll('.mem-bulk-check:checked').length;
     const btn = document.getElementById('mem-bulk-delete-btn');
-    if (btn) btn.style.display = count > 0 ? 'block' : 'none';
+    if (btn) btn.classList.toggle('hidden', count === 0);
 }
 
 export async function deleteMemBulk(ids?: string[]) {

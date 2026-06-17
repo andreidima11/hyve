@@ -64,3 +64,34 @@ small, reviewable PRs.
 - [x] Rate limits on auth, admin destructive, install streams
 - [x] Remove JWT-from-query for cameras (use SSE exchange pattern)
 - [x] Audit `GET /api/tags` (Ollama proxy) auth requirements
+
+## P3b — UI design consistency (Devices pattern: `hyd-mast`, `hyd-config-page`, `hyd-app-card`)
+
+Reference: `static/js/smarthome/device_core.ts`, `static/css/devices-ui.css`.
+
+### Done
+
+- [x] Devices (reference)
+- [x] Scene, Zone, Automatizări, App tab
+- [x] Add-ons list + Integrări standalone
+- [x] Memorii, Utilizatori, Aspect
+- [x] Add-on detail (`hyd-app-card`, `hyd-mast__back`)
+- [x] Setări shell — `hyd-mast--stacked`, tab chips, `hyd-app-card` panels
+- [x] Logs, Actualizări, Backup standalone headers
+- [x] Skills page (`hyd-mast`, `hyd-entity-row`)
+
+### In progress / bugs
+
+- [x] Dashboard cog menu (edit/add/page actions) — direct button binding + outside-click guard
+- [x] Edit mode banner visibility (`#dashboard-edit-banner` synced with edit mode)
+- [x] Hyveview Add/Edit card modal — searchable entity field (`entity` + `multi_entity`)
+
+### Remaining
+
+_All P3b items complete._
+
+### Cleanup (0.9.8.13)
+
+- [x] Config sub-pages → `hyd-mast` (logs, install, addon, profile, integration, skills)
+- [x] Strip legacy `bg-slate-900` / slate text utilities from Hub templates
+- [x] Theme-aware fields on config sub-page modals

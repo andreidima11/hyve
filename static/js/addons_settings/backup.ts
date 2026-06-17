@@ -143,6 +143,42 @@ function _toggleRemoteArchivesSection(show: boolean): void {
     _el('backup-remote-archives-section')?.classList.toggle('hidden', !show);
 }
 
+function _backupBadge(kind: 'ok' | 'warn', icon: string, text: string): string {
+    const cls = kind === 'ok' ? 'hyd-row-badge--ok' : 'hyd-row-badge--warn';
+    return `<span class="hyd-row-badge ${cls}"><i class="${icon}" aria-hidden="true"></i>${escapeHtml(text)}</span>`;
+}
+
+function _backupIcon(iconClass: string, color = '#2dd4bf'): string {
+    return `<span class="hyd-icon hyd-icon--list" style="color:${color};background:color-mix(in oklab, ${color} 16%, var(--surface-card));"><i class="${iconClass}" aria-hidden="true"></i></span>`;
+}
+
+function _backupActionBtn(
+    action: string,
+    attrs: string,
+    icon: string,
+    title: string,
+): string {
+    return `<button type="button" data-config-action="${action}" ${attrs} class="hyd-row-actions__btn" title="${escapeHtml(title)}"><i class="${icon}" aria-hidden="true"></i></button>`;
+}
+
+function _backupEntityRow(opts: {
+    iconHtml: string;
+    name: string;
+    meta: string;
+    badgesHtml: string;
+    actionsHtml: string;
+}): string {
+    return `<article class="hyd-entity-row hyd-entity-row--static" role="listitem">
+        ${opts.iconHtml}
+        <div class="hyd-entity-row__body min-w-0">
+            <div class="hyd-entity-row__name truncate">${opts.name}</div>
+            <div class="hyd-entity-row__sub truncate">${opts.meta}</div>
+            <div class="hyd-entity-row__tags">${opts.badgesHtml}</div>
+        </div>
+        <div class="hyd-row-actions">${opts.actionsHtml}</div>
+    </article>`;
+}
+
 function _remoteArchiveRowHtml(row: BackupRemoteArchiveRow): string {
     const meta = [
         _formatWhen(row.modified_at || ''),
@@ -151,19 +187,17 @@ function _remoteArchiveRowHtml(row: BackupRemoteArchiveRow): string {
     ]
         .filter(Boolean)
         .join(' · ');
-    return `<div class="upd-row">
-        <div class="upd-row-main min-w-0">
-            <span class="upd-row-icon inline-flex items-center justify-center flex-shrink-0"><i class="fas fa-cloud text-sky-400"></i></span>
-            <span class="min-w-0">
-                <span class="upd-row-name block truncate">${escapeHtml(row.name)}</span>
-                <span class="text-[10px] text-slate-500 block truncate">${meta}</span>
-            </span>
-        </div>
-        <div class="upd-row-status flex items-center gap-1">
-            <button type="button" data-config-action="pullRemoteBackup" data-config-name="${escapeHtml(row.name)}" class="upd-row-btn" title="${escapeHtml(t('backup.remote_pull_btn'))}"><i class="fas fa-download"></i></button>
-            <button type="button" data-config-action="restoreRemoteBackup" data-config-name="${escapeHtml(row.name)}" class="upd-row-btn" title="${escapeHtml(t('backup.remote_restore_btn'))}"><i class="fas fa-clock-rotate-left"></i></button>
-        </div>
-    </div>`;
+    const actions = [
+        _backupActionBtn('pullRemoteBackup', `data-config-name="${escapeHtml(row.name)}"`, 'fas fa-download', t('backup.remote_pull_btn')),
+        _backupActionBtn('restoreRemoteBackup', `data-config-name="${escapeHtml(row.name)}"`, 'fas fa-clock-rotate-left', t('backup.remote_restore_btn')),
+    ].join('');
+    return _backupEntityRow({
+        iconHtml: _backupIcon('fas fa-cloud', '#38bdf8'),
+        name: escapeHtml(row.name),
+        meta: escapeHtml(meta),
+        badgesHtml: row.provider ? _backupBadge('ok', 'fas fa-cloud', String(row.provider).toUpperCase()) : '',
+        actionsHtml: actions,
+    });
 }
 
 function _renderRemoteArchives(archives: BackupRemoteArchiveRow[]): void {
@@ -458,10 +492,10 @@ function _archiveRowHtml(row: BackupArchiveRow): string {
     const isPreRestore = row.name.startsWith('pre-restore');
     const isEncrypted = row.name.endsWith('.enc');
     const badge = isPreRestore
-        ? `<span class="upd-badge upd-badge--warn"><i class="fas fa-shield-halved"></i>${escapeHtml(t('backup.badge_safety'))}</span>`
+        ? _backupBadge('warn', 'fas fa-shield-halved', t('backup.badge_safety'))
         : isEncrypted
-            ? `<span class="upd-badge upd-badge--warn"><i class="fas fa-lock"></i>${escapeHtml(t('backup.badge_encrypted'))}</span>`
-            : `<span class="upd-badge upd-badge--ok"><i class="fas fa-box-archive"></i>${escapeHtml(t('backup.badge_archive'))}</span>`;
+            ? _backupBadge('warn', 'fas fa-lock', t('backup.badge_encrypted'))
+            : _backupBadge('ok', 'fas fa-box-archive', t('backup.badge_archive'));
 
     const meta = [
         _formatWhen(row.created_at),
@@ -473,24 +507,23 @@ function _archiveRowHtml(row: BackupArchiveRow): string {
         .join(' · ');
 
     const restoreBtn = isPreRestore
-        ? `<button type="button" data-config-action="rollbackBackup" data-config-path="${escapeHtml(row.path)}" class="upd-row-btn" title="${escapeHtml(t('backup.rollback_btn'))}"><i class="fas fa-rotate-left"></i></button>`
-        : `<button type="button" data-config-action="restoreBackup" data-config-path="${escapeHtml(row.path)}" class="upd-row-btn" title="${escapeHtml(t('backup.restore_btn'))}"><i class="fas fa-clock-rotate-left"></i></button>`;
+        ? _backupActionBtn('rollbackBackup', `data-config-path="${escapeHtml(row.path)}"`, 'fas fa-rotate-left', t('backup.rollback_btn'))
+        : _backupActionBtn('restoreBackup', `data-config-path="${escapeHtml(row.path)}"`, 'fas fa-clock-rotate-left', t('backup.restore_btn'));
 
-    return `<div class="upd-row">
-        <div class="upd-row-main min-w-0">
-            <span class="upd-row-icon inline-flex items-center justify-center flex-shrink-0"><i class="fas fa-database text-teal-400"></i></span>
-            <span class="min-w-0">
-                <span class="upd-row-name block truncate">${escapeHtml(row.name)}</span>
-                <span class="text-[10px] text-slate-500 block truncate">${meta}</span>
-            </span>
-        </div>
-        <div class="upd-row-status flex items-center gap-1">${badge}
-            <button type="button" data-config-action="downloadBackupArchive" data-config-path="${escapeHtml(row.path)}" class="upd-row-btn" title="${escapeHtml(t('backup.download_btn'))}"><i class="fas fa-download"></i></button>
-            <button type="button" data-config-action="verifyBackup" data-config-path="${escapeHtml(row.path)}" class="upd-row-btn" title="${escapeHtml(t('backup.verify_btn'))}"><i class="fas fa-circle-check"></i></button>
-            ${restoreBtn}
-            <button type="button" data-config-action="deleteBackupArchive" data-config-path="${escapeHtml(row.path)}" class="upd-row-btn" title="${escapeHtml(t('backup.delete_btn'))}"><i class="fas fa-trash-alt"></i></button>
-        </div>
-    </div>`;
+    const actions = [
+        _backupActionBtn('downloadBackupArchive', `data-config-path="${escapeHtml(row.path)}"`, 'fas fa-download', t('backup.download_btn')),
+        _backupActionBtn('verifyBackup', `data-config-path="${escapeHtml(row.path)}"`, 'fas fa-circle-check', t('backup.verify_btn')),
+        restoreBtn,
+        _backupActionBtn('deleteBackupArchive', `data-config-path="${escapeHtml(row.path)}"`, 'fas fa-trash-alt', t('backup.delete_btn')),
+    ].join('');
+
+    return _backupEntityRow({
+        iconHtml: _backupIcon('fas fa-database', '#2dd4bf'),
+        name: escapeHtml(row.name),
+        meta: escapeHtml(meta),
+        badgesHtml: badge,
+        actionsHtml: actions,
+    });
 }
 
 function _applySettings(settings: BackupSettings | undefined): void {

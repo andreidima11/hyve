@@ -67,12 +67,33 @@ export function formatMemoryDate(ts: number | string | undefined) {
     else age = (t('memory.saved_old'));
     return { dateTime: `${dateStr}, ${timeStr}`, age };
 }
+
 export function renderMemoryTable() {
-    const container = document.getElementById("mem-container");
+    const container = document.getElementById('mem-container');
+    const empty = document.getElementById('mem-empty');
     if (!container) return;
-    const searchEl = document.getElementById("mem-search") as HTMLInputElement | null;
+
+    const searchEl = document.getElementById('mem-search') as HTMLInputElement | null;
     const term = searchEl?.value.toLowerCase() || '';
     const filtered = memoryState.cache.filter(m => m.document.toLowerCase().includes(term));
+
+    if (!memoryState.cache.length) {
+        container.innerHTML = '';
+        if (empty) {
+            empty.classList.remove('hidden');
+            empty.innerHTML = `<i class="fas fa-brain hyd-list-placeholder__icon" aria-hidden="true"></i><p>${escapeHtml(t('config.hub_memories_desc'))}</p>`;
+        }
+        return;
+    }
+
+    if (!filtered.length) {
+        container.innerHTML = '';
+        if (empty) empty.classList.add('hidden');
+        return;
+    }
+
+    if (empty) empty.classList.add('hidden');
+
     const maxPage = Math.max(1, Math.ceil(filtered.length / MEM_PER_PAGE));
     if (memoryState.page > maxPage) memoryState.page = maxPage;
     const slice = filtered.slice((memoryState.page - 1) * MEM_PER_PAGE, memoryState.page * MEM_PER_PAGE);
@@ -89,21 +110,26 @@ export function renderMemoryTable() {
     const memNext = document.getElementById('mem-next') as HTMLButtonElement | null;
     if (memPrev) memPrev.disabled = memoryState.page <= 1;
     if (memNext) memNext.disabled = memoryState.page >= maxPage;
+
     container.innerHTML = slice.map(m => {
         const ts = m.timestamp ?? m.metadata?.timestamp ?? 0;
         const fd = formatMemoryDate(ts);
-        const dateLine = fd.dateTime !== '—' ? `${fd.age}` : (t('memory.no_date'));
+        const dateLine = fd.dateTime !== '—' ? fd.age : t('memory.no_date');
+        const id = escapeHtml(m.id);
+        const doc = escapeHtml(m.document);
         return `
-        <div class="mem-card group relative rounded-xl border border-theme-subtle bg-white/[0.02] hover:border-accent/20 hover:bg-white/[0.04] transition-all overflow-hidden">
-            <div class="absolute top-0 left-0 w-0.5 h-full bg-accent/40 group-hover:bg-accent transition-colors"></div>
-            <div class="flex items-start gap-2.5 p-3 pl-3.5">
-                <input type="checkbox" class="mem-bulk-check accent-accent mt-0.5 w-3.5 h-3.5 rounded border-theme-subtle bg-white/5 flex-shrink-0" value="${escapeHtml(m.id)}" data-memory-input="updateMemBulkCount">
-                <div class="flex-1 min-w-0">
-                    <p class="text-[12px] text-slate-200 leading-relaxed line-clamp-3" title="${escapeHtml(m.document)}">${escapeHtml(m.document)}</p>
-                    <p class="text-[10px] text-slate-500 mt-1.5 flex items-center gap-1"><i class="far fa-clock text-[8px]"></i>${escapeHtml(dateLine)}</p>
-                </div>
-                <button type="button" data-memory-action="deleteMemRow" data-memory-mem-id="${escapeHtml(m.id)}" class="flex-shrink-0 w-7 h-7 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Delete"><i class="fas fa-trash-alt text-[10px]"></i></button>
+        <article class="hyd-entity-row hyd-entity-row--static" role="listitem">
+            <label class="flex items-center shrink-0 cursor-pointer" title="${escapeHtml(t('memory.select_all'))}">
+                <input type="checkbox" class="mem-bulk-check accent-accent w-3.5 h-3.5 rounded border-theme-subtle bg-white/5" value="${id}" data-memory-input="updateMemBulkCount">
+            </label>
+            <span class="hyd-icon hyd-icon--list"><i class="fas fa-brain" aria-hidden="true"></i></span>
+            <div class="hyd-entity-row__body min-w-0">
+                <div class="hyd-entity-row__name line-clamp-2" title="${doc}">${doc}</div>
+                <div class="hyd-entity-row__sub">${escapeHtml(dateLine)}</div>
             </div>
-        </div>`;
+            <div class="hyd-row-actions" role="group">
+                <button type="button" data-memory-action="deleteMemRow" data-memory-mem-id="${id}" class="hyd-row-actions__btn hyd-row-actions__btn--danger" title="${escapeHtml(t('common.delete'))}"><i class="fas fa-trash-can" aria-hidden="true"></i></button>
+            </div>
+        </article>`;
     }).join('');
 }

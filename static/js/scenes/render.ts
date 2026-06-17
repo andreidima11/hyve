@@ -142,10 +142,7 @@ export function _renderScenesList() {
 
     if (!scenes.length) {
         wrap.innerHTML = '';
-        if (empty) {
-            empty.classList.remove('hidden');
-            empty.innerHTML = `<i class="fas fa-magnifying-glass hyd-list-placeholder__icon" aria-hidden="true"></i><p>${_escapeHtml(t('hy.entity_search_no_results'))}</p>`;
-        }
+        if (empty) empty.classList.add('hidden');
         return;
     }
 
@@ -198,13 +195,13 @@ export function _renderEntityPickerList(query: string) {
         const source = _escapeHtml(e.source || '');
         return `
             <button type="button" data-config-action="pickSceneEntity" data-config-entity-id="${eid}"
-                class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 border border-transparent hover:border-theme-subtle flex items-center gap-2">
-                <span class="text-[10px] uppercase tracking-widest text-slate-500 w-20 flex-shrink-0">${domain}</span>
-                <span class="flex-1 min-w-0">
-                    <span class="block text-xs text-slate-200 truncate">${label}</span>
-                    <span class="block text-[10px] text-slate-500 mono truncate">${eid}</span>
+                class="hyd-entity-row hyd-entity-row--static hyd-picker-row">
+                <span class="hyd-row-badge hyd-row-badge--muted flex-shrink-0">${domain}</span>
+                <span class="hyd-entity-row__body min-w-0">
+                    <span class="hyd-entity-row__name truncate">${label}</span>
+                    <span class="hyd-entity-row__sub mono truncate">${eid}</span>
                 </span>
-                ${source ? `<span class="text-[9px] text-slate-500">${source}</span>` : ''}
+                ${source ? `<span class="hyd-row-badge hyd-row-badge--muted flex-shrink-0">${source}</span>` : ''}
             </button>`;
     }).join('');
 }

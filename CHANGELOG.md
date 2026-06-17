@@ -4,6 +4,17 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.13] — 2026-06
+
+Patch release: **P3b UI consistency complete** — Hub/config aligned to Devices pattern; sub-page modals and chat composer polished.
+
+### Frontend
+- **UI (P3b):** Config hub pages use `hyd-mast`, `hyd-config-page`, `hyd-app-card`, `hyd-entity-row` across Memorii, Setări, Skills, Logs/Backup/Updates, automation editor, blueprint picker.
+- **UI:** Config sub-pages (addon config, profile editor, integration config, app logs, skills edit) → `hyd-mast` headers + `hyd-btn` footers.
+- **UI:** Theme-aware form fields scoped to `#config-detail` and config sub-page modals; removed legacy `bg-slate-900` utilities from templates.
+- **UI:** Chat composer + model selector — `hyd-chip--menu` thinking mode, `hyd-entity-row` profile list, theme tokens on input bar.
+- **Fix:** Dashboard cog menu direct binding; edit-mode banner sync; Hyveview card editor searchable entity field.
+
 ## [0.9.8.12] — 2026-06
 
 Hotfix: **Hyveview 404 on lang bundle** after dashboard card editor / custom selects build.

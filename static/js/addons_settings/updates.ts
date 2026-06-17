@@ -274,7 +274,47 @@ function _hasReleaseNotes(target: string): boolean {
 
 function _releaseNotesBtnHtml(target: string): string {
     if (!_hasReleaseNotes(target)) return '';
-    return `<button type="button" data-config-action="showUpdateReleaseNotes" data-config-target="${escapeHtml(target)}" class="upd-row-btn upd-row-btn--notes" title="${escapeHtml(t('updates.release_notes_btn'))}"><i class="fas fa-file-lines"></i></button>`;
+    return `<button type="button" data-config-action="showUpdateReleaseNotes" data-config-target="${escapeHtml(target)}" class="hyd-row-actions__btn" title="${escapeHtml(t('updates.release_notes_btn'))}"><i class="fas fa-file-lines" aria-hidden="true"></i></button>`;
+}
+
+function _updBadge(kind: 'update' | 'ok' | 'warn', icon: string, text: string): string {
+    const cls = kind === 'ok' ? 'hyd-row-badge--ok' : 'hyd-row-badge--warn';
+    return `<span class="hyd-row-badge ${cls}"><i class="${icon}" aria-hidden="true"></i>${escapeHtml(text)}</span>`;
+}
+
+function _updIconHtml(inner: string): string {
+    return `<span class="hyd-icon hyd-icon--list">${inner}</span>`;
+}
+
+function _updActionBtn(
+    action: string,
+    extraAttrs: string,
+    icon: string,
+    title: string,
+    disabled = false,
+): string {
+    const dis = disabled ? ' disabled' : '';
+    return `<button type="button" data-config-action="${action}" ${extraAttrs} class="hyd-row-actions__btn"${dis} title="${escapeHtml(title)}"><i class="${icon}" aria-hidden="true"></i></button>`;
+}
+
+function _updateEntityRow(opts: {
+    outdated?: boolean;
+    iconHtml: string;
+    name: string;
+    versionHtml: string;
+    badgesHtml: string;
+    actionsHtml: string;
+}): string {
+    const outdated = opts.outdated ? ' is-outdated' : '';
+    return `<article class="hyd-entity-row hyd-entity-row--static hyd-update-row${outdated}" role="listitem">
+        ${opts.iconHtml}
+        <div class="hyd-entity-row__body min-w-0">
+            <div class="hyd-entity-row__name">${opts.name}</div>
+            <div class="hyd-entity-row__sub hyd-update-row__version">${opts.versionHtml}</div>
+            <div class="hyd-entity-row__tags">${opts.badgesHtml}</div>
+        </div>
+        <div class="hyd-row-actions">${opts.actionsHtml}</div>
+    </article>`;
 }
 
 function _formatReleaseNotesBody(body: string): string {
@@ -387,16 +427,16 @@ function _hyveRowHtml(hyve: HyveUpdateStatus): string {
     let versionHtml: string;
     let badge: string;
     let actionHtml = _releaseNotesBtnHtml('hyve');
-    let rowClass = 'upd-row';
+    let outdated = false;
 
     if (hyve.error?.key) {
-        versionHtml = `<span class="font-mono text-slate-400">${escapeHtml(current)}</span>`;
-        badge = `<span class="upd-badge upd-badge--warn"><i class="fas fa-triangle-exclamation"></i>${escapeHtml(t('updates.badge_check_failed'))}</span>`;
-        rowClass += ' upd-row--outdated';
+        versionHtml = escapeHtml(current);
+        badge = _updBadge('warn', 'fas fa-triangle-exclamation', t('updates.badge_check_failed'));
+        outdated = true;
     } else if (hyve.update_available) {
-        versionHtml = `<span class="font-mono text-slate-400">${escapeHtml(current)}</span><i class="fas fa-arrow-right text-[8px] text-amber-400 mx-1"></i><span class="font-mono text-amber-400 font-semibold">${escapeHtml(latest)}</span>`;
-        badge = `<span class="upd-badge upd-badge--update"><i class="fas fa-arrow-up"></i>${escapeHtml(t('updates.badge_update'))}</span>`;
-        rowClass += ' upd-row--outdated';
+        versionHtml = `${escapeHtml(current)}<i class="fas fa-arrow-right text-[8px] text-amber-400 mx-1" aria-hidden="true"></i><span class="text-amber-400 font-semibold">${escapeHtml(latest)}</span>`;
+        badge = _updBadge('update', 'fas fa-arrow-up', t('updates.badge_update'));
+        outdated = true;
         if (hyve.git_available) {
             const prereq = hyve.prerequisites;
             const npmOk = !prereq?.frontend_build_required || prereq?.npm_available;
@@ -404,51 +444,59 @@ function _hyveRowHtml(hyve: HyveUpdateStatus): string {
             const btnTitle = npmOk
                 ? t('updates.hyve_upgrade_btn')
                 : t('updates.hyve_hint_npm_required', { commands: buildCommands });
-            const disabledAttr = npmOk ? '' : ' disabled';
-            actionHtml += `<button type="button" data-config-action="applyHyveUpdate" id="updates-hyve-upgrade-btn" class="upd-row-btn"${disabledAttr} title="${escapeHtml(btnTitle)}"><i class="fas fa-arrow-up"></i></button>`;
+            actionHtml += _updActionBtn('applyHyveUpdate', 'id="updates-hyve-upgrade-btn"', 'fas fa-arrow-up', btnTitle, !npmOk);
         }
     } else {
-        versionHtml = `<span class="font-mono text-slate-400">${escapeHtml(current)}</span>`;
-        badge = `<span class="upd-badge upd-badge--ok"><i class="fas fa-check"></i>${escapeHtml(t('updates.badge_up_to_date'))}</span>`;
+        versionHtml = escapeHtml(current);
+        badge = _updBadge('ok', 'fas fa-check', t('updates.badge_up_to_date'));
     }
 
-    return `<div class="${rowClass}">
-        <div class="upd-row-main">
-            <span class="upd-row-icon inline-flex items-center justify-center flex-shrink-0"><i class="fas fa-house text-accent"></i></span>
-            <span class="upd-row-name">Hyve</span>
-        </div>
-        <div class="upd-row-version">${versionHtml}</div>
-        <div class="upd-row-status">${badge}${actionHtml}</div>
-    </div>`;
+    return _updateEntityRow({
+        outdated,
+        iconHtml: _updIconHtml('<i class="fas fa-house text-accent" aria-hidden="true"></i>'),
+        name: 'Hyve',
+        versionHtml,
+        badgesHtml: badge,
+        actionsHtml: actionHtml,
+    });
 }
 
 function _addonRowHtml(a: AddonUpdateRow): string {
     _cacheAddonReleaseNotes(a);
     const iconColor = _ADDON_COLOR_MAP[a.color || ''] || _ADDON_COLOR_MAP.slate;
-    const iconHtml = a.image
+    const iconInner = a.image
         ? `<img src="${escapeHtml(a.image)}" alt="" class="w-4 h-4 rounded object-contain" loading="lazy">`
-        : `<i class="${escapeHtml(a.icon || 'fas fa-puzzle-piece')} ${iconColor}"></i>`;
+        : `<i class="${escapeHtml(a.icon || 'fas fa-puzzle-piece')} ${iconColor}" aria-hidden="true"></i>`;
+    const iconHtml = a.image
+        ? `<span class="hyd-icon hyd-icon--list hyd-icon--photo">${iconInner}</span>`
+        : _updIconHtml(iconInner);
 
     let versionHtml: string;
     let badge: string;
     let actionHtml = _releaseNotesBtnHtml(a.slug);
+    const outdated = !!a.update_available;
     if (a.update_available) {
-        versionHtml = `<span class="font-mono text-slate-400">${escapeHtml(_displayVersion(a.current))}</span><i class="fas fa-arrow-right text-[8px] text-amber-400 mx-1"></i><span class="font-mono text-amber-400 font-semibold">${escapeHtml(_displayVersion(a.latest))}</span>`;
-        badge = `<span class="upd-badge upd-badge--update"><i class="fas fa-arrow-up"></i>${escapeHtml(t('updates.badge_update'))}</span>`;
-        actionHtml += `<button type="button" data-config-action="updateSingleAddon" data-config-slug="${escapeHtml(a.slug)}" class="upd-row-btn" title="${escapeHtml(t('updates.upgrade_btn'))}"><i class="fas fa-arrow-up"></i></button>`;
+        versionHtml = `${escapeHtml(_displayVersion(a.current))}<i class="fas fa-arrow-right text-[8px] text-amber-400 mx-1" aria-hidden="true"></i><span class="text-amber-400 font-semibold">${escapeHtml(_displayVersion(a.latest))}</span>`;
+        badge = _updBadge('update', 'fas fa-arrow-up', t('updates.badge_update'));
+        actionHtml += _updActionBtn(
+            'updateSingleAddon',
+            `data-config-slug="${escapeHtml(a.slug)}"`,
+            'fas fa-arrow-up',
+            t('updates.upgrade_btn'),
+        );
     } else {
-        versionHtml = `<span class="font-mono text-slate-400">${escapeHtml(_displayVersion(a.current || a.latest))}</span>`;
-        badge = `<span class="upd-badge upd-badge--ok"><i class="fas fa-check"></i>${escapeHtml(t('updates.badge_up_to_date'))}</span>`;
+        versionHtml = escapeHtml(_displayVersion(a.current || a.latest));
+        badge = _updBadge('ok', 'fas fa-check', t('updates.badge_up_to_date'));
     }
 
-    return `<div class="upd-row${a.update_available ? ' upd-row--outdated' : ''}">
-        <div class="upd-row-main">
-            <span class="upd-row-icon inline-flex items-center justify-center flex-shrink-0">${iconHtml}</span>
-            <span class="upd-row-name">${escapeHtml(a.name)}</span>
-        </div>
-        <div class="upd-row-version">${versionHtml}</div>
-        <div class="upd-row-status">${badge}${actionHtml}</div>
-    </div>`;
+    return _updateEntityRow({
+        outdated,
+        iconHtml,
+        name: escapeHtml(a.name),
+        versionHtml,
+        badgesHtml: badge,
+        actionsHtml: actionHtml,
+    });
 }
 
 function _renderUpdateRows() {

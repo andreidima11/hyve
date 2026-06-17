@@ -6,7 +6,7 @@
                                 <h1 id="user-page-title" class="text-lg sm:text-2xl font-semibold text-white tracking-tight truncate" data-i18n="header.identify">Account</h1>
                                 <p class="text-slate-500 text-xs sm:text-sm mt-0.5 sm:mt-1" data-i18n="user.page_subtitle">Your notifications, profile and account security.</p>
                             </div>
-                            <button type="button" data-user-action="logout" class="shrink-0 w-9 h-9 flex items-center justify-center text-slate-600 hover:text-slate-300 transition-all rounded-lg hover:bg-white/[0.03] touch-manipulation" data-i18n-title="user.logout" data-i18n-aria-label="user.logout" title="Log out" aria-label="Log out">
+                            <button type="button" data-user-action="logout" class="shrink-0 w-9 h-9 flex items-center justify-center text-slate-600 hover:transition-all rounded-lg hover:bg-white/[0.03] touch-manipulation" data-i18n-title="user.logout" data-i18n-aria-label="user.logout" title="Log out" aria-label="Log out">
                                 <i class="fas fa-right-from-bracket text-xs sm:text-sm"></i>
                             </button>
                         </div>
@@ -42,19 +42,19 @@
                             <div class="flex items-center gap-2 min-w-0">
                                 <span id="user-notifications-status" class="hidden sm:inline text-[11px] text-slate-500">—</span>
                                 <div class="relative">
-                                    <button id="user-notifications-filter-button" type="button" data-user-action="toggleFilterMenu" aria-haspopup="menu" aria-expanded="false" class="inline-flex items-center gap-2 rounded-lg border border-theme-subtle bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-bold text-slate-200 hover:bg-white/[0.06] hover:border-theme-medium transition-colors">
+                                    <button id="user-notifications-filter-button" type="button" data-user-action="toggleFilterMenu" aria-haspopup="menu" aria-expanded="false" class="inline-flex items-center gap-2 rounded-lg border border-theme-subtle bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-bold hover:bg-white/[0.06] hover:border-theme-medium transition-colors">
                                         <i class="fas fa-filter text-[10px] text-accent"></i>
                                         <span id="user-notifications-filter-label" data-i18n="notifications.filter_all">All</span>
                                         <i class="fas fa-chevron-down text-[9px] text-slate-500"></i>
                                     </button>
                                     <div id="user-notifications-filter-menu" class="notification-filter-menu hidden" role="menu" data-i18n-aria-label="user.filter_menu_aria" aria-label="Notification filter">
-                                        <button type="button" data-user-action="switchNotificationFilter" data-user-notification-filter="all" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-bold text-slate-300 hover:bg-white/[0.06] transition-colors" role="menuitemradio" aria-checked="true"><i class="fas fa-inbox w-4 text-center text-slate-500"></i><span class="flex-1" data-i18n="notifications.filter_all">All</span><i class="fas fa-check text-[10px] text-accent opacity-0"></i></button>
-                                        <button type="button" data-user-action="switchNotificationFilter" data-user-notification-filter="unread" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-bold text-slate-300 hover:bg-white/[0.06] transition-colors" role="menuitemradio" aria-checked="false"><i class="fas fa-circle w-4 text-center text-slate-500"></i><span class="flex-1" data-i18n="notifications.filter_unread">Unread</span><i class="fas fa-check text-[10px] text-accent opacity-0"></i></button>
-                                        <button type="button" data-user-action="switchNotificationFilter" data-user-notification-filter="automation" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-bold text-slate-300 hover:bg-white/[0.06] transition-colors" role="menuitemradio" aria-checked="false"><i class="fas fa-bolt w-4 text-center text-slate-500"></i><span class="flex-1" data-i18n="notifications.filter_automation">Automations</span><i class="fas fa-check text-[10px] text-accent opacity-0"></i></button>
-                                        <button type="button" data-user-action="switchNotificationFilter" data-user-notification-filter="reminder" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-bold text-slate-300 hover:bg-white/[0.06] transition-colors" role="menuitemradio" aria-checked="false"><i class="fas fa-clock w-4 text-center text-slate-500"></i><span class="flex-1" data-i18n="notifications.filter_reminder">Reminders</span><i class="fas fa-check text-[10px] text-accent opacity-0"></i></button>
-                                        <button type="button" data-user-action="switchNotificationFilter" data-user-notification-filter="system" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-bold text-slate-300 hover:bg-white/[0.06] transition-colors" role="menuitemradio" aria-checked="false"><i class="fas fa-circle-info w-4 text-center text-slate-500"></i><span class="flex-1" data-i18n="notifications.filter_system">System</span><i class="fas fa-check text-[10px] text-accent opacity-0"></i></button>
+                                        <button type="button" data-user-action="switchNotificationFilter" data-user-notification-filter="all" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-bold hover:bg-white/[0.06] transition-colors" role="menuitemradio" aria-checked="true"><i class="fas fa-inbox w-4 text-center text-slate-500"></i><span class="flex-1" data-i18n="notifications.filter_all">All</span><i class="fas fa-check text-[10px] text-accent opacity-0"></i></button>
+                                        <button type="button" data-user-action="switchNotificationFilter" data-user-notification-filter="unread" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-bold hover:bg-white/[0.06] transition-colors" role="menuitemradio" aria-checked="false"><i class="fas fa-circle w-4 text-center text-slate-500"></i><span class="flex-1" data-i18n="notifications.filter_unread">Unread</span><i class="fas fa-check text-[10px] text-accent opacity-0"></i></button>
+                                        <button type="button" data-user-action="switchNotificationFilter" data-user-notification-filter="automation" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-bold hover:bg-white/[0.06] transition-colors" role="menuitemradio" aria-checked="false"><i class="fas fa-bolt w-4 text-center text-slate-500"></i><span class="flex-1" data-i18n="notifications.filter_automation">Automations</span><i class="fas fa-check text-[10px] text-accent opacity-0"></i></button>
+                                        <button type="button" data-user-action="switchNotificationFilter" data-user-notification-filter="reminder" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-bold hover:bg-white/[0.06] transition-colors" role="menuitemradio" aria-checked="false"><i class="fas fa-clock w-4 text-center text-slate-500"></i><span class="flex-1" data-i18n="notifications.filter_reminder">Reminders</span><i class="fas fa-check text-[10px] text-accent opacity-0"></i></button>
+                                        <button type="button" data-user-action="switchNotificationFilter" data-user-notification-filter="system" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-bold hover:bg-white/[0.06] transition-colors" role="menuitemradio" aria-checked="false"><i class="fas fa-circle-info w-4 text-center text-slate-500"></i><span class="flex-1" data-i18n="notifications.filter_system">System</span><i class="fas fa-check text-[10px] text-accent opacity-0"></i></button>
                                         <div class="notification-filter-menu__sep"></div>
-                                        <button type="button" data-user-action="switchNotificationFilter" data-user-notification-filter="archived" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-bold text-slate-300 hover:bg-white/[0.06] transition-colors" role="menuitemradio" aria-checked="false"><i class="fas fa-box-archive w-4 text-center text-slate-500"></i><span class="flex-1" data-i18n="notifications.filter_archived">Archived</span><i class="fas fa-check text-[10px] text-accent opacity-0"></i></button>
+                                        <button type="button" data-user-action="switchNotificationFilter" data-user-notification-filter="archived" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-bold hover:bg-white/[0.06] transition-colors" role="menuitemradio" aria-checked="false"><i class="fas fa-box-archive w-4 text-center text-slate-500"></i><span class="flex-1" data-i18n="notifications.filter_archived">Archived</span><i class="fas fa-check text-[10px] text-accent opacity-0"></i></button>
                                     </div>
                                 </div>
                             </div>
@@ -62,7 +62,7 @@
                         <div id="user-notifications-list" class="space-y-3"></div>
                         <div id="user-notifications-empty" class="hidden rounded-xl border border-dashed border-theme-subtle bg-white/[0.02] px-4 py-8 text-center">
                             <div class="mx-auto mb-3 w-10 h-10 rounded-xl bg-white/[0.03] border border-theme-subtle flex items-center justify-center text-slate-500"><i class="fas fa-bell-slash"></i></div>
-                            <p class="text-sm font-semibold text-slate-300" data-i18n="user.notifications_empty">No notifications here.</p>
+                            <p class="text-sm font-semibold" data-i18n="user.notifications_empty">No notifications here.</p>
                         </div>
                     </section>
 
@@ -75,20 +75,20 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div class="space-y-1">
                                 <label for="user-profile-first-name" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="user.first_name">First name</label>
-                                <input id="user-profile-first-name" type="text" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none" data-i18n-placeholder="user.first_name" placeholder="First name">
+                                <input id="user-profile-first-name" type="text" class="w-full border border-theme-subtle rounded-xl p-3 text-sm" data-i18n-placeholder="user.first_name" placeholder="First name">
                             </div>
                             <div class="space-y-1">
                                 <label for="user-profile-last-name" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="user.last_name">Last name</label>
-                                <input id="user-profile-last-name" type="text" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none" data-i18n-placeholder="user.last_name" placeholder="Last name">
+                                <input id="user-profile-last-name" type="text" class="w-full border border-theme-subtle rounded-xl p-3 text-sm" data-i18n-placeholder="user.last_name" placeholder="Last name">
                             </div>
                         </div>
                         <div class="space-y-1">
                             <label for="user-profile-location" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="user.location">Location</label>
-                            <input id="user-profile-location" type="text" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none" data-i18n-placeholder="user.location_placeholder" placeholder="City, country">
+                            <input id="user-profile-location" type="text" class="w-full border border-theme-subtle rounded-xl p-3 text-sm" data-i18n-placeholder="user.location_placeholder" placeholder="City, country">
                         </div>
                         <div class="space-y-1">
                             <label for="user-profile-about" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="user.about">About me</label>
-                            <textarea id="user-profile-about" rows="4" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none resize-y" data-i18n-placeholder="user.about_placeholder" placeholder="Write a few details about yourself…"></textarea>
+                            <textarea id="user-profile-about" rows="4" class="w-full border border-theme-subtle rounded-xl p-3 text-sm resize-y" data-i18n-placeholder="user.about_placeholder" placeholder="Write a few details about yourself…"></textarea>
                         </div>
                         <div class="flex items-center justify-end">
                             <button type="button" data-user-action="saveGeneral" class="px-4 py-2 rounded-xl text-sm font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n="common.save">Save</button>
@@ -103,24 +103,24 @@
                         <p class="text-[11px] text-slate-500" data-i18n="user.security_hint">Confirm with your current password to change security settings.</p>
                         <div class="space-y-1">
                             <label for="user-security-current-password" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="user.current_password">Current password</label>
-                            <input id="user-security-current-password" type="password" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none" placeholder="••••••••" autocomplete="current-password">
+                            <input id="user-security-current-password" type="password" class="w-full border border-theme-subtle rounded-xl p-3 text-sm" placeholder="••••••••" autocomplete="current-password">
                         </div>
                         <div class="space-y-1">
                             <label for="user-security-username" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="user.username">Username</label>
-                            <input id="user-security-username" type="text" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none" data-i18n-placeholder="user.username" placeholder="Username" autocomplete="username">
+                            <input id="user-security-username" type="text" class="w-full border border-theme-subtle rounded-xl p-3 text-sm" data-i18n-placeholder="user.username" placeholder="Username" autocomplete="username">
                         </div>
                         <div class="space-y-1">
                             <label for="user-security-email" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="user.email">Email</label>
-                            <input id="user-security-email" type="email" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none" placeholder="email@example.com">
+                            <input id="user-security-email" type="email" class="w-full border border-theme-subtle rounded-xl p-3 text-sm" placeholder="email@example.com">
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div class="space-y-1">
                                 <label for="user-security-password" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="user.new_password">New password</label>
-                                <input id="user-security-password" type="password" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none" placeholder="••••••••" autocomplete="new-password">
+                                <input id="user-security-password" type="password" class="w-full border border-theme-subtle rounded-xl p-3 text-sm" placeholder="••••••••" autocomplete="new-password">
                             </div>
                             <div class="space-y-1">
                                 <label for="user-security-password-confirm" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="user.confirm_password">Confirm password</label>
-                                <input id="user-security-password-confirm" type="password" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm text-slate-300 focus:border-accent outline-none" placeholder="••••••••" autocomplete="new-password">
+                                <input id="user-security-password-confirm" type="password" class="w-full border border-theme-subtle rounded-xl p-3 text-sm" placeholder="••••••••" autocomplete="new-password">
                             </div>
                         </div>
                         <div class="flex items-center justify-end">

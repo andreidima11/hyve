@@ -62,6 +62,9 @@ export function syncPreferenceControls() {
     const editModeIconMenu = document.getElementById('dashboard-edit-mode-icon-menu');
     if (editModeLabelMenu) editModeLabelMenu.textContent = editMode ? d.t('dashboard.done') : d.t('common.edit');
     if (editModeIconMenu) editModeIconMenu.className = editMode ? 'fas fa-check w-4' : 'fas fa-pen-to-square w-4';
+
+    const editBanner = document.getElementById('dashboard-edit-banner');
+    if (editBanner) editBanner.classList.toggle('hidden', !editMode);
 }
 
 export function updateStats() {

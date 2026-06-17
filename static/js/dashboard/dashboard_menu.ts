@@ -14,17 +14,36 @@ function deps(): DashboardMenuDeps {
     return _deps;
 }
 
+function _bindDashboardMenuButton(): void {
+    const btn = document.getElementById('dashboard-menu-button');
+    if (!btn || btn.dataset.menuBound === '1') return;
+    btn.dataset.menuBound = '1';
+    btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleDashboardMenu();
+    });
+}
+
 export function initDashboardMenu(depsIn: DashboardMenuDeps): void {
     _deps = depsIn;
     if (_listenersBound) return;
     _listenersBound = true;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _bindDashboardMenuButton, { once: true });
+    } else {
+        _bindDashboardMenuButton();
+    }
 
     document.addEventListener('click', (event) => {
         const d = deps();
         d.closeDashboardClimateModeMenus();
         const menu = document.getElementById('dashboard-more-menu');
         const wrap = menu?.parentElement;
+        const btn = document.getElementById('dashboard-menu-button');
         if (!menu || menu.classList.contains('hidden')) return;
+        if (btn && event.target instanceof Node && btn.contains(event.target)) return;
         if (wrap && event.target instanceof Node && !wrap.contains(event.target)) {
             closeDashboardMenu();
         }

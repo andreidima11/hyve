@@ -56,7 +56,7 @@ export async function sendMessage(optionalMessage?: string) {
     appendMessage('user', msg || '', {
         imageDataUrl: imageDataUrlForBubble,
         documentFileName: documentFileNameForBubble,
-        profileName: (document.getElementById('model-selector-label')?.textContent || document.querySelector('.model-selector-item.active .model-selector-item-name')?.textContent || '').trim()
+        profileName: (document.getElementById('model-selector-label')?.textContent || document.querySelector('.model-selector-item.is-active .hyd-entity-row__name')?.textContent || '').trim()
     });
 
     const aiBubbleId = 'ai-' + Date.now();

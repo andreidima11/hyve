@@ -1,7 +1,7 @@
 /**
  * Apps page — shared mutable state.
  */
-import type { AddonCatalogEntry } from '../types/features_apps.js';
+import type { AddonCatalogEntry, AddonProcessStatusMap } from '../types/features_apps.js';
 
 export const appsState = {
     currentLogSlug: null as string | null,
@@ -9,5 +9,7 @@ export const appsState = {
     openSlug: null as string | null,
     addonUiSlug: null as string | null,
     addonsCache: [] as AddonCatalogEntry[],
+    listFilter: '',
+    statusMap: {} as AddonProcessStatusMap,
 };
 

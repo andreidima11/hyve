@@ -128,6 +128,7 @@ import {
 export function initSkillsDelegatedBindings(): void {
 initSkillsEventBindings({
     backToConfig: () => switchTab('config'),
+    loadSkills: () => loadSkills(),
     closeModal: () => closeSkillEditModal(),
     saveEdit: () => saveSkillEdit(),
     toggleDesc: (name) => toggleSkillDesc(_str(name)),

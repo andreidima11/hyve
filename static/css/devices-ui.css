@@ -133,6 +133,26 @@
     flex-shrink: 0;
 }
 
+.hyd-mast--stacked {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+}
+
+.hyd-mast--stacked .hyd-mast__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+}
+
+.hyd-chips .hyd-chip i {
+    margin-right: 0.35rem;
+    opacity: 0.75;
+    font-size: 0.75em;
+}
+
 /* ── Toolbar: search + filter toggle ──────────────────────────────────────── */
 .hyd-toolbar {
     display: flex;
@@ -1721,4 +1741,550 @@
 
 .hyd-list-placeholder--error {
     color: #f87171;
+}
+
+/* ── Native app settings (Hub → App) ─────────────────────────────────────── */
+.hyd-app-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 1rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border-light);
+    background: color-mix(in oklab, var(--surface-card) 55%, transparent);
+}
+
+.hyd-app-card__head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.hyd-app-card__title {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-heading);
+}
+
+.hyd-app-card__hint {
+    margin: 0;
+    font-size: 0.68rem;
+    line-height: 1.45;
+    color: var(--text-tertiary);
+}
+
+.hyd-app-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.65rem 0.8rem;
+    border-radius: 0.75rem;
+    border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--border-light));
+    background: color-mix(in oklab, var(--accent) 8%, transparent);
+}
+
+.hyd-app-banner__text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.hyd-app-banner__text #app-mode-label {
+    color: var(--accent);
+}
+
+.hyd-app-banner__meta {
+    margin-left: auto;
+    font-size: 0.62rem;
+    color: var(--text-tertiary);
+    text-align: right;
+}
+
+.hyd-app-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.hyd-app-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.hyd-app-field__label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+}
+
+.hyd-app-field__input {
+    width: 100%;
+    min-width: 0;
+    padding: 0.7rem 0.85rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-light);
+    background: color-mix(in oklab, var(--surface-card) 70%, transparent);
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.18s;
+}
+
+.hyd-app-field__input:focus {
+    border-color: color-mix(in oklab, var(--accent) 45%, var(--border-light));
+}
+
+.hyd-app-field__row {
+    display: flex;
+    align-items: stretch;
+    gap: 0.5rem;
+}
+
+.hyd-app-field__row .hyd-app-field__input {
+    flex: 1;
+}
+
+.hyd-app-field__hint {
+    margin: 0;
+    font-size: 0.62rem;
+    line-height: 1.45;
+    color: var(--text-tertiary);
+}
+
+.hyd-app-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.hyd-app-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.7rem 0.8rem;
+    border-radius: 0.8rem;
+    border: 1px solid var(--border-light);
+    background: color-mix(in oklab, var(--surface-card) 45%, transparent);
+}
+
+.hyd-app-row__lead {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    min-width: 0;
+}
+
+.hyd-app-row__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.85rem;
+    height: 1.85rem;
+    flex-shrink: 0;
+    border-radius: 0.55rem;
+    border: 1px solid var(--border-light);
+    background: color-mix(in oklab, var(--surface-card) 65%, transparent);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+}
+
+.hyd-app-row__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.hyd-app-row__title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-heading);
+}
+
+.hyd-app-row__hint {
+    font-size: 0.62rem;
+    line-height: 1.4;
+    color: var(--text-tertiary);
+}
+
+.hyd-app-row__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.hyd-row-badge--ok {
+    color: #34d399;
+    border-color: color-mix(in oklab, #34d399 35%, var(--border-light));
+    background: color-mix(in oklab, #34d399 12%, transparent);
+}
+
+.hyd-row-badge--warn {
+    color: #fbbf24;
+    border-color: color-mix(in oklab, #fbbf24 35%, var(--border-light));
+    background: color-mix(in oklab, #fbbf24 12%, transparent);
+}
+
+.hyd-row-badge--err {
+    color: #f87171;
+    border-color: color-mix(in oklab, #f87171 35%, var(--border-light));
+    background: color-mix(in oklab, #f87171 12%, transparent);
+}
+
+.hyd-row-badge--muted {
+    color: var(--text-tertiary);
+}
+
+.hyd-btn--danger {
+    align-self: flex-start;
+    color: #f87171;
+    border-color: color-mix(in oklab, #f87171 32%, var(--border-light));
+    background: color-mix(in oklab, #f87171 10%, transparent);
+}
+
+.hyd-btn--danger:hover,
+.hyd-btn--danger:focus-visible {
+    color: #fca5a5;
+    border-color: color-mix(in oklab, #f87171 45%, var(--border-light));
+    background: color-mix(in oklab, #f87171 16%, transparent);
+    outline: none;
+}
+
+@media (max-width: 640px) {
+    .hyd-app-row {
+        flex-wrap: wrap;
+    }
+
+    .hyd-app-row__actions {
+        flex: 1 1 100%;
+        justify-content: flex-end;
+        padding-left: calc(1.85rem + 0.65rem);
+    }
+}
+
+/* ── Config detail — legacy fields inside hyd-app-card ─────────────────── */
+#config-detail .hyd-config-page .hyd-app-card > h2,
+#config-detail .hyd-config-page .hyd-app-card > h3.text-sm {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-heading);
+}
+
+#config-detail .hyd-config-page label,
+#addon-config-modal label,
+#profile-editor-overlay label,
+#integration-config-modal label,
+#skill-edit-modal label {
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+}
+
+#config-detail .hyd-config-page input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not(.hyd-app-field__input),
+#config-detail .hyd-config-page select,
+#config-detail .hyd-config-page textarea:not(.hyd-app-field__input),
+#addon-config-modal input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+#addon-config-modal select,
+#addon-config-modal textarea,
+#profile-editor-overlay input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not(.color-hex-input),
+#profile-editor-overlay select,
+#profile-editor-overlay textarea,
+#integration-config-modal input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+#integration-config-modal select,
+#integration-config-modal textarea,
+#skill-edit-modal textarea {
+    width: 100%;
+    min-width: 0;
+    padding: 0.7rem 0.85rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-light);
+    background: color-mix(in oklab, var(--surface-card) 70%, transparent);
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.18s, box-shadow 0.18s;
+}
+
+#config-detail .hyd-config-page input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):focus,
+#config-detail .hyd-config-page select:focus,
+#config-detail .hyd-config-page textarea:focus,
+#addon-config-modal input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):focus,
+#addon-config-modal select:focus,
+#addon-config-modal textarea:focus,
+#profile-editor-overlay input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):focus,
+#profile-editor-overlay select:focus,
+#profile-editor-overlay textarea:focus,
+#integration-config-modal input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):focus,
+#integration-config-modal select:focus,
+#integration-config-modal textarea:focus,
+#skill-edit-modal textarea:focus {
+    border-color: color-mix(in oklab, var(--accent) 45%, var(--border-light));
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 28%, transparent);
+}
+
+#config-detail .hyd-config-page input[type="checkbox"] {
+    accent-color: var(--accent);
+}
+
+#view-config .app-modal input:not([type="checkbox"]):not([type="radio"]),
+#view-config .app-modal select,
+#view-config .app-modal textarea {
+    width: 100%;
+    min-width: 0;
+    padding: 0.7rem 0.85rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-light);
+    background: color-mix(in oklab, var(--surface-card) 70%, transparent);
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    outline: none;
+}
+
+#view-config .app-modal input:focus,
+#view-config .app-modal select:focus,
+#view-config .app-modal textarea:focus {
+    border-color: color-mix(in oklab, var(--accent) 45%, var(--border-light));
+}
+
+.hyd-log-terminal {
+    background: color-mix(in oklab, var(--bg-main) 90%, black 10%);
+    border-top: 1px solid var(--border-light);
+    color: var(--text-secondary);
+}
+
+.hyd-update-row.is-outdated {
+    border-color: color-mix(in oklab, #f59e0b 30%, var(--border-light));
+    background: color-mix(in oklab, #f59e0b 6%, var(--hyd-surface-muted));
+}
+
+.hyd-update-row__version {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.68rem;
+    color: var(--text-tertiary);
+}
+
+.hyd-picker-row {
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+}
+
+.hyd-picker-row.is-selected {
+    border-color: color-mix(in oklab, var(--accent) 35%, var(--border-light));
+    background: color-mix(in oklab, var(--accent) 10%, var(--hyd-surface-muted));
+}
+
+/* ── Intelligence subpages (automation editor, blueprints) ─────────────── */
+#automation-editor-modal,
+#blueprint-picker-modal {
+    background:
+        radial-gradient(ellipse 90% 55% at 50% -20%, var(--glow-primary), transparent 58%),
+        var(--bg-main, #030712);
+}
+
+#automation-editor-modal label,
+#blueprint-picker-modal label {
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+}
+
+#automation-editor-modal input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+#automation-editor-modal select,
+#automation-editor-modal textarea,
+#blueprint-picker-modal input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+#blueprint-picker-modal select,
+#blueprint-picker-modal textarea {
+    width: 100%;
+    min-width: 0;
+    padding: 0.7rem 0.85rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-light);
+    background: color-mix(in oklab, var(--surface-card) 70%, transparent);
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.18s, box-shadow 0.18s;
+}
+
+#automation-editor-modal input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):focus,
+#automation-editor-modal select:focus,
+#automation-editor-modal textarea:focus,
+#blueprint-picker-modal input:focus,
+#blueprint-picker-modal select:focus,
+#blueprint-picker-modal textarea:focus {
+    border-color: color-mix(in oklab, var(--accent) 45%, var(--border-light));
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 28%, transparent);
+}
+
+#automation-editor-modal .automation-builder-action-card,
+#automation-editor-modal .hyd-app-card--nested {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.85rem;
+    border-radius: 0.85rem;
+    border: 1px solid var(--border-light);
+    background: color-mix(in oklab, var(--surface-card) 42%, transparent);
+}
+
+#view-config .app-subpage-header.hyd-mast,
+#view-skills .app-subpage-header.hyd-mast,
+#automation-editor-modal .app-subpage-header.hyd-mast {
+    border-bottom: 1px solid var(--border-light);
+    padding: 0.85rem 1rem;
+}
+
+#skill-edit-modal textarea {
+    min-height: 12rem;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.75rem;
+    line-height: 1.55;
+}
+
+#blueprint-picker-modal .app-subpage-body {
+    overflow-y: auto;
+}
+
+#automation-editor-modal .app-subpage-footer {
+    border-top: 1px solid var(--border-light);
+    background: color-mix(in oklab, var(--bg-main) 92%, black 8%);
+}
+
+#blueprint-picker-modal .app-subpage-header.hyd-mast {
+    border-bottom: 1px solid var(--border-light);
+    padding: 0.85rem 1rem;
+}
+
+#blueprint-picker-list button.hyd-entity-row {
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    appearance: none;
+}
+
+#blueprint-picker-modal .hyd-app-card--nested {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.85rem;
+    border-radius: 0.85rem;
+    border: 1px solid var(--border-light);
+    background: color-mix(in oklab, var(--surface-card) 42%, transparent);
+}
+
+/* ── Chat composer + model selector (Devices token alignment) ─────────── */
+.chat-input-inner {
+    border-color: var(--border-light);
+    background: color-mix(in oklab, var(--surface-card) 78%, transparent);
+}
+
+.chat-input-inner:focus-within {
+    border-color: color-mix(in oklab, var(--accent) 40%, var(--border-light));
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 12%, transparent);
+}
+
+.model-selector-balloon,
+.chat-attach-balloon,
+.voice-mode-balloon {
+    border-color: var(--border-light);
+    background: color-mix(in oklab, var(--surface-card) 94%, transparent);
+}
+
+.hyd-chips--menu {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.25rem;
+    padding: 0 0.35rem 0.45rem;
+    overflow: visible;
+}
+
+.hyd-chip--menu {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    min-height: 2.65rem;
+    padding: 0.35rem 0.25rem;
+    border-radius: 0.65rem;
+    border: 1px solid var(--border-light);
+    background: color-mix(in oklab, var(--surface-card) 50%, transparent);
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1.1;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.hyd-chip--menu i {
+    font-size: 0.72rem;
+    opacity: 0.9;
+}
+
+.hyd-chip--menu span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hyd-chip--menu:hover,
+.hyd-chip--menu:focus-visible {
+    color: var(--text-heading);
+    border-color: color-mix(in oklab, var(--accent) 28%, var(--border-light));
+    background: color-mix(in oklab, var(--surface-card) 70%, transparent);
+    outline: none;
+}
+
+.hyd-chip--menu.is-active {
+    background: color-mix(in oklab, var(--accent) 16%, var(--surface-card));
+    border-color: color-mix(in oklab, var(--accent) 42%, var(--border-light));
+    color: var(--accent);
+    box-shadow: 0 0 12px color-mix(in oklab, var(--accent) 14%, transparent);
+}
+
+.model-selector-list .hyd-entity-row {
+    width: 100%;
+    padding: 0.55rem 0.65rem;
+    gap: 0.55rem;
+    border-radius: 0.75rem;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    appearance: none;
+}
+
+.model-selector-list .hyd-entity-row.is-active {
+    border-color: color-mix(in oklab, var(--selector-accent, var(--accent)) 40%, var(--border-light));
+    background: color-mix(in oklab, var(--selector-accent, var(--accent)) 12%, var(--hyd-surface-muted));
+    color: color-mix(in oklab, var(--selector-accent, var(--accent)) 90%, var(--text-heading));
+}
+
+.model-selector-list .hyd-entity-row.is-active .model-selector-item-check {
+    opacity: 1;
+}
+
+.model-selector-list .hyd-entity-row__sub.mono {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.6rem;
+    opacity: 0.65;
 }

@@ -361,7 +361,7 @@ document.addEventListener('click', (e) => {
 function _acEntityInputHtml(attrs: string) {
     return `<div class="automation-inline-ac">
         <input type="text" ${attrs}
-            class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none"
+            class="w-full"
             autocomplete="off">
         <div class="automation-inline-ac-dropdown"></div>
     </div>`;
@@ -371,7 +371,7 @@ function _acEntityInputHtml(attrs: string) {
 function _acServiceInputHtml(attrs: string) {
     return `<div class="automation-inline-ac">
         <input type="text" ${attrs}
-            class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none"
+            class="w-full"
             autocomplete="off">
         <div class="automation-inline-ac-dropdown"></div>
     </div>`;
@@ -445,7 +445,7 @@ function _automationRenderServiceStructuredFields(action: AutomationBuilderRow, 
             return `
                 <div class="space-y-1">
                     <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${label}</label>
-                    <select data-service-data-field="${key}" data-action-index="${index}" data-memory-input="updateAutomationServiceData" data-memory-index="${index}" class="auto-builder-select w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
+                    <select data-service-data-field="${key}" data-action-index="${index}" data-memory-input="updateAutomationServiceData" data-memory-index="${index}" class="auto-builder-select w-full">
                         <option value=""></option>
                         ${options.map((option: string) => `<option value="${escapeHtml(option)}" ${rawValue === option ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
                     </select>
@@ -454,7 +454,7 @@ function _automationRenderServiceStructuredFields(action: AutomationBuilderRow, 
         return `
             <div class="space-y-1">
                 <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${label}</label>
-                <input type="number" ${field.min != null ? `min="${field.min}"` : ''} ${field.max != null ? `max="${field.max}"` : ''} ${field.step != null ? `step="${field.step}"` : ''} data-service-data-field="${field.key}" data-action-index="${index}" value="${rawValue ?? ''}" data-memory-input="updateAutomationServiceData" data-memory-index="${index}" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                <input type="number" ${field.min != null ? `min="${field.min}"` : ''} ${field.max != null ? `max="${field.max}"` : ''} ${field.step != null ? `step="${field.step}"` : ''} data-service-data-field="${field.key}" data-action-index="${index}" value="${rawValue ?? ''}" data-memory-input="updateAutomationServiceData" data-memory-index="${index}" class="w-full">
             </div>`;
     }).join('');
     return `
@@ -515,7 +515,7 @@ function _automationRenderBuilderTriggers(): void {
     host.innerHTML = automationState.builderTriggers.map((trigger, index) => {
         const platform = trigger?.platform || 'time';
         return `
-            <div class="rounded-xl border border-theme-subtle bg-white/[0.02] p-3 space-y-3 automation-builder-action-card" data-action-card-index="${index}">
+            <div class="hyd-app-card hyd-app-card--nested space-y-3 automation-builder-action-card" data-action-card-index="${index}">
                 <div class="flex items-center justify-between gap-3">
                     <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">${t('automations.builder_trigger_item')}</div>
                     <button type="button" data-memory-action="removeAutomationBuilderTrigger" data-memory-index="${index}" class="px-2 py-1 rounded-lg text-[11px] font-bold text-red-300 hover:bg-red-500/10">${t('common.delete')}</button>
@@ -523,7 +523,7 @@ function _automationRenderBuilderTriggers(): void {
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div class="space-y-1">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_platform')}</label>
-                        <select data-trigger-field="platform" data-trigger-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" data-memory-rerender="triggers" class="auto-builder-select w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
+                        <select data-trigger-field="platform" data-trigger-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" data-memory-rerender="triggers" class="auto-builder-select w-full">
                             <option value="time" ${platform === 'time' ? 'selected' : ''}>time</option>
                             <option value="datetime" ${platform === 'datetime' ? 'selected' : ''}>datetime</option>
                             <option value="interval" ${platform === 'interval' ? 'selected' : ''}>interval</option>
@@ -533,57 +533,57 @@ function _automationRenderBuilderTriggers(): void {
                     </div>
                     <div data-trigger-kind-wrap="time" class="space-y-1 ${platform === 'time' ? '' : 'hidden'}">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_at')}</label>
-                        <input type="text" data-trigger-field="at" data-trigger-index="${index}" value="${escapeHtml(trigger?.at || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-trigger-field="at" data-trigger-index="${index}" value="${escapeHtml(trigger?.at || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full">
                     </div>
                     <div data-trigger-kind-wrap="time" class="space-y-1 sm:col-span-2 ${platform === 'time' ? '' : 'hidden'}">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_weekdays')}</label>
-                        <input type="text" data-trigger-field="weekdays" data-trigger-index="${index}" value="${escapeHtml(trigger?.weekdays || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-trigger-field="weekdays" data-trigger-index="${index}" value="${escapeHtml(trigger?.weekdays || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full">
                     </div>
                     <div data-trigger-kind-wrap="datetime" class="space-y-1 sm:col-span-2 ${platform === 'datetime' ? '' : 'hidden'}">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_datetime')}</label>
-                        <input type="text" data-trigger-field="at" data-trigger-index="${index}" value="${escapeHtml(trigger?.at || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-trigger-field="at" data-trigger-index="${index}" value="${escapeHtml(trigger?.at || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full">
                     </div>
                     <div data-trigger-kind-wrap="interval" class="space-y-1 ${platform === 'interval' ? '' : 'hidden'}">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_every_minutes')}</label>
-                        <input type="number" min="1" max="10080" data-trigger-field="every_minutes" data-trigger-index="${index}" value="${escapeHtml(trigger?.every_minutes || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <input type="number" min="1" max="10080" data-trigger-field="every_minutes" data-trigger-index="${index}" value="${escapeHtml(trigger?.every_minutes || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full">
                     </div>
                     <div data-trigger-kind-wrap="interval" class="space-y-1 ${platform === 'interval' ? '' : 'hidden'}">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_start_at')}</label>
-                        <input type="text" data-trigger-field="start_at" data-trigger-index="${index}" value="${escapeHtml(trigger?.start_at || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-trigger-field="start_at" data-trigger-index="${index}" value="${escapeHtml(trigger?.start_at || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full">
                     </div>
                     <div data-trigger-kind-wrap="state" class="space-y-1 sm:col-span-2 ${platform === 'state' ? '' : 'hidden'}">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_entity')}</label>
                         <div class="automation-inline-ac">
-                            <input type="text" data-automation-entity-input="1" data-trigger-field="entity_id" data-trigger-index="${index}" value="${escapeHtml(trigger?.entity_id || '')}" data-memory-input="syncAutomationYamlFromBuilder" autocomplete="off" placeholder="${t('automations.entity_search_placeholder')}" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                            <input type="text" data-automation-entity-input="1" data-trigger-field="entity_id" data-trigger-index="${index}" value="${escapeHtml(trigger?.entity_id || '')}" data-memory-input="syncAutomationYamlFromBuilder" autocomplete="off" placeholder="${t('automations.entity_search_placeholder')}" class="w-full">
                             <div class="automation-inline-ac-dropdown"></div>
                         </div>
                     </div>
                     <div data-trigger-kind-wrap="state" class="space-y-1 ${platform === 'state' ? '' : 'hidden'}">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_from')}</label>
-                        <input type="text" data-trigger-field="from" data-trigger-index="${index}" value="${escapeHtml(trigger?.from || '')}" data-memory-input="syncAutomationYamlFromBuilder" placeholder="e.g. off" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-trigger-field="from" data-trigger-index="${index}" value="${escapeHtml(trigger?.from || '')}" data-memory-input="syncAutomationYamlFromBuilder" placeholder="e.g. off" class="w-full">
                     </div>
                     <div data-trigger-kind-wrap="state" class="space-y-1 ${platform === 'state' ? '' : 'hidden'}">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_to')}</label>
-                        <input type="text" data-trigger-field="to" data-trigger-index="${index}" value="${escapeHtml(trigger?.to || '')}" data-memory-input="syncAutomationYamlFromBuilder" placeholder="e.g. on" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-trigger-field="to" data-trigger-index="${index}" value="${escapeHtml(trigger?.to || '')}" data-memory-input="syncAutomationYamlFromBuilder" placeholder="e.g. on" class="w-full">
                     </div>
                     <div data-trigger-kind-wrap="numeric_state" class="space-y-1 sm:col-span-2 ${platform === 'numeric_state' ? '' : 'hidden'}">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_entity')}</label>
                         <div class="automation-inline-ac">
-                            <input type="text" data-automation-entity-input="1" data-trigger-field="entity_id" data-trigger-index="${index}" value="${escapeHtml(trigger?.entity_id || '')}" data-memory-input="syncAutomationYamlFromBuilder" autocomplete="off" placeholder="${t('automations.entity_search_placeholder')}" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                            <input type="text" data-automation-entity-input="1" data-trigger-field="entity_id" data-trigger-index="${index}" value="${escapeHtml(trigger?.entity_id || '')}" data-memory-input="syncAutomationYamlFromBuilder" autocomplete="off" placeholder="${t('automations.entity_search_placeholder')}" class="w-full">
                             <div class="automation-inline-ac-dropdown"></div>
                         </div>
                     </div>
                     <div data-trigger-kind-wrap="numeric_state" class="space-y-1 ${platform === 'numeric_state' ? '' : 'hidden'}">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_above')}</label>
-                        <input type="text" data-trigger-field="above" data-trigger-index="${index}" value="${escapeHtml(trigger?.above != null ? trigger.above : '')}" data-memory-input="syncAutomationYamlFromBuilder" placeholder="e.g. 25" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-trigger-field="above" data-trigger-index="${index}" value="${escapeHtml(trigger?.above != null ? trigger.above : '')}" data-memory-input="syncAutomationYamlFromBuilder" placeholder="e.g. 25" class="w-full">
                     </div>
                     <div data-trigger-kind-wrap="numeric_state" class="space-y-1 ${platform === 'numeric_state' ? '' : 'hidden'}">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_below')}</label>
-                        <input type="text" data-trigger-field="below" data-trigger-index="${index}" value="${escapeHtml(trigger?.below != null ? trigger.below : '')}" data-memory-input="syncAutomationYamlFromBuilder" placeholder="e.g. 10" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-trigger-field="below" data-trigger-index="${index}" value="${escapeHtml(trigger?.below != null ? trigger.below : '')}" data-memory-input="syncAutomationYamlFromBuilder" placeholder="e.g. 10" class="w-full">
                     </div>
                     <div data-trigger-kind-wrap="numeric_state" class="space-y-1 sm:col-span-2 ${platform === 'numeric_state' ? '' : 'hidden'}">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_trigger_attribute')}</label>
-                        <input type="text" data-trigger-field="attribute" data-trigger-index="${index}" value="${escapeHtml(trigger?.attribute || '')}" data-memory-input="syncAutomationYamlFromBuilder" placeholder="e.g. temperature" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-trigger-field="attribute" data-trigger-index="${index}" value="${escapeHtml(trigger?.attribute || '')}" data-memory-input="syncAutomationYamlFromBuilder" placeholder="e.g. temperature" class="w-full">
                     </div>
                 </div>
             </div>`;
@@ -602,7 +602,7 @@ function _automationRenderBuilderConditions(): void {
     host.innerHTML = automationState.builderConditions.map((condition, index) => {
         const kind = condition?.kind || 'time_window';
         return `
-            <div class="rounded-xl border border-theme-subtle bg-white/[0.02] p-3 space-y-3">
+            <div class="hyd-app-card hyd-app-card--nested space-y-3">
                 <div class="flex items-center justify-between gap-3">
                     <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">${t('automations.builder_condition_item')}</div>
                     <button type="button" data-memory-action="removeAutomationBuilderCondition" data-memory-index="${index}" class="px-2 py-1 rounded-lg text-[11px] font-bold text-red-300 hover:bg-red-500/10">${t('common.delete')}</button>
@@ -610,17 +610,17 @@ function _automationRenderBuilderConditions(): void {
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div class="space-y-1 sm:col-span-2">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_condition_kind')}</label>
-                        <select data-condition-field="kind" data-condition-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" data-memory-rerender="conditions" class="auto-builder-select w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
+                        <select data-condition-field="kind" data-condition-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" data-memory-rerender="conditions" class="auto-builder-select w-full">
                             <option value="time_window" ${kind === 'time_window' ? 'selected' : ''}>time_window</option>
                         </select>
                     </div>
                     <div data-condition-kind-wrap="time_window" class="space-y-1 ${kind === 'time_window' ? '' : 'hidden'}">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_condition_after')}</label>
-                        <input type="text" data-condition-field="after" data-condition-index="${index}" value="${escapeHtml(condition?.after || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-condition-field="after" data-condition-index="${index}" value="${escapeHtml(condition?.after || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full">
                     </div>
                     <div data-condition-kind-wrap="time_window" class="space-y-1 ${kind === 'time_window' ? '' : 'hidden'}">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_condition_before')}</label>
-                        <input type="text" data-condition-field="before" data-condition-index="${index}" value="${escapeHtml(condition?.before || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                        <input type="text" data-condition-field="before" data-condition-index="${index}" value="${escapeHtml(condition?.before || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full">
                     </div>
                 </div>
             </div>`;
@@ -640,7 +640,7 @@ function _automationRenderBuilderActions(): void {
             skill: t('automations.builder_action_skill'),
         };
         return `
-            <div class="rounded-xl border border-theme-subtle bg-white/[0.02] p-3 space-y-3 automation-builder-action-card" data-action-card-index="${index}">
+            <div class="hyd-app-card hyd-app-card--nested space-y-3 automation-builder-action-card" data-action-card-index="${index}">
                 <div class="flex items-center justify-between gap-3">
                     <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">${labelMap[type] || type}</div>
                     <button type="button" data-memory-action="removeAutomationBuilderAction" data-memory-index="${index}" class="px-2 py-1 rounded-lg text-[11px] font-bold text-red-300 hover:bg-red-500/10">${t('common.delete')}</button>
@@ -648,7 +648,7 @@ function _automationRenderBuilderActions(): void {
                 <div class="space-y-3">
                     <div class="space-y-1">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_action_type')}</label>
-                        <select data-action-field="kind" data-action-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" data-memory-rerender="actions" class="auto-builder-select w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none">
+                        <select data-action-field="kind" data-action-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" data-memory-rerender="actions" class="auto-builder-select w-full">
                             <option value="notify" ${type === 'notify' ? 'selected' : ''}>${t('automations.builder_action_notify')}</option>
                             <option value="service" ${type === 'service' ? 'selected' : ''}>${t('automations.builder_action_service')}</option>
                             <option value="skill" ${type === 'skill' ? 'selected' : ''}>${t('automations.builder_action_skill')}</option>
@@ -656,37 +656,37 @@ function _automationRenderBuilderActions(): void {
                     </div>
                     <div data-action-kind-wrap="notify" class="space-y-1 ${type === 'notify' ? '' : 'hidden'}">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_notify_text')}</label>
-                        <textarea data-action-field="text" data-action-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full min-h-[88px] bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm text-slate-200 focus:border-accent outline-none resize-y">${escapeHtml(action?.text || '')}</textarea>
+                        <textarea data-action-field="text" data-action-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full min-h-[88px] resize-y">${escapeHtml(action?.text || '')}</textarea>
                     </div>
                     <div data-action-kind-wrap="service" class="grid grid-cols-1 sm:grid-cols-2 gap-3 ${type === 'service' ? '' : 'hidden'}">
                         <div class="space-y-1 sm:col-span-2">
                             <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_service_name')}</label>
                             <div class="automation-inline-ac">
-                                <input type="text" data-automation-service-input="1" data-action-field="service" data-action-index="${index}" value="${escapeHtml(action?.service || '')}" autocomplete="off" data-memory-input="syncAutomationYamlFromBuilder" data-memory-rerender="actions" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none" placeholder="${t('automations.service_search_placeholder')}">
+                                <input type="text" data-automation-service-input="1" data-action-field="service" data-action-index="${index}" value="${escapeHtml(action?.service || '')}" autocomplete="off" data-memory-input="syncAutomationYamlFromBuilder" data-memory-rerender="actions" class="w-full" placeholder="${t('automations.service_search_placeholder')}">
                                 <div class="automation-inline-ac-dropdown"></div>
                             </div>
                         </div>
                         <div class="space-y-1">
                             <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_service_entity_id')}</label>
                             <div class="automation-inline-ac">
-                                <input type="text" data-automation-entity-input="1" data-action-field="entity_id" data-action-index="${index}" value="${escapeHtml(action?.entity_id || '')}" autocomplete="off" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none" placeholder="${t('automations.entity_search_placeholder')}">
+                                <input type="text" data-automation-entity-input="1" data-action-field="entity_id" data-action-index="${index}" value="${escapeHtml(action?.entity_id || '')}" autocomplete="off" data-memory-input="syncAutomationYamlFromBuilder" class="w-full" placeholder="${t('automations.entity_search_placeholder')}">
                                 <div class="automation-inline-ac-dropdown"></div>
                             </div>
                         </div>
                         ${_automationRenderServiceStructuredFields(action, index)}
                         <div class="space-y-1">
                             <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_service_data')}</label>
-                            <textarea data-action-field="data" data-action-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" data-memory-rerender="actions" class="w-full min-h-[88px] bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none resize-y">${escapeHtml(action?.data || '{}')}</textarea>
+                            <textarea data-action-field="data" data-action-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" data-memory-rerender="actions" class="w-full min-h-[88px] mono resize-y">${escapeHtml(action?.data || '{}')}</textarea>
                         </div>
                     </div>
                     <div data-action-kind-wrap="skill" class="grid grid-cols-1 sm:grid-cols-2 gap-3 ${type === 'skill' ? '' : 'hidden'}">
                         <div class="space-y-1">
                             <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_skill_name')}</label>
-                            <input type="text" data-action-field="name" data-action-index="${index}" value="${escapeHtml(action?.name || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none">
+                            <input type="text" data-action-field="name" data-action-index="${index}" value="${escapeHtml(action?.name || '')}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full">
                         </div>
                         <div class="space-y-1">
                             <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">${t('automations.builder_skill_input')}</label>
-                            <textarea data-action-field="input" data-action-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full min-h-[88px] bg-slate-900 border border-theme-subtle rounded-xl p-3 text-sm mono text-slate-200 focus:border-accent outline-none resize-y">${escapeHtml(action?.input || '{}')}</textarea>
+                            <textarea data-action-field="input" data-action-index="${index}" data-memory-input="syncAutomationYamlFromBuilder" class="w-full min-h-[88px] mono resize-y">${escapeHtml(action?.input || '{}')}</textarea>
                         </div>
                     </div>
                 </div>
@@ -940,10 +940,8 @@ function _automationSetEditorMode(mode: AutomationEditorMode) {
     automationState.editorMode = ['builder', 'yaml', 'history'].includes(mode) ? mode : 'builder';
     document.querySelectorAll('[data-automation-editor-mode]').forEach(element => {
         const active = element.getAttribute('data-automation-editor-mode') === automationState.editorMode;
-        element.classList.toggle('bg-accent', active);
-        element.classList.toggle('text-bg-main', active);
-        element.classList.toggle('text-slate-300', !active);
-        element.classList.toggle('bg-white/5', !active);
+        element.classList.toggle('is-active', active);
+        element.setAttribute('aria-selected', active ? 'true' : 'false');
     });
     document.querySelectorAll('[data-automation-editor-panel]').forEach(element => {
         element.classList.toggle('hidden', element.getAttribute('data-automation-editor-panel') !== automationState.editorMode);
@@ -1026,7 +1024,7 @@ function _renderAutoHistoryPage(): void {
             ? `<span class="text-[10px] font-mono text-slate-500" title="${escapeHtml(runId)}">${escapeHtml(t('automations.trace_run_id'))} ${escapeHtml(runIdShort)}</span>`
             : '';
         return `
-            <div class="rounded-xl border border-theme-subtle bg-white/[0.02] p-3 space-y-2">
+            <div class="hyd-app-card hyd-app-card--nested space-y-2">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-2">
                         <div class="text-[11px] text-slate-300">${escapeHtml(formatAutomationHistoryAt(item.started_at))}</div>

@@ -43,18 +43,18 @@
                             </button>
                             <div id="model-selector-balloon" class="model-selector-balloon hidden" role="menu">
                                 <div class="model-selector-header model-selector-header--compact">
-                                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest" data-i18n="chat.settings_title">Chat settings</span>
+                                    <span class="model-selector-section-label" data-i18n="chat.settings_title">Chat settings</span>
                                 </div>
-                                <div id="thinking-mode-options" class="thinking-mode-segment" role="group" data-i18n-aria-label="chat.thinking_mode_title" aria-label="Thinking mode">
-                                    <button type="button" class="thinking-segment-btn active" data-mode="auto" data-chat-action="selectThinkingMode" data-chat-mode="auto" role="menuitemradio" aria-checked="true" data-i18n-title="chat.thinking_mode_auto_desc">
+                                <div id="thinking-mode-options" class="hyd-chips hyd-chips--menu" role="group" data-i18n-aria-label="chat.thinking_mode_title" aria-label="Thinking mode">
+                                    <button type="button" class="hyd-chip hyd-chip--menu is-active" data-mode="auto" data-chat-action="selectThinkingMode" data-chat-mode="auto" role="menuitemradio" aria-checked="true" data-i18n-title="chat.thinking_mode_auto_desc">
                                         <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
                                         <span data-i18n="chat.thinking_mode_auto">Auto</span>
                                     </button>
-                                    <button type="button" class="thinking-segment-btn" data-mode="think" data-chat-action="selectThinkingMode" data-chat-mode="think" role="menuitemradio" aria-checked="false" data-i18n-title="chat.thinking_mode_think_desc">
+                                    <button type="button" class="hyd-chip hyd-chip--menu" data-mode="think" data-chat-action="selectThinkingMode" data-chat-mode="think" role="menuitemradio" aria-checked="false" data-i18n-title="chat.thinking_mode_think_desc">
                                         <i class="fas fa-brain" aria-hidden="true"></i>
                                         <span data-i18n="chat.thinking_mode_think">Think</span>
                                     </button>
-                                    <button type="button" class="thinking-segment-btn" data-mode="no_think" data-chat-action="selectThinkingMode" data-chat-mode="no_think" role="menuitemradio" aria-checked="false" data-i18n-title="chat.thinking_mode_no_think_desc">
+                                    <button type="button" class="hyd-chip hyd-chip--menu" data-mode="no_think" data-chat-action="selectThinkingMode" data-chat-mode="no_think" role="menuitemradio" aria-checked="false" data-i18n-title="chat.thinking_mode_no_think_desc">
                                         <i class="fas fa-bolt" aria-hidden="true"></i>
                                         <span data-i18n="chat.thinking_mode_no_think_short">Off</span>
                                     </button>
@@ -72,7 +72,7 @@
                             </button>
                             <div id="voice-mode-balloon" class="voice-mode-balloon hidden" role="menu">
                                 <div class="voice-mode-balloon-header">
-                                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest" data-i18n="chat.voice_mode_title">Voice mode</span>
+                                    <span class="model-selector-section-label" data-i18n="chat.voice_mode_title">Voice mode</span>
                                 </div>
                                 <button type="button" id="voice-loop-toggle" class="voice-mode-item" role="menuitem">
                                     <i class="fas fa-sync-alt"></i>

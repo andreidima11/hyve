@@ -184,13 +184,12 @@ function renderModelSelector(_data: ModelProfilesResponse) {
 
     const autoLabel = t('config.model_selector_auto');
     const autoButton = `
-        <button type="button" class="model-selector-item${isAuto ? ' active' : ''}" data-chat-action="activateProfile" data-chat-profile-id="auto">
-            <div class="model-selector-item-dot" style="background:#38bdf8"></div>
-            <div class="model-selector-item-info">
-                <div class="model-selector-item-name">${escapeHtml(autoLabel)}</div>
-                <div class="model-selector-item-model">${escapeHtml('')}</div>
+        <button type="button" class="model-selector-item hyd-entity-row hyd-entity-row--nested hyd-entity-row--static w-full text-left${isAuto ? ' is-active' : ''}" data-chat-action="activateProfile" data-chat-profile-id="auto">
+            <span class="model-selector-item-dot" style="background:#38bdf8"></span>
+            <div class="hyd-entity-row__body min-w-0">
+                <div class="hyd-entity-row__name">${escapeHtml(autoLabel)}</div>
             </div>
-            <i class="fas fa-check model-selector-item-check"></i>
+            <i class="fas fa-check model-selector-item-check" aria-hidden="true"></i>
         </button>`;
 
     if (!visibleProfiles.length) {
@@ -206,14 +205,14 @@ function renderModelSelector(_data: ModelProfilesResponse) {
         const vision = p.capability_vision !== false;
         const capsHtml = [reasoning && '<i class="fas fa-brain model-selector-cap-icon" title="Reasoning"></i>', tools && '<i class="fas fa-wrench model-selector-cap-icon" title="Tool calling"></i>', vision && '<i class="fas fa-eye model-selector-cap-icon" title="Vision"></i>'].filter(Boolean).join('');
         return `
-            <button type="button" class="model-selector-item${isActive ? ' active' : ''}" data-chat-action="activateProfile" data-chat-profile-id="${escapeHtml(p.id)}">
-                <div class="model-selector-item-dot" style="background:${escapeHtml(p.color || '#6366f1')}"></div>
-                <div class="model-selector-item-info">
-                    <div class="model-selector-item-name">${escapeHtml(p.name)}</div>
-                    <div class="model-selector-item-model">${escapeHtml(p.model_name || '')}</div>
+            <button type="button" class="model-selector-item hyd-entity-row hyd-entity-row--nested hyd-entity-row--static w-full text-left${isActive ? ' is-active' : ''}" data-chat-action="activateProfile" data-chat-profile-id="${escapeHtml(p.id)}">
+                <span class="model-selector-item-dot" style="background:${escapeHtml(p.color || '#6366f1')}"></span>
+                <div class="hyd-entity-row__body min-w-0">
+                    <div class="hyd-entity-row__name">${escapeHtml(p.name)}</div>
+                    <div class="hyd-entity-row__sub mono">${escapeHtml(p.model_name || '')}</div>
                 </div>
                 ${capsHtml ? `<div class="model-selector-item-caps">${capsHtml}</div>` : ''}
-                <i class="fas fa-check model-selector-item-check"></i>
+                <i class="fas fa-check model-selector-item-check" aria-hidden="true"></i>
             </button>`;
     }).join('');
     updateChatAttachVisibility();

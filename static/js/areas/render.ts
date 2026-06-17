@@ -59,10 +59,7 @@ export function _renderAreas() {
     const areas = _filteredAreas();
     if (!areas.length) {
         list.innerHTML = '';
-        if (empty) {
-            empty.classList.remove('hidden');
-            empty.innerHTML = `<i class="fas fa-magnifying-glass hyd-list-placeholder__icon" aria-hidden="true"></i><p>${_esc(t('hy.entity_search_no_results'))}</p>`;
-        }
+        if (empty) empty.classList.add('hidden');
         return;
     }
 
@@ -138,16 +135,15 @@ export function _renderPickerList() {
         const label = e.name || e.friendly_name || eid;
         const area = e.area ? `<span class="text-[10px] text-accent/80"><i class="fas fa-house-chimney-window text-[9px] mr-0.5"></i>${_esc(e.area)}</span>` : '';
         const src = e.source ? `<span class="text-[10px] text-slate-500">${_esc(e.source)}</span>` : '';
-        return `<label class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 cursor-pointer ${checked ? 'bg-accent/10 border border-accent/30' : 'border border-transparent'}">
-            <input type="checkbox" ${checked ? 'checked' : ''} data-config-input="toggleAreaPickerEntity" data-config-entity-id="${_esc(eid)}" class="accent-accent">
-            <div class="min-w-0 flex-1">
-                <div class="text-[12px] font-medium text-slate-200 truncate">${_esc(label)}</div>
-                <div class="flex items-center gap-2 mt-0.5">
-                    <span class="text-[10px] text-slate-500 mono truncate">${_esc(eid)}</span>
-                    <span class="text-[10px] text-slate-600">·</span>
-                    <span class="text-[10px] text-slate-500">${_esc(dom)}</span>
-                    ${src ? `<span class="text-[10px] text-slate-600">·</span>${src}` : ''}
-                    ${area ? `<span class="text-[10px] text-slate-600">·</span>${area}` : ''}
+        return `<label class="hyd-entity-row hyd-entity-row--static hyd-picker-row cursor-pointer${checked ? ' is-selected' : ''}">
+            <input type="checkbox" ${checked ? 'checked' : ''} data-config-input="toggleAreaPickerEntity" data-config-entity-id="${_esc(eid)}" class="accent-accent flex-shrink-0">
+            <div class="hyd-entity-row__body min-w-0">
+                <div class="hyd-entity-row__name truncate">${_esc(label)}</div>
+                <div class="hyd-entity-row__sub flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <span class="mono truncate">${_esc(eid)}</span>
+                    <span class="hyd-row-badge hyd-row-badge--muted">${_esc(dom)}</span>
+                    ${src ? `<span class="hyd-row-badge hyd-row-badge--muted">${src}</span>` : ''}
+                    ${area ? area : ''}
                 </div>
             </div>
         </label>`;

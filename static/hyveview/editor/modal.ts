@@ -112,6 +112,61 @@ function _ensureCss() {
     .hv-field input[type="color"] { padding: 2px; height: 32px; width: 60px; border-radius: 8px; }
     .hv-field-hint { font-size: 0.75rem; color: var(--text-secondary, #94a3b8); }
 
+    .hv-entity-search { position: relative; }
+    .hv-entity-search__input {
+      width: 100%;
+      padding: 0.625rem 0.75rem;
+      border-radius: 0.75rem;
+      border: 1px solid var(--border-medium, rgba(255,255,255,0.1));
+      background: var(--surface-input, var(--surface-2, rgba(255,255,255,0.06)));
+      color: var(--text-primary, #e2e8f0);
+      font: inherit;
+      outline: none;
+    }
+    .hv-entity-search__input:focus {
+      border-color: var(--accent, #38bdf8);
+      box-shadow: 0 0 0 3px var(--accent-soft, rgba(56,189,248,0.18));
+    }
+    .hv-entity-search__menu {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 4px);
+      z-index: 80;
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 4px;
+      border-radius: 0.75rem;
+      border: 1px solid var(--border-medium, rgba(255,255,255,0.1));
+      background: color-mix(in oklab, var(--bg-main, #0f1116) 92%, black 8%);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+    }
+    .hv-entity-search__menu.hidden { display: none; }
+    .hv-entity-search__option {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 0.5rem 0.625rem;
+      border: 0;
+      border-radius: 0.5rem;
+      background: transparent;
+      color: var(--text-primary, #e2e8f0);
+      font: inherit;
+      font-size: 0.8125rem;
+      cursor: pointer;
+    }
+    .hv-entity-search__option:hover,
+    .hv-entity-search__option.is-active {
+      background: color-mix(in oklab, var(--accent, #38bdf8) 14%, transparent);
+      color: var(--text-primary, #f8fafc);
+    }
+    .hv-entity-search__empty {
+      padding: 0.625rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary, #94a3b8);
+      text-align: center;
+    }
+
     .hv-details {
       border: 1px solid var(--border-medium, rgba(255,255,255,0.08));
       border-radius: 0.875rem;

@@ -2,17 +2,13 @@
  * Apps page — list, detail, actions.
  */
 import { apiCall } from '../api.js';
-import { showToast, escapeHtml, showConfirm } from '../utils.js';
+import { showToast, escapeHtml } from '../utils.js';
 import { t, translateApiDetail } from '../lang/index.js';
-import { switchTab, openConfigSection } from '../nav_bridge.js';
+import { listShellErrorHtml, listShellLoadingHtml, wireConfigListSearch } from '../config/list_shell.js';
 import type {
     AddonCatalogEntry,
-    AddonColorKey,
-    AddonConfigField,
-    AddonPreflightCheck,
     AddonProcessStatus,
     AddonProcessStatusMap,
-    AddonSerialPort,
 } from '../types/features_apps.js';
 
 import { appsState } from './state.js';
@@ -23,7 +19,7 @@ import { toggleAddonWatchdog } from './lifecycle.js';
 if (typeof window !== 'undefined') {
     window.addEventListener('hyve:i18n-bundles-loaded', () => {
         if (document.getElementById('apps-list') && appsState.addonsCache.length) {
-            void loadApps();
+            render._renderAppsList();
         }
     });
 }
@@ -37,9 +33,30 @@ function _wireAddonDetailControls(slug: string) {
     });
 }
 
+function _setAppsViewMode(mode: 'list' | 'detail') {
+    document.getElementById('apps-list-chrome')?.classList.toggle('hidden', mode === 'detail');
+    document.getElementById('apps-list-shell')?.classList.toggle('hidden', mode === 'detail');
+    const detailView = document.getElementById('apps-detail-view');
+    if (detailView) detailView.classList.toggle('hidden', mode !== 'detail');
+}
+
+function _ensureAppsSearch() {
+    wireConfigListSearch('apps-search', (query) => {
+        appsState.listFilter = query;
+        render._renderAppsList();
+    });
+}
+
 export async function loadApps() {
     const container = document.getElementById('apps-list');
     if (!container) return;
+
+    _ensureAppsSearch();
+    _setAppsViewMode('list');
+
+    if (!appsState.addonsCache.length) {
+        container.innerHTML = listShellLoadingHtml(escapeHtml(t('config.addons_loading')));
+    }
 
     try {
         const [addonsRes, statusRes] = await Promise.all([
@@ -50,37 +67,43 @@ export async function loadApps() {
         const statuses = await statusRes.json() as AddonProcessStatusMap;
 
         appsState.addonsCache = addons;
+        appsState.statusMap = statuses;
 
         if (!addons.length) {
-            container.innerHTML = `<div class="p-8 text-center text-slate-500 text-sm">${escapeHtml(t('hy.addon_list_empty'))}</div>`;
+            render._renderAppsList();
             return;
         }
 
-        // If a detail was open, re-open it; otherwise show list
         if (appsState.openSlug) {
             const addon = addons.find(a => a.slug === appsState.openSlug);
             if (addon) {
-                container.innerHTML = render._renderDetail(addon, statuses[addon.slug]);
-                _wireAddonDetailControls(addon.slug);
-                startPoll();
+                await _showAppDetail(addon, statuses[addon.slug]);
                 return;
             }
         }
 
-        container.innerHTML = addons.map(a => render._renderSummaryCard(a, statuses[a.slug])).join('');
+        render._renderAppsList();
         startPoll();
     } catch (e) {
-        container.innerHTML = `<div class="p-8 text-center text-red-400 text-sm">${escapeHtml(t('common.error'))}: ${escapeHtml(String(e))}</div>`;
+        if (container) {
+            container.innerHTML = listShellErrorHtml(escapeHtml(e instanceof Error ? e.message : String(e)));
+        }
     }
 }
 
+async function _showAppDetail(addon: AddonCatalogEntry, status: AddonProcessStatus | undefined) {
+    const detailView = document.getElementById('apps-detail-view');
+    if (!detailView) return;
+    _setAppsViewMode('detail');
+    detailView.innerHTML = `<div class="hyd-config-page">${render._renderDetail(addon, status)}</div>`;
+    _wireAddonDetailControls(addon.slug);
+    startPoll();
+}
 
 // ── detail open/close ───────────────────────────────────────────────────
 
 export async function openAppDetail(slug: string) {
     appsState.openSlug = slug;
-    const container = document.getElementById('apps-list');
-    if (!container) return;
 
     try {
         const [addonRes, statusRes] = await Promise.all([
@@ -92,9 +115,9 @@ export async function openAppDetail(slug: string) {
         const idx = appsState.addonsCache.findIndex(a => a.slug === addon.slug);
         if (idx >= 0) appsState.addonsCache[idx] = addon;
         else appsState.addonsCache.push(addon);
+        appsState.statusMap[addon.slug] = status;
 
-        container.innerHTML = render._renderDetail(addon, status);
-        _wireAddonDetailControls(slug);
+        await _showAppDetail(addon, status);
     } catch (e) {
         showToast(t('apps.error_detail', { message: render._errMsg(e) }), 'error');
     }
@@ -119,7 +142,6 @@ export async function appAction(slug: string, action: string) {
             throw new Error(translateApiDetail(data.detail) || res.statusText || t('common.error'));
         }
         showToast(t('apps.process_action_ok', { slug, action }), 'success');
-        // Re-fetch status to update buttons
         await refreshDetailStatus(slug);
     } catch (e) {
         showToast(t('apps.process_action_error', { slug, message: render._errMsg(e) }), 'error');

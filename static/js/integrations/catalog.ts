@@ -18,6 +18,7 @@ import {
 import { integrationEntitySourceSlug } from './catalog_meta.js';
 import { syncIntegrationEntities } from './entities_sync.js';
 import { findIntegrationCheckbox, integrationSlugCandidates } from './utils.js';
+import { wireConfigListSearch } from '../config/list_shell.js';
 
 export function integrationEnabledForSave(slug: string) {
     const cb = findIntegrationCheckbox(slug);
@@ -80,32 +81,36 @@ export function syncIntegrationToggles(): void {
     updateIntegrationSubtab();
 }
 let _activeIntegrationSubtab = 'active';
+let _integrationListFilter = '';
+let _integrationsSearchWired = false;
+
+function _ensureIntegrationsSearch(): void {
+    if (_integrationsSearchWired) return;
+    wireConfigListSearch('integrations-search', (query) => {
+        _integrationListFilter = query;
+        updateIntegrationSubtab();
+    });
+    _integrationsSearchWired = true;
+}
 
 export function switchIntegrationSubtab(tab: string) {
     _activeIntegrationSubtab = tab;
     const btnActive = document.getElementById('int-subtab-active');
     const btnAvail  = document.getElementById('int-subtab-available');
     if (btnActive) {
-        btnActive.classList.toggle('bg-accent/20', tab === 'active');
-        btnActive.classList.toggle('text-accent', tab === 'active');
-        btnActive.classList.toggle('border-accent/40', tab === 'active');
-        btnActive.classList.toggle('bg-white/5', tab !== 'active');
-        btnActive.classList.toggle('text-slate-400', tab !== 'active');
-        btnActive.classList.toggle('border-theme-subtle', tab !== 'active');
+        btnActive.classList.toggle('is-active', tab === 'active');
+        btnActive.setAttribute('aria-selected', tab === 'active' ? 'true' : 'false');
     }
     if (btnAvail) {
-        btnAvail.classList.toggle('bg-accent/20', tab === 'available');
-        btnAvail.classList.toggle('text-accent', tab === 'available');
-        btnAvail.classList.toggle('border-accent/40', tab === 'available');
-        btnAvail.classList.toggle('bg-white/5', tab !== 'available');
-        btnAvail.classList.toggle('text-slate-400', tab !== 'available');
-        btnAvail.classList.toggle('border-theme-subtle', tab !== 'available');
+        btnAvail.classList.toggle('is-active', tab === 'available');
+        btnAvail.setAttribute('aria-selected', tab === 'available' ? 'true' : 'false');
     }
     updateIntegrationSubtab();
 };
 
 function updateIntegrationSubtab(): void {
     const tab = _activeIntegrationSubtab;
+    const q = _integrationListFilter;
     const enabledMap: Record<string, boolean> = {};
     document.querySelectorAll('[data-integration-row]').forEach(row => {
         const slug = (row as HTMLElement).dataset.integrationRow;
@@ -114,23 +119,47 @@ function updateIntegrationSubtab(): void {
     });
 
     let visibleCount = 0;
+    let tabMatchCount = 0;
     document.querySelectorAll('[data-integration-row]').forEach(row => {
-        const slug = (row as HTMLElement).dataset.integrationRow;
+        const rowEl = row as HTMLElement;
+        const slug = rowEl.dataset.integrationRow || '';
         const isEnabled = slug ? (enabledMap[slug] ?? false) : false;
-        const show = tab === 'active' ? isEnabled : !isEnabled;
-        row.classList.toggle('hidden', !show);
+        const matchesTab = tab === 'active' ? isEnabled : !isEnabled;
+        if (matchesTab) tabMatchCount++;
+        const label = (() => {
+            const entry = getIntegrationCatalog().find((e) => e.slug === slug);
+            return entry ? integrationLabel(entry) : slug;
+        })();
+        const description = (() => {
+            const entry = getIntegrationCatalog().find((e) => e.slug === slug);
+            return entry ? integrationDescription(entry) : '';
+        })();
+        const hay = `${label} ${description} ${slug}`.toLowerCase();
+        const matchesSearch = !q || hay.includes(q);
+        const show = matchesTab && matchesSearch;
+        rowEl.classList.toggle('hidden', !show);
         if (show) visibleCount++;
     });
 
     const emptyEl = document.getElementById('int-subtab-empty');
-    if (emptyEl) emptyEl.classList.toggle('hidden', visibleCount > 0);
+    if (emptyEl) {
+        if (visibleCount > 0) {
+            emptyEl.classList.add('hidden');
+        } else if (q && tabMatchCount > 0) {
+            emptyEl.classList.remove('hidden');
+            emptyEl.textContent = t('hy.entity_search_no_results');
+        } else {
+            emptyEl.classList.remove('hidden');
+            emptyEl.textContent = t('config.int_subtab_empty');
+        }
+    }
 
     const activeCount = Object.values(enabledMap).filter(Boolean).length;
     const availableCount = Object.keys(enabledMap).length - activeCount;
     const ac = document.getElementById('int-subtab-active-count');
     const avc = document.getElementById('int-subtab-available-count');
-    if (ac) ac.textContent = activeCount > 0 ? `(${activeCount})` : '';
-    if (avc) avc.textContent = availableCount > 0 ? `(${availableCount})` : '';
+    if (ac) ac.textContent = activeCount > 0 ? ` (${activeCount})` : '';
+    if (avc) avc.textContent = availableCount > 0 ? ` (${availableCount})` : '';
 }
 
 async function persistIntegrationEnabled(slug: string, configKey: string, enabled: boolean) {
@@ -252,14 +281,8 @@ function _integrationRowHtml(entry: ReturnType<typeof getIntegrationCatalog>[num
 function _renderIntegrationCatalogRows(): void {
     const list = document.getElementById('integrations-list');
     if (!list) return;
-    // Preserve the empty-state paragraph if it exists.
-    const emptyEl = document.getElementById('int-subtab-empty');
-    list.innerHTML = '';
-    if (emptyEl) list.appendChild(emptyEl);
 
-    const rowsHtml = getIntegrationCatalog().map((entry) => _integrationRowHtml(entry)).join('');
-
-    list.insertAdjacentHTML('beforeend', rowsHtml);
+    list.innerHTML = getIntegrationCatalog().map((entry) => _integrationRowHtml(entry)).join('');
 }
 export async function loadIntegrationCatalog(force = false) {
     if (getIntegrationCatalog().length && !force) return getIntegrationCatalog();
@@ -277,6 +300,7 @@ export async function loadIntegrationCatalog(force = false) {
 let _activeIntegrationSubtabPreferred = 'auto';
 export async function refreshIntegrationsSettingsView(preferredTab: string = 'auto') {
     _activeIntegrationSubtabPreferred = preferredTab;
+    _ensureIntegrationsSearch();
     await loadIntegrationCatalog(true);
     // The catalog renderer creates fresh checkbox/inputs for each integration,
     // so we must re-apply the saved enabled flags from the catalog API.

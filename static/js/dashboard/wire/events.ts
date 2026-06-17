@@ -9,7 +9,7 @@ import { registerHyveviewDashboardCards } from '../hyveview_setup.js';
 import { initDashboardEventBindings } from '../event_bindings.js';
 import { initDashboardPullToRefresh } from '../pull_refresh.js';
 import { initDashboardDragResize, startDashboardDrag, startDashboardPanelDrag } from '../drag_resize.js';
-import { closeDashboardMenu, toggleDashboardMenu } from '../dashboard_menu.js';
+import { closeDashboardMenu } from '../dashboard_menu.js';
 import {
     toggleDashboardEditMode,
     saveDashboardPreferences,
@@ -77,7 +77,6 @@ import {
 export function wireDashboardEvents(): void {
     initDashboardEventBindings({
         closeMenu: () => closeDashboardMenu(),
-        toggleMenu: () => toggleDashboardMenu(),
         toggleEditMode: () => { toggleDashboardEditMode(); },
         openAddPicker: () => { openDashboardAddPicker(); },
         createPage: () => { createDashboardPage(); },

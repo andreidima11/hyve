@@ -1,7 +1,6 @@
 import { apiCall } from '../api.js';
-import { showToast, escapeHtml, showConfirm } from '../utils.js';
-import { t, translateApiDetail } from '../lang/index.js';
-import { switchTab, openConfigSection } from '../nav_bridge.js';
+import { escapeHtml } from '../utils.js';
+import { t } from '../lang/index.js';
 
 import type { AddonProcessStatus, AddonProcessStatusMap } from '../types/features_apps.js';
 import { appsState } from './state.js';
@@ -11,6 +10,7 @@ export async function refreshDetailStatus(slug: string) {
     try {
         const res = await apiCall(`/api/addons/${encodeURIComponent(slug)}/status`);
         const s = await res.json();
+        appsState.statusMap[slug] = s;
         updateDetailUI(s);
     } catch (_) {}
 }
@@ -48,7 +48,6 @@ function updateDetailUI(s: AddonProcessStatus) {
     if (restartBtn) { restartBtn.disabled = !isRunning; restartBtn.classList.toggle('opacity-40', !isRunning); }
 }
 
-// ── logs ────────────────────────────────────────────────────────────────
 export function startPoll() {
     stopPoll();
     appsState.pollTimer = setInterval(async () => {
@@ -56,7 +55,6 @@ export function startPoll() {
         if (!panel || panel.classList.contains('hidden')) { stopPoll(); return; }
 
         try {
-            // If detail view is open, update that
             const detail = document.getElementById('app-detail') as HTMLElement | null;
             if (detail) {
                 const slug = detail.dataset.slug;
@@ -64,20 +62,17 @@ export function startPoll() {
                 return;
             }
 
-            // Otherwise update summary list badges
             const res = await apiCall('/api/addons/process/status');
             const statuses = await res.json() as AddonProcessStatusMap;
-            document.querySelectorAll('.app-summary').forEach(card => {
-                const cardEl = card as HTMLElement;
-                const slug = cardEl.dataset.slug;
+            appsState.statusMap = statuses;
+            document.querySelectorAll('[data-addon-row]').forEach((row) => {
+                const rowEl = row as HTMLElement;
+                const slug = rowEl.dataset.addonRow;
                 if (!slug) return;
-                const s = statuses[slug];
-                if (!s) return;
                 const cached = appsState.addonsCache.find(a => a.slug === slug);
-                const badgeWrap = card.querySelector('.app-summary-badge');
-                if (badgeWrap && cached) {
-                    badgeWrap.innerHTML = render._updateIndicator(cached) + render._addonStatusBadge(cached, s) + '<i class="fas fa-chevron-right text-slate-600 text-xs ml-3"></i>';
-                }
+                if (!cached) return;
+                const tagsEl = rowEl.querySelector('.hyd-entity-row__tags');
+                if (tagsEl) tagsEl.innerHTML = render._addonRowTags(cached, statuses[slug]);
             });
         } catch (_) {}
     }, 5000);

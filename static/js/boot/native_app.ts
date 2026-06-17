@@ -270,34 +270,29 @@ function updatePermissionBadge(badgeId: string, btnId: string, state: Permission
     const btn = document.getElementById(btnId);
     if (!badge) return;
 
-    badge.classList.remove(
-        'border-emerald-500/30', 'text-emerald-400', 'bg-emerald-500/10',
-        'border-red-500/30', 'text-red-400', 'bg-red-500/10',
-        'border-amber-500/30', 'text-amber-400', 'bg-amber-500/10',
-        'border-slate-500/30', 'text-slate-500'
-    );
+    badge.classList.remove('hyd-row-badge--ok', 'hyd-row-badge--warn', 'hyd-row-badge--err', 'hyd-row-badge--muted');
 
     if (state === 'granted') {
         badge.textContent = t('config.app_perm_granted') || 'Granted';
-        badge.classList.add('border-emerald-500/30', 'text-emerald-400', 'bg-emerald-500/10');
+        badge.classList.add('hyd-row-badge--ok');
         if (btn) btn.classList.add('hidden');
     } else if (state === 'denied') {
         badge.textContent = t('config.app_perm_denied') || 'Denied';
-        badge.classList.add('border-red-500/30', 'text-red-400', 'bg-red-500/10');
+        badge.classList.add('hyd-row-badge--err');
         if (btn) {
             btn.classList.remove('hidden');
-            btn.innerHTML = '<i class="fas fa-external-link-alt mr-1"></i>' + (t('config.app_perm_open_settings') || 'Settings');
+            btn.innerHTML = '<i class="fas fa-external-link-alt" aria-hidden="true"></i><span>' + (t('config.app_perm_open_settings') || 'Settings') + '</span>';
         }
     } else if (state === 'prompt') {
         badge.textContent = t('config.app_perm_not_set') || 'Not set';
-        badge.classList.add('border-amber-500/30', 'text-amber-400', 'bg-amber-500/10');
+        badge.classList.add('hyd-row-badge--warn');
         if (btn) {
             btn.classList.remove('hidden');
-            btn.innerHTML = '<i class="fas fa-check mr-1"></i>' + (t('config.app_perm_grant') || 'Allow');
+            btn.innerHTML = '<i class="fas fa-check" aria-hidden="true"></i><span>' + (t('config.app_perm_grant') || 'Allow') + '</span>';
         }
     } else {
         badge.textContent = '—';
-        badge.classList.add('border-slate-500/30', 'text-slate-500');
+        badge.classList.add('hyd-row-badge--muted');
         if (btn) btn.classList.add('hidden');
     }
 }

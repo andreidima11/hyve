@@ -55,11 +55,8 @@ export function backToBlueprintList(): void {
     document.getElementById('blueprint-picker-form-pane')?.classList.add('hidden');
     document.getElementById('blueprint-picker-creator-pane')?.classList.add('hidden');
     document.getElementById('blueprint-picker-list-actions')?.classList.remove('hidden');
-    document.getElementById('blueprint-picker-list-actions')?.classList.add('flex');
     document.getElementById('blueprint-picker-form-actions')?.classList.add('hidden');
-    document.getElementById('blueprint-picker-form-actions')?.classList.remove('flex');
     document.getElementById('blueprint-picker-creator-actions')?.classList.add('hidden');
-    document.getElementById('blueprint-picker-creator-actions')?.classList.remove('flex');
     document.getElementById('blueprint-picker-create-btn')?.classList.add('hidden');
     document.getElementById('blueprint-picker-delete-btn')?.classList.add('hidden');
     const errEl = document.getElementById('blueprint-picker-form-error');
@@ -173,7 +170,7 @@ function _renderBlueprintCreatorInputs(): void {
     host.innerHTML = _blueprintCreatorInputs.map((input, idx) => {
         const choicesVisible = input.type === 'select' ? '' : 'hidden';
         return `
-            <div data-bp-creator-input-row="${idx}" class="rounded-xl border border-theme-subtle bg-slate-950/60 p-3 space-y-3">
+            <div data-bp-creator-input-row="${idx}" class="hyd-app-card hyd-app-card--nested space-y-3">
                 <div class="grid grid-cols-1 sm:grid-cols-[1fr_1fr_140px_auto] gap-2 items-end">
                     <div class="space-y-1">
                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">ID</label>
@@ -235,11 +232,8 @@ export function openBlueprintCreator(): void {
     document.getElementById('blueprint-picker-form-pane')?.classList.add('hidden');
     document.getElementById('blueprint-picker-creator-pane')?.classList.remove('hidden');
     document.getElementById('blueprint-picker-list-actions')?.classList.add('hidden');
-    document.getElementById('blueprint-picker-list-actions')?.classList.remove('flex');
     document.getElementById('blueprint-picker-form-actions')?.classList.add('hidden');
-    document.getElementById('blueprint-picker-form-actions')?.classList.remove('flex');
     document.getElementById('blueprint-picker-creator-actions')?.classList.remove('hidden');
-    document.getElementById('blueprint-picker-creator-actions')?.classList.add('flex');
     autoEl('blueprint-creator-title')!.value = '';
     autoEl('blueprint-creator-description')!.value = '';
     autoEl('blueprint-creator-template')!.value = _defaultBlueprintTemplate();
@@ -370,19 +364,17 @@ export async function loadBlueprints(): Promise<void> {
     }
     emptyEl?.classList.add('hidden');
     listEl.innerHTML = _blueprints.map(bp => `
-        <button type="button" data-bp-id="${escapeHtml(bp.id)}" class="bp-pick-row w-full text-left flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-theme-subtle hover:border-theme-subtle hover:bg-white/[0.04] transition-colors">
-            <div class="flex items-center gap-3 min-w-0 flex-1">
-                <span class="w-9 h-9 rounded-xl bg-accent/10 text-accent flex items-center justify-center shrink-0"><i class="fas fa-cube text-sm"></i></span>
-                <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <span class="text-sm font-semibold text-white truncate">${escapeHtml(bp.title)}</span>
-                        <span class="inline-flex items-center gap-1 text-[10px] text-slate-400"><i class="fas fa-sliders text-[9px]"></i>${escapeHtml(t('blueprints.inputs_count', { count: Array.isArray(bp.inputs) ? bp.inputs.length : 0 }))}</span>
-                        <span class="text-[10px] text-slate-500">v${escapeHtml(bp.version || '1')}</span>
-                    </div>
-                    <div class="text-[11px] text-slate-500 truncate mt-0.5">${escapeHtml(bp.description || t('blueprints.no_description'))}</div>
+        <button type="button" data-bp-id="${escapeHtml(bp.id)}" class="bp-pick-row hyd-entity-row w-full text-left" role="listitem">
+            <span class="hyd-icon hyd-icon--list hyd-glow--default"><i class="fas fa-cube" aria-hidden="true"></i></span>
+            <div class="hyd-entity-row__body min-w-0">
+                <div class="hyd-entity-row__name">${escapeHtml(bp.title)}</div>
+                <div class="hyd-entity-row__sub truncate">${escapeHtml(bp.description || t('blueprints.no_description'))}</div>
+                <div class="hyd-entity-row__tags">
+                    <span class="hyd-row-badge"><i class="fas fa-sliders" aria-hidden="true"></i>${escapeHtml(t('blueprints.inputs_count', { count: Array.isArray(bp.inputs) ? bp.inputs.length : 0 }))}</span>
+                    <span class="hyd-row-badge">v${escapeHtml(bp.version || '1')}</span>
                 </div>
             </div>
-            <i class="fas fa-chevron-right text-[10px] text-slate-600 shrink-0"></i>
+            <i class="fas fa-chevron-right hyd-entity-row__chev" aria-hidden="true"></i>
         </button>
     `).join('');
     listEl.querySelectorAll('.bp-pick-row').forEach(btn => {
@@ -442,11 +434,8 @@ async function selectBlueprint(blueprintId: string) {
     document.getElementById('blueprint-picker-form-pane')?.classList.remove('hidden');
     document.getElementById('blueprint-picker-creator-pane')?.classList.add('hidden');
     document.getElementById('blueprint-picker-list-actions')?.classList.add('hidden');
-    document.getElementById('blueprint-picker-list-actions')?.classList.remove('flex');
     document.getElementById('blueprint-picker-creator-actions')?.classList.add('hidden');
-    document.getElementById('blueprint-picker-creator-actions')?.classList.remove('flex');
     document.getElementById('blueprint-picker-form-actions')?.classList.remove('hidden');
-    document.getElementById('blueprint-picker-form-actions')?.classList.add('flex');
     document.getElementById('blueprint-picker-create-btn')?.classList.remove('hidden');
     document.getElementById('blueprint-picker-delete-btn')?.classList.remove('hidden');
     const formTitle = document.getElementById('blueprint-picker-form-title');
@@ -462,32 +451,30 @@ async function selectBlueprint(blueprintId: string) {
 
 function _renderBlueprintInputField(spec: Record<string, unknown>) {
     const id = `bp-input-${spec.id}`;
-    const labelHtml = `<label for="${id}" class="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1">${escapeHtml(spec.label || spec.id)}${spec.required ? ' <span class="text-red-400">*</span>' : ''}</label>`;
-    const baseCls = 'w-full bg-slate-950 border border-theme-subtle rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent outline-none';
+    const labelHtml = `<label for="${id}">${escapeHtml(spec.label || spec.id)}${spec.required ? ' <span class="text-red-400">*</span>' : ''}</label>`;
     let field = '';
     const defaultVal = spec.default == null ? '' : String(spec.default);
     if (spec.type === 'entity') {
         const opts = (_pickerEntityCache || []).map(e =>
             `<option value="${escapeHtml(e.id)}" ${e.id === defaultVal ? 'selected' : ''}>${escapeHtml(e.label)} (${escapeHtml(e.domain)})</option>`
         ).join('');
-        field = `<select id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="entity" class="${baseCls}"><option value="">${escapeHtml(t('blueprints.choose'))}</option>${opts}</select>`;
+        field = `<select id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="entity"><option value="">${escapeHtml(t('blueprints.choose'))}</option>${opts}</select>`;
     } else if (spec.type === 'area') {
         const opts = (_pickerAreaCache || []).map(a =>
             `<option value="${escapeHtml(a.id)}" ${a.id === defaultVal ? 'selected' : ''}>${escapeHtml(a.label)}</option>`
         ).join('');
-        field = `<select id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="area" class="${baseCls}"><option value="">${escapeHtml(t('blueprints.choose'))}</option>${opts}</select>`;
+        field = `<select id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="area"><option value="">${escapeHtml(t('blueprints.choose'))}</option>${opts}</select>`;
     } else if (spec.type === 'select') {
         const opts = (Array.isArray(spec.choices) ? spec.choices : []).map((c: string) =>
             `<option value="${escapeHtml(c)}" ${c === defaultVal ? 'selected' : ''}>${escapeHtml(c)}</option>`
         ).join('');
-        field = `<select id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="select" class="${baseCls}">${opts}</select>`;
+        field = `<select id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="select">${opts}</select>`;
     } else if (spec.type === 'boolean') {
-        field = `<label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="boolean" ${defaultVal === 'true' || defaultVal === '1' ? 'checked' : ''} class="w-4 h-4">${escapeHtml(t('common.enable'))}</label>`;
+        field = `<label class="flex items-center gap-2 text-sm"><input type="checkbox" id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="boolean" ${defaultVal === 'true' || defaultVal === '1' ? 'checked' : ''} class="w-4 h-4">${escapeHtml(t('common.enable'))}</label>`;
     } else if (spec.type === 'number' || spec.type === 'duration') {
-        field = `<input type="number" id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="${spec.type}" value="${escapeHtml(defaultVal)}" class="${baseCls}" />`;
-        if (spec.type === 'duration') field = field.replace('class="', 'placeholder="seconds" class="');
+        field = `<input type="number" id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="${spec.type}" value="${escapeHtml(defaultVal)}"${spec.type === 'duration' ? ' placeholder="seconds"' : ''} />`;
     } else {
-        field = `<input type="text" id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="string" value="${escapeHtml(defaultVal)}" class="${baseCls}" />`;
+        field = `<input type="text" id="${id}" data-bp-input="${escapeHtml(spec.id)}" data-bp-type="string" value="${escapeHtml(defaultVal)}" />`;
     }
     return `<div>${labelHtml}${field}</div>`;
 }

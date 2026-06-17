@@ -170,10 +170,7 @@ function _renderAutomationsList(): void {
     const automations = _filteredAutomations();
     if (!automations.length) {
         listEl.innerHTML = '';
-        if (emptyEl) {
-            emptyEl.classList.remove('hidden');
-            emptyEl.innerHTML = `<i class="fas fa-magnifying-glass hyd-list-placeholder__icon" aria-hidden="true"></i><p>${escapeHtml(t('hy.entity_search_no_results'))}</p>`;
-        }
+        if (emptyEl) emptyEl.classList.add('hidden');
         return;
     }
 

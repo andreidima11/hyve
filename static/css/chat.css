@@ -808,7 +808,8 @@
     color: var(--text-primary);
 }
 
-.model-selector-item.active {
+.model-selector-item.active,
+.model-selector-item.is-active {
     background: color-mix(in srgb, var(--selector-accent) 14%, transparent);
     color: var(--selector-accent);
 }
@@ -869,7 +870,8 @@
     opacity: 0.9;
 }
 
-.model-selector-item.active .model-selector-item-check {
+.model-selector-item.active .model-selector-item-check,
+.model-selector-item.is-active .model-selector-item-check {
     opacity: 1;
 }
 
@@ -880,59 +882,7 @@
     font-size: 0.7rem;
 }
 
-/* Thinking mode — compact 3-way segment inside chat settings menu */
-.thinking-mode-segment {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.25rem;
-    padding: 0 0.35rem 0.45rem;
-    flex-shrink: 0;
-}
-
-.thinking-segment-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.2rem;
-    min-height: 2.65rem;
-    padding: 0.35rem 0.25rem;
-    border-radius: 0.55rem;
-    border: 1px solid color-mix(in srgb, var(--thinking-accent) 18%, transparent);
-    background: color-mix(in srgb, var(--thinking-accent) 5%, transparent);
-    color: var(--text-secondary);
-    font-size: 0.625rem;
-    font-weight: 600;
-    line-height: 1.1;
-    cursor: pointer;
-    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-    text-align: center;
-}
-
-.thinking-segment-btn i {
-    font-size: 0.72rem;
-    opacity: 0.9;
-}
-
-.thinking-segment-btn span {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.thinking-segment-btn:hover {
-    background: color-mix(in srgb, var(--thinking-accent) 12%, transparent);
-    color: var(--text-primary);
-    border-color: color-mix(in srgb, var(--thinking-accent) 32%, transparent);
-}
-
-.thinking-segment-btn.active {
-    background: color-mix(in srgb, var(--thinking-accent) 18%, transparent);
-    color: var(--thinking-accent);
-    border-color: color-mix(in srgb, var(--thinking-accent) 45%, transparent);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--thinking-accent) 16%, transparent);
-}
+/* Thinking mode — see hyd-chips--menu / hyd-chip--menu in devices-ui.css */
 
 .chat-attach-balloon {
     position: absolute;

@@ -3,6 +3,7 @@
  */
 
 import { listEntities } from './store.js';
+import { buildEntitySearchField } from './entity_search_field.js';
 import { normalizeIconClass } from '../../js/icon_utils.js';
 import { attachIconPicker } from '../../js/icon_picker.js';
 import { upgradeNativeSelects, initGenericCustomSelects } from '../../js/features_custom_selects.js';
@@ -15,8 +16,12 @@ import type {
     HyveviewSchemaFormApi,
 } from '../types/card.js';
 
+interface HyveviewEntitySearchInput extends HTMLElement {
+    __hvGetValue?: () => string;
+}
+
 interface FieldInputEntry {
-    input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HyveviewMultiEntityInput;
+    input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HyveviewMultiEntityInput | HyveviewEntitySearchInput;
     field: HyveviewSchemaField;
 }
 
@@ -49,30 +54,19 @@ export function renderSchemaForm(
             }
             if (value !== undefined) input.value = String(value);
         } else if (f.type === 'entity') {
-            input = document.createElement('select');
             const all = listEntities();
             const domains = f.domains;
             const matches = domains && domains.length
                 ? all.filter((e) => domains.some((d) => (e.entity_id || '').startsWith(`${d}.`)))
                 : all;
             matches.sort((a, b) => (a.entity_id || '').localeCompare(b.entity_id || ''));
-            const blank = document.createElement('option');
-            blank.value = '';
-            blank.textContent = '— select —';
-            input.appendChild(blank);
-            for (const e of matches) {
-                const o = document.createElement('option');
-                o.value = e.entity_id;
-                o.textContent = `${e.entity_id}${e.friendly_name ? ` (${e.friendly_name})` : ''}`;
-                input.appendChild(o);
-            }
-            if (value && !matches.some((e) => e.entity_id === value)) {
-                const o = document.createElement('option');
-                o.value = String(value);
-                o.textContent = `${value} (offline)`;
-                input.appendChild(o);
-            }
-            if (value !== undefined) input.value = String(value);
+            const entityField = buildEntitySearchField(
+                matches,
+                value !== undefined && value !== null ? String(value) : '',
+            );
+            const entityEl = entityField.element as HyveviewEntitySearchInput;
+            entityEl.__hvGetValue = () => entityField.getValue();
+            input = entityEl;
         } else if (f.type === 'number') {
             const numInput = document.createElement('input');
             numInput.type = 'number';
@@ -170,21 +164,10 @@ export function renderSchemaForm(
                 _rows.forEach((row, idx) => {
                     const r = document.createElement('div');
                     r.className = 'hv-multi-entity-row';
-                    const sel = document.createElement('select');
-                    const blank = document.createElement('option'); blank.value = ''; blank.textContent = '— selectează —'; sel.appendChild(blank);
-                    for (const e of matches) {
-                        const o = document.createElement('option');
-                        o.value = e.entity_id;
-                        o.textContent = `${e.entity_id}${e.friendly_name ? ` (${e.friendly_name})` : ''}`;
-                        sel.appendChild(o);
-                    }
-                    if (row.entity_id && !matches.some((e) => e.entity_id === row.entity_id)) {
-                        const o = document.createElement('option'); o.value = row.entity_id; o.textContent = `${row.entity_id} (offline)`; sel.appendChild(o);
-                    }
-                    sel.value = row.entity_id || '';
-                    sel.addEventListener('change', () => {
-                        _rows[idx].entity_id = sel.value;
-                        const ent = matches.find((e) => e.entity_id === sel.value);
+                    const entityField = buildEntitySearchField(matches, row.entity_id || '');
+                    entityField.element.addEventListener('change', () => {
+                        _rows[idx].entity_id = entityField.getValue();
+                        const ent = matches.find((e) => e.entity_id === entityField.getValue());
                         _rows[idx].unique_id = (ent as HyveviewEntityState & { unique_id?: string })?.unique_id || '';
                     });
                     const title = document.createElement('input'); title.type = 'text'; title.placeholder = 'Titlu'; title.value = row.title || '';
@@ -197,7 +180,7 @@ export function renderSchemaForm(
                     del.title = 'Elimină';
                     del.innerHTML = '<i class="fas fa-trash-can"></i>';
                     del.addEventListener('click', () => { _rows.splice(idx, 1); _renderRows(); });
-                    r.append(sel, title, sub, del);
+                    r.append(entityField.element, title, sub, del);
                     list.appendChild(r);
                 });
                 const add = document.createElement('button');
@@ -249,6 +232,9 @@ export function renderSchemaForm(
                 out[key] = v === '' ? null : Number(v);
             } else if (field.type === 'boolean') {
                 out[key] = (input as HTMLInputElement).checked;
+            } else if (field.type === 'entity') {
+                const entityInput = input as HyveviewEntitySearchInput;
+                out[key] = entityInput.__hvGetValue ? entityInput.__hvGetValue() : '';
             } else if (field.type === 'multi_entity') {
                 const multi = input as HyveviewMultiEntityInput;
                 out[key] = multi.__hvReadMulti ? multi.__hvReadMulti() : [];
@@ -265,7 +251,10 @@ export function renderSchemaForm(
             if (field.required) {
                 let v: string | boolean | null | undefined;
                 if (field.type === 'boolean') v = (input as HTMLInputElement).checked;
-                else if (field.type === 'multi_entity') {
+                else if (field.type === 'entity') {
+                    const entityInput = input as HyveviewEntitySearchInput;
+                    v = entityInput.__hvGetValue ? entityInput.__hvGetValue() : '';
+                } else if (field.type === 'multi_entity') {
                     const multi = input as HyveviewMultiEntityInput;
                     v = (multi.__hvReadMulti ? multi.__hvReadMulti() : []).length ? '1' : '';
                 } else v = (input as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value;

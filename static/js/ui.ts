@@ -379,22 +379,20 @@ export function switchTab(tabId: string, options: SwitchTabOptions = {}) {
 }
 
 export function switchConfigTab(tabName: string) {
-    // Auto-detect: ascundem TOATE panourile și dezactivăm TOATE butoanele
     document.querySelectorAll('.cfg-tab-panel').forEach(panel => {
         panel.classList.add('hidden');
     });
     document.querySelectorAll('[id^="tab-btn-"]').forEach(btn => {
-        btn.classList.remove('border-accent', 'text-accent', 'config-tab-btn--active');
-        btn.classList.add('border-transparent', 'text-slate-500');
+        btn.classList.remove('is-active', 'config-tab-btn--active', 'border-accent', 'text-accent', 'border-transparent', 'text-slate-500');
+        btn.setAttribute('aria-selected', 'false');
     });
 
-    // Afișăm tab-ul selectat
     const targetContent = document.getElementById(`cfg-tab-${tabName}`);
     const targetBtn = document.getElementById(`tab-btn-${tabName}`);
     if (targetContent) targetContent.classList.remove('hidden');
     if (targetBtn) {
-        targetBtn.classList.remove('border-transparent', 'text-slate-500');
-        targetBtn.classList.add('border-accent', 'text-accent', 'config-tab-btn--active');
+        targetBtn.classList.add('is-active', 'config-tab-btn--active');
+        targetBtn.setAttribute('aria-selected', 'true');
     }
 
     if (tabName === 'users') loadAdminUsers();
@@ -459,13 +457,31 @@ function _setStandaloneActions(section: string) {
     if (!actionsEl) return;
     let html = '';
     if (section === 'scenes') {
-        html = `<button type="button" data-config-action="openSceneEditor" class="hyd-btn hyd-btn--glow"><i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="scenes.new_scene">New scene</span></button>`;
+        html = `<button type="button" data-config-action="loadScenes" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
+            <button type="button" data-config-action="openSceneEditor" class="hyd-btn hyd-btn--glow"><i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="scenes.new_scene">New scene</span></button>`;
     } else if (section === 'areas') {
-        html = `<button type="button" data-config-action="openCreateAreaModal" class="hyd-btn hyd-btn--glow"><i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="areas.new_area">New area</span></button>`;
+        html = `<button type="button" data-config-action="loadAreas" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
+            <button type="button" data-config-action="openCreateAreaModal" class="hyd-btn hyd-btn--glow"><i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="areas.new_area">New area</span></button>`;
     } else if (section === 'automations') {
         html = `<button type="button" data-memory-action="loadAutomations" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
             <button type="button" data-memory-action="openBlueprintPicker" class="hyd-btn hyd-btn--glass"><i class="fas fa-puzzle-piece" aria-hidden="true"></i><span data-i18n="automations.blueprint_button">Blueprint</span></button>
             <button type="button" data-memory-action="openAutomationEditor" class="hyd-btn hyd-btn--glow"><i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="automations.new_button">New</span></button>`;
+    } else if (section === 'app') {
+        html = `<button type="button" data-config-action="refreshAppTab" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>`;
+    } else if (section === 'integrations') {
+        html = `<button type="button" data-config-action="refreshIntegrationsSettings" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>`;
+    } else if (section === 'addons') {
+        html = `<button type="button" data-config-action="loadApps" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>`;
+    } else if (section === 'memories') {
+        html = `<button type="button" data-memory-action="loadMemory" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>`;
+    } else if (section === 'users') {
+        html = `<button type="button" data-config-action="loadAdminUsers" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>`;
+    } else if (section === 'logs') {
+        html = `<button type="button" data-config-action="refreshLogs" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>`;
+    } else if (section === 'updates') {
+        html = `<button type="button" data-config-action="checkAddonUpdates" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>`;
+    } else if (section === 'backup') {
+        html = `<button type="button" data-config-action="loadBackupPanel" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>`;
     }
     actionsEl.innerHTML = html;
     applyTranslations();
