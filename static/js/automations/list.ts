@@ -159,10 +159,7 @@ function _renderAutomationsList(): void {
             emptyEl.classList.remove('hidden');
             emptyEl.innerHTML = `
                 <i class="fas fa-robot hyd-list-placeholder__icon" aria-hidden="true"></i>
-                <p>${escapeHtml(t('automations.empty'))}</p>
-                <button type="button" data-memory-action="openAutomationEditor" class="hyd-btn hyd-btn--glow">
-                    <i class="fas fa-plus" aria-hidden="true"></i><span>${escapeHtml(t('automations.new_button'))}</span>
-                </button>`;
+                <p>${escapeHtml(t('automations.empty'))}</p>`;
         }
         return;
     }

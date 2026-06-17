@@ -378,8 +378,18 @@ export function switchTab(tabId: string, options: SwitchTabOptions = {}) {
     }
 }
 
+function _restoreStandalonePanel() {
+    if (!_standaloneActivePanel) return;
+    const { panel, parent } = _standaloneActivePanel;
+    if (parent && panel) {
+        parent.appendChild(panel);
+        panel.classList.add('hidden');
+    }
+    _standaloneActivePanel = null;
+}
+
 export function switchConfigTab(tabName: string) {
-    document.querySelectorAll('.cfg-tab-panel').forEach(panel => {
+    document.querySelectorAll('#config-panels > .cfg-tab-panel').forEach(panel => {
         panel.classList.add('hidden');
     });
     document.querySelectorAll('[id^="tab-btn-"]').forEach(btn => {
@@ -518,6 +528,9 @@ export function openConfigSection(section: string) {
         const panelId = _sectionPanelIds[section] || `cfg-tab-${section}`;
         const panel = document.getElementById(panelId);
         const body = document.getElementById('config-standalone-body');
+        if (_standaloneActivePanel?.panel?.id !== panelId) {
+            _restoreStandalonePanel();
+        }
         if (panel && body) {
             _standaloneActivePanel = { panel, parent: panel.parentElement };
             body.appendChild(panel);
@@ -540,7 +553,10 @@ export function openConfigSection(section: string) {
 
     } else {
         // --- Settings with tabs ---
+        _restoreStandalonePanel();
         if (standalone) standalone.classList.add('hidden');
+        const actionsEl = document.getElementById('config-standalone-actions');
+        if (actionsEl) actionsEl.innerHTML = '';
         if (detail) detail.classList.remove('hidden');
         switchConfigTab('general');
     }
@@ -551,15 +567,7 @@ export function closeConfigSection() {
     // Stop log SSE stream when leaving the config section
     stopLogStream();
 
-    // Return any standalone panel to its original parent
-    if (_standaloneActivePanel) {
-        const { panel, parent } = _standaloneActivePanel;
-        if (parent && panel) {
-            parent.appendChild(panel);
-            panel.classList.add('hidden');
-        }
-        _standaloneActivePanel = null;
-    }
+    _restoreStandalonePanel();
 
     const hub = document.getElementById('config-hub');
     const detail = document.getElementById('config-detail');

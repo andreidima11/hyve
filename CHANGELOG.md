@@ -4,6 +4,16 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.14] — 2026-06
+
+Hotfix: **Hub config layout** — settings tabs and list pages no longer stack all panels; empty states match Devices masthead pattern.
+
+### Frontend
+- **Fix:** `.hyd-config-page` / `.hyd-list-placeholder` no longer override Tailwind `.hidden` — settings tabs show one panel at a time; ghost empty panels below populated lists are gone.
+- **Fix:** Hub standalone navigation restores moved panels when switching sections or returning to Setări.
+- **UI:** Scenes, areas, and automations empty states are text-only; **+** / refresh actions stay in the masthead (like Devices).
+- **Fix:** Scene/area editor modal inputs — restore broken Tailwind classes from the P3b cleanup.
+
 ## [0.9.8.13] — 2026-06
 
 Patch release: **P3b UI consistency complete** — Hub/config aligned to Devices pattern; sub-page modals and chat composer polished.

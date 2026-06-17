@@ -132,10 +132,7 @@ export function _renderScenesList() {
             empty.classList.remove('hidden');
             empty.innerHTML = `
                 <i class="fas fa-film hyd-list-placeholder__icon" aria-hidden="true"></i>
-                <p>${_escapeHtml(t('scenes.empty_list'))}</p>
-                <button type="button" data-config-action="openSceneEditor" class="hyd-btn hyd-btn--glow">
-                    <i class="fas fa-plus" aria-hidden="true"></i><span>${_escapeHtml(t('scenes.new_scene'))}</span>
-                </button>`;
+                <p>${_escapeHtml(t('scenes.empty_list'))}</p>`;
         }
         return;
     }

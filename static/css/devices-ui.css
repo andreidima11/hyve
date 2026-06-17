@@ -1649,6 +1649,16 @@
     min-height: 0;
 }
 
+.hyd-config-page.hidden,
+.cfg-tab-panel.hidden,
+.intelligence-panel.hidden {
+    display: none !important;
+}
+
+.hyd-list-placeholder.hidden {
+    display: none !important;
+}
+
 .hyd-entity-row--static {
     cursor: default;
 }

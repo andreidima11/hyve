@@ -48,10 +48,7 @@ export function _renderAreas() {
             empty.classList.remove('hidden');
             empty.innerHTML = `
                 <i class="fas fa-house-chimney-window hyd-list-placeholder__icon" aria-hidden="true"></i>
-                <p>${_esc(t('areas.empty_list'))}</p>
-                <button type="button" data-config-action="openCreateAreaModal" class="hyd-btn hyd-btn--glow">
-                    <i class="fas fa-plus" aria-hidden="true"></i><span>${_esc(t('areas.new_area'))}</span>
-                </button>`;
+                <p>${_esc(t('areas.empty_list'))}</p>`;
         }
         return;
     }
