@@ -3,7 +3,7 @@
  */
 
 import { authToken } from '../api.js';
-import { t } from '../lang/index.js';
+import { t, translateApiDetail } from '../lang/index.js';
 import { getThinkingMode } from '../thinking_mode.js';
 import {
     clearAttachedDocument,
@@ -106,7 +106,16 @@ export async function sendMessage(optionalMessage?: string) {
             signal: abortController.signal
         });
 
-        if (!response.ok) throw new Error("Server Error");
+        if (!response.ok) {
+            let detail = '';
+            try {
+                detail = translateApiDetail(await response.json());
+            } catch (_) { /* ignore */ }
+            if (response.status === 401) {
+                throw new Error(detail || t('chat.invalid_expired_token'));
+            }
+            throw new Error(detail || `HTTP ${response.status}`);
+        }
 
         const profileColor = response.headers.get('X-Profile-Color') || response.headers.get('X-Auto-Profile-Color');
         const bubbleEl = document.getElementById(aiBubbleId);

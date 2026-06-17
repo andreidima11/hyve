@@ -4,6 +4,7 @@
 
 import type { MemoryEventHandlers } from '../types/event_bindings.js';
 import type { SyncAutomationOptions } from '../types/features_automations.js';
+import { isHubRefreshButton, withHubRefreshFeedback } from '../utils.js';
 
 let _handlers: MemoryEventHandlers | null = null;
 let _bound = false;
@@ -118,7 +119,9 @@ function _run(action: string, el: HTMLElement, event: Event): void {
         return;
     default: {
         const fn = _handlers[action];
-        if (typeof fn === 'function') fn(event, el);
+        if (typeof fn === 'function') {
+            void fn(event, el);
+        }
     }
     }
 }
@@ -126,7 +129,16 @@ function _run(action: string, el: HTMLElement, event: Event): void {
 function _onClick(event: MouseEvent): void {
     const el = (event.target as Element | null)?.closest('[data-memory-action]') as HTMLElement | null;
     if (!el) return;
-    _run(el.dataset.memoryAction || '', el, event);
+    const action = el.dataset.memoryAction || '';
+    if (isHubRefreshButton(el)) {
+        if (el.classList.contains('is-syncing')) {
+            event.preventDefault();
+            return;
+        }
+        withHubRefreshFeedback(el, () => _run(action, el, event));
+        return;
+    }
+    void _run(action, el, event);
 }
 
 function _onInput(event: Event): void {

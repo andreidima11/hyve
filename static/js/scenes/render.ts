@@ -51,7 +51,7 @@ export function _serviceSelectHtml(idx: number, currentService: string) {
     const opts = _SERVICE_VALUES.map(v =>
         `<option value="${v}" ${v === currentService ? 'selected' : ''}>${_escapeHtml(labels[v] || v)}</option>`
     ).join('');
-    return `<select data-scene-entry-service="${idx}" class="bg-slate-900 border border-theme-subtle rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:border-accent outline-none">${opts}</select>`;
+    return `<select data-scene-entry-service="${idx}" class="hyd-scene-entry__service w-full sm:w-auto min-w-0 border border-theme-subtle rounded-lg px-2 py-2 text-xs focus:border-accent outline-none">${opts}</select>`;
 }
 
 export function _entryRowHtml(entry: SceneEntry, idx: number) {
@@ -59,27 +59,29 @@ export function _entryRowHtml(entry: SceneEntry, idx: number) {
     const service = entry.service || 'turn_on';
     const dataJson = entry.service_data ? _escapeHtml(JSON.stringify(entry.service_data)) : '';
     return `
-        <div class="rounded-xl border border-theme-subtle bg-white/[0.02] p-3 space-y-2" data-scene-entry-row="${idx}">
-            <div class="flex items-center gap-2">
-                <span class="text-[10px] font-bold text-slate-500 w-6">${idx + 1}.</span>
-                <input type="text" data-scene-entry-entity="${idx}" value="${eid}"
-                    placeholder="${_escapeHtml(t('scenes.entity_id_ph'))}"
-                    class="flex-1 min-w-0 bg-slate-900 border border-theme-subtle rounded-lg px-2 py-1.5 text-xs text-slate-200 mono focus:border-accent outline-none">
-                <button type="button" data-config-action="openSceneEntityPicker" data-config-index="${idx}"
-                    class="px-2 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/5 border border-theme-subtle" title="${_escapeHtml(t('scenes.pick_entity_title'))}">
-                    <i class="fas fa-magnifying-glass"></i>
-                </button>
+        <div class="hyd-scene-entry rounded-xl border border-theme-subtle bg-white/[0.02] p-3 space-y-2" data-scene-entry-row="${idx}">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="text-[10px] font-bold text-slate-500 w-6 flex-shrink-0">${idx + 1}.</span>
+                <div class="flex min-w-0 flex-1 basis-full sm:basis-auto items-stretch gap-2">
+                    <input type="text" data-scene-entry-entity="${idx}" value="${eid}"
+                        placeholder="${_escapeHtml(t('scenes.entity_id_ph'))}"
+                        class="hyd-scene-entry__entity flex-1 min-w-0 border border-theme-subtle rounded-lg px-3 py-2 text-xs mono focus:border-accent outline-none">
+                    <button type="button" data-config-action="openSceneEntityPicker" data-config-index="${idx}"
+                        class="hyd-mast__back hyd-mast__back--icon flex-shrink-0" title="${_escapeHtml(t('scenes.pick_entity_title'))}" aria-label="${_escapeHtml(t('scenes.pick_entity_title'))}">
+                        <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                    </button>
+                </div>
                 ${_serviceSelectHtml(idx, String(service))}
                 <button type="button" data-config-action="removeSceneEntry" data-config-index="${idx}"
-                    class="w-7 h-7 rounded-lg text-red-400 hover:bg-red-500/10 flex items-center justify-center" title="${_escapeHtml(t('scenes.remove_entry_title'))}">
-                    <i class="fas fa-trash-can text-xs"></i>
+                    class="hyd-mast__back hyd-mast__back--icon flex-shrink-0 !border-red-500/25 !text-red-400 hover:!bg-red-500/10" title="${_escapeHtml(t('scenes.remove_entry_title'))}" aria-label="${_escapeHtml(t('scenes.remove_entry_title'))}">
+                    <i class="fas fa-trash-can text-xs" aria-hidden="true"></i>
                 </button>
             </div>
             <details class="text-[11px] text-slate-400">
                 <summary class="cursor-pointer select-none hover:text-slate-200">${_escapeHtml(t('scenes.service_data_summary'))}</summary>
                 <input type="text" data-scene-entry-data="${idx}" value="${dataJson}"
                     placeholder="${_escapeHtml(t('scenes.service_data_ph'))}"
-                    class="mt-1 w-full bg-slate-900 border border-theme-subtle rounded-lg px-2 py-1.5 text-xs text-slate-300 mono focus:border-accent outline-none">
+                    class="mt-1 w-full border border-theme-subtle rounded-lg px-3 py-2 text-xs mono focus:border-accent outline-none">
             </details>
         </div>`;
 }

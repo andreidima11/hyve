@@ -157,7 +157,7 @@ function _renderConfigSection(addon: AddonCatalogEntry, isAdmin: boolean) {
         : t('apps.config_intro_not_installed');
     const tokenMode = addon.slug === 'cloudflared' && `${cfg.tunnel_token || ''}`.trim().length > 0;
     const tokenBanner = tokenMode
-        ? `<div class="sm:col-span-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-100/90 leading-relaxed">${escapeHtml(t('apps.cloudflared_token_origin_hint'))}</div>`
+        ? `<div class="hyd-callout hyd-callout--warning sm:col-span-2">${escapeHtml(t('apps.cloudflared_token_origin_hint'))}</div>`
         : '';
 
     return `

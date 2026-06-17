@@ -389,6 +389,28 @@ export function closeAllSubPages() {
     });
 }
 
+/** Mast / hub refresh buttons (arrows-rotate icon in toolbar). */
+export function isHubRefreshButton(el: HTMLElement): boolean {
+    const scope = el.closest('#config-standalone-actions, .hyd-standalone-actions, #view-skills .hyd-mast__actions, #view-memory .hyd-mast__actions');
+    if (!scope) return false;
+    const icon = el.querySelector('i');
+    if (!icon) return false;
+    return icon.classList.contains('fa-arrows-rotate')
+        || icon.classList.contains('fa-sync-alt')
+        || icon.classList.contains('fa-sync');
+}
+
+export function withHubRefreshFeedback(el: HTMLElement, work: () => void | Promise<void>): void {
+    if (el.classList.contains('is-syncing')) return;
+    el.classList.add('is-syncing');
+    el.setAttribute('aria-busy', 'true');
+    const minSpin = new Promise<void>((resolve) => { window.setTimeout(resolve, 650); });
+    Promise.all([Promise.resolve(work()), minSpin]).finally(() => {
+        el.classList.remove('is-syncing');
+        el.removeAttribute('aria-busy');
+    });
+}
+
 /* ─── Modal viewport helpers ─── */
 
 export function syncModalViewportMetrics() {

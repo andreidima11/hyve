@@ -8,7 +8,8 @@ from typing import Any
 import core.auth as auth
 import core.models as models
 from core.entity_store import SyncThrottledError, get_entity_store
-from fastapi import BackgroundTasks, Depends, HTTPException
+from core.task_utils import create_tracked_task
+from fastapi import Depends, HTTPException
 
 from core.http.errors import error_detail
 from routers.integrations import helpers
@@ -146,7 +147,6 @@ async def wire_new_entry(manager, slug: str, entry_id: str) -> None:
 async def create_provider_entry(
     slug: str,
     body: ConfigEntryBody,
-    background_tasks: BackgroundTasks,
     user: models.User = Depends(auth.get_current_admin),
 ):
     from integrations import config_entries, get_integration_manager
@@ -176,7 +176,7 @@ async def create_provider_entry(
     manager = get_integration_manager()
     manager.reload()
 
-    background_tasks.add_task(wire_new_entry, manager, slug, entry["entry_id"])
+    create_tracked_task(wire_new_entry(manager, slug, entry["entry_id"]), name=f"wire_entry_{entry['entry_id']}")
 
     return {"status": "ok", "entry": helpers.redact_entry(entry, meta["schema"])}
 
@@ -186,7 +186,6 @@ async def update_provider_entry(
     slug: str,
     entry_id: str,
     body: ConfigEntryBody,
-    background_tasks: BackgroundTasks,
     user: models.User = Depends(auth.get_current_admin),
 ):
     from integrations import config_entries, get_integration_manager
@@ -245,7 +244,7 @@ async def update_provider_entry(
         except Exception as exc:
             log.warning("Background resync after update failed for %s: %s", entry_id, exc)
 
-    background_tasks.add_task(_background_resync, slug, entry["entry_id"])
+    create_tracked_task(_background_resync(slug, entry["entry_id"]), name=f"resync_{entry['entry_id']}")
 
     return {"status": "ok", "entry": helpers.redact_entry(entry, meta["schema"])}
 

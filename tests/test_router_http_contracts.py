@@ -124,3 +124,17 @@ def test_memory_update_not_found_returns_key(client: TestClient, auth_headers: d
     )
     assert res.status_code == 404
     assert _detail_key(res) == "memory.not_found"
+
+
+def test_chat_web_rejects_unauthenticated_without_422(client: TestClient):
+    """Regression: BackgroundTasks + postponed annotations must not break /api/chat."""
+    res = client.post("/api/chat", json={"message": "hello"})
+    assert res.status_code == 401, res.text
+    assert _detail_key(res) == "common.auth_required"
+
+
+def test_waha_webhook_does_not_require_query_params(client: TestClient):
+    """Regression: WAHA hook must not treat BackgroundTasks as a query param."""
+    res = client.post("/api/webhook/waha", json={"payload": {"fromMe": True}})
+    assert res.status_code == 200, res.text
+    assert res.json().get("status") == "ignored"

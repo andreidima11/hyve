@@ -3,6 +3,7 @@
  */
 
 import type { DelegatedEventHandlers } from '../types/integration.js';
+import { isHubRefreshButton, withHubRefreshFeedback } from '../utils.js';
 
 let _handlers: DelegatedEventHandlers | null = null;
 let _bound = false;
@@ -26,7 +27,9 @@ function _run(action: string, el: HTMLElement, event: Event): void {
         return;
     }
     const fn = _handlers[action];
-    if (typeof fn === 'function') fn(event, el);
+    if (typeof fn === 'function') {
+        void fn(event, el);
+    }
 }
 
 function _onClick(event: MouseEvent): void {
@@ -34,7 +37,16 @@ function _onClick(event: MouseEvent): void {
     if (!(target instanceof Element)) return;
     const el = target.closest('[data-skills-action]');
     if (!(el instanceof HTMLElement)) return;
-    _run(el.dataset.skillsAction || '', el, event);
+    const action = el.dataset.skillsAction || '';
+    if (isHubRefreshButton(el)) {
+        if (el.classList.contains('is-syncing')) {
+            event.preventDefault();
+            return;
+        }
+        withHubRefreshFeedback(el, () => _run(action, el, event));
+        return;
+    }
+    void _run(action, el, event);
 }
 
 export function initSkillsEventBindings(handlers: DelegatedEventHandlers = {}): void {

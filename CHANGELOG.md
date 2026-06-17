@@ -4,6 +4,23 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.18] — 2026-06
+
+Patch release: **chat works again**, **semantic memory embeddings download**, Hub UI polish.
+
+### Backend
+- **Fix:** `/api/chat` no longer returns 422 — removed broken `BackgroundTasks` param incompatible with postponed type annotations.
+- **Fix:** WAHA webhook and integration entry create/update no longer treat `BackgroundTasks` as a required query param.
+- **Fix:** Memory embeddings can download from HuggingFace on first use — removed forced `HF_HUB_OFFLINE=1`; added `librarian.offline_only` config and `scripts/prefetch_embedding_model.py`.
+- **Install:** `install_hyve.py` prefetches embedding models after pip install (`--skip-embeddings` for air-gapped).
+
+### Frontend
+- **Fix:** Chat shows real API errors (auth expired, etc.) instead of generic “Server Error”.
+- **UI:** Hub refresh buttons spin on click across config/memory/skills sections.
+- **UI:** Scene editor entity rows mobile-friendly; mast +/refresh buttons normalized.
+- **UI:** Integration detail — icon inline with title, full description panel like add-ons.
+- **UI:** Cloudflared token banner readable on Daylight theme (`hyd-callout--warning`).
+
 ## [0.9.8.17] — 2026-06
 
 Hotfix: **single back navigation on add-on detail** and mobile overflow on add-on pages.

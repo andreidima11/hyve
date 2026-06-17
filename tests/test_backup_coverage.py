@@ -120,6 +120,14 @@ def test_list_addon_slugs_for_backup_includes_installed_without_data_dir(
         root,
         raising=False,
     )
+    monkeypatch.setattr(
+        "addons.registry.list_available",
+        lambda: [{"slug": "cloudflared"}],
+    )
+    monkeypatch.setattr(
+        "addons.registry.get_state",
+        lambda slug: {"installed": slug == "cloudflared"},
+    )
 
     slugs = list_addon_slugs_for_backup(root)
     assert "cloudflared" in slugs

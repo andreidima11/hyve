@@ -95,8 +95,8 @@ function _mountDevicesPageShell() {
                     <button type="button" data-smarthome-action="syncSmartHome" data-smarthome-sync-btn class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="hy.sync_all" aria-label="Sync">
                         <i class="fas fa-arrows-rotate"></i>
                     </button>
-                    <button type="button" data-smarthome-action="openIntegrations" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n-title="hy.add_devices_title">
-                        <i class="fas fa-plus"></i><span data-i18n="hy.add_devices">Add Devices</span>
+                    <button type="button" data-smarthome-action="openIntegrations" class="hyd-mast__action-btn hyd-mast__action-btn--accent" data-i18n-title="hy.add_devices_title">
+                        <i class="fas fa-plus" aria-hidden="true"></i><span class="hyd-mast__action-btn__label" data-i18n="hy.add_devices">Add Devices</span>
                     </button>
                 </div>
             </header>

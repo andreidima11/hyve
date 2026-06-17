@@ -10,8 +10,6 @@ import gc
 
 # Reduce Hugging Face / transformers noise before any model load
 os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 os.environ.setdefault("POSTHOG_DISABLED", "true")
 os.environ.setdefault("CHROMA_TELEMETRY_IMPL", "none")
@@ -23,12 +21,12 @@ from chromadb.utils import embedding_functions
 from core.settings import CFG
 
 # --- CHROMA DB SETUP (lazy — avoid import-time PersistentClient + embedding load) ---
-os.environ["HF_HUB_OFFLINE"] = "1"
-os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
 _client_db = None
 _collection = None
 _emb_fn = None  # cache global
+_loaded_model_name: str | None = None
+_last_embedding_error: str | None = None
 
 
 def get_client_db():
@@ -85,9 +83,62 @@ def shutdown_storage():
 
     gc.collect()
 
+
+def _embedding_model_name() -> str:
+    return (CFG.get("librarian") or {}).get("model_name") or "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+
+
+def _hf_hub_offline_requested() -> bool:
+    """True when downloads must not be attempted (air-gapped / explicit env)."""
+    lib = CFG.get("librarian") or {}
+    if lib.get("offline_only"):
+        return True
+    val = (os.environ.get("HF_HUB_OFFLINE") or "").strip().lower()
+    return val in ("1", "true", "yes")
+
+
+def _set_hf_hub_online(*, allow_download: bool) -> None:
+    if allow_download:
+        os.environ.pop("HF_HUB_OFFLINE", None)
+        os.environ.pop("TRANSFORMERS_OFFLINE", None)
+    else:
+        os.environ["HF_HUB_OFFLINE"] = "1"
+        os.environ["TRANSFORMERS_OFFLINE"] = "1"
+
+
+def _validate_embedding_fn(fn, model_name: str):
+    """Run a tiny encode to catch broken tokenizers before we commit to a model."""
+    try:
+        fn(["test"])
+    except AttributeError as ae:
+        if "tokenize" in str(ae).lower():
+            raise RuntimeError(f"Embedding model '{model_name}' has no tokenizer ({ae})") from ae
+        raise
+    return fn
+
+
+def _load_sentence_transformer(model_name: str, *, allow_download: bool):
+    _set_hf_hub_online(allow_download=allow_download)
+    fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=model_name)
+    return _validate_embedding_fn(fn, model_name)
+
+
+def prefetch_embedding_model(model_name: str | None = None) -> dict:
+    """Download an embedding model into the local HuggingFace cache (install / warmup)."""
+    name = (model_name or "").strip() or _embedding_model_name()
+    log = logging.getLogger("storage")
+    _set_hf_hub_online(allow_download=True)
+    from sentence_transformers import SentenceTransformer
+
+    log.info("Prefetching embedding model: %s", name)
+    SentenceTransformer(name)
+    log.info("Embedding model cached: %s", name)
+    return {"ok": True, "model_name": name}
+
+
 def _get_embedding_fn():
     """Returnează funcția de embedding (singleton). Folosit de colecție + semantic guard."""
-    global _emb_fn
+    global _emb_fn, _loaded_model_name, _last_embedding_error
     if _emb_fn is not None:
         return _emb_fn
     # Suppress "Loading weights" progress bar and "LOAD REPORT" / UNEXPECTED warnings
@@ -97,44 +148,59 @@ def _get_embedding_fn():
     except ImportError:
         pass  # transformers not installed or older version without this util
     logging.getLogger("transformers.utils.loading_report").setLevel(logging.ERROR)
-    model_name = CFG["librarian"].get("model_name", "") or "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+    log = logging.getLogger("storage")
+    model_name = _embedding_model_name()
+    offline_only = _hf_hub_offline_requested()
     try:
-        _emb_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=model_name)
-        # Validate: model.encode() uses .tokenize internally; if tokenizer is None we get AttributeError
-        try:
-            _emb_fn(["test"])
-        except AttributeError as ae:
-            if "tokenize" in str(ae).lower():
-                logging.getLogger("storage").warning(
-                    f"Embedding model has no tokenizer ({ae}). Using fallback."
+        _emb_fn = _load_sentence_transformer(model_name, allow_download=not offline_only)
+        _loaded_model_name = model_name
+        _last_embedding_error = None
+        log.info("Embedding model loaded: %s", model_name)
+    except Exception as e:
+        _last_embedding_error = str(e)
+        if offline_only:
+            log.warning("Failed to load %s (offline_only): %s", model_name, e)
+        else:
+            log.warning("Failed to load %s: %s. Retrying with HuggingFace download enabled.", model_name, e)
+            try:
+                _emb_fn = _load_sentence_transformer(model_name, allow_download=True)
+                _loaded_model_name = model_name
+                _last_embedding_error = None
+                log.info("Embedding model loaded after download: %s", model_name)
+            except Exception as e2:
+                _last_embedding_error = str(e2)
+                log.warning(
+                    "Failed to load %s after download attempt: %s. Falling back to all-MiniLM-L6-v2 (English only!)",
+                    model_name,
+                    e2,
                 )
                 _emb_fn = None
-            else:
-                raise
-        if _emb_fn is not None:
-            logging.getLogger("storage").info(f"Embedding model loaded: {model_name}")
-        else:
-            # Inner tokenize check set _emb_fn to None — try the explicit fallback model
-            raise RuntimeError(f"Primary model '{model_name}' passed init but failed validation")
-    except Exception as e:
-        logging.getLogger("storage").warning(f"Failed to load {model_name}: {e}. Falling back to all-MiniLM-L6-v2 (English only!)")
+
+    if _emb_fn is None:
+        fallback_name = "sentence-transformers/all-MiniLM-L6-v2"
         try:
-            _emb_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
-                model_name="sentence-transformers/all-MiniLM-L6-v2"
-            )
-            try:
-                _emb_fn(["test"])
-            except AttributeError as ae:
-                if "tokenize" in str(ae).lower():
+            _emb_fn = _load_sentence_transformer(fallback_name, allow_download=not offline_only)
+            _loaded_model_name = fallback_name
+            _last_embedding_error = None
+            log.info("Fallback embedding model loaded: %s", fallback_name)
+        except Exception as e:
+            _last_embedding_error = str(e)
+            if not offline_only:
+                try:
+                    _emb_fn = _load_sentence_transformer(fallback_name, allow_download=True)
+                    _loaded_model_name = fallback_name
+                    _last_embedding_error = None
+                    log.info("Fallback embedding model loaded after download: %s", fallback_name)
+                except Exception as e2:
+                    _last_embedding_error = str(e2)
                     _emb_fn = None
-                else:
-                    raise
-        except Exception:
-            _emb_fn = None
+            else:
+                _emb_fn = None
 
     # If embedding function is still None, provide a lightweight deterministic fallback
     if _emb_fn is None:
-        logging.getLogger("storage").warning("Using fallback deterministic embedding function (not semantic).")
+        log.warning("Using fallback deterministic embedding function (not semantic).")
+        _loaded_model_name = "fallback_embedding"
 
         class _FallbackEmbedding:
             def __init__(self, dim=64):
@@ -226,12 +292,15 @@ def get_collection_health() -> dict:
     """Return metadata about the current memory collection for health checks."""
     fallback = _is_fallback_embedding()
     name = "user_memory_fallback" if fallback else "user_memory"
+    model = _loaded_model_name or _embedding_model_name()
     return {
-        "status": "ok",
+        "status": "degraded" if fallback else "ok",
         "collection_name": name,
         "mode": "fallback" if fallback else "primary",
+        "model_name": model,
         "embedding": "deterministic_fallback" if fallback else "sentence_transformer",
-        "last_error": None,
+        "offline_only": _hf_hub_offline_requested(),
+        "last_error": _last_embedding_error,
     }
 
 

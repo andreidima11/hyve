@@ -24,16 +24,21 @@ function integrationIconClass(meta: ReturnType<typeof integrationDefinition>): s
     return raw.includes(' ') ? raw : `fas ${raw}`;
 }
 
+function _setIntegrationDescription(meta: ReturnType<typeof integrationDefinition>): void {
+    const section = document.getElementById('integration-description-section');
+    const descEl = document.getElementById('integration-config-description');
+    if (!section || !descEl) return;
+    const desc = integrationDescription(meta);
+    descEl.textContent = desc;
+    section.classList.toggle('hidden', !desc);
+}
+
 function _showGenericPanel(meta: ReturnType<typeof integrationDefinition>, catalogSlug: string): void {
     const generic = document.getElementById('integration-panel-generic');
     if (!generic) return;
     generic.classList.remove('hidden');
     const descEl = document.getElementById('integration-generic-description');
-    if (descEl) {
-        const desc = integrationDescription(meta);
-        descEl.textContent = desc;
-        descEl.classList.toggle('hidden', !desc);
-    }
+    if (descEl) descEl.classList.add('hidden');
     const syncBtn = document.getElementById('integration-generic-sync-btn');
     if (syncBtn) {
         const supportsSync = !!meta?.supports_sync;
@@ -90,6 +95,7 @@ export async function openIntegrationConfigModal(integrationId: string) {
         iconEl.classList.toggle('hidden', !!logo);
         iconEl.style.display = logo ? 'none' : '';
     }
+    _setIntegrationDescription(meta);
     openSubPage('integration-config-modal');
 
     try { await loadIntegrationConfigEntries(catalogSlug); } catch (_) {}

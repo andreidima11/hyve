@@ -8,7 +8,7 @@ from core.env_bootstrap import ensure_env_loaded
 ensure_env_loaded()
 
 CONFIG_FILE = "config.json"
-RELEASE_VERSION = "0.9.8.17"
+RELEASE_VERSION = "0.9.8.18"
 APP_VERSION = RELEASE_VERSION
 _settings_log = logging.getLogger("settings")
 
@@ -65,7 +65,8 @@ DEFAULT_CONFIG = {
 
     # 3. LIBRARIAN (Căutare Semantică - Locală)
     "librarian": { 
-        "model_name": "sentence-transformers/paraphrase-multilingual-mpnet-base-v2", 
+        "model_name": "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+        "offline_only": False,
         "retrieval_limit": 5, 
         "recency_penalty": 0.002, 
         "conflict_threshold": 0.35,

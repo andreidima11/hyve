@@ -382,6 +382,29 @@ export function closeAllSubPages() {
         el.setAttribute('aria-hidden', 'true');
     });
 }
+/** Mast / hub refresh buttons (arrows-rotate icon in toolbar). */
+export function isHubRefreshButton(el) {
+    const scope = el.closest('#config-standalone-actions, .hyd-standalone-actions, #view-skills .hyd-mast__actions, #view-memory .hyd-mast__actions');
+    if (!scope)
+        return false;
+    const icon = el.querySelector('i');
+    if (!icon)
+        return false;
+    return icon.classList.contains('fa-arrows-rotate')
+        || icon.classList.contains('fa-sync-alt')
+        || icon.classList.contains('fa-sync');
+}
+export function withHubRefreshFeedback(el, work) {
+    if (el.classList.contains('is-syncing'))
+        return;
+    el.classList.add('is-syncing');
+    el.setAttribute('aria-busy', 'true');
+    const minSpin = new Promise((resolve) => { window.setTimeout(resolve, 650); });
+    Promise.all([Promise.resolve(work()), minSpin]).finally(() => {
+        el.classList.remove('is-syncing');
+        el.removeAttribute('aria-busy');
+    });
+}
 /* ─── Modal viewport helpers ─── */
 export function syncModalViewportMetrics() {
     if (typeof window === 'undefined' || typeof document === 'undefined')

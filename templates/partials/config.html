@@ -1,4 +1,4 @@
-            <div id="view-config" class="h-full hidden overflow-y-auto overflow-x-hidden animate-up">
+            <div id="view-config" class="h-full hidden overflow-x-hidden min-h-0 animate-up">
 
                 <!-- ═══ CONFIGURĂRI HUB ═══ -->
                 <div id="config-hub" class="max-w-5xl mx-auto py-4 px-4 sm:py-6 sm:px-6 lg:py-8 lg:px-8">
@@ -1480,21 +1480,21 @@
                             <div id="config-standalone-actions" class="hyd-mast__actions">
                                 <div class="hyd-standalone-actions hidden" data-standalone-actions="scenes">
                                     <button type="button" data-config-action="loadScenes" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
-                                    <button type="button" data-config-action="openSceneEditor" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n-title="scenes.new_scene">
-                                        <i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="scenes.new_scene">New scene</span>
+                                    <button type="button" data-config-action="openSceneEditor" class="hyd-mast__action-btn hyd-mast__action-btn--accent" data-i18n-title="scenes.new_scene">
+                                        <i class="fas fa-plus" aria-hidden="true"></i><span class="hyd-mast__action-btn__label" data-i18n="scenes.new_scene">New scene</span>
                                     </button>
                                 </div>
                                 <div class="hyd-standalone-actions hidden" data-standalone-actions="areas">
                                     <button type="button" data-config-action="loadAreas" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
-                                    <button type="button" data-config-action="openCreateAreaModal" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n-title="areas.new_area">
-                                        <i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="areas.new_area">New area</span>
+                                    <button type="button" data-config-action="openCreateAreaModal" class="hyd-mast__action-btn hyd-mast__action-btn--accent" data-i18n-title="areas.new_area">
+                                        <i class="fas fa-plus" aria-hidden="true"></i><span class="hyd-mast__action-btn__label" data-i18n="areas.new_area">New area</span>
                                     </button>
                                 </div>
                                 <div class="hyd-standalone-actions hidden" data-standalone-actions="automations">
                                     <button type="button" data-memory-action="loadAutomations" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
                                     <button type="button" data-memory-action="openBlueprintPicker" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="automations.blueprint_button" title="Blueprint"><i class="fas fa-puzzle-piece" aria-hidden="true"></i></button>
-                                    <button type="button" data-memory-action="openAutomationEditor" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n-title="automations.new_button">
-                                        <i class="fas fa-plus" aria-hidden="true"></i><span data-i18n="automations.new_button">New</span>
+                                    <button type="button" data-memory-action="openAutomationEditor" class="hyd-mast__action-btn hyd-mast__action-btn--accent" data-i18n-title="automations.new_button">
+                                        <i class="fas fa-plus" aria-hidden="true"></i><span class="hyd-mast__action-btn__label" data-i18n="automations.new_button">New</span>
                                     </button>
                                 </div>
                                 <div class="hyd-standalone-actions hidden" data-standalone-actions="updates">
@@ -1821,11 +1821,24 @@
                     <div class="app-subpage-header hyd-mast">
                         <div class="hyd-mast__lead min-w-0">
                             <button type="button" data-config-action="closeIntegrationConfigModal" class="hyd-mast__back hyd-mast__back--icon" aria-label="Back"><i class="fas fa-arrow-left" aria-hidden="true"></i></button>
-                            <h3 class="hyd-mast__title hyd-top__title"><img id="integration-config-modal-logo" class="hidden w-6 h-6 rounded-md mr-2" src="" alt=""><i id="integration-config-modal-icon" class="fas fa-plug mr-2 text-accent" aria-hidden="true"></i><span id="integration-config-modal-title"></span></h3>
+                            <div class="hyd-mast__title-row min-w-0 flex items-center gap-3">
+                                <span id="integration-config-modal-icon-wrap" class="hyd-mast__icon-wrap flex-shrink-0">
+                                    <img id="integration-config-modal-logo" class="hidden w-full h-full object-contain" src="" alt="">
+                                    <i id="integration-config-modal-icon" class="fas fa-plug text-accent" aria-hidden="true"></i>
+                                </span>
+                                <h3 id="integration-config-modal-title" class="hyd-mast__title hyd-top__title truncate min-w-0"></h3>
+                            </div>
                         </div>
                     </div>
                     <div class="app-subpage-body">
                         <div class="max-w-2xl mx-auto p-4 sm:p-6 space-y-4">
+                            <section id="integration-description-section" class="hyd-app-card hidden">
+                                <header class="hyd-app-card__head">
+                                    <h2 class="hyd-app-card__title" data-i18n="apps.description_section">Description</h2>
+                                </header>
+                                <p id="integration-config-description" class="text-xs sm:text-sm leading-relaxed" style="color: var(--text-secondary);"></p>
+                            </section>
+
                             <div id="integration-panel-generic" class="hidden space-y-3">
                                 <p id="integration-generic-description" class="hidden"></p>
                                 <div id="integration-generic-empty-hint" class="hidden"></div>

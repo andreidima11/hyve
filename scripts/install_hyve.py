@@ -125,6 +125,23 @@ def install_python_dependencies() -> None:
     run([str(VENV_PYTHON), "-m", "pip", "install", "-r", str(REQUIREMENTS_FILE)])
 
 
+def prefetch_embedding_models(*, skip: bool) -> None:
+    if skip:
+        print_step("Skipping embedding model prefetch by request")
+        return
+    print_step("Prefetching memory embedding model (HuggingFace cache)")
+    proc = subprocess.run(
+        [str(VENV_PYTHON), "scripts/prefetch_embedding_model.py", "--include-fallback"],
+        cwd=ROOT,
+    )
+    if proc.returncode != 0:
+        print(
+            "Warning: embedding prefetch failed (no network or HuggingFace blocked). "
+            "Hyve will retry on first memory use, or run: "
+            f"{VENV_PYTHON} scripts/prefetch_embedding_model.py"
+        )
+
+
 def install_node_dependencies(skip_npm: bool) -> None:
     if skip_npm:
         print_step("Skipping Node.js dependencies by request")
@@ -399,6 +416,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"HTTP port (default {DEFAULT_PORT})")
     parser.add_argument("--skip-npm", action="store_true", help="Skip npm ci / css:build / js:build")
+    parser.add_argument(
+        "--skip-embeddings",
+        action="store_true",
+        help="Skip HuggingFace embedding model download (air-gapped installs)",
+    )
     parser.add_argument("--no-start", action="store_true", help="Install only; do not start uvicorn")
     parser.add_argument("--no-open-browser", action="store_true")
     parser.add_argument(
@@ -435,6 +457,7 @@ def main() -> int:
     else:
         ensure_venv(force_recreate=args.recreate_venv)
         install_python_dependencies()
+    prefetch_embedding_models(skip=args.skip_embeddings)
     install_node_dependencies(skip_npm=args.skip_npm)
     ensure_env_file()
     ensure_config_file(port)

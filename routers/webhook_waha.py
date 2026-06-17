@@ -8,7 +8,7 @@ import hmac
 import os
 import traceback
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -32,7 +32,10 @@ router = APIRouter(tags=["webhooks"])
 
 @router.post("/api/webhook/waha")
 @limiter.limit("60/minute")
-async def waha_hook(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(database.get_db)):
+async def waha_hook(
+    request: Request,
+    db: Session = Depends(database.get_db),
+):
     from integrations import entry_settings
 
     cfg = settings.CFG
@@ -167,13 +170,12 @@ async def waha_hook(request: Request, background_tasks: BackgroundTasks, db: Ses
         log_conversation_reply(ai_text, profile_name=settings.get_active_profile_name())
         try:
             from core.task_utils import create_tracked_task
-            create_tracked_task(brain.process_memory_pipeline(user_msg or user_content_for_history, unified_user_id, clean_ai_text, history), name="memory_pipeline_wa")
+            create_tracked_task(
+                brain.process_memory_pipeline(user_msg or user_content_for_history, unified_user_id, clean_ai_text, history),
+                name="memory_pipeline_wa",
+            )
         except Exception:
-            # Fallback: schedule via background tasks if create_task fails
-            try:
-                background_tasks.add_task(brain.process_memory_pipeline, user_msg or user_content_for_history, unified_user_id, clean_ai_text, history)
-            except Exception:
-                log_line("error", "⚠️", "MEMORY", "Failed to schedule memory pipeline")
+            log_line("error", "⚠️", "MEMORY", "Failed to schedule memory pipeline")
         return {"status": "ok"}
     except Exception as e:
         log_line("error", "⚠️", "EXCEPTION", traceback.format_exc())

@@ -8,7 +8,7 @@ import time
 import traceback
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -144,7 +144,7 @@ async def api_extract_document(
 # --- WEB CHAT (AUTH SUPPORT) ---
 @router.post("/api/chat")
 @limiter.limit("30/minute")
-async def api_chat(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(database.get_db)):
+async def api_chat(request: Request, db: Session = Depends(database.get_db)):
     """Single /api/chat: Ollama-format (HA Assist) → proxy; else Bridge web chat."""
     try:
         body = await request.json()
@@ -166,10 +166,10 @@ async def api_chat(request: Request, background_tasks: BackgroundTasks, db: Sess
         )
     except Exception:
         raise HTTPException(status_code=422, detail=error_detail("chat.invalid_request_body"))
-    return await chat_web_impl(request, req, background_tasks, db)
+    return await chat_web_impl(request, req, db)
 
 
-async def chat_web_impl(request: Request, req: ChatRequest, background_tasks: BackgroundTasks, db: Session):
+async def chat_web_impl(request: Request, req: ChatRequest, db: Session):
     try:
         token = req.token or (request.headers.get("Authorization") or "").replace("Bearer ", "").strip()
         user_obj = None
