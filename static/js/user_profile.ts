@@ -137,11 +137,9 @@ export function switchUserProfileTab(tab = 'notifications') {
 
         if (panel) panel.classList.toggle('hidden', !isActive);
         if (btn) {
+            btn.classList.toggle('is-active', isActive);
             btn.classList.toggle('config-tab-btn--active', isActive);
-            btn.classList.toggle('border-accent', isActive);
-            btn.classList.toggle('text-accent', isActive);
-            btn.classList.toggle('border-transparent', !isActive);
-            btn.classList.toggle('text-slate-500', !isActive);
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
         }
     });
     if (tab === 'notifications') {

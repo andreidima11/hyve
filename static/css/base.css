@@ -834,22 +834,9 @@ body {
         left: 0;
     }
 
-    /* Mobile browser: fit shell to visible viewport (exclude bottom toolbar overlay) */
+    /* Mobile browser: inset for scroll clearance (do not shrink shell — avoids bottom gap) */
     html:not(.is-native-app) {
-        height: var(--app-visible-height, 100dvh);
-        --viewport-top-inset: calc(var(--safe-top) + var(--app-visible-offset-top, 0px));
-        --viewport-bottom-inset: calc(var(--safe-bottom) + max(var(--app-visible-bottom-gap, 0px), 4dvh));
-    }
-
-    html:not(.is-native-app) body {
-        height: var(--app-visible-height, 100dvh);
-        max-height: var(--app-visible-height, 100dvh);
-    }
-
-    html:not(.is-native-app) #sidebar {
-        top: var(--viewport-top-inset);
-        bottom: var(--viewport-bottom-inset);
-        height: auto;
+        --viewport-bottom-inset: calc(var(--safe-bottom) + var(--app-visible-bottom-gap, 0px));
     }
 }
 
@@ -1252,8 +1239,12 @@ main.flex-1 {
     #view-config,
     #view-user,
     #view-planner {
-        padding-bottom: calc(var(--viewport-bottom-inset) + 1.25rem) !important;
-        scroll-padding-bottom: calc(var(--viewport-bottom-inset) + 1rem) !important;
+        padding-bottom: calc(var(--viewport-bottom-inset) + 1rem) !important;
+        scroll-padding-bottom: calc(var(--viewport-bottom-inset) + 0.75rem) !important;
+    }
+
+    html:not(.is-native-app) #sidebar > div {
+        padding-bottom: calc(var(--viewport-bottom-inset) + 0.5rem);
     }
 }
 
@@ -1323,8 +1314,8 @@ main.flex-1 {
     #view-config,
     #view-user,
     #view-planner {
-        padding-bottom: calc(var(--viewport-bottom-inset) + 1.25rem) !important;
-        scroll-padding-bottom: calc(var(--viewport-bottom-inset) + 1rem) !important;
+        padding-bottom: calc(var(--viewport-bottom-inset) + 1rem) !important;
+        scroll-padding-bottom: calc(var(--viewport-bottom-inset) + 0.75rem) !important;
     }
 }
 

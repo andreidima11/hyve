@@ -1,51 +1,50 @@
             <div id="view-user" class="h-full hidden overflow-y-auto animate-up">
-                <div class="config-max-w max-w-4xl mx-auto py-4 px-4 sm:py-6 sm:px-6 lg:py-8 lg:px-8">
-                    <header class="mb-6">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <h1 id="user-page-title" class="text-lg sm:text-2xl font-semibold text-white tracking-tight truncate" data-i18n="header.identify">Account</h1>
-                                <p class="text-slate-500 text-xs sm:text-sm mt-0.5 sm:mt-1" data-i18n="user.page_subtitle">Your notifications, profile and account security.</p>
+                <div class="hyd-hub-shell max-w-5xl mx-auto py-4 px-4 sm:py-6 sm:px-6 lg:py-8 lg:px-8">
+                    <header class="hyd-mast hyd-mast--stacked mb-4 sm:mb-6">
+                        <div class="hyd-mast__row">
+                            <div class="hyd-mast__lead min-w-0">
+                                <h1 id="user-page-title" class="hyd-mast__title hyd-top__title" data-i18n="header.identify">Account</h1>
+                                <p class="hyd-mast__subtitle hidden sm:block" data-i18n="user.page_subtitle">Your notifications, profile and account security.</p>
                             </div>
-                            <button type="button" data-user-action="logout" class="shrink-0 w-9 h-9 flex items-center justify-center text-slate-600 hover:transition-all rounded-lg hover:bg-white/[0.03] touch-manipulation" data-i18n-title="user.logout" data-i18n-aria-label="user.logout" title="Log out" aria-label="Log out">
-                                <i class="fas fa-right-from-bracket text-xs sm:text-sm"></i>
-                            </button>
+                            <div class="hyd-mast__actions">
+                                <button type="button" data-user-action="logout" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="user.logout" data-i18n-aria-label="user.logout" title="Log out" aria-label="Log out">
+                                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="config-tabs-track mt-4">
-                            <button type="button" id="user-tab-btn-notifications" data-user-action="switchTab" data-user-tab="notifications" class="config-tab-btn config-tab-btn--active">
-                                <i class="fas fa-bell"></i>
+                        <div class="hyd-chips config-tabs-track w-full mt-3 sm:mt-4" role="tablist" aria-label="Profile">
+                            <button type="button" id="user-tab-btn-notifications" data-user-action="switchTab" data-user-tab="notifications" class="hyd-chip is-active config-tab-btn config-tab-btn--active" role="tab" aria-selected="true">
+                                <i class="fas fa-bell" aria-hidden="true"></i>
                                 <span data-i18n="user.tab_notifications">Notifications</span>
                                 <span id="user-tab-notification-count" class="notification-badge hidden ml-1" aria-live="polite">0</span>
                             </button>
-                            <button type="button" id="user-tab-btn-general" data-user-action="switchTab" data-user-tab="general" class="config-tab-btn">
-                                <i class="fas fa-id-card"></i>
+                            <button type="button" id="user-tab-btn-general" data-user-action="switchTab" data-user-tab="general" class="hyd-chip config-tab-btn" role="tab" aria-selected="false">
+                                <i class="fas fa-id-card" aria-hidden="true"></i>
                                 <span data-i18n="user.tab_general">General</span>
                             </button>
-                            <button type="button" id="user-tab-btn-security" data-user-action="switchTab" data-user-tab="security" class="config-tab-btn">
-                                <i class="fas fa-shield-halved"></i>
+                            <button type="button" id="user-tab-btn-security" data-user-action="switchTab" data-user-tab="security" class="hyd-chip config-tab-btn" role="tab" aria-selected="false">
+                                <i class="fas fa-shield-halved" aria-hidden="true"></i>
                                 <span data-i18n="user.tab_security">Security</span>
                             </button>
                         </div>
                     </header>
 
-                    <section id="user-tab-panel-notifications" class="cfg-section space-y-4 animate-up" style="border-left: 4px solid var(--accent);">
-                        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                            <div>
-                                <h2 class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
-                                    <i class="fas fa-bell"></i>
-                                    <span data-i18n="user.tab_notifications">Notifications</span>
-                                </h2>
-                                <p class="text-[11px] text-slate-500 mt-1"><span id="user-notifications-unread-count">0</span> <span data-i18n="user.unread_suffix">unread</span></p>
+                    <section id="user-tab-panel-notifications" class="hyd-app-card space-y-4 animate-up">
+                        <header class="hyd-app-card__head">
+                            <div class="min-w-0">
+                                <h2 class="hyd-app-card__title" data-i18n="user.tab_notifications">Notifications</h2>
+                                <p class="hyd-app-card__hint"><span id="user-notifications-unread-count">0</span> <span data-i18n="user.unread_suffix">unread</span></p>
                             </div>
-                        </div>
+                        </header>
                         <div class="flex items-center justify-between gap-3 border-t border-theme-subtle pt-4">
                             <span id="user-notifications-view-label" class="text-[10px] font-bold uppercase tracking-widest text-slate-500" data-i18n="notifications.view_inbox">Inbox</span>
                             <div class="flex items-center gap-2 min-w-0">
                                 <span id="user-notifications-status" class="hidden sm:inline text-[11px] text-slate-500">—</span>
                                 <div class="relative">
-                                    <button id="user-notifications-filter-button" type="button" data-user-action="toggleFilterMenu" aria-haspopup="menu" aria-expanded="false" class="inline-flex items-center gap-2 rounded-lg border border-theme-subtle bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-bold hover:bg-white/[0.06] hover:border-theme-medium transition-colors">
-                                        <i class="fas fa-filter text-[10px] text-accent"></i>
+                                    <button id="user-notifications-filter-button" type="button" data-user-action="toggleFilterMenu" aria-haspopup="menu" aria-expanded="false" class="hyd-btn hyd-btn--ghost hyd-btn--sm">
+                                        <i class="fas fa-filter" aria-hidden="true"></i>
                                         <span id="user-notifications-filter-label" data-i18n="notifications.filter_all">All</span>
-                                        <i class="fas fa-chevron-down text-[9px] text-slate-500"></i>
+                                        <i class="fas fa-chevron-down text-[9px] text-slate-500" aria-hidden="true"></i>
                                     </button>
                                     <div id="user-notifications-filter-menu" class="notification-filter-menu hidden" role="menu" data-i18n-aria-label="user.filter_menu_aria" aria-label="Notification filter">
                                         <button type="button" data-user-action="switchNotificationFilter" data-user-notification-filter="all" class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-bold hover:bg-white/[0.06] transition-colors" role="menuitemradio" aria-checked="true"><i class="fas fa-inbox w-4 text-center text-slate-500"></i><span class="flex-1" data-i18n="notifications.filter_all">All</span><i class="fas fa-check text-[10px] text-accent opacity-0"></i></button>
@@ -60,18 +59,17 @@
                             </div>
                         </div>
                         <div id="user-notifications-list" class="space-y-3"></div>
-                        <div id="user-notifications-empty" class="hidden rounded-xl border border-dashed border-theme-subtle bg-white/[0.02] px-4 py-8 text-center">
-                            <div class="mx-auto mb-3 w-10 h-10 rounded-xl bg-white/[0.03] border border-theme-subtle flex items-center justify-center text-slate-500"><i class="fas fa-bell-slash"></i></div>
-                            <p class="text-sm font-semibold" data-i18n="user.notifications_empty">No notifications here.</p>
+                        <div id="user-notifications-empty" class="hidden hyd-list-placeholder" role="status">
+                            <i class="fas fa-bell-slash" aria-hidden="true"></i>
+                            <p data-i18n="user.notifications_empty">No notifications here.</p>
                         </div>
                     </section>
 
-                    <section id="user-tab-panel-general" class="cfg-section space-y-4 animate-up hidden" style="border-left: 4px solid var(--accent);">
-                        <h2 class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
-                            <i class="fas fa-user-pen"></i>
-                            <span data-i18n="user.general_title">General information</span>
-                        </h2>
-                        <p class="text-[11px] text-slate-500" data-i18n="user.general_hint">This information is also available to the AI so responses can be personalized when relevant.</p>
+                    <section id="user-tab-panel-general" class="hyd-app-card space-y-4 animate-up hidden">
+                        <header class="hyd-app-card__head">
+                            <h2 class="hyd-app-card__title" data-i18n="user.general_title">General information</h2>
+                            <p class="hyd-app-card__hint" data-i18n="user.general_hint">This information is also available to the AI so responses can be personalized when relevant.</p>
+                        </header>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div class="space-y-1">
                                 <label for="user-profile-first-name" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="user.first_name">First name</label>
@@ -91,16 +89,15 @@
                             <textarea id="user-profile-about" rows="4" class="w-full border border-theme-subtle rounded-xl p-3 text-sm resize-y" data-i18n-placeholder="user.about_placeholder" placeholder="Write a few details about yourself…"></textarea>
                         </div>
                         <div class="flex items-center justify-end">
-                            <button type="button" data-user-action="saveGeneral" class="px-4 py-2 rounded-xl text-sm font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n="common.save">Save</button>
+                            <button type="button" data-user-action="saveGeneral" class="hyd-btn hyd-btn--glow"><i class="fas fa-check" aria-hidden="true"></i><span data-i18n="common.save">Save</span></button>
                         </div>
                     </section>
 
-                    <section id="user-tab-panel-security" class="cfg-section space-y-4 hidden" style="border-left: 4px solid var(--accent);">
-                        <h2 class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
-                            <i class="fas fa-lock"></i>
-                            <span data-i18n="user.security_title">Security</span>
-                        </h2>
-                        <p class="text-[11px] text-slate-500" data-i18n="user.security_hint">Confirm with your current password to change security settings.</p>
+                    <section id="user-tab-panel-security" class="hyd-app-card space-y-4 hidden">
+                        <header class="hyd-app-card__head">
+                            <h2 class="hyd-app-card__title" data-i18n="user.security_title">Security</h2>
+                            <p class="hyd-app-card__hint" data-i18n="user.security_hint">Confirm with your current password to change security settings.</p>
+                        </header>
                         <div class="space-y-1">
                             <label for="user-security-current-password" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" data-i18n="user.current_password">Current password</label>
                             <input id="user-security-current-password" type="password" class="w-full border border-theme-subtle rounded-xl p-3 text-sm" placeholder="••••••••" autocomplete="current-password">
@@ -124,7 +121,7 @@
                             </div>
                         </div>
                         <div class="flex items-center justify-end">
-                            <button type="button" data-user-action="saveSecurity" class="px-4 py-2 rounded-xl text-sm font-bold bg-accent text-bg-main hover:bg-accent-hover transition-colors" data-i18n="common.save">Save</button>
+                            <button type="button" data-user-action="saveSecurity" class="hyd-btn hyd-btn--glow"><i class="fas fa-check" aria-hidden="true"></i><span data-i18n="common.save">Save</span></button>
                         </div>
                     </section>
                 </div>

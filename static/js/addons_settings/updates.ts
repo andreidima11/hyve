@@ -12,6 +12,7 @@ import type { AddonUpdateRow, HyveUpdateStatus } from './types.js';
 
 let _addonUpdatesCache: AddonUpdateRow[] = [];
 let _hyveUpdateCache: HyveUpdateStatus | null = null;
+let _updatesDataLoaded = false;
 
 interface ReleaseNotesEntry {
     title: string;
@@ -24,7 +25,7 @@ const _releaseNotesCache = new Map<string, ReleaseNotesEntry>();
 
 if (typeof window !== 'undefined') {
     window.addEventListener('hyve:i18n-bundles-loaded', () => {
-        if (_updatesListEl()) _renderUpdateRows();
+        if (_updatesDataLoaded && _updatesListEl()) _renderUpdateRows();
     });
 }
 
@@ -51,6 +52,8 @@ function _setListLoading(): void {
     const html = `<div class="text-center py-8 text-slate-500 text-xs"><i class="fas fa-spinner fa-spin mr-2"></i>${escapeHtml(t('updates.loading'))}</div>`;
     const list = _updatesListEl();
     if (list) list.innerHTML = html;
+    const countEl = _updatesEl('updates-count', 'updates-addons-count');
+    if (countEl) countEl.textContent = t('updates.loading');
 }
 
 function _updatesCheckButtons(): HTMLButtonElement[] {
@@ -122,6 +125,7 @@ export async function loadUpdatesAddons() {
         };
         _hyveUpdateCache = data.hyve || null;
         _addonUpdatesCache = data.addons || [];
+        _updatesDataLoaded = true;
         updateHeaderUpdatesBadge(data.total_updates || 0);
         _renderUpdateRows();
     } catch (e) {
@@ -533,19 +537,31 @@ function _renderUpdateRows() {
 
     const addonTotal = sorted.length;
     const addonPending = sorted.filter(a => a.update_available).length;
+    const hyvePending = hyve?.update_available ? 1 : 0;
+    const pendingTotal = hyvePending + addonPending;
     const totalItems = (hyve ? 1 : 0) + addonTotal;
 
     const countEl = _updatesEl('updates-count', 'updates-addons-count');
     if (countEl) {
-        countEl.textContent = totalItems
-            ? t('updates.items_count', { count: totalItems })
-            : t('updates.no_addons');
+        if (!_updatesDataLoaded) {
+            countEl.textContent = t('updates.loading');
+        } else if (totalItems === 0) {
+            countEl.textContent = t('updates.no_updates_available');
+        } else if (pendingTotal === 0) {
+            countEl.textContent = t('updates.all_up_to_date');
+        } else {
+            countEl.textContent = t('updates.n_updates_available', { count: pendingTotal });
+        }
     }
 
     _setUpdatesUpgradeVisible(addonPending > 0);
 
-    if (!hyve && !addonTotal) {
-        list.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">${escapeHtml(t('updates.no_addons'))}</div>`;
+    if (!_updatesDataLoaded) {
+        return;
+    }
+
+    if (!hyve && addonTotal === 0) {
+        list.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">${escapeHtml(t('updates.no_updates_available'))}</div>`;
         _setHyveHint('');
         return;
     }

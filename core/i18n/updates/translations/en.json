@@ -34,6 +34,7 @@
   "deps_description": "Automatic checking and updating of Python packages used by Hyve.",
   "addons_description": "Automatic checking for updates of installed add-ons.",
   "no_addons": "No installed add-ons.",
+  "no_updates_available": "No updates available.",
   "addons_count": "{count} add-ons",
   "items_count": "{count} components",
   "upgrade_btn": "Update",

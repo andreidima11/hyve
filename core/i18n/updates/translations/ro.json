@@ -34,6 +34,7 @@
   "deps_description": "Verificare automată și actualizare a pachetelor Python folosite de Hyve.",
   "addons_description": "Verificare automată a actualizărilor pentru add-on-urile instalate.",
   "no_addons": "Niciun add-on instalat.",
+  "no_updates_available": "Nicio actualizare disponibilă.",
   "addons_count": "{count} add-on-uri",
   "items_count": "{count} componente",
   "upgrade_btn": "Actualizează",

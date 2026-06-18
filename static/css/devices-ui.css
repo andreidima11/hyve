@@ -170,7 +170,7 @@
 }
 
 /* Hub content column — matches Settings (`max-w-5xl`, 80rem on lg+) */
-#view-config .hyd-hub-shell {
+.hyd-hub-shell {
     width: 100%;
     max-width: 64rem;
     margin-left: auto;
@@ -179,8 +179,26 @@
 }
 
 @media (min-width: 1024px) {
-    #view-config .hyd-hub-shell,
-    #view-config .config-max-w {
+    .hyd-hub-shell,
+    .config-max-w {
+        max-width: 80rem;
+    }
+}
+
+#view-skills > .app-subpage > .app-subpage-header,
+#view-skills > .app-subpage > .app-subpage-body,
+#view-skills > .app-subpage > .app-subpage-footer {
+    width: 100%;
+    max-width: 64rem;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+    #view-skills > .app-subpage > .app-subpage-header,
+    #view-skills > .app-subpage > .app-subpage-body,
+    #view-skills > .app-subpage > .app-subpage-footer {
         max-width: 80rem;
     }
 }

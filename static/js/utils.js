@@ -405,7 +405,7 @@ export function withHubRefreshFeedback(el, work) {
         el.removeAttribute('aria-busy');
     });
 }
-/* ─── Modal viewport helpers ─── */
+/* ─── App shell viewport (mobile browser chrome) ─── */
 export function syncModalViewportMetrics() {
     if (typeof window === 'undefined' || typeof document === 'undefined')
         return;

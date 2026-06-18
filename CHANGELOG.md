@@ -4,6 +4,16 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.21] — 2026-06
+
+Patch release: **Skills width, Updates copy, mobile gap, Profile UI**.
+
+### Frontend
+- **UI:** Skills page uses the same hub content width as Settings (`hyd-hub-shell`).
+- **Fix:** Updates page shows correct status text — “Nicio actualizare disponibilă” / “Totul e la zi” instead of “Niciun add-on instalat”; no misleading empty state while checking.
+- **Fix:** Mobile browser — removed bottom gap above toolbar (shell stays full height; scroll padding only).
+- **UI:** Profile page aligned with Hub design (`hyd-mast`, `hyd-chips`, `hyd-app-card`).
+
 ## [0.9.8.20] — 2026-06
 
 Hotfix: **Hub touch scroll on mobile**.
