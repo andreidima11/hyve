@@ -402,12 +402,12 @@
 
         /* ─── Modal overlay (kept for small dialogs: confirm, memento, alias, etc.) ─── */
         :root {
-            --app-modal-gap: max(0.5rem, env(safe-area-inset-top));
+            --app-modal-gap: max(0.5rem, var(--safe-area-inset-top));
         }
         .modal-overlay,
         .app-modal {
             background: var(--surface-overlay, rgba(3,7,18,0.92));
-            padding: max(0.5rem, env(safe-area-inset-top)) max(0.5rem, env(safe-area-inset-right)) max(0.5rem, env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left));
+            padding: max(0.5rem, var(--safe-area-inset-top)) max(0.5rem, var(--safe-area-inset-right)) max(0.5rem, var(--safe-area-inset-bottom)) max(0.5rem, var(--safe-area-inset-left));
             overflow: hidden;
             overscroll-behavior: contain;
         }
@@ -592,7 +592,7 @@
         })();
     </script>
 </head>
-<body class="text-slate-200 flex overflow-hidden" style="height: 100dvh; height: 100vh;">
+<body class="text-slate-200 flex overflow-hidden min-h-0" style="height: 100dvh;">
 
     <div id="setup-overlay" class="hyve-auth-overlay fixed inset-0 bg-bg-main z-[55] hidden items-center justify-center p-4" style="padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));">
         <div class="glass p-6 sm:p-10 rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-md border border-[var(--glass-border,rgba(255,255,255,0.06))] relative overflow-hidden backdrop-blur-2xl">

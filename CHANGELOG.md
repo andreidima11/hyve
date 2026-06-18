@@ -4,6 +4,14 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.22] — 2026-06
+
+Hotfix: **mobile viewport safe areas** and **Skills hub width**.
+
+### Frontend
+- **Fix:** Mobile browser — HA-style safe-area handling (`--safe-area-inset-*` from `visualViewport` + `env()`); shell uses body padding instead of height shrink, so bottom toolbar no longer overlaps sidebar/footer and no gap appears above it.
+- **Fix:** Skills page width matches other Hub pages — `hyd-config-page { max-width: 100% }` no longer overrides `hyd-hub-shell` on the same element.
+
 ## [0.9.8.21] — 2026-06
 
 Patch release: **Skills width, Updates copy, mobile gap, Profile UI**.

@@ -3038,10 +3038,10 @@
 /* === Chat Responsive === */
 
 @media (max-width: 639px) {
-    /* Chat view — clearance for mobile browser toolbar */
+    /* Chat view — body padding handles browser chrome */
     .chat-view {
         height: 100% !important;
-        padding-bottom: calc(var(--viewport-bottom-inset) + 0.75rem) !important;
+        padding-bottom: 0.75rem !important;
         box-sizing: border-box;
     }
 
@@ -3069,18 +3069,18 @@
         gap: 1rem !important;
     }
 
-    /* Input bar — fixed above the bottom browser chrome */
+    /* Input bar */
     .chat-input-wrapper {
         padding: 0.5rem 0.5rem !important;
-        padding-bottom: calc(var(--viewport-bottom-inset) + 0.5rem) !important;
+        padding-bottom: 0.5rem !important;
         flex-shrink: 0 !important;
         background: var(--surface-0) !important;
         border-top: 1px solid var(--border-subtle);
     }
 
     .chat-messages-wrapper {
-        padding-bottom: calc(var(--viewport-bottom-inset) + 3.25rem) !important;
-        scroll-padding-bottom: calc(var(--viewport-bottom-inset) + 3rem) !important;
+        padding-bottom: 3.25rem !important;
+        scroll-padding-bottom: 3rem !important;
     }
 
     /* Leave space at bottom of messages so last message isn't under the fixed input */

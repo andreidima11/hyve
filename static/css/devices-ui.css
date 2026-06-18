@@ -185,6 +185,17 @@
     }
 }
 
+/* When both classes share one node, hub width must win over .hyd-config-page { max-width: 100% } */
+.hyd-hub-shell.hyd-config-page {
+    max-width: 64rem;
+}
+
+@media (min-width: 1024px) {
+    .hyd-hub-shell.hyd-config-page {
+        max-width: 80rem;
+    }
+}
+
 #view-skills > .app-subpage > .app-subpage-header,
 #view-skills > .app-subpage > .app-subpage-body,
 #view-skills > .app-subpage > .app-subpage-footer {
@@ -1932,7 +1943,7 @@
 }
 
 .hyd-config-standalone__body .hyd-config-page {
-    padding-bottom: calc(var(--viewport-bottom-inset, env(safe-area-inset-bottom, 0px)) + 1rem);
+    padding-bottom: max(1rem, var(--safe-area-inset-bottom));
 }
 
 .hyd-entity-row--static {

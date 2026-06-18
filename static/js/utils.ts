@@ -411,19 +411,41 @@ export function withHubRefreshFeedback(el: HTMLElement, work: () => void | Promi
     });
 }
 
-/* ─── App shell viewport (mobile browser chrome) ─── */
+/* ─── App shell safe areas (mobile browser chrome — HA-style) ─── */
+
+function _setAppSafeAreaInset(prop: string, px: number) {
+    if (px > 0) {
+        document.documentElement.style.setProperty(prop, `${px}px`);
+    } else {
+        document.documentElement.style.removeProperty(prop);
+    }
+}
 
 export function syncModalViewportMetrics() {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
+    const isNative = document.documentElement.classList.contains('is-native-app')
+        || document.body?.classList.contains('hyve-native-app');
+    const isMobile = window.matchMedia('(max-width: 1023px)').matches;
+
+    if (isNative || !isMobile) {
+        _setAppSafeAreaInset('--app-safe-area-inset-top', 0);
+        _setAppSafeAreaInset('--app-safe-area-inset-bottom', 0);
+        _setAppSafeAreaInset('--app-safe-area-inset-left', 0);
+        _setAppSafeAreaInset('--app-safe-area-inset-right', 0);
+        return;
+    }
+
     const vv = window.visualViewport;
     const visibleHeight = Math.max(320, Math.round(vv?.height || window.innerHeight || document.documentElement.clientHeight || 0));
     const offsetTop = Math.max(0, Math.round(vv?.offsetTop || 0));
-    const bottomGap = Math.max(0, Math.round((window.innerHeight || visibleHeight) - visibleHeight - offsetTop));
+    const layoutHeight = window.innerHeight || visibleHeight;
+    const bottomGap = Math.max(0, Math.round(layoutHeight - visibleHeight - offsetTop));
 
-    document.documentElement.style.setProperty('--app-visible-height', `${visibleHeight}px`);
-    document.documentElement.style.setProperty('--app-visible-offset-top', `${offsetTop}px`);
-    document.documentElement.style.setProperty('--app-visible-bottom-gap', `${bottomGap}px`);
+    _setAppSafeAreaInset('--app-safe-area-inset-top', offsetTop);
+    _setAppSafeAreaInset('--app-safe-area-inset-bottom', bottomGap);
+    _setAppSafeAreaInset('--app-safe-area-inset-left', 0);
+    _setAppSafeAreaInset('--app-safe-area-inset-right', 0);
 }
 
 let _modalViewportSyncInitialized = false;
