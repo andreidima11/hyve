@@ -92,6 +92,7 @@ from routers.dashboard.store import (
     _user_default_page_id,
     _write_dashboard_raw,
 )
+from core.dashboard.normalize import _page_slug, _unique_page_id
 from core.ui_catalog import dashboard_card_catalog
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])

@@ -1064,3 +1064,34 @@ def test_move_dashboard_panel_swaps_adjacent_sections():
     panel_ids = [panel["id"] for panel in _loaded_store()["pages"][0]["panels"]]
     assert panel_ids == ["sec_b", "sec_a"]
     assert [panel["id"] for panel in result["panels"]] == ["sec_b", "sec_a"]
+
+
+def test_create_dashboard_page_persists_new_page():
+    from routers.dashboard.routes import create_dashboard_page
+
+    _seed_dashboard_store({
+        "current_page_id": "dashboard_home",
+        "pages": [
+            {
+                "id": "dashboard_home",
+                "title": "Acasă",
+                "subtitle": "Principal",
+                "icon": "fa-house",
+                "preferences": dashboard._DEFAULT_PREFS,
+                "panels": [],
+            }
+        ],
+    })
+
+    result = asyncio.run(
+        create_dashboard_page(
+            dashboard.DashboardPageBody(title="Birou Nou", icon="fa-briefcase"),
+            None,
+        )
+    )
+
+    assert result["status"] == "ok"
+    assert result["page"]["title"] == "Birou Nou"
+    assert result["current_page_id"] == "birou_nou"
+    stored = _loaded_store()
+    assert any(p["id"] == "birou_nou" for p in stored["pages"])

@@ -4,6 +4,13 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.24] — 2026-06
+
+Hotfix: **dashboard page creation** (500 on `POST /api/dashboard/pages`).
+
+### Dashboard
+- **Fix:** Missing imports for `_page_slug` / `_unique_page_id` caused `NameError` when creating a new page from the UI.
+
 ## [0.9.8.23] — 2026-06
 
 Hotfix: **Mosquitto sync after save** and **addon detail config UI**.
