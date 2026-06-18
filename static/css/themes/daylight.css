@@ -386,8 +386,8 @@
     background-color: rgba(248, 250, 252, 0.92) !important;
 }
 [data-theme="light"] #current-view-title { color: var(--text-secondary) !important; }
-[data-theme="light"] header button       { color: var(--text-tertiary) !important; }
-[data-theme="light"] header button:hover {
+[data-theme="light"] body > header button       { color: var(--text-tertiary) !important; }
+[data-theme="light"] body > header button:hover {
     color: var(--text-primary) !important;
     background: rgba(15, 23, 42, 0.04) !important;
 }
@@ -782,9 +782,25 @@
     width: calc(100% + 1rem);
 }
 
-/* Memory tab */
-[data-theme="light"] #view-memory button       { color: var(--text-tertiary); }
-[data-theme="light"] #view-memory button:hover { color: var(--text-primary); }
+/* Memory tab — ghost/secondary only; primary accent buttons keep white label */
+[data-theme="light"] #view-memory button:not(.hyd-mast__action-btn--accent):not(.hyd-btn--glow):not(.bg-accent) {
+    color: var(--text-tertiary);
+}
+[data-theme="light"] #view-memory button:not(.hyd-mast__action-btn--accent):not(.hyd-btn--glow):not(.bg-accent):hover {
+    color: var(--text-primary);
+}
+
+/* Devices UI — solid accent controls (Hub mast +, hyd-btn--glow save, etc.) */
+[data-theme="light"] .hyd-mast__action-btn--accent,
+[data-theme="light"] .hyd-mast__action-btn--accent:hover,
+[data-theme="light"] .hyd-mast__action-btn--accent:focus-visible,
+[data-theme="light"] .hyd-mast__action-btn--accent *,
+[data-theme="light"] .hyd-btn--glow,
+[data-theme="light"] .hyd-btn--glow:hover,
+[data-theme="light"] .hyd-btn--glow:focus-visible,
+[data-theme="light"] .hyd-btn--glow * {
+    color: #ffffff !important;
+}
 
 
 /* ══════════════════════════════════════════════════════════════
@@ -985,7 +1001,9 @@
     color: var(--text-primary) !important;
 }
 [data-theme="light"] .app-subpage-footer button.bg-accent,
-[data-theme="light"] .app-subpage-footer button.bg-accent:hover {
+[data-theme="light"] .app-subpage-footer button.bg-accent:hover,
+[data-theme="light"] .app-subpage-footer button.hyd-btn--glow,
+[data-theme="light"] .app-subpage-footer button.hyd-btn--glow:hover {
     color: #ffffff !important;
 }
 

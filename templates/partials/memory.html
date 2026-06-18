@@ -249,19 +249,28 @@
                                     <p class="hyd-mast__subtitle hidden sm:block" data-i18n="blueprints.subtitle">Șabloane YAML pentru automatizări reutilizabile.</p>
                                 </div>
                             </div>
-                            <div id="blueprint-picker-list-actions" class="hyd-mast__actions">
-                                <button type="button" data-memory-action="openBlueprintCreator" class="hyd-btn hyd-btn--ghost hyd-btn--sm"><i class="fas fa-pen-to-square" aria-hidden="true"></i><span data-i18n="blueprints.new">Nou blueprint</span></button>
-                                <button type="button" data-memory-action="importBlueprintYaml" class="hyd-btn hyd-btn--glow hyd-btn--sm"><i class="fas fa-upload" aria-hidden="true"></i><span data-i18n="blueprints.import">Import blueprint</span></button>
-                                <input type="file" id="blueprint-yaml-import-input" accept=".yaml,.yml,text/yaml" class="hidden" />
-                                <button type="button" data-memory-action="loadBlueprints" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
-                            </div>
-                            <div id="blueprint-picker-creator-actions" class="hyd-mast__actions hidden">
-                                <button type="button" data-memory-action="backToBlueprintList" class="hyd-btn hyd-btn--ghost hyd-btn--sm"><i class="fas fa-arrow-left" aria-hidden="true"></i><span data-i18n="blueprints.list_back">Listă</span></button>
-                                <button type="button" data-memory-action="saveCreatedBlueprint" id="blueprint-creator-save-btn" class="hyd-btn hyd-btn--glow hyd-btn--sm" data-i18n="blueprints.save">Salvează blueprint</button>
-                            </div>
-                            <div id="blueprint-picker-form-actions" class="hyd-mast__actions hidden">
-                                <button type="button" data-memory-action="deleteCurrentBlueprint" id="blueprint-picker-delete-btn" class="hyd-btn hyd-btn--danger hyd-btn--sm"><i class="fas fa-trash" aria-hidden="true"></i><span data-i18n="blueprints.delete">Șterge</span></button>
-                                <button type="button" data-memory-action="instantiateCurrentBlueprint" id="blueprint-picker-create-btn" class="hyd-btn hyd-btn--glow hyd-btn--sm" data-i18n="blueprints.create_automation">Creează automatizare</button>
+                            <div class="hyd-mast__actions">
+                                <div id="blueprint-picker-list-actions" class="hyd-standalone-actions flex items-center gap-2">
+                                    <button type="button" data-memory-action="loadBlueprints" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="common.refresh" title="Refresh"><i class="fas fa-arrows-rotate" aria-hidden="true"></i></button>
+                                    <button type="button" data-memory-action="importBlueprintYaml" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="blueprints.import" title="Import"><i class="fas fa-upload" aria-hidden="true"></i></button>
+                                    <button type="button" data-memory-action="openBlueprintCreator" class="hyd-mast__action-btn hyd-mast__action-btn--accent" data-i18n-title="blueprints.new">
+                                        <i class="fas fa-plus" aria-hidden="true"></i><span class="hyd-mast__action-btn__label" data-i18n="blueprints.new">Nou blueprint</span>
+                                    </button>
+                                    <input type="file" id="blueprint-yaml-import-input" accept=".yaml,.yml,text/yaml" class="hidden" />
+                                </div>
+                                <div id="blueprint-picker-creator-actions" class="hyd-standalone-actions hidden flex items-center gap-2">
+                                    <button type="button" data-memory-action="backToBlueprintList" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="blueprints.list_back" title="List"><i class="fas fa-arrow-left" aria-hidden="true"></i></button>
+                                    <button type="button" data-memory-action="saveCreatedBlueprint" id="blueprint-creator-save-btn" class="hyd-mast__action-btn hyd-mast__action-btn--accent" data-i18n-title="blueprints.save">
+                                        <i class="fas fa-floppy-disk" aria-hidden="true"></i><span class="hyd-mast__action-btn__label" data-i18n="blueprints.save">Salvează</span>
+                                    </button>
+                                </div>
+                                <div id="blueprint-picker-form-actions" class="hyd-standalone-actions hidden flex items-center gap-2">
+                                    <button type="button" data-memory-action="backToBlueprintList" class="hyd-mast__back hyd-mast__back--icon" data-i18n-title="blueprints.back_to_list" title="Back"><i class="fas fa-arrow-left" aria-hidden="true"></i></button>
+                                    <button type="button" data-memory-action="deleteCurrentBlueprint" id="blueprint-picker-delete-btn" class="hyd-mast__back hyd-mast__back--icon hyd-mast__back--danger hidden" data-i18n-title="blueprints.delete" title="Delete"><i class="fas fa-trash" aria-hidden="true"></i></button>
+                                    <button type="button" data-memory-action="instantiateCurrentBlueprint" id="blueprint-picker-create-btn" class="hyd-mast__action-btn hyd-mast__action-btn--accent hidden" data-i18n-title="blueprints.create_automation">
+                                        <i class="fas fa-plus" aria-hidden="true"></i><span class="hyd-mast__action-btn__label" data-i18n="blueprints.create_automation">Creează automatizare</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="app-subpage-body">

@@ -440,21 +440,6 @@ const _configSectionTitles = {
     updates: 'config.hub_updates_title',
     backup: 'config.hub_backup_title',
 };
-const _configSectionSubtitles = {
-    settings: 'config.subtitle',
-    integrations: 'config.section_integrations_subtitle',
-    automations: 'config.section_automations_subtitle',
-    memories: 'config.section_memories_subtitle',
-    appearance: 'config.section_appearance_subtitle',
-    users: 'config.section_users_subtitle',
-    logs: 'config.section_logs_subtitle',
-    app: 'config.section_app_subtitle',
-    addons: 'config.section_addons_subtitle',
-    scenes: 'config.section_scenes_subtitle',
-    areas: 'config.section_areas_subtitle',
-    updates: 'config.hub_updates_desc',
-    backup: 'config.hub_backup_desc',
-};
 const _standaloneSections = ['integrations', 'automations', 'memories', 'appearance', 'users', 'logs', 'app', 'addons', 'scenes', 'areas', 'updates', 'backup'];
 // Map config sections to their DOM panel IDs (for panels that live outside config)
 const _sectionPanelIds = {
@@ -495,16 +480,13 @@ export function openConfigSection(section) {
         if (standalone)
             standalone.classList.remove('hidden');
         const titleEl = document.getElementById('config-standalone-title');
-        const subtitleEl = document.getElementById('config-standalone-subtitle');
         if (titleEl)
             titleEl.textContent = t(_configSectionTitles[section] || section);
-        if (subtitleEl) {
-            const subtitle = _configSectionSubtitles[section] ? t(_configSectionSubtitles[section]) : '';
-            subtitleEl.textContent = subtitle;
-            subtitleEl.classList.toggle('hidden', !subtitle);
-        }
         _setStandaloneActions(section);
         applyTranslations();
+        // Re-apply dynamic hub title after i18n pass (standalone title must not use data-i18n).
+        if (titleEl)
+            titleEl.textContent = t(_configSectionTitles[section] || section);
         const panelId = _sectionPanelIds[section] || `cfg-tab-${section}`;
         const panel = document.getElementById(panelId);
         const body = document.getElementById('config-standalone-body');

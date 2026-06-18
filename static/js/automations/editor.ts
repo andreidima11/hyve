@@ -12,6 +12,20 @@ import {
     formatAutomationHistoryAt,
     automationRunStatusBadge,
 } from './format.js';
+
+function _prepareAutomationEditorModal(): HTMLElement | null {
+    const modal = document.getElementById('automation-editor-modal');
+    if (!modal) return null;
+    const host = document.getElementById('view-config') || document.querySelector('main') || document.body;
+    if (modal.parentElement !== host) {
+        host.appendChild(modal);
+    }
+    return modal;
+}
+
+function _setAutomationHubSubview(open: boolean): void {
+    document.getElementById('config-standalone')?.classList.toggle('hyd-config-standalone--subview', open);
+}
 import { loadAutomations, refreshAutomationStatuses } from './list.js';
 import {
     automationState,
@@ -67,6 +81,8 @@ export async function openAutomationEditor(automationId: string | null) {
     // have fresh data before the user starts typing. Fire-and-forget — the
     // editor still works on stale cache (or empty) if the call is slow.
     _automationLoadCapabilities({ force: true });
+    _prepareAutomationEditorModal();
+    _setAutomationHubSubview(true);
     if (!automationId) {
         if (titleEl) titleEl.textContent = t('automations.editor_new_title');
         setCodeEditorValue('automation-editor-yaml', _buildAutomationTemplate());
@@ -112,6 +128,7 @@ export function closeAutomationEditor(): void {
         historyEmpty.textContent = t('automations.history_unavailable');
     }
     closeSubPage('automation-editor-modal');
+    _setAutomationHubSubview(false);
 }
 
 export async function validateAutomationEditor(): Promise<void> {

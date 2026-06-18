@@ -125,13 +125,14 @@
 
 .hyd-mast__action-btn--accent {
     background: var(--accent);
-    color: var(--bg-main);
+    color: var(--text-on-accent, #ffffff);
     border-color: color-mix(in oklab, var(--accent) 80%, transparent);
 }
 
 .hyd-mast__action-btn--accent:hover,
 .hyd-mast__action-btn--accent:focus-visible {
     background: var(--accent-hover);
+    color: var(--text-on-accent, #ffffff);
     outline: none;
 }
 
@@ -159,12 +160,28 @@
 
 #view-config {
     overflow-x: clip;
-    overflow-y: auto;
+    overflow-y: hidden;
     min-height: 0;
 }
 
 #view-config:has(#config-standalone:not(.hidden)) {
     overflow: hidden;
+}
+
+/* Hub scroll regions: scrollable but no visible vertical scrollbar */
+.hyd-config-standalone__body,
+#blueprint-picker-modal .app-subpage-body,
+#automation-editor-modal .app-subpage-body {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.hyd-config-standalone__body::-webkit-scrollbar,
+#blueprint-picker-modal .app-subpage-body::-webkit-scrollbar,
+#automation-editor-modal .app-subpage-body::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
 }
 
 .hyd-scene-entry__entity,
@@ -1815,6 +1832,16 @@
 
 .hyd-config-standalone__mast {
     flex-shrink: 0;
+    align-items: center;
+}
+
+.hyd-config-standalone__mast .hyd-mast__lead {
+    align-items: center;
+}
+
+.hyd-config-standalone__mast .hyd-mast__title {
+    margin: 0;
+    line-height: 1.2;
 }
 
 .hyd-config-standalone__mast .hyd-mast__actions {
@@ -2387,6 +2414,29 @@
 #blueprint-picker-modal .app-subpage-header.hyd-mast {
     border-bottom: 1px solid var(--border-light);
     padding: 0.85rem 1rem;
+}
+
+#blueprint-picker-modal .hyd-mast__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+#blueprint-picker-modal .hyd-mast__actions > .hidden {
+    display: none !important;
+}
+
+.hyd-mast__back--danger {
+    color: color-mix(in oklab, #ef4444 78%, var(--text-secondary));
+    border-color: color-mix(in oklab, #ef4444 22%, var(--border-light));
+}
+
+.hyd-mast__back--danger:hover,
+.hyd-mast__back--danger:focus-visible {
+    color: #ef4444;
+    background: color-mix(in oklab, #ef4444 12%, transparent);
+    border-color: color-mix(in oklab, #ef4444 32%, var(--border-light));
 }
 
 #blueprint-picker-list button.hyd-entity-row {

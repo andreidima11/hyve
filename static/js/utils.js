@@ -384,7 +384,7 @@ export function closeAllSubPages() {
 }
 /** Mast / hub refresh buttons (arrows-rotate icon in toolbar). */
 export function isHubRefreshButton(el) {
-    const scope = el.closest('#config-standalone-actions, .hyd-standalone-actions, #view-skills .hyd-mast__actions, #view-memory .hyd-mast__actions');
+    const scope = el.closest('#config-standalone-actions, .hyd-standalone-actions, #view-skills .hyd-mast__actions, #view-memory .hyd-mast__actions, #blueprint-picker-modal .hyd-mast__actions, #automation-editor-modal .hyd-mast__actions');
     if (!scope)
         return false;
     const icon = el.querySelector('i');

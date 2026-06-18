@@ -28,6 +28,10 @@ function _prepareBlueprintPickerModal(): HTMLElement | null {
     return modal;
 }
 
+function _setBlueprintHubSubview(open: boolean): void {
+    document.getElementById('config-standalone')?.classList.toggle('hyd-config-standalone--subview', open);
+}
+
 async function _blueprintApiCall(url: string, options: RequestInit = {}): Promise<Response> {
     suppressLogout(true);
     try {
@@ -39,6 +43,7 @@ async function _blueprintApiCall(url: string, options: RequestInit = {}): Promis
 
 export async function openBlueprintPicker(): Promise<void> {
     _prepareBlueprintPickerModal();
+    _setBlueprintHubSubview(true);
     openSubPage('blueprint-picker-modal');
     backToBlueprintList();
     loadBlueprints();
@@ -46,6 +51,7 @@ export async function openBlueprintPicker(): Promise<void> {
 
 export function closeBlueprintPicker(): void {
     closeSubPage('blueprint-picker-modal');
+    _setBlueprintHubSubview(false);
     _activeBlueprint = null;
 }
 

@@ -4,6 +4,18 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.19] — 2026-06
+
+Patch release: **Hub titles, Blueprints, Daylight accent buttons**.
+
+### Frontend
+- **Fix:** Hub standalone pages show the correct title (not always “Integrări”) — removed conflicting `data-i18n` and re-apply dynamic title after translations.
+- **UI:** Removed hub mast subtitles so title aligns with refresh/+ actions on the right.
+- **UI:** Hide vertical scrollbar on hub scroll areas while keeping touch scroll.
+- **Fix:** Blueprint picker buttons work from Hub — event scope includes moved subpage modal; mast actions match Devices pattern.
+- **Fix:** Automation editor subpage relocates under `#view-config` for correct overlay from Hub.
+- **Fix (Daylight):** Solid blue buttons (`hyd-mast__action-btn--accent`, `hyd-btn--glow`, `bg-accent`) use white text; narrowed `header button` override to top app bar only.
+
 ## [0.9.8.18] — 2026-06
 
 Patch release: **chat works again**, **semantic memory embeddings download**, Hub UI polish.
