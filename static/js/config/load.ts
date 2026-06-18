@@ -360,6 +360,7 @@ export async function loadConfig() {
         if (!meRes.ok) return;
         const profile = await meRes.json();
         setIsAdmin(profile.is_admin);
+        window.dispatchEvent(new CustomEvent('hyve:admin-context-ready', { detail: { isAdmin: profile.is_admin } }));
         const isAdmin = profile.is_admin;
 
         document.querySelectorAll('.config-admin-only').forEach(el => {

@@ -229,10 +229,24 @@ function _revertWatchdogCheckbox(slug: string, enabled: boolean) {
 
 export async function detectAddonSerialPorts(fieldKey: string) {
     const safeKey = String(fieldKey || '');
-    const root = document.getElementById('app-detail') || document;
-    const input = root.querySelector(`[data-addon-config="${CSS.escape(safeKey)}"]`) as HTMLInputElement | null;
-    const results = root.querySelector(`[data-addon-detect-results="${CSS.escape(safeKey)}"]`);
-    if (!input || !results) return;
+    const roots = [
+        document.getElementById('app-detail'),
+        document.getElementById('addon-config-fields'),
+        document.getElementById('apps-detail-view'),
+    ].filter(Boolean) as HTMLElement[];
+
+    let input: HTMLInputElement | null = null;
+    let results: Element | null = null;
+    for (const root of roots.length ? roots : [document.body]) {
+        input = root.querySelector(`[data-addon-config="${CSS.escape(safeKey)}"], [data-addon-key="${CSS.escape(safeKey)}"]`) as HTMLInputElement | null;
+        results = root.querySelector(`[data-addon-detect-results="${CSS.escape(safeKey)}"]`);
+        if (input && results) break;
+    }
+
+    if (!input || !results) {
+        showToast(t('apps.detect_serial_title'), 'warning');
+        return;
+    }
     results.classList.remove('hidden');
     results.innerHTML = `<div class="text-[11px] text-slate-500"><i class="fas fa-spinner fa-spin mr-1"></i>${escapeHtml(t('apps.usb_scanning'))}</div>`;
     try {

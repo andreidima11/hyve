@@ -11,6 +11,7 @@ import type {
     AddonProcessStatusMap,
 } from '../types/features_apps.js';
 
+import { upgradeNativeSelects, initGenericCustomSelects } from '../features_custom_selects.js';
 import { appsState } from './state.js';
 import * as render from './render.js';
 import { startPoll, stopPoll, refreshDetailStatus } from './poll.js';
@@ -21,6 +22,12 @@ if (typeof window !== 'undefined') {
         if (document.getElementById('apps-list') && appsState.addonsCache.length) {
             render._renderAppsList();
         }
+    });
+    window.addEventListener('hyve:admin-context-ready', () => {
+        if (!appsState.openSlug) return;
+        const detailView = document.getElementById('apps-detail-view');
+        if (!detailView || detailView.classList.contains('hidden')) return;
+        void openAppDetail(appsState.openSlug);
     });
 }
 
@@ -110,6 +117,9 @@ async function _showAppDetail(addon: AddonCatalogEntry, status: AddonProcessStat
     if (!detailView) return;
     _setAppsViewMode('detail');
     detailView.innerHTML = `<div class="hyd-config-page">${render._renderDetail(addon, status)}</div>`;
+    const detailRoot = detailView.querySelector('#app-detail') || detailView;
+    upgradeNativeSelects(detailRoot);
+    initGenericCustomSelects(detailRoot);
     _wireAddonDetailControls(addon.slug);
     startPoll();
 }

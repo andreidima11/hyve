@@ -5,9 +5,9 @@ import { apiCall } from '../api.js';
 import { t, translateApiDetail } from '../lang/index.js';
 import { showToast, showConfirm, escapeHtml, openSubPage, closeSubPage } from '../utils.js';
 import { loadIntegrationEntities } from '../features_integrations_settings.js';
-import { collectAddonConfig, renderAddonConfigField, resolveAddonConfigValue } from '../addons/config_form.js';
+import { collectAddonConfig, renderAddonConfigField, renderAddonSerialConfigField, resolveAddonConfigValue } from '../addons/config_form.js';
 import { upgradeNativeSelects, initGenericCustomSelects } from '../features_custom_selects.js';
-import { isAdmin } from '../user_context.js';
+import { isExplicitNonAdmin } from '../user_context.js';
 import type { AddonRecord } from './types.js';
 import * as render from './render.js';
 
@@ -111,10 +111,12 @@ export async function openAddonConfigModal(slug: string) {
     const schema = addon.config_schema || [];
     const cfg = addon.state?.config || {};
     const suggestions = (addon as AddonRecord & { config_suggestions?: Record<string, unknown> }).config_suggestions;
-    const admin = isAdmin();
+    const canEdit = !isExplicitNonAdmin();
 
     fieldsEl.innerHTML = schema.map(field =>
-        renderAddonConfigField(field, resolveAddonConfigValue(field, cfg, suggestions), admin, 'data-addon-key'),
+        field.detect === 'serial'
+            ? renderAddonSerialConfigField(field, resolveAddonConfigValue(field, cfg, suggestions), canEdit, 'data-addon-key')
+            : renderAddonConfigField(field, resolveAddonConfigValue(field, cfg, suggestions), canEdit, 'data-addon-key'),
     ).join('');
 
     if (addon.start_command) {

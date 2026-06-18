@@ -5,7 +5,7 @@ import { apiCall } from '../api.js';
 import { showToast, escapeHtml, showConfirm } from '../utils.js';
 import { t, translateApiDetail } from '../lang/index.js';
 import { switchTab, openConfigSection } from '../nav_bridge.js';
-import { isAdmin } from '../user_context.js';
+import { isExplicitNonAdmin } from '../user_context.js';
 import type {
     AddonCatalogEntry,
     AddonColorKey,
@@ -15,7 +15,7 @@ import type {
     AddonProcessStatusMap,
     AddonSerialPort,
 } from '../types/features_apps.js';
-import { renderAddonConfigField, resolveAddonConfigValue } from '../addons/config_form.js';
+import { renderAddonConfigField, renderAddonSerialConfigField, resolveAddonConfigValue } from '../addons/config_form.js';
 import { appsState } from './state.js';
 export function _errMsg(err: unknown): string {
     if (err instanceof Error) {
@@ -116,36 +116,14 @@ export function _buildAddonWebUrl(addon: AddonCatalogEntry) {
     return `${protocol}://${rawHost}${port}${path}`;
 }
 
-function _renderConfigField(field: AddonConfigField, value: unknown, isAdmin: boolean) {
+function _renderConfigField(field: AddonConfigField, value: unknown, canEdit: boolean) {
     if (field.detect === 'serial') {
-        const key = field.key || '';
-        const label = field.label || key;
-        const desc = field.description || '';
-        const placeholder = field.placeholder || '';
-        const type = (field.type || 'text').toLowerCase();
-        const safeValue = value ?? field.default ?? '';
-        const disabled = isAdmin ? '' : 'disabled';
-        const inputType = ['number', 'password', 'url'].includes(type) ? type : 'text';
-        return `
-        <label class="block space-y-1.5 sm:col-span-2 min-w-0">
-            <span class="text-xs font-semibold text-slate-300">${escapeHtml(label)}</span>
-            <div class="flex flex-col sm:flex-row gap-2 min-w-0">
-                <input type="${escapeHtml(inputType)}" data-addon-config="${escapeHtml(key)}" value="${escapeHtml(String(safeValue))}" placeholder="${escapeHtml(placeholder)}" ${disabled}
-                    class="min-w-0 flex-1 rounded-xl border border-theme-light bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40">
-                <button type="button" data-config-action="detectAddonSerialPorts" data-config-key="${escapeHtml(key)}" ${disabled}
-                    class="w-full sm:w-auto px-3 py-2 rounded-xl text-xs font-semibold bg-accent/15 text-accent hover:bg-accent/25 transition-colors whitespace-nowrap flex-shrink-0"
-                    title="${escapeHtml(t('apps.detect_serial_title'))}">
-                    <i class="fas fa-magnifying-glass mr-1"></i>${escapeHtml(t('apps.detect_serial'))}
-                </button>
-            </div>
-            <div data-addon-detect-results="${escapeHtml(key)}" class="hidden space-y-1"></div>
-            ${desc ? `<p class="text-[11px] text-slate-500">${escapeHtml(desc)}</p>` : ''}
-        </label>`;
+        return renderAddonSerialConfigField(field, value, canEdit, 'data-addon-config');
     }
-    return renderAddonConfigField(field, value, isAdmin, 'data-addon-config');
+    return renderAddonConfigField(field, value, canEdit, 'data-addon-config');
 }
 
-function _renderConfigSection(addon: AddonCatalogEntry, isAdmin: boolean) {
+function _renderConfigSection(addon: AddonCatalogEntry, canEdit: boolean) {
     const schema = addon.config_schema || [];
     if (!schema.length) return '';
 
@@ -168,15 +146,15 @@ function _renderConfigSection(addon: AddonCatalogEntry, isAdmin: boolean) {
                     <h2 class="hyd-app-card__title">${escapeHtml(t('apps.config_section'))}</h2>
                     <p class="hyd-app-card__hint">${escapeHtml(intro)}</p>
                 </div>
-                ${isAdmin ? `<button type="button" data-config-action="saveAddonConfig" data-config-slug="${escapeHtml(addon.slug)}" class="hyd-btn hyd-btn--glow hyd-btn--sm flex-shrink-0 max-w-full"><i class="fas fa-check" aria-hidden="true"></i><span>${escapeHtml(t('apps.save_config'))}</span></button>` : ''}
+                ${canEdit ? `<button type="button" data-config-action="saveAddonConfig" data-config-slug="${escapeHtml(addon.slug)}" class="hyd-btn hyd-btn--glow hyd-btn--sm flex-shrink-0 max-w-full"><i class="fas fa-check" aria-hidden="true"></i><span>${escapeHtml(t('apps.save_config'))}</span></button>` : ''}
             </div>
         </header>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             ${tokenBanner}
-            ${schema.map((field: AddonConfigField) => _renderConfigField(field, resolveAddonConfigValue(field, cfg, suggestions), isAdmin)).join('')}
+            ${schema.map((field: AddonConfigField) => _renderConfigField(field, resolveAddonConfigValue(field, cfg, suggestions), canEdit)).join('')}
         </div>
         <div class="flex flex-wrap gap-2">
-            ${isAdmin ? `<button type="button" data-config-action="testAddonHealth" data-config-slug="${escapeHtml(addon.slug)}" class="hyd-btn hyd-btn--ghost hyd-btn--sm"><i class="fas fa-heart-pulse" aria-hidden="true"></i><span>${escapeHtml(t('apps.test_connection'))}</span></button>` : ''}
+            ${canEdit ? `<button type="button" data-config-action="testAddonHealth" data-config-slug="${escapeHtml(addon.slug)}" class="hyd-btn hyd-btn--ghost hyd-btn--sm"><i class="fas fa-heart-pulse" aria-hidden="true"></i><span>${escapeHtml(t('apps.test_connection'))}</span></button>` : ''}
             ${webUrl ? `<button type="button" data-config-action="openAddonWebUI" data-config-slug="${escapeHtml(addon.slug)}" class="hyd-btn hyd-btn--ghost hyd-btn--sm"><i class="fas fa-display" aria-hidden="true"></i><span>${escapeHtml(t('apps.open_web_ui'))}</span></button>` : ''}
         </div>
     </section>`;
@@ -306,9 +284,10 @@ export function _renderDetail(addon: AddonCatalogEntry, status: AddonProcessStat
     const pid = status?.pid || '—';
     const up = _uptime(status?.uptime);
     const hasProcess = !!addon.start_command;
-    const isAdminUser = isAdmin();
+    const canEdit = !isExplicitNonAdmin();
+    const isAdminUser = canEdit;
     const hasConfigSchema = !!(addon.config_schema || []).length;
-    const configHtml = _renderConfigSection(addon, isAdminUser);
+    const configHtml = _renderConfigSection(addon, canEdit);
     // Show the real installed version (resolved from the package) when installed;
     // fall back to the manifest version for not-installed add-ons.
     const displayVersion = addon.version || addon.state?.version || '?';

@@ -22,6 +22,8 @@ export interface AddonConfigField {
     placeholder?: string;
     type?: string;
     default?: unknown;
+    detect?: string;
+    options?: Array<string | { value?: string; label?: string }>;
 }
 
 export interface AddonRecord {

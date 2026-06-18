@@ -121,6 +121,7 @@ async def wire_new_entry(manager, slug: str, entry_id: str) -> None:
                 return
             try:
                 await store.do_sync(key, force=True)
+                helpers.invalidate_all_entities_cache()
             except SyncThrottledError as exc:
                 wait = exc.retry_after or store.seconds_until_next_sync(key)
                 log.info(
@@ -234,6 +235,8 @@ async def update_provider_entry(
     manager.reload()
 
     async def _background_resync(slug: str, entry_id: str):
+        from integrations import lifecycle as integration_lifecycle
+
         try:
             store = get_entity_store()
             inst = manager.get_by_entry(entry_id)
@@ -241,8 +244,10 @@ async def update_provider_entry(
                 key = await helpers.apply_instance_sync_schedule(store, inst, restart_loop=True)
                 if key:
                     await store.do_sync(key, force=True)
+                    helpers.invalidate_all_entities_cache()
         except Exception as exc:
             log.warning("Background resync after update failed for %s: %s", entry_id, exc)
+        await integration_lifecycle.after_entry_wired(slug, manager, entry_id)
 
     create_tracked_task(_background_resync(slug, entry["entry_id"]), name=f"resync_{entry['entry_id']}")
 

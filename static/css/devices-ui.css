@@ -1859,9 +1859,9 @@
     overflow-x: clip;
 }
 
-#app-detail {
-    min-width: 0;
-    max-width: 100%;
+#app-detail .hyd-btn,
+#app-detail [data-config-action] {
+    touch-action: manipulation;
 }
 
 #app-detail .hyd-app-card {

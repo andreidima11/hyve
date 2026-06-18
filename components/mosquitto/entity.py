@@ -44,6 +44,18 @@ from integrations.base import BaseEntity
 
 log = logging.getLogger("integrations.mosquitto")
 
+
+def _payload_has_sources(payload: dict[str, Any]) -> bool:
+    """True when cached MQTT payload contains discoverable device data."""
+    if not isinstance(payload, dict) or not payload:
+        return False
+    z2m = payload.get("z2m_devices")
+    if isinstance(z2m, list) and z2m:
+        return True
+    discovery = payload.get("discovery")
+    return isinstance(discovery, dict) and bool(discovery)
+
+
 _Z2M_BRIDGE_DEVICES = "zigbee2mqtt/bridge/devices"
 _Z2M_DEVICE_STATE = "zigbee2mqtt/+"
 _HA_DISCOVERY_2 = "homeassistant/+/+/config"
@@ -100,10 +112,23 @@ class MosquittoEntity(BaseEntity):
         bridge = _bridge_mod.get_bridge(self.entry_id)
         stored = dict(cached or {})
         if bridge is not None and bridge.is_running():
-            return _merge_payload(stored, bridge.snapshot())
-        if stored:
+            merged = _merge_payload(stored, bridge.snapshot())
+            if _payload_has_sources(merged):
+                return merged
+        elif stored and _payload_has_sources(stored):
             return stored
         return await self.probe_source()
+
+    def choose_refresh_mode(self, *, force: bool, cached: dict[str, Any], cycle_count: int) -> str:
+        """Manual sync and empty/partial cache must re-run broker discovery."""
+        from integrations.source_refresh import MODE_PROBE, MODE_PULL
+
+        if force or not _payload_has_sources(cached):
+            return MODE_PROBE
+        interval = max(1, int(self.probe_interval_cycles))
+        if cycle_count > 0 and cycle_count % interval == 0:
+            return MODE_PROBE
+        return MODE_PULL
 
     def live_payload(self, stored: dict[str, Any]) -> dict[str, Any]:
         """Merge stored discovery with the live MQTT bridge cache so the

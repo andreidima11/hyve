@@ -27,7 +27,15 @@ function _inGlobalConfigModal(el: Element | null | undefined): boolean {
 }
 
 function _inDelegatedConfigScope(el: Element | null | undefined): boolean {
-    return _inConfigScope(el) || _inGlobalConfigModal(el);
+    if (!el) return false;
+    return !!(
+        el.closest('#view-config')
+        || el.closest('#config-standalone')
+        || el.closest('#apps-detail-view')
+        || el.closest('#app-detail')
+        || el.closest('#addon-config-modal')
+        || _inGlobalConfigModal(el)
+    );
 }
 
 function _run(action: string, el: HTMLElement, event: Event): void {
@@ -206,6 +214,9 @@ function _onClick(event: MouseEvent): void {
     const el = (event.target as Element | null)?.closest('[data-config-action]') as HTMLElement | null;
     if (!el) return;
     const action = el.dataset.configAction || '';
+    if (el.closest('label') && el.tagName === 'BUTTON') {
+        event.preventDefault();
+    }
     if (isHubRefreshButton(el)) {
         if (el.classList.contains('is-syncing')) {
             event.preventDefault();

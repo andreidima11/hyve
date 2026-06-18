@@ -2,6 +2,7 @@
  * Shared add-on config field render + collect (Apps detail + Hub modal).
  */
 import { escapeHtml } from '../utils.js';
+import { t } from '../lang/index.js';
 
 export interface AddonFieldSchema {
     key?: string;
@@ -56,7 +57,7 @@ export function resolveAddonConfigValue(
 export function renderAddonConfigField(
     field: AddonFieldSchema,
     value: unknown,
-    isAdmin: boolean,
+    canEdit: boolean,
     attr = 'data-addon-config',
 ): string {
     const key = field.key || '';
@@ -65,7 +66,7 @@ export function renderAddonConfigField(
     const placeholder = field.placeholder || '';
     const type = (field.type || 'text').toLowerCase();
     const safeValue = value ?? field.default ?? '';
-    const disabled = isAdmin ? '' : 'disabled';
+    const disabled = canEdit ? '' : 'disabled';
     const wideClass = type === 'textarea' ? 'sm:col-span-2' : '';
     const attrName = attr === 'data-addon-key' ? 'data-addon-key' : 'data-addon-config';
 
@@ -117,4 +118,36 @@ export function renderAddonConfigField(
             class="w-full rounded-xl border border-theme-light bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40${inputType === 'password' ? '' : ' font-mono text-[12px]'}">
         ${desc ? `<p class="text-[11px] text-slate-500">${escapeHtml(desc)}</p>` : ''}
     </label>`;
+}
+
+export function renderAddonSerialConfigField(
+    field: AddonFieldSchema,
+    value: unknown,
+    canEdit: boolean,
+    attr = 'data-addon-config',
+): string {
+    const key = field.key || '';
+    const label = field.label || key;
+    const desc = field.description || '';
+    const placeholder = field.placeholder || '';
+    const type = (field.type || 'text').toLowerCase();
+    const safeValue = value ?? field.default ?? '';
+    const disabled = canEdit ? '' : 'disabled';
+    const inputType = ['number', 'password', 'url'].includes(type) ? type : 'text';
+    const attrName = attr === 'data-addon-key' ? 'data-addon-key' : 'data-addon-config';
+    return `
+    <div class="block space-y-1.5 sm:col-span-2 min-w-0">
+        <span class="text-xs font-semibold text-slate-300">${escapeHtml(label)}</span>
+        <div class="flex flex-col sm:flex-row gap-2 min-w-0">
+            <input type="${escapeHtml(inputType)}" ${attrName}="${escapeHtml(key)}" value="${escapeHtml(String(safeValue))}" placeholder="${escapeHtml(placeholder)}" ${disabled}
+                class="min-w-0 flex-1 rounded-xl border border-theme-light bg-slate-950/80 px-3 py-2.5 text-sm text-white outline-none focus:border-accent/40">
+            <button type="button" data-config-action="detectAddonSerialPorts" data-config-key="${escapeHtml(key)}" ${disabled}
+                class="w-full sm:w-auto px-3 py-2 rounded-xl text-xs font-semibold bg-accent/15 text-accent hover:bg-accent/25 transition-colors whitespace-nowrap flex-shrink-0 touch-manipulation"
+                title="${escapeHtml(t('apps.detect_serial_title'))}">
+                <i class="fas fa-magnifying-glass mr-1"></i>${escapeHtml(t('apps.detect_serial'))}
+            </button>
+        </div>
+        <div data-addon-detect-results="${escapeHtml(key)}" class="hidden space-y-1"></div>
+        ${desc ? `<p class="text-[11px] text-slate-500">${escapeHtml(desc)}</p>` : ''}
+    </div>`;
 }

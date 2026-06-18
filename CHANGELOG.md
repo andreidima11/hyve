@@ -4,6 +4,16 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.23] — 2026-06
+
+Hotfix: **Mosquitto sync after save** and **addon detail config UI**.
+
+### Integrations
+- **Fix:** Mosquitto — Test found devices but Save/sync showed none: manual sync and partial cache now re-run full broker discovery (`probe`) instead of a light bridge pull; bridge fallback probes when its cache is still empty; entity cache invalidated after entry save/resync; MQTT bridge restarted after entry update.
+
+### Frontend
+- **Fix:** Addon detail — settings fields and Detect (e.g. Zigbee2MQTT serial port) work while admin profile is still loading; config event bindings cover addon detail/modal; custom selects re-init after detail render.
+
 ## [0.9.8.22] — 2026-06
 
 Hotfix: **mobile viewport safe areas** and **Skills hub width**.

@@ -71,6 +71,7 @@ async function syncUiLanguageFromConfig() {
 
 function applyProfileFlags(profile: UserProfileResponse & { id?: string | number }) {
     setIsAdmin(!!profile.is_admin);
+    window.dispatchEvent(new CustomEvent('hyve:admin-context-ready', { detail: { isAdmin: !!profile.is_admin } }));
     setUserProfileContext(profile);
     try { applyDashboardEditAccess(); } catch (_) {}
     if (profile.is_admin) {
