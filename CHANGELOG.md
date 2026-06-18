@@ -4,6 +4,16 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.20] — 2026-06
+
+Hotfix: **Hub touch scroll on mobile**.
+
+### Frontend
+- **Fix:** Restore vertical scroll in Hub on phone — `#view-config` had `overflow-y: hidden` (0.9.8.19) which blocked swipe scrolling on the hub grid and settings; standalone subpages get a stronger flex scroll chain for iOS (`touch-action: pan-y`).
+- **UI:** Hub standalone pages and subpages use the same content width as Settings (`max-w-5xl`, 80rem on desktop).
+- **Fix:** Mobile browser UI (bottom search/toolbar) no longer covers sidebar links or page footers — shell height follows `visualViewport` with dynamic bottom inset.
+- **Fix:** Updates page release notes — `publish_release.py` upserts GitHub releases (edit if tag exists); Hyve notes fall back to `CHANGELOG.md`; version-specific notes no longer pull the wrong older GitHub release body.
+
 ## [0.9.8.19] — 2026-06
 
 Patch release: **Hub titles, Blueprints, Daylight accent buttons**.

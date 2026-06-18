@@ -15,6 +15,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import core.settings as settings
+from core.changelog_notes import changelog_section
 from core.update_git_tree import is_safe_runtime_dirty_path
 
 log = logging.getLogger(__name__)
@@ -207,13 +208,39 @@ def _resolve_latest_release() -> dict[str, Any]:
     if not candidates:
         raise HyveUpdateError("updates.hyve_check_failed")
     best = max(candidates, key=lambda row: _parse_version(str(row.get("version") or "")))
-    if github and not str(best.get("body") or "").strip():
-        best = {
-            **best,
-            "body": github.get("body") or "",
-            "html_url": str(best.get("html_url") or "").strip() or str(github.get("html_url") or ""),
-        }
-    return best
+    return _attach_release_notes_for_version(best)
+
+
+def _attach_release_notes_for_version(release: dict[str, Any]) -> dict[str, Any]:
+    """Ensure release notes/url match the resolved version (not an older GitHub latest)."""
+    ver = str(release.get("version") or "").strip()
+    if not ver:
+        return release
+    body = str(release.get("body") or "").strip()
+    url = str(release.get("html_url") or "").strip()
+    if not body or not url:
+        enriched = _enrich_release_notes_for_version(ver)
+        if not body:
+            body = enriched.get("body") or body
+        if not url:
+            url = enriched.get("url") or url
+    out = dict(release)
+    if body:
+        out["body"] = body
+    if url:
+        out["html_url"] = url
+    return out
+
+
+def _enrich_release_notes_for_version(version: str) -> dict[str, str]:
+    """GitHub release body for ``version``, then local CHANGELOG.md."""
+    ver = str(version or "").strip()
+    github = _enrich_release_notes_from_github(ver)
+    body = str(github.get("body") or "").strip()
+    url = str(github.get("url") or "").strip()
+    if not body:
+        body = changelog_section(ver)
+    return {"body": body, "url": url}
 
 
 def _enrich_release_notes_from_github(version: str) -> dict[str, str]:
@@ -320,14 +347,12 @@ def get_status() -> dict[str, Any]:
     err = _last_hyve_check.get("error")
     latest = str(_last_hyve_check.get("latest") or cur)
     update_available = not err and bool(latest and is_newer(latest, cur))
-    release_notes = str(_last_hyve_check.get("release_notes") or "")
-    release_url = str(_last_hyve_check.get("release_url") or "")
-    if not release_notes.strip() or not release_url.strip():
-        enriched = _enrich_release_notes_from_github(latest)
-        if not release_notes.strip():
-            release_notes = enriched.get("body") or release_notes
-        if not release_url.strip():
-            release_url = enriched.get("url") or release_url
+    notes_version = latest if update_available else cur
+    cached_notes = str(_last_hyve_check.get("release_notes") or "")
+    cached_url = str(_last_hyve_check.get("release_url") or "")
+    enriched = _enrich_release_notes_for_version(notes_version)
+    release_notes = str(cached_notes or "").strip() or enriched.get("body") or ""
+    release_url = str(cached_url or "").strip() or enriched.get("url") or ""
     return {
         "current": cur,
         "latest": latest,

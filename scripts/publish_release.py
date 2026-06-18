@@ -7,17 +7,17 @@ Usage:
     python scripts/publish_release.py --skip-gate  # skip release_gate.py
 
 Release notes are always taken from the matching ``## [X.Y.Z]`` section in CHANGELOG.md.
+If the GitHub release already exists, notes are updated in place (upsert).
 """
 from __future__ import annotations
 
 import argparse
-import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CHANGELOG = ROOT / "CHANGELOG.md"
 PYTHON = sys.executable
 
 
@@ -36,20 +36,59 @@ def _read_version(explicit: str | None) -> str:
 
 
 def _changelog_section(version: str) -> str:
-    if not CHANGELOG.is_file():
-        raise RuntimeError(f"Missing {CHANGELOG.relative_to(ROOT)}")
-    text = CHANGELOG.read_text(encoding="utf-8")
-    pattern = re.compile(
-        rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)",
-        re.MULTILINE | re.DOTALL,
-    )
-    match = pattern.search(text)
-    if not match:
-        raise RuntimeError(f"No CHANGELOG section found for version {version}")
-    body = match.group(1).strip()
+    sys.path.insert(0, str(ROOT))
+    from core.changelog_notes import changelog_section  # noqa: WPS433
+
+    body = changelog_section(version)
     if not body:
-        raise RuntimeError(f"CHANGELOG section for {version} is empty")
+        raise RuntimeError(f"No CHANGELOG section found for version {version}")
     return body
+
+
+def _github_release_exists(version: str) -> bool:
+    proc = subprocess.run(
+        ["gh", "release", "view", version],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    return proc.returncode == 0
+
+
+def _upsert_github_release(version: str, title: str, notes: str) -> None:
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".md", delete=False) as fh:
+        fh.write(notes)
+        notes_path = fh.name
+    try:
+        if _github_release_exists(version):
+            print(f"GitHub release {version} exists — updating notes.")
+            _run(
+                [
+                    "gh",
+                    "release",
+                    "edit",
+                    version,
+                    "--title",
+                    title,
+                    "--notes-file",
+                    notes_path,
+                ]
+            )
+        else:
+            _run(
+                [
+                    "gh",
+                    "release",
+                    "create",
+                    version,
+                    "--title",
+                    title,
+                    "--notes-file",
+                    notes_path,
+                ]
+            )
+    finally:
+        Path(notes_path).unlink(missing_ok=True)
 
 
 def main() -> int:
@@ -89,18 +128,7 @@ def main() -> int:
     _run(["git", "push", "-u", "origin", "HEAD"])
     _run(["git", "push", "origin", version])
 
-    _run(
-        [
-            "gh",
-            "release",
-            "create",
-            version,
-            "--title",
-            title,
-            "--notes",
-            notes,
-        ]
-    )
+    _upsert_github_release(version, title, notes)
     print(f"\nPublished {title} (tag {version})")
     return 0
 

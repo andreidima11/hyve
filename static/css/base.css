@@ -18,6 +18,13 @@
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --safe-left: env(safe-area-inset-left, 0px);
 
+    /* Set by syncModalViewportMetrics() — browser toolbar / dynamic viewport chrome */
+    --app-visible-height: 100dvh;
+    --app-visible-offset-top: 0px;
+    --app-visible-bottom-gap: 0px;
+    --viewport-top-inset: var(--safe-top);
+    --viewport-bottom-inset: var(--safe-bottom);
+
     /* ── Fallback defaults (dark) — overridden by theme CSS ── */
     --accent: #38bdf8;
     --accent-hover: #7dd3fc;
@@ -826,6 +833,24 @@ body {
         top: 0;
         left: 0;
     }
+
+    /* Mobile browser: fit shell to visible viewport (exclude bottom toolbar overlay) */
+    html:not(.is-native-app) {
+        height: var(--app-visible-height, 100dvh);
+        --viewport-top-inset: calc(var(--safe-top) + var(--app-visible-offset-top, 0px));
+        --viewport-bottom-inset: calc(var(--safe-bottom) + max(var(--app-visible-bottom-gap, 0px), 4dvh));
+    }
+
+    html:not(.is-native-app) body {
+        height: var(--app-visible-height, 100dvh);
+        max-height: var(--app-visible-height, 100dvh);
+    }
+
+    html:not(.is-native-app) #sidebar {
+        top: var(--viewport-top-inset);
+        bottom: var(--viewport-bottom-inset);
+        height: auto;
+    }
 }
 
 .touch-manipulation {
@@ -950,10 +975,10 @@ main.flex-1 {
         letter-spacing: 0.12em !important;
     }
 
-    /* Chat view — bară jos (10dvh), doar clearance minim */
+    /* Chat view — clearance for mobile browser toolbar */
     .chat-view {
         height: 100% !important;
-        padding-bottom: calc(var(--safe-bottom) + max(1rem, 10dvh)) !important;
+        padding-bottom: calc(var(--viewport-bottom-inset) + 0.75rem) !important;
         box-sizing: border-box;
     }
 
@@ -967,10 +992,10 @@ main.flex-1 {
         gap: 1rem !important;
     }
 
-    /* Input bar — fixed above the bottom nav so it’s always visible */
+    /* Input bar — fixed above the bottom browser chrome */
     .chat-input-wrapper {
         padding: 0.5rem 0.5rem !important;
-        padding-bottom: calc(var(--safe-bottom) + max(1rem, 10dvh)) !important;
+        padding-bottom: calc(var(--viewport-bottom-inset) + 0.5rem) !important;
         flex-shrink: 0 !important;
         background: color-mix(in srgb, var(--surface-0) 28%, transparent) !important;
         border-top: 0 !important;
@@ -980,8 +1005,8 @@ main.flex-1 {
     }
 
     .chat-messages-wrapper {
-        padding-bottom: calc(var(--safe-bottom) + 3.6rem) !important;
-        scroll-padding-bottom: calc(var(--safe-bottom) + 3.2rem) !important;
+        padding-bottom: calc(var(--viewport-bottom-inset) + 3.25rem) !important;
+        scroll-padding-bottom: calc(var(--viewport-bottom-inset) + 3rem) !important;
     }
 
     /* Leave space at bottom of messages so last message isn’t under the fixed input */
@@ -1207,21 +1232,28 @@ main.flex-1 {
     display: none !important;
 }
 
-/* Mobil/tablet: spațiu la bottom adaptat automat (dvh = % din înălțimea vizibilă, include bara browserului) */
+/* Mobil/tablet: clearance at scroll end for mobile browser chrome */
 @media (max-width: 1023px) {
-    /* Chat: bară de input jos, doar spațiu minim ca să nu fie sub bara browserului */
+    /* Chat: keep input above browser toolbar */
     .chat-view {
-        padding-bottom: calc(var(--safe-bottom) + max(1rem, 10dvh)) !important;
+        padding-bottom: calc(var(--viewport-bottom-inset) + 0.75rem) !important;
     }
     .chat-input-wrapper {
-        padding-bottom: calc(var(--safe-bottom) + max(1rem, 10dvh)) !important;
+        padding-bottom: calc(var(--viewport-bottom-inset) + 0.5rem) !important;
     }
-    /* Pagini scrollabile (Settings, HA, etc.): spațiu mai mare ca ultimele rânduri să fie vizibile */
+    .chat-messages-wrapper {
+        scroll-padding-bottom: calc(var(--viewport-bottom-inset) + 3rem) !important;
+    }
+    /* Scrollable views */
+    #view-dashboard,
     #view-memory,
     #view-smarthome,
     #view-skills,
-    #view-config {
-        padding-bottom: calc(var(--safe-bottom) + max(2rem, 20dvh)) !important;
+    #view-config,
+    #view-user,
+    #view-planner {
+        padding-bottom: calc(var(--viewport-bottom-inset) + 1.25rem) !important;
+        scroll-padding-bottom: calc(var(--viewport-bottom-inset) + 1rem) !important;
     }
 }
 
@@ -1280,15 +1312,19 @@ main.flex-1 {
 
 @media (max-width: 639px) {
     #notification-area {
-        bottom: 5dvh;
+        bottom: calc(var(--viewport-bottom-inset, var(--safe-bottom)) + 0.75rem);
     }
 
-    /* Scrollable views — 20dvh ca ultimele rânduri (ex. Settings) să fie deasupra barei browserului */
+    /* Scrollable views — clearance for browser toolbar */
+    #view-dashboard,
     #view-memory,
     #view-smarthome,
     #view-skills,
-    #view-config {
-        padding-bottom: calc(var(--safe-bottom) + max(2rem, 20dvh)) !important;
+    #view-config,
+    #view-user,
+    #view-planner {
+        padding-bottom: calc(var(--viewport-bottom-inset) + 1.25rem) !important;
+        scroll-padding-bottom: calc(var(--viewport-bottom-inset) + 1rem) !important;
     }
 }
 

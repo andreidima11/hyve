@@ -1,7 +1,7 @@
-            <div id="view-config" class="h-full hidden overflow-x-hidden min-h-0 animate-up">
+            <div id="view-config" class="h-full hidden overflow-x-hidden overflow-y-auto min-h-0 animate-up">
 
                 <!-- ═══ CONFIGURĂRI HUB ═══ -->
-                <div id="config-hub" class="max-w-5xl mx-auto py-4 px-4 sm:py-6 sm:px-6 lg:py-8 lg:px-8">
+                <div id="config-hub" class="hyd-hub-shell max-w-5xl mx-auto py-4 px-4 sm:py-6 sm:px-6 lg:py-8 lg:px-8">
                     <header class="mb-6">
                         <h1 class="text-lg sm:text-2xl font-semibold text-white tracking-tight" data-i18n="config.hub_title">Hub</h1>
                         <p class="text-slate-500 text-xs sm:text-sm mt-0.5 hidden sm:block" data-i18n="config.hub_subtitle">Setări, integrări și personalizare.</p>
@@ -92,7 +92,7 @@
                 </div>
 
                 <!-- ═══ CONFIG DETAIL (hidden by default, shown when a hub card is clicked) ═══ -->
-                <div id="config-detail" class="hidden config-max-w max-w-5xl mx-auto py-4 px-4 sm:py-6 sm:px-6 lg:py-8 lg:px-8">
+                <div id="config-detail" class="hidden hyd-hub-shell config-max-w max-w-5xl mx-auto py-4 px-4 sm:py-6 sm:px-6 lg:py-8 lg:px-8">
                     <header class="hyd-mast hyd-mast--stacked mb-4 sm:mb-6">
                         <div class="hyd-mast__row">
                             <div class="hyd-mast__lead min-w-0">
@@ -1466,7 +1466,7 @@
 
                 <!-- ═══ CONFIG STANDALONE PAGE (for sections pulled out of Settings tabs) ═══ -->
                 <div id="config-standalone" class="hidden hy-page hyd-config-standalone">
-                    <div class="hyd-stage">
+                    <div class="hyd-stage hyd-hub-shell">
                         <header class="hyd-mast hyd-top hyd-config-standalone__mast">
                             <div class="hyd-mast__lead min-w-0">
                                 <button type="button" data-config-action="closeSection" class="hyd-mast__back" data-i18n-title="hy.back" aria-label="Back">

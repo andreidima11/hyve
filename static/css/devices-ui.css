@@ -160,15 +160,51 @@
 
 #view-config {
     overflow-x: clip;
-    overflow-y: hidden;
+    overflow-y: auto;
     min-height: 0;
+    -webkit-overflow-scrolling: touch;
 }
 
 #view-config:has(#config-standalone:not(.hidden)) {
     overflow: hidden;
 }
 
+/* Hub content column — matches Settings (`max-w-5xl`, 80rem on lg+) */
+#view-config .hyd-hub-shell {
+    width: 100%;
+    max-width: 64rem;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+    #view-config .hyd-hub-shell,
+    #view-config .config-max-w {
+        max-width: 80rem;
+    }
+}
+
+#view-config > .app-subpage > .app-subpage-header,
+#view-config > .app-subpage > .app-subpage-body,
+#view-config > .app-subpage > .app-subpage-footer {
+    width: 100%;
+    max-width: 64rem;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+    #view-config > .app-subpage > .app-subpage-header,
+    #view-config > .app-subpage > .app-subpage-body,
+    #view-config > .app-subpage > .app-subpage-footer {
+        max-width: 80rem;
+    }
+}
+
 /* Hub scroll regions: scrollable but no visible vertical scrollbar */
+#view-config:not(:has(#config-standalone:not(.hidden))),
 .hyd-config-standalone__body,
 #blueprint-picker-modal .app-subpage-body,
 #automation-editor-modal .app-subpage-body {
@@ -176,6 +212,7 @@
     -ms-overflow-style: none;
 }
 
+#view-config:not(:has(#config-standalone:not(.hidden)))::-webkit-scrollbar,
 .hyd-config-standalone__body::-webkit-scrollbar,
 #blueprint-picker-modal .app-subpage-body::-webkit-scrollbar,
 #automation-editor-modal .app-subpage-body::-webkit-scrollbar {
@@ -1767,13 +1804,14 @@
 }
 
 .hyd-config-standalone__body {
-    flex: 1;
+    flex: 1 1 0%;
     min-height: 0;
     min-width: 0;
     overflow-x: clip;
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
 }
 
 .hyd-config-standalone--subview .hyd-config-standalone__mast {
@@ -1876,7 +1914,7 @@
 }
 
 .hyd-config-standalone__body .hyd-config-page {
-    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(var(--viewport-bottom-inset, env(safe-area-inset-bottom, 0px)) + 1rem);
 }
 
 .hyd-entity-row--static {

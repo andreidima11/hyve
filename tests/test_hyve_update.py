@@ -81,7 +81,7 @@ def test_resolve_latest_release_picks_newest_semver(monkeypatch):
     assert release["source"] == "git"
 
 
-def test_resolve_latest_release_merges_github_notes_when_git_wins(monkeypatch):
+def test_resolve_latest_release_enriches_notes_for_winning_version(monkeypatch):
     monkeypatch.setattr(
         hu,
         "_release_from_github",
@@ -89,15 +89,20 @@ def test_resolve_latest_release_merges_github_notes_when_git_wins(monkeypatch):
             "version": "0.9.7.0",
             "tag": "0.9.7.0",
             "source": "github",
-            "body": "GitHub notes",
+            "body": "Old latest notes",
             "html_url": "https://github.com/example/hyve/releases/tag/0.9.7.0",
         },
     )
     monkeypatch.setattr(hu, "_git_remote_latest_tag", lambda: "0.9.7.3")
+    monkeypatch.setattr(
+        hu,
+        "_enrich_release_notes_for_version",
+        lambda v: {"body": f"Notes for {v}", "url": f"https://github.com/example/hyve/releases/tag/{v}"},
+    )
     release = hu._resolve_latest_release()
     assert release["version"] == "0.9.7.3"
-    assert release["body"] == "GitHub notes"
-    assert release["html_url"] == "https://github.com/example/hyve/releases/tag/0.9.7.0"
+    assert release["body"] == "Notes for 0.9.7.3"
+    assert release["html_url"].endswith("/0.9.7.3")
 
 
 def test_get_status_enriches_empty_release_notes(monkeypatch):
@@ -116,12 +121,30 @@ def test_get_status_enriches_empty_release_notes(monkeypatch):
     )
     monkeypatch.setattr(
         hu,
-        "_enrich_release_notes_from_github",
+        "_enrich_release_notes_for_version",
         lambda _v: {"body": "Enriched", "url": "https://github.com/org/hyve/releases/tag/0.9.7.13"},
     )
     status = hu.get_status()
     assert status["release_notes"] == "Enriched"
     assert status["release_url"].endswith("/releases/tag/0.9.7.13")
+
+
+def test_enrich_release_notes_for_version_falls_back_to_changelog(monkeypatch, tmp_path):
+    from core import changelog_notes as cn
+
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text(
+        "## [0.9.8.20] — 2026-06\n\n### Frontend\n- Scroll fix\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(hu, "_enrich_release_notes_from_github", lambda _v: {"body": "", "url": ""})
+    monkeypatch.setattr(
+        hu,
+        "changelog_section",
+        lambda v: cn.changelog_section(v, changelog_path=changelog),
+    )
+    out = hu._enrich_release_notes_for_version("0.9.8.20")
+    assert "Scroll fix" in out["body"]
 
 
 def test_blocking_dirty_lines_ignores_build_artifacts():

@@ -118,14 +118,10 @@ def addon_release_notes(manifest: dict[str, Any], version: str | None = None) ->
     if repo:
         if ver and not is_channel_tag(ver):
             info = github_release_info(repo, ver)
-        if not info or not info.get("body"):
+        if info is None:
             latest_info = github_release_info(repo, None)
             if latest_info:
-                info = latest_info if not info else {
-                    **info,
-                    "body": info.get("body") or latest_info.get("body") or "",
-                    "url": info.get("url") or latest_info.get("url") or "",
-                }
+                info = latest_info
     project_url = str(manifest.get("url") or install.get("url") or "").strip()
     if info:
         return {
