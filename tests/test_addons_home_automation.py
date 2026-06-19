@@ -167,7 +167,7 @@ def test_process_manager_merges_config_defaults():
     merged = _effective_config(manifest, {"port": 1883})
     assert merged["port"] == 1883
     assert merged["ws_port"] == 9001
-    assert merged["allow_anonymous"] is True
+    assert merged["allow_anonymous"] is False
 
     args = _resolve_args(manifest["start_command"]["args"], merged)
     assert "{ws_port}" not in args[2]
