@@ -136,10 +136,10 @@ def resolve_client_host(request: Request) -> str:
 
 
 def decode_media_url_token(raw_token: str) -> Optional[dict]:
-    """Short-lived camera_stream token for media URL query auth (no access JWT)."""
+    """Short-lived media_proxy token for img-proxy / favicon query auth."""
     if not raw_token:
         return None
-    return verify_camera_stream_token(raw_token)
+    return verify_media_proxy_token(raw_token)
 
 
 def _client_is_loopback(request: Request) -> bool:
@@ -220,18 +220,33 @@ def verify_sse_exchange_token(token: str) -> Optional[dict]:
         return None
 
 
-def create_camera_stream_token(username: str, entity_id: str | None = None) -> str:
-    """Short-lived token for camera snapshot/stream/play URLs (query param auth)."""
+def create_camera_stream_token(username: str, entity_id: str) -> str:
+    """Short-lived token scoped to one camera entity (query param auth)."""
+    eid = str(entity_id or "").strip()
+    if not eid:
+        raise ValueError("entity_id is required for camera stream tokens")
+    expire = datetime.now(timezone.utc) + timedelta(seconds=CAMERA_STREAM_TOKEN_EXPIRE_SECONDS)
+    to_encode = {
+        "sub": username,
+        "entity_id": eid,
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
+        "jti": str(uuid4()),
+        "type": "camera_stream",
+    }
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def create_media_proxy_token(username: str) -> str:
+    """Short-lived token for img-proxy / favicon (not valid for camera streams)."""
     expire = datetime.now(timezone.utc) + timedelta(seconds=CAMERA_STREAM_TOKEN_EXPIRE_SECONDS)
     to_encode = {
         "sub": username,
         "exp": expire,
         "iat": datetime.now(timezone.utc),
         "jti": str(uuid4()),
-        "type": "camera_stream",
+        "type": "media_proxy",
     }
-    if entity_id:
-        to_encode["entity_id"] = str(entity_id).strip()
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -240,6 +255,18 @@ def verify_camera_stream_token(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("type") != "camera_stream" or not payload.get("sub"):
+            return None
+        if not str(payload.get("entity_id") or "").strip():
+            return None
+        return payload
+    except JWTError:
+        return None
+
+
+def verify_media_proxy_token(token: str) -> Optional[dict]:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "media_proxy" or not payload.get("sub"):
             return None
         return payload
     except JWTError:
@@ -342,12 +369,6 @@ async def resolve_assist_user_id(request: Request, db: Session) -> int:
                 return user.id
 
         raise credentials_exception
-
-    assist_cfg = settings.CFG.get("assist") or {}
-    default_id = assist_cfg.get("assist_default_user_id")
-    if default_id is not None and isinstance(default_id, int) and default_id > 0:
-        if _client_is_loopback(request):
-            return default_id
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

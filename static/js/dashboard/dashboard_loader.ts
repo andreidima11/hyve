@@ -3,7 +3,7 @@
  */
 
 import { apiCall } from '../api.js';
-import { getCameraStreamToken } from '../camera_auth.js';
+import { getMediaProxyToken } from '../camera_auth.js';
 import type { DashboardCache, DashboardLoaderDeps } from '../types/dashboard.js';
 import type { HyveEntity } from '../types/entity.js';
 import {
@@ -402,8 +402,8 @@ async function loadDashboardImpl(signal: AbortSignal | null = null, { soft = fal
         grid.innerHTML = `<div class="col-span-full p-6 text-sm" style="color:var(--text-tertiary,#94a3b8);">${d.escapeHtml(d.t('dashboard.loading_dashboard'))}</div>`;
     }
     try {
-        getCameraStreamToken().catch((err) => {
-            console.warn('[dashboard] camera stream token prefetch failed', err);
+        getMediaProxyToken().catch((err) => {
+            console.warn('[dashboard] media proxy token prefetch failed', err);
         });
         await refreshAvailableEntities({ includeEntities: false, signal });
         if (d.getCurrentPageId()) {

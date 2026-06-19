@@ -74,7 +74,7 @@ export class HyveviewTileCard extends HyveviewCardBase {
     const interactive = renderer !== 'info';
     const controllable = interactive && w.controllable !== false
       && (renderer === 'tile' || renderer === 'button' || renderer === 'switch' || renderer === 'scene');
-    const showSwitchStyle = w.type === 'switch' || w.switch_style === true;
+    const showSwitchStyle = w.type !== 'entity' && (w.type === 'switch' || w.switch_style === true);
     const showToggle = controllable && showSwitchStyle;
     const title = widgetTitle(w);
     // Inner DOM only — the article wrapper is owned by the host renderer.

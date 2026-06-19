@@ -171,7 +171,7 @@ def test_apply_widget_patch_migrates_legacy_button_to_entity():
 
     assert updated["type"] == "entity"
     assert updated["renderer"] == "switch"
-    assert updated["switch_style"] is True
+    assert updated["switch_style"] is False
 
 def test_dashboard_toggle_body_accepts_climate_payload():
     body = dashboard.DashboardToggleBody(action="set_temperature", entity_id="climate.bedroom_ac", data={"temperature": 22.5})
@@ -346,7 +346,7 @@ def test_apply_widget_patch_resolves_entity_card_renderer_from_domain():
 
     assert updated["type"] == "entity"
     assert updated["renderer"] == "switch"
-    assert updated["switch_style"] is True
+    assert updated["switch_style"] is False
 
 
 def test_apply_widget_patch_resolves_custom_card_renderer_from_catalog():
@@ -362,7 +362,7 @@ def test_apply_widget_patch_resolves_custom_card_renderer_from_catalog():
 
     assert updated["type"] == "entity"
     assert updated["renderer"] == "switch"
-    assert updated["switch_style"] is True
+    assert updated["switch_style"] is False
 
 
 def test_apply_widget_patch_merges_visibility_under_config_namespace():
@@ -841,6 +841,7 @@ def test_hydrate_panels_keeps_size_metadata():
 def test_normalize_icon_accepts_fa_short_form():
     assert dashboard._normalize_icon("fa-bolt") == "fas fa-bolt"
     assert dashboard._normalize_icon("fa-solid fa-house") == "fa-solid fa-house"
+    assert dashboard._normalize_icon("mdi:home") == "mdi:home"
     assert dashboard._normalize_icon("not-an-icon", "fas fa-table-cells-large") == "fas fa-table-cells-large"
 
 

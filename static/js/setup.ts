@@ -8,6 +8,9 @@ interface SetupStatus {
     server_name?: string;
     default_language?: string;
     default_timezone?: string;
+    requires_setup_token?: boolean;
+    setup_token?: string;
+    restart_for_lan?: boolean;
 }
 
 interface SetupErrorDetail {
@@ -48,6 +51,7 @@ const COMMON_TIMEZONES = [
 
 let _step = 1;
 let _status: SetupStatus = {};
+let _setupToken = '';
 
 function _inputValue(id: string): string {
     const el = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null;
@@ -94,6 +98,21 @@ function _showError(message: string) {
     el.classList.remove('hidden');
 }
 
+function _configureSetupTokenUi() {
+    const tokenInput = document.getElementById('setup-token') as HTMLInputElement | null;
+    const tokenHint = document.getElementById('setup-token-hint');
+    const autoToken = String(_status.setup_token || '').trim();
+    const needsManual = !!_status.requires_setup_token && !autoToken;
+    _setupToken = autoToken || _setupToken;
+    if (tokenInput) {
+        tokenInput.classList.toggle('hidden', !needsManual);
+        tokenInput.required = needsManual;
+        if (autoToken) tokenInput.value = autoToken;
+        else if (needsManual && !tokenInput.value && _setupToken) tokenInput.value = _setupToken;
+    }
+    if (tokenHint) tokenHint.classList.toggle('hidden', !needsManual);
+}
+
 function _updateStepUi() {
     const account = document.getElementById('setup-step-account');
     const prefs = document.getElementById('setup-step-preferences');
@@ -110,12 +129,15 @@ function _updateStepUi() {
 }
 
 function _validateStep1() {
+    const token = (_status.setup_token || _inputValue('setup-token') || _setupToken).trim();
     const username = _inputValue('setup-username').trim();
     const password = _inputValue('setup-password');
     const confirm = _inputValue('setup-password-confirm');
+    if (_status.requires_setup_token && !token) return t('setup.token_required');
     if (username.length < 3) return t('setup.username_too_short');
     if (password.length < 8) return t('setup.password_too_short');
     if (password !== confirm) return t('setup.password_mismatch');
+    _setupToken = token;
     return '';
 }
 
@@ -124,6 +146,7 @@ async function _submitSetup() {
     if (btn) btn.disabled = true;
     _showError('');
     const payload = {
+        setup_token: (_status.setup_token || _inputValue('setup-token') || _setupToken).trim(),
         username: _inputValue('setup-username').trim(),
         password: _inputValue('setup-password'),
         password_confirm: _inputValue('setup-password-confirm'),
@@ -210,6 +233,7 @@ export function showSetupWizard(status?: SetupStatus) {
     const langSel = document.getElementById('setup-language') as HTMLSelectElement | null;
     if (langSel) langSel.value = _status.default_language || 'en';
     _populateTimezones(_status.default_timezone || '');
+    _configureSetupTokenUi();
     _updateStepUi();
     applyTranslations();
 }

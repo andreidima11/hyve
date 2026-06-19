@@ -12,7 +12,9 @@ from sqlalchemy.orm import sessionmaker
 import core.database as database
 import core.models as models
 import core.settings as settings
+import core.setup_token as setup_token_mod
 from core.http.app import create_app
+from core.setup_token import ensure_setup_token, read_setup_token
 
 
 def _detail_key(response) -> str | None:
@@ -45,15 +47,18 @@ def client(tmp_path, monkeypatch):
     cfg_path = tmp_path / "config.json"
     monkeypatch.setattr(settings, "CONFIG_FILE", str(cfg_path))
     settings.CFG = settings.load_config()
+    monkeypatch.setattr(setup_token_mod, "_SETUP_TOKEN_PATH", tmp_path / "setup_token")
 
     return TestClient(create_app().app)
 
 
 @pytest.fixture()
 def auth_headers(client: TestClient) -> dict[str, str]:
+    setup_token = read_setup_token() or ensure_setup_token()
     res = client.post(
         "/api/setup/complete",
         json={
+            "setup_token": setup_token,
             "username": "admin",
             "password": "secret123",
             "password_confirm": "secret123",

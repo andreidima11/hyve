@@ -954,10 +954,29 @@
 
                         <!-- ═══ UPDATES PREFERENCES ═══ -->
                         <div id="cfg-tab-updates-prefs" class="cfg-tab-panel hidden hyd-config-page space-y-4 config-admin-only animate-up" data-config-tab="updates-prefs">
+                            <p class="text-[11px] text-slate-500 leading-relaxed px-0.5" data-i18n="updates.prefs_intro">Configurează verificarea automată pentru add-on-uri. Actualizările Hyve se verifică și instalează din pagina Actualizări din hub.</p>
+
+                            <section class="hyd-app-card space-y-4">
+                                <h2 class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
+                                    <i class="fas fa-house"></i>
+                                    <span data-i18n="updates.tab_hyve">Hyve</span>
+                                </h2>
+                                <p class="text-[10px] text-slate-500 leading-relaxed" data-i18n="updates.hyve_description">Hyve se actualizează din release-urile GitHub (git checkout + dependențe). Funcționează doar dacă serverul rulează dintr-un clone git.</p>
+                                <div id="updates-prefs-hyve-meta" class="space-y-1 text-[11px] text-slate-400">
+                                    <p id="updates-prefs-hyve-version" class="mono hidden"></p>
+                                    <p id="updates-prefs-hyve-latest" class="mono hidden"></p>
+                                    <p id="updates-prefs-hyve-hint" class="text-[10px] text-slate-500 hidden"></p>
+                                </div>
+                                <button type="button" data-config-action="openSection" data-config-section="updates" class="hyd-btn hyd-btn--ghost hyd-btn--sm">
+                                    <i class="fas fa-arrow-up-from-bracket" aria-hidden="true"></i>
+                                    <span data-i18n="updates.hyve_open_updates_page">Verifică și instalează actualizări</span>
+                                </button>
+                            </section>
+
                             <section class="hyd-app-card space-y-4">
                                 <h2 class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
                                     <i class="fas fa-puzzle-piece"></i>
-                                    <span data-i18n="updates.tab_addons">Add-ons</span>
+                                    <span data-i18n="updates.tab_addons">Add-on-uri</span>
                                 </h2>
                                 <p class="text-[10px] text-slate-500 leading-relaxed" data-i18n="updates.addons_description">Verificare automată a actualizărilor pentru add-on-urile instalate.</p>
 
@@ -1162,6 +1181,7 @@
                         <!-- ═══ UPDATES (Hyve + add-ons) ═══ -->
                         <div id="cfg-tab-updates" class="cfg-tab-panel hidden hyd-config-page space-y-3 config-admin-only" data-config-tab="updates">
                             <div id="updates-panel" class="space-y-3">
+                                <p class="text-[11px] text-slate-500 leading-relaxed px-0.5" data-i18n="updates.page_description">Status pentru platforma Hyve și add-on-urile instalate. Apasă reîmprospătare pentru a verifica versiuni noi pe GitHub.</p>
                                 <div id="updates-status" class="hidden text-[11px] rounded-xl p-3 border"></div>
                                 <div class="flex items-center justify-between gap-2">
                                     <span id="updates-count" class="text-[11px] text-slate-500"></span>

@@ -3,7 +3,7 @@
  */
 import { t } from './lang/index.js';
 import { withCacheBust } from './asset_version.js';
-import { faviconProxyUrlSync, getCameraStreamToken } from './camera_auth.js';
+import { faviconProxyUrlSync, getMediaProxyToken } from './camera_auth.js';
 import type {
     ChatSourceInput,
     CodeEditorSetupOptions,
@@ -24,7 +24,7 @@ function _bindSourceFaviconError() {
         }
         img.dataset.faviconRetry = '1';
         try {
-            await getCameraStreamToken();
+        await getMediaProxyToken();
             const domain = img.dataset.domain || '';
             if (domain) img.src = faviconProxyUrlSync(domain);
         } catch (_) {
@@ -258,7 +258,7 @@ export function hideSourcesModal() {
 /** Refresh proxied favicon URLs after media auth token is available. */
 export async function refreshSourceFavicons(root: Document | Element = document) {
     try {
-        await getCameraStreamToken();
+        await getMediaProxyToken();
     } catch (_) {}
     const scope = root instanceof Document || root instanceof Element ? root : document;
     scope.querySelectorAll('img.chat-source-favicon:not(.chat-source-favicon-missing)').forEach((imgEl) => {

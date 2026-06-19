@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
+import core.auth as auth
 import core.database as database
 from core.http.limiter import limiter
 from core.setup_service import (
@@ -19,6 +20,7 @@ router = APIRouter(tags=["setup"])
 
 
 class SetupCompleteBody(BaseModel):
+    setup_token: str = Field(..., min_length=8, max_length=256)
     username: str = Field(..., min_length=1, max_length=64)
     password: str = Field(..., min_length=1)
     password_confirm: str = Field(..., min_length=1)
@@ -30,8 +32,8 @@ class SetupCompleteBody(BaseModel):
 
 
 @router.get("/api/setup/status")
-async def setup_status():
-    return get_setup_status()
+async def setup_status(request: Request):
+    return get_setup_status(client_is_loopback=auth._client_is_loopback(request))
 
 
 @router.post("/api/setup/complete")
@@ -57,6 +59,7 @@ async def setup_complete(
     try:
         return complete_setup(
             db,
+            setup_token=payload.setup_token.strip(),
             username=payload.username.strip(),
             password=payload.password,
             full_name=payload.full_name.strip(),

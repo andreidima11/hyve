@@ -50,7 +50,8 @@ if __name__ == "__main__":
         sys.exit(1)
 
     port = int(settings.CFG.get('port', 8082))
-    bind_err = _port_bind_error("0.0.0.0", port)
+    bind_host = __import__("core.network_bind", fromlist=["resolve_bind_host"]).resolve_bind_host()
+    bind_err = _port_bind_error(bind_host, port)
     if bind_err:
         print(f"\n⛔ Port {port} is already in use — Hyve cannot start.")
         print(f"   ({bind_err})")
@@ -59,8 +60,19 @@ if __name__ == "__main__":
         print(f"   Stop it: kill <PID>   — or change config.json → \"port\"")
         sys.exit(1)
 
+    from core.setup_service import is_setup_complete
+    from core.setup_token import ensure_setup_token
+
+    if not is_setup_complete():
+        token = ensure_setup_token()
+        print(f"\n🔑 Setup incomplete — listening on {bind_host}:{port}")
+        print(f"   Setup token (also in secrets/setup_token): {token}")
+        print("   Remote setup requires this token; loopback /api/setup/status includes it automatically.\n")
+    else:
+        print(f"\n✅ Hyve listening on {bind_host}:{port}\n")
+
     try:
-        uvicorn.run(app, host="0.0.0.0", port=port, log_config=None, h11_max_incomplete_event_size=10 * 1024 * 1024)
+        uvicorn.run(app, host=bind_host, port=port, log_config=None, h11_max_incomplete_event_size=10 * 1024 * 1024)
     except OSError as exc:
         print(f"\n⛔ Failed to bind port {port}: {exc}")
         print(f"   Check:  lsof -i :{port}")

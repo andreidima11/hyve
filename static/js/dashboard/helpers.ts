@@ -6,6 +6,11 @@ export function dashApiError(detail: unknown, fallbackKey: string): string {
     return translateApiDetail(detail) || t(fallbackKey);
 }
 
+export function dashboardPageQuery(pageId?: string | null): string {
+    const id = String(pageId ?? '').trim();
+    return id ? `?page_id=${encodeURIComponent(id)}` : '';
+}
+
 export function escapeHtml(value: unknown): string {
     return String(value ?? '')
         .replace(/&/g, '&amp;')

@@ -143,7 +143,9 @@ def test_maintenance_blocks_api(backup_env):
         assert maint.status_code == 200
         assert maint.json()["maintenance"] is True
         health = client.get("/api/health")
-        assert health.status_code == 200
+        # Health must bypass maintenance (503 here means degraded deps, not maintenance gate).
+        assert health.json().get("key") != "backup.maintenance_active"
+        assert "status" in health.json()
 
     ok = client.get("/api/updates/addons")
     assert ok.status_code in {200, 401, 403}

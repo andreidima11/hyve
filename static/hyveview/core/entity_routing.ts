@@ -56,7 +56,10 @@ export function resolveEntityEffectiveType(
     const dedicated = DEDICATED_DOMAIN_RENDERERS[domain];
     if (dedicated) return { effectiveType: dedicated, switchStyle: false };
 
-    if (TOGGLE_DOMAINS.has(domain) || switchStyle) {
+    if (TOGGLE_DOMAINS.has(domain)) {
+        return { effectiveType: 'switch', switchStyle: false };
+    }
+    if (switchStyle) {
         return { effectiveType: 'switch', switchStyle: true };
     }
     if (TILE_DOMAINS.has(domain)) {

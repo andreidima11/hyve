@@ -1884,7 +1884,8 @@
 
 .hyd-config-page.hidden,
 .cfg-tab-panel.hidden,
-.intelligence-panel.hidden {
+.intelligence-panel.hidden,
+#view-user .hyd-app-card.hidden {
     display: none !important;
 }
 

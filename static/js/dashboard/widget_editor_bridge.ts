@@ -10,7 +10,7 @@ import {
     DEFAULT_CAMERA_INTERVAL,
     SECTION_COLS,
 } from './constants.js';
-import { dashApiError } from './helpers.js';
+import { dashApiError, dashboardPageQuery } from './helpers.js';
 import type {
     DashboardCache,
     DashboardVisibilityConfig,
@@ -359,8 +359,7 @@ export async function saveDashboardWidgetFromEditor(
         showToast(d.t('dashboard.entity_required') || 'Pick an entity', 'warning');
         return;
     }
-    const activePageId = d.getCurrentPageId() || '';
-    const pageQS = activePageId ? `?page_id=${encodeURIComponent(activePageId)}` : '';
+    const pageQS = dashboardPageQuery(d.getCurrentPageId());
 
     if (editingId) {
         try {
@@ -400,6 +399,11 @@ export async function saveDashboardWidgetFromEditor(
 
     try {
         const section = await d.readDashboardSectionFallback();
+        const panels = Array.isArray(section.panels) ? section.panels : [];
+        if (panels.length > 0) {
+            showToast(d.t('dashboard.save_widget_failed') || 'Could not save widget', 'error');
+            return;
+        }
         section.widgets = section.widgets || [];
         section.widgets.push({
             id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
@@ -415,8 +419,9 @@ export async function saveDashboardWidgetFromEditor(
 
 async function deleteDashboardWidgetSilent(widgetId: string) {
     const d = deps();
+    const pageQS = dashboardPageQuery(d.getCurrentPageId());
     try {
-        const res = await apiCall(`/api/dashboard/widgets/${encodeURIComponent(widgetId)}`, { method: 'DELETE' });
+        const res = await apiCall(`/api/dashboard/widgets/${encodeURIComponent(widgetId)}${pageQS}`, { method: 'DELETE' });
         if (res.ok) {
             await d.loadDashboard();
             showToast(d.t('dashboard.widget_deleted') || 'Widget deleted', 'success');
@@ -435,6 +440,11 @@ async function deleteDashboardWidgetSilent(widgetId: string) {
     }
     try {
         const section = await d.readDashboardSectionFallback();
+        const panels = Array.isArray(section.panels) ? section.panels : [];
+        if (panels.length > 0) {
+            showToast(d.t('dashboard.widget_delete_error') || 'Could not delete widget', 'error');
+            return;
+        }
         section.widgets = (section.widgets || []).filter(it => it.id !== widgetId);
         await d.writeDashboardSectionFallback(section);
         await d.loadDashboard();

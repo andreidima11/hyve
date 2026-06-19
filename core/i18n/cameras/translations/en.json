@@ -46,5 +46,7 @@
   "mammotion_agora_unavailable": "Agora SDK unavailable after load",
   "mammotion_agora_load_failed": "Could not load Agora SDK (check your connection)",
   "mammotion_token_unavailable": "Video token unavailable",
-  "mammotion_camera_error": "Camera error"
+  "mammotion_camera_error": "Camera error",
+  "entity_id_required": "Camera entity_id is required.",
+  "access_denied": "You do not have access to this camera."
 }

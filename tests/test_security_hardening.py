@@ -43,12 +43,20 @@ def test_file_read_denies_secrets_paths():
 def test_camera_stream_token_entity_scope():
     scoped = auth.create_camera_stream_token("alice", "camera.front")
     other = auth.create_camera_stream_token("alice", "camera.back")
-    media = auth.create_camera_stream_token("alice")
 
     scoped_payload = auth.verify_camera_stream_token(scoped)
     assert scoped_payload["entity_id"] == "camera.front"
     assert auth.verify_camera_stream_token(other)["entity_id"] == "camera.back"
-    assert "entity_id" not in (auth.verify_camera_stream_token(media) or {})
+    with pytest.raises(ValueError):
+        auth.create_camera_stream_token("alice", "")
+
+
+def test_media_proxy_token_type():
+    token = auth.create_media_proxy_token("alice")
+    payload = auth.verify_media_proxy_token(token)
+    assert payload is not None
+    assert payload["type"] == "media_proxy"
+    assert auth.verify_camera_stream_token(token) is None
 
 
 def test_docker_install_rejects_shell_injection():

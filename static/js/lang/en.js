@@ -44,7 +44,11 @@ const en = {
             "username_taken": "This username is already taken.",
             "invalid_timezone": "Invalid timezone.",
             "invalid_language": "Invalid language.",
-            "already_complete": "Setup is already complete."
+            "already_complete": "Setup is already complete.",
+            "token_placeholder": "Setup token",
+            "token_hint": "Paste the setup token from server logs or secrets/setup_token on the Hyve host.",
+            "token_required": "Setup token is required.",
+            "invalid_token": "Invalid setup token."
         },
         "fsolar": {
             "footer_production": "Prod",

@@ -11,7 +11,6 @@ from starlette.requests import Request
 
 import core.auth as auth
 import core.assist_keys as assist_keys
-import core.settings as settings
 
 
 def _request(headers: dict[str, str] | None = None, client_host: str = "127.0.0.1") -> Request:
@@ -70,40 +69,11 @@ def test_resolve_assist_user_id_rejects_revoked_jwt():
     assert exc.value.status_code == 401
 
 
-def test_resolve_assist_user_id_uses_default_when_no_credentials():
+def test_resolve_assist_user_id_rejects_loopback_without_credentials():
     db = MagicMock()
-    with patch.object(settings, "CFG", {"assist": {"assist_default_user_id": 3}}):
-        uid = asyncio.run(auth.resolve_assist_user_id(_request(client_host="127.0.0.1"), db))
-    assert uid == 3
-
-
-def test_resolve_assist_user_id_rejects_default_from_non_loopback():
-    db = MagicMock()
-    with patch.object(settings, "CFG", {"assist": {"assist_default_user_id": 3}}):
-        with pytest.raises(HTTPException) as exc:
-            asyncio.run(auth.resolve_assist_user_id(_request(client_host="192.168.1.10"), db))
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(auth.resolve_assist_user_id(_request(client_host="127.0.0.1"), db))
     assert exc.value.status_code == 401
-
-
-def test_resolve_assist_user_id_rejects_default_behind_proxy_with_external_xff():
-    db = MagicMock()
-    with patch.object(settings, "CFG", {"assist": {"assist_default_user_id": 3}}):
-        with pytest.raises(HTTPException) as exc:
-            asyncio.run(auth.resolve_assist_user_id(
-                _request(headers={"X-Forwarded-For": "203.0.113.50"}, client_host="127.0.0.1"),
-                db,
-            ))
-    assert exc.value.status_code == 401
-
-
-def test_resolve_assist_user_id_accepts_default_behind_proxy_with_loopback_xff():
-    db = MagicMock()
-    with patch.object(settings, "CFG", {"assist": {"assist_default_user_id": 3}}):
-        uid = asyncio.run(auth.resolve_assist_user_id(
-            _request(headers={"X-Forwarded-For": "127.0.0.1"}, client_host="127.0.0.1"),
-            db,
-        ))
-    assert uid == 3
 
 
 def test_memory_prefix_uses_memini_spelling():

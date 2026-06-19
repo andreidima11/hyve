@@ -214,7 +214,9 @@ export class HyveviewWeatherRichCard extends HyveviewCardBase {
     const tempStr = tempRaw != null ? `${Math.round(Number(tempRaw))}°` : '—';
     const isNight = typeof host.weatherIsNight === 'function' ? host.weatherIsNight(attrs) : false;
     const variant = typeof host.weatherVariant === 'function' ? host.weatherVariant(cond) : 'clear';
-    const iconCls = typeof host.weatherIcon === 'function' ? host.weatherIcon(cond, isNight) : 'fas fa-cloud';
+    const iconCls = host.iconClass(
+      typeof host.weatherIcon === 'function' ? host.weatherIcon(cond, isNight) : 'fas fa-cloud',
+    );
 
     if (this._isCompact) {
       if (this._tempEl) this._tempEl.textContent = tempStr;
@@ -252,7 +254,7 @@ export class HyveviewWeatherRichCard extends HyveviewCardBase {
           if (!day) {
             if (nameEl) nameEl.textContent = '—';
             if (tempEl) tempEl.textContent = '—';
-            if (iconEl) iconEl.className = 'hv-cp-weather__day-icon fas fa-cloud';
+            if (iconEl) iconEl.className = 'hv-cp-weather__day-icon ' + host.iconClass('fas fa-cloud');
             if (hiEl) hiEl.textContent = '—';
             if (loEl) loEl.textContent = '—';
             (tile as HTMLElement).style.visibility = 'hidden';
@@ -265,7 +267,9 @@ export class HyveviewWeatherRichCard extends HyveviewCardBase {
           const dayTempVal = day.temperature ?? day.tmax;
           const dayHi = day.temperature ?? day.tmax;
           const dayLo = day.templow ?? day.tmin;
-          const dayIcon = typeof host.weatherIcon === 'function' ? host.weatherIcon(dayCond, false) : 'fas fa-cloud';
+          const dayIcon = host.iconClass(
+            typeof host.weatherIcon === 'function' ? host.weatherIcon(dayCond, false) : 'fas fa-cloud',
+          );
           if (nameEl) nameEl.textContent = String(dayLabel);
           if (tempEl) tempEl.textContent = dayTempVal != null ? String(Math.round(dayTempVal as number)) : '—';
           if (iconEl) iconEl.className = 'hv-cp-weather__day-icon ' + dayIcon;

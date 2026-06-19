@@ -4,7 +4,7 @@
 
 import './chat/marked_setup.js';
 import { authToken } from './api.js';
-import { getCameraStreamToken } from './camera_auth.js';
+import { getMediaProxyToken } from './camera_auth.js';
 
 import {
     addAttachedDocument,
@@ -58,7 +58,7 @@ export {
 };
 
 if (authToken) {
-    getCameraStreamToken().catch(() => {});
+    getMediaProxyToken().catch(() => {});
 }
 
 window.__chatExports = { sendMessage };

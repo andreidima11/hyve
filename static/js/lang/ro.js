@@ -44,7 +44,11 @@ const ro = {
             "username_taken": "Acest utilizator există deja.",
             "invalid_timezone": "Fus orar invalid.",
             "invalid_language": "Limbă invalidă.",
-            "already_complete": "Configurarea este deja finalizată."
+            "already_complete": "Configurarea este deja finalizată.",
+            "token_placeholder": "Token de configurare",
+            "token_hint": "Lipește tokenul din jurnalul serverului sau din secrets/setup_token pe gazda Hyve.",
+            "token_required": "Tokenul de configurare este obligatoriu.",
+            "invalid_token": "Token de configurare invalid."
         },
         "fsolar": {
             "footer_production": "Prod",

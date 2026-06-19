@@ -57,6 +57,7 @@ export {
     updateHeaderUpdatesBadge,
     refreshUpdatesHeaderBadge,
     loadUpdatesAddons,
+    loadUpdatesPrefsPanel,
     checkAddonUpdates,
     applyHyveUpdate,
     showUpdateReleaseNotes,

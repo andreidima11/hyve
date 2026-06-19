@@ -41,8 +41,8 @@ def test_favicon_requires_token(client):
     assert res.status_code == 401
 
 
-def test_img_proxy_accepts_camera_stream_token(client):
-    token = auth.create_camera_stream_token("alice")
+def test_img_proxy_accepts_media_proxy_token(client):
+    token = auth.create_media_proxy_token("alice")
     res = client.get(
         "/api/img-proxy",
         params={"url": "https://example.com/a.png", "token": token},
@@ -51,11 +51,17 @@ def test_img_proxy_accepts_camera_stream_token(client):
     assert res.headers.get("content-type", "").startswith("image/")
 
 
-def test_favicon_accepts_camera_stream_token(client):
-    token = auth.create_camera_stream_token("alice")
+def test_favicon_accepts_media_proxy_token(client):
+    token = auth.create_media_proxy_token("alice")
     res = client.get("/api/favicon", params={"domain": "example.com", "token": token})
     assert res.status_code == 200
     assert res.headers.get("content-type", "").startswith("image/")
+
+
+def test_favicon_rejects_camera_stream_token(client):
+    token = auth.create_camera_stream_token("alice", "camera.front")
+    res = client.get("/api/favicon", params={"domain": "example.com", "token": token})
+    assert res.status_code == 401
 
 
 def test_favicon_rejects_access_token_in_query(client):

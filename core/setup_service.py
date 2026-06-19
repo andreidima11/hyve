@@ -9,6 +9,7 @@ import core.database as database
 import core.models as models
 import core.settings as settings
 from core.log_stream import log_line
+from core.setup_token import clear_setup_token, verify_setup_token
 
 SETUP_KEY = "setup_complete"
 SUPPORTED_LANGUAGES = frozenset({"en", "ro"})
@@ -176,6 +177,7 @@ def issue_auth_tokens(username: str) -> dict[str, str | int | bool]:
 def complete_setup(
     db,
     *,
+    setup_token: str,
     username: str,
     password: str,
     full_name: str = "",
@@ -184,6 +186,8 @@ def complete_setup(
     timezone: str = "",
     server_name: str = "",
 ) -> dict:
+    if not verify_setup_token(setup_token):
+        raise SetupValidationError("setup.invalid_token")
     user = create_initial_admin(
         db,
         username=username,
@@ -196,6 +200,7 @@ def complete_setup(
         timezone=timezone,
         server_name=server_name,
     )
+    clear_setup_token()
     tokens = issue_auth_tokens(user.username)
     return {
         "status": "ok",
@@ -205,10 +210,13 @@ def complete_setup(
     }
 
 
-def get_setup_status() -> dict:
+def get_setup_status(*, client_is_loopback: bool = False) -> dict:
+    from core.network_bind import resolve_bind_host
+    from core.setup_token import ensure_setup_token, setup_token_required
+
     complete = is_setup_complete()
     cfg = settings.CFG
-    return {
+    payload = {
         "complete": complete,
         "version": settings.APP_VERSION,
         "languages": sorted(SUPPORTED_LANGUAGES),
@@ -216,3 +224,16 @@ def get_setup_status() -> dict:
         "default_timezone": (cfg.get("timezone") or "").strip() or "Europe/Bucharest",
         "server_name": (cfg.get("server_name") or "").strip() or "Hyve",
     }
+    if complete:
+        return payload
+    ensure_setup_token()
+    payload["requires_setup_token"] = setup_token_required()
+    payload["bind_host"] = resolve_bind_host()
+    payload["restart_for_lan"] = resolve_bind_host() == "127.0.0.1"
+    if client_is_loopback:
+        from core.setup_token import read_setup_token
+
+        token = read_setup_token()
+        if token:
+            payload["setup_token"] = token
+    return payload

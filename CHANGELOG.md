@@ -4,6 +4,27 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.27] — 2026-06
+
+Security hardening, dashboard fixes, and settings UX.
+
+### Security
+- **New:** First-time setup requires a one-time token (`secrets/setup_token`); server binds to `127.0.0.1` until setup completes.
+- **New:** Camera ACL — admins see all cameras; other users only entities referenced on their dashboard pages.
+- **Fix:** Camera stream tokens are scoped per `entity_id`; media proxy/favicon uses a separate token type.
+- **Fix:** Removed Assist loopback auth bypass (`assist_default_user_id`).
+
+### Dashboard
+- **Fix:** Profile page tabs — only the active panel is visible (`.hidden` no longer overridden by flex layout).
+- **Fix:** Entity card — toggle domains no longer show a redundant right-side switch on the tile.
+- **Fix:** Widget delete/add on multi-page dashboards — `page_id` is sent correctly; broken legacy fallback no longer fakes success.
+- **Fix:** Custom FA/MDI icons on cards — `mdi:…` and short `fa-…` forms normalize to valid CSS classes.
+
+### Frontend
+- **Fix:** Hub → Settings **Salvează** button — delegated click no longer treats `document` as the save button.
+- **UI:** Updates hub and Settings → Actualizări tab document **Hyve + add-ons** (Hyve version block, link to update page).
+- **UI:** Setup wizard accepts setup token; camera auth uses scoped tokens on the client.
+
 ## [0.9.8.26] — 2026-06
 
 Security hardening (post audit).

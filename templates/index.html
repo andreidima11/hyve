@@ -611,6 +611,8 @@
             </div>
             <form id="setup-form" class="space-y-4" autocomplete="off">
                 <div id="setup-step-account" class="space-y-4">
+                    <input type="text" id="setup-token" class="w-full bg-white/[0.03] border border-theme-light rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all hidden" data-i18n-placeholder="setup.token_placeholder" placeholder="Setup token" autocomplete="off" autocapitalize="off">
+                    <p id="setup-token-hint" class="text-[10px] text-slate-500 hidden" data-i18n="setup.token_hint">Paste the setup token from server logs or secrets/setup_token.</p>
                     <input type="text" id="setup-username" class="w-full bg-white/[0.03] border border-theme-light rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.username_placeholder" placeholder="Admin username" required minlength="3" autocapitalize="off" autocomplete="username">
                     <input type="text" id="setup-fullname" class="w-full bg-white/[0.03] border border-theme-light rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.fullname_placeholder" placeholder="Display name (optional)" autocomplete="name">
                     <input type="password" id="setup-password" class="w-full bg-white/[0.03] border border-theme-light rounded-xl p-4 text-sm focus:border-accent/40 outline-none transition-all" data-i18n-placeholder="setup.password_placeholder" placeholder="Password" required minlength="8" autocomplete="new-password">

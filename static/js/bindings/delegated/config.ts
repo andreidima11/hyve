@@ -128,7 +128,7 @@ import {
 
 export function initConfigDelegatedBindings(): void {
 initConfigEventBindings({
-    saveConfig: (event) => saveConfig(event as import('../../types/features_config.js').SaveConfigOptions | Event),
+    saveConfig: (event, el) => saveConfig(event as import('../../types/features_config.js').SaveConfigOptions | Event, el as Element | null),
     setTheme: (themeId) => setTheme(_str(themeId)),
     openSection: (section) => openConfigSection(_str(section)),
     closeSection: () => navigateConfigBack(),

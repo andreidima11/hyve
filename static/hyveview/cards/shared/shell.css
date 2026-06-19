@@ -126,7 +126,11 @@ html[data-dashboard-resizing="true"] * {
     color: var(--card-icon-color);
     transition: background 0.25s ease, color 0.25s ease;
 }
-.hyve-dashboard-card__icon i { font-size: 0.875rem; }
+.hyve-dashboard-card__icon i,
+.hyve-dashboard-card__icon .mdi {
+    font-size: 0.875rem;
+    line-height: 1;
+}
 .hyve-dashboard-card[data-on="true"] .hyve-dashboard-card__icon {
     box-shadow: 0 0 10px -3px rgba(var(--accent-rgb, 56,189,248), 0.40);
 }

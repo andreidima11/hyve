@@ -133,11 +133,7 @@ export class HyveviewVacuumCard extends HyveviewCardBase {
 
     if (this._iconEl) {
       const custom = typeof host.widgetIcon === 'function' ? host.widgetIcon(w) : String(w.icon || '').trim();
-      if (custom) {
-        this._iconEl.className = host.iconClass ? host.iconClass(custom) : custom;
-      } else {
-        this._iconEl.className = 'fas ' + meta.icon;
-      }
+      this._iconEl.className = host.iconClass(custom || meta.icon);
     }
     this._stateEl.textContent = statusLabel;
 

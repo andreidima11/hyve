@@ -69,7 +69,7 @@ def test_device_image_accepts_query_token(client, monkeypatch):
         "integrations.z2m_images.fetch_device_image_bytes",
         _fake_fetch_device_image_bytes,
     )
-    token = auth.create_camera_stream_token("alice")
+    token = auth.create_media_proxy_token("alice")
     res = client.get(
         "/api/integrations/device-image",
         params={"model": "TS0003_switch_module_2", "token": token},

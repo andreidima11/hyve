@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
 import core.auth as auth
 import core.models as models
+from core.cameras.access import user_may_access_camera
 from core.cameras.attrs import hydrate_stream_attrs
 from core.cameras.audio import apply_camera_audio_settings, apply_camera_talk_push
 from core.cameras.capabilities import camera_capabilities_payload
@@ -17,6 +18,7 @@ from core.cameras.snapshot import camera_snapshot_response, image_snapshot_respo
 from core.cameras.stream_auth import get_camera_user
 from core.cameras.streaming import camera_mjpeg_stream_response, camera_webm_stream_response
 from core.http.limiter import limiter
+from core.http.errors import error_detail
 
 router = APIRouter(prefix="/api/cameras", tags=["cameras"])
 
@@ -25,17 +27,20 @@ router = APIRouter(prefix="/api/cameras", tags=["cameras"])
 @limiter.limit("60/minute")
 async def issue_camera_stream_token(
     request: Request,
-    body: CameraStreamTokenBody | None = None,
+    body: CameraStreamTokenBody,
     user: models.User = Depends(auth.get_current_user),
 ):
-    entity_id = str((body.entity_id if body else None) or "").strip()
-    if entity_id:
-        await camera_entity(entity_id)
-    token = auth.create_camera_stream_token(user.username, entity_id or None)
+    entity_id = str(body.entity_id or "").strip()
+    if not entity_id:
+        raise HTTPException(status_code=400, detail=error_detail("cameras.entity_id_required"))
+    await camera_entity(entity_id)
+    if not user_may_access_camera(user, entity_id):
+        raise HTTPException(status_code=403, detail=error_detail("cameras.access_denied"))
+    token = auth.create_camera_stream_token(user.username, entity_id)
     return {
         "token": token,
         "expires_in": auth.CAMERA_STREAM_TOKEN_EXPIRE_SECONDS,
-        "entity_id": entity_id or None,
+        "entity_id": entity_id,
     }
 
 

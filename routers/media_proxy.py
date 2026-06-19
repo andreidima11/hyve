@@ -6,8 +6,8 @@ endpoints fetch the resource from our backend and stream the bytes back with a
 permissive same-origin content type, while enforcing SSRF protection so callers
 can't probe the internal network.
 
-Auth: short-lived ``camera_stream`` JWT via ``?token=`` query param
-(same pattern as ``/api/cameras/*``; access tokens are not accepted in URLs).
+Auth: short-lived ``media_proxy`` JWT via ``?token=`` query param
+(separate from camera stream tokens; access tokens are not accepted in URLs).
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from __future__ import annotations
 from urllib.parse import urlparse
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
 
 import core.auth as auth
@@ -114,6 +114,19 @@ async def _fetch_image(url: str) -> Response:
         )
     except Exception:
         return _png_fallback()
+
+
+@router.post("/api/media/stream-token")
+@limiter.limit("60/minute")
+async def issue_media_stream_token(
+    request: Request,
+    user: models.User = Depends(auth.get_current_user),
+):
+    token = auth.create_media_proxy_token(user.username)
+    return {
+        "token": token,
+        "expires_in": auth.CAMERA_STREAM_TOKEN_EXPIRE_SECONDS,
+    }
 
 
 @router.get("/api/favicon")

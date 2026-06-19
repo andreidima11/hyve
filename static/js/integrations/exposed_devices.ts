@@ -22,7 +22,6 @@ import {
 } from '../entity_constants.js';
 import {
     appendMediaQueryToken,
-    getCameraStreamToken,
 } from '../camera_auth.js';
 import { integrationSlugsMatch } from '../integration_sources.js';
 import type { ExposedDevicesState, IntegrationDeviceSection } from '../types/features_integrations_settings.js';
@@ -316,7 +315,6 @@ export async function loadIntegrationExposedEntities(integrationId: string) {
     }
 
     try {
-        await getCameraStreamToken().catch(() => {});
         const res = await apiCall(`/api/integrations/${encodeURIComponent(sourceSlug)}/devices`);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(translateApiDetail(data.detail) || translateApiDetail(data.message) || t('integrations.devices_load_error'));

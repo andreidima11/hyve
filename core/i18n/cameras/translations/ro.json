@@ -46,5 +46,7 @@
   "mammotion_agora_unavailable": "Agora SDK indisponibil după încărcare",
   "mammotion_agora_load_failed": "Nu s-a putut încărca SDK-ul Agora (verifică conexiunea)",
   "mammotion_token_unavailable": "Token video indisponibil",
-  "mammotion_camera_error": "Eroare cameră"
+  "mammotion_camera_error": "Eroare cameră",
+  "entity_id_required": "entity_id pentru cameră este obligatoriu.",
+  "access_denied": "Nu ai acces la această cameră."
 }

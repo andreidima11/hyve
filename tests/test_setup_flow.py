@@ -10,7 +10,9 @@ from sqlalchemy.orm import sessionmaker
 import core.database as database
 import core.models as models
 import core.settings as settings
+import core.setup_token as setup_token_mod
 from core.http.app import create_app
+from core.setup_token import ensure_setup_token, read_setup_token
 
 
 @pytest.fixture()
@@ -28,9 +30,24 @@ def client(tmp_path, monkeypatch):
     cfg_path = tmp_path / "config.json"
     monkeypatch.setattr(settings, "CONFIG_FILE", str(cfg_path))
     settings.CFG = settings.load_config()
+    monkeypatch.setattr(setup_token_mod, "_SETUP_TOKEN_PATH", tmp_path / "setup_token")
 
     hyve = create_app()
     return TestClient(hyve.app)
+
+
+def _setup_payload(**overrides):
+  token = read_setup_token() or ensure_setup_token()
+  payload = {
+      "setup_token": token,
+      "username": "admin",
+      "password": "secret123",
+      "password_confirm": "secret123",
+      "language": "en",
+      "timezone": "UTC",
+  }
+  payload.update(overrides)
+  return payload
 
 
 def test_setup_status_incomplete_on_fresh_install(client):
@@ -38,6 +55,7 @@ def test_setup_status_incomplete_on_fresh_install(client):
     assert res.status_code == 200
     data = res.json()
     assert data["complete"] is False
+    assert data["requires_setup_token"] is True
     assert "en" in data["languages"]
     assert "ro" in data["languages"]
 
@@ -46,18 +64,12 @@ def test_setup_complete_creates_admin_and_marks_done(client, tmp_path, monkeypat
     cfg_path = tmp_path / "config.json"
     monkeypatch.setattr(settings, "CONFIG_FILE", str(cfg_path))
 
-    res = client.post(
-        "/api/setup/complete",
-        json={
-            "username": "admin",
-            "password": "secret123",
-            "password_confirm": "secret123",
-            "full_name": "Admin",
-            "language": "ro",
-            "timezone": "Europe/Bucharest",
-            "server_name": "Casa mea",
-        },
-    )
+    res = client.post("/api/setup/complete", json=_setup_payload(
+        full_name="Admin",
+        language="ro",
+        timezone="Europe/Bucharest",
+        server_name="Casa mea",
+    ))
     assert res.status_code == 200
     data = res.json()
     assert data["status"] == "ok"
@@ -84,20 +96,10 @@ def test_setup_complete_creates_admin_and_marks_done(client, tmp_path, monkeypat
 def test_setup_complete_rejected_after_first_run(client, tmp_path, monkeypatch):
     cfg_path = tmp_path / "config.json"
     monkeypatch.setattr(settings, "CONFIG_FILE", str(cfg_path))
-    payload = {
-        "username": "admin",
-        "password": "secret123",
-        "password_confirm": "secret123",
-        "language": "en",
-        "timezone": "UTC",
-    }
-    assert client.post("/api/setup/complete", json=payload).status_code == 200
+    assert client.post("/api/setup/complete", json=_setup_payload()).status_code == 200
     retry = client.post(
         "/api/setup/complete",
-        json={
-            **payload,
-            "username": "other",
-        },
+        json=_setup_payload(username="other"),
     )
     assert retry.status_code == 403
     assert retry.json()["detail"]["key"] == "setup.already_complete"
@@ -106,13 +108,16 @@ def test_setup_complete_rejected_after_first_run(client, tmp_path, monkeypatch):
 def test_setup_password_mismatch(client):
     res = client.post(
         "/api/setup/complete",
-        json={
-            "username": "admin",
-            "password": "secret123",
-            "password_confirm": "different",
-            "language": "en",
-            "timezone": "UTC",
-        },
+        json=_setup_payload(password_confirm="different"),
     )
     assert res.status_code == 400
     assert res.json()["detail"]["key"] == "setup.password_mismatch"
+
+
+def test_setup_rejects_invalid_token(client):
+    res = client.post(
+        "/api/setup/complete",
+        json=_setup_payload(setup_token="not-the-real-token"),
+    )
+    assert res.status_code == 400
+    assert res.json()["detail"]["key"] == "setup.invalid_token"

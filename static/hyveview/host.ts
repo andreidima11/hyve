@@ -2,11 +2,12 @@
  * Hyveview host shim.
  */
 
+import { resolveIconClass } from '../js/icon_utils.js';
 import type { HyveviewHostApi, WidgetTitleFallbacks } from './types/host.js';
 import type { HyveviewWidget } from './types/widget.js';
 
 const _host: HyveviewHostApi = {
-    iconClass: (spec) => String(spec || ''),
+    iconClass: (spec) => resolveIconClass(spec),
     widgetIcon: (_widget) => '',
     entityIcon: (_domain) => 'fas fa-circle',
     escape: (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string)),

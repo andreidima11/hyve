@@ -1,4 +1,4 @@
-import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive, refreshIntegrationsSettingsView, loadNotificationPrefs, loadAutomations, loadUpdatesAddons, loadBackupPanel, toggleVoiceRecording } from './features.js';
+import { loadMemory, loadSmarthome, loadConfig, loadAdminUsers, loadSkills, loadModelProfiles, disconnectSmarthomeLive, refreshIntegrationsSettingsView, loadNotificationPrefs, loadAutomations, loadUpdatesAddons, loadUpdatesPrefsPanel, loadBackupPanel, toggleVoiceRecording } from './features.js';
 import { loadUserProfilePage } from './user_profile.js';
 import { loadPlanner, loadApps, loadScenes, loadAreas, populateAppTab, closeAddonWebUI } from './nav_bridge.js';
 import { loadDashboard, dashboardHasRenderedContent, resetDashboardEditingState, disconnectDashboardLive, initDashboardSidebarNav } from './dashboard.js';
@@ -410,6 +410,7 @@ export function switchConfigTab(tabName: string) {
     if (tabName === 'scenes') loadScenes();
     if (tabName === 'areas') loadAreas();
     if (tabName === 'notifications') loadNotificationPrefs();
+    if (tabName === 'updates-prefs') void loadUpdatesPrefsPanel();
     if (tabName === 'integrations') {
         refreshIntegrationsSettingsView('auto');
     }

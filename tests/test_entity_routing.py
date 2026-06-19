@@ -35,11 +35,11 @@ def test_entity_routes_climate_domain():
     assert resolved["renderer"] == "climate"
 
 
-def test_entity_routes_switch_domain_with_toggle_style():
+def test_entity_routes_switch_domain_without_toggle_ui():
     resolved = resolve_entity_effective_renderer({"type": "entity", "entity_id": "switch.lamp"})
 
     assert resolved["renderer"] == "switch"
-    assert resolved["switch_style"] is True
+    assert resolved["switch_style"] is False
 
 
 def test_entity_routes_cover_domain_to_tile():

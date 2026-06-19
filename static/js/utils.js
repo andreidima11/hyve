@@ -3,7 +3,7 @@
  */
 import { t } from './lang/index.js';
 import { withCacheBust } from './asset_version.js';
-import { faviconProxyUrlSync, getCameraStreamToken } from './camera_auth.js';
+import { faviconProxyUrlSync, getMediaProxyToken } from './camera_auth.js';
 const _SOURCE_FAVICON_ONERROR = 'window.__hyveSourceFaviconError?.(this)';
 function _bindSourceFaviconError() {
     if (typeof window === 'undefined' || window.__hyveSourceFaviconError)
@@ -16,7 +16,7 @@ function _bindSourceFaviconError() {
         }
         img.dataset.faviconRetry = '1';
         try {
-            await getCameraStreamToken();
+            await getMediaProxyToken();
             const domain = img.dataset.domain || '';
             if (domain)
                 img.src = faviconProxyUrlSync(domain);
@@ -258,7 +258,7 @@ export function hideSourcesModal() {
 /** Refresh proxied favicon URLs after media auth token is available. */
 export async function refreshSourceFavicons(root = document) {
     try {
-        await getCameraStreamToken();
+        await getMediaProxyToken();
     }
     catch (_) { }
     const scope = root instanceof Document || root instanceof Element ? root : document;

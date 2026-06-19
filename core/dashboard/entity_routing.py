@@ -56,7 +56,9 @@ def resolve_entity_effective_renderer(widget: dict[str, Any] | None) -> dict[str
     if dedicated:
         return {"renderer": dedicated, "switch_style": False}
 
-    if domain in _TOGGLE_DOMAINS or switch_style:
+    if domain in _TOGGLE_DOMAINS:
+        return {"renderer": "switch", "switch_style": False}
+    if switch_style:
         return {"renderer": "switch", "switch_style": True}
     if domain in _TILE_DOMAINS:
         return {"renderer": "tile", "switch_style": False}

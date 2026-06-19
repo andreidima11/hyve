@@ -10,7 +10,7 @@ def test_migrate_legacy_button_preset():
 def test_migrate_legacy_switch_tile_preset():
     out = migrate_legacy_widget_type({"type": "switch_tile"})
     assert out["type"] == "entity"
-    assert out["switch_style"] is True
+    assert "switch_style" not in out or out.get("switch_style") is not True
 
 
 def test_migrate_legacy_light_preset():

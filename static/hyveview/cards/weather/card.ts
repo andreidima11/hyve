@@ -72,7 +72,7 @@ export class HyveviewWeatherSimpleCard extends HyveviewCardBase {
     const isNight = typeof host.weatherIsNight === 'function' ? host.weatherIsNight(attrs) : false;
     if (this._iconEl) {
       const icon = typeof host.weatherIcon === 'function' ? host.weatherIcon(cond, isNight) : 'fas fa-cloud';
-      this._iconEl.className = icon;
+      this._iconEl.className = host.iconClass(icon);
     }
     this._stateEl.textContent = `${cond} · ${temp}`;
 

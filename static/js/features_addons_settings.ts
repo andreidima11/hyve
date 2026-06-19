@@ -15,6 +15,7 @@ export {
 export {
     updateHeaderUpdatesBadge,
     refreshUpdatesHeaderBadge,
+    loadUpdatesPrefsPanel,
     loadUpdatesAddons,
     checkAddonUpdates,
     applyHyveUpdate,

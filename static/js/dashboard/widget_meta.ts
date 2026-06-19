@@ -3,7 +3,7 @@
  */
 
 import * as HVBridge from '/static/hyveview/bridge.js';
-import { normalizeIconClass } from '../icon_utils.js';
+import { resolveIconClass } from '../icon_utils.js';
 import type { DashboardWidget } from '../types/dashboard.js';
 
 export function effectiveWidgetCardType(widget: DashboardWidget | null | undefined): string {
@@ -64,8 +64,7 @@ export function entityIcon(domain: unknown): string {
 }
 
 export function iconClass(spec: unknown): string {
-    const normalized = normalizeIconClass(spec);
-    return normalized || 'fas fa-bolt';
+    return resolveIconClass(spec);
 }
 
 export function entityIconForState(domain: unknown, on: boolean): string {

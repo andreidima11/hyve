@@ -92,11 +92,8 @@ export class HyveviewLockCard extends HyveviewCardBase {
     const isUnlocked = state === 'unlocked' || state === 'unlock' || state === 'open';
     if (this._iconEl) {
       const custom = typeof host.widgetIcon === 'function' ? host.widgetIcon(w) : String(w.icon || '').trim();
-      if (custom) {
-        this._iconEl.className = host.iconClass ? host.iconClass(custom) : custom;
-      } else {
-        this._iconEl.className = 'fas ' + (isLocked ? 'fa-lock' : 'fa-lock-open');
-      }
+      const fallback = isLocked ? 'fa-lock' : 'fa-lock-open';
+      this._iconEl.className = host.iconClass(custom || fallback);
     }
     this._stateEl.textContent = tState(state);
     if (this._lockBtn) this._lockBtn.setAttribute('data-active', isLocked ? 'true' : 'false');

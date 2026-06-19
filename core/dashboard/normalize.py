@@ -459,7 +459,7 @@ def _apply_widget_patch(widget: dict[str, Any], patch: dict[str, Any]) -> dict[s
     updated["title"] = title
     updated["entity_name"] = entity_name
     updated["source"] = str(updated.get("source") or _infer_source(entity_id, entity_name)).strip()
-    updated["icon"] = str(updated.get("icon") or "").strip()
+    updated["icon"] = _normalize_icon(updated.get("icon"), "")
     updated["color"] = str(updated.get("color") or "").strip()
     updated["favorite"] = bool(updated.get("favorite", False))
     updated["show_background"] = bool(updated.get("show_background", False))

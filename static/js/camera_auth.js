@@ -1,20 +1,19 @@
 /**
- * Short-lived camera stream tokens for media URLs (<img>/<video> cannot send Authorization).
+ * Short-lived tokens for camera streams and media proxy URLs.
  */
 import { apiCall } from './api.js';
-const _MEDIA_CACHE_KEY = '__media__';
-const _cacheByKey = new Map();
-function _cacheFor(key) {
-    let row = _cacheByKey.get(key);
+const _cameraCacheByEntity = new Map();
+let _mediaProxyCache = { token: '', expiresAt: 0, inflight: null };
+function _cacheForEntity(entityId) {
+    const key = String(entityId || '').trim();
+    let row = _cameraCacheByEntity.get(key);
     if (!row) {
         row = { token: '', expiresAt: 0, inflight: null };
-        _cacheByKey.set(key, row);
+        _cameraCacheByEntity.set(key, row);
     }
     return row;
 }
-export async function getCameraStreamToken(entityId = '') {
-    const key = String(entityId || '').trim() || _MEDIA_CACHE_KEY;
-    const cache = _cacheFor(key);
+async function _fetchToken(cache, path, body) {
     const now = Date.now();
     if (cache.token && cache.expiresAt > now + 30000) {
         return cache.token;
@@ -23,8 +22,7 @@ export async function getCameraStreamToken(entityId = '') {
         return cache.inflight;
     cache.inflight = (async () => {
         try {
-            const body = key === _MEDIA_CACHE_KEY ? {} : { entity_id: key };
-            const res = await apiCall('/api/cameras/stream-token', { method: 'POST', body });
+            const res = await apiCall(path, { method: 'POST', body });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
                 throw new Error(String(data.detail || data.message || `HTTP ${res.status}`));
@@ -40,7 +38,16 @@ export async function getCameraStreamToken(entityId = '') {
     })();
     return cache.inflight;
 }
-/** Build a proxied camera/image URL with a short-lived token. */
+export async function getCameraStreamToken(entityId) {
+    const key = String(entityId || '').trim();
+    if (!key) {
+        throw new Error('entity_id is required for camera stream tokens');
+    }
+    return _fetchToken(_cacheForEntity(key), '/api/cameras/stream-token', { entity_id: key });
+}
+export async function getMediaProxyToken() {
+    return _fetchToken(_mediaProxyCache, '/api/media/stream-token', {});
+}
 export async function cameraMediaUrl(entityId, kind = 'snapshot', { cacheBust } = {}) {
     const token = await getCameraStreamToken(entityId);
     const base = `/api/cameras/${encodeURIComponent(entityId)}/${kind}`;
@@ -50,36 +57,39 @@ export async function cameraMediaUrl(entityId, kind = 'snapshot', { cacheBust } 
     }
     return `${base}?${q}`;
 }
-export function peekCameraStreamToken(entityId = '') {
-    const key = String(entityId || '').trim() || _MEDIA_CACHE_KEY;
-    return _cacheFor(key).token || '';
+export function peekCameraStreamToken(entityId) {
+    return _cacheForEntity(String(entityId || '').trim()).token || '';
 }
-function _peekMediaAuthToken(entityId = '') {
-    return peekCameraStreamToken(entityId);
+export function peekMediaProxyToken() {
+    return _mediaProxyCache.token || '';
+}
+function _peekMediaAuthToken() {
+    return peekMediaProxyToken();
 }
 /** Append cached short-lived media token to same-origin proxy URLs. */
-export function appendMediaQueryToken(rawUrl, entityId = '') {
+export function appendMediaQueryToken(rawUrl) {
     const url = String(rawUrl || '');
     if (!url.startsWith('/'))
         return url;
-    const token = _peekMediaAuthToken(entityId);
+    const token = _peekMediaAuthToken();
     if (!token)
         return url;
     const sep = url.includes('?') ? '&' : '?';
     return `${url}${sep}token=${encodeURIComponent(token)}`;
 }
-/** Sync img-proxy URL — requires prior getCameraStreamToken(). */
+/** Sync img-proxy URL — requires prior getMediaProxyToken(). */
 export function imgProxyUrlSync(externalUrl) {
     const base = `/api/img-proxy?url=${encodeURIComponent(String(externalUrl || ''))}`;
     return appendMediaQueryToken(base);
 }
-/** Sync favicon proxy URL — requires prior getCameraStreamToken(). */
+/** Sync favicon proxy URL — requires prior getMediaProxyToken(). */
 export function faviconProxyUrlSync(domain) {
     const base = `/api/favicon?domain=${encodeURIComponent(String(domain || ''))}`;
     return appendMediaQueryToken(base);
 }
 export function clearCameraStreamTokenCache() {
-    _cacheByKey.clear();
+    _cameraCacheByEntity.clear();
+    _mediaProxyCache = { token: '', expiresAt: 0, inflight: null };
 }
 /** Sync URL builder — requires prior getCameraStreamToken(entityId). */
 export function cameraProxyUrlSync(entityId, kind = 'snapshot', cacheValue = Date.now()) {

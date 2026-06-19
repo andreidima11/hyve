@@ -12,4 +12,4 @@ class CameraAudioBody(BaseModel):
 
 
 class CameraStreamTokenBody(BaseModel):
-    entity_id: str | None = Field(default=None, description="Scope token to one camera entity")
+    entity_id: str = Field(..., min_length=1, description="Camera entity to scope the stream token")

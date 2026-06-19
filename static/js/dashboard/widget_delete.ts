@@ -3,6 +3,8 @@
  */
 
 import { apiCall } from '../api.js';
+import { activeDashboardPageId } from './dashboard_context.js';
+import { dashboardPageQuery } from './helpers.js';
 import type { DashboardWidgetDeleteDeps } from '../types/dashboard.js';
 
 let _deps: DashboardWidgetDeleteDeps | null = null;
@@ -20,8 +22,10 @@ export async function removeDashboardWidget(widgetId: string): Promise<void> {
     const d = deps();
     if (!d.requireDashboardEditAccess()) return;
     if (!(await d.showConfirm(d.t('dashboard.delete_widget_confirm') || 'Delete this dashboard widget?'))) return;
+
+    const pageQS = dashboardPageQuery(activeDashboardPageId());
     try {
-        const res = await apiCall(`/api/dashboard/widgets/${encodeURIComponent(widgetId)}`, { method: 'DELETE' });
+        const res = await apiCall(`/api/dashboard/widgets/${encodeURIComponent(widgetId)}${pageQS}`, { method: 'DELETE' });
         if (res.ok) {
             await d.loadDashboard();
             d.showToast(d.t('dashboard.widget_deleted') || 'Widget deleted', 'success');
@@ -41,6 +45,13 @@ export async function removeDashboardWidget(widgetId: string): Promise<void> {
 
     try {
         const section = await d.readDashboardSectionFallback();
+        const panels = Array.isArray((section as { panels?: unknown[] }).panels)
+            ? (section as { panels: unknown[] }).panels
+            : [];
+        if (panels.length > 0) {
+            d.showToast(d.t('dashboard.widget_delete_error') || 'Could not delete widget', 'error');
+            return;
+        }
         section.widgets = (section.widgets || []).filter((item) => item.id !== widgetId);
         await d.writeDashboardSectionFallback(section);
         await d.loadDashboard();

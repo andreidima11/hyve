@@ -107,6 +107,45 @@ export async function refreshUpdatesHeaderBadge() {
     } catch (_) {}
 }
 
+export async function loadUpdatesPrefsPanel() {
+    const versionEl = document.getElementById('updates-prefs-hyve-version');
+    const latestEl = document.getElementById('updates-prefs-hyve-latest');
+    const hintEl = document.getElementById('updates-prefs-hyve-hint');
+    if (!versionEl && !latestEl && !hintEl) return;
+
+    const setLine = (el: HTMLElement | null, text: string) => {
+        if (!el) return;
+        if (!text) {
+            el.classList.add('hidden');
+            el.textContent = '';
+            return;
+        }
+        el.textContent = text;
+        el.classList.remove('hidden');
+    };
+
+    try {
+        const res = await apiCall('/api/updates/hyve');
+        if (!res.ok) throw new Error('hyve status');
+        const hyve = await res.json() as HyveUpdateStatus;
+        _hyveUpdateCache = hyve;
+        setLine(versionEl, t('updates.hyve_current_version', { version: _displayVersion(hyve.current) }));
+        if (hyve.update_available && hyve.latest) {
+            setLine(latestEl, t('updates.hyve_latest_version', { version: _displayVersion(hyve.latest) }));
+        } else {
+            setLine(latestEl, '');
+        }
+        const hints: string[] = [];
+        if (!hyve.git_available) hints.push(t('updates.hyve_hint_not_git'));
+        if (hyve.error?.key) hints.push(translateApiDetail(hyve.error));
+        setLine(hintEl, hints.join(' · '));
+    } catch (_) {
+        setLine(versionEl, '');
+        setLine(latestEl, '');
+        setLine(hintEl, t('updates.hyve_check_failed'));
+    }
+}
+
 export async function loadUpdatesAddons() {
     _normalizeLegacyLayout();
     _setListLoading();
@@ -479,7 +518,7 @@ function _hyveRowHtml(hyve: HyveUpdateStatus): string {
     return _updateEntityRow({
         outdated,
         iconHtml: _updIconHtml('<i class="fas fa-house text-accent" aria-hidden="true"></i>'),
-        name: 'Hyve',
+        name: escapeHtml(t('updates.tab_hyve')),
         versionHtml,
         badgesHtml: badge,
         actionsHtml: actionHtml,

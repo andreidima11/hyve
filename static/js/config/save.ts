@@ -11,26 +11,29 @@ import type { SaveConfigOptions } from '../types/features_config.js';
 import { cfgField, cfgVal, errMsg } from './utils.js';
 import { refreshUiLanguageSelect } from './ui_language.js';
 
-export async function saveConfig(eOrOptions?: Event | SaveConfigOptions) {
+export async function saveConfig(eOrOptions?: Event | SaveConfigOptions, triggerEl?: Element | null) {
     const arg: Event | SaveConfigOptions = eOrOptions ?? {};
     const isEventLike = typeof (arg as Event).preventDefault === 'function';
     const options: SaveConfigOptions = isEventLike ? {} : (arg as SaveConfigOptions);
-    const ev = isEventLike ? (arg as Event) : null;
+    const ev = isEventLike ? (arg as Event) : (options.event ?? null);
     const silent = !!options.silent;
 
     if (ev) ev.preventDefault();
 
-    // Find the clicked save button (if any) and put it into a loading state
-    const saveBtn = ev ? ((ev.currentTarget as HTMLButtonElement | null) || (ev.target as HTMLElement | null)?.closest('button')) : null;
+    // Delegated clicks use document as currentTarget — resolve the real button from the trigger element.
+    const saveBtn = (
+        (triggerEl instanceof HTMLButtonElement ? triggerEl : triggerEl?.closest('button'))
+        || (ev ? (ev.target as HTMLElement | null)?.closest('[data-config-action="saveConfig"]') : null)
+    ) as HTMLButtonElement | null;
     let originalBtnHtml: string | null = null;
-    if (saveBtn) {
+    if (saveBtn instanceof HTMLButtonElement) {
         originalBtnHtml = saveBtn.innerHTML;
         saveBtn.disabled = true;
         saveBtn.dataset.saving = 'true';
         saveBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>${escapeHtml(t('updates.saving'))}</span>`;
     }
     const restoreBtn = () => {
-        if (saveBtn && originalBtnHtml !== null) {
+        if (saveBtn instanceof HTMLButtonElement && originalBtnHtml !== null) {
             saveBtn.disabled = false;
             delete saveBtn.dataset.saving;
             saveBtn.innerHTML = originalBtnHtml;

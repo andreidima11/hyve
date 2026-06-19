@@ -12,7 +12,7 @@ import {
     closeDevicePrimaryEntityModal,
     initDevicePrimaryHoldBindings,
 } from './device_primary_modal.js';
-import { getCameraStreamToken, cameraProxyUrlSync, startCameraPreviewRefresh, stopCameraPreviewRefresh } from '../camera_auth.js';
+import { cameraProxyUrlSync, startCameraPreviewRefresh, stopCameraPreviewRefresh } from '../camera_auth.js';
 import { cameraLoaderMarkup, bindCameraPreviewLoaders } from '../camera_loader.js';
 import { t, tState, applyTranslations, translateApiDetail } from '../lang/index.js';
 import { escapeHtml, escapeHtmlAttr, showToast, showConfirm, debounce } from '../utils.js';
@@ -379,7 +379,6 @@ function _deviceSearchText(entity: SmarthomeEntity) {
 }
 
 export async function loadSmarthome(options: LoadSmarthomeOptions = {}) {
-    getCameraStreamToken().catch(() => {});
     const force = !!options?.force;
     if (smarthomeDeviceState.smarthomeLoadPromise && !force) return smarthomeDeviceState.smarthomeLoadPromise;
 
