@@ -7,8 +7,8 @@ import importlib.util
 import json
 import logging
 import os
-import re
 import shutil
+import shlex
 import subprocess
 import sys
 import time
@@ -151,18 +151,21 @@ async def install_addon_stream(slug: str):
 
 # ── install helpers ──────────────────────────────────────────────────────
 
+from addons.install_validate import validate_apt_packages, validate_docker_image
+
+
 def _apt_install_cmd(packages: list[str]) -> list[str]:
     """Non-interactive apt install for Linux hosts without Homebrew."""
-    pkgs = [str(p).strip() for p in packages if str(p).strip()]
+    pkgs = validate_apt_packages([str(p).strip() for p in packages if str(p).strip()])
     if not pkgs:
         return []
-    joined = " ".join(pkgs)
+    quoted = " ".join(shlex.quote(pkg) for pkg in pkgs)
     return [
         "bash",
         "-lc",
         "export DEBIAN_FRONTEND=noninteractive && "
         "apt-get update -qq && "
-        f"apt-get install -y {joined}",
+        f"apt-get install -y {quoted}",
     ]
 
 
@@ -183,9 +186,7 @@ def build_install_cmds(method: str, install: dict) -> list[list[str]]:
     if method == "docker":
         image = install.get("image", "")
         if image:
-            # Use a login shell so we pick up brew-installed binaries even
-            # when Hyve was started outside a terminal session.
-            return [["bash", "-lc", f"docker pull {image}"]]
+            return [["docker", "pull", validate_docker_image(image)]]
         return []
 
     if method == "brew":

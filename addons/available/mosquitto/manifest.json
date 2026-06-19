@@ -58,8 +58,8 @@
       "key": "allow_anonymous",
       "label": "Permite conexiuni anonime",
       "type": "checkbox",
-      "default": true,
-      "description": "Pentru instalarea locală, permite conectarea fără user/parolă."
+      "default": false,
+      "description": "Dezactivat implicit din motive de securitate. Activează doar cu user/parolă setate."
     }
   ],
   "health_check": {

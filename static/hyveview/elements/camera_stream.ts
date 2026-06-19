@@ -27,7 +27,8 @@
  *   data-state = 'loading' | 'ready' | 'error' | 'idle'
  */
 
-import { cameraGo2rtcWsUrl, cameraMseCodecs } from '../../js/camera_live.js';
+import { cameraGo2rtcWsUrlSync, getCameraStreamToken } from '../../js/camera_auth.js';
+import { cameraMseCodecs } from '../../js/camera_live.js';
 import { cameraMediaUrl } from '../../js/camera_auth.js';
 import {
   cameraLoaderMarkup,
@@ -181,7 +182,7 @@ class HyveCameraStream extends HTMLElement {
     else this._startMjpegLive();
   }
 
-  _startGo2rtcLive() {
+  async _startGo2rtcLive() {
     if (!this._img || !('MediaSource' in window) || !('WebSocket' in window)) {
       if (this._webmLive) this._startWebmLive();
       else this._startMjpegLive();
@@ -242,7 +243,13 @@ class HyveCameraStream extends HTMLElement {
       this._setState('ready');
     }, { once: true });
     this._mseFallbackTimer = setTimeout(() => this._fallbackFromMse(), 9000);
-    this._ws = new WebSocket(cameraGo2rtcWsUrl(this._entity));
+    try {
+      await getCameraStreamToken(this._entity);
+    } catch {
+      this._fallbackFromMse();
+      return;
+    }
+    this._ws = new WebSocket(cameraGo2rtcWsUrlSync(this._entity));
     this._ws.binaryType = 'arraybuffer';
     this._ws.onopen = requestStream;
     this._ws.onerror = () => this._fallbackFromMse();

@@ -1,52 +1,53 @@
 /**
- * <hv-card-light> — light card with brightness slider.
- *
- * Outer article (rendered by dashboard.js) owns drag/edit/click plumbing
- * and the data-on/data-pending/data-unavailable attributes. The brightness
- * slider keeps legacy window handlers — we only update the slider value, display
- * %, and CSS var in-place on setState() without re-render.
+ * <hv-card-light> — light entity with brightness control.
  */
 import { HyveviewCardBase } from '../../core/card-base.js';
 import { host, widgetTitle } from '../../host.js';
 import { tState } from '../../../js/lang/index.js';
 import type { CardWidget, HyveviewEntityState } from '../../types/card-widget.js';
 
+function lightCaps(widget: CardWidget) {
+  const attrs = (widget.attributes && typeof widget.attributes === 'object'
+    ? widget.attributes : {}) as Record<string, unknown>;
+  const caps = (attrs.capabilities && typeof attrs.capabilities === 'object'
+    ? attrs.capabilities : {}) as Record<string, unknown>;
+  const scale = Number(caps.brightness_scale) || 254;
+  const supportsBrightness = !!(
+    caps.brightness_command_topic || caps.brightness || caps.brightness_range || attrs.brightness != null
+  );
+  return { scale, supportsBrightness };
+}
+
+function brightnessPct(widget: CardWidget, on: boolean): number {
+  const { scale } = lightCaps(widget);
+  const attrs = (widget.attributes && typeof widget.attributes === 'object'
+    ? widget.attributes : {}) as Record<string, unknown>;
+  const raw = Number(attrs.brightness != null ? attrs.brightness : (on ? scale : 0));
+  return Math.max(0, Math.min(100, Math.round((raw / scale) * 100)));
+}
+
 export class HyveviewLightCard extends HyveviewCardBase {
-  protected _brightValueEl: HTMLElement | null;
-  protected _brightnessEl: HTMLElement | null;
-  protected _iconEl: HTMLElement | null;
-  protected _sliderActive: boolean;
-  protected _sliderEl: HTMLElement | null;
-  protected _stateEl: HTMLElement | null;
-  protected _supportsBrightness: boolean;
-  protected _titleEl: HTMLElement | null;
+  protected _iconWrapEl: HTMLElement | null = null;
+  protected _liveValueEl: HTMLElement | null = null;
+  protected _sliderActive = false;
+  protected _sliderEl: HTMLInputElement | null = null;
+  protected _sliderWrapEl: HTMLElement | null = null;
+  protected _supportsBrightness = false;
+
   static meta = {
     name: 'Light',
-    description: 'Light entity with on/off toggle and brightness slider.',
+    description: 'Light with brightness slider.',
     icon: '💡',
   };
   static schema = {
     fields: [
-      { key: 'entity_id', label: 'Light entity', type: 'entity', domains: ['light', 'switch'], required: true },
+      { key: 'entity_id', label: 'Light entity', type: 'entity', domains: ['light'], required: true },
       { key: 'title', label: 'Title', type: 'string', placeholder: 'Auto from entity if blank' },
       { key: 'icon', label: 'Icon', type: 'icon', placeholder: 'fas fa-lightbulb' },
     ],
   };
   static getStubConfig(entityId?: string) {
-    return { entity_id: entityId || '', title: '', icon: '' };
-  }
-
-  constructor() {
-    super();
-    this._titleEl = null;
-    this._stateEl = null;
-    this._iconEl = null;
-    this._brightnessEl = null;
-    this._sliderEl = null;
-    this._brightValueEl = null;
-    this._supportsBrightness = false;
-    // Track whether user is actively dragging slider to avoid clobbering input.
-    this._sliderActive = false;
+    return { entity_id: entityId || '', title: '', icon: 'fas fa-lightbulb' };
   }
 
   setConfig(widget: CardWidget | null | undefined) {
@@ -69,43 +70,57 @@ export class HyveviewLightCard extends HyveviewCardBase {
   _render() {
     const w = (this._config || {}) as CardWidget;
     const escape = host.escape;
-    const attrs = (w.attributes && typeof w.attributes === 'object' ? w.attributes : {}) as Record<string, unknown>;
-    const caps = (attrs.capabilities && typeof attrs.capabilities === 'object' ? attrs.capabilities : {}) as Record<string, unknown>;
-    this._supportsBrightness = !!(caps.brightness_command_topic || caps.brightness || caps.brightness_range || attrs.brightness != null);
     const editMode = !!w._edit_mode;
+    const { supportsBrightness } = lightCaps(w);
+    this._supportsBrightness = supportsBrightness;
     const title = widgetTitle(w);
     const wid = escape(w.id || '');
+    const showSlider = supportsBrightness && !editMode && w.available !== false;
 
     this.innerHTML = `
-      <div class="hyve-dashboard-card__row">
-        <span class="hyve-dashboard-card__icon"><i data-icon class="fas fa-lightbulb"></i></span>
+      <div class="hyve-dashboard-card__row hyve-light__head">
+        <span class="hyve-dashboard-card__icon hyve-light__icon" data-icon-wrap>
+          <i data-icon class="fas fa-lightbulb"></i>
+        </span>
         <div class="hyve-dashboard-card__body">
           <div class="hyve-dashboard-card__title" data-title>${escape(title)}</div>
-          <div class="hyve-dashboard-card__state" data-state></div>
+          <div class="hyve-light__value" data-live-value>—</div>
         </div>
       </div>
-      ${this._supportsBrightness && !editMode ? `
-        <div class="hyve-dashboard-card__brightness" data-brightness style="--brightness-pct: 0%">
-          <i class="fas fa-sun"></i>
-          <input type="range" min="0" max="100" value="0"
-            class="hyve-dashboard-card__brightness-slider"
+      ${showSlider ? `
+        <div class="hyve-light__slider" data-brightness style="--brightness-pct: 0%">
+          <input type="range" min="0" max="100" step="1" value="0"
+            class="hyve-light__range"
             data-brightness-slider
             data-dash-input="brightnessInput"
             data-dash-change="brightnessChange"
+            data-dash-stop-propagation="true"
             data-widget-id="${wid}"
-            aria-label="Luminozitate">
-          <span class="hyve-dashboard-card__brightness-value" data-brightness-value>0%</span>
+            aria-label="${escape(title)}">
+          <div class="hyve-light__bounds">
+            <span>0%</span>
+            <span>100%</span>
+          </div>
         </div>` : ''}
     `;
-    this._titleEl = this.querySelector('[data-title]');
-    this._stateEl = this.querySelector('[data-state]');
-    this._iconEl = this.querySelector('[data-icon]');
-    this._brightnessEl = this.querySelector('[data-brightness]');
+
+    this._liveValueEl = this.querySelector('[data-live-value]');
+    this._iconWrapEl = this.querySelector('[data-icon-wrap]');
+    this._sliderWrapEl = this.querySelector('[data-brightness]');
     this._sliderEl = this.querySelector('[data-brightness-slider]');
-    this._brightValueEl = this.querySelector('[data-brightness-value]');
+
+    const stateStr = String(w.current_state == null ? 'unknown' : w.current_state);
+    const on = typeof host.stateOn === 'function'
+      ? host.stateOn(stateStr)
+      : ['on', 'true', '1'].includes(stateStr.toLowerCase());
+    const iconSpec = (typeof host.widgetIcon === 'function' ? host.widgetIcon(w) : w.icon)
+      || (typeof host.entityIconForState === 'function'
+        ? host.entityIconForState('light', on)
+        : (on ? 'fas fa-lightbulb' : 'far fa-lightbulb'));
+    const iconEl = this.querySelector('[data-icon]');
+    if (iconEl) iconEl.className = host.iconClass ? host.iconClass(iconSpec) : String(iconSpec);
 
     if (this._sliderEl) {
-      // Track user interaction so live updates don't fight the user.
       this._sliderEl.addEventListener('pointerdown', () => { this._sliderActive = true; });
       this._sliderEl.addEventListener('pointerup', () => { this._sliderActive = false; });
       this._sliderEl.addEventListener('pointercancel', () => { this._sliderActive = false; });
@@ -114,29 +129,39 @@ export class HyveviewLightCard extends HyveviewCardBase {
   }
 
   _applyState() {
-    if (!this._stateEl) return;
     const w = (this._config || {}) as CardWidget;
-    const attrs = (w.attributes && typeof w.attributes === 'object' ? w.attributes : {}) as Record<string, unknown>;
-    const caps = (attrs.capabilities && typeof attrs.capabilities === 'object' ? attrs.capabilities : {}) as Record<string, unknown>;
     const stateStr = String(w.current_state == null ? 'unknown' : w.current_state);
-    const on = typeof host.stateOn === 'function' ? host.stateOn(stateStr)
-      : ['on','true','1'].includes(stateStr.toLowerCase());
-    const scale = Number(caps.brightness_scale) || 254;
-    const rawBrightness = Number(attrs.brightness != null ? attrs.brightness : (on ? scale : 0));
-    const pct = Math.max(0, Math.min(100, Math.round((rawBrightness / scale) * 100)));
-    const stateText = on ? `${pct}%` : tState('off');
-    this._stateEl.textContent = stateText;
+    const on = typeof host.stateOn === 'function'
+      ? host.stateOn(stateStr)
+      : ['on', 'true', '1'].includes(stateStr.toLowerCase());
+    const pct = brightnessPct(w, on);
+    const valueText = on
+      ? (this._supportsBrightness ? `${pct}%` : tState('on'))
+      : tState('off');
 
-    if (this._brightnessEl) {
-      this._brightnessEl.style.setProperty('--brightness-pct', pct + '%');
-      if (this._brightValueEl) this._brightValueEl.textContent = pct + '%';
-      if (this._sliderEl && !this._sliderActive && document.activeElement !== this._sliderEl) {
-        (this._sliderEl as HTMLInputElement).value = String(pct);
-      }
+    if (this._liveValueEl) this._liveValueEl.textContent = valueText;
+
+    if (this._sliderWrapEl) {
+      this._sliderWrapEl.style.setProperty('--brightness-pct', `${pct}%`);
+    }
+    if (this._iconWrapEl) {
+      this._iconWrapEl.style.setProperty('--light-pct', `${pct}`);
+    }
+    if (this._sliderEl && !this._sliderActive && document.activeElement !== this._sliderEl) {
+      this._sliderEl.value = String(pct);
+    }
+
+    const iconEl = this.querySelector('[data-icon]');
+    if (iconEl) {
+      const iconSpec = (typeof host.widgetIcon === 'function' ? host.widgetIcon(w) : w.icon)
+        || (typeof host.entityIconForState === 'function'
+          ? host.entityIconForState('light', on)
+          : (on ? 'fas fa-lightbulb' : 'far fa-lightbulb'));
+      iconEl.className = host.iconClass ? host.iconClass(iconSpec) : String(iconSpec);
     }
 
     const available = w.available !== false;
-    const article = this.parentElement && this.parentElement.tagName === 'ARTICLE'
+    const article = this.parentElement?.tagName === 'ARTICLE'
       ? this.parentElement : this.closest('article');
     if (article) {
       article.setAttribute('data-on', on ? 'true' : 'false');

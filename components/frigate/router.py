@@ -22,7 +22,7 @@ router = APIRouter(prefix="/api/cameras", tags=["cameras", "frigate"])
 
 @router.websocket("/{entity_id}/go2rtc/ws")
 async def camera_go2rtc_ws(websocket: WebSocket, entity_id: str, token: str = Query(default=None)):
-    user = await authenticate_ws_user(token)
+    user = await authenticate_ws_user(token, entity_id)
     if not user:
         await websocket.close(code=1008, reason="auth required")
         return

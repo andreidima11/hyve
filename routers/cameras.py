@@ -12,7 +12,7 @@ from core.cameras.attrs import hydrate_stream_attrs
 from core.cameras.audio import apply_camera_audio_settings, apply_camera_talk_push
 from core.cameras.capabilities import camera_capabilities_payload
 from core.cameras.entity_lookup import camera_entity, image_entity
-from core.cameras.schemas import CameraAudioBody
+from core.cameras.schemas import CameraAudioBody, CameraStreamTokenBody
 from core.cameras.snapshot import camera_snapshot_response, image_snapshot_response
 from core.cameras.stream_auth import get_camera_user
 from core.cameras.streaming import camera_mjpeg_stream_response, camera_webm_stream_response
@@ -25,12 +25,17 @@ router = APIRouter(prefix="/api/cameras", tags=["cameras"])
 @limiter.limit("60/minute")
 async def issue_camera_stream_token(
     request: Request,
+    body: CameraStreamTokenBody | None = None,
     user: models.User = Depends(auth.get_current_user),
 ):
-    token = auth.create_camera_stream_token(user.username)
+    entity_id = str((body.entity_id if body else None) or "").strip()
+    if entity_id:
+        await camera_entity(entity_id)
+    token = auth.create_camera_stream_token(user.username, entity_id or None)
     return {
         "token": token,
         "expires_in": auth.CAMERA_STREAM_TOKEN_EXPIRE_SECONDS,
+        "entity_id": entity_id or None,
     }
 
 

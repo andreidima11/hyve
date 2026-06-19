@@ -1,0 +1,11 @@
+{
+  "id": "select",
+  "name": "Select",
+  "description": "Controllable select entity with dropdown.",
+  "version": "1.0.0",
+  "entry": "index.js",
+  "styles": [
+    "styles.css"
+  ],
+  "hyve_card": true
+}

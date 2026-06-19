@@ -1,6 +1,6 @@
 /** Camera entity attribute hints for live transport selection. */
 
-export type CameraLiveProvider = 'webm' | 'mjpeg' | 'go2rtc' | 'snapshot' | 'agora';
+export type CameraLiveProvider = 'rtsp' | 'webm' | 'mjpeg' | 'go2rtc' | 'snapshot' | 'agora';
 
 export type CameraMediaKind = 'snapshot' | 'image' | 'stream' | 'play';
 

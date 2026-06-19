@@ -590,8 +590,6 @@ class TapoEntity(BaseEntity):
                 "live_providers": ["rtsp", "webm", "snapshot"] if stream else ["snapshot"],
             }
             if stream:
-                cam_attrs["stream_url"] = stream
-                cam_attrs["rtsp_url"] = stream
                 cam_attrs["snapshot_refresh"] = 5
                 cam_attrs["has_audio"] = True
                 cam_attrs["two_way_audio"] = True

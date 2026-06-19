@@ -2,11 +2,14 @@
  * Load bundled Hyveview card packages and optional community drop-ins.
  */
 
+import { register as registerEntity } from './entity/index.js';
 import { register as registerLabel } from './label/index.js';
 import { register as registerSensor } from './sensor/index.js';
 import { register as registerTile } from './tile/index.js';
 import { register as registerLight } from './light/index.js';
 import { register as registerGauge } from './gauge/index.js';
+import { register as registerNumber } from './number/index.js';
+import { register as registerSelect } from './select/index.js';
 import { register as registerLock } from './lock/index.js';
 import { register as registerWeather } from './weather/index.js';
 import { register as registerWeatherRich } from './weather_rich/index.js';
@@ -24,11 +27,14 @@ const SHARED_SHELL = '/static/hyveview/cards/shared/shell.css';
 type CardRegisterFn = () => void;
 
 const _BUNDLED: CardRegisterFn[] = [
+    registerEntity,
     registerLabel,
     registerSensor,
     registerTile,
     registerLight,
     registerGauge,
+    registerNumber,
+    registerSelect,
     registerLock,
     registerWeather,
     registerWeatherRich,

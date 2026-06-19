@@ -79,7 +79,7 @@ export async function ensureHyveviewEntitySeed() {
 }
 
 function widgetToEditorCard(widget: DashboardWidget): EditorCard {
-    const type = String(widget.type || 'button');
+    const type = String(widget.type || 'entity');
     const rawCol = Number(widget.col_span);
     const col = Math.min(Math.max(Number.isFinite(rawCol) ? rawCol : SECTION_COLS, 1), SECTION_COLS);
     const row = Math.min(Math.max(Number(widget.row_span) || 2, 1), 12);
@@ -191,7 +191,7 @@ function editorResultToWidgetBody(
 ): Record<string, unknown> {
     const d = deps();
     const cache = d.getDashboardCache();
-    const type = result.type || 'button';
+    const type = result.type || 'entity';
     const cfg = result.config || {};
     const col = Math.min(Math.max(Number(result.layout?.col) || SECTION_COLS, 1), SECTION_COLS);
     const row = Math.min(Math.max(Number(result.layout?.row) || 2, 1), 12);
@@ -246,6 +246,15 @@ function editorResultToWidgetBody(
         col_span: col,
         row_span: row,
     };
+    if (type === 'entity' && entityId) {
+        const ent = (cache.available_entities || []).find(e => e.entity_id === entityId);
+        const resolved = HVBridge.resolveEntityEffectiveType({
+            entity_id: entityId,
+            domain: ent?.domain || entityId.split('.')[0],
+            switch_style: false,
+        });
+        body.switch_style = resolved.switchStyle;
+    }
     if (cfg.color) body.color = cfg.color;
     if (type === 'climate') {
         const records = enrichEntityRecords(

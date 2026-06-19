@@ -62,21 +62,39 @@ def isolated_entries_db(tmp_path, monkeypatch):
     sqlite_sidecar.reset_initialized()
 
 
-def test_dashboard_card_catalog_exposes_catalog_entries():
+def test_dashboard_card_catalog_exposes_entity_and_specialized_cards():
     cards = dashboard_card_catalog()
     ids = {entry["id"] for entry in cards}
 
-    assert "button" in ids
-    assert "switch_tile" in ids
-    assert any(entry["renderer"] == "button" for entry in cards if entry["id"] == "switch_tile")
+    assert "entity" in ids
+    assert "weather" in ids
+    assert "climate" in ids
+    assert "gauge" in ids
+    assert "button" not in ids
+    assert "switch_tile" not in ids
+    assert "sensor_tile" not in ids
+    assert "light" not in ids
+    assert "sensor" not in ids
+    assert "number" not in ids
+    assert "select" not in ids
+
+    entity_entry = next(entry for entry in cards if entry["id"] == "entity")
+    assert entity_entry["renderer"] == "entity"
+    assert entity_entry["show_in_picker"] is True
 
 
-def test_resolve_dashboard_card_keeps_preset_type_but_uses_renderer():
-    resolved = resolve_dashboard_card("switch_tile")
+def test_resolve_dashboard_card_entity_preset():
+    resolved = resolve_dashboard_card("entity")
 
-    assert resolved["id"] == "switch_tile"
-    assert resolved["renderer"] == "button"
-    assert resolved["supports_switch_style"] is True
+    assert resolved["id"] == "entity"
+    assert resolved["renderer"] == "entity"
+
+
+def test_resolve_dashboard_card_unknown_falls_back_to_entity():
+    resolved = resolve_dashboard_card("removed_legacy_preset")
+
+    assert resolved["id"] == "removed_legacy_preset"
+    assert resolved["renderer"] == "entity"
 
 
 def test_resolve_dashboard_card_ignores_stale_generic_renderer_on_dedicated_type():

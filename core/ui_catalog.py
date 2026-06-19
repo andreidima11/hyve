@@ -10,10 +10,10 @@ from integrations import config_entries, get_integration_manager
 
 _CATALOG_PATH = Path(__file__).resolve().parent.parent / "ui_catalog.json"
 _CARD_RENDERERS = {
-    "switch", "button", "info", "label", "weather", "scene",
+    "switch", "button", "info", "label", "weather", "scene", "entity",
     # Phase 2 — rich HA-style cards
-    "tile", "light", "sensor", "climate", "gauge", "lock", "weather_rich",
-    "camera", "vacuum", "fusion_solar",
+    "tile", "light", "sensor", "climate", "gauge", "number", "select", "lock", "weather_rich",
+    "camera", "vacuum", "lawn_mower", "picture", "fusion_solar",
 }
 _GENERIC_CARD_RENDERERS = frozenset({"button", "tile", "switch", "info", "scene"})
 
@@ -21,28 +21,16 @@ _FALLBACK_CATALOG: dict[str, Any] = {
     "integrations": [],
     "dashboard_cards": [
         {
-            "id": "button",
-            "label": "Buton",
-            "renderer": "button",
-            "requires_entity": True,
-            "entity_filter": "controllable",
-            "supports_visibility": True,
-            "supports_switch_style": True,
-            "supports_background": False,
-            "default_size": "md",
-            "order": 10,
-        },
-        {
-            "id": "info",
-            "label": "Info card",
-            "renderer": "info",
+            "id": "entity",
+            "label": "Entitate",
+            "renderer": "entity",
             "requires_entity": True,
             "entity_filter": "all",
             "supports_visibility": True,
             "supports_switch_style": False,
             "supports_background": False,
             "default_size": "md",
-            "order": 20,
+            "order": 5,
         },
         {
             "id": "weather",
@@ -170,7 +158,7 @@ def resolve_dashboard_card(card_type: str | None, renderer: str | None = None) -
     if not entry and card_id in _CARD_RENDERERS:
         entry = _normalize_card_entry({"id": card_id, "renderer": card_id})
     if not entry:
-        entry = deepcopy(catalog.get("button") or _normalize_card_entry({"id": "button", "renderer": "button"}))
+        entry = deepcopy(catalog.get("entity") or _normalize_card_entry({"id": "entity", "renderer": "entity"}))
         entry["id"] = card_id or entry["id"]
     catalog_renderer = str(entry.get("renderer") or "").strip()
     if resolved_renderer and resolved_renderer in _CARD_RENDERERS:

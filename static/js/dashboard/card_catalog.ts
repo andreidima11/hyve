@@ -33,6 +33,7 @@ export function getDashboardCardMeta(type: string): DashboardCardMeta {
 export function dashboardCardIcon(card: DashboardCardMeta): string {
     if (card.icon) return card.icon;
     const map: Record<string, string> = {
+        entity: 'fas fa-cube',
         button: 'fas fa-toggle-on',
         switch: 'fas fa-toggle-on',
         info: 'fas fa-circle-info',
@@ -45,6 +46,8 @@ export function dashboardCardIcon(card: DashboardCardMeta): string {
         sensor: 'fas fa-gauge-simple-high',
         climate: 'fas fa-temperature-half',
         gauge: 'fas fa-gauge-high',
+        number: 'fas fa-sliders',
+        select: 'fas fa-list',
         lock: 'fas fa-lock',
         vacuum: 'fas fa-robot',
         fusion_solar: 'fas fa-solar-panel',
@@ -59,6 +62,7 @@ export function dashboardDefaultRowsForType(type: string): number {
     if (renderer === 'weather_rich') return 3;
     if (renderer === 'fusion_solar') return 2;
     if (renderer === 'gauge') return 2;
+    if (renderer === 'number') return 2;
     if (renderer === 'camera' || renderer === 'picture') return 3;
     return 1;
 }

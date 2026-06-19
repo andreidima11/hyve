@@ -10,7 +10,10 @@ import type {
     RegisterCardOptions,
 } from './types/card.js';
 import type { HyveviewRegistryEntry } from './types/card.js';
+import { resolveEntityEffectiveType } from './core/entity_routing.js';
 import type { HyveviewWidget, WidgetByIdFn, WidgetEntityIdsResolver } from './types/widget.js';
+
+export { resolveEntityEffectiveType } from './core/entity_routing.js';
 
 const _registry = new Map<string, HyveviewRegistryEntry>();
 const _GENERIC_RENDERERS = new Set(['button', 'tile', 'switch', 'info', 'scene']);
@@ -76,6 +79,11 @@ export function effectiveCardType(widget: HyveviewWidget | null | undefined): st
     if (type === 'weather_gradient') type = 'weather';
     const rendererRaw = String(widget?.renderer || '').trim();
     const renderer = rendererRaw === 'weather_gradient' ? 'weather' : rendererRaw;
+    if (type === 'entity') {
+        const stored = renderer && renderer !== 'entity' ? renderer : '';
+        if (stored && _registry.has(stored)) return stored;
+        return resolveEntityEffectiveType(widget).effectiveType;
+    }
     if (type && _registry.has(type) && (!renderer || _GENERIC_RENDERERS.has(renderer))) {
         return type;
     }

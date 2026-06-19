@@ -150,20 +150,28 @@ def test_extract_weather_candidates_exposes_multiple_open_meteo_entities():
     assert items[1]["attributes"]["forecast"][0]["datetime"] == "2026-04-01"
 
 
-def test_dashboard_widget_body_accepts_info_button_and_label_tiles():
-    body = dashboard.DashboardWidgetBody(type="info", entity_id="sensor.living_temperature", title="Temperatură living")
-    button = dashboard.DashboardWidgetBody(type="button", entity_id="switch.coffee_machine", title="Cafea")
+def test_dashboard_widget_body_accepts_entity_and_specialized_types():
+    entity = dashboard.DashboardWidgetBody(type="entity", entity_id="sensor.living_temperature", title="Temperatură living")
     label = dashboard.DashboardWidgetBody(type="label", entity_id="label.dashboard_title", title="Lumini")
     weather = dashboard.DashboardWidgetBody(type="weather", entity_id="weather.openmeteo", title="Vreme")
     climate = dashboard.DashboardWidgetBody(type="climate", entity_id="climate.living_ac", title="AC Living")
-    preset = dashboard.DashboardWidgetBody(type="switch_tile", renderer="button", entity_id="switch.kitchen", title="Bucătărie")
-    assert body.type == "info"
-    assert button.type == "button"
+    assert entity.type == "entity"
     assert label.type == "label"
     assert weather.type == "weather"
     assert climate.type == "climate"
-    assert preset.type == "switch_tile"
-    assert preset.renderer == "button"
+
+
+def test_apply_widget_patch_migrates_legacy_button_to_entity():
+    updated = dashboard._apply_widget_patch({
+        "id": "w1",
+        "type": "button",
+        "entity_id": "switch.coffee_machine",
+        "title": "Cafea",
+    }, {})
+
+    assert updated["type"] == "entity"
+    assert updated["renderer"] == "switch"
+    assert updated["switch_style"] is True
 
 def test_dashboard_toggle_body_accepts_climate_payload():
     body = dashboard.DashboardToggleBody(action="set_temperature", entity_id="climate.bedroom_ac", data={"temperature": 22.5})
@@ -324,21 +332,36 @@ def test_toggle_dashboard_widget_rejects_unlisted_climate_target(monkeypatch):
     assert exc.value.status_code == 400
 
 
+def test_apply_widget_patch_resolves_entity_card_renderer_from_domain():
+    updated = dashboard._apply_widget_patch({
+        "id": "ent1",
+        "type": "entity",
+        "entity_id": "sensor.temperature",
+        "title": "Temp",
+        "entity_name": "Temp",
+    }, {
+        "type": "entity",
+        "entity_id": "switch.kitchen",
+    })
+
+    assert updated["type"] == "entity"
+    assert updated["renderer"] == "switch"
+    assert updated["switch_style"] is True
+
+
 def test_apply_widget_patch_resolves_custom_card_renderer_from_catalog():
     updated = dashboard._apply_widget_patch({
         "id": "abc123",
-        "type": "button",
+        "type": "entity",
         "entity_id": "switch.kitchen",
         "title": "Kitchen",
         "entity_name": "Kitchen",
     }, {
-        "type": "switch_tile",
-        "renderer": "button",
         "switch_style": True,
     })
 
-    assert updated["type"] == "switch_tile"
-    assert updated["renderer"] == "button"
+    assert updated["type"] == "entity"
+    assert updated["renderer"] == "switch"
     assert updated["switch_style"] is True
 
 
@@ -924,7 +947,7 @@ def test_add_dashboard_widget_post_assigns_id(monkeypatch):
     res = client.post(
         "/api/dashboard/widgets?page_id=acasa",
         json={
-            "type": "sensor",
+            "type": "entity",
             "entity_id": "sensor.test_temp",
             "title": "Test",
             "size": "md",
@@ -936,7 +959,8 @@ def test_add_dashboard_widget_post_assigns_id(monkeypatch):
     data = res.json()
     assert data["status"] == "ok"
     assert data["widget"]["id"]
-    assert data["widget"]["type"] == "sensor"
+    assert data["widget"]["type"] == "entity"
+    assert data["widget"]["renderer"] == "sensor"
 
 
 def test_reorder_dashboard_panel_moves_section_before_target():

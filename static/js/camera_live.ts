@@ -1,8 +1,7 @@
 /**
  * Helpers for choosing live camera transport (WebM+audio vs MJPEG vs go2rtc).
- * Tapo sets live_providers including "webm"; Frigate uses mjpeg/go2rtc only.
  */
-
+import { cameraGo2rtcWsUrlSync, peekCameraStreamToken } from './camera_auth.js';
 import type { CameraEntityAttrs, CameraLiveTransport } from './types/camera.js';
 
 function asCameraAttrs(attrs: unknown): CameraEntityAttrs | null {
@@ -13,6 +12,10 @@ function asCameraAttrs(attrs: unknown): CameraEntityAttrs | null {
 export function cameraHasRtspLive(attrs: unknown): boolean {
     const a = asCameraAttrs(attrs);
     if (!a) return false;
+    const providers = a.live_providers;
+    if (Array.isArray(providers)) {
+        return providers.includes('rtsp') || providers.includes('webm');
+    }
     for (const key of ['rtsp_url', 'stream_url'] as const) {
         const url = String(a[key] || '').trim().toLowerCase();
         if (url.startsWith('rtsp://')) return true;
@@ -115,9 +118,10 @@ export function cameraMseCodecs(): string {
 
 export function cameraGo2rtcWsUrl(entityId: string): string {
     const params = new URLSearchParams();
-    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('hyve_token') : '';
+    const token = peekCameraStreamToken(entityId);
     if (token) params.set('token', token);
     const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = typeof window !== 'undefined' ? window.location.host : '';
-    return `${protocol}//${host}/api/cameras/${encodeURIComponent(entityId)}/go2rtc/ws?${params.toString()}`;
+    const qs = params.toString();
+    return `${protocol}//${host}/api/cameras/${encodeURIComponent(entityId)}/go2rtc/ws${qs ? `?${qs}` : ''}`;
 }

@@ -179,6 +179,13 @@ def build_entities_uncached(
     get_entity_store().apply_overrides(merged)
 
     try:
+        from core.cameras.public_attrs import sanitize_entities_for_client
+
+        merged = sanitize_entities_for_client(merged)
+    except Exception as exc:
+        log.warning("entity client sanitization failed: %s", exc, exc_info=exc)
+
+    try:
         area_map = area_resolver.entity_area_map()
         for ent in merged:
             eid = ent.get("entity_id")

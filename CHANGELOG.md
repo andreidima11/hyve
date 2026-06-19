@@ -4,6 +4,30 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.8.26] — 2026-06
+
+Security hardening (post audit).
+
+### Security
+- **Fix:** Tapo/Frigate camera entities no longer expose `rtsp_url`, internal snapshot/MJPEG URLs, or embedded credentials in dashboard/API payloads (server still resolves streams internally).
+- **Fix:** Camera stream JWTs can be scoped per `entity_id`; leaked tokens no longer unlock all cameras.
+- **Fix:** Agent `file_read` blocks `.env`, `config.json`, `secrets/`, `.secret_key`, and related paths.
+- **Fix:** Addon docker/apt install no longer uses shell-interpolated commands (command injection via custom manifests).
+- **Fix:** Logout revokes refresh tokens (sent in POST body).
+- **Fix:** go2rtc WebSocket uses short-lived camera tokens instead of the 4h access JWT.
+- **Change:** Mosquitto addon defaults `allow_anonymous` to **false** (new installs).
+- **Change:** OpenAPI `/docs` disabled when `HYVE_ENV=production` / strict startup (override: `HYVE_OPENAPI_DOCS=1`).
+
+## [0.9.8.25] — 2026-06
+
+Dashboard: **Entity** card (HA-style), legacy preset cleanup, **light** card redesign.
+
+### Dashboard
+- **New:** `entity` card — universal preset; UI auto-routes by domain (sensor, light, switch, number, select, climate, lock, etc.).
+- **Removed:** Legacy picker presets (`button`, `info`, `switch_tile`, `sensor_tile`, `scene`, `tile`, dedicated `light`/`sensor`/`number`/`select` entries). Saved widgets with old types migrate to `entity` on load/save.
+- **Redesign:** `light` card — large brightness readout, icon glow, modern slider with 0–100% bounds (used automatically for `light.*` via entity routing).
+- **New:** `number` / `select` renderers (entity-routed only) — slider and dropdown controls.
+
 ## [0.9.8.24] — 2026-06
 
 Hotfix: **dashboard page creation** (500 on `POST /api/dashboard/pages`).

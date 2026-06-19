@@ -5,7 +5,7 @@ from __future__ import annotations
 import core.auth as auth
 import core.database as database
 import core.models as models
-from fastapi import Header, HTTPException, Query, status
+from fastapi import Header, HTTPException, Query, Request, status
 
 
 def decode_camera_query_token(raw_token: str) -> dict | None:
@@ -31,6 +31,13 @@ def decode_camera_auth_token(raw_token: str) -> dict | None:
     return payload
 
 
+def _token_matches_entity(payload: dict, entity_id: str) -> bool:
+    scoped = str(payload.get("entity_id") or "").strip()
+    if not scoped:
+        return True
+    return scoped == str(entity_id or "").strip()
+
+
 def user_from_camera_token_payload(payload: dict) -> models.User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -51,10 +58,12 @@ def user_from_camera_token_payload(payload: dict) -> models.User:
 
 
 async def get_camera_user(
+    request: Request,
     token: str | None = Query(None),
     authorization: str | None = Header(None),
 ) -> models.User:
     """Authenticate without holding a DB session for the whole response lifetime."""
+    entity_id = str(request.path_params.get("entity_id") or "").strip()
     query_token = (token or "").strip()
     header_token = ""
     if authorization:
@@ -69,6 +78,8 @@ async def get_camera_user(
     payload = None
     if query_token:
         payload = decode_camera_query_token(query_token)
+        if payload and entity_id and not _token_matches_entity(payload, entity_id):
+            raise credentials_exception
     elif header_token:
         payload = decode_camera_auth_token(header_token)
     if not payload:
@@ -76,13 +87,15 @@ async def get_camera_user(
     return user_from_camera_token_payload(payload)
 
 
-async def authenticate_ws_user(token: str | None) -> models.User | None:
+async def authenticate_ws_user(token: str | None, entity_id: str = "") -> models.User | None:
     raw_token = (token or "").strip()
     if not raw_token:
         return None
     try:
         payload = decode_camera_query_token(raw_token)
         if not payload:
+            return None
+        if entity_id and not _token_matches_entity(payload, entity_id):
             return None
         return user_from_camera_token_payload(payload)
     except HTTPException:

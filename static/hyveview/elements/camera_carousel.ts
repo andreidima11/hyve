@@ -607,7 +607,7 @@ class HyveCameraCarousel extends HTMLElement {
     }
     const maxAttempts = 2;
     try {
-      const token = await getCameraStreamToken();
+      const token = await getCameraStreamToken(cur.entity_id);
       const res = await fetch(
         `/api/cameras/${encodeURIComponent(cur.entity_id)}/capabilities?token=${encodeURIComponent(token)}`,
       );
@@ -691,7 +691,7 @@ class HyveCameraCarousel extends HTMLElement {
     const cur = this._current();
     if (!cur) return;
     try {
-      const token = await getCameraStreamToken();
+      const token = await getCameraStreamToken(cur.entity_id);
       await fetch(`/api/cameras/${encodeURIComponent(cur.entity_id)}/audio?token=${encodeURIComponent(token)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -735,7 +735,7 @@ class HyveCameraCarousel extends HTMLElement {
       if (!cur) return;
       const blob = new Blob(this._pttChunks, { type: recorder.mimeType || 'audio/webm' });
       this._pttChunks = [];
-      const token = await getCameraStreamToken();
+      const token = await getCameraStreamToken(cur.entity_id);
       const form = new FormData();
       form.append('audio', blob, 'talk.webm');
       try {

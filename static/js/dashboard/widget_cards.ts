@@ -146,7 +146,7 @@ export function cameraWidgetEntities(widget: DashboardWidget): ReturnType<typeof
 export function renderWidgetCard(widget: DashboardWidget): string {
     const d = deps();
     const renderer = d.widgetRenderer(widget);
-    const registered = getCard(renderer) || getCard('button');
+    const registered = getCard(renderer) || getCard('entity');
     if (!registered?.render) return '';
     return registered.render(widget, buildCardRenderCtx(renderer));
 }

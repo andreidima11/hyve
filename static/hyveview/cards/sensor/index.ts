@@ -8,6 +8,7 @@ export function register() {
   ensureCardStylesheet(SHARED);
   registerCardPackage({
     type: 'sensor',
+    hidden: true,
     element: HyveviewSensorCard,
     styles: [`/static/hyveview/cards/sensor/styles.css`],
     shell: {

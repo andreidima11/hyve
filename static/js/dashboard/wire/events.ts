@@ -62,6 +62,9 @@ import {
     onDashboardLawnMowerAction,
     onDashboardBrightnessInput,
     onDashboardBrightnessChange,
+    onDashboardNumberInput,
+    onDashboardNumberChange,
+    onDashboardSelectChange,
 } from '../widget_actions.js';
 import { dashboardWidgetEntityIds } from '../live_bridge.js';
 import { loadDashboard, setDashboardRefreshIndicator, readDashboardSectionFallback, writeDashboardSectionFallback } from '../dashboard_loader.js';
@@ -133,6 +136,9 @@ export function wireDashboardEvents(): void {
         lawnMowerAction: ({ widgetId, action }) => { onDashboardLawnMowerAction(widgetId, action); },
         brightnessInput: ({ event, widgetId }) => onDashboardBrightnessInput(event, widgetId),
         brightnessChange: ({ event, widgetId }) => onDashboardBrightnessChange(event, widgetId),
+        numberInput: ({ event, widgetId }) => onDashboardNumberInput(event, widgetId),
+        numberChange: ({ event, widgetId }) => onDashboardNumberChange(event, widgetId),
+        selectChange: ({ event, widgetId }) => { void onDashboardSelectChange(event, widgetId); },
     });
 
     registerHyveviewDashboardCards(dashboardWidgetEntityIds);

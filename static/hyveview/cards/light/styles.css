@@ -1,58 +1,78 @@
-/* Light card — tile + brightness slider */
-.hyve-dashboard-card--light .hyve-dashboard-card__brightness {
-    margin-top: 0.875rem;
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-}
-.hyve-dashboard-card--light .hyve-dashboard-card__brightness i {
-    color: var(--text-tertiary, #94a3b8);
-    font-size: 11px;
-    flex-shrink: 0;
-    width: 14px;
-    text-align: center;
-}
-.hyve-dashboard-card--light .hyve-dashboard-card__brightness-slider {
-    flex: 1;
-    -webkit-appearance: none;
-    appearance: none;
-    height: 6px;
-    border-radius: 999px;
-    background: linear-gradient(90deg,
-        rgba(var(--accent-rgb, 56,189,248), 0.55) 0%,
-        rgba(var(--accent-rgb, 56,189,248), 0.55) var(--brightness-pct, 0%),
-        var(--surface-2, rgba(255,255,255,0.07)) var(--brightness-pct, 0%),
-        var(--surface-2, rgba(255,255,255,0.07)) 100%);
-    cursor: pointer;
-    outline: none;
-}
-.hyve-dashboard-card--light .hyve-dashboard-card__brightness-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 999px;
-    background: var(--accent, #38bdf8);
-    box-shadow: 0 0 10px rgba(var(--accent-rgb, 56,189,248), 0.7);
-    cursor: pointer;
-    border: 2px solid var(--surface-1, #0f172a);
-}
-.hyve-dashboard-card--light .hyve-dashboard-card__brightness-slider::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
-    border-radius: 999px;
-    background: var(--accent, #38bdf8);
-    box-shadow: 0 0 10px rgba(var(--accent-rgb, 56,189,248), 0.7);
-    cursor: pointer;
-    border: 2px solid var(--surface-1, #0f172a);
-}
-.hyve-dashboard-card--light .hyve-dashboard-card__brightness-value {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-secondary, #cbd5e1);
-    min-width: 32px;
-    text-align: right;
-    font-variant-numeric: tabular-nums;
+/* Light card — hero value + brightness slider */
+.hyve-dashboard-card--light .hyve-light__head {
+    align-items: flex-start;
 }
 
-/* Sensor card — big value + unit */
+.hyve-dashboard-card--light .hyve-light__icon {
+    --light-pct: 0;
+    transition: box-shadow 0.22s ease, background 0.22s ease;
+}
+
+.hyve-dashboard-card--light[data-on="true"] .hyve-light__icon {
+    box-shadow:
+        0 0 0 1px rgba(var(--accent-rgb, 56, 189, 248), 0.22),
+        0 0 calc(6px + var(--light-pct, 0) * 0.18px) rgba(var(--accent-rgb, 56, 189, 248), 0.45);
+}
+
+.hyve-dashboard-card--light .hyve-light__value {
+    font-size: 1.05rem;
+    font-weight: 650;
+    line-height: 1.15;
+    color: var(--text-primary, #f1f5f9);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+
+.hyve-dashboard-card--light[data-on="false"] .hyve-light__value {
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.hyve-dashboard-card--light .hyve-light__slider {
+    margin-top: 0.7rem;
+}
+
+.hyve-dashboard-card--light .hyve-light__range {
+    width: 100%;
+    height: 0.38rem;
+    appearance: none;
+    border-radius: 999px;
+    outline: none;
+    cursor: pointer;
+    background: linear-gradient(
+        90deg,
+        rgba(var(--accent-rgb, 56, 189, 248), 0.72) 0%,
+        rgba(var(--accent-rgb, 56, 189, 248), 0.72) var(--brightness-pct, 0%),
+        var(--surface-2, rgba(255, 255, 255, 0.08)) var(--brightness-pct, 0%),
+        var(--surface-2, rgba(255, 255, 255, 0.08)) 100%
+    );
+}
+
+.hyve-dashboard-card--light .hyve-light__range::-webkit-slider-thumb {
+    appearance: none;
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: 50%;
+    border: 2px solid var(--accent, #38bdf8);
+    background: var(--surface-1, #0f172a);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 56, 189, 248), 0.22);
+}
+
+.hyve-dashboard-card--light .hyve-light__range::-moz-range-thumb {
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: 50%;
+    border: 2px solid var(--accent, #38bdf8);
+    background: var(--surface-1, #0f172a);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 56, 189, 248), 0.22);
+}
+
+.hyve-dashboard-card--light .hyve-light__bounds {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.35rem;
+    font-size: 0.65rem;
+    color: var(--text-muted, #94a3b8);
+    font-variant-numeric: tabular-nums;
+}

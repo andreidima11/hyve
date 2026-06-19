@@ -17,6 +17,7 @@ from core.http.limiter import limiter
 from core.http.middleware import register_http_middleware
 from core.http.routers import register_routers
 from core.http.startup_migrations import run_startup_migrations
+from core.settings import is_strict_startup_mode
 
 
 @dataclass(frozen=True)
@@ -30,9 +31,21 @@ class HyveApp:
 _hyve_singleton: HyveApp | None = None
 
 
+def _openapi_enabled() -> bool:
+    if os.environ.get("HYVE_OPENAPI_DOCS", "").strip() == "1":
+        return True
+    return not is_strict_startup_mode()
+
+
 def create_app() -> HyveApp:
     """Build the FastAPI app with middleware, static files, and routers."""
-    app = FastAPI(lifespan=lifespan)
+    docs_on = _openapi_enabled()
+    app = FastAPI(
+        lifespan=lifespan,
+        docs_url="/docs" if docs_on else None,
+        redoc_url="/redoc" if docs_on else None,
+        openapi_url="/openapi.json" if docs_on else None,
+    )
     register_http_middleware(app)
     run_startup_migrations()
     try:

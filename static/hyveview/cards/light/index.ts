@@ -8,11 +8,14 @@ export function register() {
   ensureCardStylesheet(SHARED);
   registerCardPackage({
     type: 'light',
+    hidden: true,
     element: HyveviewLightCard,
     styles: [`/static/hyveview/cards/light/styles.css`],
     shell: {
       articleClass: 'hyve-dashboard-card--light',
       clickable: 'controllable',
+      editModeFlag: true,
+      trackUnavailable: true,
     },
   });
 }

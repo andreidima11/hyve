@@ -12,6 +12,16 @@ async function doLogout() {
     }
 
     const token = localStorage.getItem('hyve_token');
+    let refreshToken = '';
+    try {
+        const rememberRaw = localStorage.getItem('hyve_remember');
+        if (rememberRaw) {
+            const parsed = JSON.parse(rememberRaw) as { rt?: string };
+            refreshToken = String(parsed?.rt || '').trim();
+        }
+    } catch {
+        refreshToken = '';
+    }
 
     const finalizeLogout = () => {
     try {
@@ -47,7 +57,11 @@ async function doLogout() {
 
     const logoutRequest = fetch('/api/logout', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
         keepalive: true,
     }).catch(() => {});
 

@@ -1,0 +1,21 @@
+.hyve-dashboard-card--select .hyve-dashboard-card__select-native {
+    width: 100%;
+    margin-top: 0.65rem;
+    padding: 0.45rem 0.55rem;
+    border-radius: 0.55rem;
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+    background: var(--surface-2, rgba(255, 255, 255, 0.06));
+    color: var(--text-primary, #f1f5f9);
+    font-size: 0.75rem;
+    outline: none;
+}
+
+.hyve-dashboard-card--select .hyve-dashboard-card__select-native:focus {
+    border-color: var(--accent, #38bdf8);
+    box-shadow: 0 0 0 2px rgba(var(--accent-rgb, 56, 189, 248), 0.2);
+}
+
+.hyve-dashboard-card--select .hyve-dashboard-card__select-native:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}

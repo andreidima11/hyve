@@ -9,6 +9,8 @@ import uuid
 from typing import Any
 
 from core.ui_catalog import resolve_dashboard_card
+from core.dashboard.entity_routing import resolve_entity_effective_renderer
+from core.dashboard.entity_migrate import migrate_legacy_widget_type
 from integrations.entity_utils import resolve_entity_by_id
 from integrations.extractors import infer_source as _infer_source
 from core.dashboard.constants import (
@@ -427,9 +429,15 @@ def _apply_widget_patch(widget: dict[str, Any], patch: dict[str, Any]) -> dict[s
         if not updated["config"]:
             updated["config"] = None
 
+    updated = migrate_legacy_widget_type(updated)
+
     card_meta = resolve_dashboard_card(str(updated.get("type") or "").strip(), str(updated.get("renderer") or "").strip())
-    updated["type"] = str(card_meta.get("id") or updated.get("type") or "button").strip() or "button"
-    updated["renderer"] = str(card_meta.get("renderer") or "button").strip() or "button"
+    updated["type"] = str(card_meta.get("id") or updated.get("type") or "entity").strip() or "entity"
+    updated["renderer"] = str(card_meta.get("renderer") or "entity").strip() or "entity"
+    if updated["type"] == "entity":
+        entity_resolved = resolve_entity_effective_renderer(updated)
+        updated["renderer"] = str(entity_resolved.get("renderer") or "info").strip() or "info"
+        updated["switch_style"] = bool(entity_resolved.get("switch_style"))
     if updated.get("size") not in {"sm", "md", "wide"}:
         updated["size"] = str(card_meta.get("default_size") or "md")
 

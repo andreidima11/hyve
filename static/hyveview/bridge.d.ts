@@ -5,6 +5,10 @@ import type { HyveviewWidget, WidgetEntityIdsResolver } from './types/widget.js'
 
 export function effectiveCardType(widget: HyveviewWidget | null | undefined): string;
 
+export function resolveEntityEffectiveType(
+    widget: HyveviewWidget | null | undefined,
+): { effectiveType: string; switchStyle: boolean };
+
 export function setWidgetEntityIdsResolver(fn: WidgetEntityIdsResolver | null): void;
 
 export function cardTypeEntityIds(widget: HyveviewWidget | null | undefined): string[];

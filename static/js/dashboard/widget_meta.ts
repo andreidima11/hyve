@@ -7,11 +7,11 @@ import { normalizeIconClass } from '../icon_utils.js';
 import type { DashboardWidget } from '../types/dashboard.js';
 
 export function effectiveWidgetCardType(widget: DashboardWidget | null | undefined): string {
-    return HVBridge.effectiveCardType(widget) || String(widget?.type || widget?.renderer || 'button').toLowerCase();
+    return HVBridge.effectiveCardType(widget) || String(widget?.type || widget?.renderer || 'entity').toLowerCase();
 }
 
 export function isControllableDomain(domain: unknown): boolean {
-    return ['light', 'switch', 'script', 'input_boolean', 'cover', 'lock', 'vacuum', 'climate', 'media_player', 'fan']
+    return ['light', 'switch', 'script', 'input_boolean', 'cover', 'lock', 'vacuum', 'climate', 'media_player', 'fan', 'number', 'select']
         .includes(String(domain || '').toLowerCase());
 }
 
@@ -53,6 +53,8 @@ export function entityIcon(domain: unknown): string {
     case 'media_player': return 'fas fa-music';
     case 'lock': return 'fas fa-lock';
     case 'sensor': return 'fas fa-gauge-high';
+    case 'number': return 'fas fa-sliders';
+    case 'select': return 'fas fa-list';
     case 'binary_sensor': return 'fas fa-circle-dot';
     case 'vacuum': return 'fas fa-broom';
     case 'person': return 'fas fa-user';

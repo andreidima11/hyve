@@ -30,6 +30,8 @@ const _SHELL_TYPES = [
     'light',
     'sensor',
     'gauge',
+    'number',
+    'select',
     'lock',
     'vacuum',
     'weather',

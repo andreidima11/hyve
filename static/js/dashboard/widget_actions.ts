@@ -10,6 +10,8 @@ let _deps: DashboardWidgetActionDeps | null = null;
 
 let _brightnessDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 const _brightnessLastSent = new Map<string, number>();
+let _numberDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+const _numberLastSent = new Map<string, number>();
 const _vacuumResyncTimers = new Map<string, ReturnType<typeof setTimeout>[]>();
 const _lawnMowerResyncTimers = new Map<string, ReturnType<typeof setTimeout>[]>();
 
@@ -111,6 +113,94 @@ export function onDashboardBrightnessChange(event: Event, widgetId: string): voi
     const slider = event.target;
     const pct = slider instanceof HTMLInputElement ? Number(slider.value || 0) : 0;
     void sendBrightness(widgetId, pct);
+}
+
+function widgetNumberCaps(widget: Record<string, unknown> | null | undefined) {
+    const attrs = (widget?.attributes || {}) as Record<string, unknown>;
+    const caps = (attrs.capabilities || {}) as Record<string, unknown>;
+    return {
+        min: Number(caps.min ?? 0),
+        max: Number(caps.max ?? 100),
+        step: Number(caps.step ?? 1) || 1,
+    };
+}
+
+async function sendNumberValue(widgetId: string, value: number): Promise<void> {
+    const { apiCall, t, showToast, findWidget, tryFastPathForEntities, renderDashboard } = deps();
+    const widget = findWidget(widgetId);
+    if (!widget) return;
+    const { min, max } = widgetNumberCaps(widget);
+    const clamped = Math.min(max, Math.max(min, value));
+    if (_numberLastSent.get(widgetId) === clamped) return;
+    _numberLastSent.set(widgetId, clamped);
+    try {
+        const slug = String(widget.source || 'zigbee2mqtt');
+        const res = await apiCall(`/api/integrations/${encodeURIComponent(slug)}/control`, {
+            method: 'POST',
+            body: {
+                entity_id: widget.entity_id,
+                action: 'set',
+                data: { value: clamped },
+            },
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(dashApiError((err as { detail?: unknown }).detail, 'dashboard.action_failed'));
+        }
+        widget.current_state = String(clamped);
+        if (!tryFastPathForEntities([String(widget.entity_id || '')])) renderDashboard();
+    } catch (e) {
+        const msg = e instanceof Error ? e.message : t('dashboard.action_failed');
+        showToast(msg, 'error');
+    }
+}
+
+export function onDashboardNumberInput(event: Event, widgetId: string): void {
+    const slider = event.target;
+    if (!(slider instanceof HTMLInputElement)) return;
+    const value = Number(slider.value);
+    const wrap = slider.closest('.hyve-dashboard-card--number');
+    const live = wrap?.querySelector('[data-live-value]');
+    if (live) live.textContent = String(value);
+
+    if (_numberDebounceTimer) clearTimeout(_numberDebounceTimer);
+    _numberDebounceTimer = setTimeout(() => { void sendNumberValue(widgetId, value); }, 220);
+}
+
+export function onDashboardNumberChange(event: Event, widgetId: string): void {
+    if (_numberDebounceTimer) { clearTimeout(_numberDebounceTimer); _numberDebounceTimer = null; }
+    const slider = event.target;
+    const value = slider instanceof HTMLInputElement ? Number(slider.value || 0) : 0;
+    void sendNumberValue(widgetId, value);
+}
+
+export async function onDashboardSelectChange(event: Event, widgetId: string): Promise<void> {
+    const { apiCall, t, showToast, findWidget, tryFastPathForEntities, renderDashboard } = deps();
+    const widget = findWidget(widgetId);
+    if (!widget) return;
+    const select = event.target;
+    const value = select instanceof HTMLSelectElement ? String(select.value || '') : '';
+    if (!value) return;
+    try {
+        const slug = String(widget.source || 'zigbee2mqtt');
+        const res = await apiCall(`/api/integrations/${encodeURIComponent(slug)}/control`, {
+            method: 'POST',
+            body: {
+                entity_id: widget.entity_id,
+                action: 'set',
+                data: { value },
+            },
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(dashApiError((err as { detail?: unknown }).detail, 'dashboard.action_failed'));
+        }
+        widget.current_state = value;
+        if (!tryFastPathForEntities([String(widget.entity_id || '')])) renderDashboard();
+    } catch (e) {
+        const msg = e instanceof Error ? e.message : t('dashboard.action_failed');
+        showToast(msg, 'error');
+    }
 }
 
 export async function onDashboardLockAction(widgetId: string, action: string): Promise<void> {

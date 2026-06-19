@@ -220,7 +220,7 @@ def verify_sse_exchange_token(token: str) -> Optional[dict]:
         return None
 
 
-def create_camera_stream_token(username: str) -> str:
+def create_camera_stream_token(username: str, entity_id: str | None = None) -> str:
     """Short-lived token for camera snapshot/stream/play URLs (query param auth)."""
     expire = datetime.now(timezone.utc) + timedelta(seconds=CAMERA_STREAM_TOKEN_EXPIRE_SECONDS)
     to_encode = {
@@ -230,6 +230,8 @@ def create_camera_stream_token(username: str) -> str:
         "jti": str(uuid4()),
         "type": "camera_stream",
     }
+    if entity_id:
+        to_encode["entity_id"] = str(entity_id).strip()
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 

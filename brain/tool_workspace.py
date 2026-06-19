@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import core.settings as settings_mod
 from core.logger import log_line
+from core.security_paths import is_denied_agent_read_path
 
 
 _FILE_READ_RATE: Dict[str, List[float]] = {}
@@ -72,6 +73,8 @@ async def exec_read_file(args: Dict[str, Any], user_id: str) -> str:
     if rate_limit_error:
         return rate_limit_error
     path_arg = (args.get("path") or "").strip()
+    if is_denied_agent_read_path(path_arg):
+        return "Error: Path not allowed (secrets and configuration files are blocked)."
     limit_lines = args.get("limit_lines")
     if isinstance(limit_lines, (int, float)):
         limit_lines = max(0, min(5000, int(limit_lines)))
