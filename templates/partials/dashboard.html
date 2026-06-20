@@ -69,4 +69,38 @@
                         </div>
                     </div>
                 </div>
+
+                <div id="dashboard-entity-more-info-modal" class="modal-overlay app-modal fixed inset-0 z-[56] hidden items-center justify-center p-2 sm:p-4">
+                    <div class="glass app-modal-panel dashboard-modal-card--xl max-w-lg w-full max-h-[82vh] flex flex-col" data-dashboard-more-info-stop="true">
+                        <div class="app-modal-header">
+                            <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2 min-w-0">
+                                <i id="dashboard-entity-more-info-icon" class="fas fa-microchip text-accent"></i>
+                                <span id="dashboard-entity-more-info-label" class="truncate" data-i18n="dashboard.interactions.more_info_title">Entity</span>
+                            </h3>
+                            <button type="button" data-dashboard-more-info-close="true" class="app-modal-close touch-manipulation" aria-label="Close"><i class="fas fa-xmark pointer-events-none"></i></button>
+                        </div>
+                        <div id="dashboard-entity-more-info-body" class="app-modal-body flex-1 min-h-0 overflow-y-auto !pt-3 !pb-3"></div>
+                    </div>
+                </div>
+
+                <div id="dashboard-entity-history-modal" class="modal-overlay app-modal fixed inset-0 z-[56] hidden items-center justify-center p-2 sm:p-4">
+                    <div class="glass app-modal-panel dashboard-modal-card--xl w-full max-h-[88vh] flex flex-col" data-dashboard-history-stop="true">
+                        <div class="app-modal-header">
+                            <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2 min-w-0">
+                                <i id="dashboard-entity-history-icon" class="fas fa-chart-line text-accent"></i>
+                                <span id="dashboard-entity-history-label" class="truncate" data-i18n="dashboard.interactions.history_title">History</span>
+                            </h3>
+                            <button type="button" data-dashboard-history-close="true" class="app-modal-close touch-manipulation" aria-label="Close"><i class="fas fa-xmark pointer-events-none"></i></button>
+                        </div>
+                        <div class="dashboard-history-toolbar px-4 sm:px-5 py-3 border-b border-theme-subtle flex flex-wrap items-center gap-3">
+                            <div id="dashboard-entity-history-ranges" class="dashboard-history-ranges"></div>
+                            <div id="dashboard-entity-history-state" class="dashboard-history-current ml-auto text-sm font-semibold text-slate-200"></div>
+                        </div>
+                        <div class="app-modal-body flex-1 min-h-0 overflow-y-auto !pt-3 !pb-3 space-y-3">
+                            <div id="dashboard-entity-history-status" class="dashboard-history-status text-xs text-slate-400"></div>
+                            <div id="dashboard-entity-history-chart" class="dashboard-history-chart"></div>
+                            <div id="dashboard-entity-history-stats" class="dashboard-history-stats"></div>
+                        </div>
+                    </div>
+                </div>
             </div>

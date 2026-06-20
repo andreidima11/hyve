@@ -5,6 +5,7 @@
 import { apiCall } from '../api.js';
 import { showToast } from '../utils.js';
 import { dashDebug } from './debug.js';
+import { executeCardTap } from './interactions/index.js';
 import {
     DASHBOARD_OPTIMISTIC_GUARD_MS,
     DASHBOARD_PENDING_VISUAL_MS,
@@ -43,7 +44,7 @@ function nestedInteractiveTarget(event: Event): Element | null {
     if (!target?.closest) return null;
     const interactive = target.closest('button, a, input, select, textarea, label, [role="button"]');
     if (!interactive) return null;
-    if (interactive.getAttribute?.('data-dash-action') === 'cardActivate') return null;
+    if (interactive.getAttribute?.('data-dash-action-key') === 'cardActivate') return null;
     const current = event?.currentTarget as Element | null;
     if (current && interactive === current) return null;
     return interactive;
@@ -72,7 +73,7 @@ export function handleDashboardCardClick(event: Event, widgetId: string) {
     const nested = nestedInteractiveTarget(event);
     if (nested) { dashDebug('card.skip', { reason: 'nested', el: nested.tagName, role: nested.getAttribute?.('role') }); return; }
     if (d.controlPending(widgetId)) { dashDebug('card.skip', 'pending'); return; }
-    toggleDashboardWidget(widgetId);
+    void executeCardTap(widgetId);
 }
 
 export function handleDashboardCardKeydown(event: KeyboardEvent, widgetId: string) {

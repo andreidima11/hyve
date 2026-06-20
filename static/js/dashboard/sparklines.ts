@@ -3,16 +3,14 @@
  */
 
 import { apiCall } from '../api.js';
+import { renderSparklineSVG, type HistoryPoint } from './history_chart.js';
 
 export interface SparklineTrendEntry {
     value: unknown;
     ts: number;
 }
 
-export interface SparklinePoint {
-    ts: number;
-    value: number;
-}
+export type SparklinePoint = HistoryPoint;
 
 export const trendCache = new Map<string, SparklineTrendEntry>();
 
@@ -22,43 +20,6 @@ const _SPARKLINE_HOURS = 24;
 const _sparklineFetching = new Set<string>();
 let _batchPromise: Promise<void> | null = null;
 const _batchPending = new Set<string>();
-
-function renderSparklineSVG(points: SparklinePoint[]): string {
-    if (!Array.isArray(points) || points.length < 2) return '';
-    const width = 100;
-    const height = 28;
-    const padY = 2;
-    const xs = points.map((p) => p.ts);
-    const ys = points.map((p) => p.value);
-    const minX = xs[0];
-    const maxX = xs[xs.length - 1];
-    const spanX = Math.max(1, maxX - minX);
-    let minY = Math.min(...ys);
-    let maxY = Math.max(...ys);
-    if (minY === maxY) { minY -= 1; maxY += 1; }
-    const spanY = maxY - minY;
-
-    const coords = points.map((p) => {
-        const x = ((p.ts - minX) / spanX) * width;
-        const y = height - padY - ((p.value - minY) / spanY) * (height - padY * 2);
-        return [x, y] as const;
-    });
-
-    const linePath = coords.map((c, i) => (i === 0 ? `M${c[0].toFixed(2)},${c[1].toFixed(2)}` : `L${c[0].toFixed(2)},${c[1].toFixed(2)}`)).join(' ');
-    const areaPath = `${linePath} L${width.toFixed(2)},${height.toFixed(2)} L0,${height.toFixed(2)} Z`;
-
-    return `
-        <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <defs>
-                <linearGradient id="sparkfill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stop-color="var(--accent, #60a5fa)" stop-opacity="0.35"/>
-                    <stop offset="100%" stop-color="var(--accent, #60a5fa)" stop-opacity="0"/>
-                </linearGradient>
-            </defs>
-            <path d="${areaPath}" fill="url(#sparkfill)" stroke="none"/>
-            <path d="${linePath}" fill="none" stroke="var(--accent, #60a5fa)" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
-        </svg>`;
-}
 
 function paintSparklineSlot(root: ParentNode, entityId: string, points: SparklinePoint[]): void {
     const fresh = root.querySelector(`[data-sparkline-entity="${CSS.escape(entityId)}"]`);

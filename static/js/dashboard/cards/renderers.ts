@@ -4,6 +4,7 @@
  */
 
 import * as HVBridge from '/static/hyveview/bridge.js';
+import { cardIsClickable } from '../interactions/resolver.js';
 import {
     cameraAutoplayEnabled,
     cameraEntityIdIsMammotionWebrtc,
@@ -56,19 +57,14 @@ export function renderLabelCard(widget: DashboardWidget, ctx: CardRenderCtx): st
 export function renderTileCard(
     widget: DashboardWidget,
     ctx: CardRenderCtx,
-    opts: { interactive?: boolean } = {},
+    _opts: { interactive?: boolean } = {},
 ): string {
-    const interactive = opts.interactive !== undefined ? opts.interactive : ctx.interactive !== false;
     const editMode = ctx.getEditMode();
-    const renderer = ctx.widgetRenderer(widget);
     const state = String(widget.current_state || 'unknown');
     const on = ctx.stateOn(state);
-    const controllable = interactive && widget.controllable !== false
-        && (renderer === 'tile' || renderer === 'button' || renderer === 'switch' || renderer === 'scene');
-    const hasEntity = Boolean(String(widget.entity_id || '').trim());
-    const clickable = !editMode && controllable && (widget.available !== false || hasEntity);
+    const clickable = cardIsClickable(widget, editMode);
     const cardActionAttrs = clickable
-        ? `role="button" tabindex="0" data-dash-action="cardActivate" data-dash-action-key="cardActivate" data-widget-id="${ctx.escapeHtml(widget.id)}"`
+        ? `role="button" tabindex="0" data-dash-action-key="cardActivate" data-widget-id="${ctx.escapeHtml(widget.id)}"`
         : '';
     return `
         <article ${ctx.widgetDragAttrs(widget)} ${cardActionAttrs}
@@ -243,15 +239,10 @@ export function renderHyveviewShell(
 
     if (shell.editModeFlag) widget._edit_mode = !!editMode;
 
-    let clickable = false;
-    if (shell.clickable === 'controllable') {
-        clickable = !editMode && widget.controllable !== false && widget.available !== false;
-    } else if (shell.clickable === true) {
-        clickable = !editMode;
-    }
+    let clickable = cardIsClickable(widget, editMode);
 
     const cardActionAttrs = clickable
-        ? `role="button" tabindex="0" data-dash-action="cardActivate" data-dash-action-key="cardActivate" data-widget-id="${ctx.escapeHtml(widget.id)}"`
+        ? `role="button" tabindex="0" data-dash-action-key="cardActivate" data-widget-id="${ctx.escapeHtml(widget.id)}"`
         : '';
     const dataOnAttr = shell.dataOn ? ` data-on="${shell.dataOn}"` : '';
     const unavailableAttr = shell.trackUnavailable

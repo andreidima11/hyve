@@ -38,6 +38,19 @@
     --card-icon-color: var(--accent, #38bdf8);
     --card-shadow: 0 4px 16px rgba(0,0,0,0.18);
 }
+.hyve-dashboard-card[data-hold-active="true"] {
+    border-color: rgba(var(--accent-rgb, 56,189,248), 0.42);
+    box-shadow: 0 0 0 2px rgba(var(--accent-rgb, 56,189,248), 0.14), var(--card-shadow);
+}
+@media (prefers-reduced-motion: no-preference) {
+    .hyve-dashboard-card[data-hold-active="true"] {
+        animation: hyve-dashboard-hold-pulse 0.45s ease-in-out infinite alternate;
+    }
+}
+@keyframes hyve-dashboard-hold-pulse {
+    from { transform: scale(1); }
+    to { transform: scale(0.985); }
+}
 .hyve-dashboard-card[data-pending="true"] {
     border-color: rgba(var(--accent-rgb, 56,189,248), 0.34);
     box-shadow: 0 0 0 1px rgba(var(--accent-rgb, 56,189,248), 0.08), var(--card-shadow);

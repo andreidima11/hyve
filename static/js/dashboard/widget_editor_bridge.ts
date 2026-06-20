@@ -148,6 +148,9 @@ function widgetToEditorCard(widget: DashboardWidget): EditorCard {
         cfg.entity_consumption = cfgIn.entity_consumption || '';
         cfg.capacity_kw = cfgIn.capacity_kw ?? '';
     }
+    if (widgetConfig.interactions && typeof widgetConfig.interactions === 'object') {
+        cfg.interactions = widgetConfig.interactions;
+    }
 
     return {
         id: widget.id,
@@ -340,6 +343,9 @@ function editorResultToWidgetBody(
         }
     }
     if (result.visibility) body.visibility = result.visibility;
+    if (cfg.interactions && typeof cfg.interactions === 'object') {
+        body.config = { ...(body.config as Record<string, unknown> || {}), interactions: cfg.interactions };
+    }
     if (body.entity_id !== existingWidget?.entity_id) {
         attachEntityRef(body, cache);
     } else if (existingWidget?.unique_id) {

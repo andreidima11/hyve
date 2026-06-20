@@ -30,6 +30,7 @@ import type {
     HyveviewEditorSaveResult,
     HyveviewVisibilityConfig,
 } from '../types/editor.js';
+import { renderInteractionsEditor } from './interactions_editor.js';
 import type { HyveviewSchemaFormApi } from '../types/card.js';
 
 let _activeResolve: ((result: HyveviewEditorResult) => void) | null = null;
@@ -192,6 +193,36 @@ function _ensureCss() {
     .hv-details[open] > summary::before { transform: rotate(90deg); }
     .hv-details > .hv-details-body { padding: 0.25rem 0.875rem 0.875rem; }
 
+    .hv-interactions-grid { display: grid; gap: 0.65rem; }
+    .hv-interactions-toolbar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 0.35rem;
+    }
+    .hv-interactions-reset {
+      font-size: 0.75rem;
+      padding: 0.35rem 0.65rem;
+    }
+    .hv-interaction-row {
+      display: grid; gap: 0.5rem;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 640px) {
+      .hv-interaction-row { grid-template-columns: 1fr 1fr; align-items: end; }
+    }
+    .hv-interaction-row__hours[hidden],
+    .hv-interaction-row__perform[hidden],
+    .hv-interaction-row__confirm[hidden],
+    .hv-interaction-row__navigate[hidden],
+    .hv-interaction-row__url[hidden] { display: none !important; }
+    .hv-interaction-preview {
+      grid-column: 1 / -1;
+      margin: 0;
+      font-size: 0.72rem;
+      color: var(--text-tertiary, #64748b);
+      line-height: 1.35;
+    }
+
     .hv-field--inline {
       flex-direction: row;
       align-items: center;
@@ -311,7 +342,7 @@ function _ensureCss() {
       }
     }
 
-    /* ===== HA-style grid size picker (clone of ha-grid-size-picker) ===== */
+    /* ===== Grid size picker ===== */
     .hv-size { display: flex; flex-direction: column; gap: 12px; }
     .hv-size-hint { font-size: 0.75rem; color: var(--text-secondary, #94a3b8); margin: 0; }
     .hv-size-preview {
@@ -522,11 +553,8 @@ function _renderVisibilityEditor(
   };
 }
 
-// ── HA-style grid size picker ───────────────────────────────────────
-// Clones Home Assistant's `ha-grid-size-picker`: a clickable/draggable grid
-// preview where you size the card by dragging its bottom-right corner. The
-// chosen size is mirrored into hidden `layout-col` / `layout-row` inputs that
-// the save handler already reads, so no other code needs to change.
+// ── Grid size picker ───────────────────────────────────────────────
+// Clickable/draggable grid preview — size the card by dragging the corner.
 const HV_SIZE_COLS = 4;    // section grid width (4-col section layout, max col_span)
 const HV_SIZE_ROWS = 6;    // visible rows in the picker
 
@@ -654,6 +682,10 @@ function _renderForm(panel: HTMLElement, { mode, card }: { mode: 'add' | 'edit';
         </div>
       </details>
       <details class="hv-details">
+        <summary>${t('dashboard.interactions.section_title') !== 'dashboard.interactions.section_title' ? t('dashboard.interactions.section_title') : 'Interacțiuni'}</summary>
+        <div class="hv-details-body" data-role="interactions"></div>
+      </details>
+      <details class="hv-details">
         <summary>Vizibilitate</summary>
         <div class="hv-details-body" data-role="visibility"></div>
       </details>
@@ -683,6 +715,10 @@ function _renderForm(panel: HTMLElement, { mode, card }: { mode: 'add' | 'edit';
     _must<HTMLDivElement>(panel, '[data-role=visibility]'),
     card.visibility || null,
   );
+  const interactionsEditor = renderInteractionsEditor(
+    _must<HTMLDivElement>(panel, '[data-role=interactions]'),
+    card,
+  );
 
   if (mode === 'edit') {
     _must<HTMLButtonElement>(panel, '[data-role=delete]').addEventListener('click', () => {
@@ -696,6 +732,13 @@ function _renderForm(panel: HTMLElement, { mode, card }: { mode: 'add' | 'edit';
       const v = form.validate();
       if (!v.ok) { alert(v.errors.join('\n')); return; }
       config = form.read();
+    }
+    const interactions = interactionsEditor.read();
+    if (interactions) config = { ...config, interactions };
+    else if (config.interactions) {
+      const next = { ...config };
+      delete next.interactions;
+      config = next;
     }
     const col = Number(_must<HTMLInputElement>(panel, '[data-role=layout-col]').value) || 4;
     const row = Number(_must<HTMLInputElement>(panel, '[data-role=layout-row]').value) || 2;

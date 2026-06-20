@@ -256,6 +256,32 @@ Before merging a new integration or card extension, verify:
 - tune label, description, and default size
 - do not add a new renderer unless the visual behavior is fundamentally different
 
+## Card interactions (tap / double-tap / hold)
+
+Entity cards support configurable gestures stored in `widget.config.interactions` (also hoisted at card level in page YAML).
+
+| Action | Behavior |
+|--------|----------|
+| `none` | Ignore gesture |
+| `toggle` | Dashboard toggle API (optional `confirmation: true`) |
+| `more_info` | Entity details modal |
+| `history` | History chart modal (`hours`: 1–168) |
+| `perform_action` | Domain action (scene activate, lock/unlock, vacuum start, …) |
+| `navigate` | Switch dashboard page (`page_id`) |
+| `url` | Open external link in new tab (browser confirm dialog) |
+
+**Defaults** are computed per domain/renderer in [core/dashboard/interactions.py](../core/dashboard/interactions.py) and mirrored in [static/js/dashboard/interactions/defaults.ts](../static/js/dashboard/interactions/defaults.ts). Omit `interactions` in YAML to use smart defaults; only overrides are exported.
+
+**Editor:** Hyveview card modal → section *Interacțiuni* ([static/hyveview/editor/interactions_editor.ts](../static/hyveview/editor/interactions_editor.ts)).
+
+**Engine:** [static/js/dashboard/interactions/](../static/js/dashboard/interactions/) — gesture detection, resolver, executor.
+
+**i18n:** `dashboard.interactions.*` in [core/i18n/dashboard/translations/](../core/i18n/dashboard/translations/).
+
+**Tests:** [tests/test_dashboard_interactions.py](../tests/test_dashboard_interactions.py), [tests/test_dashboard_history_access.py](../tests/test_dashboard_history_access.py).
+
+**More-info modal** includes Overview, History, and Attributes tabs. History reuses the shared chart panel (`history_panel.ts`). History API endpoints are rate-limited (30/minute per IP).
+
 ## Future Direction
 
 The next logical step is to make configuration panels schema-driven too.

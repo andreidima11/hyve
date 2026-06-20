@@ -5,6 +5,7 @@
  */
 
 import { updatesHasWithAliases } from '../../entity_aliases.js';
+import { cardIsClickable } from '../interactions/resolver.js';
 import type {
     DashboardCardUpdateContext,
     DashboardWidget,
@@ -47,13 +48,9 @@ export function updateTileCardShell(
     if (!articleEl || !widgetTouchedByUpdates(widget, updates, entityIds)) return false;
 
     const editMode = ctx.getEditMode();
-    const renderer = ctx.widgetRenderer(widget);
     const state = String(widget.current_state || 'unknown');
     const on = ctx.stateOn(state);
-    const interactive = renderer === 'tile' || renderer === 'button' || renderer === 'switch' || renderer === 'scene';
-    const controllable = interactive && widget.controllable !== false;
-    const hasEntity = Boolean(String(widget.entity_id || '').trim());
-    const clickable = !editMode && controllable && (widget.available !== false || hasEntity);
+    const clickable = cardIsClickable(widget, editMode);
 
     articleEl.dataset.on = on ? 'true' : 'false';
     articleEl.dataset.pending = ctx.controlVisuallyPending(widget.id) ? 'true' : 'false';
@@ -63,13 +60,11 @@ export function updateTileCardShell(
     if (clickable) {
         articleEl.setAttribute('role', 'button');
         articleEl.setAttribute('tabindex', '0');
-        articleEl.dataset.dashAction = 'cardActivate';
         articleEl.dataset.dashActionKey = 'cardActivate';
         articleEl.dataset.widgetId = String(widget.id);
     } else {
         articleEl.removeAttribute('role');
         articleEl.removeAttribute('tabindex');
-        delete articleEl.dataset.dashAction;
         delete articleEl.dataset.dashActionKey;
         delete articleEl.dataset.widgetId;
     }

@@ -1,5 +1,5 @@
 /**
- * Resolve HA-style "entity" card preset to a concrete Hyveview renderer.
+ * Resolve universal "entity" card preset to a concrete Hyveview renderer.
  */
 
 import type { HyveviewWidget } from '../types/widget.js';

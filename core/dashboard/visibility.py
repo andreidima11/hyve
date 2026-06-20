@@ -1,4 +1,4 @@
-"""Dashboard visibility rules (HA-style conditions)."""
+"""Dashboard visibility rules (entity, user, screen conditions)."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def _normalize_visibility_condition(raw: Any) -> dict[str, Any] | None:
     if value is None and "state" in raw:
         value = raw.get("state")
 
-    # HA-style `user` condition: show only for (or, with is_not, hide from) a set
+    # User condition: show only for (or, with is_not, hide from) a set
     # of usernames. Evaluated server-side against the requesting account.
     if condition_type in {"user", "users"}:
         if isinstance(value, str):
@@ -55,7 +55,7 @@ def _normalize_visibility_condition(raw: Any) -> dict[str, Any] | None:
             operator = "is"
         return {"condition": "user", "users": users, "operator": operator}
 
-    # HA-style `screen` condition: a CSS media query (e.g. "(max-width: 1023px)").
+    # Screen condition: a CSS media query (e.g. "(max-width: 1023px)").
     # Cannot be resolved on the server (it depends on the viewing device), so it
     # is forwarded to the client which evaluates it via matchMedia.
     if condition_type in {"screen", "media", "device"}:

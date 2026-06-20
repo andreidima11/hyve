@@ -4,6 +4,28 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.0] — 2026-06
+
+Configurable dashboard card interactions (tap / double-tap / hold), history modal, and YAML editing.
+
+### Dashboard — card interactions
+- **New:** Per-card gestures (`tap`, `double_tap`, `hold`) with smart defaults per domain/renderer (toggle, more-info, history chart, domain actions).
+- **New:** Gesture engine — tap, double-tap, hold with haptic feedback; keyboard Enter/Space support.
+- **New:** Entity **more-info** modal on dashboard (Overview / History / Attributes tabs).
+- **New:** **History** modal with range selector (1h–7d), chart, and stats; shared chart renderer for sparklines.
+- **New:** `perform_action` for scenes, locks, vacuums, lawn mowers; optional toggle confirmation.
+- **New:** `navigate` (dashboard page) and `url` (external link with confirm) actions.
+- **New:** Interactions section in Hyveview card editor with live preview and reset-to-defaults.
+- **New:** Page YAML export/import hoists `interactions` at card level; only non-default overrides are written.
+
+### Security & API
+- **New:** History API ACL — only entities on the user's dashboard pages (`403` off-dashboard).
+- **New:** Rate limit on dashboard history endpoints (30/minute).
+
+### i18n & docs
+- **New:** `dashboard.interactions.*` translation bundle (EN/RO).
+- **Docs:** Card interactions section in `docs/CARDS_AND_INTEGRATIONS.md`.
+
 ## [0.9.8.27] — 2026-06
 
 Security hardening, dashboard fixes, and settings UX.

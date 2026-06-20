@@ -1,4 +1,4 @@
-"""Resolve HA-style entity card preset to a concrete dashboard renderer."""
+"""Resolve universal entity card preset to a concrete dashboard renderer."""
 
 from __future__ import annotations
 

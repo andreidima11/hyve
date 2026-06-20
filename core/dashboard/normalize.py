@@ -11,6 +11,7 @@ from typing import Any
 from core.ui_catalog import resolve_dashboard_card
 from core.dashboard.entity_routing import resolve_entity_effective_renderer
 from core.dashboard.entity_migrate import migrate_legacy_widget_type
+from core.dashboard.interactions import apply_interactions_to_widget_config
 from integrations.entity_utils import resolve_entity_by_id
 from integrations.extractors import infer_source as _infer_source
 from core.dashboard.constants import (
@@ -488,6 +489,7 @@ def _apply_widget_patch(widget: dict[str, Any], patch: dict[str, Any]) -> dict[s
             updated.pop(start_key, None)
         else:
             updated[start_key] = normalized_start
+    updated = apply_interactions_to_widget_config(updated)
     return updated
 
 

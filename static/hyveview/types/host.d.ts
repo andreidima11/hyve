@@ -23,6 +23,12 @@ export interface HyveviewHostApi {
     t?: (key: string, params?: Record<string, unknown>) => string;
     tVacuumStatus?: (status: unknown, state: string) => string;
     tLawnMowerStatus?: (status: unknown, state: string) => string;
+    listDashboardPages?: () => Array<{ id: string; title?: string }>;
+    describeCardInteraction?: (
+        card: { entity?: string | null; type?: string; config?: Record<string, unknown> },
+        gesture: 'tap' | 'double_tap' | 'hold',
+        override?: Record<string, unknown> | null,
+    ) => string;
 }
 
 export interface WidgetTitleFallbacks {

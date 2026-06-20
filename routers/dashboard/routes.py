@@ -9,12 +9,13 @@ import core.auth as auth
 import core.database as database
 import core.models as models
 import core.settings as settings
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from core import dashboard_store
 from core.entity_refs import build_entity_map
 from core.http.errors import error_detail
+from core.http.limiter import limiter
 from integrations.extractors import (
     extract_fusion_solar_candidates as _extract_fusion_solar_candidates,
     extract_pago_candidates as _extract_pago_candidates,
@@ -112,30 +113,44 @@ async def get_dashboard_card_packages(user: models.User = Depends(auth.get_curre
 
 
 @router.get("/history")
+@limiter.limit("30/minute")
 async def get_entity_history(
+    request: Request,
     entity_id: str,
     hours: float = 24.0,
-    _: models.User = Depends(auth.get_current_user),
+    user: models.User = Depends(auth.get_current_user),
 ):
     """Return numeric state history for `entity_id` over the last `hours`.
 
-    Used by the dashboard to render sparkline charts on sensor cards.
+    Used by the dashboard to render sparkline charts on sensor / info cards.
     """
+    from core.dashboard.history_access import user_may_access_entity_history
     from core.entity_history import get_history
+    from core.http.errors import error_detail
 
-    points = get_history(entity_id, hours=hours)
-    return {"entity_id": entity_id, "hours": hours, "points": points}
+    eid = str(entity_id or "").strip()
+    if not user_may_access_entity_history(user, eid):
+        raise HTTPException(status_code=403, detail=error_detail("dashboard.api.history_entity_denied", {"entity_id": eid}))
+
+    points = get_history(eid, hours=hours)
+    return {"entity_id": eid, "hours": hours, "points": points}
 
 
 @router.post("/history/batch")
+@limiter.limit("30/minute")
 async def get_entity_history_batch(
+    request: Request,
     body: DashboardHistoryBatchBody,
-    _: models.User = Depends(auth.get_current_user),
+    user: models.User = Depends(auth.get_current_user),
 ):
     """Return sparkline history for many entities in one request."""
+    from core.dashboard.history_access import filter_entity_ids_for_history
     from core.entity_history import get_history_many
 
-    entity_ids = [str(eid).strip() for eid in (body.entity_ids or []) if str(eid).strip()][:64]
+    entity_ids = filter_entity_ids_for_history(
+        user,
+        [str(eid).strip() for eid in (body.entity_ids or []) if str(eid).strip()][:64],
+    )
     hours = body.hours
     histories = get_history_many(entity_ids, hours=hours)
     return {"hours": hours, "histories": histories}
@@ -153,7 +168,7 @@ async def list_dashboard_pages(user: models.User = Depends(auth.get_current_user
 
 @router.patch("/preferences/default-page")
 async def set_dashboard_default_page(data: DashboardDefaultPageBody, user: models.User = Depends(auth.get_current_user)):
-    """Set (or clear) the requesting user's default dashboard page (HA default_panel)."""
+    """Set (or clear) the requesting user's default dashboard page."""
     page_id = str(data.page_id or "").strip() or None
     if page_id:
         section = _dashboard_section()
@@ -523,17 +538,9 @@ _YAML_EDITABLE_KEYS = {
 
 def _page_to_yaml_dict(section: dict[str, Any]) -> dict[str, Any]:
     """Project a normalized section into a clean, YAML-friendly dict."""
-    return {
-        "id": str(section.get("page_id") or ""),
-        "title": str(section.get("title") or "Dashboard"),
-        "subtitle": str(section.get("subtitle") or "Acasă"),
-        "icon": str(section.get("icon") or ""),
-        "columns": int(section.get("columns") or 0),
-        "theme": str(section.get("theme") or ""),
-        "parent_page_id": str(section.get("parent_page_id") or ""),
-        "preferences": dict(section.get("preferences") or {}),
-        "panels": [dict(p) for p in (section.get("panels") or [])],
-    }
+    from core.dashboard.yaml_format import page_section_to_yaml_dict
+
+    return page_section_to_yaml_dict(section)
 
 
 
@@ -583,6 +590,8 @@ async def update_dashboard_page_yaml(
     if "id" in parsed and str(parsed.get("id") or "") not in ("", page_id):
         raise HTTPException(status_code=400, detail={"key": "dashboard.api.page_id_immutable"})
 
+    from core.dashboard.yaml_format import prepare_yaml_panels_for_store
+
     merged = dict(section)
     for key in _YAML_EDITABLE_KEYS:
         if key in parsed:
@@ -590,7 +599,7 @@ async def update_dashboard_page_yaml(
     # panels must be a list of dicts; normalize defensively
     if not isinstance(merged.get("panels"), list):
         raise HTTPException(status_code=400, detail={"key": "dashboard.api.panels_must_be_list"})
-    merged["panels"] = [p for p in merged["panels"] if isinstance(p, dict)]
+    merged["panels"] = prepare_yaml_panels_for_store(merged["panels"])
     if not isinstance(merged.get("preferences"), dict):
         merged["preferences"] = {**_DEFAULT_PREFS}
 
@@ -652,7 +661,7 @@ async def get_dashboard_widgets(
     db: Session = Depends(database.get_db),
     user: models.User = Depends(auth.get_current_user),
 ):
-    # No explicit page → honour the viewer's per-user default page (HA-style),
+    # No explicit page → honour the viewer's per-user default page,
     # falling back to the shared current page when none is set.
     if not page_id:
         page_id = _user_default_page_id(getattr(user, "username", None))
@@ -805,7 +814,7 @@ async def add_dashboard_widget(data: DashboardWidgetBody, page_id: str | None = 
     # A freshly created page has no sections yet. Rather than rejecting the
     # first card with "create a section first" (which silently loses the card
     # for users who don't notice the toast), auto-create a default section so
-    # adding a card just works — Home Assistant-style.
+    # adding a card just works when the page id is omitted.
     if not panels and not data.panel_id:
         default_panel = _normalize_panel_record(_make_panel(_DEFAULT_PANEL_TITLE), 0)
         panels.append(default_panel)

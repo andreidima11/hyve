@@ -46,6 +46,7 @@ import { publishDashboardHyveviewHost } from '../hyveview_host.js';
 import { setHashForPage } from '../pages_nav.js';
 import { renderDashboard } from '../dashboard_render.js';
 import { closeDashboardClimateModeMenus } from '../climate.js';
+import { cardLikeFromEditor, describeInteractionPreview } from '../interactions/preview.js';
 
 export function wireDashboardBootstrap(): void {
     publishDashboardHyveviewHost(HVSetHost, {
@@ -64,6 +65,27 @@ export function wireDashboardBootstrap(): void {
         tVacuumStatus,
         tLawnMowerStatus,
         t,
+        listDashboardPages: () => {
+            const pages = getDashboardCache().pages || [];
+            return pages
+                .map((page) => ({
+                    id: String(page?.id || '').trim(),
+                    title: String(page?.title || page?.id || '').trim(),
+                }))
+                .filter((page) => page.id);
+        },
+        describeCardInteraction: (
+            card: { entity?: string | null; type?: string; config?: Record<string, unknown> },
+            gesture: 'tap' | 'double_tap' | 'hold',
+            override?: Record<string, unknown> | null,
+        ) => {
+            const widget = cardLikeFromEditor(card);
+            return describeInteractionPreview(
+                widget,
+                gesture,
+                override as Parameters<typeof describeInteractionPreview>[2],
+            );
+        },
     });
 
     initDashboardContext({

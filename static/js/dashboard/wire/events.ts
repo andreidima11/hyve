@@ -41,9 +41,20 @@ import { selectDashboardPanelPage, renderDashboard } from '../dashboard_render.j
 import { openDashboardWidgetEditor } from '../widget_editor_bridge.js';
 import { removeDashboardWidget } from '../widget_delete.js';
 import {
-    handleDashboardCardClick,
     handleDashboardCardKeydown,
 } from '../widget_toggle.js';
+import {
+    initDashboardCardGestures,
+    initDashboardInteractionExecutor,
+} from '../interactions/index.js';
+import {
+    initDashboardEntityMoreInfoModal,
+    openDashboardEntityMoreInfoFromSpec,
+} from '../entity_more_info_modal.js';
+import {
+    initDashboardEntityHistoryModal,
+    openDashboardEntityHistory,
+} from '../entity_history_modal.js';
 import { selectDashboardPage } from '../page_select.js';
 import { openDashboardPageNav } from '../pages_nav.js';
 import { pickDashboardEntityOption } from '../entity_picker.js';
@@ -69,6 +80,7 @@ import {
 import { dashboardWidgetEntityIds } from '../live_bridge.js';
 import { loadDashboard, setDashboardRefreshIndicator, readDashboardSectionFallback, writeDashboardSectionFallback } from '../dashboard_loader.js';
 import { findWidget } from '../widget_store.js';
+import { getPendingControl } from '../control_state.js';
 import { dashboardPanelColSpan, widgetSpan } from '../widget_cards.js';
 import { isDashboardStandalonePanel, ensureDashboardStandalonePanelLocal } from '../standalone_panel.js';
 import {
@@ -107,7 +119,6 @@ export function wireDashboardEvents(): void {
         removeWidget: ({ widgetId }) => { removeDashboardWidget(widgetId); },
         cardActivate: ({ event, widgetId }) => {
             if (event.type === 'keydown') handleDashboardCardKeydown(event as KeyboardEvent, widgetId);
-            else handleDashboardCardClick(event, widgetId);
         },
         selectPage: ({ pageId }) => { selectDashboardPage(pageId); },
         openPageNav: ({ pageId }) => { openDashboardPageNav(pageId); },
@@ -142,6 +153,26 @@ export function wireDashboardEvents(): void {
     });
 
     registerHyveviewDashboardCards(dashboardWidgetEntityIds);
+
+    initDashboardInteractionExecutor({
+        findWidget,
+        getEditMode: getDashboardEditMode,
+        controlPending: (widgetId) => Boolean(getPendingControl(String(widgetId))),
+        navigatePage: (pageId) => { selectDashboardPage(pageId); },
+        openMoreInfo: (widget, spec) => {
+            openDashboardEntityMoreInfoFromSpec(widget, (entityId) => {
+                const list = getDashboardCache().available_entities || [];
+                return list.find((item) => item?.entity_id === entityId) || null;
+            }, spec);
+        },
+        openHistory: (widget, spec) => {
+            openDashboardEntityHistory(widget, spec);
+        },
+    });
+    initDashboardEntityMoreInfoModal();
+    initDashboardEntityHistoryModal();
+    const dashboardView = document.getElementById('view-dashboard');
+    initDashboardCardGestures(dashboardView || document);
 
     initDashboardPullToRefresh({
         loadDashboard,
