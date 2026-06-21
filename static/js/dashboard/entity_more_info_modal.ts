@@ -69,6 +69,11 @@ function widgetAsEntity(
     } as HyveEntity;
 }
 
+function isCameraEntity(entity: HyveEntity): boolean {
+    const domain = String(entity.domain || '').toLowerCase();
+    return domain === 'camera' || domain === 'image';
+}
+
 function renderAttributesTab(entity: HyveEntity, hidden = false): string {
     const attrs = entity.attributes || {};
     const flatAttrs = Object.entries(attrs)
@@ -108,18 +113,15 @@ function renderTabs(active: MoreInfoTab): string {
       </nav>`;
 }
 
-let _activeTab: MoreInfoTab = 'overview';
-let _historyLoader: { reload: (hours: number) => Promise<void> } | null = null;
+let _pausedBackgroundCameras = false;
 
 function switchMoreInfoTab(
     tab: MoreInfoTab,
     body: HTMLElement,
     widget: DashboardWidgetLike,
     entity: HyveEntity,
-    slug: string,
     historyHours: number,
 ): void {
-    _activeTab = tab;
     body.querySelectorAll('[data-more-info-tab]').forEach((btn) => {
         btn.classList.toggle('is-active', (btn as HTMLElement).dataset.moreInfoTab === tab);
     });
@@ -131,12 +133,10 @@ function switchMoreInfoTab(
         const host = body.querySelector('[data-more-info-panel="history"]') as HTMLElement | null;
         if (host && host.dataset.loaded !== 'true') {
             host.dataset.loaded = 'true';
-            void mountAndLoadHistoryPanel(host, widget, historyHours).then((loader) => {
-                _historyLoader = loader;
-            });
+            void mountAndLoadHistoryPanel(host, widget, historyHours);
         }
     }
-    if (tab === 'overview') {
+    if (tab === 'overview' && isCameraEntity(entity)) {
         startCameraPreviewRefresh();
     } else {
         stopCameraPreviewRefresh();
@@ -145,15 +145,16 @@ function switchMoreInfoTab(
 
 export function closeDashboardEntityMoreInfo(): void {
     const { modal } = modalElements();
-    _historyLoader = null;
-    _activeTab = 'overview';
     stopCameraPreviewRefresh();
     pauseEntityDetailCameraStreams(modal);
+    if (_pausedBackgroundCameras) {
+        resumeBackgroundCameraStreams(modal);
+        _pausedBackgroundCameras = false;
+    }
     if (modal) {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
-    resumeBackgroundCameraStreams(modal);
 }
 
 export function openDashboardEntityMoreInfo(
@@ -172,8 +173,6 @@ export function openDashboardEntityMoreInfo(
     }
 
     stopCameraPreviewRefresh();
-    pauseBackgroundCameraStreams(modal);
-    pauseEntityDetailCameraStreams(modal);
 
     const base = lookupEntity(entityId);
     const entity = widgetAsEntity(widget, base);
@@ -185,6 +184,14 @@ export function openDashboardEntityMoreInfo(
     const icon = getDomainIcon(dom, dc);
     const initialTab = options.tab || 'overview';
     const historyHours = Number(options.historyHours) || 24;
+    const cameraEntity = isCameraEntity(entity);
+
+    if (cameraEntity) {
+        pauseBackgroundCameraStreams(modal);
+        _pausedBackgroundCameras = true;
+    } else {
+        _pausedBackgroundCameras = false;
+    }
 
     if (iconEl) iconEl.className = `fas ${icon}`;
     if (labelEl) labelEl.textContent = entityDisplayName(entity) || entityId;
@@ -193,7 +200,7 @@ export function openDashboardEntityMoreInfo(
       ${renderTabs(initialTab)}
       <div class="dashboard-more-info-tab-panel${initialTab !== 'overview' ? ' hidden' : ''}" data-more-info-panel="overview">
         ${renderEntityFriendlyNameSection(entity)}
-        ${renderEntityModal(entity, slug, { omitMetaSections: true } as Record<string, unknown>)}
+        ${renderEntityModal(entity, slug, { omitMetaSections: true } as { detailPage?: boolean; omitMetaSections?: boolean })}
       </div>
       <div class="dashboard-more-info-tab-panel${initialTab !== 'history' ? ' hidden' : ''}" data-more-info-panel="history"></div>
       ${renderAttributesTab(entity, initialTab !== 'attributes')}
@@ -218,16 +225,20 @@ export function openDashboardEntityMoreInfo(
         const btn = target.closest('[data-more-info-tab]') as HTMLElement | null;
         if (!btn) return;
         const tab = String(btn.dataset.moreInfoTab || 'overview') as MoreInfoTab;
-        switchMoreInfoTab(tab, body, widget, entity, slug, historyHours);
+        switchMoreInfoTab(tab, body, widget, entity, historyHours);
     });
 
     if (modal.parentNode !== document.body) document.body.appendChild(modal);
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 
+    if (cameraEntity) {
+        pauseEntityDetailCameraStreams(body);
+    }
+
     if (initialTab === 'history') {
-        switchMoreInfoTab('history', body, widget, entity, slug, historyHours);
-    } else {
+        switchMoreInfoTab('history', body, widget, entity, historyHours);
+    } else if (cameraEntity && initialTab === 'overview') {
         startCameraPreviewRefresh();
     }
 }
@@ -246,18 +257,32 @@ export function openDashboardEntityMoreInfoFromSpec(
     });
 }
 
+function _bindModalDismiss(
+    modal: HTMLElement,
+    closeAttr: string,
+    closeFn: () => void,
+): void {
+    modal.querySelector(`[${closeAttr}]`)?.addEventListener('click', (event) => {
+        event.preventDefault();
+        closeFn();
+    });
+    modal.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        if (target.closest(`[${closeAttr}]`)) {
+            closeFn();
+            return;
+        }
+        if (target.closest('[data-dashboard-more-info-stop], [data-dashboard-history-stop]')) return;
+        if (target === modal) closeFn();
+    });
+}
+
 export function initDashboardEntityMoreInfoModal(): void {
     const { modal } = modalElements();
     if (!modal || modal.dataset.bound === 'true') return;
     modal.dataset.bound = 'true';
-    modal.addEventListener('click', (event) => {
-        const target = event.target;
-        if (!(target instanceof Element)) return;
-        if (target.closest('[data-dashboard-more-info-stop]')) return;
-        if (target.closest('[data-dashboard-more-info-close]') || target === modal) {
-            closeDashboardEntityMoreInfo();
-        }
-    });
+    _bindModalDismiss(modal, 'data-dashboard-more-info-close', closeDashboardEntityMoreInfo);
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
         if (modal.classList.contains('hidden')) return;

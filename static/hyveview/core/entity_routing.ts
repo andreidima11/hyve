@@ -15,6 +15,7 @@ const DEDICATED_DOMAIN_RENDERERS: Record<string, string> = {
     climate: 'climate',
     lock: 'lock',
     vacuum: 'vacuum',
+    lawn_mower: 'lawn_mower',
     weather: 'weather',
     scene: 'scene',
     button: 'button',
@@ -27,7 +28,7 @@ const TILE_DOMAINS = new Set([
 
 const RESOLVED_RENDERERS = new Set([
     'number', 'select', 'sensor', 'scene', 'button', 'switch', 'tile', 'info',
-    'light', 'climate', 'gauge', 'lock', 'vacuum', 'weather', 'weather_rich',
+    'light', 'climate', 'gauge', 'lock', 'vacuum', 'lawn_mower', 'weather', 'weather_rich',
     'camera', 'picture', 'fusion_solar', 'label',
 ]);
 

@@ -11,6 +11,7 @@ import type {
 } from './types/card.js';
 import type { HyveviewRegistryEntry } from './types/card.js';
 import { resolveEntityEffectiveType } from './core/entity_routing.js';
+import { updatesGetWithAliases } from '../js/entity_aliases.js';
 import type { HyveviewWidget, WidgetByIdFn, WidgetEntityIdsResolver } from './types/widget.js';
 
 export { resolveEntityEffectiveType } from './core/entity_routing.js';
@@ -186,9 +187,17 @@ export function patchEntityStates(
         if (!widget) return;
         let touched = false;
         for (const id of _widgetEntityIds(widget)) {
-            const upd = updatesByEntityId.get(id);
+            const upd = updatesGetWithAliases(updatesByEntityId, id);
             if (!upd) continue;
-            try { if (typeof el.setState === 'function') el.setState(upd as HyveviewEntityState); } catch (e) {
+            const raw = upd as HyveviewEntityState & { current_state?: unknown };
+            const snap: HyveviewEntityState = {
+                entity_id: String(raw.entity_id || id),
+                state: raw.state ?? raw.current_state ?? null,
+                attributes: raw.attributes || {},
+                unit: String(raw.unit || ''),
+                available: raw.available !== false,
+            };
+            try { if (typeof el.setState === 'function') el.setState(snap); } catch (e) {
                 console.error('[hyveview-bridge] setState failed', e);
             }
             touched = true;

@@ -29,6 +29,20 @@ export interface HyveviewHostApi {
         gesture: 'tap' | 'double_tap' | 'hold',
         override?: Record<string, unknown> | null,
     ) => string;
+    stringifyCardYaml?: (snapshot: {
+        type: string;
+        entity?: string | null;
+        layout?: { col?: number; row?: number };
+        config?: Record<string, unknown>;
+        visibility?: Record<string, unknown> | null;
+    }) => string;
+    parseCardYaml?: (text: string) => {
+        type: string;
+        entity: string;
+        layout: { col: number; row: number };
+        config: Record<string, unknown>;
+        visibility: Record<string, unknown> | null;
+    };
 }
 
 export interface WidgetTitleFallbacks {

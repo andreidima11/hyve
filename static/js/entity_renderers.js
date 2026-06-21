@@ -808,7 +808,7 @@ export function renderEntityModal(entity, slug, options = {}) {
     const flatAttrs = Object.entries(attrs)
         .filter(([k, v]) => k !== 'capabilities' && k !== 'raw_state' && v != null && typeof v !== 'object')
         .slice(0, 30);
-    if (!options.omitMetaSections && flatAttrs.length) {
+    if (flatAttrs.length) {
         body += `
         <details class="rounded-2xl bg-white/5 border border-theme-subtle p-3 mb-3">
             <summary class="text-[11px] uppercase tracking-wider text-slate-400 cursor-pointer select-none">${escapeHtml(_er('attributes'))}</summary>
@@ -823,13 +823,11 @@ export function renderEntityModal(entity, slug, options = {}) {
         </details>`;
     }
     // Raw JSON (collapsed, for debugging)
-    if (!options.omitMetaSections) {
     body += `
     <details class="rounded-2xl bg-white/5 border border-theme-subtle p-3">
         <summary class="text-[11px] uppercase tracking-wider text-slate-400 cursor-pointer select-none">${escapeHtml(_er('raw_json'))}</summary>
         <pre class="text-[10px] text-slate-400 mono whitespace-pre-wrap break-all mt-2 max-h-64 overflow-auto">${escapeHtml(JSON.stringify(entity, null, 2))}</pre>
     </details>`;
-    }
     return body;
 }
 export function renderEntityCard(entity, slug) {

@@ -11,7 +11,7 @@ export function effectiveWidgetCardType(widget: DashboardWidget | null | undefin
 }
 
 export function isControllableDomain(domain: unknown): boolean {
-    return ['light', 'switch', 'script', 'input_boolean', 'cover', 'lock', 'vacuum', 'climate', 'media_player', 'fan', 'number', 'select']
+    return ['light', 'switch', 'script', 'input_boolean', 'cover', 'lock', 'vacuum', 'lawn_mower', 'climate', 'media_player', 'fan', 'number', 'select']
         .includes(String(domain || '').toLowerCase());
 }
 

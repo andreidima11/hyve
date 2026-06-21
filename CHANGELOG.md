@@ -4,6 +4,25 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.1] — 2026-06
+
+Patch release: dashboard live sync, edit-mode banner, lawn mower cards, and more-info polish.
+
+### Dashboard — fixes
+- **Fix:** Entity more-info and history modals — close (X) button works again (click no longer swallowed by overlay handler).
+- **Fix:** More-info Overview tab hides attributes and raw JSON (reserved for the Attributes tab).
+- **Fix:** Camera background streams pause only for `camera` / `image` entities; streams resume when the modal closes.
+- **Fix:** Edit-mode banner styling — sticky “Done” bar with proper glass/accent button (was unstyled).
+- **Fix:** Lawn mower card routing — `lawn_mower` domain resolves to the dedicated card (not generic info).
+- **Fix:** Live entity sync — EntityMirror no longer drops WebSocket push targets after a transient delivery error.
+- **Fix:** Hyveview card `setState` uses entity-id aliases (Z2M expose vs discovery naming).
+
+### Dashboard — editor
+- **New:** Per-card YAML section in the Hyveview add/edit modal (reload from form, round-trip on save).
+
+### i18n
+- **New:** `dashboard.interactions.card_yaml_*` keys (EN/RO).
+
 ## [0.9.9.0] — 2026-06
 
 Configurable dashboard card interactions (tap / double-tap / hold), history modal, and YAML editing.

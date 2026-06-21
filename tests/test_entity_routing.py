@@ -55,6 +55,13 @@ def test_entity_routes_read_only_to_info():
     assert resolved["renderer"] == "info"
 
 
+def test_entity_routes_lawn_mower_domain():
+    resolved = resolve_entity_effective_renderer({"type": "entity", "entity_id": "lawn_mower.luba"})
+
+    assert resolved["renderer"] == "lawn_mower"
+    assert resolved["switch_style"] is False
+
+
 def test_entity_keeps_explicit_renderer():
     resolved = resolve_entity_effective_renderer({
         "type": "entity",

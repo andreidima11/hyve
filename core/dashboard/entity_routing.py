@@ -17,6 +17,7 @@ _DEDICATED_DOMAIN_RENDERERS: dict[str, str] = {
     "climate": "climate",
     "lock": "lock",
     "vacuum": "vacuum",
+    "lawn_mower": "lawn_mower",
     "weather": "weather",
     "scene": "scene",
     "button": "button",

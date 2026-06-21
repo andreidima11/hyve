@@ -47,6 +47,7 @@ import { setHashForPage } from '../pages_nav.js';
 import { renderDashboard } from '../dashboard_render.js';
 import { closeDashboardClimateModeMenus } from '../climate.js';
 import { cardLikeFromEditor, describeInteractionPreview } from '../interactions/preview.js';
+import { cardToYamlText, cardYamlToEditorFields, parseCardYamlText } from '../card_yaml.js';
 
 export function wireDashboardBootstrap(): void {
     publishDashboardHyveviewHost(HVSetHost, {
@@ -86,6 +87,14 @@ export function wireDashboardBootstrap(): void {
                 override as Parameters<typeof describeInteractionPreview>[2],
             );
         },
+        stringifyCardYaml: (snapshot: {
+            type: string;
+            entity?: string | null;
+            layout?: { col?: number; row?: number };
+            config?: Record<string, unknown>;
+            visibility?: Record<string, unknown> | null;
+        }) => cardToYamlText(snapshot),
+        parseCardYaml: (text: string) => cardYamlToEditorFields(parseCardYamlText(text)),
     });
 
     initDashboardContext({

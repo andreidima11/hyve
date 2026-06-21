@@ -200,16 +200,12 @@ class EntityMirror:
         }
         event_bus.publish(TOPIC_MIRROR_TICK, payload)
 
-        dead: list[str] = []
         for target in self._targets:
             items = built.get(_snapshot_key(target.include_derived, target.sort_mode), [])
             try:
                 await target.handler(items)
             except Exception as exc:
                 log.warning("entity mirror push target %s failed: %s", target.target_id, exc)
-                dead.append(target.target_id)
-        for target_id in dead:
-            self.unregister_push_target(target_id)
 
         return self._revision
 

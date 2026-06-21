@@ -31,6 +31,7 @@ import type {
     HyveviewVisibilityConfig,
 } from '../types/editor.js';
 import { renderInteractionsEditor } from './interactions_editor.js';
+import { renderCardYamlEditor } from './card_yaml_editor.js';
 import type { HyveviewSchemaFormApi } from '../types/card.js';
 
 let _activeResolve: ((result: HyveviewEditorResult) => void) | null = null;
@@ -221,6 +222,32 @@ function _ensureCss() {
       font-size: 0.72rem;
       color: var(--text-tertiary, #64748b);
       line-height: 1.35;
+    }
+    .hv-card-yaml-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.45rem;
+    }
+    .hv-card-yaml-badge {
+      margin-left: auto;
+      font-size: 0.68rem;
+      color: var(--text-tertiary, #64748b);
+    }
+    .hv-card-yaml-badge[data-tone="edited"] { color: #fbbf24; }
+    .hv-card-yaml-badge[data-tone="synced"] { color: #34d399; }
+    .hv-card-yaml-input {
+      width: 100%;
+      min-height: 220px;
+      border-radius: 0.75rem;
+      border: 1px solid var(--border-medium, rgba(255,255,255,0.08));
+      background: rgba(2, 6, 23, 0.55);
+      color: var(--text-primary, #e2e8f0);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.72rem;
+      line-height: 1.45;
+      padding: 0.65rem 0.75rem;
+      resize: vertical;
     }
 
     .hv-field--inline {
@@ -689,6 +716,10 @@ function _renderForm(panel: HTMLElement, { mode, card }: { mode: 'add' | 'edit';
         <summary>Vizibilitate</summary>
         <div class="hv-details-body" data-role="visibility"></div>
       </details>
+      <details class="hv-details">
+        <summary>${t('dashboard.interactions.card_yaml_title') !== 'dashboard.interactions.card_yaml_title' ? t('dashboard.interactions.card_yaml_title') : 'YAML'}</summary>
+        <div class="hv-details-body" data-role="yaml"></div>
+      </details>
     </div>
     <div class="${FOOTER_CLASS}">
       ${mode === 'edit' ? `<button type="button" class="${BTN_DANGER}" data-role="delete"><i class="fas fa-trash mr-1"></i>Șterge</button>` : '<span></span>'}
@@ -719,20 +750,14 @@ function _renderForm(panel: HTMLElement, { mode, card }: { mode: 'add' | 'edit';
     _must<HTMLDivElement>(panel, '[data-role=interactions]'),
     card,
   );
+  const yamlEditor = renderCardYamlEditor(
+    _must<HTMLDivElement>(panel, '[data-role=yaml]'),
+    card,
+  );
 
-  if (mode === 'edit') {
-    _must<HTMLButtonElement>(panel, '[data-role=delete]').addEventListener('click', () => {
-      if (confirm('Ștergi acest card?')) _close({ __deleted: true });
-    });
-  }
-
-  _must<HTMLButtonElement>(panel, '[data-role=save]').addEventListener('click', () => {
+  const buildFormSnapshot = () => {
     let config = card.config || {};
-    if (form) {
-      const v = form.validate();
-      if (!v.ok) { alert(v.errors.join('\n')); return; }
-      config = form.read();
-    }
+    if (form) config = form.read();
     const interactions = interactionsEditor.read();
     if (interactions) config = { ...config, interactions };
     else if (config.interactions) {
@@ -742,13 +767,61 @@ function _renderForm(panel: HTMLElement, { mode, card }: { mode: 'add' | 'edit';
     }
     const col = Number(_must<HTMLInputElement>(panel, '[data-role=layout-col]').value) || 4;
     const row = Number(_must<HTMLInputElement>(panel, '[data-role=layout-row]').value) || 2;
-    const result: HyveviewEditorSaveResult = {
-      id: card.id,
+    return {
       type: card.type,
       entity: _entityFromConfig(config),
       layout: { col, row },
       config,
       visibility: visEditor.read(),
+    };
+  };
+
+  yamlEditor.syncFromForm({
+    type: card.type,
+    entity: card.entity || _entityFromConfig(card.config || {}),
+    layout: { col: card.layout?.col || 4, row: card.layout?.row || 2 },
+    config: { ...(card.config || {}) },
+    visibility: card.visibility || null,
+  });
+
+  if (mode === 'edit') {
+    _must<HTMLButtonElement>(panel, '[data-role=delete]').addEventListener('click', () => {
+      if (confirm('Ștergi acest card?')) _close({ __deleted: true });
+    });
+  }
+
+  _must<HTMLButtonElement>(panel, '[data-role=save]').addEventListener('click', () => {
+    if (form) {
+      const v = form.validate();
+      if (!v.ok) { alert(v.errors.join('\n')); return; }
+    }
+    const snapshot = buildFormSnapshot();
+    yamlEditor.syncFromForm(snapshot);
+    const yamlRead = yamlEditor.read();
+    if (yamlRead.used) {
+      if (yamlRead.error || !yamlRead.snapshot) {
+        alert(yamlRead.error || 'Invalid YAML');
+        return;
+      }
+      const parsed = yamlRead.snapshot;
+      const result: HyveviewEditorSaveResult = {
+        id: card.id,
+        type: parsed.type || card.type,
+        entity: parsed.entity || _entityFromConfig(parsed.config),
+        layout: parsed.layout,
+        config: parsed.config,
+        visibility: parsed.visibility,
+      };
+      _close(result);
+      return;
+    }
+    const result: HyveviewEditorSaveResult = {
+      id: card.id,
+      type: snapshot.type,
+      entity: snapshot.entity,
+      layout: snapshot.layout,
+      config: snapshot.config,
+      visibility: snapshot.visibility,
     };
     _close(result);
   });

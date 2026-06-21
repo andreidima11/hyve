@@ -1835,3 +1835,66 @@ html[data-dashboard-resizing="true"] * {
     padding: 0;
     border: 0;
 }
+
+/* ===== Edit mode banner (sticky “Done” while rearranging cards) ===== */
+.dashboard-edit-banner {
+    position: sticky;
+    top: 0.5rem;
+    z-index: 40;
+    margin-bottom: 0.25rem;
+}
+.dashboard-edit-banner__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.625rem 0.875rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(var(--accent-rgb, 56, 189, 248), 0.28);
+    background: linear-gradient(
+        135deg,
+        rgba(var(--accent-rgb, 56, 189, 248), 0.12),
+        var(--surface-1, rgba(15, 23, 42, 0.92))
+    );
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+.dashboard-edit-banner__msg {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-primary, #f1f5f9);
+}
+.dashboard-edit-banner__msg i {
+    flex-shrink: 0;
+    color: var(--accent, #38bdf8);
+}
+.dashboard-edit-banner__done {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2rem;
+    padding: 0.375rem 0.875rem;
+    border-radius: 0.625rem;
+    border: 1px solid rgba(var(--accent-rgb, 56, 189, 248), 0.35);
+    background: var(--accent, #38bdf8);
+    color: var(--bg-main, #0f172a);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+    box-shadow: 0 2px 8px rgba(var(--accent-rgb, 56, 189, 248), 0.25);
+}
+.dashboard-edit-banner__done:hover {
+    background: var(--accent-hover, #0ea5e9);
+    box-shadow: 0 4px 12px rgba(var(--accent-rgb, 56, 189, 248), 0.32);
+}
+.dashboard-edit-banner__done:active {
+    transform: scale(0.98);
+}

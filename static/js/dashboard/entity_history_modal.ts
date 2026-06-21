@@ -96,13 +96,19 @@ export function initDashboardEntityHistoryModal(): void {
   const { modal } = modalElements();
   if (!modal || modal.dataset.bound === 'true') return;
   modal.dataset.bound = 'true';
+  modal.querySelector('[data-dashboard-history-close]')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    closeDashboardEntityHistory();
+  });
   modal.addEventListener('click', (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
-    if (target.closest('[data-dashboard-history-stop]')) return;
-    if (target.closest('[data-dashboard-history-close]') || target === modal) {
+    if (target.closest('[data-dashboard-history-close]')) {
       closeDashboardEntityHistory();
+      return;
     }
+    if (target.closest('[data-dashboard-history-stop]')) return;
+    if (target === modal) closeDashboardEntityHistory();
   });
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
