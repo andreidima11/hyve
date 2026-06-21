@@ -50,6 +50,7 @@ export function dashboardCardIcon(card: DashboardCardMeta): string {
         select: 'fas fa-list',
         lock: 'fas fa-lock',
         vacuum: 'fas fa-robot',
+        lawn_mower: 'fas fa-leaf',
         fusion_solar: 'fas fa-solar-panel',
         picture: 'fas fa-images',
     };

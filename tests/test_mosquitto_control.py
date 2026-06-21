@@ -306,7 +306,7 @@ def test_z2m_composite_light_exposes_brightness_and_color_caps():
     assert len(entities) == 1
     ent = entities[0]
     assert ent["domain"] == "light"
-    assert ent["state"] == "ON"
+    assert ent["state"] == "on"
     caps = ent["attributes"]["capabilities"]
     assert caps["brightness"] is True
     assert caps["brightness_scale"] == 254

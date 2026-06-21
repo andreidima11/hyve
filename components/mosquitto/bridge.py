@@ -263,6 +263,15 @@ class MosquittoBridge:
 
     async def stop(self) -> None:
         self._stop.set()
+        persist_task = self._states_persist_task
+        self._states_persist_task = None
+        if persist_task is not None and not persist_task.done():
+            persist_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await persist_task
+        if self._states:
+            with contextlib.suppress(Exception):
+                await self._persist_states_to_store()
         await self._stop_workers()
         task = self._task
         self._task = None
@@ -287,6 +296,73 @@ class MosquittoBridge:
                 "state": dict(self._z2m_bridge_state),
             },
         }
+
+    def hydrate_states_from_store(self) -> None:
+        """Seed in-memory MQTT state from the last SQLite snapshot (survives restarts)."""
+        try:
+            from core.entity_store import get_entity_store
+
+            row = get_entity_store().get_entities(self._store_key()) or {}
+            payload = row.get("entities") if isinstance(row.get("entities"), dict) else {}
+            states = payload.get("states") if isinstance(payload.get("states"), dict) else {}
+            for topic, value in states.items():
+                topic_key = str(topic or "").strip()
+                if not topic_key or _is_z2m_non_state_topic(topic_key):
+                    continue
+                existing = self._states.get(topic_key)
+                if isinstance(existing, dict) and isinstance(value, dict):
+                    merged = dict(existing)
+                    merged.update(value)
+                    self._states[topic_key] = merged
+                else:
+                    self._states[topic_key] = value
+        except Exception as exc:
+            log.debug("hydrate MQTT states failed for %s: %s", self._store_key(), exc)
+
+    def patch_state_topic(self, topic: str, patch: dict[str, Any]) -> bool:
+        topic_key = str(topic or "").strip()
+        if not topic_key or not isinstance(patch, dict) or not patch:
+            return False
+        existing = self._states.get(topic_key)
+        if isinstance(existing, dict):
+            merged = dict(existing)
+            merged.update(patch)
+            self._states[topic_key] = merged
+        else:
+            self._states[topic_key] = dict(patch)
+        return True
+
+    async def persist_states_now(self) -> None:
+        """Write live MQTT cache to SQLite and refresh the shared entity mirror."""
+        task = self._states_persist_task
+        if task is not None and not task.done():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
+        self._states_persist_task = None
+        await self._persist_states_to_store()
+        try:
+            from core.mirror_nudge import nudge_entity_mirror
+
+            nudge_entity_mirror(self._store_key())
+        except Exception as exc:
+            log.debug("mirror nudge after persist failed: %s", exc)
+
+    async def apply_control_optimistic(self, record: dict[str, Any], verb: str) -> None:
+        """Update local MQTT state immediately after a control publish (HA-style)."""
+        from components.mosquitto.entities import _optimistic_z2m_state_patch
+
+        patch = _optimistic_z2m_state_patch(
+            record,
+            verb,
+            bridge_states=self._states,
+        )
+        if not patch:
+            return
+        topic, partial = patch
+        if not self.patch_state_topic(topic, partial):
+            return
+        await self.persist_states_now()
 
     def purge_discovery_for_device(
         self,
@@ -547,6 +623,9 @@ class MosquittoBridge:
                     await client.subscribe(_Z2M_DEVICE_TOP, qos=0)
                     from core.logger import log_line
                     log_line("sys", "📡", "MQTT", f"connected to {host}:{port}")
+                    self.hydrate_states_from_store()
+                    if self._states:
+                        self._schedule_mirror_nudge()
                     await self._dispatch({"type": "bridge", "status": "connected"})
                     if self._z2m_devices:
                         self._schedule_z2m_refresh(self._z2m_devices)

@@ -19,7 +19,7 @@ import { register as registerPicture } from './picture/index.js';
 import { register as registerVacuum } from './vacuum/index.js';
 import { register as registerLawnMower } from './lawn_mower/index.js';
 import { register as registerFusionSolar } from './fusion_solar/index.js';
-import { apiCall } from '../../js/api.js';
+import { apiCall, resolveAuthToken } from '../../js/api.js';
 import { ensureCardStylesheet } from '../core/card-styles.js';
 
 const SHARED_SHELL = '/static/hyveview/cards/shared/shell.css';
@@ -59,6 +59,7 @@ export function loadBundledCardPackages(): void {
 export async function loadCustomCardPackages(): Promise<void> {
     if (_customPromise) return _customPromise;
     _customPromise = (async () => {
+        if (!resolveAuthToken()) return;
         let res: Response;
         try {
             res = await apiCall('/api/dashboard/card-packages');

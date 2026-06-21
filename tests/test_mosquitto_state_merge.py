@@ -67,7 +67,7 @@ def test_extract_reads_relay_state_after_get_pollution():
     }
     items = extract_mosquitto_candidates(payload)
     by_prop = {(e.get("attributes") or {}).get("z2m_property"): e.get("state") for e in items}
-    assert by_prop.get("state_l1") == "ON"
+    assert by_prop.get("state_l1") == "on"
     assert by_prop.get("countdown_l1") == "0"
     assert by_prop.get("linkquality") == "180"
 

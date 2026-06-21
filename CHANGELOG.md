@@ -4,6 +4,25 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.2] — 2026-06
+
+Patch release: MQTT/Zigbee state sync survives restarts, lawn mower card renders, and frontend chunk/auth fixes.
+
+### Integrations — MQTT / Zigbee
+- **Fix:** Control from Hyve updates local MQTT state immediately (optimistic persist + mirror refresh) so lights/relays stay correct after restart.
+- **Fix:** MQTT bridge hydrates last saved states from SQLite on connect and flushes on shutdown (no more stale OFF after quick restarts).
+- **Fix:** Relay/switch states normalize `ON`/`OFF` to `on`/`off` for live UI and WebSocket diffs.
+
+### Dashboard — fixes
+- **Fix:** Lawn mower card type registered in dashboard shell renderer (add/save no longer produces an invisible card).
+- **Fix:** Widget save errors always show a toast (403/network no longer fail silently).
+- **Fix:** Vite `base: '/static/dist/'` + chunk path rewrite — stops `/chunks/*.js` 404s after build.
+- **Fix:** Skip `/api/dashboard/card-packages` when logged out; guard camera `stream-token` without `entity_id`.
+
+### Tooling
+- **Change:** Release gate runs `npm run js:build`.
+- **New:** `tests/test_fix_dist_imports.py`, `tests/test_mosquitto_optimistic_state.py`.
+
 ## [0.9.9.1] — 2026-06
 
 Patch release: dashboard live sync, edit-mode banner, lawn mower cards, and more-info polish.

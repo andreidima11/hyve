@@ -198,6 +198,16 @@ async def _mqtt_listener():
                     new_state = str(raw_val).strip()
                     if not new_state:
                         continue
+                    prev_entity = _last_snapshot.get(entity_id)
+                    domain = str((prev_entity or {}).get("domain") or entity_id.split(".", 1)[0]).lower()
+                    if domain in {"switch", "light", "fan", "lock", "binary_sensor"}:
+                        try:
+                            from components.mosquitto import parse as mqtt_parse
+
+                            caps = ((prev_entity or {}).get("attributes") or {}).get("capabilities") or {}
+                            new_state = mqtt_parse._normalize_state(new_state, domain, caps)
+                        except Exception:
+                            pass
 
                 old_state = _last_state.get(entity_id, "unknown")
                 is_action = prop == "action"

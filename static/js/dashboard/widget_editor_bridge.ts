@@ -397,10 +397,8 @@ export async function saveDashboardWidgetFromEditor(
         }
     } catch (e) {
         const msg = e instanceof Error ? e.message : '';
-        if (msg.includes(d.t('dashboard.save_widget_failed'))) {
-            showToast(msg, 'error');
-            return;
-        }
+        showToast(msg || d.t('dashboard.save_widget_failed') || 'Could not save widget', 'error');
+        return;
     }
 
     try {

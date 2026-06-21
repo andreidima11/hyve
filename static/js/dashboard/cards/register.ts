@@ -34,6 +34,7 @@ const _SHELL_TYPES = [
     'select',
     'lock',
     'vacuum',
+    'lawn_mower',
     'weather',
     'weather_rich',
     'fusion_solar',

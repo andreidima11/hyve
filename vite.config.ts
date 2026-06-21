@@ -48,6 +48,7 @@ function externalizeSharedLang(): Plugin {
 /** Hyve browser app — bundled ESM (hyveview stays separate custom elements). */
 export default defineConfig({
     root,
+    base: '/static/dist/',
     plugins: [externalizeSharedLang()],
     build: {
         outDir: path.join(root, 'static/dist'),

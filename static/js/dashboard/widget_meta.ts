@@ -57,6 +57,7 @@ export function entityIcon(domain: unknown): string {
     case 'select': return 'fas fa-list';
     case 'binary_sensor': return 'fas fa-circle-dot';
     case 'vacuum': return 'fas fa-broom';
+    case 'lawn_mower': return 'fas fa-leaf';
     case 'person': return 'fas fa-user';
     case 'camera': return 'fas fa-video';
     default: return 'fas fa-bolt';

@@ -728,6 +728,47 @@ def _rewrite_z2m_command_topic(
     return f"zigbee2mqtt/{live}{tail}"
 
 
+def _optimistic_z2m_state_patch(
+    record: dict[str, Any],
+    verb: str,
+    *,
+    bridge_states: dict[str, Any] | None = None,
+) -> tuple[str, dict[str, Any]] | None:
+    """Predict the Z2M state-topic JSON patch after a successful control publish."""
+    caps = _resolve_control_caps(record)
+    attrs = record.get("attributes") if isinstance(record.get("attributes"), dict) else {}
+    state_topic = str(caps.get("state_topic") or attrs.get("state_topic") or "").strip()
+    if not state_topic:
+        return None
+    z2m_prop = str(
+        caps.get("z2m_property") or attrs.get("z2m_property")
+        or mqtt_parse._extract_z2m_property_from_template(str(caps.get("value_template") or ""))
+        or "state"
+    ).strip()
+    payload_on = caps.get("payload_on") if caps.get("payload_on") is not None else "ON"
+    payload_off = caps.get("payload_off") if caps.get("payload_off") is not None else "OFF"
+    action = str(verb or "").strip().lower()
+    new_val: Any | None = None
+    if action in {"turn_on", "on"}:
+        new_val = payload_on
+    elif action in {"turn_off", "off"}:
+        new_val = payload_off
+    elif action == "toggle":
+        current_raw: Any = None
+        if isinstance(bridge_states, dict):
+            topic_payload = bridge_states.get(state_topic)
+            if isinstance(topic_payload, dict):
+                current_raw = topic_payload.get(z2m_prop)
+        if current_raw is None:
+            current_raw = record.get("state")
+        low = str(current_raw or "").strip().lower()
+        on_markers = {str(payload_on).lower(), "on", "true", "1", "open", "unlocked"}
+        new_val = payload_off if low in on_markers else payload_on
+    if new_val is None:
+        return None
+    return state_topic, {z2m_prop: new_val}
+
+
 def _build_command(
     domain: str,
     verb: str,
@@ -952,6 +993,8 @@ def _entities_from_z2m_exposes(
                 state_str = "unknown"
             elif isinstance(raw_val, bool):
                 state_str = "on" if raw_val else "off"
+            elif domain in {"switch", "light", "fan", "lock", "binary_sensor"}:
+                state_str = mqtt_parse._normalize_state(raw_val, domain, dict(capabilities or {}))
             else:
                 text = str(raw_val).strip()
                 state_str = text if text else "unknown"

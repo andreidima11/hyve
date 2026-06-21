@@ -279,6 +279,12 @@ class MosquittoEntity(BaseEntity):
             mqtt_payload,
             entry_key=self.entry_id,
         )
+        bridge = _bridge_mod.get_bridge(self.entry_id)
+        if bridge is not None:
+            try:
+                await bridge.apply_control_optimistic(record, verb)
+            except Exception as exc:
+                log.debug("optimistic MQTT state patch failed for %s: %s", entity_id, exc)
         return {"status": "ok", "topic": topic, "payload": mqtt_payload}
 
     async def rename_zigbee_device(

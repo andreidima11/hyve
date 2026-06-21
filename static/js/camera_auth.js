@@ -18,6 +18,13 @@ async function _fetchToken(cache, path, body) {
     if (cache.token && cache.expiresAt > now + 30000) {
         return cache.token;
     }
+    if (path.includes('/cameras/stream-token')) {
+        const eid = String(body.entity_id || '').trim();
+        if (!eid) {
+            throw new Error('entity_id is required for camera stream tokens');
+        }
+        body = { entity_id: eid };
+    }
     if (cache.inflight)
         return cache.inflight;
     cache.inflight = (async () => {
