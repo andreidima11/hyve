@@ -326,7 +326,13 @@ export function createDashboardEntityPatcher(deps: DashboardEntityPatcherDeps) {
                     }
                 });
             }
-            if (!tryFastPathForUpdates(updates)) renderDashboard();
+            const fast = tryFastPathForUpdates(updates);
+            if (!fast) {
+                renderDashboard();
+            } else if (isSnapshot) {
+                const grid = document.getElementById('dashboard-grid');
+                if (grid) configureHyveviewMounted(grid);
+            }
         }
     }
 

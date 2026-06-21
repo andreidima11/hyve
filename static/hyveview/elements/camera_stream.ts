@@ -125,7 +125,7 @@ class HyveCameraStream extends HTMLElement {
   }
 
   // Internals -------------------------------------------------------------
-  get _entity()   { return this.getAttribute('entity') || ''; }
+  get _entity()   { return String(this.getAttribute('entity') || '').trim(); }
   get _mode()     { return (this.getAttribute('mode') || 'snapshot').toLowerCase() === 'live' ? 'live' : 'snapshot'; }
   get _interval() {
     const v = Number(this.getAttribute('interval'));
@@ -404,7 +404,7 @@ class HyveCameraStream extends HTMLElement {
   }
 
   _startMjpegLive() {
-    if (!this._img) return;
+    if (!this._img || !this._entity) return;
     if (this._video) {
       try { this._video.pause(); } catch (_) {}
       this._video.removeAttribute('src');
@@ -432,7 +432,7 @@ class HyveCameraStream extends HTMLElement {
   }
 
   _startRefresh() {
-    if (!this._img) return;
+    if (!this._img || !this._entity) return;
     const wantLive = this._mode === 'live';
     if (wantLive) {
       const mode = this._img.dataset.streamMode || '';

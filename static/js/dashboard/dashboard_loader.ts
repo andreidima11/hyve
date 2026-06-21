@@ -405,7 +405,11 @@ async function loadDashboardImpl(signal: AbortSignal | null = null, { soft = fal
         getMediaProxyToken().catch((err) => {
             console.warn('[dashboard] media proxy token prefetch failed', err);
         });
-        await refreshAvailableEntities({ includeEntities: false, signal });
+        const entityCount = Array.isArray(cache.available_entities) ? cache.available_entities.length : 0;
+        await refreshAvailableEntities({
+            includeEntities: entityCount === 0 || (!soft && !hadRealContent),
+            signal,
+        });
         if (d.getCurrentPageId()) {
             const pageId = d.getCurrentPageId();
             if (pageId) setHashForPage(pageId);

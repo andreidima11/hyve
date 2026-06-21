@@ -4,6 +4,21 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.3] — 2026-06
+
+Patch release: fixes double `/static/dist/` chunk 404s (regression from 0.9.9.2), dashboard initial entity state, and camera stream guards.
+
+### Dashboard — fixes
+- **Fix:** Remove chunk URL rewrite from `fix-dist-imports.mjs` — Vite `base` already prefixes `/static/dist/`; double prefix caused lazy module 404s (`/static/dist//static/dist/chunks/...`).
+- **Fix:** Load entity states on dashboard boot when cache is empty (Zigbee lights/switches no longer show `unknown` until toggled).
+- **Fix:** Re-bootstrap Hyveview card states after WebSocket entity snapshot.
+
+### Cameras
+- **Fix:** `hv-camera-stream` skips refresh when `entity` is missing or whitespace (reduces `stream-token` 422 spam).
+
+### Tooling
+- **Change:** `tests/test_fix_dist_imports.py` asserts relative chunk deps (no absolute `/static/dist/chunks/` in preload list).
+
 ## [0.9.9.2] — 2026-06
 
 Patch release: MQTT/Zigbee state sync survives restarts, lawn mower card renders, and frontend chunk/auth fixes.
