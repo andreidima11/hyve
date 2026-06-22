@@ -333,7 +333,9 @@ function _cacheAddonReleaseNotes(a: AddonUpdateRow): void {
 }
 
 function _hasReleaseNotes(target: string): boolean {
-    return _releaseNotesCache.has(target);
+    const entry = _releaseNotesCache.get(target);
+    if (!entry) return false;
+    return !!(entry.body || entry.url);
 }
 
 function _releaseNotesBtnHtml(target: string): string {
@@ -501,14 +503,16 @@ function _hyveRowHtml(hyve: HyveUpdateStatus): string {
         versionHtml = `${escapeHtml(current)}<i class="fas fa-arrow-right text-[8px] text-amber-400 mx-1" aria-hidden="true"></i><span class="text-amber-400 font-semibold">${escapeHtml(latest)}</span>`;
         badge = _updBadge('update', 'fas fa-arrow-up', t('updates.badge_update'));
         outdated = true;
-        if (hyve.git_available) {
-            const prereq = hyve.prerequisites;
-            const npmOk = !prereq?.frontend_build_required || prereq?.npm_available;
+        const mode = hyve.update_mode || (hyve.artifact_available ? 'artifact' : (hyve.git_available ? 'git' : 'unavailable'));
+        const prereq = hyve.prerequisites;
+        const npmOk = !prereq?.frontend_build_required || prereq?.npm_available;
+        const canApply = mode === 'artifact' || (mode === 'git' && hyve.git_available && npmOk);
+        if (canApply) {
             const buildCommands = prereq?.frontend_build_commands || 'npm ci && npm run js:build';
-            const btnTitle = npmOk
+            const btnTitle = mode === 'artifact'
                 ? t('updates.hyve_upgrade_btn')
-                : t('updates.hyve_hint_npm_required', { commands: buildCommands });
-            actionHtml += _updActionBtn('applyHyveUpdate', 'id="updates-hyve-upgrade-btn"', 'fas fa-arrow-up', btnTitle, !npmOk);
+                : (npmOk ? t('updates.hyve_upgrade_btn') : t('updates.hyve_hint_npm_required', { commands: buildCommands }));
+            actionHtml += _updActionBtn('applyHyveUpdate', 'id="updates-hyve-upgrade-btn"', 'fas fa-arrow-up', btnTitle);
         }
     } else {
         versionHtml = escapeHtml(current);
@@ -611,7 +615,11 @@ function _renderUpdateRows() {
     list.innerHTML = rows.join('');
 
     const hints: string[] = [];
-    if (hyve && !hyve.git_available) hints.push(t('updates.hyve_hint_not_git'));
+    if (hyve) {
+        const mode = hyve.update_mode || (hyve.artifact_available ? 'artifact' : (hyve.git_available ? 'git' : 'unavailable'));
+        if (mode === 'artifact') hints.push(t('updates.hyve_hint_artifact'));
+        else if (!hyve.git_available) hints.push(t('updates.hyve_hint_not_git'));
+    }
     const prereq = hyve?.prerequisites;
     const buildCommands = prereq?.frontend_build_commands || 'npm ci && npm run js:build';
     if (prereq?.frontend_build_required) {
@@ -666,7 +674,8 @@ export function setUpdatesInterval(value: string) {
 }
 
 export function syncUpdatesIntervalDropdown() {
-    const select = document.getElementById('updates_addons_check_interval') as HTMLSelectElement | null;
-    if (!select) return;
-    upgradeNativeSelect(select);
+    for (const id of ['updates_addons_check_interval', 'updates_hyve_check_interval']) {
+        const select = document.getElementById(id) as HTMLSelectElement | null;
+        if (select) upgradeNativeSelect(select);
+    }
 }

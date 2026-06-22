@@ -103,10 +103,10 @@ async def set_cfg(data: dict, _: models.User = Depends(auth.get_current_admin)):
     except Exception:
         pass
     try:
-        from routers.updates import schedule_addon_check
+        from routers.updates import schedule_all_update_checks
         from core.backup.schedule import schedule_backup_job
 
-        schedule_addon_check()
+        schedule_all_update_checks()
         schedule_backup_job()
     except Exception:
         pass

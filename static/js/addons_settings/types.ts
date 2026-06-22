@@ -70,6 +70,8 @@ export interface HyveUpdateStatus {
     git_available?: boolean;
     github_repo?: string;
     github_token_configured?: boolean;
+    update_mode?: 'artifact' | 'git' | 'unavailable';
+    artifact_available?: boolean;
     prerequisites?: {
         npm_available?: boolean;
         frontend_dist_ready?: boolean;

@@ -115,6 +115,11 @@ def main() -> int:
         if code != 0:
             return code
 
+    print("\n==> Building release artifact")
+    code = subprocess.call([PYTHON, "scripts/build_release_artifact.py", "--skip-build"], cwd=ROOT)
+    if code != 0:
+        return code
+
     tag_exists = subprocess.run(
         ["git", "rev-parse", version],
         cwd=ROOT,
@@ -129,6 +134,24 @@ def main() -> int:
     _run(["git", "push", "origin", version])
 
     _upsert_github_release(version, title, notes)
+
+    artifact = ROOT / "output" / "releases" / f"hyve-{version}.tar.gz"
+    manifest = ROOT / "output" / "releases" / f"hyve-{version}.manifest.json"
+    if artifact.is_file() and manifest.is_file():
+        _run(
+            [
+                "gh",
+                "release",
+                "upload",
+                version,
+                str(artifact),
+                str(manifest),
+                "--clobber",
+            ]
+        )
+    else:
+        print(f"WARN: release artifact not found at {artifact}; skipping asset upload")
+
     print(f"\nPublished {title} (tag {version})")
     return 0
 

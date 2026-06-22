@@ -140,14 +140,19 @@ def check_for_update() -> dict[str, Any]:
     try:
         release = _fetch_latest_release_with_fallback()
         latest = str(release["version"])
+        tag = str(release.get("tag") or latest)
+        artifact_meta = _artifact_metadata_for_tag(tag)
         _last_hyve_check = {
             "latest": latest,
-            "tag": release["tag"],
+            "tag": tag,
             "release_url": release.get("html_url") or "",
             "release_notes": release.get("body") or "",
+            "notes_version": latest,
             "checked_at": datetime.now(timezone.utc).isoformat(),
             "error": None,
             "source": release.get("source") or "github",
+            "artifact_available": bool(artifact_meta and artifact_meta.get("artifact_url")),
+            "artifact_meta": artifact_meta if isinstance(artifact_meta, dict) else None,
         }
     except HTTPError as exc:
         code = getattr(exc, "code", 0) or 0
@@ -351,28 +356,58 @@ def get_status() -> dict[str, Any]:
     cached_notes = str(_last_hyve_check.get("release_notes") or "")
     cached_url = str(_last_hyve_check.get("release_url") or "")
     enriched = _enrich_release_notes_for_version(notes_version)
-    release_notes = str(cached_notes or "").strip() or enriched.get("body") or ""
-    release_url = str(cached_url or "").strip() or enriched.get("url") or ""
+    # When an update is pending, prefer fresh notes for the *target* version (GitHub /
+    # CHANGELOG). Stale persisted cache often has empty notes or the previous release.
+    if update_available:
+        release_notes = (enriched.get("body") or "").strip() or cached_notes.strip()
+        release_url = (enriched.get("url") or "").strip() or cached_url.strip()
+    else:
+        release_notes = cached_notes.strip() or (enriched.get("body") or "").strip()
+        release_url = cached_url.strip() or (enriched.get("url") or "").strip()
+    tag = str(_last_hyve_check.get("tag") or latest)
+    artifact_meta = _last_hyve_check.get("artifact_meta")
+    if not isinstance(artifact_meta, dict):
+        artifact_meta = _artifact_metadata_for_tag(tag) if tag else None
+    artifact_available = bool(artifact_meta and artifact_meta.get("artifact_url"))
+    git_ok = is_git_install()
+    if artifact_available:
+        update_mode = "artifact"
+    elif git_ok:
+        update_mode = "git"
+    else:
+        update_mode = "unavailable"
     return {
         "current": cur,
         "latest": latest,
-        "tag": _last_hyve_check.get("tag") or latest,
+        "tag": tag,
         "update_available": update_available,
         "release_url": release_url,
         "release_notes": release_notes,
         "checked_at": _last_hyve_check.get("checked_at"),
         "error": err,
         "source": _last_hyve_check.get("source"),
-        "git_available": is_git_install(),
+        "git_available": git_ok,
         "github_repo": github_repo(),
         "github_token_configured": bool(github_token()),
+        "update_mode": update_mode,
+        "artifact_available": artifact_available,
         "prerequisites": {
             "npm_available": _npm_available(),
             "frontend_dist_ready": _frontend_dist_ready(),
-            "frontend_build_required": _frontend_build_required(),
+            "frontend_build_required": _frontend_build_required() and not artifact_available,
             "frontend_build_commands": _FRONTEND_BUILD_COMMANDS,
         },
     }
+
+
+def _artifact_metadata_for_tag(tag: str) -> dict[str, Any] | None:
+    try:
+        from core.hyve_update_artifact import fetch_artifact_metadata
+
+        return fetch_artifact_metadata(github_repo(), tag)
+    except Exception as exc:
+        log.debug("artifact metadata lookup failed for %s: %s", tag, exc)
+        return None
 
 
 def _run_cmd(
@@ -589,6 +624,38 @@ def apply_update() -> dict[str, Any]:
     if not tag:
         raise HyveUpdateError("updates.hyve_release_invalid")
 
+    target = _normalize_tag(tag)
+    artifact_meta = _last_hyve_check.get("artifact_meta")
+    if not isinstance(artifact_meta, dict):
+        artifact_meta = _artifact_metadata_for_tag(tag)
+
+    if artifact_meta and artifact_meta.get("artifact_url"):
+        try:
+            from core.hyve_update_artifact import ArtifactUpdateError, apply_artifact_update
+
+            result = apply_artifact_update(
+                root=_PROJECT_ROOT,
+                repo=github_repo(),
+                tag=tag,
+                metadata=artifact_meta,
+            )
+        except ArtifactUpdateError as exc:
+            raise HyveUpdateError(exc.key, exc.params) from exc
+        from core.server_restart import schedule_restart
+
+        schedule_restart(delay=1.0, log_msg=f"Hyve updated to {target} — restarting...")
+        return {
+            "status": "restarting",
+            "version": target,
+            "mode": "artifact",
+            "files_updated": result.get("files_updated", 0),
+            "message_key": "updates.hyve_updated_restarting",
+            "message_params": {"version": target},
+        }
+
+    if not is_git_install():
+        raise HyveUpdateError("updates.hyve_no_install_method")
+
     _reset_ignored_dirty_paths()
     _assert_git_ready()
     _fetch_tags()
@@ -601,6 +668,9 @@ def apply_update() -> dict[str, Any]:
         _checkout_tag(tag)
         _pip_install()
         _js_build()
+        from core.http.startup_migrations import run_startup_migrations
+
+        run_startup_migrations()
     except HyveUpdateError:
         log.warning("Hyve update failed after checkout — rolling back to %s", head_before)
         try:
@@ -618,11 +688,11 @@ def apply_update() -> dict[str, Any]:
 
     from core.server_restart import schedule_restart
 
-    target = _normalize_tag(tag)
     schedule_restart(delay=1.0, log_msg=f"Hyve updated to {target} — restarting...")
     return {
         "status": "restarting",
         "version": target,
+        "mode": "git",
         "message_key": "updates.hyve_updated_restarting",
         "message_params": {"version": target},
     }

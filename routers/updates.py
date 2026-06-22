@@ -4,7 +4,7 @@ Updates API router — Hyve self-update + add-on update management.
 Provides:
   GET   /api/updates/hyve           — current vs latest GitHub release
   POST  /api/updates/hyve/check       — refresh latest release from GitHub
-  POST  /api/updates/hyve/apply       — git checkout tag + deps + restart
+  POST  /api/updates/hyve/apply       — download release artifact (preferred) or git checkout + deps + restart
   GET   /api/updates/addons           — list installed add-ons + available-update flags
   POST  /api/updates/addons/check     — recompute available updates + notify admins
   POST  /api/updates/addons/update    — update one/all add-ons to the bundled version
@@ -31,6 +31,7 @@ from core.http.limiter import limiter
 log = logging.getLogger(__name__)
 
 _ADDON_CHECK_JOB_ID = "hyve_addon_check"
+_HYVE_CHECK_JOB_ID = "hyve_self_check"
 
 # In-memory cache for the last check results (drives the hub badge).
 _last_check: dict[str, Any] = {"outdated": [], "checked_at": None}
@@ -393,3 +394,68 @@ def schedule_addon_check():
         **cron_kwargs,
     )
     log.info("Add-on update check scheduled: %s (cron: %s)", interval, cron_kwargs)
+
+
+def _scheduled_hyve_check():
+    """APScheduler job — check Hyve releases and optionally auto-update."""
+    import datetime as _dt
+
+    log.info("Running scheduled Hyve update check...")
+    try:
+        check_hyve_update()
+    except Exception as exc:
+        log.warning("Scheduled Hyve check failed: %s", exc)
+        return
+
+    status = get_hyve_status()
+    if not status.get("update_available"):
+        log.info("Scheduled Hyve check: already up to date (%s).", status.get("current"))
+        return
+
+    latest = status.get("latest") or status.get("tag")
+    log.info("Scheduled Hyve check: update available %s -> %s", status.get("current"), latest)
+
+    auto = settings.CFG.get("updates", {}).get("hyve", {}).get("auto_update", False)
+    if not auto:
+        return
+
+    try:
+        apply_hyve_update()
+        log.info("Auto-updated Hyve to %s", latest)
+    except HyveUpdateError as exc:
+        log.warning("Hyve auto-update failed: %s", exc.key)
+    except Exception as exc:
+        log.warning("Hyve auto-update failed: %s", exc)
+
+
+def schedule_hyve_check():
+    """Register or remove the Hyve self-update cron job based on config."""
+    from core.scheduler_service import scheduler
+
+    interval = settings.CFG.get("updates", {}).get("hyve", {}).get("check_interval", "never")
+
+    if scheduler.get_job(_HYVE_CHECK_JOB_ID):
+        scheduler.remove_job(_HYVE_CHECK_JOB_ID)
+
+    if interval == "never":
+        return
+
+    cron_kwargs: dict[str, Any] = {"hour": 3, "minute": 30}
+    if interval == "weekly":
+        cron_kwargs["day_of_week"] = "sun"
+    elif interval == "monthly":
+        cron_kwargs["day"] = 1
+
+    scheduler.add_job(
+        _scheduled_hyve_check,
+        "cron",
+        id=_HYVE_CHECK_JOB_ID,
+        replace_existing=True,
+        **cron_kwargs,
+    )
+    log.info("Hyve update check scheduled: %s (cron: %s)", interval, cron_kwargs)
+
+
+def schedule_all_update_checks():
+    schedule_addon_check()
+    schedule_hyve_check()

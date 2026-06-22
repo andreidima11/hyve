@@ -120,6 +120,8 @@ export async function loadConfig() {
         'config_timezone': cfg.timezone || '',
         'updates_addons_check_interval': cfg.updates?.addons?.check_interval || 'never',
         'updates_addons_auto_update': cfg.updates?.addons?.auto_update ?? false,
+        'updates_hyve_check_interval': cfg.updates?.hyve?.check_interval || 'never',
+        'updates_hyve_auto_update': cfg.updates?.hyve?.auto_update ?? false,
         'aux_llm_url': (cfg.intelligence?.aux_llm?.target_url ?? ''),
         'aux_llm_model': (cfg.intelligence?.aux_llm?.model_name ?? ''),
         'aux_llm_api_key': (cfg.intelligence?.aux_llm?.api_key ?? ''),

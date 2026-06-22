@@ -178,6 +178,10 @@ export async function saveConfig(eOrOptions?: Event | SaveConfigOptions, trigger
         timezone: (cfgField('config_timezone')?.value || '').trim(),
 
         updates: {
+            hyve: {
+                check_interval: cfgField('updates_hyve_check_interval')?.value || 'never',
+                auto_update: !!(cfgField('updates_hyve_auto_update') as HTMLInputElement | null)?.checked,
+            },
             addons: {
                 check_interval: cfgField('updates_addons_check_interval')?.value || 'never',
                 auto_update: !!(cfgField('updates_addons_auto_update') as HTMLInputElement | null)?.checked,

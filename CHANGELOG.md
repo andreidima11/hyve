@@ -4,6 +4,20 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.8] — 2026-06
+
+Major updater redesign: pre-built release packages, safer apply, and release notes when an update is pending.
+
+### Updates — Hyve self-update
+- **Change:** Releases ship a pre-built `hyve-{version}.tar.gz` + SHA256 manifest on GitHub. Apply downloads the artifact, verifies checksum, updates code only (preserves config, databases, dashboards, `.env`), runs `pip install` + Alembic migrations, and rolls back on failure — no `npm build` on the server.
+- **Change:** Git checkout remains as dev fallback when no release artifact exists.
+- **Change:** Pre-update `.hyvebak` snapshot before artifact apply.
+- **Change:** Scheduled Hyve update check + optional auto-update (Settings → Updates → Hyve).
+- **Fix:** Release notes for a pending update now load from GitHub for the target version instead of showing empty/stale cached notes until after apply.
+
+### Tooling
+- **Change:** `scripts/build_release_artifact.py` and `publish_release.py` upload release assets automatically.
+
 ## [0.9.9.7] — 2026-06
 
 Critical fix: the Zigbee/MQTT live bridge never started at boot, so device states were stale ("off") until manually toggled.

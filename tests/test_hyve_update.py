@@ -105,6 +105,35 @@ def test_resolve_latest_release_enriches_notes_for_winning_version(monkeypatch):
     assert release["html_url"].endswith("/0.9.7.3")
 
 
+def test_get_status_prefers_enriched_when_update_available(monkeypatch):
+    monkeypatch.setattr(hu, "current_version", lambda: "0.9.9.7")
+    monkeypatch.setattr(
+        hu,
+        "_last_hyve_check",
+        {
+            "latest": "0.9.9.8",
+            "tag": "0.9.9.8",
+            "release_url": "",
+            "release_notes": "",
+            "checked_at": "2026-01-01T00:00:00+00:00",
+            "error": None,
+        },
+    )
+    monkeypatch.setattr(hu, "_artifact_metadata_for_tag", lambda _tag: None)
+    monkeypatch.setattr(
+        hu,
+        "_enrich_release_notes_for_version",
+        lambda v: {
+            "body": f"Notes for {v}",
+            "url": f"https://github.com/example/hyve/releases/tag/{v}",
+        },
+    )
+    status = hu.get_status()
+    assert status["update_available"] is True
+    assert status["release_notes"] == "Notes for 0.9.9.8"
+    assert status["release_url"].endswith("/0.9.9.8")
+
+
 def test_get_status_enriches_empty_release_notes(monkeypatch):
     monkeypatch.setattr(hu, "current_version", lambda: "0.9.7.13")
     monkeypatch.setattr(
@@ -200,14 +229,19 @@ def test_reset_ignored_dirty_paths_checkout(monkeypatch, tmp_path: Path):
     assert ["git", "checkout", "--", "static/hyveview/elements/mammotion_camera.js.map"] in calls
 
 
-def test_apply_update_requires_git(monkeypatch, tmp_path: Path):
+def test_apply_update_requires_install_method(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(hu, "_PROJECT_ROOT", tmp_path)
     monkeypatch.setattr(hu, "check_for_update", lambda: {"update_available": True})
-    monkeypatch.setattr(hu, "get_status", lambda: {"update_available": True})
+    monkeypatch.setattr(
+        hu,
+        "get_status",
+        lambda: {"update_available": True, "artifact_available": False, "update_mode": "unavailable"},
+    )
     monkeypatch.setattr(hu, "is_git_install", lambda: False)
+    monkeypatch.setattr(hu, "_artifact_metadata_for_tag", lambda _tag: None)
     with pytest.raises(hu.HyveUpdateError) as exc:
         hu.apply_update()
-    assert exc.value.key == "updates.hyve_not_git"
+    assert exc.value.key == "updates.hyve_no_install_method"
 
 
 def test_apply_update_checkout_and_restart(monkeypatch, tmp_path: Path):
@@ -217,12 +251,14 @@ def test_apply_update_checkout_and_restart(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(hu, "_PROJECT_ROOT", tmp_path)
     monkeypatch.setattr(hu, "_last_hyve_check", {"tag": "0.9.6.3", "latest": "0.9.6.3"})
     monkeypatch.setattr(hu, "check_for_update", lambda: {"update_available": True, "latest": "0.9.6.3"})
-    monkeypatch.setattr(hu, "get_status", lambda: {"update_available": True, "latest": "0.9.6.3"})
+    monkeypatch.setattr(hu, "get_status", lambda: {"update_available": True, "artifact_available": False})
+    monkeypatch.setattr(hu, "_artifact_metadata_for_tag", lambda _tag: None)
     monkeypatch.setattr(hu, "_reset_ignored_dirty_paths", lambda: [])
     monkeypatch.setattr(hu, "_assert_git_ready", lambda: None)
     monkeypatch.setattr(hu, "_fetch_tags", lambda: None)
     monkeypatch.setattr(hu, "_pip_install", lambda: None)
     monkeypatch.setattr(hu, "_js_build", lambda: None)
+    monkeypatch.setattr("core.http.startup_migrations.run_startup_migrations", lambda: None)
     monkeypatch.setattr(hu, "_git_head_ref", lambda: "abc123")
     monkeypatch.setattr(hu, "_frontend_build_required", lambda: False)
 
@@ -260,6 +296,7 @@ def test_get_status_includes_prerequisites(monkeypatch):
     monkeypatch.setattr(hu, "_npm_available", lambda: True)
     monkeypatch.setattr(hu, "_frontend_dist_ready", lambda: False)
     monkeypatch.setattr(hu, "_frontend_build_required", lambda: True)
+    monkeypatch.setattr(hu, "_artifact_metadata_for_tag", lambda _tag: None)
     status = hu.get_status()
     prereq = status["prerequisites"]
     assert prereq["npm_available"] is True

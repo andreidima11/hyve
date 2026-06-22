@@ -60,10 +60,10 @@ async def startup_scheduler() -> None:
         scheduler_service.start_scheduler()
         _purge_removed_scheduler_jobs()
         scheduler_service.schedule_consolidation_job()
-        from routers.updates import schedule_addon_check
+        from routers.updates import schedule_all_update_checks
         from core.backup.schedule import schedule_backup_job
 
-        schedule_addon_check()
+        schedule_all_update_checks()
         schedule_backup_job()
         log_line("success", "⏰", "SCHEDULER", "Service started.")
     except Exception as exc:
