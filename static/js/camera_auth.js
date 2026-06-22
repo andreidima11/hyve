@@ -1,7 +1,8 @@
 /**
  * Short-lived tokens for camera streams and media proxy URLs.
  */
-import { apiCall } from './api.js';
+import { apiCall, resolveAuthToken } from './api.js';
+const CAMERA_ENTITY_RE = /^(camera|image)\.[a-z0-9_.-]+$/i;
 const _cameraCacheByEntity = new Map();
 let _mediaProxyCache = { token: '', expiresAt: 0, inflight: null };
 function _cacheForEntity(entityId) {
@@ -13,16 +14,34 @@ function _cacheForEntity(entityId) {
     }
     return row;
 }
+export function hasCameraAuthSession() {
+    const token = resolveAuthToken();
+    return !!(token && token !== 'null' && token !== 'undefined');
+}
+function _requireCameraAuthSession() {
+    if (!hasCameraAuthSession()) {
+        throw new Error('Not authenticated');
+    }
+}
+function _normalizeCameraEntityId(entityId) {
+    const key = String(entityId || '').trim();
+    if (!CAMERA_ENTITY_RE.test(key)) {
+        throw new Error(`Invalid camera entity_id: ${key || '(empty)'}`);
+    }
+    return key;
+}
+function _invalidateCache(cache) {
+    cache.token = '';
+    cache.expiresAt = 0;
+}
 async function _fetchToken(cache, path, body) {
+    _requireCameraAuthSession();
     const now = Date.now();
     if (cache.token && cache.expiresAt > now + 30000) {
         return cache.token;
     }
     if (path.includes('/cameras/stream-token')) {
-        const eid = String(body.entity_id || '').trim();
-        if (!eid) {
-            throw new Error('entity_id is required for camera stream tokens');
-        }
+        const eid = _normalizeCameraEntityId(String(body.entity_id || ''));
         body = { entity_id: eid };
     }
     if (cache.inflight)
@@ -32,7 +51,14 @@ async function _fetchToken(cache, path, body) {
             const res = await apiCall(path, { method: 'POST', body });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                throw new Error(String(data.detail || data.message || `HTTP ${res.status}`));
+                if (res.status === 401 || res.status === 403 || res.status === 422) {
+                    _invalidateCache(cache);
+                }
+                const detail = data.detail;
+                const msg = typeof detail === 'object' && detail && 'key' in detail
+                    ? String(detail.key || '')
+                    : String(detail || data.message || `HTTP ${res.status}`);
+                throw new Error(msg || `HTTP ${res.status}`);
             }
             cache.token = String(data.token || '');
             const ttlMs = Math.max(60, Number(data.expires_in || 300)) * 1000;
@@ -46,18 +72,16 @@ async function _fetchToken(cache, path, body) {
     return cache.inflight;
 }
 export async function getCameraStreamToken(entityId) {
-    const key = String(entityId || '').trim();
-    if (!key) {
-        throw new Error('entity_id is required for camera stream tokens');
-    }
+    const key = _normalizeCameraEntityId(entityId);
     return _fetchToken(_cacheForEntity(key), '/api/cameras/stream-token', { entity_id: key });
 }
 export async function getMediaProxyToken() {
     return _fetchToken(_mediaProxyCache, '/api/media/stream-token', {});
 }
 export async function cameraMediaUrl(entityId, kind = 'snapshot', { cacheBust } = {}) {
-    const token = await getCameraStreamToken(entityId);
-    const base = `/api/cameras/${encodeURIComponent(entityId)}/${kind}`;
+    const key = _normalizeCameraEntityId(entityId);
+    const token = await getCameraStreamToken(key);
+    const base = `/api/cameras/${encodeURIComponent(key)}/${kind}`;
     const q = `token=${encodeURIComponent(token)}`;
     if (kind === 'snapshot' || kind === 'image') {
         return `${base}?${q}&t=${cacheBust ?? Date.now()}`;
@@ -173,4 +197,7 @@ export function pauseEntityDetailCameraStreams(root = document.getElementById('e
     if (!root)
         return;
     _forEachCameraStream(root, (el) => el.pauseStream?.());
+}
+if (typeof window !== 'undefined') {
+    window.addEventListener('hyve:auth-changed', () => clearCameraStreamTokenCache());
 }

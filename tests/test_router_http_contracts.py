@@ -138,6 +138,21 @@ def test_chat_web_rejects_unauthenticated_without_422(client: TestClient):
     assert _detail_key(res) == "common.auth_required"
 
 
+def test_camera_stream_token_requires_entity_id(client: TestClient, auth_headers: dict[str, str]):
+    res = client.post("/api/cameras/stream-token", headers=auth_headers, json={})
+    assert res.status_code == 422, res.text
+
+
+def test_camera_stream_token_rejects_unauthenticated(client: TestClient):
+    res = client.post("/api/cameras/stream-token", json={"entity_id": "camera.front"})
+    assert res.status_code == 401, res.text
+
+
+def test_media_stream_token_rejects_unauthenticated(client: TestClient):
+    res = client.post("/api/media/stream-token", json={})
+    assert res.status_code == 401, res.text
+
+
 def test_waha_webhook_does_not_require_query_params(client: TestClient):
     """Regression: WAHA hook must not treat BackgroundTasks as a query param."""
     res = client.post("/api/webhook/waha", json={"payload": {"fromMe": True}})

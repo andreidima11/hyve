@@ -213,7 +213,7 @@ export class HyveviewCameraCard extends HyveviewCardBase {
 
   _entityId(): string {
     const cfg = (this._config || {}) as CardWidget;
-    return String(cfg.entity || cfg.entity_id || '');
+    return String(cfg.entity || cfg.entity_id || '').trim();
   }
 
   _snapshotUrl() {

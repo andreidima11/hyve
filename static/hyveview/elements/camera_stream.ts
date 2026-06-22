@@ -27,9 +27,8 @@
  *   data-state = 'loading' | 'ready' | 'error' | 'idle'
  */
 
-import { cameraGo2rtcWsUrlSync, getCameraStreamToken } from '../../js/camera_auth.js';
+import { cameraGo2rtcWsUrlSync, getCameraStreamToken, hasCameraAuthSession, cameraMediaUrl } from '../../js/camera_auth.js';
 import { cameraMseCodecs } from '../../js/camera_live.js';
-import { cameraMediaUrl } from '../../js/camera_auth.js';
 import {
   cameraLoaderMarkup,
   hideCameraLoader,
@@ -69,15 +68,18 @@ class HyveCameraStream extends HTMLElement {
   private _mseRequested = false;
   private _mseFallbackTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly _onVisibility: () => void;
+  private readonly _onAuthChanged: () => void;
 
   constructor() {
     super();
     this._onVisibility = () => this._reevaluate();
+    this._onAuthChanged = () => this._reevaluate();
   }
 
   connectedCallback() {
     if (!this._img) this._build();
     document.addEventListener('visibilitychange', this._onVisibility);
+    window.addEventListener('hyve:auth-changed', this._onAuthChanged);
     this._observer = new IntersectionObserver((entries) => {
       for (const e of entries) {
         if (e.target === this) {
@@ -93,6 +95,7 @@ class HyveCameraStream extends HTMLElement {
 
   disconnectedCallback() {
     document.removeEventListener('visibilitychange', this._onVisibility);
+    window.removeEventListener('hyve:auth-changed', this._onAuthChanged);
     if (this._observer) { this._observer.disconnect(); this._observer = null; }
     this._stopRefresh();
     this._teardownMse();
@@ -341,10 +344,19 @@ class HyveCameraStream extends HTMLElement {
     this._img = img;
   }
 
+  _streamAllowed(): boolean {
+    return !!this._entity && hasCameraAuthSession();
+  }
+
+  _handleUrlError(): void {
+    this._setState('error');
+    this._stopRefresh();
+  }
+
   _reevaluate(forceReset = false) {
     if (this._paused) { this._stopRefresh(); return; }
     if (forceReset) this._stopRefresh();
-    const active = (this._visible || this._buffered || this._forceActive) && !document.hidden && !!this._entity;
+    const active = (this._visible || this._buffered || this._forceActive) && !document.hidden && this._streamAllowed();
     if (active) this._startRefresh();
     else this._stopRefresh();
   }
@@ -432,7 +444,7 @@ class HyveCameraStream extends HTMLElement {
   }
 
   _startRefresh() {
-    if (!this._img || !this._entity) return;
+    if (!this._img || !this._streamAllowed()) return;
     const wantLive = this._mode === 'live';
     if (wantLive) {
       const mode = this._img.dataset.streamMode || '';
@@ -449,15 +461,19 @@ class HyveCameraStream extends HTMLElement {
     if (this.dataset.state !== 'ready') this._setState('loading');
     _snapshotUrl(this._entity).then((url) => {
       if (this._img && this.isConnected) this._img.src = url;
-    }).catch(() => { this._setState('error'); });
+    }).catch(() => { this._handleUrlError(); });
     const ms = Math.max(2, this._interval) * 1000;
     if (this._refreshTimer) clearInterval(this._refreshTimer);
     this._refreshTimer = setInterval(() => {
       if (!this.isConnected || document.hidden || this._paused) return;
       if (!this._visible && !this._buffered && !this._forceActive) return;
+      if (!this._streamAllowed()) {
+        this._stopRefresh();
+        return;
+      }
       _snapshotUrl(this._entity).then((url) => {
         if (this._img && this.isConnected) this._img.src = url;
-      }).catch(() => {});
+      }).catch(() => { this._handleUrlError(); });
     }, ms);
   }
 

@@ -21,6 +21,9 @@ interface RememberPayload {
     [key: string]: unknown;
 }
 
+/** Refresh access token this often while the tab is open (access token default: 8 h). */
+const PROACTIVE_REFRESH_MS = 90 * 60 * 1000;
+
 export let authToken: string | null = localStorage.getItem('hyve_token');
 
 /** Canonical bearer token — reads localStorage so every ESM copy stays in sync. */
@@ -36,9 +39,31 @@ export function resolveAuthToken(): string | null {
     }
     return authToken;
 }
+
+function resolveRefreshToken(): string | null {
+    try {
+        const stored = localStorage.getItem('hyve_refresh_token');
+        if (stored && stored !== 'null' && stored !== 'undefined') {
+            _refreshToken = stored;
+            return stored;
+        }
+    } catch {
+        /* storage blocked */
+    }
+    return _refreshToken;
+}
+
 let _refreshToken: string | null = localStorage.getItem('hyve_refresh_token');
 let _suppressLogout = false;
 let _refreshing: Promise<boolean> | null = null;
+
+function _notifyAuthChanged(loggedIn: boolean): void {
+    try {
+        window.dispatchEvent(new CustomEvent('hyve:auth-changed', { detail: { loggedIn } }));
+    } catch {
+        /* ignore */
+    }
+}
 
 export function setAuthToken(token: string | null): void {
     authToken = token;
@@ -47,6 +72,7 @@ export function setAuthToken(token: string | null): void {
     } else {
         localStorage.removeItem('hyve_token');
     }
+    _notifyAuthChanged(!!token);
 }
 
 export function setRefreshToken(token: string | null): void {
@@ -63,6 +89,7 @@ export function clearAuthToken(): void {
     _refreshToken = null;
     localStorage.removeItem('hyve_token');
     localStorage.removeItem('hyve_refresh_token');
+    _notifyAuthChanged(false);
 }
 
 export function suppressLogout(suppress: boolean): void {
@@ -73,17 +100,39 @@ export function isNetworkFetchError(error: unknown): boolean {
     return error instanceof TypeError && /fetch/i.test(String((error as Error)?.message || ''));
 }
 
+async function _probeAccessToken(access: string): Promise<boolean> {
+    try {
+        const res = await fetch('/api/users/me', { headers: { Authorization: `Bearer ${access}` } });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
 async function _tryRefresh(): Promise<boolean> {
-    if (!_refreshToken) return false;
+    const tokenUsed = resolveRefreshToken();
+    if (!tokenUsed) return false;
     if (_refreshing) return _refreshing;
     _refreshing = (async () => {
         try {
             const res = await fetch('/api/token/refresh', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ refresh_token: _refreshToken }),
+                body: JSON.stringify({ refresh_token: tokenUsed }),
             });
-            if (!res.ok) return false;
+            if (!res.ok) {
+                // Another tab may have rotated tokens — adopt fresh pair if valid.
+                const latestRt = localStorage.getItem('hyve_refresh_token');
+                const latestAt = localStorage.getItem('hyve_token');
+                if (latestRt && latestRt !== tokenUsed && latestAt) {
+                    if (await _probeAccessToken(latestAt)) {
+                        authToken = latestAt;
+                        _refreshToken = latestRt;
+                        return true;
+                    }
+                }
+                return false;
+            }
             const data = (await res.json()) as TokenRefreshResponse;
             setAuthToken(data.access_token);
             setRefreshToken(data.refresh_token);
@@ -106,6 +155,30 @@ async function _tryRefresh(): Promise<boolean> {
         }
     })();
     return _refreshing;
+}
+
+/** Exchange refresh token for a new access token (shared single-flight). */
+export async function refreshSession(): Promise<boolean> {
+    return _tryRefresh();
+}
+
+/** Keep sessions alive while the UI stays open (and on tab focus). */
+export function initProactiveSessionRefresh(): void {
+    if (typeof window === 'undefined') return;
+    const w = window as Window & { __hyveSessionRefreshInit?: boolean };
+    if (w.__hyveSessionRefreshInit) return;
+    w.__hyveSessionRefreshInit = true;
+
+    const tick = () => {
+        if (document.hidden) return;
+        if (!resolveRefreshToken()) return;
+        void refreshSession();
+    };
+    window.setInterval(tick, PROACTIVE_REFRESH_MS);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) tick();
+    });
+    window.addEventListener('focus', tick);
 }
 
 /** Get a short-lived SSE exchange token for EventSource/WebSocket connections. */
@@ -164,7 +237,7 @@ export async function apiCall(url: string, options: ApiCallOptions = {}): Promis
     }
 
     if (res.status === 401 && !_suppressLogout) {
-        const hadAuth = !!resolveAuthToken();
+        const hadAuth = !!resolveAuthToken() || !!resolveRefreshToken();
         if (!hadAuth) {
             return res;
         }

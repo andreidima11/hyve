@@ -1,6 +1,6 @@
 /** Boot state machine — setup, auth, dashboard first paint. */
 
-import { clearAuthToken, suppressLogout } from '../api.js';
+import { clearAuthToken, initProactiveSessionRefresh, refreshSession, suppressLogout } from '../api.js';
 import { loadUserProfile, restoreRememberedCredentials, tryAutoLogin } from '../auth.js';
 import { fetchSetupStatus, showSetupWizard } from '../setup.js';
 import { switchTab } from '../ui.js';
@@ -149,14 +149,23 @@ async function bootHyve() {
     }
 
     if (!profile) {
-        // Token missing or invalid — try silent auto-login from remembered creds
-        clearAuthToken();
+        // Access token expired — refresh before wiping credentials or showing login.
+        try {
+            if (await refreshSession()) {
+                profile = await loadAuthenticatedSession();
+            }
+        } catch {
+            profile = null;
+        }
+    }
+
+    if (!profile) {
         let recovered = false;
-        try { recovered = await tryAutoLogin(); } catch (e) { recovered = false; }
+        try { recovered = await tryAutoLogin(); } catch { recovered = false; }
         if (recovered) {
             try {
                 profile = await loadAuthenticatedSession();
-            } catch (e) {
+            } catch {
                 profile = null;
             }
         }
@@ -177,6 +186,7 @@ async function bootHyve() {
     if (routeHashToView()) {
         completeBootProgress(t('app.boot_step_ready'));
         hideBootOverlay();
+        initProactiveSessionRefresh();
         startBackgroundLoaders(profile);
         return;
     }
@@ -198,6 +208,7 @@ async function bootHyve() {
     // Step 3: reveal app — dashboard is already populated. Heavy loaders run in background.
     completeBootProgress(t('app.boot_step_ready'));
     hideBootOverlay();
+    initProactiveSessionRefresh();
     startBackgroundLoaders(profile);
 }
 

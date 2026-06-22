@@ -1,4 +1,4 @@
-import { apiCall, setAuthToken, setRefreshToken, clearAuthToken } from './api.js';
+import { apiCall, clearAuthToken, refreshSession, setAuthToken, setRefreshToken } from './api.js';
 const _RM_KEY = 'hyve_remember';
 /** Push auth token to native Android bridge with retry (bridge may load after auth.js). */
 function _pushTokenToNative(token) {
@@ -77,6 +77,12 @@ export function restoreRememberedCredentials() {
 }
 export async function tryAutoLogin() {
     try {
+        if (await refreshSession()) {
+            const access = localStorage.getItem('hyve_token');
+            if (access)
+                _pushTokenToNative(access);
+            return true;
+        }
         const raw = localStorage.getItem(_RM_KEY);
         if (!raw)
             return false;
@@ -96,24 +102,17 @@ export async function tryAutoLogin() {
                 _pushTokenToNative(data.t);
                 return true;
             }
-            if (data.rt) {
-                try {
-                    const rr = await fetch('/api/token/refresh', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ refresh_token: data.rt }),
-                    });
-                    if (rr.ok) {
-                        const rd = await rr.json();
-                        setAuthToken(rd.access_token);
-                        if (rd.refresh_token)
-                            setRefreshToken(rd.refresh_token);
-                        localStorage.setItem(_RM_KEY, JSON.stringify({ u: data.u, t: rd.access_token, rt: rd.refresh_token }));
-                        _pushTokenToNative(rd.access_token);
-                        return true;
-                    }
+            if (data.rt && await refreshSession()) {
+                const access = localStorage.getItem('hyve_token');
+                if (access) {
+                    localStorage.setItem(_RM_KEY, JSON.stringify({
+                        u: data.u,
+                        t: access,
+                        rt: localStorage.getItem('hyve_refresh_token') || data.rt,
+                    }));
+                    _pushTokenToNative(access);
+                    return true;
                 }
-                catch { /* ignore */ }
             }
             localStorage.removeItem(_RM_KEY);
             clearAuthToken();

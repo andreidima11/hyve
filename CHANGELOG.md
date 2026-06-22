@@ -4,6 +4,25 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.4] — 2026-06
+
+Patch release: longer-lived sessions with reliable silent refresh, and camera stream auth hardening.
+
+### Auth / sessions
+- **Fix:** Boot no longer wipes the refresh token before attempting renewal — expired access tokens recover silently instead of forcing login.
+- **Fix:** Unified JWT refresh (single-flight) — dashboard layout fetch no longer races `/api/token/refresh` and invalidates sessions across tabs.
+- **Fix:** Proactive session refresh every 90 minutes and on tab focus while logged in.
+- **Change:** Default access token lifetime 8 h (was 4 h); refresh token 30 days (was 7 days), overridable via `HYVE_ACCESS_TOKEN_MINUTES` / `HYVE_REFRESH_TOKEN_MINUTES`.
+- **Change:** “Remember me” checked by default on the login form.
+
+### Cameras
+- **Fix:** Camera/media stream tokens require an active JWT — no requests while logged out (stops 401/422 spam).
+- **Fix:** Validate `camera.*` / `image.*` entity ids before `stream-token`; stop snapshot retry loop on errors.
+- **Fix:** `hv-camera-stream` waits for auth and re-starts after `hyve:auth-changed`.
+
+### Tooling
+- **New:** API contract tests for camera/media `stream-token` auth and validation.
+
 ## [0.9.9.3] — 2026-06
 
 Patch release: fixes double `/static/dist/` chunk 404s (regression from 0.9.9.2), dashboard initial entity state, and camera stream guards.

@@ -2,8 +2,8 @@
  * Dashboard load/refresh — fetch layout, entity list, and orchestrate grid paint.
  */
 
-import { apiCall } from '../api.js';
-import { getMediaProxyToken } from '../camera_auth.js';
+import { apiCall, refreshSession } from '../api.js';
+import { getMediaProxyToken, hasCameraAuthSession } from '../camera_auth.js';
 import type { DashboardCache, DashboardLoaderDeps } from '../types/dashboard.js';
 import type { HyveEntity } from '../types/entity.js';
 import {
@@ -104,21 +104,11 @@ async function fetchDashboardLayoutJson(
     try {
         let res = await fetch(url, { headers, signal: ctrl.signal, cache: 'no-store' });
         if (res.status === 401) {
-            const refreshToken = localStorage.getItem('hyve_refresh_token') || '';
-            if (refreshToken) {
-                const refreshRes = await fetch('/api/token/refresh', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ refresh_token: refreshToken }),
-                    signal: ctrl.signal,
-                });
-                if (refreshRes.ok) {
-                    const data = await refreshRes.json();
-                    if (data?.access_token) localStorage.setItem('hyve_token', data.access_token);
-                    if (data?.refresh_token) localStorage.setItem('hyve_refresh_token', data.refresh_token);
-                    headers.Authorization = `Bearer ${data.access_token}`;
-                    res = await fetch(url, { headers, signal: ctrl.signal, cache: 'no-store' });
-                }
+            const refreshed = await refreshSession();
+            if (refreshed) {
+                const nextToken = localStorage.getItem('hyve_token') || '';
+                if (nextToken) headers.Authorization = `Bearer ${nextToken}`;
+                res = await fetch(url, { headers, signal: ctrl.signal, cache: 'no-store' });
             }
         }
         if (!res.ok) throw new Error(`Dashboard page request failed (${res.status})`);
@@ -402,9 +392,11 @@ async function loadDashboardImpl(signal: AbortSignal | null = null, { soft = fal
         grid.innerHTML = `<div class="col-span-full p-6 text-sm" style="color:var(--text-tertiary,#94a3b8);">${d.escapeHtml(d.t('dashboard.loading_dashboard'))}</div>`;
     }
     try {
-        getMediaProxyToken().catch((err) => {
-            console.warn('[dashboard] media proxy token prefetch failed', err);
-        });
+        if (hasCameraAuthSession()) {
+            getMediaProxyToken().catch((err) => {
+                console.warn('[dashboard] media proxy token prefetch failed', err);
+            });
+        }
         const entityCount = Array.isArray(cache.available_entities) ? cache.available_entities.length : 0;
         await refreshAvailableEntities({
             includeEntities: entityCount === 0 || (!soft && !hadRealContent),
