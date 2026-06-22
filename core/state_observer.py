@@ -87,6 +87,27 @@ def _rebuild_topic_map(snapshot: dict[str, dict[str, Any]]) -> None:
     _topic_entity_map = new_map
 
 
+def _try_rebuild_topic_map_from_bridge() -> bool:
+    """Build topic routing from the live MQTT bridge when mirror snapshot is not ready."""
+    if _topic_entity_map:
+        return True
+    try:
+        from components.mosquitto import bridge as mosquitto_bridge
+        from components.mosquitto.extract import extract_mosquitto_candidates
+
+        bridge = mosquitto_bridge.get_bridge()
+        if bridge is None or not bridge.is_running():
+            return False
+        items = extract_mosquitto_candidates(bridge.snapshot())
+        if not items:
+            return False
+        _rebuild_topic_map(_index(items))
+        return bool(_topic_entity_map)
+    except Exception as exc:
+        log.debug("bridge topic map bootstrap failed: %s", exc)
+        return False
+
+
 async def ingest_mirror_snapshot(items: list[dict[str, Any]]) -> None:
     """Apply a shared EntityMirror rebuild and emit automation diffs."""
     global _last_snapshot
@@ -184,6 +205,10 @@ async def _mqtt_listener():
                 base_map = _topic_entity_map.get(base_topic) or {}
                 if "action" in base_map:
                     prop_map["action"] = base_map["action"]
+            if not prop_map:
+                if not _try_rebuild_topic_map_from_bridge():
+                    continue
+                prop_map = dict(_topic_entity_map.get(topic) or {})
             if not prop_map:
                 continue
 

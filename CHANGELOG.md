@@ -4,6 +4,23 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.6] — 2026-06
+
+Patch release: reliable Zigbee/MQTT state on boot and live updates, plus a modern responsive climate card.
+
+### Integrations — MQTT / Zigbee
+- **Fix:** Startup bootstrap no longer wipes persisted Z2M states with a sparse broker probe — force sync uses pull (live bridge + SQLite) when devices are already known.
+- **Fix:** Probe merges fresh discovery with stored states instead of replacing them.
+- **Fix:** MQTT bridge waits until connected before integrations boot; mirror nudge reschedules on bursty updates; states persist after Z2M `/get` refresh.
+- **Fix:** Real-time MQTT listener builds its topic map from the live bridge when the entity mirror snapshot is not ready yet.
+
+### Dashboard — climate card
+- **Change:** Redesigned `<hv-card-climate>` with hero temperature, HVAC mode pill, mode-colored accents, and glass-style setpoint/mode controls.
+- **Change:** Responsive layout for all grid sizes (1-row compact through tall/wide cards) via container queries and `data-dashboard-rows` / `data-dashboard-cols`.
+
+### Tooling
+- **Change:** Mosquitto refresh tests for force-pull on populated cache and probe/state merge.
+
 ## [0.9.9.5] — 2026-06
 
 Patch release: fixes cameras and dashboard history charts that returned 422 since the 0.9.8.27 security hardening.

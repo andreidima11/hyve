@@ -172,6 +172,17 @@ function _climateActiveEntity(widget: DashboardWidget) {
     return entities[_climateActiveIndex(widget, entities.length)] || entities[0] || widget;
 }
 
+function _climateModeIcon(mode: string): string {
+    const m = String(mode || 'off').toLowerCase();
+    if (m.includes('heat') && !m.includes('cool')) return 'fa-fire-flame-curved';
+    if (m === 'heat_cool') return 'fa-temperature-half';
+    if (m === 'cool') return 'fa-snowflake';
+    if (m === 'dry') return 'fa-droplet-slash';
+    if (m === 'fan_only' || m === 'fan') return 'fa-fan';
+    if (m === 'auto') return 'fa-arrows-rotate';
+    return 'fa-power-off';
+}
+
 function _climateSlideMarkup(
     widget: DashboardWidget,
     entity: ClimateEntityView,
@@ -204,32 +215,43 @@ function _climateSlideMarkup(
         }
     } catch (_e) { /* ignore */ }
     const modeMapAttr = esc(JSON.stringify(modeMap));
+    const modeIcon = _climateModeIcon(mode);
     const controls = controllable ? `
             <div class="hyve-dashboard-card__climate-controls">
                 <div class="hyve-dashboard-card__climate-setpoint" aria-label="Setpoint">
-                    <button type="button" title="${esc(t('dashboard.climate.decrease_temp'))}" aria-label="${esc(t('dashboard.climate.decrease_temp'))}" data-dash-action="climateAdjustTemp" data-dash-stop-propagation="true" data-widget-id="${widgetId}" data-entity-id="${entityId}" data-delta="-1"><i class="fas fa-minus"></i></button>
+                    <button type="button" class="hyve-dashboard-card__climate-step" title="${esc(t('dashboard.climate.decrease_temp'))}" aria-label="${esc(t('dashboard.climate.decrease_temp'))}" data-dash-action="climateAdjustTemp" data-dash-stop-propagation="true" data-widget-id="${widgetId}" data-entity-id="${entityId}" data-delta="-1"><i class="fas fa-minus"></i></button>
                     <span data-climate-target data-climate-unit="${esc(unit)}">${target != null ? esc(target) : '\u2014'}${esc(unit)}</span>
-                    <button type="button" title="${esc(t('dashboard.climate.increase_temp'))}" aria-label="${esc(t('dashboard.climate.increase_temp'))}" data-dash-action="climateAdjustTemp" data-dash-stop-propagation="true" data-widget-id="${widgetId}" data-entity-id="${entityId}" data-delta="1"><i class="fas fa-plus"></i></button>
+                    <button type="button" class="hyve-dashboard-card__climate-step" title="${esc(t('dashboard.climate.increase_temp'))}" aria-label="${esc(t('dashboard.climate.increase_temp'))}" data-dash-action="climateAdjustTemp" data-dash-stop-propagation="true" data-widget-id="${widgetId}" data-entity-id="${entityId}" data-delta="1"><i class="fas fa-plus"></i></button>
                 </div>
                 ${hvacOptions.length ? `<div class="hyve-dashboard-card__climate-mode-menu" data-widget-id="${widgetId}" data-entity-id="${entityId}" data-open="false">
                     <button type="button" class="hyve-dashboard-card__climate-mode-button" title="${esc(t('dashboard.climate.hvac_mode'))}" aria-label="${esc(t('dashboard.climate.hvac_mode'))}" aria-haspopup="menu" aria-expanded="false" data-dash-action="climateToggleModeMenu" data-dash-stop-propagation="true" data-widget-id="${widgetId}" data-entity-id="${entityId}">
-                        <i class="fas fa-gear"></i><span data-climate-mode-label data-climate-mode-map="${modeMapAttr}">${esc(modeLabel)}</span><i class="fas fa-chevron-down"></i>
+                        <i class="fas ${modeIcon}" data-climate-mode-icon></i><span data-climate-mode-label data-climate-mode-map="${modeMapAttr}">${esc(modeLabel)}</span><i class="fas fa-chevron-down hyve-dashboard-card__climate-mode-chevron"></i>
                     </button>
                     <div class="hyve-dashboard-card__climate-mode-panel" role="menu">
                         ${hvacOptions.map(opt => `<button type="button" role="menuitem" data-climate-mode-option data-climate-mode-value="${esc(opt.value)}" class="hyve-dashboard-card__climate-mode-option" data-active="${String(opt.value).toLowerCase() === mode ? 'true' : 'false'}" data-dash-action="climateSetMode" data-dash-stop-propagation="true" data-widget-id="${widgetId}" data-entity-id="${entityId}" data-climate-mode="${esc(opt.value)}"><span>${esc(opt.label)}</span>${String(opt.value).toLowerCase() === mode ? '<i class="fas fa-check"></i>' : ''}</button>`).join('')}
                     </div>
                 </div>` : ''}
             </div>` : '';
+    const subtitleOnly = entity.slide_subtitle ? esc(entity.slide_subtitle) : '';
     return `
-            <div class="hyve-dashboard-card__climate-slide" data-slide-index="${index}" data-active-slide="${isActive ? 'true' : 'false'}"${isActive ? '' : ' aria-hidden="true"'}>
-                <div class="hyve-dashboard-card__row">
-                    <span class="hyve-dashboard-card__icon"><i class="fas fa-temperature-half"></i></span>
-                    <div class="hyve-dashboard-card__body">
-                        <div class="hyve-dashboard-card__title">${esc(title)}</div>
-                        <div class="hyve-dashboard-card__state" data-climate-stateline>${esc(stateText)}</div>
+            <div class="hyve-dashboard-card__climate-slide" data-slide-index="${index}" data-active-slide="${isActive ? 'true' : 'false'}" data-climate-mode="${esc(mode)}"${isActive ? '' : ' aria-hidden="true"'}>
+                <div class="hyve-dashboard-card__climate-head">
+                    <div class="hyve-dashboard-card__climate-top">
+                        <div class="hyve-dashboard-card__climate-zone">
+                            <div class="hyve-dashboard-card__title">${esc(title)}</div>
+                            ${subtitleOnly ? `<div class="hyve-dashboard-card__climate-subline" data-climate-stateline>${subtitleOnly}</div>` : `<div class="hyve-dashboard-card__climate-subline" data-climate-stateline hidden>${esc(stateText)}</div>`}
+                        </div>
+                        <span class="hyve-dashboard-card__climate-mode-pill" data-climate-mode-label data-climate-mode-map="${modeMapAttr}">${esc(modeLabel)}</span>
+                        ${editControls}
                     </div>
-                    <div class="hyve-dashboard-card__climate-current"><span data-climate-current>${esc(currentHasValue ? current : '\u2014')}</span><span class="unit" data-climate-current-unit${currentHasValue ? '' : ' style="display:none"'}>${esc(unit)}</span></div>
-                    ${editControls}
+                    <div class="hyve-dashboard-card__climate-hero">
+                        <div class="hyve-dashboard-card__climate-hero-glow" aria-hidden="true"></div>
+                        <i class="fas ${modeIcon} hyve-dashboard-card__climate-hero-icon" data-climate-mode-icon aria-hidden="true"></i>
+                        <div class="hyve-dashboard-card__climate-hero-value-wrap">
+                            <span class="hyve-dashboard-card__climate-hero-value" data-climate-current>${esc(currentHasValue ? current : '\u2014')}</span>
+                            <span class="hyve-dashboard-card__climate-hero-unit" data-climate-current-unit${currentHasValue ? '' : ' hidden'}>${esc(unit)}</span>
+                        </div>
+                    </div>
                 </div>
                 ${controls}
             </div>`;
@@ -269,6 +291,7 @@ export function renderClimateCard(widget: DashboardWidget) {
         <article ${dragAttrs}
             class="hyve-dashboard-card hyve-dashboard-card--climate ${widgetSizeClass(widget)}"
             data-widget-id="${widgetId}"
+            data-climate-mode="${esc(activeMode)}"
             data-on="${on ? 'true' : 'false'}"
             data-clickable="false"
             data-edit="${getEditMode() ? 'true' : 'false'}"

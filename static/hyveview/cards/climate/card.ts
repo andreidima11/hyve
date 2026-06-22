@@ -32,6 +32,17 @@ interface ClimateEntitySnap {
   attributes?: Record<string, unknown>;
 }
 
+function _climateModeIconClass(mode: string): string {
+  const m = String(mode || 'off').toLowerCase();
+  if (m.includes('heat') && !m.includes('cool')) return 'fa-fire-flame-curved';
+  if (m === 'heat_cool') return 'fa-temperature-half';
+  if (m === 'cool') return 'fa-snowflake';
+  if (m === 'dry') return 'fa-droplet-slash';
+  if (m === 'fan_only' || m === 'fan') return 'fa-fan';
+  if (m === 'auto') return 'fa-arrows-rotate';
+  return 'fa-power-off';
+}
+
 export class HyveviewClimateCard extends HyveviewCardBase {
   protected _currentEl: HTMLElement | null = null;
   protected _currentUnitEl: HTMLElement | null = null;
@@ -135,7 +146,7 @@ export class HyveviewClimateCard extends HyveviewCardBase {
   _patchFields(entity: ClimateEntitySnap | null | undefined) {
     if (!entity) return;
     const attrs = entity.attributes || {};
-    const escape = host.escape;
+    const scope = this.querySelector('.hyve-dashboard-card__climate-slide[data-active-slide="true"]') || this;
 
     if (this._currentEl) {
       const current = attrs.current_temperature != null
@@ -143,7 +154,8 @@ export class HyveviewClimateCard extends HyveviewCardBase {
         : (Number.isFinite(parseFloat(String(entity.current_state))) ? parseFloat(String(entity.current_state)) : null);
       this._currentEl.textContent = current != null ? String(current) : '—';
       if (this._currentUnitEl) {
-        this._currentUnitEl.style.display = current != null ? '' : 'none';
+        if (current != null) this._currentUnitEl.removeAttribute('hidden');
+        else this._currentUnitEl.setAttribute('hidden', '');
       }
     }
 
@@ -156,12 +168,26 @@ export class HyveviewClimateCard extends HyveviewCardBase {
     }
 
     const mode = String(attrs.hvac_mode || entity.current_state || 'off').toLowerCase();
-    if (this._modeLabelEl) {
-      const label = this._modeLabelEl.dataset.climateModeMap
-        ? (JSON.parse(this._modeLabelEl.dataset.climateModeMap)[mode] || mode)
-        : mode;
-      this._modeLabelEl.textContent = label;
-    }
+    const slide = (scope instanceof Element ? scope.closest('.hyve-dashboard-card__climate-slide') : null) || scope;
+    if (slide instanceof HTMLElement) slide.setAttribute('data-climate-mode', mode);
+    const article = this.closest('article.hyve-dashboard-card--climate');
+    if (article) article.setAttribute('data-climate-mode', mode);
+
+    const iconClass = _climateModeIconClass(mode);
+    scope.querySelectorAll('[data-climate-mode-icon]').forEach((iconEl) => {
+      const inHero = iconEl.classList.contains('hyve-dashboard-card__climate-hero-icon');
+      iconEl.className = inHero
+        ? `fas ${iconClass} hyve-dashboard-card__climate-hero-icon`
+        : `fas ${iconClass}`;
+      iconEl.setAttribute('data-climate-mode-icon', '');
+    });
+
+    const label = this._modeLabelEl?.dataset.climateModeMap
+      ? (JSON.parse(this._modeLabelEl.dataset.climateModeMap)[mode] || mode)
+      : mode;
+    scope.querySelectorAll('[data-climate-mode-label]').forEach((el) => {
+      el.textContent = label;
+    });
 
     if (this._modeOptions && this._modeOptions.length) {
       this._modeOptions.forEach(btn => {

@@ -254,6 +254,21 @@ class MosquittoBridge:
     def is_running(self) -> bool:
         return bool(self._task and not self._task.done())
 
+    def is_connected(self) -> bool:
+        return self._client is not None and self.is_running()
+
+    async def wait_until_ready(self, timeout: float = 20.0) -> bool:
+        """Block until the MQTT client is connected (or startup failed)."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self.is_connected():
+                return True
+            task = self._task
+            if task is None or task.done():
+                return False
+            await asyncio.sleep(0.05)
+        return self.is_connected()
+
     async def start(self) -> None:
         if self.is_running():
             return
@@ -1115,7 +1130,7 @@ class MosquittoBridge:
         """Debounced EntityMirror refresh after live MQTT state (HA instant-update pattern)."""
         task = self._mirror_nudge_task
         if task is not None and not task.done():
-            return
+            task.cancel()
 
         async def _delayed() -> None:
             try:
@@ -1140,6 +1155,7 @@ class MosquittoBridge:
                 await asyncio.sleep(3.0)
                 if self._stop.is_set():
                     return
+                await self._persist_states_to_store()
                 from core.mirror_nudge import nudge_entity_mirror
 
                 nudge_entity_mirror(self._store_key())
@@ -1223,6 +1239,7 @@ async def start_bridge(cfg: dict[str, Any], key: str = "") -> MosquittoBridge:
     bridge = MosquittoBridge(cfg, entry_key=key)
     _bridges[key] = bridge
     await bridge.start()
+    await bridge.wait_until_ready(timeout=20.0)
     return bridge
 
 

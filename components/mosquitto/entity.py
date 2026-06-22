@@ -105,7 +105,11 @@ class MosquittoEntity(BaseEntity):
         """Full broker drain — rediscover HA MQTT entities and Z2M devices."""
         import core.settings as settings
 
-        return await _drain_broker(self.config_section(settings.CFG))
+        fresh = await _drain_broker(self.config_section(settings.CFG))
+        stored = dict(cached or {})
+        if not stored:
+            return fresh
+        return _merge_payload(stored, fresh)
 
     async def pull_live_states(self, cached: dict[str, Any]) -> dict[str, Any]:
         """Light sync: merge live bridge cache with the last stored snapshot."""
@@ -123,8 +127,13 @@ class MosquittoEntity(BaseEntity):
         """Manual sync and empty/partial cache must re-run broker discovery."""
         from integrations.source_refresh import MODE_PROBE, MODE_PULL
 
-        if force or not _payload_has_sources(cached):
+        if not _payload_has_sources(cached):
             return MODE_PROBE
+        # Startup bootstrap passes force=True; use pull so we merge the live
+        # bridge cache + persisted states instead of a probe drain that often
+        # returns sparse Z2M state and wipes SQLite snapshots.
+        if force:
+            return MODE_PULL
         interval = max(1, int(self.probe_interval_cycles))
         if cycle_count > 0 and cycle_count % interval == 0:
             return MODE_PROBE

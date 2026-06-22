@@ -1,8 +1,56 @@
+/* ── Climate card ─────────────────────────────────────────────────────────── */
+
 .hyve-dashboard-card--climate {
+    --climate-accent: var(--accent, #38bdf8);
+    --climate-accent-soft: color-mix(in oklab, var(--climate-accent) 14%, transparent);
+    --climate-accent-glow: color-mix(in oklab, var(--climate-accent) 28%, transparent);
+    --climate-control-h: clamp(2rem, 5.5cqi, 2.35rem);
+
+    container-type: inline-size;
+    container-name: climate-card;
+    display: flex;
+    flex-direction: column;
     justify-content: space-between;
-    padding-top: 0.5rem;
-    padding-bottom: 0.625rem;
+    gap: 0.35rem;
+    padding: 0.65rem 0.7rem 0.55rem;
     overflow: hidden;
+}
+
+.hyve-dashboard-card--climate[data-climate-mode="heat"],
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-slide[data-climate-mode="heat"] {
+    --climate-accent: #f97316;
+}
+
+.hyve-dashboard-card--climate[data-climate-mode="heat_cool"],
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-slide[data-climate-mode="heat_cool"] {
+    --climate-accent: #fb923c;
+}
+
+.hyve-dashboard-card--climate[data-climate-mode="cool"],
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-slide[data-climate-mode="cool"] {
+    --climate-accent: #38bdf8;
+}
+
+.hyve-dashboard-card--climate[data-climate-mode="dry"],
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-slide[data-climate-mode="dry"] {
+    --climate-accent: #fbbf24;
+}
+
+.hyve-dashboard-card--climate[data-climate-mode="fan_only"],
+.hyve-dashboard-card--climate[data-climate-mode="fan"],
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-slide[data-climate-mode="fan_only"],
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-slide[data-climate-mode="fan"] {
+    --climate-accent: #2dd4bf;
+}
+
+.hyve-dashboard-card--climate[data-climate-mode="auto"],
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-slide[data-climate-mode="auto"] {
+    --climate-accent: #4ade80;
+}
+
+.hyve-dashboard-card--climate[data-climate-mode="off"],
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-slide[data-climate-mode="off"] {
+    --climate-accent: var(--text-tertiary, #94a3b8);
 }
 
 .hyve-dashboard-card--climate[data-climate-menu-open="true"] {
@@ -17,6 +65,7 @@
     overflow: visible;
 }
 
+/* Carousel */
 .hyve-dashboard-card--climate .hyve-dashboard-card__climate-viewport {
     position: relative;
     flex: 1 1 auto;
@@ -48,8 +97,7 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    gap: 0.25rem;
-    /* Keep neighbouring zones out of the layout/tab order until they slide in. */
+    gap: 0.45rem;
     visibility: hidden;
 }
 
@@ -66,35 +114,321 @@
     visibility: visible;
 }
 
+/* Head + hero temperature */
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+    min-height: 0;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-top {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+    min-width: 0;
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-zone {
+    min-width: 0;
+    width: 100%;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__title {
+    font-size: clamp(0.78rem, 2.8cqi, 0.92rem);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-subline {
+    margin-top: 0.1rem;
+    font-size: 0.68rem;
+    line-height: 1.2;
+    color: var(--text-tertiary, #94a3b8);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-subline[hidden] {
+    display: none;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-pill {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 0.18rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in oklab, var(--climate-accent) 34%, transparent);
+    background: var(--climate-accent-soft);
+    color: var(--climate-accent);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__edit {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-hero {
+    position: relative;
+    grid-column: 2;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 4.25rem;
+    padding: 0.15rem 0.25rem;
+    text-align: center;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-hero-glow {
+    position: absolute;
+    inset: 8% 0;
+    border-radius: 999px;
+    background: radial-gradient(circle at 50% 55%, var(--climate-accent-glow), transparent 68%);
+    opacity: 0.85;
+    pointer-events: none;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-hero-icon {
+    position: relative;
+    z-index: 1;
+    font-size: 0.72rem;
+    color: var(--climate-accent);
+    opacity: 0.9;
+    margin-bottom: 0.1rem;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-hero-value-wrap {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 0.1rem;
+    line-height: 1;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-hero-value {
+    font-size: clamp(1.35rem, 7.5cqi, 2.15rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary, #f1f5f9);
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-hero-unit {
+    font-size: 0.58rem;
+    font-weight: 600;
+    color: var(--text-tertiary, #94a3b8);
+    margin-top: 0.2rem;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-hero-unit[hidden] {
+    display: none;
+}
+
+/* Controls */
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-controls {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+    align-items: stretch;
+    flex: 0 0 auto;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-setpoint {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: var(--climate-control-h);
+    display: grid;
+    grid-template-columns: var(--climate-control-h) minmax(0, 1fr) var(--climate-control-h);
+    align-items: center;
+    border-radius: 0.65rem;
+    border: 1px solid var(--border-light, rgba(255, 255, 255, 0.08));
+    background: color-mix(in oklab, var(--surface-card, rgba(15, 23, 42, 0.92)) 78%, transparent);
+    overflow: hidden;
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 6%, transparent);
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-step {
+    width: 100%;
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    color: var(--climate-accent);
+    font-size: 0.62rem;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-step:hover {
+    background: var(--climate-accent-soft);
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-setpoint > span[data-climate-target] {
+    min-width: 0;
+    text-align: center;
+    color: var(--text-primary, #f1f5f9);
+    font-size: clamp(0.68rem, 2.4cqi, 0.78rem);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-menu {
+    position: relative;
+    flex: 0 1 42%;
+    min-width: 5rem;
+    max-width: 9rem;
+    z-index: 120;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-button {
+    width: 100%;
+    height: var(--climate-control-h);
+    display: inline-grid;
+    grid-template-columns: 1.1rem minmax(0, 1fr) 0.75rem;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 0.65rem;
+    border: 1px solid var(--border-light, rgba(255, 255, 255, 0.08));
+    background: color-mix(in oklab, var(--surface-card, rgba(15, 23, 42, 0.92)) 78%, transparent);
+    color: var(--text-secondary, #cbd5e1);
+    cursor: pointer;
+    font-size: clamp(0.64rem, 2.2cqi, 0.72rem);
+    font-weight: 700;
+    padding: 0 0.45rem;
+    outline: none;
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 6%, transparent);
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-button:hover,
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-menu[data-open="true"] .hyve-dashboard-card__climate-mode-button {
+    border-color: color-mix(in oklab, var(--climate-accent) 38%, transparent);
+    background: var(--climate-accent-soft);
+    color: var(--text-primary, #f1f5f9);
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-button i:first-child {
+    color: var(--climate-accent);
+    font-size: 0.68rem;
+    justify-self: center;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-chevron {
+    color: var(--text-tertiary, #94a3b8);
+    font-size: 0.55rem;
+    transition: transform 0.16s ease;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-menu[data-open="true"] .hyve-dashboard-card__climate-mode-chevron {
+    transform: rotate(180deg);
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-button span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-panel {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 6px);
+    z-index: 130;
+    width: max-content;
+    min-width: 8.5rem;
+    max-width: min(13rem, calc(100vw - 1rem));
+    padding: 0.35rem;
+    border-radius: 0.65rem;
+    border: 1px solid color-mix(in oklab, var(--climate-accent) 24%, var(--border-light));
+    background: color-mix(in oklab, var(--bg-main, #0f172a) 92%, black 8%);
+    box-shadow: 0 16px 34px color-mix(in oklab, black 32%, transparent);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(4px) scale(0.98);
+    pointer-events: none;
+    transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s ease;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-menu[data-open="true"] .hyve-dashboard-card__climate-mode-panel {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-option {
+    width: 100%;
+    min-height: 2rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 14px;
+    align-items: center;
+    gap: 0.5rem;
+    border: 0;
+    border-radius: 0.45rem;
+    background: transparent;
+    color: var(--text-secondary, #cbd5e1);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0 0.5rem;
+    cursor: pointer;
+    text-align: left;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-option:hover,
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-option[data-active="true"] {
+    background: var(--climate-accent-soft);
+    color: var(--text-primary, #f1f5f9);
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-option i {
+    color: var(--climate-accent);
+    font-size: 0.62rem;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-option span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Zone pips */
 .hyve-dashboard-card--climate .hyve-dashboard-card__climate-pips {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.3rem;
-    margin-top: 0.4rem;
+    margin-top: 0.2rem;
     user-select: none;
-}
-/* Compact climate card so it fits a 4x2 slot without the swipe pagination clipping the controls. */
-.hyve-dashboard-card--climate[data-dashboard-rows="2"] {
-    padding-bottom: 0.5rem;
-}
-.hyve-dashboard-card--climate[data-dashboard-rows="2"] .hyve-dashboard-card__icon {
-    width: 2rem;
-    height: 2rem;
-    border-radius: 0.625rem;
-    font-size: 0.9rem;
-}
-.hyve-dashboard-card--climate[data-dashboard-rows="2"] .hyve-dashboard-card__title {
-    font-size: 0.82rem;
-    line-height: 1.15;
-}
-.hyve-dashboard-card--climate[data-dashboard-rows="2"] .hyve-dashboard-card__state {
-    line-height: 1.1;
-    margin-top: 0;
-}
-.hyve-dashboard-card--climate[data-dashboard-rows="2"] .hyve-dashboard-card__climate-pips {
-    margin-top: 0.15rem;
 }
 
 .hyve-dashboard-card--climate .hyve-dashboard-card__climate-pip {
@@ -121,237 +455,136 @@
 .hyve-dashboard-card--climate .hyve-dashboard-card__climate-pip[data-active="true"] span {
     width: 16px;
     opacity: 1;
-    background: var(--accent, #38bdf8);
+    background: var(--climate-accent);
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .hyve-dashboard-card--climate .hyve-dashboard-card__climate-track[data-animating="true"] {
-        transition: none;
-    }
+/* ── Size variants (grid rows / cols) ───────────────────────────────────── */
+
+/* 1 row — ultra compact */
+.hyve-dashboard-card--climate[data-dashboard-rows="1"] {
+    padding: 0.45rem 0.55rem 0.4rem;
+    gap: 0.2rem;
 }
 
-.hyve-dashboard-card--climate .hyve-dashboard-card__row {
-    align-items: flex-start;
-    gap: 0.625rem;
-    flex: 0 0 auto;
-    min-height: 2rem;
+.hyve-dashboard-card--climate[data-dashboard-rows="1"] .hyve-dashboard-card__climate-head {
+    grid-template-columns: minmax(0, 1fr) auto;
 }
 
-.hyve-dashboard-card--climate .hyve-dashboard-card__body {
-    min-width: 0;
+.hyve-dashboard-card--climate[data-dashboard-rows="1"] .hyve-dashboard-card__climate-hero-value {
+    font-size: clamp(1.05rem, 6cqi, 1.35rem);
 }
 
-.hyve-dashboard-card--climate .hyve-dashboard-card__icon {
-    width: 2rem;
-    height: 2rem;
-    border-radius: 0.625rem;
+.hyve-dashboard-card--climate[data-dashboard-rows="1"] .hyve-dashboard-card__climate-hero-icon {
+    display: none;
 }
 
-.hyve-dashboard-card--climate .hyve-dashboard-card__icon i {
-    font-size: 0.8125rem;
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-current {
-    margin-left: auto;
-    height: 2rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    color: var(--text-primary, #f1f5f9);
-    font-size: 0.98rem;
-    font-weight: 700;
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-current .unit {
+.hyve-dashboard-card--climate[data-dashboard-rows="1"] .hyve-dashboard-card__climate-mode-pill {
     font-size: 0.58rem;
-    font-weight: 500;
-    color: var(--text-tertiary, #94a3b8);
-    margin-left: 0.125rem;
+    padding: 0.12rem 0.4rem;
 }
 
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-controls {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 0.5rem;
-    margin-top: 0;
-    align-items: center;
+.hyve-dashboard-card--climate[data-dashboard-rows="1"] .hyve-dashboard-card__climate-controls {
+    gap: 0.3rem;
 }
 
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-setpoint {
-    min-width: 5.75rem;
+.hyve-dashboard-card--climate[data-dashboard-rows="1"] {
+    --climate-control-h: 1.75rem;
+}
+
+/* 2 rows — default compact (fits 4×2) */
+.hyve-dashboard-card--climate[data-dashboard-rows="2"] {
+    padding-bottom: 0.45rem;
+}
+
+.hyve-dashboard-card--climate[data-dashboard-rows="2"] .hyve-dashboard-card__climate-pips {
+    margin-top: 0.1rem;
+}
+
+/* Narrow column — stack controls */
+.hyve-dashboard-card--climate[data-dashboard-cols="1"] .hyve-dashboard-card__climate-controls {
+    flex-direction: column;
+}
+
+.hyve-dashboard-card--climate[data-dashboard-cols="1"] .hyve-dashboard-card__climate-mode-menu {
     flex: 1 1 auto;
-    height: 32px;
-    display: grid;
-    grid-template-columns: 32px minmax(0, 1fr) 32px;
-    align-items: center;
-    border-radius: 8px;
-    border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
-    background: rgba(var(--accent-rgb, 56,189,248), 0.08);
-    overflow: hidden;
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-setpoint button {
-    width: 32px;
-    height: 32px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 0;
-    background: transparent;
-    color: var(--accent, #38bdf8);
-    font-size: 10px;
-    cursor: pointer;
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-setpoint button:hover {
-    background: rgba(var(--accent-rgb, 56,189,248), 0.14);
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-setpoint span {
-    min-width: 0;
-    text-align: center;
-    color: var(--text-primary, #f1f5f9);
-    font-size: 12px;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-menu {
-    position: relative;
-    min-width: 5.75rem;
-    flex: 0 0 6.25rem;
-    z-index: 120;
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-button {
+    max-width: none;
     width: 100%;
-    height: 32px;
-    display: inline-grid;
-    grid-template-columns: 18px minmax(0, 1fr) 12px;
-    align-items: center;
-    gap: 0.35rem;
-    border-radius: 8px;
-    border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
-    background: rgba(var(--accent-rgb, 56,189,248), 0.08);
-    color: var(--text-secondary, #cbd5e1);
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 0 0.5rem;
-    outline: none;
 }
 
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-button:hover,
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-menu[data-open="true"] .hyve-dashboard-card__climate-mode-button {
-    border-color: rgba(var(--accent-rgb, 56,189,248), 0.28);
-    background: rgba(var(--accent-rgb, 56,189,248), 0.13);
-    color: var(--text-primary, #f1f5f9);
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-button i:first-child {
-    color: var(--accent, #38bdf8);
-    font-size: 11px;
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-button i:last-child {
-    color: var(--text-tertiary, #94a3b8);
-    font-size: 9px;
-    transition: transform 0.16s ease;
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-menu[data-open="true"] .hyve-dashboard-card__climate-mode-button i:last-child {
-    transform: rotate(180deg);
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-button span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-align: left;
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-panel {
-    position: absolute;
-    right: 0;
-    bottom: calc(100% + 6px);
-    z-index: 130;
-    width: max-content;
-    min-width: 8.5rem;
-    max-width: min(13rem, calc(100vw - 1rem));
-    padding: 0.35rem;
-    border-radius: 8px;
-    border: 1px solid rgba(var(--accent-rgb, 56,189,248), 0.2);
-    background: var(--surface-menu, var(--surface-1, rgba(15,23,42,0.96)));
-    box-shadow: 0 16px 34px rgba(0,0,0,0.32);
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(4px) scale(0.98);
-    pointer-events: none;
-    transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s ease;
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-menu[data-open="true"] .hyve-dashboard-card__climate-mode-panel {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0) scale(1);
-    pointer-events: auto;
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-option {
-    width: 100%;
-    min-height: 30px;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 14px;
-    align-items: center;
-    gap: 0.5rem;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--text-secondary, #cbd5e1);
-    font-size: 11px;
-    font-weight: 700;
-    padding: 0 0.5rem;
-    cursor: pointer;
-    text-align: left;
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-option:hover,
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-option[data-active="true"] {
-    background: rgba(var(--accent-rgb, 56,189,248), 0.12);
-    color: var(--text-primary, #f1f5f9);
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-option i {
-    color: var(--accent, #38bdf8);
-    font-size: 10px;
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-option span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-@media (max-width: 520px) {
+@container climate-card (max-width: 11.5rem) {
     .hyve-dashboard-card--climate .hyve-dashboard-card__climate-controls {
-        gap: 0.375rem;
-    }
-
-    .hyve-dashboard-card--climate .hyve-dashboard-card__climate-setpoint {
-        min-width: 5.5rem;
+        flex-direction: column;
     }
 
     .hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-menu {
-        flex-basis: 5.75rem;
-        min-width: 5.5rem;
+        flex: 1 1 auto;
+        max-width: none;
+        width: 100%;
+    }
+}
+
+/* Tall cards — hero-centric layout */
+.hyve-dashboard-card--climate[data-dashboard-rows="3"] .hyve-dashboard-card__climate-head,
+.hyve-dashboard-card--climate[data-dashboard-rows="4"] .hyve-dashboard-card__climate-head,
+.hyve-dashboard-card--climate[data-dashboard-rows="5"] .hyve-dashboard-card__climate-head,
+.hyve-dashboard-card--climate[data-dashboard-rows="6"] .hyve-dashboard-card__climate-head {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    justify-items: stretch;
+    gap: 0.5rem;
+}
+
+.hyve-dashboard-card--climate[data-dashboard-rows="3"] .hyve-dashboard-card__climate-top,
+.hyve-dashboard-card--climate[data-dashboard-rows="4"] .hyve-dashboard-card__climate-top,
+.hyve-dashboard-card--climate[data-dashboard-rows="5"] .hyve-dashboard-card__climate-top,
+.hyve-dashboard-card--climate[data-dashboard-rows="6"] .hyve-dashboard-card__climate-top {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.hyve-dashboard-card--climate[data-dashboard-rows="3"] .hyve-dashboard-card__climate-hero,
+.hyve-dashboard-card--climate[data-dashboard-rows="4"] .hyve-dashboard-card__climate-hero,
+.hyve-dashboard-card--climate[data-dashboard-rows="5"] .hyve-dashboard-card__climate-hero,
+.hyve-dashboard-card--climate[data-dashboard-rows="6"] .hyve-dashboard-card__climate-hero {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+    padding: 0.35rem 0;
+}
+
+.hyve-dashboard-card--climate[data-dashboard-rows="3"] .hyve-dashboard-card__climate-hero-value,
+.hyve-dashboard-card--climate[data-dashboard-rows="4"] .hyve-dashboard-card__climate-hero-value,
+.hyve-dashboard-card--climate[data-dashboard-rows="5"] .hyve-dashboard-card__climate-hero-value,
+.hyve-dashboard-card--climate[data-dashboard-rows="6"] .hyve-dashboard-card__climate-hero-value {
+    font-size: clamp(1.75rem, 9cqi, 2.65rem);
+}
+
+/* Wide cards — controls on one line with more breathing room */
+.hyve-dashboard-card--climate[data-dashboard-cols="3"] .hyve-dashboard-card__climate-controls,
+.hyve-dashboard-card--climate[data-dashboard-cols="4"] .hyve-dashboard-card__climate-controls {
+    gap: 0.55rem;
+}
+
+.hyve-dashboard-card--climate[data-dashboard-cols="3"] .hyve-dashboard-card__climate-mode-menu,
+.hyve-dashboard-card--climate[data-dashboard-cols="4"] .hyve-dashboard-card__climate-mode-menu {
+    flex-basis: 38%;
+    max-width: 10rem;
+}
+
+@container climate-card (min-width: 16rem) {
+    .hyve-dashboard-card--climate .hyve-dashboard-card__climate-controls {
+        gap: 0.55rem;
     }
 
+    .hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-menu {
+        flex-basis: 38%;
+        max-width: 10rem;
+    }
+}
+
+@media (max-width: 520px) {
     .hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-panel {
         right: 0;
         bottom: auto;
@@ -359,6 +592,11 @@
     }
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .hyve-dashboard-card--climate .hyve-dashboard-card__climate-track[data-animating="true"] {
+        transition: none;
+    }
+}
 /* Gauge card — SVG arc */
 .hyve-dashboard-card--gauge {
     padding: 1rem;
