@@ -4,6 +4,16 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.5] — 2026-06
+
+Patch release: fixes cameras and dashboard history charts that returned 422 since the 0.9.8.27 security hardening.
+
+### Cameras / dashboard
+- **Fix:** `/api/cameras/stream-token` and `/api/dashboard/history/batch` rejected every request with `422 Unprocessable Content`. The slowapi `@limiter.limit` decorator combined with `from __future__ import annotations` left the Pydantic body type unresolved, so FastAPI parsed the JSON body as a phantom query param. Cameras now stream and sparkline charts load again.
+
+### Tooling
+- **New:** Regression tests asserting rate-limited body endpoints parse a valid body (must not 422) and report validation errors against the `body`, not a `query` field.
+
 ## [0.9.9.4] — 2026-06
 
 Patch release: longer-lived sessions with reliable silent refresh, and camera stream auth hardening.

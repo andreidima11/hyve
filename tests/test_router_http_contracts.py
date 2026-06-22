@@ -141,6 +141,34 @@ def test_chat_web_rejects_unauthenticated_without_422(client: TestClient):
 def test_camera_stream_token_requires_entity_id(client: TestClient, auth_headers: dict[str, str]):
     res = client.post("/api/cameras/stream-token", headers=auth_headers, json={})
     assert res.status_code == 422, res.text
+    # Regression: the validation error must be about the JSON *body* field, not a
+    # phantom ``query`` param. The latter means slowapi's @limiter.limit decorator
+    # broke FastAPI body resolution (PEP 563) and every request 422s.
+    loc = res.json()["detail"][0]["loc"]
+    assert loc[:2] == ["body", "entity_id"], res.text
+
+
+def test_camera_stream_token_accepts_valid_body(client: TestClient, auth_headers: dict[str, str]):
+    """Regression: a valid body must reach the handler (404 unknown camera),
+    never 422. Guards against slowapi + PEP 563 mis-parsing the body as a query."""
+    res = client.post(
+        "/api/cameras/stream-token",
+        headers=auth_headers,
+        json={"entity_id": "camera.does_not_exist"},
+    )
+    assert res.status_code != 422, res.text
+    assert res.status_code == 404, res.text
+    assert _detail_key(res) == "cameras.not_found"
+
+
+def test_dashboard_history_batch_accepts_valid_body(client: TestClient, auth_headers: dict[str, str]):
+    """Regression: rate-limited body endpoint must parse its JSON body, not 422."""
+    res = client.post(
+        "/api/dashboard/history/batch",
+        headers=auth_headers,
+        json={"entity_ids": ["sensor.temperature"], "hours": 24},
+    )
+    assert res.status_code != 422, res.text
 
 
 def test_camera_stream_token_rejects_unauthenticated(client: TestClient):

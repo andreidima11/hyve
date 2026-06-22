@@ -1,4 +1,9 @@
-from __future__ import annotations
+# NOTE: Do NOT add ``from __future__ import annotations`` here. The slowapi
+# ``@limiter.limit`` decorator wraps endpoints and FastAPI then resolves the
+# wrapper's annotations against slowapi's module globals. With PEP 563 string
+# annotations, Pydantic body models (e.g. the history batch body) can't be
+# resolved and FastAPI silently treats the body param as a query field,
+# producing spurious 422 responses.
 
 import asyncio
 import logging
