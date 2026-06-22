@@ -26,6 +26,32 @@ def test_mosquitto_manifest_declares_mqtt_bridge_capability():
     assert "mosquitto" in integration_lifecycle.slugs_with_capability("mqtt_bridge")
 
 
+def test_shipped_lifecycle_modules_import_cleanly():
+    """A broken import in a real component lifecycle silently disables its
+    startup hooks (e.g. the MQTT bridge never boots). Guard against it.
+    """
+    discover_component_classes()
+    integration_lifecycle.invalidate_cache()
+    failures: list[str] = []
+    for slug in sorted(integration_lifecycle.discovered_slugs()):
+        component_dir = integration_lifecycle._component_dir_for_domain(slug)
+        if component_dir is None:
+            continue
+        if not (component_dir / "lifecycle.py").is_file():
+            continue
+        if integration_lifecycle._load_lifecycle_module(slug) is None:
+            failures.append(slug)
+    assert not failures, f"lifecycle modules failed to import: {failures}"
+
+
+def test_mosquitto_lifecycle_exposes_bridge_startup_hook():
+    discover_component_classes()
+    integration_lifecycle.invalidate_cache()
+    module = integration_lifecycle._load_lifecycle_module("mosquitto")
+    assert module is not None, "mosquitto lifecycle must import for the MQTT bridge to boot"
+    assert callable(getattr(module, "startup_all", None))
+
+
 def test_mammotion_entry_test_timeout_from_lifecycle():
     discover_component_classes()
     assert integration_lifecycle.entry_test_timeout_seconds("mammotion") == 120.0

@@ -4,6 +4,16 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.7] — 2026-06
+
+Critical fix: the Zigbee/MQTT live bridge never started at boot, so device states were stale ("off") until manually toggled.
+
+### Integrations — MQTT / Zigbee
+- **Fix:** `components/mosquitto/lifecycle.py` imported a non-existent top-level `settings` module, so the lifecycle module failed to load and its `startup_all` hook (which boots the persistent MQTT bridge) was silently skipped. Now imports `core.settings`. Without the bridge there was no `/get` state refresh, no real-time MQTT listener, and no mirror nudges — the dashboard showed the last persisted snapshot forever.
+
+### Tooling
+- **Change:** Regression tests assert every shipped component lifecycle module imports cleanly and that mosquitto still exposes its bridge `startup_all` hook, so a broken import can't silently disable an integration again.
+
 ## [0.9.9.6] — 2026-06
 
 Patch release: reliable Zigbee/MQTT state on boot and live updates, plus a modern responsive climate card.

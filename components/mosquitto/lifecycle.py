@@ -6,7 +6,7 @@ import asyncio
 import logging
 from typing import Any
 
-import settings
+import core.settings as settings
 from core.log_stream import log_line
 
 log = logging.getLogger("components.mosquitto.lifecycle")
