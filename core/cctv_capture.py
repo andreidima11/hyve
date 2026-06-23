@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import os
+import re
 import subprocess
 from collections.abc import AsyncIterator
 from typing import Optional
@@ -13,6 +15,37 @@ STREAM_READ_TIMEOUT = 8.0
 
 def _rtsp_url_ok(rtsp_url: str) -> bool:
     return bool((rtsp_url or "").strip().lower().startswith("rtsp://"))
+
+
+@functools.lru_cache(maxsize=1)
+def _ffmpeg_major_version() -> int:
+    """Return ffmpeg's major version, or 0 if it can't be determined."""
+    try:
+        out = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        m = re.search(r"ffmpeg version n?(\d+)", out.stdout or "")
+        if m:
+            return int(m.group(1))
+    except (OSError, subprocess.SubprocessError, ValueError):
+        pass
+    return 0
+
+
+def _rtsp_timeout_args(microseconds: int = 5_000_000) -> list[str]:
+    """RTSP socket I/O timeout flag, version-aware.
+
+    ``-stimeout`` was removed in ffmpeg 5.0 and replaced by ``-timeout``. Using
+    the wrong flag makes ffmpeg abort with "Unrecognized option", which surfaces
+    as a bogus "RTSP rejected" error even when the stream and credentials are
+    valid. Default to the modern ``-timeout`` when the version is unknown.
+    """
+    major = _ffmpeg_major_version()
+    flag = "-stimeout" if 0 < major < 5 else "-timeout"
+    return [flag, str(microseconds)]
 
 
 def get_rtsp_frame(rtsp_url: str, timeout: float = DEFAULT_TIMEOUT) -> Optional[bytes]:
@@ -32,7 +65,7 @@ def get_rtsp_frame(rtsp_url: str, timeout: float = DEFAULT_TIMEOUT) -> Optional[
                 "-y",
                 "-loglevel", "error",
                 "-rtsp_transport", "tcp",
-                "-stimeout", "5000000",
+                *_rtsp_timeout_args(),
                 "-i", rtsp_url.strip(),
                 "-frames:v", "1",
                 "-q:v", "2",
@@ -68,8 +101,7 @@ async def aiter_rtsp_mjpeg(rtsp_url: str) -> AsyncIterator[bytes]:
         "error",
         "-rtsp_transport",
         "tcp",
-        "-stimeout",
-        "5000000",
+        *_rtsp_timeout_args(),
         "-i",
         rtsp_url.strip(),
         "-an",
@@ -140,8 +172,7 @@ def _ffmpeg_webm_cmd(rtsp_url: str, *, include_audio: bool) -> list[str]:
         "error",
         "-rtsp_transport",
         "tcp",
-        "-stimeout",
-        "5000000",
+        *_rtsp_timeout_args(),
         "-fflags",
         "nobuffer",
         "-flags",

@@ -335,6 +335,28 @@ async def bootstrap_device(client: Any, device_name: str) -> None:
             await _safe_command(client, device_name, command)
 
     await request_report_snapshot(client, device_name)
+    await sync_device_map(client, device_name)
+
+
+async def sync_device_map(client: Any, device_name: str) -> None:
+    """Fetch the device map (areas/zones) and schedule plans once, best-effort.
+
+    Areas only become known after a ``MapFetchSaga`` runs; without this initial
+    sync the work-area zone entities never appear until the user manually presses
+    "Sync hartă". Subsequent device-side map edits are picked up by PyMammotion's
+    bol_hash watcher (installed via ``setup_device_watchers``).
+    """
+    if pymammotion_handle_rate_limited(client, device_name):
+        log.debug("mammotion skip map sync for %s (cloud rate limit backoff)", device_name)
+        return
+    for method in ("start_map_sync", "start_plan_sync"):
+        fn = getattr(client, method, None)
+        if not callable(fn):
+            continue
+        try:
+            await fn(device_name)
+        except Exception as exc:
+            log.debug("mammotion %s for %s: %s", method, device_name, exc)
 
 
 async def request_report_snapshot(client: Any, device_name: str) -> None:

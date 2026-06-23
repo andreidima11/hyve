@@ -4,6 +4,16 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.13] — 2026-06
+
+Mammotion work-area zones now load automatically, and a Tapo RTSP probe fix for modern ffmpeg.
+
+### Integrations — Mammotion
+- **Fix:** Work-area zones (and the mowing-zone select) now populate automatically. The device map watchers (`setup_device_watchers`) are installed and an initial map/plan sync runs on connect, so zones no longer require a manual "Sync hartă" press. Zone enumeration is more robust (uses PyMammotion `computed_areas` with a hash-manifest fallback) and the UI refreshes as soon as a map fetch completes.
+
+### Integrations — Tapo / Cameras
+- **Fix:** RTSP validation and streaming no longer fail with a bogus "RTSP rejected" error on ffmpeg 5.0+. The removed `-stimeout` option is replaced with the version-aware `-timeout`, so valid camera credentials now pass the setup probe.
+
 ## [0.9.9.12] — 2026-06
 
 Mammotion work-area selection and a Tapo camera setup fix.

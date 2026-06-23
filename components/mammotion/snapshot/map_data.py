@@ -38,9 +38,27 @@ def iter_map_area_pairs(device: MowerDevice) -> list[tuple[int, str]]:
     if map_obj is None:
         return []
 
+    # Preferred: PyMammotion's canonical merge of geometry (``area``) and names
+    # (``area_name``). It auto-assigns "Area N" labels for hashes whose name the
+    # cloud never delivered (some sessions never send ``toapp_all_hash_name``).
+    try:
+        computed = getattr(map_obj, "computed_areas", None)
+        if computed:
+            pairs: list[tuple[int, str]] = []
+            for item in computed:
+                area_hash = int(getattr(item, "hash", 0) or 0)
+                if not area_hash:
+                    continue
+                label = str(getattr(item, "name", "") or "").strip() or f"Area {area_hash}"
+                pairs.append((area_hash, label))
+            if pairs:
+                return pairs
+    except Exception:
+        pass
+
     area_name = getattr(map_obj, "area_name", None)
     if area_name:
-        pairs: list[tuple[int, str]] = []
+        pairs = []
         for item in area_name:
             area_hash = int(getattr(item, "hash", 0) or 0)
             if not area_hash:
@@ -64,7 +82,26 @@ def iter_map_area_pairs(device: MowerDevice) -> list[tuple[int, str]]:
 
     area_dict = getattr(map_obj, "area", None)
     if isinstance(area_dict, dict) and area_dict:
-        return [(int(h), f"Area {h}") for h in area_dict.keys()]
+        return [(int(h), f"Area {h}") for h in area_dict.keys() if int(h or 0)]
+
+    # Last resort: the device-reported area manifest (hashes only, before the
+    # boundary geometry frames have been fetched).
+    try:
+        root_hashes = getattr(map_obj, "area_root_hashlist", None)
+        if root_hashes:
+            seen: set[int] = set()
+            pairs = []
+            for h in root_hashes:
+                area_hash = int(h or 0)
+                if not area_hash or area_hash in seen:
+                    continue
+                seen.add(area_hash)
+                pairs.append((area_hash, f"Area {area_hash}"))
+            if pairs:
+                return pairs
+    except Exception:
+        pass
+
     return []
 
 

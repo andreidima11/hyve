@@ -525,7 +525,7 @@ class MammotionHub:
             if handle is None:
                 continue
 
-            async def _on_push(snapshot: Any, *, _name: str = device_name) -> None:
+            def _notify_push(_name: str) -> None:
                 now = time.monotonic()
                 last = self._push_debounce.get(_name, 0.0)
                 if now - last < _PUSH_DEBOUNCE_SECONDS:
@@ -538,12 +538,39 @@ class MammotionHub:
                     except Exception as exc:
                         log.debug("mammotion on_push failed: %s", exc)
 
+            async def _on_push(snapshot: Any, *, _name: str = device_name) -> None:
+                _notify_push(_name)
+
+            async def _on_map_updated(*, _name: str = device_name) -> None:
+                # Map fetch completed — areas/zones are now known. Bypass the
+                # telemetry debounce so the new zone entities surface promptly.
+                self._push_debounce[_name] = 0.0
+                _notify_push(_name)
+
             try:
                 sub = handle.subscribe_state_changed(_on_push)
                 if sub is not None:
                     self._watchers[device_name] = sub
             except Exception as exc:
                 log.debug("mammotion watcher setup failed for %s: %s", device_name, exc)
+
+            # Install PyMammotion's field watchers (bol_hash → auto map re-sync,
+            # mow-path/progress auto-fetch). Without these the device map — and
+            # therefore the work-area zones — never populates on its own.
+            setup_watchers = getattr(client, "setup_device_watchers", None)
+            if callable(setup_watchers):
+                try:
+                    setup_watchers(device_name)
+                except Exception as exc:
+                    log.debug("mammotion device watchers failed for %s: %s", device_name, exc)
+
+            # Push UI updates when a map fetch completes (areas/zones become known).
+            subscribe_map = getattr(handle, "subscribe_map_updated", None)
+            if callable(subscribe_map):
+                try:
+                    subscribe_map(_on_map_updated)
+                except Exception as exc:
+                    log.debug("mammotion map_updated subscribe failed for %s: %s", device_name, exc)
 
     # ── test (auth only — never full sync) ───────────────────────────────────
 
