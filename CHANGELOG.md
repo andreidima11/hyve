@@ -4,6 +4,27 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.11] — 2026-06
+
+Daylight branding, settings UX, persistent login, and more reliable in-app updates.
+
+### Updates — Hyve self-update
+- **Fix:** Git-based apply no longer blocks on harmless local diffs (`core/settings.py`, `package.json`, theme CSS).
+- **Fix:** Artifact metadata falls back to conventional GitHub release download URLs when the API is rate-limited.
+
+### UI — Daylight theme
+- **New:** Custom `hyve-logo-daylight.png` lockup on login, boot, and sidebar.
+
+### UI — Canvas theme
+- **Change:** Larger boot/loading screen logo.
+
+### Settings
+- **Change:** Assistant persona moved from General to **AI → Comportament AI**.
+- **Change:** Timezone is a dropdown selector (same list as first-run setup).
+
+### Auth
+- **Change:** Longer-lived sessions (24h access token, 365-day refresh); login always persists refresh credentials for stay-logged-in behavior.
+
 ## [0.9.9.10] — 2026-06
 
 Startup Hyve update check, climate card polish, and Canvas logo sizing tweaks.

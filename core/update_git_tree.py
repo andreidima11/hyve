@@ -12,6 +12,11 @@ _LOCAL_RUNTIME_EXACT = frozenset(
         "config.json",
         "package-lock.json",
         "static/css/tailwind.built.css",
+        # Version bump files — safe to reset before git checkout / artifact apply.
+        "core/settings.py",
+        "package.json",
+        "README.md",
+        "android/HyveBridge/app/build.gradle.kts",
     }
 )
 
@@ -31,6 +36,7 @@ _LOCAL_RUNTIME_PREFIXES = (
     "conferences/",
     ".venv/",
     "venv/",
+    "static/css/themes/",
 )
 
 # In-path markers (anywhere in the path).

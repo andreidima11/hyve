@@ -39,8 +39,8 @@ if not SECRET_KEY:
             print("❌ FATAL: Could not persist secret key. Set HYVE_SECRET_KEY env var or fix filesystem permissions.", file=sys.stderr)
             sys.exit(1)
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("HYVE_ACCESS_TOKEN_MINUTES", "480") or "480")  # 8 h default
-REFRESH_TOKEN_EXPIRE_MINUTES = int(os.environ.get("HYVE_REFRESH_TOKEN_MINUTES", "43200") or "43200")  # 30 days default
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("HYVE_ACCESS_TOKEN_MINUTES", "1440") or "1440")  # 24 h default
+REFRESH_TOKEN_EXPIRE_MINUTES = int(os.environ.get("HYVE_REFRESH_TOKEN_MINUTES", "525600") or "525600")  # 365 days default
 SSE_EXCHANGE_TOKEN_EXPIRE_SECONDS = 30  # 30 s one-time exchange token for SSE/WS
 CAMERA_STREAM_TOKEN_EXPIRE_SECONDS = 300  # 5 min — media elements cannot send Authorization headers
 

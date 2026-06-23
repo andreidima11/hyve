@@ -159,6 +159,8 @@
     --img-card-bg: rgba(15, 23, 42, 0.04);
     --noise-opacity: 0.04;
     --logo-shadow: none;
+    --hyve-logo-image: url("/static/img/hyve-logo-daylight.png");
+    --hyve-logo-aspect: 645 / 235;
     --meta-theme-color: #f8fafc;
 }
 
@@ -805,28 +807,109 @@
 
 /* ══════════════════════════════════════════════════════════════
    18. LOGO & BRANDING
-   Dark logo text → dark on light backgrounds
+   Full lockup image (icon + HYVE) on Daylight — replaces CSS mark + wordmark
    ══════════════════════════════════════════════════════════════ */
+
+[data-theme="light"] .hyve-logo--hero,
+[data-theme="light"] .hyve-logo--sidebar,
+[data-theme="light"] .hyve-logo--boot {
+    display: inline-block;
+    gap: 0;
+    font-size: 0 !important;
+    line-height: 0;
+    color: transparent;
+    background-image: var(--hyve-logo-image);
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: contain;
+    filter: none;
+    aspect-ratio: var(--hyve-logo-aspect);
+    overflow: visible;
+    vertical-align: middle;
+    height: auto;
+}
+
+[data-theme="light"] .hyve-logo--hero {
+    width: clamp(10rem, 38vw, 14rem);
+    max-width: 100%;
+}
+
+[data-theme="light"] #setup-overlay .hyve-logo--hero {
+    width: clamp(14rem, 72vw, 21rem);
+}
+
+[data-theme="light"] #login-overlay .hyve-logo--hero {
+    width: clamp(7rem, 36vw, 10.5rem);
+}
+
+[data-theme="light"] .hyve-logo--sidebar {
+    width: clamp(5.5rem, 38vw, 6.75rem);
+    max-width: 100%;
+}
+
+[data-theme="light"] .hyve-sidebar-wordmark {
+    line-height: 0;
+    padding-bottom: 0;
+    display: block;
+}
+
+[data-theme="light"] .hyve-sidebar-wordmark.truncate {
+    overflow: visible;
+    text-overflow: clip;
+}
+
+[data-theme="light"] #sidebar > .flex.flex-col > .flex.items-start {
+    align-items: center;
+    min-height: 0 !important;
+    padding-top: 0.85rem;
+    padding-bottom: 0.65rem;
+}
+
+[data-theme="light"] .hyve-logo--boot {
+    width: clamp(7rem, 22vw, 9rem);
+}
+
+[data-theme="light"] .hyve-hero-wrap--login {
+    margin-bottom: 0;
+    line-height: 0;
+}
+
+[data-theme="light"] #login-overlay .text-center.mb-10,
+[data-theme="light"] #setup-overlay .text-center.mb-8 {
+    margin-bottom: 1.25rem !important;
+}
+
+[data-theme="light"] #login-overlay .text-center > p.mt-2 {
+    margin-top: 0.35rem;
+}
+
+[data-theme="light"] #setup-overlay h1.mt-4 {
+    margin-top: 0.75rem;
+}
+
+[data-theme="light"] .hyve-logo--hero::before,
+[data-theme="light"] .hyve-logo--sidebar::before {
+    display: none;
+    content: none;
+}
+
+[data-theme="light"] .hyve-logo__wordmark {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
 
 [data-theme="light"] .hyve-logo {
     --hyve-logo-ink: var(--text-heading);
 }
-[data-theme="light"] .hyve-logo .hyve-me {
-    color: var(--text-heading) !important;
-}
-[data-theme="light"] .hyve-logo .hyve-mini {
-    filter: none;
-}
 [data-theme="light"] .hyve-wordmark {
     color: var(--text-heading) !important;
-}
-
-[data-theme="light"] .hyve-logo--hero .hyve-me {
-    color: var(--text-heading) !important;
-}
-[data-theme="light"] .hyve-logo--sidebar::before,
-[data-theme="light"] .hyve-logo--hero::before {
-    filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--accent) 18%, transparent));
 }
 [data-theme="light"] .hyve-mark {
     stroke: rgba(37, 99, 235, 0.80);

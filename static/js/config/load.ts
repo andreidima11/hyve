@@ -17,6 +17,7 @@ import { initGenericCustomSelects, upgradeNativeSelects } from '../features_cust
 import { cfgField, findIntegrationCheckbox } from './utils.js';
 import { refreshUiLanguageSelect, updateSearchTendencyHint } from './ui_language.js';
 import { renderUserPhonesList, addUserPhone } from './user_phones.js';
+import { populateTimezoneSelect } from '../timezones.js';
 import { saveConfig } from './save.js';
 
 let _configAutoSaveBound = false;
@@ -117,7 +118,6 @@ export async function loadConfig() {
         'p_web_content_reply_instruction': cfg.prompts?.web_content_reply_instruction ?? '',
         'p_image_placeholder': cfg.prompts?.image_placeholder ?? '',
         'p_summarize': cfg.prompts?.summarize ?? '',
-        'config_timezone': cfg.timezone || '',
         'updates_addons_check_interval': cfg.updates?.addons?.check_interval || 'never',
         'updates_addons_auto_update': cfg.updates?.addons?.auto_update ?? false,
         'updates_hyve_check_interval': cfg.updates?.hyve?.check_interval || 'never',
@@ -134,6 +134,7 @@ export async function loadConfig() {
         if (el.type === 'checkbox') el.checked = !!val;
         else el.value = (val ?? '') + '';
     }
+    populateTimezoneSelect(cfgField('config_timezone') as HTMLSelectElement | null, cfg.timezone || '');
     if (typeof syncUpdatesIntervalDropdown === 'function') syncUpdatesIntervalDropdown();
     // Normalize old "custom" to "local" (Custom option removed)
     ['llm_provider', 'coder_provider', 'aux_llm_provider', 'vision_llm_provider'].forEach(id => {
@@ -370,12 +371,15 @@ export async function loadConfig() {
             if (el.id && el.id.startsWith('cfg-tab-')) return;
             el.classList.toggle('hidden', !isAdmin);
         });
-        const personaUser = cfgField('cfg-general-persona-user');
+        const personaUser = cfgField('cfg-user-persona-block');
         const userPersona = cfgField('user_persona');
         if (personaUser && userPersona) {
             personaUser.classList.toggle('hidden', isAdmin);
             userPersona.value = profile.persona || '';
         }
+        document.querySelectorAll('.config-user-persona-only').forEach((el) => {
+            el.classList.toggle('hidden', isAdmin);
+        });
 
         const adminBlock = cfgField('integrations-whitelist-admin');
         const userBlock = cfgField('integrations-whitelist-user');

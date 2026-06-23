@@ -108,7 +108,7 @@
                         </div>
                         <div class="hyd-chips config-tabs-track w-full" id="config-tabs-scroll" role="tablist" aria-label="Settings">
                             <button type="button" data-config-action="switchTab" data-config-tab="general" id="tab-btn-general" class="hyd-chip is-active config-tab-btn config-tab-btn--active" role="tab" aria-selected="true"><i class="fas fa-sliders" aria-hidden="true"></i><span data-i18n="config.core_tab">General</span></button>
-                            <button type="button" data-config-action="switchTab" data-config-tab="intelligence" id="tab-btn-intelligence" class="config-admin-only hyd-chip config-tab-btn" role="tab" aria-selected="false"><i class="fas fa-brain" aria-hidden="true"></i><span data-i18n="config.intelligence_tab">AI</span></button>
+                            <button type="button" data-config-action="switchTab" data-config-tab="intelligence" id="tab-btn-intelligence" class="hyd-chip config-tab-btn" role="tab" aria-selected="false"><i class="fas fa-brain" aria-hidden="true"></i><span data-i18n="config.intelligence_tab">AI</span></button>
                             <button type="button" data-config-action="switchTab" data-config-tab="memory" id="tab-btn-memory" class="config-admin-only hyd-chip config-tab-btn" role="tab" aria-selected="false"><i class="fas fa-database" aria-hidden="true"></i><span data-i18n="config.memory_tab">Memory</span></button>
                             <button type="button" data-config-action="switchTab" data-config-tab="notifications" id="tab-btn-notifications" class="hyd-chip config-tab-btn" role="tab" aria-selected="false"><i class="fas fa-bell" aria-hidden="true"></i><span data-i18n="config.notifications_tab">Notifications</span></button>
                             <button type="button" data-config-action="switchTab" data-config-tab="security" id="tab-btn-security" class="config-admin-only hyd-chip config-tab-btn" role="tab" aria-selected="false"><i class="fas fa-shield-halved" aria-hidden="true"></i><span data-i18n="config.security_tab">Security</span></button>
@@ -129,19 +129,11 @@
                                         <select id="ui_language" class="w-full border border-theme-subtle rounded-xl p-3 text-sm"></select>
                                     </div>
                                     <div class="space-y-1 config-admin-only">
-                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" for="config_timezone" data-i18n="config.timezone_label">Fus orar (ex. Europe/Bucharest)</label>
-                                        <input type="text" id="config_timezone" placeholder="Europe/Bucharest" class="w-full border border-theme-subtle rounded-xl p-3 text-sm mono">
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" for="config_timezone" data-i18n="config.timezone_label">Fus orar</label>
+                                        <select id="config_timezone" class="w-full border border-theme-subtle rounded-xl p-3 text-sm"></select>
                                         <p class="text-[10px] text-slate-500" data-i18n="config.timezone_hint">Inclus în contextul AI la fiecare răspuns. Gol = ora serverului.</p>
                                     </div>
                                 </div>
-                            </section>
-                            <!-- Memory settings moved to Intelligence tab -->
-                            <section id="cfg-general-persona-user" class="hidden hyd-app-card space-y-4">
-                                <h2 class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
-                                    <i class="fas fa-user-pen"></i>
-                                    <span data-i18n="config.persona_label">Personalitate asistent</span>
-                                </h2>
-                                <textarea id="user_persona" rows="4" class="w-full border border-theme-subtle rounded-xl p-4 text-sm" data-i18n-placeholder="config.persona_placeholder" placeholder="Descrie cum trebuie să se comporte asistentul..."></textarea>
                             </section>
                             <section id="cfg-general-models" class="config-admin-only">
                                 <h2 class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2 mb-4">
@@ -362,21 +354,10 @@
                             </div>
                         </div>
 
-                        <div id="cfg-tab-intelligence" class="cfg-tab-panel hidden hyd-config-page space-y-4 animate-up config-admin-only" data-config-tab="intelligence">
-
-                            <!-- ═══ 0. SYSTEM PERSONA ═══ -->
-                            <div class="hyd-app-card space-y-3">
-                                <div>
-                                    <h3 class="text-sm font-bold text-accent uppercase tracking-widest mb-2 flex items-center gap-2">
-                                        <i class="fas fa-user-astronaut"></i>
-                                        <span data-i18n="config.persona_label">System Persona</span>
-                                    </h3>
-                                </div>
-                                <textarea id="p_persona" rows="4" class="w-full border border-theme-subtle rounded-xl p-3 text-[11px] mono leading-relaxed"></textarea>
-                            </div>
+                        <div id="cfg-tab-intelligence" class="cfg-tab-panel hidden hyd-config-page space-y-4 animate-up" data-config-tab="intelligence">
 
                             <!-- ═══ 0b. AGENT INSTRUCTIONS ═══ -->
-                            <div class="hyd-app-card space-y-3">
+                            <div class="hyd-app-card space-y-3 config-admin-only">
                                 <div>
                                     <h3 class="text-sm font-bold text-accent uppercase tracking-widest mb-2 flex items-center gap-2">
                                         <i class="fas fa-scroll"></i>
@@ -397,7 +378,7 @@
                             </div>
 
                             <!-- ═══ 0c. SYSTEM PROMPTS ═══ -->
-                            <div class="hyd-app-card space-y-3">
+                            <div class="hyd-app-card space-y-3 config-admin-only">
                                 <div>
                                     <h3 class="text-sm font-bold text-accent uppercase tracking-widest mb-2 flex items-center gap-2">
                                         <i class="fas fa-message"></i>
@@ -425,6 +406,17 @@
                                     </h3>
                                     <p class="text-[11px] leading-relaxed" data-i18n="config.ai_behavior_description">Agent mode, conversation context window, and general AI behavior settings.</p>
                                 </div>
+
+                                <div id="cfg-user-persona-block" class="config-user-persona-only hidden space-y-1">
+                                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" for="user_persona" data-i18n="config.persona_label">Personalitate asistent</label>
+                                    <textarea id="user_persona" rows="4" class="w-full border border-theme-subtle rounded-xl p-4 text-sm" data-i18n-placeholder="config.persona_placeholder" placeholder="Descrie cum trebuie să se comporte asistentul..."></textarea>
+                                </div>
+
+                                <div class="config-admin-only space-y-4">
+                                    <div class="space-y-1">
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" for="p_persona" data-i18n="config.persona_system_label">Personalitate sistem (globală)</label>
+                                        <textarea id="p_persona" rows="4" class="w-full border border-theme-subtle rounded-xl p-3 text-[11px] mono leading-relaxed"></textarea>
+                                    </div>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div class="space-y-1">
                                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block" for="max_agent_turns" data-i18n="config.max_agent_turns">Max tool-call rounds</label>
@@ -485,10 +477,11 @@
                                         <p class="text-[10px] text-slate-500" id="search_tendency_hint" data-i18n="config.search_tendency_hint_3">Balanced — searches for current events, uses knowledge for known facts.</p>
                                     </div>
                                 </div>
+                                </div>
                             </div>
 
                             <!-- ═══ 1E. INTENT ROUTER ═══ -->
-                            <div class="hyd-app-card space-y-4">
+                            <div class="hyd-app-card space-y-4 config-admin-only">
                                 <div>
                                     <h3 class="text-sm font-bold text-accent uppercase tracking-widest mb-2 flex items-center gap-2">
                                         <i class="fas fa-route"></i>
@@ -503,7 +496,7 @@
                             </div>
 
                             <!-- ═══ 1F. PROACTIVE HINTS ═══ -->
-                            <div class="hyd-app-card space-y-4">
+                            <div class="hyd-app-card space-y-4 config-admin-only">
                                 <div>
                                     <h3 class="text-sm font-bold text-accent uppercase tracking-widest mb-2 flex items-center gap-2">
                                         <i class="fas fa-comment-dots"></i>
@@ -518,7 +511,7 @@
                             </div>
 
                             <!-- ═══ 2. SHELL & TOOLS ═══ -->
-                            <div class="hyd-app-card space-y-4">
+                            <div class="hyd-app-card space-y-4 config-admin-only">
                                 <div>
                                     <h3 class="text-sm font-bold text-accent uppercase tracking-widest mb-2 flex items-center gap-2">
                                         <i class="fas fa-terminal"></i>
@@ -611,7 +604,7 @@
                             </div>
 
                             <!-- ═══ 4. WEB SEARCH ═══ -->
-                            <div class="hyd-app-card space-y-4">
+                            <div class="hyd-app-card space-y-4 config-admin-only">
                                 <h3 class="text-sm font-bold text-accent uppercase tracking-widest flex items-center gap-2">
                                     <i class="fas fa-search"></i>
                                     <span data-i18n="config.searxng_search_options">Opțiuni rezultate căutare</span>

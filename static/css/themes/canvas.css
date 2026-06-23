@@ -180,7 +180,7 @@
 }
 
 [data-theme="canvas"] .hyve-logo--boot {
-    width: clamp(3.5rem, 11vw, 4.5rem);
+    width: clamp(7rem, 22vw, 9rem);
 }
 
 [data-theme="canvas"] .hyve-hero-wrap--login {

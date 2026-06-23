@@ -186,12 +186,12 @@ def test_blocking_dirty_lines_ignores_build_artifacts():
             " M static/hyveview/elements/camera_stream.js",
             " M static/hyveview/elements/mammotion_camera.js.map",
             " M custom_components/demo_sensor/__pycache__/entity.cpython-313.pyc",
-            " M core/settings.py",
+            " M routers/updates.py",
         ]
     )
     blocking = hu._blocking_dirty_lines(porcelain)
     assert len(blocking) == 1
-    assert "core/settings.py" in hu._dirty_path_from_porcelain(blocking[0])
+    assert "routers/updates.py" in hu._dirty_path_from_porcelain(blocking[0])
 
 
 def test_ignored_dirty_paths_from_porcelain():
@@ -200,12 +200,16 @@ def test_ignored_dirty_paths_from_porcelain():
             " M static/hyveview/elements/mammotion_camera.js.map",
             " M static/css/tailwind.built.css",
             " M core/settings.py",
+            " M package.json",
+            " M static/css/themes/canvas.css",
         ]
     )
     paths = hu._ignored_dirty_paths_from_porcelain(porcelain)
     assert "static/hyveview/elements/mammotion_camera.js.map" in paths
     assert "static/css/tailwind.built.css" in paths
-    assert "core/settings.py" not in paths
+    assert "core/settings.py" in paths
+    assert "package.json" in paths
+    assert "static/css/themes/canvas.css" in paths
 
 
 def test_reset_ignored_dirty_paths_checkout(monkeypatch, tmp_path: Path):

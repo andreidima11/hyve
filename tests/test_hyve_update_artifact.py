@@ -82,3 +82,49 @@ def test_apply_artifact_update_end_to_end(monkeypatch, tmp_path: Path):
     assert result["version"] == "0.9.9.8"
     assert '0.9.9.8' in (root / "core" / "settings.py").read_text(encoding="utf-8")
     assert (root / "static" / "dist" / "app.js").is_file()
+
+
+def test_fetch_artifact_metadata_falls_back_to_conventional_urls(monkeypatch):
+    monkeypatch.setattr(artifact, "_release_by_tag", lambda _repo, _tag: None)
+    monkeypatch.setattr(artifact, "_download_url_available", lambda url: url.endswith("hyve-0.9.9.10.tar.gz"))
+    monkeypatch.setattr(
+        artifact,
+        "_download_json",
+        lambda _url: {"format_version": 1, "version": "0.9.9.10", "sha256": "abc"},
+    )
+
+    meta = artifact.fetch_artifact_metadata("andreidima11/hyve", "0.9.9.10")
+
+    assert meta is not None
+    assert meta["artifact_url"].endswith("hyve-0.9.9.10.tar.gz")
+    assert "andreidima11/hyve/releases/download/0.9.9.10/" in meta["artifact_url"]
+
+
+def test_fetch_artifact_metadata_uses_api_when_available(monkeypatch):
+    release = {
+        "tag_name": "0.9.9.10",
+        "html_url": "https://github.com/andreidima11/hyve/releases/tag/0.9.9.10",
+        "assets": [
+            {
+                "name": "hyve-0.9.9.10.tar.gz",
+                "browser_download_url": "https://example/hyve-0.9.9.10.tar.gz",
+            },
+            {
+                "name": "hyve-0.9.9.10.manifest.json",
+                "browser_download_url": "https://example/hyve-0.9.9.10.manifest.json",
+            },
+        ],
+    }
+    monkeypatch.setattr(artifact, "_release_by_tag", lambda _repo, _tag: release)
+    monkeypatch.setattr(
+        artifact,
+        "_download_json",
+        lambda _url: {"format_version": 1, "version": "0.9.9.10", "sha256": "abc"},
+    )
+    monkeypatch.setattr(artifact, "_conventional_artifact_metadata", lambda *_a, **_k: None)
+
+    meta = artifact.fetch_artifact_metadata("andreidima11/hyve", "0.9.9.10")
+
+    assert meta is not None
+    assert meta["artifact_url"] == "https://example/hyve-0.9.9.10.tar.gz"
+    assert meta["manifest"]["sha256"] == "abc"

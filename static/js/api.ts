@@ -21,8 +21,8 @@ interface RememberPayload {
     [key: string]: unknown;
 }
 
-/** Refresh access token this often while the tab is open (access token default: 8 h). */
-const PROACTIVE_REFRESH_MS = 90 * 60 * 1000;
+/** Refresh access token this often while the tab is open (access token default: 24 h). */
+const PROACTIVE_REFRESH_MS = 45 * 60 * 1000;
 
 export let authToken: string | null = localStorage.getItem('hyve_token');
 

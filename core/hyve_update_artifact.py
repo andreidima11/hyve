@@ -56,16 +56,27 @@ def _github_request(url: str, *, token: str = "") -> Any:
         return json.loads(resp.read().decode("utf-8", "replace"))
 
 
-def _release_by_tag(repo: str, tag: str) -> dict[str, Any] | None:
+def _tag_variants(tag: str) -> list[str]:
     ver = _normalize_version(tag)
+    out: list[str] = []
     for candidate in (tag, ver, f"v{ver}"):
+        raw = str(candidate or "").strip()
+        if raw and raw not in out:
+            out.append(raw)
+    return out
+
+
+def _release_by_tag(repo: str, tag: str) -> dict[str, Any] | None:
+    for candidate in _tag_variants(tag):
         url = f"https://api.github.com/repos/{repo}/releases/tags/{candidate}"
         try:
             data = _github_request(url)
             if isinstance(data, dict):
                 return data
         except HTTPError as exc:
-            if exc.code == 404:
+            if exc.code in (403, 404, 429):
+                if exc.code in (403, 429):
+                    log.debug("GitHub releases API %s for %s", exc.code, candidate)
                 continue
             raise
         except (URLError, TimeoutError, json.JSONDecodeError):
@@ -73,11 +84,27 @@ def _release_by_tag(repo: str, tag: str) -> dict[str, Any] | None:
     return None
 
 
-def fetch_artifact_metadata(repo: str, tag: str) -> dict[str, Any] | None:
-    """Return download URLs + manifest for a tagged GitHub release, if present."""
-    release = _release_by_tag(repo, tag)
-    if not release:
-        return None
+def _download_url_available(url: str) -> bool:
+    try:
+        req = Request(url, method="HEAD")
+        with urlopen(req, timeout=30) as resp:
+            return 200 <= int(getattr(resp, "status", 200)) < 400
+    except HTTPError as exc:
+        return exc.code in (302, 303, 307, 308)
+    except (URLError, TimeoutError, ValueError):
+        return False
+
+
+def _download_json(url: str) -> dict[str, Any]:
+    from core.github_api import github_api_headers
+
+    req = Request(url, headers={**github_api_headers(), "Accept": "application/json"})
+    with urlopen(req, timeout=60) as resp:
+        data = json.loads(resp.read().decode("utf-8", "replace"))
+    return data if isinstance(data, dict) else {}
+
+
+def _metadata_from_release_assets(release: dict[str, Any], tag: str) -> dict[str, Any] | None:
     version = _normalize_version(str(release.get("tag_name") or tag))
     assets = release.get("assets") if isinstance(release.get("assets"), list) else []
     artifact_url = ""
@@ -96,9 +123,7 @@ def fetch_artifact_metadata(repo: str, tag: str) -> dict[str, Any] | None:
     manifest: dict[str, Any] = {}
     if manifest_url:
         try:
-            req = Request(manifest_url, headers={"Accept": "application/json"})
-            with urlopen(req, timeout=60) as resp:
-                manifest = json.loads(resp.read().decode("utf-8", "replace"))
+            manifest = _download_json(manifest_url)
         except Exception as exc:
             log.debug("artifact manifest download failed for %s: %s", version, exc)
     return {
@@ -109,6 +134,45 @@ def fetch_artifact_metadata(repo: str, tag: str) -> dict[str, Any] | None:
         "manifest": manifest if isinstance(manifest, dict) else {},
         "release_url": str(release.get("html_url") or ""),
     }
+
+
+def _conventional_artifact_metadata(repo: str, tag: str) -> dict[str, Any] | None:
+    """Build release asset URLs without the GitHub API (rate-limit friendly)."""
+    version = _normalize_version(tag)
+    art_name = artifact_basename(version)
+    man_name = manifest_basename(version)
+    for tag_variant in _tag_variants(tag):
+        base = f"https://github.com/{repo}/releases/download/{tag_variant}"
+        artifact_url = f"{base}/{art_name}"
+        if not _download_url_available(artifact_url):
+            continue
+        manifest_url = f"{base}/{man_name}"
+        manifest: dict[str, Any] = {}
+        has_manifest = _download_url_available(manifest_url)
+        if has_manifest:
+            try:
+                manifest = _download_json(manifest_url)
+            except Exception as exc:
+                log.debug("conventional manifest download failed for %s: %s", version, exc)
+        return {
+            "version": version,
+            "tag": tag_variant,
+            "artifact_url": artifact_url,
+            "manifest_url": manifest_url if has_manifest else "",
+            "manifest": manifest if isinstance(manifest, dict) else {},
+            "release_url": f"https://github.com/{repo}/releases/tag/{tag_variant}",
+        }
+    return None
+
+
+def fetch_artifact_metadata(repo: str, tag: str) -> dict[str, Any] | None:
+    """Return download URLs + manifest for a tagged GitHub release, if present."""
+    release = _release_by_tag(repo, tag)
+    if release:
+        meta = _metadata_from_release_assets(release, tag)
+        if meta:
+            return meta
+    return _conventional_artifact_metadata(repo, tag)
 
 
 def _sha256_file(path: Path) -> str:

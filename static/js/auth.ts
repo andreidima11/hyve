@@ -3,6 +3,16 @@ import type { RememberCredentialsPayload, TokenResponse, UserProfileResponse } f
 
 const _RM_KEY = 'hyve_remember';
 
+function _persistRememberedSession(username: string, accessToken: string, refreshToken?: string): void {
+    try {
+        localStorage.setItem(_RM_KEY, JSON.stringify({
+            u: username,
+            t: accessToken,
+            rt: refreshToken || '',
+        }));
+    } catch { /* storage blocked */ }
+}
+
 /** Push auth token to native Android bridge with retry (bridge may load after auth.js). */
 function _pushTokenToNative(token: string): void {
     function _try(): boolean {
@@ -24,6 +34,7 @@ export async function handleLogin(e: SubmitEvent): Promise<void> {
     const remember = (document.getElementById('login-remember') as HTMLInputElement | null)?.checked;
     const err = document.getElementById('login-error');
     const btn = (e.target as HTMLElement | null)?.querySelector('button') as HTMLButtonElement | null;
+    void remember;
 
     if (btn) btn.disabled = true;
     err?.classList.add('hidden');
@@ -42,11 +53,7 @@ export async function handleLogin(e: SubmitEvent): Promise<void> {
 
         _pushTokenToNative(data.access_token);
 
-        if (remember) {
-            localStorage.setItem(_RM_KEY, JSON.stringify({ u: user, t: data.access_token, rt: data.refresh_token }));
-        } else {
-            localStorage.removeItem(_RM_KEY);
-        }
+        _persistRememberedSession(user, data.access_token, data.refresh_token);
         if (typeof window.bootHyve === 'function') {
             try {
                 await window.bootHyve();
