@@ -118,7 +118,103 @@
     --img-card-bg: rgba(255, 255, 255, 0.04);
     --noise-opacity: 0;
     --logo-shadow: none;
+    --hyve-logo-image: url("/static/img/hyve-logo-canvas.png");
+    --hyve-logo-aspect: 712 / 253;
     --meta-theme-color: #0d0f12;
+}
+
+/* Full lockup image (icon + HYVE) — replaces CSS mark + wordmark on Canvas */
+[data-theme="canvas"] .hyve-logo--hero,
+[data-theme="canvas"] .hyve-logo--sidebar,
+[data-theme="canvas"] .hyve-logo--boot {
+    display: inline-block;
+    gap: 0;
+    font-size: 0 !important;
+    line-height: 0;
+    color: transparent;
+    background-image: var(--hyve-logo-image);
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: contain;
+    filter: none;
+    aspect-ratio: var(--hyve-logo-aspect);
+    overflow: visible;
+    vertical-align: middle;
+    height: auto;
+}
+
+[data-theme="canvas"] .hyve-logo--hero {
+    width: clamp(10rem, 38vw, 14rem);
+    max-width: 100%;
+}
+
+[data-theme="canvas"] .hyve-hero-wrap--login .hyve-logo--hero,
+[data-theme="canvas"] #login-overlay .hyve-logo--hero,
+[data-theme="canvas"] #setup-overlay .hyve-logo--hero {
+    width: clamp(14rem, 72vw, 21rem);
+}
+
+[data-theme="canvas"] .hyve-logo--sidebar {
+    width: clamp(5.5rem, 38vw, 6.75rem);
+    max-width: 100%;
+}
+
+[data-theme="canvas"] .hyve-sidebar-wordmark {
+    line-height: 0;
+    padding-bottom: 0;
+    display: block;
+}
+
+[data-theme="canvas"] .hyve-sidebar-wordmark.truncate {
+    overflow: visible;
+    text-overflow: clip;
+}
+
+[data-theme="canvas"] #sidebar > .flex.flex-col > .flex.items-start {
+    align-items: center;
+    min-height: 0 !important;
+    padding-top: 0.85rem;
+    padding-bottom: 0.65rem;
+}
+
+[data-theme="canvas"] .hyve-logo--boot {
+    width: clamp(7rem, 22vw, 9rem);
+}
+
+[data-theme="canvas"] .hyve-hero-wrap--login {
+    margin-bottom: 0;
+    line-height: 0;
+}
+
+[data-theme="canvas"] #login-overlay .text-center.mb-10,
+[data-theme="canvas"] #setup-overlay .text-center.mb-8 {
+    margin-bottom: 1.25rem !important;
+}
+
+[data-theme="canvas"] #login-overlay .text-center > p.mt-2 {
+    margin-top: 0.35rem;
+}
+
+[data-theme="canvas"] #setup-overlay h1.mt-4 {
+    margin-top: 0.75rem;
+}
+
+[data-theme="canvas"] .hyve-logo--hero::before,
+[data-theme="canvas"] .hyve-logo--sidebar::before {
+    display: none;
+    content: none;
+}
+
+[data-theme="canvas"] .hyve-logo__wordmark {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 [data-theme="canvas"] body,

@@ -4,6 +4,14 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.9] — 2026-06
+
+Canvas theme branding: custom logo lockup on login, boot, and sidebar.
+
+### UI — Canvas theme
+- **New:** Canvas theme uses the `hyve-logo-canvas.png` brand lockup (icon + HYVE) instead of the CSS-assembled mark and wordmark.
+- **Change:** Logo asset is auto-cropped to content bounds — no extra empty space above or below on login or sidebar.
+
 ## [0.9.9.8] — 2026-06
 
 Major updater redesign: pre-built release packages, safer apply, and release notes when an update is pending.
