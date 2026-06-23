@@ -189,7 +189,6 @@ function _climateSlideMarkup(
     index: number,
     isActive: boolean,
     hasSlides: boolean,
-    editControls: string,
 ) {
     const attrs = (entity.attributes || {}) as Record<string, unknown>;
     const caps = (attrs.capabilities || {}) as Record<string, unknown>;
@@ -204,7 +203,6 @@ function _climateSlideMarkup(
     const widgetId = esc(widget.id);
     const entityId = esc(entity.entity_id || widget.entity_id || '');
     const title = entity.slide_title || (hasSlides ? (entity.entity_name || entity.entity_id) : widgetTitle(widget, { entityId: entity.entity_id, entityName: entity.entity_name }));
-    const stateText = entity.slide_subtitle ? `${entity.slide_subtitle} \u00b7 ${modeLabel}` : modeLabel;
     const modeMap: Record<string, string> = {};
     try {
         const rawModes = attrs.hvac_modes ?? caps.hvac_modes ?? [];
@@ -239,10 +237,8 @@ function _climateSlideMarkup(
                     <div class="hyve-dashboard-card__climate-top">
                         <div class="hyve-dashboard-card__climate-zone">
                             <div class="hyve-dashboard-card__title">${esc(title)}</div>
-                            ${subtitleOnly ? `<div class="hyve-dashboard-card__climate-subline" data-climate-stateline>${subtitleOnly}</div>` : `<div class="hyve-dashboard-card__climate-subline" data-climate-stateline hidden>${esc(stateText)}</div>`}
+                            ${subtitleOnly ? `<div class="hyve-dashboard-card__climate-subline" data-climate-stateline>${subtitleOnly}</div>` : ''}
                         </div>
-                        <span class="hyve-dashboard-card__climate-mode-pill" data-climate-mode-label data-climate-mode-map="${modeMapAttr}">${esc(modeLabel)}</span>
-                        ${editControls}
                     </div>
                     <div class="hyve-dashboard-card__climate-hero">
                         <div class="hyve-dashboard-card__climate-hero-glow" aria-hidden="true"></div>
@@ -271,7 +267,7 @@ export function renderClimateCard(widget: DashboardWidget) {
     const on = stateOn(activeMode) || activeMode === 'auto';
 
     const slidesHtml = entities
-        .map((entity, index) => _climateSlideMarkup(widget, entity, index, index === activeIndex, hasSlides, index === activeIndex ? editControls : ''))
+        .map((entity, index) => _climateSlideMarkup(widget, entity, index, index === activeIndex, hasSlides))
         .join('');
 
     const pipsHtml = hasSlides ? `
@@ -297,6 +293,7 @@ export function renderClimateCard(widget: DashboardWidget) {
             data-edit="${getEditMode() ? 'true' : 'false'}"
             data-unavailable="${widget.available === false || active.available === false ? 'true' : 'false'}"
             data-dash-pointer="climateSwipeStart" data-widget-id="${widgetId}">
+            ${editControls}
             ${renderCardElement(widget)}
         </article>`;
 }

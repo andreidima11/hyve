@@ -8,7 +8,7 @@ from core.env_bootstrap import ensure_env_loaded
 ensure_env_loaded()
 
 CONFIG_FILE = "config.json"
-RELEASE_VERSION = "0.9.9.9"
+RELEASE_VERSION = "0.9.9.10"
 APP_VERSION = RELEASE_VERSION
 _settings_log = logging.getLogger("settings")
 
@@ -207,7 +207,19 @@ DEFAULT_CONFIG = {
     # MODEL PROFILES — saved model configurations for quick switching
     # Each profile: {id, name, provider, target_url, model_name, api_key, temperature, timeout, context_length, max_tokens, aux_llm_enabled, aux_llm: {target_url, model_name, api_key}, color}
     "model_profiles": [],
-    "active_profile_id": ""  # id of the currently active profile (empty = use flat llm config)
+    "active_profile_id": "",  # id of the currently active profile (empty = use flat llm config)
+
+    "updates": {
+        "hyve": {
+            "check_interval": "never",
+            "check_on_startup": True,
+            "auto_update": False,
+        },
+        "addons": {
+            "check_interval": "never",
+            "auto_update": False,
+        },
+    },
 }
 
 _STRICT_ENV_VALUES = {"prod", "production", "staging", "release"}

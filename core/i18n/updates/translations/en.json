@@ -44,6 +44,8 @@
   "hyve_mode_git": "Git checkout (dev)",
   "hyve_hint_artifact": "Update via pre-built release package (recommended)",
   "auto_check_hint_hyve": "How often to automatically check for new Hyve releases.",
+  "check_on_startup_label": "Check on startup",
+  "check_on_startup_hint": "When the server starts, check GitHub for a new Hyve release.",
   "deps_description": "Automatic checking and updating of Python packages used by Hyve.",
   "addons_description": "Automatic checking for updates of installed add-ons.",
   "no_addons": "No installed add-ons.",

@@ -968,6 +968,13 @@
                                     <p id="updates-prefs-hyve-hint" class="text-[10px] text-slate-500 hidden"></p>
                                 </div>
                                 <div class="space-y-3">
+                                    <label class="flex items-center gap-3 cursor-pointer p-3 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] transition-all">
+                                        <input type="checkbox" id="updates_hyve_check_on_startup" class="w-4 h-4 rounded accent-accent border-theme-subtle" checked>
+                                        <div>
+                                            <span class="text-xs font-semibold text-white/90" data-i18n="updates.check_on_startup_label">Check on startup</span>
+                                            <p class="text-[10px] text-slate-500 mt-0.5" data-i18n="updates.check_on_startup_hint">When the server starts, check GitHub for a new Hyve release.</p>
+                                        </div>
+                                    </label>
                                     <div class="p-3 rounded-lg bg-white/[0.02]">
                                         <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5" data-i18n="updates.auto_check_label">Verificare automată</label>
                                         <select id="updates_hyve_check_interval" class="w-full border border-theme-subtle rounded-xl p-3 text-sm">

@@ -4,6 +4,22 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.10] — 2026-06
+
+Startup Hyve update check, climate card polish, and Canvas logo sizing tweaks.
+
+### Updates — Hyve self-update
+- **New:** Optional Hyve update check on server startup (`updates.hyve.check_on_startup`, default **on**). Toggle in Settings → Updates.
+- **Change:** Startup check reuses the same GitHub release flow as scheduled checks (and respects auto-update if enabled).
+
+### UI — Climate card
+- **Fix:** Edit/delete controls visible in dashboard edit mode (no longer clipped by the carousel viewport).
+- **Change:** Removed redundant HVAC status pill from the card header.
+- **Change:** Temperature glow fades on all sides (not only horizontally).
+
+### UI — Canvas theme
+- **Change:** Smaller logo on login and boot screens.
+
 ## [0.9.9.9] — 2026-06
 
 Canvas theme branding: custom logo lockup on login, boot, and sidebar.

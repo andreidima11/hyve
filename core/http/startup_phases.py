@@ -71,6 +71,19 @@ async def startup_scheduler() -> None:
         report_subsystem("scheduler", "degraded", message=str(exc))
 
 
+async def startup_hyve_update_check() -> None:
+    async def _run() -> None:
+        await asyncio.sleep(3)
+        try:
+            from routers.updates import run_startup_hyve_check
+
+            await asyncio.to_thread(run_startup_hyve_check)
+        except Exception as exc:
+            log_line("error", "⚠️", "UPDATES", f"Startup Hyve check failed: {exc}")
+
+    asyncio.create_task(_run(), name="startup-hyve-update-check")
+
+
 async def startup_entity_store() -> None:
     try:
         entity_store = get_entity_store()

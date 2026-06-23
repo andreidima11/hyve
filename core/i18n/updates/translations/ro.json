@@ -44,6 +44,8 @@
   "hyve_mode_git": "Git checkout (dev)",
   "hyve_hint_artifact": "Actualizare prin pachet pre-compilat (recomandat)",
   "auto_check_hint_hyve": "Cât de des să verifice automat dacă există o versiune nouă Hyve.",
+  "check_on_startup_label": "Verificare la pornire",
+  "check_on_startup_hint": "La pornirea serverului, verifică pe GitHub dacă există o versiune nouă Hyve.",
   "deps_description": "Verificare automată și actualizare a pachetelor Python folosite de Hyve.",
   "addons_description": "Verificare automată a actualizărilor pentru add-on-urile instalate.",
   "no_addons": "Niciun add-on instalat.",

@@ -428,6 +428,22 @@ def _scheduled_hyve_check():
         log.warning("Hyve auto-update failed: %s", exc)
 
 
+def hyve_check_on_startup_enabled() -> bool:
+    hyve = (settings.CFG.get("updates") or {}).get("hyve") or {}
+    if "check_on_startup" not in hyve:
+        return True
+    return bool(hyve.get("check_on_startup"))
+
+
+def run_startup_hyve_check() -> None:
+    """Check for Hyve updates once after server boot (if enabled in settings)."""
+    if not hyve_check_on_startup_enabled():
+        log.info("Hyve startup update check disabled in settings.")
+        return
+    log.info("Running Hyve update check at startup...")
+    _scheduled_hyve_check()
+
+
 def schedule_hyve_check():
     """Register or remove the Hyve self-update cron job based on config."""
     from core.scheduler_service import scheduler

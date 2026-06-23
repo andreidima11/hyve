@@ -148,10 +148,12 @@
     max-width: 100%;
 }
 
-[data-theme="canvas"] .hyve-hero-wrap--login .hyve-logo--hero,
-[data-theme="canvas"] #login-overlay .hyve-logo--hero,
 [data-theme="canvas"] #setup-overlay .hyve-logo--hero {
     width: clamp(14rem, 72vw, 21rem);
+}
+
+[data-theme="canvas"] #login-overlay .hyve-logo--hero {
+    width: clamp(7rem, 36vw, 10.5rem);
 }
 
 [data-theme="canvas"] .hyve-logo--sidebar {
@@ -178,7 +180,7 @@
 }
 
 [data-theme="canvas"] .hyve-logo--boot {
-    width: clamp(7rem, 22vw, 9rem);
+    width: clamp(3.5rem, 11vw, 4.5rem);
 }
 
 [data-theme="canvas"] .hyve-hero-wrap--login {

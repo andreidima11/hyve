@@ -180,6 +180,7 @@ export async function saveConfig(eOrOptions?: Event | SaveConfigOptions, trigger
         updates: {
             hyve: {
                 check_interval: cfgField('updates_hyve_check_interval')?.value || 'never',
+                check_on_startup: (cfgField('updates_hyve_check_on_startup') as HTMLInputElement | null)?.checked !== false,
                 auto_update: !!(cfgField('updates_hyve_auto_update') as HTMLInputElement | null)?.checked,
             },
             addons: {

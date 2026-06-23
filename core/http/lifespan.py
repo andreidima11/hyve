@@ -9,6 +9,7 @@ from core.http.runtime import set_main_loop
 from core.http.startup_phases import (
     shutdown_services,
     startup_entity_store,
+    startup_hyve_update_check,
     startup_infrastructure,
     startup_integrations,
     startup_intelligence,
@@ -28,6 +29,7 @@ async def lifespan(app):
 
     await startup_infrastructure(app)
     await startup_scheduler()
+    await startup_hyve_update_check()
     await startup_entity_store()
     await startup_integrations(mark_startup_task_done)
     await startup_mqtt_bridges()

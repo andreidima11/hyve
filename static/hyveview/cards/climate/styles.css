@@ -163,27 +163,35 @@
 }
 
 .hyve-dashboard-card--climate .hyve-dashboard-card__climate-mode-pill {
-    display: inline-flex;
-    align-items: center;
-    max-width: 100%;
-    padding: 0.18rem 0.5rem;
-    border-radius: 999px;
-    border: 1px solid color-mix(in oklab, var(--climate-accent) 34%, transparent);
-    background: var(--climate-accent-soft);
-    color: var(--climate-accent);
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: none;
 }
 
 .hyve-dashboard-card--climate .hyve-dashboard-card__edit {
     position: absolute;
     top: 0.35rem;
     right: 0.35rem;
+    z-index: 12;
+}
+
+.hyve-dashboard-card--climate .hyve-dashboard-card__climate-hero-glow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.85;
+    background: radial-gradient(
+        ellipse 72% 100% at 50% 50%,
+        var(--climate-accent-glow) 0%,
+        color-mix(in oklab, var(--climate-accent-glow) 42%, transparent) 44%,
+        transparent 72%
+    );
+    mask-image:
+        linear-gradient(to right, transparent 0%, #000 14%, #000 86%, transparent 100%),
+        linear-gradient(to bottom, transparent 0%, #000 10%, #000 90%, transparent 100%);
+    mask-composite: intersect;
+    -webkit-mask-image:
+        linear-gradient(to right, transparent 0%, #000 14%, #000 86%, transparent 100%),
+        linear-gradient(to bottom, transparent 0%, #000 10%, #000 90%, transparent 100%);
+    -webkit-mask-composite: source-in;
 }
 
 .hyve-dashboard-card--climate .hyve-dashboard-card__climate-hero {
@@ -197,15 +205,7 @@
     min-width: 4.25rem;
     padding: 0.15rem 0.25rem;
     text-align: center;
-}
-
-.hyve-dashboard-card--climate .hyve-dashboard-card__climate-hero-glow {
-    position: absolute;
-    inset: 8% 0;
-    border-radius: 999px;
-    background: radial-gradient(circle at 50% 55%, var(--climate-accent-glow), transparent 68%);
-    opacity: 0.85;
-    pointer-events: none;
+    overflow: hidden;
 }
 
 .hyve-dashboard-card--climate .hyve-dashboard-card__climate-hero-icon {
