@@ -1,6 +1,6 @@
 /** HTTP client with JWT refresh for Hyve API routes. */
-/** Refresh access token this often while the tab is open (access token default: 8 h). */
-const PROACTIVE_REFRESH_MS = 90 * 60 * 1000;
+/** Refresh access token this often while the tab is open (access token default: 24 h). */
+const PROACTIVE_REFRESH_MS = 45 * 60 * 1000;
 export let authToken = localStorage.getItem('hyve_token');
 /** Canonical bearer token — reads localStorage so every ESM copy stays in sync. */
 export function resolveAuthToken() {

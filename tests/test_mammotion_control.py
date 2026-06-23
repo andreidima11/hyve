@@ -99,6 +99,55 @@ def test_control_lawn_mower_start():
     assert result["status"] == "ok"
 
 
+def test_control_mowing_zone_select_via_entity_id():
+    coord = MagicMock()
+    coord.device_name = "Luba-TEST01"
+    coord.apply_config_select = AsyncMock()
+
+    async def _run():
+        return await control_mammotion(
+            coord,
+            "select.luba_test01_mowing_zone",
+            "set",
+            {"value": "111"},
+        )
+
+    result = asyncio.run(_run())
+    coord.apply_config_select.assert_awaited_once_with("mowing_zone", "111")
+    assert result["status"] == "ok"
+
+
+def test_set_mowing_zone_single_area():
+    from components.mammotion.coordinator import MowerCoordinator
+
+    coord = MowerCoordinator(MagicMock(), "Luba-TEST01")
+    coord.set_mowing_zone("111")
+    assert coord.operation_settings.areas == [111]
+
+
+def test_set_mowing_zone_all_resets_to_every_area(monkeypatch):
+    from components.mammotion.coordinator import MowerCoordinator
+
+    client = MagicMock()
+    client.get_device_by_name.return_value = MagicMock()
+    coord = MowerCoordinator(client, "Luba-TEST01")
+    coord.operation_settings.areas = [111]
+    monkeypatch.setattr(
+        "components.mammotion.snapshot.map_data.iter_map_area_pairs",
+        lambda _device: [(111, "Front"), (222, "Back")],
+    )
+    coord.set_mowing_zone("all")
+    assert coord.operation_settings.areas == [111, 222]
+
+
+def test_set_mowing_zone_invalid_value_raises():
+    from components.mammotion.coordinator import MowerCoordinator
+
+    coord = MowerCoordinator(MagicMock(), "Luba-TEST01")
+    with pytest.raises(ValueError, match="Zonă de lucru"):
+        coord.set_mowing_zone("not-a-hash")
+
+
 def test_control_nudge_button_calls_move_left():
     coord = MagicMock()
     coord.device_name = "Luba-TEST01"

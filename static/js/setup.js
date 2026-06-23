@@ -3,64 +3,16 @@
  */
 import { setAuthToken, setRefreshToken } from './api.js';
 import { t, setLanguage, applyTranslations } from './lang/index.js';
-const COMMON_TIMEZONES = [
-    'Europe/Bucharest',
-    'Europe/London',
-    'Europe/Berlin',
-    'Europe/Paris',
-    'Europe/Madrid',
-    'Europe/Rome',
-    'Europe/Athens',
-    'Europe/Helsinki',
-    'Europe/Warsaw',
-    'Europe/Chisinau',
-    'America/New_York',
-    'America/Chicago',
-    'America/Denver',
-    'America/Los_Angeles',
-    'America/Toronto',
-    'Asia/Dubai',
-    'Asia/Singapore',
-    'Asia/Tokyo',
-    'Australia/Sydney',
-    'UTC',
-];
+import { populateTimezoneSelect } from './timezones.js';
+function _populateTimezones(preferred) {
+    populateTimezoneSelect(document.getElementById('setup-timezone'), preferred);
+}
 let _step = 1;
 let _status = {};
 let _setupToken = '';
 function _inputValue(id) {
     const el = document.getElementById(id);
     return el?.value || '';
-}
-function _detectTimezone() {
-    try {
-        return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-    }
-    catch (_) {
-        return '';
-    }
-}
-function _populateTimezones(preferred) {
-    const select = document.getElementById('setup-timezone');
-    if (!select)
-        return;
-    const detected = _detectTimezone();
-    const values = new Set(COMMON_TIMEZONES);
-    if (detected)
-        values.add(detected);
-    if (preferred)
-        values.add(preferred);
-    select.innerHTML = '';
-    for (const tz of [...values].sort()) {
-        const opt = document.createElement('option');
-        opt.value = tz;
-        opt.textContent = tz;
-        select.appendChild(opt);
-    }
-    const pick = preferred || detected || 'Europe/Bucharest';
-    if ([...select.options].some(o => o.value === pick)) {
-        select.value = pick;
-    }
 }
 function _showError(message) {
     const el = document.getElementById('setup-error');

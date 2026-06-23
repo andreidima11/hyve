@@ -4,6 +4,16 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.12] — 2026-06
+
+Mammotion work-area selection and a Tapo camera setup fix.
+
+### Integrations — Mammotion
+- **New:** Work-area `select` entity (mowing zone picker) per mower, mirroring the Mammotion-HA integration. Choose **All zones** or a single mapped area; the choice drives mow start and route planning. Per-area switches remain available.
+
+### Integrations — Tapo
+- **Fix:** Camera setup no longer reports "Adresa IP este obligatorie." at step 2 — the IP and credentials entered at step 1 are now carried across wizard steps (and restored when navigating back).
+
 ## [0.9.9.11] — 2026-06
 
 Daylight branding, settings UX, persistent login, and more reliable in-app updates.

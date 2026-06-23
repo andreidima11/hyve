@@ -35,3 +35,58 @@ def test_select_entity_includes_dropdown_options():
     assert len(opts) >= 4
     assert channel["state"] == "double_grid"
     assert any(o["value"] == "double_grid" for o in opts)
+
+
+def _mower_row_with_areas(selected: set[int]) -> MowerRow:
+    return MowerRow.from_snapshot(
+        {
+            "device_name": "Luba-TEST01",
+            "name": "Robot",
+            "online": True,
+            "status": {"sys_status": 11, "battery": 80},
+            "flags": {},
+            "areas": [
+                {"hash": 111, "name": "Front", "selected": 111 in selected},
+                {"hash": 222, "name": "Back", "selected": 222 in selected},
+            ],
+        }
+    )
+
+
+def test_mowing_zone_select_lists_areas_and_all_option():
+    entities = build_mower_entities(_mower_row_with_areas({111}))
+    zone = next(e for e in entities if e["entity_id"].endswith("_mowing_zone"))
+    assert zone["domain"] == "select"
+    assert zone["controllable"] is True
+    options = zone["attributes"]["capabilities"]["options"]
+    values = [o["value"] for o in options]
+    assert values[0] == "all"
+    assert "111" in values and "222" in values
+    labels = {o["value"]: o["label"] for o in options}
+    assert labels["111"] == "Front"
+    # exactly one area selected → that area is the current option
+    assert zone["state"] == "111"
+
+
+def test_mowing_zone_state_all_when_multiple_or_none_selected():
+    multi = build_mower_entities(_mower_row_with_areas({111, 222}))
+    zone_multi = next(e for e in multi if e["entity_id"].endswith("_mowing_zone"))
+    assert zone_multi["state"] == "all"
+
+    none = build_mower_entities(_mower_row_with_areas(set()))
+    zone_none = next(e for e in none if e["entity_id"].endswith("_mowing_zone"))
+    assert zone_none["state"] == "all"
+
+
+def test_no_mowing_zone_select_without_areas():
+    row = MowerRow.from_snapshot(
+        {
+            "device_name": "Luba-TEST01",
+            "name": "Robot",
+            "online": True,
+            "status": {"sys_status": 11, "battery": 80},
+            "flags": {},
+        }
+    )
+    entities = build_mower_entities(row)
+    assert not any(e["entity_id"].endswith("_mowing_zone") for e in entities)

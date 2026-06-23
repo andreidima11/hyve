@@ -379,6 +379,8 @@ def build_mower_entities(row: MowerRow) -> list[dict[str, Any]]:
             )
         )
 
+    zone_options: list[dict[str, str]] = []
+    selected_area_hashes: list[str] = []
     for area in row.areas:
         if not isinstance(area, dict):
             continue
@@ -387,6 +389,9 @@ def build_mower_entities(row: MowerRow) -> list[dict[str, Any]]:
             continue
         key = f"area_{area_hash}"
         area_name = str(area.get("name") or key)
+        zone_options.append({"value": str(area_hash), "label": area_name})
+        if area.get("selected"):
+            selected_area_hashes.append(str(area_hash))
         out.append(
             {
                 **base_entity(
@@ -409,6 +414,29 @@ def build_mower_entities(row: MowerRow) -> list[dict[str, Any]]:
                 },
             }
         )
+
+    if zone_options:
+        # Single work-area picker (parity with the Mammotion-HA mowing-zone select).
+        # "all" mows every mapped area; a hash value restricts mowing to one zone.
+        all_option = {"value": "all", "label": "All zones"}
+        options = [all_option, *zone_options]
+        current_zone = selected_area_hashes[0] if len(selected_area_hashes) == 1 else "all"
+        zone_sel = base_entity(
+            device_name=row.device_name,
+            obj=row.obj,
+            label=row.label,
+            domain="select",
+            key="mowing_zone",
+            state=current_zone,
+            controllable=True,
+            online=row.online,
+            icon="fas fa-map-location-dot",
+            extra_attrs={"options": options},
+        )
+        zone_sel["name"] = f"{row.label} Mowing zone"
+        zone_sel["friendly_name"] = zone_sel["name"]
+        zone_sel["attributes"]["capabilities"] = {"options": options}
+        out.append(zone_sel)
 
     for key, pred in MOWER_BUTTONS.items():
         if not pred(row.flags):

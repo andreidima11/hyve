@@ -567,6 +567,29 @@ class MowerCoordinator:
             areas.remove(area_hash)
         self.operation_settings.areas = areas
 
+    def _all_area_hashes(self) -> list[int]:
+        device = self.data
+        if device is None:
+            return []
+        try:
+            from components.mammotion.snapshot.map_data import iter_map_area_pairs
+
+            return [int(h) for h, _ in iter_map_area_pairs(device)]
+        except Exception:
+            return []
+
+    def set_mowing_zone(self, option: str) -> None:
+        """Pick the work area to mow: ``"all"`` mows everything, else one area hash."""
+        text = str(option or "").strip()
+        if text.lower() in {"", "all"}:
+            self.operation_settings.areas = self._all_area_hashes()
+            return
+        try:
+            area_hash = int(text)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Zonă de lucru invalidă: {option}") from exc
+        self.operation_settings.areas = [area_hash]
+
     async def apply_config_number(self, key: str, value: float) -> None:
         mapping = {
             "start_progress": "start_progress",
@@ -595,6 +618,9 @@ class MowerCoordinator:
         raise ValueError(f"Number necunoscut: {key}")
 
     async def apply_config_select(self, key: str, option: str) -> None:
+        if key == "mowing_zone":
+            self.set_mowing_zone(option)
+            return
         enum_maps: dict[str, tuple[Any, str]] = {
             "channel_mode": (CuttingMode, "channel_mode"),
             "mowing_laps": (BorderPatrolMode, "mowing_laps"),

@@ -14,6 +14,9 @@ let _entriesCurrent: IntegrationConfigEntriesState = { slug: null, schema: [], e
 const _syncingEntryIds = new Set<string>();
 let _tapoWizardStep = 1;
 let _tapoEntryPatch: Record<string, unknown> = {};
+// Buffers the values typed on previous wizard steps (e.g. host/credentials from
+// step 1) so they are still sent when step 2 hides those inputs from the DOM.
+let _tapoWizardData: Record<string, unknown> = {};
 
 function _isTapoWizard(entry: Record<string, unknown> | null): boolean {
     return _entriesCurrent.slug === 'tapo' && !entry?.entry_id;
@@ -226,6 +229,7 @@ function openEntryEditor(entry: Record<string, unknown> | null): void {
     if (!modal || !fieldsEl || !titleInput || !errEl || !titleEl) return;
     _tapoWizardStep = 1;
     _tapoEntryPatch = {};
+    _tapoWizardData = {};
     errEl.classList.add('hidden'); errEl.textContent = '';
     titleEl.textContent = entry && entry.title ? t('integrations.entry_edit_title', { title: String(entry.title) }) : t('integrations.entry_add_title', { label: _entriesCurrent.label });
     (titleInput as HTMLInputElement).value = entry?.title ? String(entry.title) : '';
@@ -251,7 +255,7 @@ function openEntryEditor(entry: Record<string, unknown> | null): void {
                     back.type = 'button';
                     back.className = 'text-[10px] text-slate-400 hover:text-slate-200 mb-2 underline-offset-2 hover:underline';
                     back.textContent = t('integrations.tapo_wizard_back');
-                    back.onclick = () => { _tapoWizardStep = 1; errEl.classList.add('hidden'); renderFields(); };
+                    back.onclick = () => { _tapoWizardData = collectData(); _tapoWizardStep = 1; errEl.classList.add('hidden'); renderFields(); };
                     fieldsEl.appendChild(back);
                 }
             } else {
@@ -266,7 +270,10 @@ function openEntryEditor(entry: Record<string, unknown> | null): void {
         const required = field.required ? '<span class="text-red-400">*</span>' : '';
         const help = field.help ? `<div class="text-[10px] text-slate-500 mt-1">${escapeHtml(field.help)}</div>` : '';
         let input = '';
-        const value = data[fkey] !== undefined ? data[fkey] : (field.default !== undefined ? field.default : '');
+        const buffered = _tapoWizardData[fkey];
+        const value = buffered !== undefined
+            ? buffered
+            : (data[fkey] !== undefined ? data[fkey] : (field.default !== undefined ? field.default : ''));
         const placeholder = field.placeholder ? `placeholder="${escapeHtml(field.placeholder)}"` : '';
         if (field.type === 'link') {
             const href = escapeHtmlAttr(field.url || '#');
@@ -306,7 +313,7 @@ function openEntryEditor(entry: Record<string, unknown> | null): void {
     if (cancelBtn) cancelBtn.onclick = close;
     // Helper: collect form data, skipping masked secrets when editing.
     const collectData = () => {
-        const out: Record<string, unknown> = { ..._tapoEntryPatch };
+        const out: Record<string, unknown> = { ..._tapoWizardData, ..._tapoEntryPatch };
         for (const field of _entriesCurrent.schema) {
             if (field.type === 'oauth' || field.type === 'link') continue;
             const fkey = String(field.key || '');
@@ -351,6 +358,7 @@ function openEntryEditor(entry: Record<string, unknown> | null): void {
                         _tapoEntryPatch = { ..._tapoEntryPatch, ...o.entry_patch };
                     }
                     if (_isTapoWizard(entry) && o.requires_camera_rtsp && _tapoWizardStep === 1) {
+                        _tapoWizardData = collectData();
                         _tapoWizardStep = 2;
                         renderFields();
                     }
