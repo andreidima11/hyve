@@ -700,6 +700,25 @@ class TapoEntity(BaseEntity):
                     "controllable": True,
                     "attributes": {**base_attrs, "tapo_feature": "person_detection"},
                 })
+            # Privacy mode (lens mask) — exposed by python-kasa only as a module
+            # (``.enabled`` / ``set_enabled``), never as a Feature, so the generic
+            # feature loop can't see it. Surface it explicitly like motion/person.
+            lens_mask = dev.modules.get("LensMask")
+            if lens_mask is not None:
+                try:
+                    privacy_on = bool(lens_mask.enabled)
+                except Exception:
+                    privacy_on = False
+                _add({
+                    "entity_id": f"switch.{prefix}_{key}_privacy_mode",
+                    "name": f"{full_name} mod confidențialitate",
+                    "state": "on" if privacy_on else "off",
+                    "domain": "switch",
+                    "source": "tapo",
+                    "unit": "",
+                    "controllable": True,
+                    "attributes": {**base_attrs, "tapo_feature": "privacy_mode"},
+                })
 
         if dtype_val in _LIGHT_TYPE_VALUES | _SWITCH_TYPE_VALUES or (
             dtype_val not in _CAMERA_TYPE_VALUES
@@ -925,6 +944,11 @@ class TapoEntity(BaseEntity):
                 mod = target.modules.get("PersonDetection")
                 if mod:
                     await mod.set_enabled(enable)
+            elif feature == "privacy_mode":
+                mod = target.modules.get("LensMask")
+                if mod:
+                    enable_pm = (not bool(mod.enabled)) if action == "toggle" else enable
+                    await mod.set_enabled(enable_pm)
             elif feature == "led":
                 led = target.features.get("led")
                 if led:

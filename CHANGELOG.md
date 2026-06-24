@@ -4,6 +4,13 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.15] — 2026-06
+
+Tapo privacy mode now shows up as a switch.
+
+### Integrations — Tapo / Cameras
+- **Fix:** The **privacy mode (lens mask)** switch now appears for cameras that support it. python-kasa exposes it only as a module (not a feature), so it's surfaced explicitly like motion/person detection and is toggleable.
+
 ## [0.9.9.14] — 2026-06
 
 Tapo cameras now expose their full capability set (privacy mode and more), plus PTZ refinements.
