@@ -4,6 +4,15 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.14] — 2026-06
+
+Tapo cameras now expose their full capability set (privacy mode and more), plus PTZ refinements.
+
+### Integrations — Tapo / Cameras
+- **New:** Every python-kasa device feature is now exposed automatically instead of a fixed list — the **privacy mode / lens-mask** switch, flip, night-vision selector, image controls, energy sensors, etc. now appear and are controllable. The entity set tracks the device's real capabilities, so a re-sync surfaces anything previously missing.
+- **New:** PTZ cameras expose **pan/tilt step** (number) and **PTZ preset** (select, jump to a saved preset).
+- **Fix:** No more duplicate PTZ buttons — pan/tilt movement stays on the dedicated PTZ pad/buttons while the generic feature list keeps only the useful extras.
+
 ## [0.9.9.13] — 2026-06
 
 Mammotion work-area zones now load automatically, and a Tapo RTSP probe fix for modern ffmpeg.

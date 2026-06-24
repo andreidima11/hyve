@@ -48,6 +48,51 @@ _PTZ_BUTTONS = (
     ("move_right", "Dreapta", "ptz_right"),
 )
 
+# Feature ids already surfaced via dedicated/primary entities — skip them in the
+# generic python-kasa Feature enumeration to avoid duplicate entities.
+_FEATURE_SKIP_IDS = frozenset({
+    "state",  # primary on/off — exposed as the main switch/light entity
+    "rssi",  # exposed as a sensor from dev.rssi
+    "led",  # dedicated switch
+    "motion_detection",  # dedicated switch
+    "person_detection",  # dedicated switch
+    "brightness",  # folded into the light entity attributes
+    "on_since",
+    # PanTilt action features — already exposed as the dedicated PTZ buttons /
+    # camera pad (move_*/ptz_* → _ptz_move). Keep pan_step/tilt_step/ptz_preset.
+    "pan_left",
+    "pan_right",
+    "tilt_up",
+    "tilt_down",
+})
+
+
+def _coerce_choice(feature: Any, option: Any) -> Any:
+    """Match a UI string back to the original ``Feature.choices`` value/type."""
+    try:
+        choices = feature.choices or []
+    except Exception:
+        choices = []
+    target = str(option)
+    for choice in choices:
+        if str(choice) == target:
+            return choice
+    return option
+
+
+def _feature_domain(feature: Any) -> str | None:
+    """Map a python-kasa ``Feature.type`` to a Hyve entity domain."""
+    from kasa import Feature
+
+    return {
+        Feature.Type.Switch: "switch",
+        Feature.Type.BinarySensor: "binary_sensor",
+        Feature.Type.Sensor: "sensor",
+        Feature.Type.Number: "number",
+        Feature.Type.Choice: "select",
+        Feature.Type.Action: "button",
+    }.get(feature.type)
+
 
 def _require_kasa():
     """Import python-kasa lazily so the provider registers even if the dep was missing at boot."""
@@ -705,6 +750,12 @@ class TapoEntity(BaseEntity):
                 "attributes": {**base_attrs, "tapo_feature": "led"},
             })
 
+        # Generic exposure of every remaining python-kasa Feature (privacy mode /
+        # lens mask, flip, night vision, image controls, energy sensors, …) so the
+        # entity set tracks the device's real capabilities instead of a fixed list.
+        for entity in self._feature_entities(dev, prefix=prefix, key=key, full_name=full_name, base_attrs=base_attrs):
+            _add(entity)
+
         for child in (dev.children or {}).values():
             try:
                 await child.update()
@@ -717,6 +768,76 @@ class TapoEntity(BaseEntity):
             )
 
         return items
+
+    def _feature_entities(
+        self,
+        dev: Any,
+        *,
+        prefix: str,
+        key: str,
+        full_name: str,
+        base_attrs: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        from kasa import Feature
+
+        out: list[dict[str, Any]] = []
+        for feat_id, feat in (dev.features or {}).items():
+            if feat_id in _FEATURE_SKIP_IDS:
+                continue
+            try:
+                if feat.category == Feature.Category.Debug:
+                    continue
+                domain = _feature_domain(feat)
+                if domain is None:
+                    continue
+                controllable = domain in ("switch", "number", "select", "button")
+                attrs: dict[str, Any] = {
+                    **base_attrs,
+                    "tapo_feature": feat_id,
+                    "tapo_feature_kind": "feature",
+                }
+                if domain == "button":
+                    state: Any = "idle"
+                else:
+                    raw = feat.value
+                    if domain in ("switch", "binary_sensor"):
+                        state = "on" if raw else "off"
+                    elif raw is None:
+                        state = ""
+                    else:
+                        state = raw
+
+                unit = ""
+                if domain in ("sensor", "number"):
+                    unit = str(feat.unit or "")
+                if domain == "number":
+                    try:
+                        attrs["min"] = feat.minimum_value
+                        attrs["max"] = feat.maximum_value
+                    except Exception:
+                        pass
+                if domain == "select":
+                    try:
+                        options = [{"value": str(c), "label": str(c)} for c in (feat.choices or [])]
+                    except Exception:
+                        options = []
+                    if options:
+                        attrs["options"] = options
+                        attrs["capabilities"] = {"options": options}
+
+                out.append({
+                    "entity_id": f"{domain}.{prefix}_{key}_{feat_id}",
+                    "name": f"{full_name} {feat.name}".strip(),
+                    "state": state,
+                    "domain": domain,
+                    "source": "tapo",
+                    "unit": unit,
+                    "controllable": controllable,
+                    "attributes": attrs,
+                })
+            except Exception as exc:
+                log.debug("tapo feature %s skipped for %s: %s", feat_id, key, exc)
+        return out
 
     async def _build_payload(self) -> dict[str, Any]:
         section = self._section()
@@ -808,6 +929,27 @@ class TapoEntity(BaseEntity):
                 led = target.features.get("led")
                 if led:
                     await led.set_value(enable)
+            elif feature and feature in (target.features or {}):
+                feat = target.features[feature]
+                if domain == "button":
+                    await feat.set_value(True)
+                elif domain == "number":
+                    raw = data.get("value", data.get("number"))
+                    if raw is None:
+                        raise ValueError(f"Lipsește valoarea pentru {entity_id}")
+                    try:
+                        num: Any = int(raw)
+                    except (TypeError, ValueError):
+                        num = float(raw)
+                    await feat.set_value(num)
+                elif domain == "select":
+                    opt = data.get("value", data.get("option"))
+                    if opt is None:
+                        raise ValueError(f"Lipsește opțiunea pentru {entity_id}")
+                    await feat.set_value(_coerce_choice(feat, opt))
+                else:  # switch
+                    enable_feat = (not bool(feat.value)) if action == "toggle" else enable
+                    await feat.set_value(enable_feat)
             elif domain == "light" and data.get("brightness") is not None:
                 light_mod = target.modules.get("Light") or target.modules.get(getattr(Module, "Light", "Light"))
                 if light_mod and hasattr(light_mod, "set_brightness"):
