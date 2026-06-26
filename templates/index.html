@@ -810,6 +810,35 @@
     <div id="overlay" class="hidden" aria-hidden="true"></div>
 
     <script>window.__appVersion = '{{ app_version }}'; window.__cacheBust = '{{ cache_bust }}';</script>
+    <script>
+      (function () {
+        var BOOT_FAILSAFE_MS = 35000;
+        var done = false;
+        function finish() { done = true; }
+        window.addEventListener('hyve:boot-complete', finish, { once: true });
+        window.setTimeout(function () {
+          if (done) return;
+          var text = document.getElementById('boot-overlay-text');
+          var overlay = document.getElementById('boot-overlay');
+          if (text) text.textContent = 'Loading is taking too long. Try refresh or open in a private tab.';
+          if (overlay && !overlay.classList.contains('is-hidden')) {
+            var login = document.getElementById('login-overlay');
+            if (login) {
+              login.classList.remove('hidden');
+              login.classList.add('flex');
+            }
+            overlay.classList.add('is-hidden');
+            overlay.setAttribute('aria-busy', 'false');
+          }
+        }, BOOT_FAILSAFE_MS);
+        window.addEventListener('error', function (ev) {
+          var src = ev && ev.filename ? String(ev.filename) : '';
+          if (src.indexOf('/static/dist/') === -1 && src.indexOf('/static/js/') === -1) return;
+          var text = document.getElementById('boot-overlay-text');
+          if (text) text.textContent = 'App failed to load. Refresh the page or clear Safari website data for this host.';
+        }, true);
+      })();
+    </script>
         <script type="module" src="/static/dist/icon_picker.js?v={{ cache_bust }}"></script>
         <script type="module" src="/static/dist/app.js?v={{ cache_bust }}"></script>
     <script>

@@ -4,7 +4,15 @@
 
 import { t } from '../lang/index.js';
 
-export let currentSessionId: string | null = localStorage.getItem('hyve_session_id') || null;
+function _safeSessionId(): string | null {
+    try {
+        return localStorage.getItem('hyve_session_id');
+    } catch {
+        return null;
+    }
+}
+
+export let currentSessionId: string | null = _safeSessionId() || null;
 
 export function setCurrentSessionId(id: string | null): void {
     currentSessionId = id;

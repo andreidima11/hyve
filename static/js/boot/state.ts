@@ -1,6 +1,6 @@
 /** Boot state machine — setup, auth, dashboard first paint. */
 
-import { clearAuthToken, initProactiveSessionRefresh, refreshSession, suppressLogout } from '../api.js';
+import { clearAuthToken, initProactiveSessionRefresh, refreshSession, suppressLogout, fetchWithTimeout } from '../api.js';
 import { loadUserProfile, restoreRememberedCredentials, tryAutoLogin } from '../auth.js';
 import { fetchSetupStatus, showSetupWizard } from '../setup.js';
 import { switchTab } from '../ui.js';
@@ -8,7 +8,7 @@ import { setLanguage, t, loadComponentTranslations } from '../lang/index.js';
 import { applyDashboardEditAccess } from '../dashboard/edit_access.js';
 import { initNotifications } from '../notifications.js';
 import { startStartupStatusPolling } from '../startup_status.js';
-import { completeBootProgress, refreshBootProgress, resetBootProgress } from '../boot_progress.js';
+import { completeBootProgress, refreshBootProgress, resetBootProgress, setBootProgress } from '../boot_progress.js';
 import { setIsAdmin, setNotificationTimer } from '../user_context.js';
 import { setUserProfileContext } from '../user_profile.js';
 import { startLogStream } from '../ui.js';
@@ -23,6 +23,11 @@ function hideBootOverlay() {
     if (!overlay) return;
     overlay.classList.add('is-hidden');
     overlay.setAttribute('aria-busy', 'false');
+    try {
+        window.dispatchEvent(new CustomEvent('hyve:boot-complete'));
+    } catch {
+        /* ignore */
+    }
 }
 
 function setBootMessage(message: string) {
@@ -58,9 +63,9 @@ async function loadAuthenticatedSession() {
 
 async function syncUiLanguageFromConfig() {
     try {
-        const res = await fetch('/api/config', {
+        const res = await fetchWithTimeout('/api/config', {
             headers: { Authorization: 'Bearer ' + (localStorage.getItem('hyve_token') || '') },
-        });
+        }, 10_000);
         if (!res.ok) return;
         const cfg = await res.json();
         const lang = cfg?.ui?.language;
@@ -102,7 +107,24 @@ function startBackgroundLoaders(profile: UserProfileResponse & { id?: string | n
     });
 }
 
-async function bootHyve() {
+const BOOT_WATCHDOG_MS = 30_000;
+
+function hasStoredCredentials(): boolean {
+    try {
+        const token = localStorage.getItem('hyve_token');
+        const refresh = localStorage.getItem('hyve_refresh_token');
+        const remember = localStorage.getItem('hyve_remember');
+        return !!(
+            (token && token !== 'null' && token !== 'undefined')
+            || (refresh && refresh !== 'null' && refresh !== 'undefined')
+            || remember
+        );
+    } catch {
+        return false;
+    }
+}
+
+async function bootHyveInternal() {
     // Always start with overlay visible. CSS transition handles the fade.
     const overlay = document.getElementById('boot-overlay');
     if (overlay) overlay.classList.remove('is-hidden');
@@ -134,15 +156,23 @@ async function bootHyve() {
     }
     suppressLogout(false);
 
+    if (!hasStoredCredentials()) {
+        setBootProgress(22, t('app.boot_step_auth'));
+        completeBootProgress();
+        showLoginScreen();
+        return;
+    }
+
     // Step 1: ensure we have a valid token (existing → autologin → fail)
-    await refreshBootProgress(22, t('app.boot_step_auth'));
-    const stored = localStorage.getItem('hyve_token');
+    setBootProgress(22, t('app.boot_step_auth'));
+    let stored: string | null = null;
+    try { stored = localStorage.getItem('hyve_token'); } catch { stored = null; }
     let hasToken = stored && stored !== 'null' && stored !== 'undefined';
     let profile: (UserProfileResponse & { id?: string | number }) | null = null;
 
     if (hasToken) {
         try {
-            profile = await loadAuthenticatedSession();
+            profile = await withDashboardTimeout(loadAuthenticatedSession(), 12_000, 'Profile timeout');
         } catch (e) {
             profile = null;
         }
@@ -151,8 +181,8 @@ async function bootHyve() {
     if (!profile) {
         // Access token expired — refresh before wiping credentials or showing login.
         try {
-            if (await refreshSession()) {
-                profile = await loadAuthenticatedSession();
+            if (await withDashboardTimeout(refreshSession(), 12_000, 'Refresh timeout')) {
+                profile = await withDashboardTimeout(loadAuthenticatedSession(), 12_000, 'Profile timeout');
             }
         } catch {
             profile = null;
@@ -161,10 +191,10 @@ async function bootHyve() {
 
     if (!profile) {
         let recovered = false;
-        try { recovered = await tryAutoLogin(); } catch { recovered = false; }
+        try { recovered = await withDashboardTimeout(tryAutoLogin(), 15_000, 'Auto-login timeout'); } catch { recovered = false; }
         if (recovered) {
             try {
-                profile = await loadAuthenticatedSession();
+                profile = await withDashboardTimeout(loadAuthenticatedSession(), 12_000, 'Profile timeout');
             } catch {
                 profile = null;
             }
@@ -212,6 +242,18 @@ async function bootHyve() {
     startBackgroundLoaders(profile);
 }
 
+async function bootHyve() {
+    let watchdog: ReturnType<typeof setTimeout> | null = null;
+    const watchdogPromise = new Promise<never>((_, reject) => {
+        watchdog = setTimeout(() => reject(new Error('Boot watchdog timeout')), BOOT_WATCHDOG_MS);
+    });
+    try {
+        await Promise.race([bootHyveInternal(), watchdogPromise]);
+    } finally {
+        if (watchdog) clearTimeout(watchdog);
+    }
+}
+
 window.bootHyve = bootHyve;
 
 function routeHashToView() {
@@ -237,8 +279,6 @@ function routeHashToView() {
     }
     return false;
 }
-
-window.bootHyve = bootHyve;
 
 export {
     bootHyve,

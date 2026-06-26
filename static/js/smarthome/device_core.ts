@@ -17,7 +17,7 @@ import { cameraLoaderMarkup, bindCameraPreviewLoaders } from '../camera_loader.j
 import { t, tState, applyTranslations, translateApiDetail } from '../lang/index.js';
 import { escapeHtml, escapeHtmlAttr, showToast, showConfirm, debounce } from '../utils.js';
 import { cameraPreferWebmPlayer } from '../camera_live.js';
-import { renderEntityModal, wireEntityRegistryEditor, wireEntityFriendlyNameEditor } from '../entity_renderers.js';
+import { renderEntityModal, wireEntityRegistryEditor, wireEntityFriendlyNameEditor, focusInlineEditInput } from '../entity_renderers.js';
 import { resolveEntityControlSlug } from '../entity_detail_modal.js';
 import {
     groupEntitiesIntoDevices,
@@ -929,8 +929,7 @@ function wireDeviceDetailNameEditor(container: ParentNode | null | undefined, de
         viewWrap?.classList.add('hidden');
         panel?.classList.remove('hidden');
         if (input) input.value = String(device.name || device.device_id || '');
-        input?.focus();
-        input?.select();
+        focusInlineEditInput(input);
     };
 
     if (editBtn) editBtn.onclick = showEdit;

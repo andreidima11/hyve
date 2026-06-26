@@ -217,6 +217,13 @@
 #entity-detail-modal .app-modal-body > * {
     max-width: 100%;
     box-sizing: border-box;
+    min-width: 0;
+}
+
+#entity-detail-modal .app-modal-body .hy-entity-edit-root,
+#entity-detail-modal .app-modal-body [data-entity-friendly-name-root],
+#entity-detail-modal .app-modal-body [data-entity-registry-root] {
+    overflow-x: clip;
 }
 
 #entity-detail-modal .app-modal-body pre {

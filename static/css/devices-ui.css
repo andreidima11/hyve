@@ -935,6 +935,8 @@
     font-weight: 760;
     letter-spacing: -0.02em;
     color: var(--text-heading);
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .hyd-page__titles p {
@@ -1070,10 +1072,63 @@
 .hyd-editable-name__edit-panel {
     margin-top: 0;
     min-width: 0;
+    max-width: 100%;
 }
 
 .hyd-editable-name__edit-panel .flex {
     min-width: 0;
+}
+
+/* Inline entity rename / registry editors (modal + smarthome detail) */
+.hy-entity-edit-root,
+[data-entity-friendly-name-root],
+[data-entity-registry-root] {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+}
+
+.hy-entity-edit-panel {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.hy-entity-edit-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.hy-entity-edit-id-line {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.hy-entity-edit-input {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    font-size: 1rem;
+}
+
+.hy-entity-edit-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
+}
+
+.hyd-editable-name--page-title:has(.hyd-editable-name__edit-panel:not(.hidden)) {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
 }
 
 .hyd-info-row__value-with-action {
@@ -1698,6 +1753,27 @@
 
     .hyd-page__titles h1 {
         font-size: 1.05rem;
+    }
+
+    .hy-entity-edit-row {
+        flex-wrap: wrap;
+    }
+
+    .hy-entity-edit-row--registry .hy-entity-edit-id-line {
+        flex: 1 1 100%;
+    }
+
+    .hy-entity-edit-row .hy-entity-edit-input,
+    .hyd-editable-name__input {
+        flex: 1 1 100%;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .hyd-editable-name__edit-panel {
+        flex-wrap: wrap;
+        align-items: stretch;
+        gap: 0.5rem;
     }
 }
 

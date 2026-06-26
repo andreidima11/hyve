@@ -4,6 +4,17 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.16] — 2026-06
+
+Safer first visit on mobile Safari, plus entity rename layout fixes.
+
+### Boot / Auth
+- **Fix:** App no longer stays on the loading screen forever on some iPhones at first visit. `localStorage` access is guarded when storage is blocked (private browsing / strict Safari settings), boot fetches have timeouts, and visitors without saved credentials go straight to login instead of waiting on auth polling.
+- **Fix:** Boot progress no longer blocks on `/api/startup/status`; a watchdog and HTML failsafe surface login if startup stalls.
+
+### UI — Smart Home / Integrations
+- **Fix:** Renaming entities with very long IDs no longer breaks the layout on mobile — edit rows wrap correctly, inputs use a 16px font (no iOS zoom jump), and long values are not fully selected on focus.
+
 ## [0.9.9.15] — 2026-06
 
 Tapo privacy mode now shows up as a switch.

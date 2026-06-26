@@ -1,6 +1,9 @@
 /** Boot overlay progress bar — monotonic client + optional server startup blend. */
 
+import { fetchWithTimeout } from './api.js';
+
 let _current = 0;
+const _BOOT_STATUS_TIMEOUT_MS = 5000;
 
 function _barEl(): HTMLElement | null {
     return document.getElementById('boot-overlay-progress');
@@ -47,11 +50,11 @@ export function mergeBootProgress(clientPercent: number, serverPercent: number, 
 
 export async function pollServerBootProgressOnce(): Promise<number> {
     try {
-        const res = await fetch('/api/startup/status', {
+        const res = await fetchWithTimeout('/api/startup/status', {
             method: 'GET',
             credentials: 'same-origin',
             headers: { Accept: 'application/json' },
-        });
+        }, _BOOT_STATUS_TIMEOUT_MS);
         if (!res.ok) return 0;
         const data = await res.json() as { progress?: number };
         return typeof data.progress === 'number' ? data.progress : 0;
@@ -61,8 +64,10 @@ export async function pollServerBootProgressOnce(): Promise<number> {
 }
 
 export async function refreshBootProgress(clientPercent: number, message?: string): Promise<void> {
-    const server = await pollServerBootProgressOnce();
-    mergeBootProgress(clientPercent, server, message);
+    mergeBootProgress(clientPercent, 0, message);
+    void pollServerBootProgressOnce().then((server) => {
+        mergeBootProgress(clientPercent, server, message);
+    });
 }
 
 export function completeBootProgress(message?: string): void {

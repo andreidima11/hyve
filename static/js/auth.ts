@@ -1,4 +1,4 @@
-import { apiCall, clearAuthToken, refreshSession, setAuthToken, setRefreshToken } from './api.js';
+import { apiCall, clearAuthToken, refreshSession, setAuthToken, setRefreshToken, fetchWithTimeout } from './api.js';
 import type { RememberCredentialsPayload, TokenResponse, UserProfileResponse } from './types/dashboard.js';
 
 const _RM_KEY = 'hyve_remember';
@@ -99,7 +99,7 @@ export async function tryAutoLogin(): Promise<boolean> {
         }
         if (data.t) {
             if (data.rt) setRefreshToken(data.rt);
-            const res = await fetch('/api/users/me', { headers: { Authorization: `Bearer ${data.t}` } });
+            const res = await fetchWithTimeout('/api/users/me', { headers: { Authorization: `Bearer ${data.t}` } });
             if (res.ok) {
                 setAuthToken(data.t);
                 _pushTokenToNative(data.t);
@@ -129,7 +129,7 @@ export async function tryAutoLogin(): Promise<boolean> {
 
 export async function loadUserProfile(): Promise<UserProfileResponse | undefined> {
     try {
-        const res = await apiCall('/api/users/me');
+        const res = await apiCall('/api/users/me', { timeout: 12_000 });
         if (res.ok) {
             const userProfile = await res.json() as UserProfileResponse;
             const displayNameEl = document.getElementById('user-display-name');

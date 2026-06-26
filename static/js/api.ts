@@ -23,8 +23,43 @@ interface RememberPayload {
 
 /** Refresh access token this often while the tab is open (access token default: 24 h). */
 const PROACTIVE_REFRESH_MS = 45 * 60 * 1000;
+/** Default timeout for auth/refresh calls so boot cannot hang forever on a stalled network. */
+const AUTH_FETCH_TIMEOUT_MS = 12_000;
 
-export let authToken: string | null = localStorage.getItem('hyve_token');
+export async function fetchWithTimeout(
+    url: string,
+    options: RequestInit = {},
+    timeoutMs = AUTH_FETCH_TIMEOUT_MS,
+): Promise<Response> {
+    if (!timeoutMs || timeoutMs <= 0 || options.signal || typeof AbortController === 'undefined') {
+        return fetch(url, options);
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+        return await fetch(url, { ...options, signal: ctrl.signal });
+    } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+            const e = new Error(`Request timeout (${timeoutMs}ms): ${url}`) as Error & { name: string; url: string };
+            e.name = 'TimeoutError';
+            e.url = url;
+            throw e;
+        }
+        throw err;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+function _safeStorageGet(key: string): string | null {
+    try {
+        return localStorage.getItem(key);
+    } catch {
+        return null;
+    }
+}
+
+export let authToken: string | null = _safeStorageGet('hyve_token');
 
 /** Canonical bearer token — reads localStorage so every ESM copy stays in sync. */
 export function resolveAuthToken(): string | null {
@@ -53,7 +88,7 @@ function resolveRefreshToken(): string | null {
     return _refreshToken;
 }
 
-let _refreshToken: string | null = localStorage.getItem('hyve_refresh_token');
+let _refreshToken: string | null = _safeStorageGet('hyve_refresh_token');
 let _suppressLogout = false;
 let _refreshing: Promise<boolean> | null = null;
 
@@ -67,28 +102,34 @@ function _notifyAuthChanged(loggedIn: boolean): void {
 
 export function setAuthToken(token: string | null): void {
     authToken = token;
-    if (token) {
-        localStorage.setItem('hyve_token', token);
-    } else {
-        localStorage.removeItem('hyve_token');
+    try {
+        if (token) localStorage.setItem('hyve_token', token);
+        else localStorage.removeItem('hyve_token');
+    } catch {
+        /* storage blocked */
     }
     _notifyAuthChanged(!!token);
 }
 
 export function setRefreshToken(token: string | null): void {
     _refreshToken = token;
-    if (token) {
-        localStorage.setItem('hyve_refresh_token', token);
-    } else {
-        localStorage.removeItem('hyve_refresh_token');
+    try {
+        if (token) localStorage.setItem('hyve_refresh_token', token);
+        else localStorage.removeItem('hyve_refresh_token');
+    } catch {
+        /* storage blocked */
     }
 }
 
 export function clearAuthToken(): void {
     authToken = null;
     _refreshToken = null;
-    localStorage.removeItem('hyve_token');
-    localStorage.removeItem('hyve_refresh_token');
+    try {
+        localStorage.removeItem('hyve_token');
+        localStorage.removeItem('hyve_refresh_token');
+    } catch {
+        /* storage blocked */
+    }
     _notifyAuthChanged(false);
 }
 
@@ -115,7 +156,7 @@ async function _tryRefresh(): Promise<boolean> {
     if (_refreshing) return _refreshing;
     _refreshing = (async () => {
         try {
-            const res = await fetch('/api/token/refresh', {
+            const res = await fetchWithTimeout('/api/token/refresh', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ refresh_token: tokenUsed }),
@@ -245,7 +286,8 @@ export async function apiCall(url: string, options: ApiCallOptions = {}): Promis
         if (refreshed) {
             const retryToken = resolveAuthToken();
             if (retryToken) headers.Authorization = `Bearer ${retryToken}`;
-            return fetch(url, fetchOpts);
+            const { signal: _drop, ...retryRest } = fetchOpts;
+            return fetch(url, { ...retryRest, headers: { ...headers } });
         }
         clearAuthToken();
         try { localStorage.removeItem('hyve_remember'); } catch { /* ignore */ }
