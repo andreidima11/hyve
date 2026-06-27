@@ -5,7 +5,6 @@ import { apiCall } from '../api.js';
 import { t } from '../lang/index.js';
 import { escapeHtml, showToast } from '../utils.js';
 import { loadConfig } from '../features_config.js';
-import { toggleVoiceRecording, isVoiceLoopActive } from '../voice.js';
 import {
     getIntegrationCatalog,
     setIntegrationCatalog,
@@ -19,6 +18,7 @@ import { integrationEntitySourceSlug } from './catalog_meta.js';
 import { syncIntegrationEntities } from './entities_sync.js';
 import { findIntegrationCheckbox, integrationSlugCandidates } from './utils.js';
 import { wireConfigListSearch } from '../config/list_shell.js';
+import { syncChatVoiceControls } from '../chat/voice_controls.js';
 
 export function integrationEnabledForSave(slug: string) {
     const cb = findIntegrationCheckbox(slug);
@@ -58,26 +58,7 @@ export function syncIntegrationToggles(): void {
     document.querySelectorAll('.chat-speak-btn').forEach(btn => {
         btn.classList.toggle('hidden', !anyTtsOn);
     });
-    // Show/hide always-speak button depending on piper enabled
-    const alwaysSpeakBtn = document.getElementById('btn-always-speak');
-    if (alwaysSpeakBtn) alwaysSpeakBtn.classList.toggle('hidden', !anyTtsOn);
-    // Show/hide voice button depending on whisper enabled
-    const voiceBtn = document.getElementById('btn-voice') as HTMLButtonElement | null;
-    if (voiceBtn) {
-        const whisperCheckbox = findIntegrationCheckbox('whisper');
-        const whisperEnabled = !!(whisperCheckbox && whisperCheckbox.checked);
-        voiceBtn.classList.toggle('hidden', !whisperEnabled);
-        if (!whisperEnabled) {
-            if (voiceBtn.classList.contains('recording')) {
-                toggleVoiceRecording({ btn: voiceBtn });
-            } else {
-                voiceBtn.disabled = false;
-                voiceBtn.classList.remove('recording');
-                const icon = voiceBtn.querySelector('i');
-                if (icon) icon.className = isVoiceLoopActive() ? 'fas fa-sync-alt' : 'fas fa-microphone';
-            }
-        }
-    }
+    syncChatVoiceControls();
     updateIntegrationSubtab();
 }
 let _activeIntegrationSubtab = 'active';
@@ -293,6 +274,7 @@ export async function loadIntegrationCatalog(force = false) {
     } catch (_) {
         setIntegrationCatalog([]);
     }
+    syncChatVoiceControls();
     _renderIntegrationCatalogRows();
     return getIntegrationCatalog();
 }

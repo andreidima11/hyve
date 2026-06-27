@@ -19,7 +19,7 @@ import { initMemoryEventBindings } from '../../memory/event_bindings.js';
 import { initSmarthomeEventBindings } from '../../smarthome/event_bindings.js';
 import { initShellEventBindings } from '../../shell/event_bindings.js';
 import { initIntegrationEventBindings } from '../../integrations/event_bindings.js';
-import { toggleModelSelector, closeModelSelector } from '../../chat/model_selector.js';
+import { toggleModelSelector, closeModelSelector, toggleProfileDropdown } from '../../chat/model_selector.js';
 import { setUserProfileContext, loadUserProfilePage, switchUserProfileTab, saveUserProfileGeneral, saveUserProfileSecurity } from '../../user_profile.js';
 import { initNotifications, loadUserNotifications, switchUserNotificationFilter, toggleUserNotificationFilterMenu, markUserNotificationRead, archiveUserNotification, deleteUserNotification, clearAllUserNotifications, changeUserNotificationsPage, loadNotificationCounts, updateNotificationBadge, navigateNotification } from '../../notifications.js';
 import { startStartupStatusPolling, showHubStartupLoadingAfterRestart } from '../../startup_status.js';
@@ -128,6 +128,7 @@ import {
 export function initChatDelegatedBindings(): void {
 initChatEventBindings({
     toggleModelSelector: () => toggleModelSelector(),
+    toggleProfileDropdown: () => toggleProfileDropdown(),
     selectThinkingMode: (mode) => setThinkingMode(_str(mode) as import('../../types/dashboard.js').ThinkingMode),
     openSession: (id) => openSession(_str(id)),
     deleteSession: (id, event) => deleteSession(_str(id), event as Event),

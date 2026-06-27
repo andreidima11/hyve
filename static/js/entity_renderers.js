@@ -223,6 +223,31 @@ export function entityDisplayName(entity) {
         return '';
     return String(entity.name || entity.entity_id || '').trim();
 }
+/** Focus an inline rename input without panning the page on long entity ids (mobile). */
+export function focusInlineEditInput(input) {
+    if (!input)
+        return;
+    try {
+        input.focus({ preventScroll: true });
+    }
+    catch {
+        input.focus();
+    }
+    const len = input.value.length;
+    if (len <= 36) {
+        try {
+            input.select();
+        }
+        catch { /* ignore */ }
+        return;
+    }
+    try {
+        input.setSelectionRange(0, 0);
+    }
+    catch {
+        /* ignore */
+    }
+}
 export async function saveEntityRegistryName(entity, nameInput) {
     const uid = entityUniqueId(entity);
     if (!uid)
@@ -266,8 +291,7 @@ export function wireEntityFriendlyNameEditor(container, entity, options = {}) {
         panel?.classList.remove('hidden');
         if (input)
             input.value = entityDisplayName(entity);
-        input?.focus();
-        input?.select();
+        focusInlineEditInput(input);
     };
     if (editBtn)
         editBtn.onclick = showEdit;
@@ -320,7 +344,7 @@ export function renderEntityFriendlyNameSection(entity) {
     const eid = String(entity.entity_id || '');
     const display = escapeHtml(entityDisplayName(entity) || eid);
     return `
-    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-3 mb-3" data-entity-friendly-name-root>
+    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-3 mb-3 hy-entity-edit-root min-w-0 max-w-full" data-entity-friendly-name-root>
         <div class="flex items-center gap-2 text-[9px] uppercase tracking-widest text-slate-500">
             <span>${escapeHtml(_er('friendly_name'))}</span>
             <button type="button" data-entity-friendly-name-edit class="hover:text-accent transition-colors" title="${escapeHtml(_er('friendly_name'))}">
@@ -331,16 +355,18 @@ export function renderEntityFriendlyNameSection(entity) {
             <div class="text-sm font-semibold text-slate-100 mt-1 break-words leading-snug" data-entity-friendly-name-view>${display}</div>
             <div class="text-[10px] text-slate-500 mono break-all mt-1">${escapeHtml(eid)}</div>
         </div>
-        <div data-entity-friendly-name-edit-panel class="hidden mt-2 flex flex-col gap-2">
-            <div class="flex items-center gap-2">
+        <div data-entity-friendly-name-edit-panel class="hidden mt-2 hy-entity-edit-panel">
+            <div class="hy-entity-edit-row">
                 <input type="text" data-entity-friendly-name-input value="${_attr(entityDisplayName(entity) || eid)}"
-                    class="flex-1 min-w-0 bg-white/5 border border-theme-subtle rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-accent/40">
-                <button type="button" data-entity-friendly-name-save class="px-2 py-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent text-[11px] font-semibold hover:bg-accent/30 shrink-0">
-                    <i class="fas fa-check"></i>
-                </button>
-                <button type="button" data-entity-friendly-name-cancel class="px-2 py-1.5 rounded-lg bg-white/5 border border-theme-subtle text-slate-300 text-[11px] hover:bg-white/10 shrink-0">
-                    <i class="fas fa-times"></i>
-                </button>
+                    class="hy-entity-edit-input bg-white/5 border border-theme-subtle rounded-lg px-2 py-1.5 text-base text-slate-100 focus:outline-none focus:border-accent/40">
+                <div class="hy-entity-edit-actions">
+                    <button type="button" data-entity-friendly-name-save class="px-2 py-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent text-[11px] font-semibold hover:bg-accent/30 shrink-0">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <button type="button" data-entity-friendly-name-cancel class="px-2 py-1.5 rounded-lg bg-white/5 border border-theme-subtle text-slate-300 text-[11px] hover:bg-white/10 shrink-0">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>`;
@@ -351,7 +377,7 @@ export function renderEntityRegistrySection(entity) {
     const { domain, objectId } = splitEntityId(eid);
     const canEdit = !!uid;
     return `
-    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-3 mb-3" data-entity-registry-root>
+    <div class="rounded-2xl bg-white/5 border border-theme-subtle p-3 mb-3 hy-entity-edit-root min-w-0 max-w-full" data-entity-registry-root>
         <div class="flex items-center gap-2 text-[9px] uppercase tracking-widest text-slate-500">
             <span>${escapeHtml(_er('entity_id'))}</span>
             ${canEdit ? `<button type="button" data-entity-registry-edit class="hover:text-accent transition-colors" title="${escapeHtml(_er('entity_id'))}">
@@ -362,19 +388,23 @@ export function renderEntityRegistrySection(entity) {
             <div class="text-sm font-semibold text-slate-100 mono break-all leading-snug" data-entity-registry-display>${escapeHtml(eid)}</div>
             ${uid ? `<div class="text-[9px] text-slate-500 mono break-all mt-1 leading-snug">${escapeHtml(_er('unique_id'))}: ${escapeHtml(uid)}</div>` : ''}
         </div>
-        <div data-entity-registry-edit-panel class="hidden mt-2 flex flex-col gap-2">
-            <div class="flex items-center gap-1.5">
-                <span class="text-[11px] mono text-slate-400 shrink-0">${escapeHtml(domain)}.</span>
-                <input type="text" data-entity-registry-object-id value="${_attr(objectId)}"
-                    class="flex-1 min-w-0 bg-white/5 border border-theme-subtle rounded-lg px-2 py-1.5 text-sm text-slate-100 mono focus:outline-none focus:border-accent/40">
-                <button type="button" data-entity-registry-save class="px-2 py-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent text-[11px] font-semibold hover:bg-accent/30 shrink-0">
-                    <i class="fas fa-check"></i>
-                </button>
-                <button type="button" data-entity-registry-cancel class="px-2 py-1.5 rounded-lg bg-white/5 border border-theme-subtle text-slate-300 text-[11px] hover:bg-white/10 shrink-0">
-                    <i class="fas fa-times"></i>
-                </button>
+        <div data-entity-registry-edit-panel class="hidden mt-2 hy-entity-edit-panel">
+            <div class="hy-entity-edit-row hy-entity-edit-row--registry">
+                <div class="hy-entity-edit-id-line">
+                    <span class="text-[11px] mono text-slate-400 shrink-0">${escapeHtml(domain)}.</span>
+                    <input type="text" data-entity-registry-object-id value="${_attr(objectId)}"
+                        class="hy-entity-edit-input bg-white/5 border border-theme-subtle rounded-lg px-2 py-1.5 text-base text-slate-100 mono focus:outline-none focus:border-accent/40">
+                </div>
+                <div class="hy-entity-edit-actions">
+                    <button type="button" data-entity-registry-save class="px-2 py-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent text-[11px] font-semibold hover:bg-accent/30 shrink-0">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <button type="button" data-entity-registry-cancel class="px-2 py-1.5 rounded-lg bg-white/5 border border-theme-subtle text-slate-300 text-[11px] hover:bg-white/10 shrink-0">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             </div>
-            <p class="text-[10px] text-slate-500 leading-snug">${escapeHtml(_er('entity_id_hint'))}</p>
+            <p class="text-[10px] text-slate-500 leading-snug mt-2">${escapeHtml(_er('entity_id_hint'))}</p>
         </div>
     </div>`;
 }
@@ -421,8 +451,7 @@ export function wireEntityRegistryEditor(container, entity, options = {}) {
     const showEdit = () => {
         view?.classList.add('hidden');
         panel?.classList.remove('hidden');
-        input?.focus();
-        input?.select();
+        focusInlineEditInput(input);
     };
     if (editBtn)
         editBtn.onclick = showEdit;

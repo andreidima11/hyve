@@ -25,12 +25,7 @@ export function setThinkingMode(mode) {
 }
 export function updateThinkingModeUi(mode = getThinkingMode()) {
     const normalized = normalizeThinkingMode(mode);
-    const btn = document.getElementById('btn-model-selector');
     const list = document.getElementById('thinking-mode-options');
-    if (btn) {
-        btn.classList.remove('mode-auto', 'mode-think', 'mode-no_think');
-        btn.classList.add(`mode-${normalized}`);
-    }
     if (list) {
         list.querySelectorAll('.hyd-chip--menu[data-mode]').forEach((el) => {
             const active = el.getAttribute('data-mode') === normalized;

@@ -232,13 +232,15 @@ function _editablePageTitleShell(viewDataAttr, viewInnerHtml, editPanelHtml) {
 }
 function _editablePageTitleEditPanel(inputAttrs, saveAttrs, cancelAttrs, panelAttr, saveTitle, cancelTitle) {
     return `<div class="hyd-editable-name__edit-panel hidden" ${panelAttr}>
-            <input type="text" class="hyd-editable-name__input" ${inputAttrs}>
-            <button type="button" class="hyd-editable-name__btn hyd-editable-name__btn--save" ${saveAttrs} title="${escapeHtmlAttr(saveTitle)}">
-                <i class="fas fa-check"></i>
-            </button>
-            <button type="button" class="hyd-editable-name__btn" ${cancelAttrs} title="${escapeHtmlAttr(cancelTitle)}">
-                <i class="fas fa-times"></i>
-            </button>
+            <input type="text" class="hyd-editable-name__input hy-entity-edit-input" ${inputAttrs}>
+            <div class="hy-entity-edit-actions">
+                <button type="button" class="hyd-editable-name__btn hyd-editable-name__btn--save" ${saveAttrs} title="${escapeHtmlAttr(saveTitle)}">
+                    <i class="fas fa-check"></i>
+                </button>
+                <button type="button" class="hyd-editable-name__btn" ${cancelAttrs} title="${escapeHtmlAttr(cancelTitle)}">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
         </div>`;
 }
 export function renderDeviceListCard(device, _sourceIcons) {

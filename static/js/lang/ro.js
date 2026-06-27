@@ -1105,6 +1105,7 @@ const ro = {
             "voice_loop_desc": "Conversație continuă voce",
             "always_speak_aria": "Redare automată",
             "always_speak_title": "Răspunsuri vocale",
+            "always_speak_menu": "Citește răspunsurile cu voce",
             "send_aria": "Trimite",
             "not_found": "Conversația nu a fost găsită"
         },

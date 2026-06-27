@@ -14,6 +14,8 @@ import { setUserProfileContext } from '../user_profile.js';
 import { startLogStream } from '../ui.js';
 import { loadSessionsList } from '../features.js';
 import { loadModelProfiles } from '../features.js';
+import { setIntegrationCatalog } from '../integrations/catalog_meta.js';
+import { syncChatVoiceControls } from '../chat/voice_controls.js';
 import { initDashboardSidebarNav, loadDashboard, withDashboardTimeout } from '../dashboard.js';
 import type { HyveSetupStatus } from '../types/app.js';
 import type { UserProfileResponse } from '../types/dashboard.js';
@@ -95,15 +97,14 @@ function startBackgroundLoaders(profile: UserProfileResponse & { id?: string | n
         } catch (e) { console.warn('Notifications init failed', e); }
         loadModelProfiles().catch(e => console.warn('Model profiles load failed', e));
         try { startStartupStatusPolling(); } catch (e) { console.warn('Startup status polling failed', e); }
-        // Voice button visibility (cheap config probe)
-        fetch('/api/integrations/catalog', {
+        // Voice / TTS controls visibility (cheap config probe)
+        fetchWithTimeout('/api/integrations/catalog', {
             headers: { 'Authorization': 'Bearer ' + localStorage.getItem('hyve_token') }
-        }).then(r => r.ok ? r.json() : null).then(data => {
+        }, 12_000).then(r => r.ok ? r.json() : null).then(data => {
             if (!data?.integrations) return;
-            const whisper = data.integrations.find((i: { slug?: string }) => i.slug === 'whisper');
-            const voiceBtn = document.getElementById('btn-voice');
-            if (voiceBtn && whisper) voiceBtn.classList.toggle('hidden', !whisper.enabled);
-        }).catch(e => console.warn('Whisper status check failed', e));
+            setIntegrationCatalog(data.integrations);
+            syncChatVoiceControls();
+        }).catch(e => console.warn('Integration catalog probe failed', e));
     });
 }
 

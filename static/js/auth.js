@@ -1,4 +1,4 @@
-import { apiCall, clearAuthToken, refreshSession, setAuthToken, setRefreshToken } from './api.js';
+import { apiCall, clearAuthToken, refreshSession, setAuthToken, setRefreshToken, fetchWithTimeout } from './api.js';
 const _RM_KEY = 'hyve_remember';
 function _persistRememberedSession(username, accessToken, refreshToken) {
     try {
@@ -102,7 +102,7 @@ export async function tryAutoLogin() {
         if (data.t) {
             if (data.rt)
                 setRefreshToken(data.rt);
-            const res = await fetch('/api/users/me', { headers: { Authorization: `Bearer ${data.t}` } });
+            const res = await fetchWithTimeout('/api/users/me', { headers: { Authorization: `Bearer ${data.t}` } });
             if (res.ok) {
                 setAuthToken(data.t);
                 _pushTokenToNative(data.t);
@@ -132,7 +132,7 @@ export async function tryAutoLogin() {
 }
 export async function loadUserProfile() {
     try {
-        const res = await apiCall('/api/users/me');
+        const res = await apiCall('/api/users/me', { timeout: 12000 });
         if (res.ok) {
             const userProfile = await res.json();
             const displayNameEl = document.getElementById('user-display-name');

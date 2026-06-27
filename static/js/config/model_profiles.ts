@@ -5,6 +5,7 @@ import { apiCall } from '../api.js';
 import { t } from '../lang/index.js';
 import { escapeHtml, showToast, showConfirm, openSubPage, closeSubPage } from '../utils.js';
 import { updateThinkingModeUi } from '../thinking_mode.js';
+import { syncChatVoiceControls } from '../chat/voice_controls.js';
 import type { ModelProfile, ModelProfilesResponse } from '../types/features_config.js';
 import { cfgField, cfgVal } from './utils.js';
 
@@ -23,6 +24,7 @@ export async function loadModelProfiles() {
         renderProfilesList();
         renderModelSelector(data);
         renderAutoRouterStats(data.auto_router_stats);
+        syncChatVoiceControls();
     } catch (e) { console.warn('loadModelProfiles error', e); }
 }
 
@@ -167,22 +169,40 @@ function bindProfileCardDragDrop(container: HTMLElement) {
     });
 }
 
+function _profileGlowColor(profileId: string): string {
+    const visibleProfiles = _modelProfiles.filter(p => p.visible_in_selector !== false);
+    const isAuto = (profileId || '').toLowerCase() === 'auto';
+    if (isAuto) return '#38bdf8';
+    return (visibleProfiles.find(p => p.id === profileId)?.color || '#38bdf8').trim();
+}
+
+function _syncChatBarProfileGlow(profileId: string): void {
+    const bar = document.querySelector('.chat-input-inner') as HTMLElement | null;
+    if (!bar) return;
+    bar.style.setProperty('--profile-glow-color', _profileGlowColor(profileId));
+}
+
+function _updateProfileTrigger(profileId: string, label: string, dotColor: string): void {
+    const dot = document.getElementById('model-profile-trigger-dot');
+    const labelEl = document.getElementById('model-profile-trigger-label');
+    if (dot) (dot as HTMLElement).style.background = dotColor;
+    if (labelEl) labelEl.textContent = label;
+}
+
 function renderModelSelector(_data: ModelProfilesResponse) {
     const listEl = cfgField('model-selector-profiles');
-    const wrapEl = document.querySelector('.model-selector-wrap') as HTMLElement | null;
     if (!listEl) return;
 
     const visibleProfiles = _modelProfiles.filter(p => p.visible_in_selector !== false);
     const isAuto = (_defaultProfileId || '').toLowerCase() === 'auto';
     const activeProfile = isAuto ? null : (visibleProfiles.find(p => p.id === _defaultProfileId) || visibleProfiles[0]);
-
-    const accentColor = (activeProfile?.color || '#38bdf8').trim();
-    if (wrapEl) wrapEl.style.setProperty('--selector-accent', accentColor);
-
-    /* The button is now a cog icon — no label text to set.
-       The --selector-accent CSS variable handles the color. */
+    const activeId = isAuto ? 'auto' : (activeProfile?.id || _defaultProfileId || 'auto');
 
     const autoLabel = t('config.model_selector_auto');
+    const triggerLabel = isAuto ? autoLabel : (activeProfile?.name || autoLabel);
+    const triggerDot = isAuto ? '#38bdf8' : (activeProfile?.color || '#38bdf8').trim();
+    _updateProfileTrigger(activeId, triggerLabel, triggerDot);
+    _syncChatBarProfileGlow(activeId);
     const autoButton = `
         <button type="button" class="model-selector-item hyd-entity-row hyd-entity-row--nested hyd-entity-row--static w-full text-left${isAuto ? ' is-active' : ''}" data-chat-action="activateProfile" data-chat-profile-id="auto">
             <span class="model-selector-item-dot" style="background:#38bdf8"></span>
@@ -673,12 +693,9 @@ export async function duplicateProfile(profileId: string) {
 function playChatBarGlow(profileId: string) {
     const bar = document.querySelector('.chat-input-inner') as HTMLElement | null;
     if (!bar) return;
-    const visibleProfiles = _modelProfiles.filter(p => p.visible_in_selector !== false);
-    const isAuto = (profileId || '').toLowerCase() === 'auto';
-    const color = isAuto && visibleProfiles.length > 0
-        ? (visibleProfiles[0].color || '#38bdf8').trim()
-        : (visibleProfiles.find(p => p.id === profileId)?.color || '#38bdf8').trim();
+    const color = _profileGlowColor(profileId);
     bar.style.setProperty('--chat-bar-flash-color', color);
+    bar.style.setProperty('--profile-glow-color', color);
     bar.classList.remove('chat-input-bar-flash');
     bar.offsetHeight;
     bar.classList.add('chat-input-bar-flash');

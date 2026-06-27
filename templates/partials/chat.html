@@ -38,7 +38,7 @@
                         </div>
                         <textarea id="user-input" rows="1" class="chat-input-field" data-i18n-placeholder="chat.placeholder" placeholder="What's on your mind?"></textarea>
                         <div class="model-selector-wrap">
-                            <button id="btn-model-selector" type="button" class="model-selector-btn mode-auto" aria-expanded="false" aria-haspopup="true" data-i18n-aria-label="chat.settings_title" data-chat-action="toggleModelSelector">
+                            <button id="btn-model-selector" type="button" class="model-selector-btn" aria-expanded="false" aria-haspopup="true" data-i18n-aria-label="chat.settings_title" data-chat-action="toggleModelSelector">
                                 <i id="model-selector-icon" class="fas fa-cog"></i>
                             </button>
                             <div id="model-selector-balloon" class="model-selector-balloon hidden" role="menu">
@@ -60,12 +60,33 @@
                                     </button>
                                 </div>
                                 <div class="model-selector-section-label" data-i18n="config.model_selector_models_title">Model</div>
-                                <div class="model-selector-scroll">
-                                    <div id="model-selector-profiles" class="model-selector-list"></div>
+                                <div class="model-profile-picker" id="model-profile-picker">
+                                    <button type="button" id="model-profile-trigger" class="model-profile-trigger" data-chat-action="toggleProfileDropdown" aria-expanded="false" aria-haspopup="listbox">
+                                        <span id="model-profile-trigger-dot" class="model-selector-item-dot" style="background:#38bdf8"></span>
+                                        <span id="model-profile-trigger-label" class="model-profile-trigger-label" data-i18n="config.model_selector_auto">Auto</span>
+                                        <i class="fas fa-chevron-down model-profile-trigger-chevron" aria-hidden="true"></i>
+                                    </button>
+                                    <div id="model-profile-dropdown" class="model-profile-dropdown hidden" role="listbox">
+                                        <div id="model-selector-profiles" class="model-selector-list"></div>
+                                    </div>
+                                </div>
+                                <div id="chat-tts-menu-section" class="model-selector-tts-section hidden">
+                                    <div class="model-selector-section-label" data-i18n="chat.always_speak_title">Spoken responses</div>
+                                    <button type="button" id="btn-always-speak" class="model-selector-menu-tts hidden" data-i18n-aria-label="chat.always_speak_aria" data-i18n-title="chat.always_speak_title" aria-label="Always speak">
+                                        <i class="fas fa-volume-off"></i>
+                                        <span class="model-selector-menu-tts__label" data-i18n="chat.always_speak_menu">Read replies aloud</span>
+                                        <span id="tts-speaking-indicator" class="tts-speaking-indicator hidden" aria-hidden="true">
+                                            <span class="tts-wave-bar"></span>
+                                            <span class="tts-wave-bar"></span>
+                                            <span class="tts-wave-bar"></span>
+                                            <span class="tts-wave-bar"></span>
+                                            <span class="tts-wave-bar"></span>
+                                        </span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
-                        <div class="voice-btn-wrap">
+                        <div class="voice-btn-wrap hidden">
                             <button id="btn-voice" type="button" class="chat-voice-btn hidden" data-i18n-aria-label="chat.voice_input_aria" aria-label="Voice input">
                                 <i class="fas fa-microphone"></i>
                                 <span class="voice-pulse"></span>
@@ -84,16 +105,6 @@
                                 </button>
                             </div>
                         </div>
-                        <button id="btn-always-speak" type="button" class="chat-voice-btn chat-always-speak-btn hidden" data-i18n-aria-label="chat.always_speak_aria" data-i18n-title="chat.always_speak_title" aria-label="Always speak" title="Spoken responses">
-                            <i class="fas fa-volume-off"></i>
-                            <span id="tts-speaking-indicator" class="tts-speaking-indicator hidden" aria-hidden="true">
-                                <span class="tts-wave-bar"></span>
-                                <span class="tts-wave-bar"></span>
-                                <span class="tts-wave-bar"></span>
-                                <span class="tts-wave-bar"></span>
-                                <span class="tts-wave-bar"></span>
-                            </span>
-                        </button>
                         <button id="btn-send" type="button" class="chat-send-btn" data-i18n-aria-label="chat.send_aria" aria-label="Send">
                             <i class="fas fa-paper-plane"></i>
                         </button>

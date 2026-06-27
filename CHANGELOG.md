@@ -4,6 +4,18 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.17] — 2026-06
+
+Chat bar settings menu: cleaner cog, profile dropdown, and voice controls only when configured.
+
+### UI — Chat
+- **Change:** Microphone (Whisper) and read-aloud (Piper) buttons stay hidden until the integration is enabled in settings.
+- **Change:** “Read replies aloud” moved into the cog settings menu; removed from the input bar.
+- **Change:** Cog button uses neutral styling — no longer tinted by the active model profile.
+- **Change:** Model profiles are a dropdown inside the cog menu, with color dots preserved.
+- **Change:** A modest glow around the chat input bar reflects the selected profile color.
+- **Fix:** Cog menu sits slightly above the bar instead of flush against it.
+
 ## [0.9.9.16] — 2026-06
 
 Safer first visit on mobile Safari, plus entity rename layout fixes.

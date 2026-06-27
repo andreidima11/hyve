@@ -34,6 +34,12 @@ function _run(action: string, event: Event, el: Element): void {
         }
         return;
     }
+    if (action === 'toggleProfileDropdown') {
+        if (!el.closest('#model-profile-picker')) return;
+        event.stopPropagation();
+        _handlers.toggleProfileDropdown?.(event, el);
+        return;
+    }
     if (action === 'showSourcesModal' && el instanceof HTMLElement) {
         _handlers.showSourcesModal?.(el.dataset.chatSourceGroup || '', event, el);
         return;

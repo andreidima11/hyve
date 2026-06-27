@@ -1,7 +1,7 @@
 /**
  * First-run browser onboarding — admin account, language, timezone.
  */
-import { setAuthToken, setRefreshToken } from './api.js';
+import { setAuthToken, setRefreshToken, fetchWithTimeout } from './api.js';
 import { t, setLanguage, applyTranslations } from './lang/index.js';
 import { populateTimezoneSelect } from './timezones.js';
 function _populateTimezones(preferred) {
@@ -183,7 +183,7 @@ export function showSetupWizard(status) {
     applyTranslations();
 }
 export async function fetchSetupStatus() {
-    const res = await fetch('/api/setup/status');
+    const res = await fetchWithTimeout('/api/setup/status', {}, 10000);
     if (!res.ok)
         throw new Error('setup status failed');
     return res.json();

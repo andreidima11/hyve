@@ -1105,6 +1105,7 @@ const en = {
             "voice_loop_desc": "Continuous voice conversation",
             "always_speak_aria": "Always speak",
             "always_speak_title": "Spoken responses",
+            "always_speak_menu": "Read replies aloud",
             "send_aria": "Send",
             "not_found": "Conversation not found"
         },
