@@ -4,6 +4,14 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.18] — 2026-06
+
+Critical packaging fix so HTML/locale changes actually reach updated servers.
+
+### Updates / Packaging
+- **Fix:** Release tarballs now include `templates/` and `locales/`. Artifact-based self-update previously shipped new JS/CSS but kept the old server-rendered HTML, so the 0.9.9.17 chat changes (read-aloud in the cog menu, profile dropdown, bar glow) never appeared and could leave mobile Safari stuck on the loading screen. Updating to 0.9.9.18 ships the matching templates.
+- **Hardening:** The artifact builder now fails fast if `templates/index.html`, `templates/partials/chat.html`, or `locales/en.json` are missing from a release.
+
 ## [0.9.9.17] — 2026-06
 
 Chat bar settings menu: cleaner cog, profile dropdown, and voice controls only when configured.

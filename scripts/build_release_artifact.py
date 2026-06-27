@@ -43,6 +43,8 @@ INCLUDE_TOP_LEVEL = (
     "integrations",
     "brain",
     "static",
+    "templates",
+    "locales",
     "migrations",
     "scripts",
     "addons",
@@ -130,6 +132,14 @@ def build_artifact(*, skip_build: bool = False, out_dir: Path | None = None) -> 
     manifest_path = release_dir / f"hyve-{version}.manifest.json"
 
     files = _iter_release_files(ROOT)
+
+    # Guard: server-rendered templates and backend locales must ship in the
+    # artifact, otherwise updates apply new JS against stale HTML.
+    rel_paths = {p.relative_to(ROOT).as_posix() for p in files}
+    required = ("templates/index.html", "templates/partials/chat.html", "locales/en.json")
+    missing = [r for r in required if r not in rel_paths]
+    if missing:
+        raise RuntimeError(f"release artifact missing required files: {', '.join(missing)}")
     with tarfile.open(tarball, "w:gz") as archive:
         for path in files:
             rel = path.relative_to(ROOT).as_posix()
