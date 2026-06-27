@@ -27,17 +27,11 @@ function _run(action: string, event: Event, el: Element): void {
         return;
     }
     if (_CHAT_SELECTOR_ACTIONS.has(action)) {
-        if (!el.closest('#model-selector-balloon')) return;
+        if (!el.closest('#chat-settings-modal')) return;
         if (action === 'activateProfile' && el instanceof HTMLElement) {
             _handlers.activateProfile?.(el.dataset.chatProfileId || '', event, el);
             _handlers.closeModelSelector?.(event, el);
         }
-        return;
-    }
-    if (action === 'toggleProfileDropdown') {
-        if (!el.closest('#model-profile-picker')) return;
-        event.stopPropagation();
-        _handlers.toggleProfileDropdown?.(event, el);
         return;
     }
     if (action === 'showSourcesModal' && el instanceof HTMLElement) {

@@ -182,13 +182,6 @@ function _syncChatBarProfileGlow(profileId: string): void {
     bar.style.setProperty('--profile-glow-color', _profileGlowColor(profileId));
 }
 
-function _updateProfileTrigger(profileId: string, label: string, dotColor: string): void {
-    const dot = document.getElementById('model-profile-trigger-dot');
-    const labelEl = document.getElementById('model-profile-trigger-label');
-    if (dot) (dot as HTMLElement).style.background = dotColor;
-    if (labelEl) labelEl.textContent = label;
-}
-
 function renderModelSelector(_data: ModelProfilesResponse) {
     const listEl = cfgField('model-selector-profiles');
     if (!listEl) return;
@@ -199,9 +192,6 @@ function renderModelSelector(_data: ModelProfilesResponse) {
     const activeId = isAuto ? 'auto' : (activeProfile?.id || _defaultProfileId || 'auto');
 
     const autoLabel = t('config.model_selector_auto');
-    const triggerLabel = isAuto ? autoLabel : (activeProfile?.name || autoLabel);
-    const triggerDot = isAuto ? '#38bdf8' : (activeProfile?.color || '#38bdf8').trim();
-    _updateProfileTrigger(activeId, triggerLabel, triggerDot);
     _syncChatBarProfileGlow(activeId);
     const autoButton = `
         <button type="button" class="model-selector-item hyd-entity-row hyd-entity-row--nested hyd-entity-row--static w-full text-left${isAuto ? ' is-active' : ''}" data-chat-action="activateProfile" data-chat-profile-id="auto">

@@ -4,6 +4,15 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.19] — 2026-06
+
+Chat settings move from a cramped popup to a proper modal.
+
+### UI — Chat
+- **Change:** The chat bar cog now opens a centered modal using the same `app-modal` system as the rest of the app, instead of the tight popover. Thinking mode, model selection (full list with color dots), and the read-aloud toggle have room to breathe.
+- **Change:** Model profiles are shown as a scrollable list inside the modal (color dots preserved) rather than a nested dropdown.
+- Dismiss via the close button, backdrop click, or Escape. The chat bar profile glow and conditional voice/TTS controls are unchanged.
+
 ## [0.9.9.18] — 2026-06
 
 Critical packaging fix so HTML/locale changes actually reach updated servers.

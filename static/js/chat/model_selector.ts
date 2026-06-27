@@ -1,46 +1,49 @@
-/** Chat model / thinking-mode selector balloon toggles. */
+/** Chat settings modal (cog) — open/close + dismissal. */
 
-export function closeProfileDropdown(): void {
-    const dropdown = document.getElementById('model-profile-dropdown');
-    const trigger = document.getElementById('model-profile-trigger');
-    dropdown?.classList.add('hidden');
-    trigger?.setAttribute('aria-expanded', 'false');
+const MODAL_ID = 'chat-settings-modal';
+
+function _modal(): HTMLElement | null {
+    return document.getElementById(MODAL_ID);
 }
 
-export function toggleProfileDropdown(): void {
-    const dropdown = document.getElementById('model-profile-dropdown');
-    const trigger = document.getElementById('model-profile-trigger');
-    if (!dropdown || !trigger) return;
-    const willOpen = dropdown.classList.contains('hidden');
-    dropdown.classList.toggle('hidden');
-    trigger.setAttribute('aria-expanded', String(willOpen));
-}
-
-export function toggleModelSelector(): void {
-    const balloon = document.getElementById('model-selector-balloon');
+export function openModelSelector(): void {
+    const modal = _modal();
     const btn = document.getElementById('btn-model-selector');
-    if (!balloon) return;
-    const isOpen = !balloon.classList.contains('hidden');
-    balloon.classList.toggle('hidden');
-    if (btn) btn.setAttribute('aria-expanded', String(!isOpen));
-    if (!isOpen) {
-        document.getElementById('chat-attach-balloon')?.classList.add('hidden');
-    } else {
-        closeProfileDropdown();
-    }
+    if (!modal) return;
+    document.getElementById('chat-attach-balloon')?.classList.add('hidden');
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    btn?.setAttribute('aria-expanded', 'true');
 }
 
 export function closeModelSelector(): void {
-    const balloon = document.getElementById('model-selector-balloon');
+    const modal = _modal();
     const btn = document.getElementById('btn-model-selector');
-    balloon?.classList.add('hidden');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+    }
     btn?.setAttribute('aria-expanded', 'false');
-    closeProfileDropdown();
 }
 
+export function toggleModelSelector(): void {
+    const modal = _modal();
+    if (!modal) return;
+    if (modal.classList.contains('hidden')) openModelSelector();
+    else closeModelSelector();
+}
+
+// Backdrop click (on the overlay itself) closes the modal.
 document.addEventListener('click', (e) => {
-    const wrap = document.querySelector('.model-selector-wrap');
-    if (wrap && e.target instanceof Node && !wrap.contains(e.target)) closeModelSelector();
-    const picker = document.getElementById('model-profile-picker');
-    if (picker && e.target instanceof Node && !picker.contains(e.target)) closeProfileDropdown();
+    const modal = _modal();
+    if (modal && !modal.classList.contains('hidden') && e.target === modal) {
+        closeModelSelector();
+    }
+});
+
+// Escape closes the modal.
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const modal = _modal();
+    if (modal && !modal.classList.contains('hidden')) closeModelSelector();
 });
