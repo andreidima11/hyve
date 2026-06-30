@@ -86,7 +86,7 @@ export class HyveviewTileCard extends HyveviewCardBase {
           <div class="hyve-dashboard-card__state" data-state></div>
         </div>
         ${showToggle ? `<span data-entity-toggle="${escape(w.entity_id || '')}" data-on="false" class="app-toggle-switch flex-shrink-0 pointer-events-none" aria-hidden="true"><span class="app-toggle-thumb"></span></span>` : ''}
-        <span class="hyve-dashboard-card__badge" data-unavailable-badge hidden>${t('entity.unavailable')}</span>
+        <span class="hyve-dashboard-card__badge hyve-dashboard-card__badge--icon" data-unavailable-badge hidden title="${escape(t('entity.unavailable'))}" aria-label="${escape(t('entity.unavailable'))}"><i class="fas fa-plug-circle-xmark" aria-hidden="true"></i></span>
       </div>
     `;
     this._titleEl = this.querySelector('[data-title]');

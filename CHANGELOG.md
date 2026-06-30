@@ -4,6 +4,13 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.20] — 2026-07
+
+Tidier unavailable state on dashboard tiles.
+
+### UI — Dashboard
+- **Change:** When an entity is unavailable, dashboard tile cards now show a small round "disconnected" icon (with an "Unavailable" tooltip) instead of the oversized text pill that crowded the card.
+
 ## [0.9.9.19] — 2026-06
 
 Chat settings move from a cramped popup to a proper modal.
