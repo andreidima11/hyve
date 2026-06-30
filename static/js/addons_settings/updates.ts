@@ -53,7 +53,7 @@ function _setListLoading(): void {
     const list = _updatesListEl();
     if (list) list.innerHTML = html;
     const countEl = _updatesEl('updates-count', 'updates-addons-count');
-    if (countEl) countEl.textContent = t('updates.loading');
+    if (countEl) countEl.textContent = '';
 }
 
 function _updatesCheckButtons(): HTMLButtonElement[] {
@@ -587,7 +587,7 @@ function _renderUpdateRows() {
     const countEl = _updatesEl('updates-count', 'updates-addons-count');
     if (countEl) {
         if (!_updatesDataLoaded) {
-            countEl.textContent = t('updates.loading');
+            countEl.textContent = '';
         } else if (totalItems === 0) {
             countEl.textContent = t('updates.no_updates_available');
         } else if (pendingTotal === 0) {

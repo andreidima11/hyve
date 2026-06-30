@@ -1603,6 +1603,7 @@ const ro = {
             "int_tab_active": "Active",
             "int_tab_available": "Disponibile",
             "int_subtab_empty": "Nicio integrare în această categorie.",
+            "integrations_loading": "Se încarcă integrările...",
             "integration_entry_test": "Testează",
             "integration_exposed_devices": "Dispozitive",
             "integration_exposed_sync": "Sincronizează",

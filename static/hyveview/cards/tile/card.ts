@@ -122,7 +122,11 @@ export class HyveviewTileCard extends HyveviewCardBase {
     const stateStr = String(rawState == null ? 'unknown' : rawState);
     const unit = String(presetUnit || w.unit || '');
     const unitSuffix = unit && !stateStr.endsWith(unit) ? ' ' + unit : '';
-    this._stateEl.textContent = tState(stateStr) + unitSuffix;
+    // When the entity is unavailable, show the "Unavailable" label instead of
+    // the stale on/off/raw state so the text matches the unavailable icon.
+    this._stateEl.textContent = available === false
+      ? t('entity.unavailable')
+      : tState(stateStr) + unitSuffix;
 
     const on = typeof host.stateOn === 'function' ? host.stateOn(stateStr) : ['on','open','playing','home','heat','cool','heat_cool','auto','dry','fan_only','active','true','1'].includes(stateStr.toLowerCase());
     this._applyIcon(on);

@@ -279,27 +279,53 @@ export async function loadIntegrationCatalog(force = false) {
     return getIntegrationCatalog();
 }
 
+function _setIntegrationsLoading(on: boolean): void {
+    const list = document.getElementById('integrations-list');
+    const loading = document.getElementById('integrations-loading');
+    const empty = document.getElementById('int-subtab-empty');
+    if (on) {
+        // Hide the list and the empty placeholder while we fetch + filter, so the
+        // user never sees the unfiltered rows flash before the active/available
+        // split is applied. The spinner shows until everything is ready.
+        list?.classList.add('hidden');
+        empty?.classList.add('hidden');
+        list?.setAttribute('aria-busy', 'true');
+        loading?.classList.remove('hidden');
+    } else {
+        loading?.classList.add('hidden');
+        list?.removeAttribute('aria-busy');
+        // Reveal the fully-filtered list in one go. The empty placeholder
+        // visibility was already decided by updateIntegrationSubtab().
+        list?.classList.remove('hidden');
+    }
+}
+
 let _activeIntegrationSubtabPreferred = 'auto';
 export async function refreshIntegrationsSettingsView(preferredTab: string = 'auto') {
     _activeIntegrationSubtabPreferred = preferredTab;
     _ensureIntegrationsSearch();
-    await loadIntegrationCatalog(true);
-    // The catalog renderer creates fresh checkbox/inputs for each integration,
-    // so we must re-apply the saved enabled flags from the catalog API.
-    try { await loadConfig(); } catch (_) {}
-    applyCatalogEnabledToCheckboxes();
-    syncIntegrationToggles();
-    bindIntegrationToggleButtonsOnce();
+    _setIntegrationsLoading(true);
+    try {
+        await loadIntegrationCatalog(true);
+        // The catalog renderer creates fresh checkbox/inputs for each integration,
+        // so we must re-apply the saved enabled flags from the catalog API.
+        try { await loadConfig(); } catch (_) {}
+        applyCatalogEnabledToCheckboxes();
+        syncIntegrationToggles();
+        bindIntegrationToggleButtonsOnce();
 
-    let nextTab = preferredTab;
-    if (preferredTab === 'auto') {
-        const hasActive = Array.from(document.querySelectorAll('[data-integration-row]'))
-            .some((row) => {
-                const slug = (row as HTMLElement).dataset.integrationRow;
-                return slug ? !!findIntegrationCheckbox(slug)?.checked : false;
-            });
-        nextTab = hasActive ? 'active' : 'available';
+        let nextTab = preferredTab;
+        if (preferredTab === 'auto') {
+            const hasActive = Array.from(document.querySelectorAll('[data-integration-row]'))
+                .some((row) => {
+                    const slug = (row as HTMLElement).dataset.integrationRow;
+                    return slug ? !!findIntegrationCheckbox(slug)?.checked : false;
+                });
+            nextTab = hasActive ? 'active' : 'available';
+        }
+        if (nextTab !== 'active' && nextTab !== 'available') nextTab = 'active';
+        switchIntegrationSubtab(nextTab);
+    } finally {
+        _setIntegrationsLoading(false);
     }
-    if (nextTab !== 'active' && nextTab !== 'available') nextTab = 'active';
-    switchIntegrationSubtab(nextTab);
 }

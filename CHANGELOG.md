@@ -4,6 +4,20 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.21] — 2026-07
+
+Smoother loading states and clearer unavailable tiles.
+
+### UI — Integrations
+- **Change:** Opening Integrations now shows a single loading spinner until the catalog and active/available filter are ready, then reveals the full list at once — no more rows popping in one by one.
+
+### UI — Dashboard
+- **Change:** Unavailable tile cards show "Indisponibil" as the state text (matching the compact unavailable icon) instead of a stale on/off label.
+- **Change:** Removed the thin animated progress bar under the header when switching dashboard pages — cached switches are instant.
+
+### UI — Updates
+- **Fix:** Removed the duplicate "Se încarcă…" line above the updates list; only the centered spinner shows while loading.
+
 ## [0.9.9.20] — 2026-07
 
 Tidier unavailable state on dashboard tiles.

@@ -30,7 +30,6 @@ let _deps: DashboardLoaderDeps | null = null;
 let _loadInFlight: Promise<void> | null = null;
 let _loadStartedAt = 0;
 let _loadAbortController: AbortController | null = null;
-let _refreshIndicatorSafetyTimer: ReturnType<typeof setTimeout> | null = null;
 
 function deps(): DashboardLoaderDeps {
     if (!_deps) throw new Error('Dashboard loader not initialized');
@@ -41,36 +40,9 @@ export function initDashboardLoader(depsIn: DashboardLoaderDeps) {
     _deps = depsIn;
 }
 
-export function setDashboardRefreshIndicator(active: boolean) {
-    let bar = document.getElementById('dashboard-refresh-bar');
-    if (!bar) {
-        const grid = document.getElementById('dashboard-grid');
-        if (!grid || !grid.parentElement) return;
-        bar = document.createElement('div');
-        bar.id = 'dashboard-refresh-bar';
-        bar.style.cssText = 'position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent,#6366f1),transparent);background-size:200% 100%;animation:hyveDashRefresh 1.1s linear infinite;opacity:0;transition:opacity .2s;z-index:5;pointer-events:none;';
-        if (!document.getElementById('hyve-dash-refresh-style')) {
-            const st = document.createElement('style');
-            st.id = 'hyve-dash-refresh-style';
-            st.textContent = '@keyframes hyveDashRefresh{0%{background-position:200% 0}100%{background-position:-200% 0}}';
-            document.head.appendChild(st);
-        }
-        const host = grid.parentElement;
-        if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
-        host.appendChild(bar);
-    }
-    bar.style.opacity = active ? '1' : '0';
-    if (_refreshIndicatorSafetyTimer) {
-        clearTimeout(_refreshIndicatorSafetyTimer);
-        _refreshIndicatorSafetyTimer = null;
-    }
-    if (active) {
-        _refreshIndicatorSafetyTimer = setTimeout(() => {
-            const b = document.getElementById('dashboard-refresh-bar');
-            if (b) b.style.opacity = '0';
-            _refreshIndicatorSafetyTimer = null;
-        }, 15000);
-    }
+/** No-op — cached page switches are instant; the old top progress bar was redundant. */
+export function setDashboardRefreshIndicator(_active: boolean) {
+    document.getElementById('dashboard-refresh-bar')?.remove();
 }
 
 export function withDashboardTimeout<T>(promise: Promise<T>, ms: number, message?: string): Promise<T> {

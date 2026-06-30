@@ -1603,6 +1603,7 @@ const en = {
             "int_tab_active": "Active",
             "int_tab_available": "Available",
             "int_subtab_empty": "No integrations in this category.",
+            "integrations_loading": "Loading integrations...",
             "integration_entry_test": "Test",
             "integration_exposed_devices": "Devices",
             "integration_exposed_sync": "Sync",
