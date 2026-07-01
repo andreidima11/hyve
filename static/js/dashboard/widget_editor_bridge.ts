@@ -79,7 +79,10 @@ export async function ensureHyveviewEntitySeed() {
 }
 
 function widgetToEditorCard(widget: DashboardWidget): EditorCard {
-    const type = String(widget.type || 'entity');
+    let type = String(widget.type || 'entity');
+    // Universal "entity" widgets pointing at a light get the dedicated light
+    // editor (brightness/color/collapse options) instead of the generic one.
+    if (type === 'entity' && HVBridge.effectiveCardType(widget) === 'light') type = 'light';
     const rawCol = Number(widget.col_span);
     const col = Math.min(Math.max(Number.isFinite(rawCol) ? rawCol : SECTION_COLS, 1), SECTION_COLS);
     const row = Math.min(Math.max(Number(widget.row_span) || 2, 1), 12);
@@ -147,6 +150,12 @@ function widgetToEditorCard(widget: DashboardWidget): EditorCard {
         cfg.entity_feed_in = cfgIn.entity_feed_in || '';
         cfg.entity_consumption = cfgIn.entity_consumption || '';
         cfg.capacity_kw = cfgIn.capacity_kw ?? '';
+    }
+    if (type === 'light') {
+        cfg.collapse_when_off = widgetConfig.collapse_when_off !== false;
+        cfg.show_brightness = widgetConfig.show_brightness !== false;
+        cfg.show_color = widgetConfig.show_color !== false;
+        cfg.show_color_temp = widgetConfig.show_color_temp !== false;
     }
     if (widgetConfig.interactions && typeof widgetConfig.interactions === 'object') {
         cfg.interactions = widgetConfig.interactions;
@@ -261,6 +270,18 @@ function editorResultToWidgetBody(
         body.switch_style = resolved.switchStyle;
     }
     if (cfg.color) body.color = cfg.color;
+    if (type === 'light') {
+        // Keep the stored type unchanged (universal entity widgets stay 'entity');
+        // only the light-specific options are persisted in config.
+        if (existingWidget?.type === 'entity') body.type = 'entity';
+        body.config = {
+            ...(body.config as Record<string, unknown> || {}),
+            collapse_when_off: cfg.collapse_when_off !== false,
+            show_brightness: cfg.show_brightness !== false,
+            show_color: cfg.show_color !== false,
+            show_color_temp: cfg.show_color_temp !== false,
+        };
+    }
     if (type === 'climate') {
         const records = enrichEntityRecords(
             (Array.isArray(cfg.entities) ? cfg.entities : []).map(e =>

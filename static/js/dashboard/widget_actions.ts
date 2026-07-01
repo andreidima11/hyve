@@ -4,6 +4,7 @@
  */
 
 import { dashApiError } from './helpers.js';
+import { hsvToHex } from '../light_controls.js';
 import type { DashboardWidgetActionDeps } from '../types/dashboard.js';
 
 let _deps: DashboardWidgetActionDeps | null = null;
@@ -212,6 +213,24 @@ export function onDashboardLightColorTempChange(event: Event, widgetId: string):
     const slider = event.target;
     const value = slider instanceof HTMLInputElement ? Number(slider.value || 0) : 0;
     void sendLightColorTemp(widgetId, value);
+}
+
+let _hueDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function onDashboardLightHueInput(event: Event, widgetId: string): void {
+    const slider = event.target;
+    if (!(slider instanceof HTMLInputElement)) return;
+    const hue = Number(slider.value) || 0;
+    if (_hueDebounceTimer) clearTimeout(_hueDebounceTimer);
+    _hueDebounceTimer = setTimeout(() => { void sendLightColor(widgetId, hsvToHex(hue, 100, 100)); }, 260);
+}
+
+export function onDashboardLightHueChange(event: Event, widgetId: string): void {
+    if (_hueDebounceTimer) { clearTimeout(_hueDebounceTimer); _hueDebounceTimer = null; }
+    const slider = event.target;
+    if (!(slider instanceof HTMLInputElement)) return;
+    const hue = Number(slider.value) || 0;
+    void sendLightColor(widgetId, hsvToHex(hue, 100, 100));
 }
 
 function widgetNumberCaps(widget: Record<string, unknown> | null | undefined) {

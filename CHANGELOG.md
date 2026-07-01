@@ -4,6 +4,20 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.25] — 2026-07
+
+Mushroom-style light cards with working editor options and responsive sliders.
+
+### UI — Light card
+- **Change:** Light cards redesigned to match Lovelace Mushroom: circular icon, name + brightness state, and bar sliders for brightness, color temperature, and hue.
+- **Change:** Sliders appear from 2×2 card size upward; collapse when off hides the control row (configurable).
+- **Fix:** Card editor for light entities now shows brightness, color, color-temperature, and collapse options (was opening the generic entity schema).
+- **Fix:** Light options persist in widget `config` and are read correctly at render time.
+- **Fix:** Controls re-render when entity capabilities arrive; improved brightness/color detection for more integrations.
+
+### UI — Editor
+- **Fix:** Inline boolean fields (checkboxes) in the card editor now have proper layout and styling.
+
 ## [0.9.9.24] — 2026-07
 
 Hotfix for missing `lang.js` after the light card update.

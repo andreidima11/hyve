@@ -1,186 +1,219 @@
-/* Light card — compact header + expandable controls */
+/* Light card — Mushroom-style header + bar sliders */
 .hyve-dashboard-card--light {
     container-type: inline-size;
     container-name: hyve-light;
 }
 
 .hyve-dashboard-card--light .hyve-light {
+    --light-accent: #ff9800;
+    --light-control-height: 42px;
+    --light-control-radius: 12px;
     display: flex;
     flex-direction: column;
+    justify-content: center;
     min-height: 0;
     height: 100%;
-    gap: 0;
+    min-width: 0;
 }
 
+/* ===== Header: icon shape + name + state ===== */
 .hyve-dashboard-card--light .hyve-light__head {
     display: flex;
-    align-items: flex-start;
-    gap: 0.65rem;
+    align-items: center;
+    gap: 0.75rem;
     min-width: 0;
 }
 
-.hyve-dashboard-card--light .hyve-light__body {
-    min-width: 0;
-    flex: 1;
-}
-
-.hyve-dashboard-card--light .hyve-light__icon {
-    --light-pct: 0;
-    --light-accent: var(--accent, #38bdf8);
+.hyve-dashboard-card--light .hyve-light__shape {
+    width: var(--light-control-height);
+    height: var(--light-control-height);
     flex-shrink: 0;
-    transition: box-shadow 0.22s ease, background 0.22s ease;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    background: color-mix(in srgb, var(--text-muted, #9e9e9e) 16%, transparent);
+    color: var(--text-muted, #9e9e9e);
+    transition: background 0.28s ease, color 0.28s ease, box-shadow 0.28s ease;
 }
 
-.hyve-dashboard-card--light[data-on="true"] .hyve-light__icon {
-    box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--light-accent) 28%, transparent),
-        0 0 calc(8px + var(--light-pct, 0) * 0.2px) color-mix(in srgb, var(--light-accent) 50%, transparent);
-    background: color-mix(in srgb, var(--light-accent) 14%, var(--surface-2, rgba(255,255,255,0.05)));
+.hyve-dashboard-card--light[data-on="true"] .hyve-light__shape {
+    background: color-mix(in srgb, var(--light-accent) 20%, transparent);
     color: var(--light-accent);
 }
 
-.hyve-dashboard-card--light .hyve-light__value {
-    font-size: clamp(0.82rem, 2.5cqi, 1.05rem);
-    font-weight: 650;
-    line-height: 1.15;
-    color: var(--text-primary, #f1f5f9);
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.02em;
+.hyve-dashboard-card--light .hyve-light__info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    gap: 2px;
 }
 
-.hyve-dashboard-card--light[data-on="false"] .hyve-light__value {
-    color: var(--text-muted, #94a3b8);
-    font-size: 0.88rem;
+.hyve-dashboard-card--light .hyve-light__primary {
+    font-size: 0.875rem;
     font-weight: 600;
-}
-
-/* Controls panel — expands when on (or when collapse disabled) */
-.hyve-dashboard-card--light .hyve-light__controls {
-    display: grid;
-    gap: 0.65rem;
+    line-height: 1.2;
+    color: var(--text-primary, #f1f5f9);
     overflow: hidden;
-    max-height: 24rem;
-    opacity: 1;
-    margin-top: 0.65rem;
-    padding-top: 0.65rem;
-    border-top: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
-    transition:
-        max-height 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
-        opacity 0.24s ease,
-        margin-top 0.28s ease,
-        padding-top 0.28s ease,
-        border-color 0.24s ease;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.hyve-dashboard-card--light[data-expanded="false"] .hyve-light__controls,
-.hyve-dashboard-card--light .hyve-light__controls[hidden] {
-    max-height: 0;
-    opacity: 0;
-    margin-top: 0;
-    padding-top: 0;
-    border-top-color: transparent;
+.hyve-dashboard-card--light .hyve-light__secondary {
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--text-muted, #94a3b8);
+    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ===== Controls row ===== */
+.hyve-dashboard-card--light .hyve-light__actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    min-width: 0;
+}
+
+.hyve-dashboard-card--light .hyve-light__actions[hidden] {
+    display: none !important;
+}
+
+/* Edit mode: show the sliders as a preview, but don't fight drag & drop. */
+.hyve-dashboard-card--light[data-edit="true"] .hyve-light__actions {
     pointer-events: none;
 }
 
-.hyve-dashboard-card--light[data-light-controls="false"] {
-    align-self: start;
+/* ===== Mushroom bar slider ===== */
+.hyve-dashboard-card--light .hyve-light__slider {
+    --value: 0;
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    height: var(--light-control-height);
+    border-radius: var(--light-control-radius);
+    overflow: hidden;
+    transform: translateZ(0);
 }
 
-.hyve-light__control-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    margin-bottom: 0.35rem;
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--text-muted, #94a3b8);
+.hyve-dashboard-card--light .hyve-light__slider-bg,
+.hyve-dashboard-card--light .hyve-light__slider-active {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
 }
 
-.hyve-light__brightness-label,
-.hyve-light__temp-label {
-    font-variant-numeric: tabular-nums;
-    color: var(--text-secondary, #cbd5e1);
-    text-transform: none;
-    letter-spacing: 0;
-    font-size: 0.72rem;
+.hyve-dashboard-card--light .hyve-light__slider--brightness .hyve-light__slider-bg {
+    background: color-mix(in srgb, var(--light-accent) 20%, transparent);
 }
 
-.hyve-light__slider {
-    --brightness-pct: 0%;
+.hyve-dashboard-card--light .hyve-light__slider--brightness .hyve-light__slider-active {
+    background: var(--light-accent);
+    transform: scale3d(var(--value, 0), 1, 1);
+    transform-origin: left;
+    transition: transform 180ms ease-in-out;
 }
 
-.hyve-light__range {
+/* Mired scale: left = cool white, right = warm white. */
+.hyve-dashboard-card--light .hyve-light__slider--temp .hyve-light__slider-bg {
+    background: linear-gradient(to right, #a5d3ff 0%, #fffdf5 50%, #ffa957 100%);
+}
+
+.hyve-dashboard-card--light .hyve-light__slider--color .hyve-light__slider-bg {
+    background: linear-gradient(to right,
+        #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 66%, #f0f 83%, #f00 100%);
+}
+
+.hyve-dashboard-card--light .hyve-light__slider-indicator {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--value, 0) * (100% - 10px));
+    width: 10px;
+    border-radius: 3px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    transition: left 180ms ease-in-out;
+    pointer-events: none;
+}
+
+.hyve-dashboard-card--light .hyve-light__slider-indicator::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    height: 20px;
+    width: 2px;
+    border-radius: 1px;
+    background: color-mix(in srgb, var(--light-accent) 60%, #64748b);
+}
+
+/* Invisible native range on top drives the interaction. */
+.hyve-dashboard-card--light .hyve-light__slider input[type="range"] {
+    position: absolute;
+    inset: 0;
     width: 100%;
-    height: 0.38rem;
-    appearance: none;
-    border-radius: 999px;
-    outline: none;
-    cursor: pointer;
-    background: linear-gradient(
-        90deg,
-        var(--light-accent, var(--accent, #38bdf8)) 0%,
-        var(--light-accent, var(--accent, #38bdf8)) var(--brightness-pct, 0%),
-        var(--surface-2, rgba(255, 255, 255, 0.08)) var(--brightness-pct, 0%),
-        var(--surface-2, rgba(255, 255, 255, 0.08)) 100%
-    );
-}
-
-.hyve-dashboard-card--light .hyve-light__range::-webkit-slider-thumb {
-    appearance: none;
-    width: 1rem;
-    height: 1rem;
-    border-radius: 50%;
-    border: 2px solid var(--light-accent, var(--accent, #38bdf8));
-    background: var(--surface-1, #0f172a);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--light-accent, var(--accent, #38bdf8)) 22%, transparent);
-}
-
-.hyve-dashboard-card--light .hyve-light__range::-moz-range-thumb {
-    width: 1rem;
-    height: 1rem;
-    border-radius: 50%;
-    border: 2px solid var(--light-accent, var(--accent, #38bdf8));
-    background: var(--surface-1, #0f172a);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--light-accent, var(--accent, #38bdf8)) 22%, transparent);
-}
-
-.hyve-light__color-native {
-    width: 100%;
-    height: 2rem;
-    padding: 0;
-    border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
-    border-radius: 0.65rem;
-    background: transparent;
-    cursor: pointer;
-}
-
-.hyve-light__control--color .hy-color-picker {
+    height: 100%;
     margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    touch-action: pan-y;
 }
 
-/* Layout tiers */
-.hyve-dashboard-card--light[data-light-layout="compact"] .hyve-light__head {
-    align-items: center;
+/* While dragging, track the pointer without easing. */
+.hyve-dashboard-card--light .hyve-light__slider:active .hyve-light__slider-active,
+.hyve-dashboard-card--light .hyve-light__slider:active .hyve-light__slider-indicator {
+    transition: none;
 }
 
-.hyve-dashboard-card--light[data-light-layout="compact"] .hyve-light__controls {
-    gap: 0.5rem;
+/* Inactive (off but not collapsed): grey out the brightness bar. */
+.hyve-dashboard-card--light[data-on="false"] .hyve-light__slider--brightness .hyve-light__slider-bg {
+    background: color-mix(in srgb, var(--text-muted, #9e9e9e) 20%, transparent);
 }
 
-.hyve-dashboard-card--light[data-light-layout="spacious"] .hyve-light__controls {
-    grid-template-columns: 1fr 1fr;
-    align-items: start;
+.hyve-dashboard-card--light[data-on="false"] .hyve-light__slider--brightness .hyve-light__slider-active {
+    background: var(--text-muted, #9e9e9e);
 }
 
-.hyve-dashboard-card--light[data-light-layout="spacious"] .hyve-light__control--brightness {
-    grid-column: 1 / -1;
+/* ===== Size responsiveness ===== */
+/* Single-row cards only have room for the header. */
+.hyve-dashboard-card--light[data-dashboard-rows="1"] .hyve-light__actions {
+    display: none !important;
 }
 
-@container hyve-light (max-width: 200px) {
-    .hyve-dashboard-card--light .hyve-light__controls {
-        grid-template-columns: 1fr;
+.hyve-dashboard-card--light[data-dashboard-rows="1"] .hyve-light__shape {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 0.875rem;
+}
+
+/* Narrow cards: stack the sliders vertically. */
+@container hyve-light (max-width: 220px) {
+    .hyve-dashboard-card--light .hyve-light__actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
     }
+
+    .hyve-dashboard-card--light .hyve-light__slider {
+        flex: 0 0 auto;
+        height: 36px;
+    }
+}
+
+/* Tall cards: bigger, roomier controls. */
+.hyve-dashboard-card--light[data-dashboard-rows="3"] .hyve-light,
+.hyve-dashboard-card--light[data-dashboard-rows="4"] .hyve-light {
+    gap: 0.25rem;
 }

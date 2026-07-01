@@ -1,12 +1,14 @@
 /**
- * <hv-card-light> — light entity with optional collapsible controls.
+ * <hv-card-light> — Mushroom-style light card.
+ * Header (icon shape + name + state) with a row of bar sliders
+ * (brightness / color temperature / hue) that collapses when off.
  */
 import { HyveviewCardBase } from '../../core/card-base.js';
 import { host, widgetTitle } from '../../host.js';
 import { t, tState } from '../../../js/lang/index.js';
 import {
+  hexToHsv,
   lightColorToHex,
-  renderHyColorPickerMarkup,
   resolveLightControlFlags,
 } from '../../../js/light_controls.js';
 import type { CardWidget, HyveviewEntityState } from '../../types/card-widget.js';
@@ -18,30 +20,29 @@ interface LightCardOptions {
   showColorTemp: boolean;
 }
 
-function readLightOptions(widget: CardWidget): LightCardOptions {
+const DEFAULT_LIGHT_ACCENT = '#ff9800';
+
+function optionFlag(w: CardWidget, key: string): boolean {
+  const cfg = (w.config && typeof w.config === 'object' ? w.config : {}) as Record<string, unknown>;
+  const raw = Object.prototype.hasOwnProperty.call(cfg, key) ? cfg[key] : w[key];
+  return raw !== false && raw !== 'false' && raw !== 0;
+}
+
+function readLightOptions(w: CardWidget): LightCardOptions {
   return {
-    collapseWhenOff: widget.collapse_when_off !== false,
-    showBrightness: widget.show_brightness !== false,
-    showColor: widget.show_color !== false,
-    showColorTemp: widget.show_color_temp !== false,
+    collapseWhenOff: optionFlag(w, 'collapse_when_off'),
+    showBrightness: optionFlag(w, 'show_brightness'),
+    showColor: optionFlag(w, 'show_color'),
+    showColorTemp: optionFlag(w, 'show_color_temp'),
   };
 }
 
-function cardLayoutTier(cols: number, rows: number): 'compact' | 'cozy' | 'spacious' {
-  const area = cols * rows;
-  if (area <= 2 && cols < 2) return 'compact';
-  if (area >= 6 || cols >= 3 || rows >= 3) return 'spacious';
-  return 'cozy';
-}
-
 export class HyveviewLightCard extends HyveviewCardBase {
-  protected _iconWrapEl: HTMLElement | null = null;
-  protected _liveValueEl: HTMLElement | null = null;
-  protected _controlsEl: HTMLElement | null = null;
-  protected _sliderActive = false;
-  protected _sliderEl: HTMLInputElement | null = null;
-  protected _sliderWrapEl: HTMLElement | null = null;
-  protected _flags: ReturnType<typeof resolveLightControlFlags> | null = null;
+  protected _rootEl: HTMLElement | null = null;
+  protected _secondaryEl: HTMLElement | null = null;
+  protected _actionsEl: HTMLElement | null = null;
+  protected _activeSliders = new Set<string>();
+  protected _renderSig = '';
 
   static meta = {
     name: 'Light',
@@ -54,14 +55,6 @@ export class HyveviewLightCard extends HyveviewCardBase {
       { key: 'title', label: 'Title', type: 'string', placeholder: 'Auto from entity if blank' },
       { key: 'icon', label: 'Icon', type: 'icon', placeholder: 'fas fa-lightbulb' },
       {
-        key: 'collapse_when_off',
-        label: 'Collapse when off',
-        type: 'boolean',
-        default: true,
-        inline: true,
-        hint: 'Hide sliders and color controls while the light is off.',
-      },
-      {
         key: 'show_brightness',
         label: 'Brightness slider',
         type: 'boolean',
@@ -69,20 +62,28 @@ export class HyveviewLightCard extends HyveviewCardBase {
         inline: true,
       },
       {
+        key: 'show_color_temp',
+        label: 'Color temperature slider',
+        type: 'boolean',
+        default: true,
+        inline: true,
+        hint: 'Shown when the light supports warm/cool white.',
+      },
+      {
         key: 'show_color',
-        label: 'Color picker',
+        label: 'Color slider',
         type: 'boolean',
         default: true,
         inline: true,
         hint: 'Shown when the light supports RGB/HS color.',
       },
       {
-        key: 'show_color_temp',
-        label: 'Color temperature',
+        key: 'collapse_when_off',
+        label: 'Collapse when off',
         type: 'boolean',
         default: true,
         inline: true,
-        hint: 'Shown when the light supports warm/cool white.',
+        hint: 'Hide the sliders while the light is off.',
       },
     ],
   };
@@ -90,7 +91,7 @@ export class HyveviewLightCard extends HyveviewCardBase {
     return {
       entity_id: entityId || '',
       title: '',
-      icon: 'fas fa-lightbulb',
+      icon: '',
       collapse_when_off: true,
       show_brightness: true,
       show_color: true,
@@ -101,7 +102,6 @@ export class HyveviewLightCard extends HyveviewCardBase {
   setConfig(widget: CardWidget | null | undefined) {
     this._config = widget || {};
     this._render();
-    this._applyState();
   }
 
   setState(entity: HyveviewEntityState | null) {
@@ -120,98 +120,66 @@ export class HyveviewLightCard extends HyveviewCardBase {
     return this.closest('article');
   }
 
-  _readCardSpan(): { cols: number; rows: number } {
-    const article = this._parentArticle();
+  _isOn(w: CardWidget): boolean {
+    const stateStr = String(w.current_state == null ? 'unknown' : w.current_state);
+    return typeof host.stateOn === 'function'
+      ? host.stateOn(stateStr)
+      : ['on', 'true', '1'].includes(stateStr.toLowerCase());
+  }
+
+  _visibleControls(w: CardWidget): { brightness: boolean; temp: boolean; color: boolean } {
+    const opts = readLightOptions(w);
+    const flags = resolveLightControlFlags(
+      { state: w.current_state, attributes: w.attributes },
+      this._isOn(w),
+    );
     return {
-      cols: Math.max(1, Number(article?.getAttribute('data-dashboard-cols') || 1)),
-      rows: Math.max(1, Number(article?.getAttribute('data-dashboard-rows') || 1)),
+      brightness: opts.showBrightness && flags.hasBrightness,
+      temp: opts.showColorTemp && flags.hasColorTemp,
+      color: opts.showColor && flags.hasColor,
     };
+  }
+
+  _signature(w: CardWidget): string {
+    const c = this._visibleControls(w);
+    return `${c.brightness}|${c.temp}|${c.color}`;
   }
 
   _render() {
     const w = (this._config || {}) as CardWidget;
     const escape = host.escape;
     const escAttr = (value: unknown) => escape(String(value ?? ''));
-    const editMode = !!w._edit_mode;
-    const opts = readLightOptions(w);
-    const { cols, rows } = this._readCardSpan();
-    const layout = cardLayoutTier(cols, rows);
-    const on = this._isOn(w);
     const flags = resolveLightControlFlags(
       { state: w.current_state, attributes: w.attributes },
-      on,
+      this._isOn(w),
     );
-    this._flags = flags;
+    const controls = this._visibleControls(w);
+    this._renderSig = this._signature(w);
 
     const title = widgetTitle(w);
     const wid = escape(w.id || '');
-    const colorHex = lightColorToHex((w.attributes || {}) as Record<string, unknown>);
 
-    const showBrightness = opts.showBrightness && flags.hasBrightness && !editMode;
-    const showColor = opts.showColor && flags.hasColor && !editMode;
-    const showColorTemp = opts.showColorTemp && flags.hasColorTemp && !editMode;
-    const hasControls = showBrightness || showColor || showColorTemp;
-
-    const brightnessBlock = showBrightness ? `
-      <div class="hyve-light__control hyve-light__control--brightness">
-        <div class="hyve-light__control-head">
-          <span>${escape(t('entity.render.brightness') || 'Brightness')}</span>
-          <span class="hyve-light__brightness-label" data-brightness-label>0%</span>
-        </div>
-        <div class="hyve-light__slider" data-brightness style="--brightness-pct: 0%">
-          <input type="range" min="0" max="100" step="1" value="0"
-            class="hyve-light__range"
-            data-brightness-slider
-            data-dash-input="brightnessInput"
-            data-dash-change="brightnessChange"
-            data-dash-stop-propagation="true"
-            data-widget-id="${wid}"
-            aria-label="${escape(title)}">
-        </div>
-      </div>` : '';
-
-    let colorBlock = '';
-    if (showColor) {
-      if (layout === 'compact') {
-        colorBlock = `
-      <div class="hyve-light__control hyve-light__control--color">
-        <div class="hyve-light__control-head">
-          <span>${escape(t('entity.render.color') || 'Color')}</span>
-        </div>
-        <input type="color" class="hyve-light__color-native" value="${escAttr(colorHex)}"
-          data-dash-change="lightColorChange"
+    const brightnessSlider = controls.brightness ? `
+      <div class="hyve-light__slider hyve-light__slider--brightness" data-slider="brightness" style="--value:0">
+        <div class="hyve-light__slider-bg"></div>
+        <div class="hyve-light__slider-active"></div>
+        <div class="hyve-light__slider-indicator"></div>
+        <input type="range" min="0" max="100" step="1" value="0"
+          data-slider-input="brightness"
+          data-dash-input="brightnessInput"
+          data-dash-change="brightnessChange"
           data-dash-stop-propagation="true"
           data-widget-id="${wid}"
-          aria-label="${escape(title)}">
-      </div>`;
-      } else {
-        const dashAttrs = `data-dash-widget-id="${wid}" data-dash-light-input="color" data-dash-stop-propagation="true"`;
-        colorBlock = `
-      <div class="hyve-light__control hyve-light__control--color">
-        ${renderHyColorPickerMarkup(
-          colorHex,
-          dashAttrs,
-          escape,
-          escAttr,
-          {
-            color: t('entity.render.color') || 'Color',
-            hue: t('entity.render.hue') || 'Hue',
-          },
-          { compact: layout !== 'spacious' },
-        )}
-      </div>`;
-      }
-    }
+          aria-label="${escape(t('entity.render.brightness') || 'Brightness')}">
+      </div>` : '';
 
-    const colorTempBlock = showColorTemp ? `
-      <div class="hyve-light__control hyve-light__control--temp">
-        <div class="hyve-light__control-head">
-          <span>${escape(t('entity.render.color_temp') || 'Color temp')}</span>
-          <span class="hyve-light__temp-label" data-color-temp-label>${flags.colorTempValue}</span>
-        </div>
+    const tempSlider = controls.temp ? `
+      <div class="hyve-light__slider hyve-light__slider--temp" data-slider="temp" style="--value:0.5">
+        <div class="hyve-light__slider-bg"></div>
+        <div class="hyve-light__slider-indicator"></div>
         <input type="range" min="${flags.colorTempMin}" max="${flags.colorTempMax}" step="1"
           value="${flags.colorTempValue}"
-          class="hyve-light__range hyve-light__range--temp"
+          data-slider-input="temp"
           data-dash-input="lightColorTempInput"
           data-dash-change="lightColorTempChange"
           data-dash-stop-propagation="true"
@@ -219,52 +187,82 @@ export class HyveviewLightCard extends HyveviewCardBase {
           aria-label="${escape(t('entity.render.color_temp') || 'Color temp')}">
       </div>` : '';
 
+    const colorSlider = controls.color ? `
+      <div class="hyve-light__slider hyve-light__slider--color" data-slider="color" style="--value:0">
+        <div class="hyve-light__slider-bg"></div>
+        <div class="hyve-light__slider-indicator"></div>
+        <input type="range" min="0" max="360" step="1" value="0"
+          data-slider-input="color"
+          data-dash-input="lightHueInput"
+          data-dash-change="lightHueChange"
+          data-dash-stop-propagation="true"
+          data-widget-id="${wid}"
+          aria-label="${escape(t('entity.render.color') || 'Color')}">
+      </div>` : '';
+
+    const hasControls = controls.brightness || controls.temp || controls.color;
+
     this.innerHTML = `
-      <div class="hyve-light" data-layout="${layout}">
+      <div class="hyve-light" style="--light-accent:${escAttr(DEFAULT_LIGHT_ACCENT)}">
         <div class="hyve-light__head">
-          <span class="hyve-dashboard-card__icon hyve-light__icon" data-icon-wrap style="--light-accent:${escAttr(colorHex)}">
+          <span class="hyve-light__shape" data-icon-wrap>
             <i data-icon class="fas fa-lightbulb"></i>
           </span>
-          <div class="hyve-dashboard-card__body hyve-light__body">
-            <div class="hyve-dashboard-card__title" data-title>${escape(title)}</div>
-            <div class="hyve-light__value" data-live-value>—</div>
+          <div class="hyve-light__info">
+            <span class="hyve-light__primary" data-title>${escape(title)}</span>
+            <span class="hyve-light__secondary" data-live-value>—</span>
           </div>
         </div>
         ${hasControls ? `
-        <div class="hyve-light__controls" data-controls>
-          ${brightnessBlock}
-          ${colorBlock}
-          ${colorTempBlock}
+        <div class="hyve-light__actions" data-controls>
+          ${brightnessSlider}
+          ${tempSlider}
+          ${colorSlider}
         </div>` : ''}
       </div>`;
 
-    this._liveValueEl = this.querySelector('[data-live-value]');
-    this._iconWrapEl = this.querySelector('[data-icon-wrap]');
-    this._controlsEl = this.querySelector('[data-controls]');
-    this._sliderWrapEl = this.querySelector('[data-brightness]');
-    this._sliderEl = this.querySelector('[data-brightness-slider]');
+    this._rootEl = this.querySelector('.hyve-light');
+    this._secondaryEl = this.querySelector('[data-live-value]');
+    this._actionsEl = this.querySelector('[data-controls]');
 
-    this._syncIcon(w, on);
+    this.querySelectorAll('[data-slider-input]').forEach((node) => {
+      const input = node as HTMLInputElement;
+      const kind = input.dataset.sliderInput || '';
+      input.addEventListener('pointerdown', () => { this._activeSliders.add(kind); });
+      const release = () => { this._activeSliders.delete(kind); };
+      input.addEventListener('pointerup', release);
+      input.addEventListener('pointercancel', release);
+      input.addEventListener('blur', release);
+      input.addEventListener('input', () => this._onLocalSliderInput(kind, input));
+    });
 
-    if (this._sliderEl) {
-      this._sliderEl.addEventListener('pointerdown', () => { this._sliderActive = true; });
-      this._sliderEl.addEventListener('pointerup', () => { this._sliderActive = false; });
-      this._sliderEl.addEventListener('pointercancel', () => { this._sliderActive = false; });
-      this._sliderEl.addEventListener('blur', () => { this._sliderActive = false; });
-    }
+    this._applyState();
+  }
 
-    const article = this._parentArticle();
-    if (article) {
-      article.setAttribute('data-light-layout', layout);
-      article.setAttribute('data-light-controls', hasControls ? 'true' : 'false');
+  _onLocalSliderInput(kind: string, input: HTMLInputElement) {
+    const wrap = input.closest('.hyve-light__slider') as HTMLElement | null;
+    if (!wrap) return;
+    const min = Number(input.min) || 0;
+    const max = Number(input.max) || 100;
+    const value = Number(input.value) || 0;
+    const ratio = max > min ? (value - min) / (max - min) : 0;
+    wrap.style.setProperty('--value', String(Math.max(0, Math.min(1, ratio))));
+    if (kind === 'brightness' && this._secondaryEl) {
+      this._secondaryEl.textContent = `${Math.round(value)}%`;
     }
   }
 
-  _isOn(w: CardWidget): boolean {
-    const stateStr = String(w.current_state == null ? 'unknown' : w.current_state);
-    return typeof host.stateOn === 'function'
-      ? host.stateOn(stateStr)
-      : ['on', 'true', '1'].includes(stateStr.toLowerCase());
+  _setSlider(kind: string, value: number) {
+    const wrap = this.querySelector(`[data-slider="${kind}"]`) as HTMLElement | null;
+    const input = this.querySelector(`[data-slider-input="${kind}"]`) as HTMLInputElement | null;
+    if (!wrap || !input) return;
+    if (this._activeSliders.has(kind) || document.activeElement === input) return;
+    const min = Number(input.min) || 0;
+    const max = Number(input.max) || 100;
+    const clamped = Math.max(min, Math.min(max, value));
+    input.value = String(clamped);
+    const ratio = max > min ? (clamped - min) / (max - min) : 0;
+    wrap.style.setProperty('--value', String(ratio));
   }
 
   _syncIcon(w: CardWidget, on: boolean) {
@@ -279,45 +277,41 @@ export class HyveviewLightCard extends HyveviewCardBase {
 
   _applyState() {
     const w = (this._config || {}) as CardWidget;
+    if (this._signature(w) !== this._renderSig) {
+      this._render();
+      return;
+    }
     const opts = readLightOptions(w);
     const on = this._isOn(w);
-    const flags = this._flags || resolveLightControlFlags(
+    const flags = resolveLightControlFlags(
       { state: w.current_state, attributes: w.attributes },
       on,
     );
+    const attrs = (w.attributes || {}) as Record<string, unknown>;
+
     const scale = flags.brightnessScale || 254;
-    const rawBright = Number((w.attributes as Record<string, unknown> | undefined)?.brightness);
+    const rawBright = Number(attrs.brightness);
     const pct = on && Number.isFinite(rawBright)
       ? Math.max(0, Math.min(100, Math.round((rawBright / scale) * 100)))
       : (on ? 100 : 0);
 
-    const valueText = on
-      ? (flags.hasBrightness ? `${pct}%` : tState('on'))
-      : tState('off');
-    if (this._liveValueEl) this._liveValueEl.textContent = valueText;
-
-    const brightLabel = this.querySelector('[data-brightness-label]');
-    if (brightLabel) brightLabel.textContent = `${pct}%`;
-
-    if (this._sliderWrapEl) {
-      this._sliderWrapEl.style.setProperty('--brightness-pct', `${pct}%`);
-    }
-    if (this._iconWrapEl) {
-      this._iconWrapEl.style.setProperty('--light-pct', String(pct));
-      const hex = lightColorToHex((w.attributes || {}) as Record<string, unknown>);
-      this._iconWrapEl.style.setProperty('--light-accent', hex);
-    }
-    if (this._sliderEl && !this._sliderActive && document.activeElement !== this._sliderEl) {
-      this._sliderEl.value = String(pct);
+    if (this._secondaryEl) {
+      this._secondaryEl.textContent = on
+        ? (flags.hasBrightness ? `${pct}%` : tState('on'))
+        : tState('off');
     }
 
-    const ctRaw = Number((w.attributes as Record<string, unknown> | undefined)?.color_temp);
-    const ctLabel = this.querySelector('[data-color-temp-label]');
-    const ctSlider = this.querySelector('.hyve-light__range--temp') as HTMLInputElement | null;
-    if (Number.isFinite(ctRaw)) {
-      if (ctLabel) ctLabel.textContent = String(ctRaw);
-      if (ctSlider && document.activeElement !== ctSlider) ctSlider.value = String(ctRaw);
-    }
+    // Accent: light color when colored, mushroom amber otherwise.
+    const hex = lightColorToHex(attrs);
+    const accent = (flags.hasColor && /^#[0-9a-f]{6}$/i.test(hex) && hex.toLowerCase() !== '#ffffff')
+      ? hex
+      : DEFAULT_LIGHT_ACCENT;
+    if (this._rootEl) this._rootEl.style.setProperty('--light-accent', accent);
+
+    this._setSlider('brightness', pct);
+    const ctRaw = Number(attrs.color_temp);
+    if (Number.isFinite(ctRaw)) this._setSlider('temp', ctRaw);
+    this._setSlider('color', hexToHsv(hex).h);
 
     this._syncIcon(w, on);
 
@@ -333,8 +327,8 @@ export class HyveviewLightCard extends HyveviewCardBase {
       article.setAttribute('data-pending', pending ? 'true' : 'false');
       if (w.entity_id) article.setAttribute('data-entity-id', w.entity_id);
     }
-    if (this._controlsEl) {
-      this._controlsEl.toggleAttribute('hidden', !expanded);
+    if (this._actionsEl) {
+      this._actionsEl.toggleAttribute('hidden', !expanded);
     }
   }
 }

@@ -110,7 +110,29 @@ function _ensureCss() {
       border-color: var(--accent, #38bdf8);
       box-shadow: 0 0 0 3px var(--accent-soft, rgba(56,189,248,0.18));
     }
-    .hv-field input[type="checkbox"] { accent-color: var(--accent, #38bdf8); }
+    .hv-field input[type="checkbox"] { accent-color: var(--accent, #38bdf8); width: 1.1rem; height: 1.1rem; cursor: pointer; }
+    .hv-field--inline {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem 0.75rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.75rem;
+      border: 1px solid var(--border-medium, rgba(255,255,255,0.08));
+      background: var(--surface-card, rgba(255,255,255,0.03));
+    }
+    .hv-field--inline > label {
+      order: -1;
+      flex: 1 1 auto;
+      text-transform: none;
+      letter-spacing: normal;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary, #e2e8f0);
+      line-height: 1.3;
+    }
+    .hv-field--inline .hv-field-hint { flex-basis: 100%; }
     .hv-field input[type="color"] { padding: 2px; height: 32px; width: 60px; border-radius: 8px; }
     .hv-field-hint { font-size: 0.75rem; color: var(--text-secondary, #94a3b8); }
 

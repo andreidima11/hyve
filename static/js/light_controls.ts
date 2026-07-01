@@ -51,7 +51,7 @@ export function hexToHsv(hex: string): { h: number; s: number; v: number } {
     return { h: Math.round(h), s: Math.round(s), v: Math.round(v) };
 }
 
-function hsvToHex(h: number, s: number, v: number): string {
+export function hsvToHex(h: number, s: number, v: number): string {
     const hue = ((h % 360) + 360) % 360;
     const sat = Math.max(0, Math.min(100, s)) / 100;
     const val = Math.max(0, Math.min(100, v)) / 100;
@@ -69,6 +69,15 @@ function hsvToHex(h: number, s: number, v: number): string {
 }
 
 export function lightColorToHex(attrs: Record<string, unknown>): string {
+    // HA-style attributes: rgb_color / hs_color arrays.
+    const rgbArr = attrs.rgb_color;
+    if (Array.isArray(rgbArr) && rgbArr.length >= 3 && rgbArr.every((v) => Number.isFinite(Number(v)))) {
+        return `#${clampByte(Number(rgbArr[0]))}${clampByte(Number(rgbArr[1]))}${clampByte(Number(rgbArr[2]))}`;
+    }
+    const hsArr = attrs.hs_color;
+    if (Array.isArray(hsArr) && hsArr.length >= 2 && hsArr.every((v) => Number.isFinite(Number(v)))) {
+        return hsvToHex(Number(hsArr[0]), Number(hsArr[1]), 100);
+    }
     const color = attrs.color ?? attrs.color_xy ?? attrs.color_hs;
     if (!color || typeof color !== 'object') return '#ffffff';
     const c = color as Record<string, unknown>;
@@ -105,6 +114,7 @@ const COLOR_MODES = new Set([
 export function lightHasColor(attrs: Record<string, unknown>, caps: Record<string, unknown>): boolean {
     if (caps.color) return true;
     if (attrs.color != null || attrs.color_xy != null || attrs.color_hs != null) return true;
+    if (attrs.rgb_color != null || attrs.hs_color != null) return true;
     const modes = caps.supported_color_modes;
     if (Array.isArray(modes)) {
         return modes.some((m) => COLOR_MODES.has(String(m).toLowerCase()));
@@ -402,7 +412,7 @@ export function resolveLightControlFlags(
     return {
         hasBrightness: !!(
             caps.brightness || caps.brightness_command_topic || caps.brightness_range
-            || (attrs.brightness != null && (caps.command_topic || caps.brightness_command_topic))
+            || attrs.brightness != null
         ),
         hasColor: lightHasColor(attrs, caps),
         hasColorTemp: lightHasColorTemp(attrs, caps),
