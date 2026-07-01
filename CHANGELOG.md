@@ -4,6 +4,17 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.23] — 2026-07
+
+Dashboard column layout fix, columns dropdown fix, and Mushroom-style light cards.
+
+### UI — Dashboard
+- **Fix:** Page column count (1–4, Auto) now arranges sections side by side on desktop — fewer columns mean wider sections and cards; Auto follows the number of sections.
+- **Fix:** The columns dropdown in page edit closes correctly after selecting an option.
+
+### UI — Light card
+- **Change:** Light entity cards are more configurable and responsive: optional brightness, color, and color-temperature sliders; collapse controls when the light is off; layout adapts to card size.
+
 ## [0.9.9.22] — 2026-07
 
 Dashboard page/section editing cleanup, responsive column layout, and tile fixes.
