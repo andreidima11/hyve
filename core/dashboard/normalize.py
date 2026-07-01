@@ -664,9 +664,6 @@ def _normalize_page_record(page: dict[str, Any], index: int = 0) -> dict[str, An
     prefs = page.get("preferences")
     if not isinstance(prefs, dict):
         prefs = {}
-    theme = str(page.get("theme") or "").strip().lower()
-    if theme not in {"", "default", "dark", "light", "midnight", "sunrise", "forest", "ocean"}:
-        theme = ""
     parent_page_id = str(page.get("parent_page_id") or "").strip()
     return {
         "id": page_id,
@@ -674,9 +671,8 @@ def _normalize_page_record(page: dict[str, Any], index: int = 0) -> dict[str, An
         "subtitle": str(page.get("subtitle") or ("Panou control" if index == 0 else "")).strip(),
         "icon": _normalize_icon(page.get("icon"), _DEFAULT_DASHBOARD_ICON),
         "columns": _normalize_page_columns(page.get("columns")),
-        "preferences": {**_DEFAULT_PREFS, **prefs},
+        "preferences": {**_DEFAULT_PREFS, **{k: v for k, v in prefs.items() if k in _DEFAULT_PREFS}},
         "panels": panels,
-        "theme": theme,
         "parent_page_id": parent_page_id,
     }
 

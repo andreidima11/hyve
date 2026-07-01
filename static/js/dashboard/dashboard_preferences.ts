@@ -1,11 +1,11 @@
 /**
- * Dashboard preferences UI — layout, filter, edit mode, and preference sync.
+ * Dashboard preferences UI — edit mode and preference sync.
  */
 
 import { apiCall } from '../api.js';
 import { showToast } from '../utils.js';
 import { DEFAULT_PREFS, DEFAULT_META } from './constants.js';
-import { dashApiError } from './helpers.js';
+import { dashApiError, dashboardPageQuery } from './helpers.js';
 import type { DashboardCache, DashboardPreferencesDeps } from '../types/dashboard.js';
 
 let _deps: DashboardPreferencesDeps | null = null;
@@ -26,12 +26,10 @@ export function syncPreferenceControls() {
 
     const titleEl = document.getElementById('dashboard-page-title');
     const titleInput = document.getElementById('dashboard-page-title-input') as HTMLInputElement | null;
-    const pageLayoutInput = document.getElementById('dashboard-page-layout-mode') as HTMLSelectElement | null;
     const pageHideInput = document.getElementById('dashboard-page-hide-unavailable') as HTMLInputElement | null;
     const effectiveTitle = cache.title || DEFAULT_META.title;
     if (titleEl) titleEl.textContent = effectiveTitle;
     if (titleInput) titleInput.value = effectiveTitle;
-    if (pageLayoutInput) pageLayoutInput.value = prefs.layout_mode || DEFAULT_PREFS.layout_mode;
     if (pageHideInput) pageHideInput.checked = !prefs.show_unavailable;
 
     const headerTitleEl = document.getElementById('current-view-title');
@@ -97,25 +95,6 @@ export function toggleDashboardEditMode() {
         : (d.t('dashboard.edit_mode_off') || 'Edit mode disabled'), 'success');
 }
 
-export async function setDashboardFilter(mode: string) {
-    const d = deps();
-    if (!d.requireDashboardEditAccess()) return;
-    const cache = d.getCache();
-    cache.preferences = { ...DEFAULT_PREFS, ...(cache.preferences || {}), filter_mode: mode || 'all' };
-    d.renderDashboard();
-    await saveDashboardPreferences(true);
-}
-
-export async function toggleDashboardLayout() {
-    const d = deps();
-    if (!d.requireDashboardEditAccess()) return;
-    const cache = d.getCache();
-    const next = (cache.preferences?.layout_mode === 'compact') ? 'comfortable' : 'compact';
-    cache.preferences = { ...DEFAULT_PREFS, ...(cache.preferences || {}), layout_mode: next };
-    d.renderDashboard();
-    await saveDashboardPreferences(true);
-}
-
 function _hideUnavailableFromUi(cache: DashboardCache) {
     const pageHide = document.getElementById('dashboard-page-hide-unavailable') as HTMLInputElement | null;
     if (pageHide) return !pageHide.checked;
@@ -135,11 +114,13 @@ export async function saveDashboardPreferences(silent = false) {
         show_unavailable: _hideUnavailableFromUi(cache),
     };
 
+    const pageId = d.getCurrentPageId() || cache.current_page_id || cache.page_id;
+
     try {
-        const res = await apiCall('/api/dashboard/preferences', {
+        const res = await apiCall(`/api/dashboard/preferences${dashboardPageQuery(pageId)}`, {
             method: 'PATCH',
             body: {
-                ...prefs,
+                show_unavailable: prefs.show_unavailable,
                 title: cache.title || DEFAULT_META.title,
                 subtitle: cache.subtitle || DEFAULT_META.subtitle,
                 icon: cache.icon || undefined,

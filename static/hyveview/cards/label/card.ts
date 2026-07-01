@@ -49,8 +49,13 @@ export class HyveviewLabelCard extends HyveviewCardBase {
 
   _render() {
     const w = (this._config || {}) as CardWidget;
-    const title = _escape(Object.prototype.hasOwnProperty.call(w, 'title') ? String(w.title ?? '') : 'Titlu');
-    const sub = w.entity_name ? `<div class="hyve-dashboard-label__sub">${_escape(w.entity_name)}</div>` : '';
+    const titleText = Object.prototype.hasOwnProperty.call(w, 'title') ? String(w.title ?? '') : 'Titlu';
+    const title = _escape(titleText);
+    const subtitleText = String(w.entity_name ?? '').trim();
+    // Legacy saves copied title into entity_name when secondary text was left blank.
+    const sub = subtitleText && subtitleText !== titleText.trim()
+      ? `<div class="hyve-dashboard-label__sub">${_escape(subtitleText)}</div>`
+      : '';
     this.innerHTML = `
       <div class="hyve-dashboard-label__title">${title}</div>
       ${sub}

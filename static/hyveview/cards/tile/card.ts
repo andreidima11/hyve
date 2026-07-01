@@ -122,9 +122,10 @@ export class HyveviewTileCard extends HyveviewCardBase {
     const stateStr = String(rawState == null ? 'unknown' : rawState);
     const unit = String(presetUnit || w.unit || '');
     const unitSuffix = unit && !stateStr.endsWith(unit) ? ' ' + unit : '';
+    const unavailable = available === false;
     // When the entity is unavailable, show the "Unavailable" label instead of
     // the stale on/off/raw state so the text matches the unavailable icon.
-    this._stateEl.textContent = available === false
+    this._stateEl.textContent = unavailable
       ? t('entity.unavailable')
       : tState(stateStr) + unitSuffix;
 
@@ -138,13 +139,13 @@ export class HyveviewTileCard extends HyveviewCardBase {
       ? this.parentElement : this.closest('article');
     if (article) {
       article.setAttribute('data-on', on ? 'true' : 'false');
-      article.setAttribute('data-unavailable', available === false ? 'true' : 'false');
+      article.setAttribute('data-unavailable', unavailable ? 'true' : 'false');
       const pending = typeof host.controlVisuallyPending === 'function' && w.id
         ? host.controlVisuallyPending(w.id) : false;
       article.setAttribute('data-pending', pending ? 'true' : 'false');
       if (w.entity_id) article.setAttribute('data-entity-id', w.entity_id);
     }
     if (this._toggleEl) this._toggleEl.setAttribute('data-on', on ? 'true' : 'false');
-    if (this._unavailableBadge) this._unavailableBadge.hidden = available !== false;
+    if (this._unavailableBadge) this._unavailableBadge.hidden = !unavailable;
   }
 }

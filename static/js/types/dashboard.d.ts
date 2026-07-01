@@ -29,9 +29,7 @@ export interface CameraStreamElement extends Element {
 }
 
 export interface DashboardPrefs {
-    layout_mode: string;
     show_unavailable: boolean;
-    filter_mode: string;
 }
 
 export interface DashboardMeta {
@@ -148,6 +146,7 @@ export interface DashboardCache {
 
 export interface DashboardVisibilityDeps {
     getEditMode: () => boolean;
+    getCache: () => DashboardCache;
     renderDashboard: () => void;
 }
 

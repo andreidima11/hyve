@@ -595,7 +595,7 @@ def test_save_dashboard_persists_updated_page_inside_pages_store():
                 "title": "Acasă",
                 "subtitle": "Principal",
                 "icon": "fa-house",
-                "preferences": {"layout_mode": "comfortable", "show_unavailable": True, "filter_mode": "all"},
+                "preferences": {"show_unavailable": True},
                 "panels": [],
             },
             {
@@ -603,7 +603,7 @@ def test_save_dashboard_persists_updated_page_inside_pages_store():
                 "title": "Energie",
                 "subtitle": "Solar",
                 "icon": "fa-bolt",
-                "preferences": {"layout_mode": "compact", "show_unavailable": False, "filter_mode": "all"},
+                "preferences": {"show_unavailable": False},
                 "panels": [],
             },
         ],
@@ -624,7 +624,7 @@ def test_save_dashboard_persists_updated_page_inside_pages_store():
                 "title": "Energie solară",
                 "subtitle": "Acum",
                 "icon": "fa-solar-panel",
-                "preferences": {"layout_mode": "compact", "show_unavailable": False, "filter_mode": "all"},
+                "preferences": {"show_unavailable": False},
                 "panels": [{"id": "panel_energy", "title": "Consum", "widgets": []}],
             },
         ],
@@ -633,7 +633,7 @@ def test_save_dashboard_persists_updated_page_inside_pages_store():
         "title": "Energie solară",
         "subtitle": "Acum",
         "icon": "fa-solar-panel",
-        "preferences": {"layout_mode": "compact", "show_unavailable": False, "filter_mode": "all"},
+        "preferences": {"show_unavailable": False},
         "panels": [{"id": "panel_energy", "title": "Consum", "widgets": []}],
     }, "energy")
 
@@ -854,7 +854,7 @@ def test_patch_preferences_without_icon_preserves_page_icon():
                 "title": "Acasă",
                 "subtitle": "Principal",
                 "icon": "fa-house",
-                "preferences": {"layout_mode": "comfortable", "show_unavailable": True, "filter_mode": "all"},
+                "preferences": {"show_unavailable": True},
                 "panels": [],
             },
         ],
@@ -862,7 +862,7 @@ def test_patch_preferences_without_icon_preserves_page_icon():
 
     asyncio.run(
         dashboard.patch_dashboard_preferences(
-            dashboard.DashboardPreferencesBody(layout_mode="compact", show_unavailable=False),
+            dashboard.DashboardPreferencesBody(show_unavailable=False),
             "dashboard_home",
             None,
         )
@@ -871,7 +871,6 @@ def test_patch_preferences_without_icon_preserves_page_icon():
     stored = _loaded_store()
     home = stored["pages"][0]
     assert home["icon"] == "fas fa-house"
-    assert home["preferences"]["layout_mode"] == "compact"
     assert home["preferences"]["show_unavailable"] is False
 
 

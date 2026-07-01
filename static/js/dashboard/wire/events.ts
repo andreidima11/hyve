@@ -31,7 +31,6 @@ import {
 import {
     closeDashboardPanelModal,
     saveDashboardPanel,
-    setDashboardPanelSize,
     addDashboardPanelModalPage,
     openDashboardPanelCreator,
     openDashboardPanelEditor,
@@ -106,10 +105,6 @@ export function wireDashboardEvents(): void {
         reloadYaml: () => { reloadDashboardYaml(); },
         saveYaml: () => { saveDashboardYaml(); },
         savePreferences: () => { saveDashboardPreferences(); },
-        setPanelSize: ({ el }) => {
-            const size = el.getAttribute('data-dashboard-panel-size-option');
-            if (size) setDashboardPanelSize(size);
-        },
         addPanelPage: () => addDashboardPanelModalPage(),
         openPanelCreator: () => openDashboardPanelCreator(),
         openPanelEditor: ({ panelId }) => openDashboardPanelEditor(panelId),

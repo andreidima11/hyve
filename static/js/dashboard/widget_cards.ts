@@ -4,7 +4,7 @@
 
 import { cameraIsAgoraMammotion, cameraPreferWebmPlayer, cameraSupportsGo2rtc } from '../camera_live.js';
 import { widgetTitle } from '/static/hyveview/host.js';
-import { SECTION_COLS } from './constants.js';
+import { SECTION_COLS, effectivePageColumns, scaleWidgetColSpan } from './constants.js';
 import { getCard } from './card_registry.js';
 import { cameraWidgetEntities as cameraEntitiesHelper } from './cards/register.js';
 import type { CardRenderCtx } from './cards/renderers.js';
@@ -28,6 +28,8 @@ export function initDashboardWidgetCards(depsIn: DashboardWidgetCardsDeps): void
 
 export function widgetSpan(widget: DashboardWidget): DashboardWidgetSpan {
     const d = deps();
+    const cache = d.getCache();
+    const pageCols = effectivePageColumns(cache?.columns);
     const renderer = d.widgetRenderer(widget);
     let col = parseInt(String(widget.col_span), 10);
     let row = parseInt(String(widget.row_span), 10);
@@ -48,16 +50,16 @@ export function widgetSpan(widget: DashboardWidget): DashboardWidgetSpan {
         else if (renderer === 'camera' || renderer === 'picture') row = 3;
         else row = 1;
     }
-    col = Math.min(Math.max(col, 1), SECTION_COLS);
+    col = scaleWidgetColSpan(col, pageCols);
     row = Math.min(Math.max(row, 1), 12);
 
     let colStart: number | null = parseInt(String(widget.col_start), 10);
     let rowStart: number | null = parseInt(String(widget.row_start), 10);
     if (!Number.isFinite(colStart) || (colStart as number) < 1) colStart = null;
-    else colStart = Math.min(Math.max(colStart as number, 1), SECTION_COLS);
+    else colStart = Math.min(Math.max(colStart as number, 1), pageCols);
     if (!Number.isFinite(rowStart) || (rowStart as number) < 1) rowStart = null;
-    if (colStart !== null && (colStart + col - 1) > SECTION_COLS) {
-        colStart = Math.max(1, SECTION_COLS - col + 1);
+    if (colStart !== null && (colStart + col - 1) > pageCols) {
+        colStart = Math.max(1, pageCols - col + 1);
     }
     return { col, row, colStart, rowStart };
 }
@@ -108,11 +110,8 @@ export function widgetEditControls(widget: DashboardWidget): string {
         </div>`;
 }
 
-export function dashboardPanelColSpan(panel: DashboardPanel): number {
-    const size = String(panel?.size || 'md');
-    if (size === 'sm') return 1;
-    if (size === 'wide') return SECTION_COLS;
-    return 2;
+export function dashboardPanelColSpan(_panel: DashboardPanel): number {
+    return SECTION_COLS;
 }
 
 export function buildCardRenderCtx(renderer: string, extra: Record<string, unknown> = {}): CardRenderCtx {

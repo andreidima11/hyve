@@ -5,7 +5,7 @@
 import { apiCall } from '../api.js';
 import { syncModalViewportMetrics } from '../utils.js';
 import { dashApiError, escapeHtml } from './helpers.js';
-import { enhanceDashboardCustomSelects, syncDashboardCustomSelect } from './custom_selects.js';
+import { enhanceDashboardCustomSelects } from './custom_selects.js';
 import type { DashboardPanel, DashboardPanelModalDeps } from '../types/dashboard.js';
 
 interface PanelModalPage {
@@ -55,29 +55,12 @@ function panelModalElements() {
         modal: document.getElementById('dashboard-panel-modal'),
         modalTitle: document.getElementById('dashboard-panel-modal-title'),
         title: document.getElementById('dashboard-panel-title-input') as HTMLInputElement | null,
-        size: document.getElementById('dashboard-panel-size-input') as HTMLSelectElement | null,
-        sizeOptions: Array.from(document.querySelectorAll('[data-dashboard-panel-size-option]')) as HTMLElement[],
         icon: document.getElementById('dashboard-panel-icon-input') as HTMLInputElement | null,
         showPagination: document.getElementById('dashboard-panel-show-pagination-input') as HTMLInputElement | null,
         pagesList: document.getElementById('dashboard-panel-pages-list'),
         pagesEmpty: document.getElementById('dashboard-panel-pages-empty'),
         addPage: document.getElementById('dashboard-panel-page-add'),
     };
-}
-
-export function setDashboardPanelSize(value: string) {
-    const els = panelModalElements();
-    const normalized = ['sm', 'md', 'wide'].includes(value) ? value : 'sm';
-    if (els.size) {
-        els.size.value = normalized;
-        syncDashboardCustomSelect(els.size);
-    }
-    els.sizeOptions.forEach(option => {
-        const isActive = option.getAttribute('data-dashboard-panel-size-option') === normalized;
-        option.dataset.active = isActive ? 'true' : 'false';
-        option.setAttribute('aria-checked', isActive ? 'true' : 'false');
-        option.tabIndex = isActive ? 0 : -1;
-    });
 }
 
 function openDashboardPanelModal(mode: 'add' | 'edit', panel: PanelModalInput = {}) {
@@ -101,7 +84,6 @@ function openDashboardPanelModal(mode: 'add' | 'edit', panel: PanelModalInput = 
             : d.t('dashboard.create_section');
     }
     if (els.title) els.title.value = _modalMode === 'edit' ? String(panel.title || '') : '';
-    setDashboardPanelSize(['sm', 'md', 'wide'].includes(String(panel.size || '')) ? String(panel.size) : 'sm');
     if (els.icon) els.icon.value = String(panel.icon || '');
     if (els.showPagination) els.showPagination.checked = panel.show_pagination !== false;
     populateDashboardPanelBackground(panel);
@@ -161,10 +143,9 @@ function renderDashboardPanelPagesEditor() {
 function readDashboardPanelModalBody() {
     const els = panelModalElements();
     const title = String(els.title?.value || '').trim();
-    const sizeValue = String(els.size?.value || 'md');
     return {
         title,
-        size: ['sm', 'md', 'wide'].includes(sizeValue) ? sizeValue : 'md',
+        size: 'wide' as const,
         icon: String(els.icon?.value || '').trim(),
         show_pagination: els.showPagination?.checked !== false,
         pages: _modalPages
@@ -345,7 +326,7 @@ function readDashboardPanelVisibility() {
 export function openDashboardPanelCreator() {
     const d = deps();
     if (!d.requireDashboardEditAccess()) return;
-    openDashboardPanelModal('add', { title: '', size: 'sm', icon: '', show_pagination: true, pages: [] });
+    openDashboardPanelModal('add', { title: '', icon: '', show_pagination: true, pages: [] });
 }
 
 export function openDashboardPanelEditor(panelId: string) {

@@ -5,7 +5,7 @@
 import { apiCall } from '../api.js';
 import { showConfirm, showToast, syncModalViewportMetrics } from '../utils.js';
 import { DEFAULT_PREFS, DEFAULT_META, DASHBOARD_LAST_PAGE_KEY } from './constants.js';
-import { dashApiError } from './helpers.js';
+import { dashApiError, dashboardPageQuery } from './helpers.js';
 import { enhanceDashboardCustomSelects } from './custom_selects.js';
 import { setHashForPage } from './pages_nav.js';
 import type { DashboardCache, DashboardPageModalDeps } from '../types/dashboard.js';
@@ -59,7 +59,6 @@ export function openDashboardPageModal(opts: { create?: boolean } = {}): void {
     const titleInput = document.getElementById('dashboard-page-title-input') as HTMLInputElement | null;
     const iconInput = document.getElementById('dashboard-page-icon-input') as HTMLInputElement | null;
     const columnsInput = document.getElementById('dashboard-page-columns') as HTMLSelectElement | HTMLInputElement | null;
-    const layoutInput = document.getElementById('dashboard-page-layout-mode') as HTMLSelectElement | null;
     const hideInput = document.getElementById('dashboard-page-hide-unavailable') as HTMLInputElement | null;
     const titleEl = document.getElementById('dashboard-page-modal-title');
     const saveBtn = document.getElementById('dashboard-page-save-btn');
@@ -71,7 +70,6 @@ export function openDashboardPageModal(opts: { create?: boolean } = {}): void {
         if (titleInput) titleInput.value = '';
         if (iconInput) iconInput.value = 'fa-table-cells-large';
         if (columnsInput) columnsInput.value = '0';
-        if (layoutInput) layoutInput.value = DEFAULT_PREFS.layout_mode;
         if (hideInput) hideInput.checked = false;
     } else {
         if (titleEl) titleEl.textContent = d.t('dashboard.edit_page') || 'Edit page';
@@ -79,7 +77,6 @@ export function openDashboardPageModal(opts: { create?: boolean } = {}): void {
         if (titleInput) titleInput.value = cache.title || DEFAULT_META.title;
         if (iconInput) iconInput.value = cache.icon || 'fa-table-cells-large';
         if (columnsInput) columnsInput.value = String(cache.columns || 0);
-        if (layoutInput) layoutInput.value = cache.preferences?.layout_mode || DEFAULT_PREFS.layout_mode;
         if (hideInput) hideInput.checked = !(cache.preferences?.show_unavailable ?? DEFAULT_PREFS.show_unavailable);
     }
 
@@ -125,12 +122,12 @@ export async function saveDashboardHeader(): Promise<void> {
     const titleInput = (document.getElementById('dashboard-page-title-input') || document.getElementById('dashboard-title-input')) as HTMLInputElement | null;
     const iconInput = document.getElementById('dashboard-page-icon-input') as HTMLInputElement | null;
     const columnsInput = document.getElementById('dashboard-page-columns') as HTMLSelectElement | HTMLInputElement | null;
-    const layoutInput = document.getElementById('dashboard-page-layout-mode') as HTMLSelectElement | null;
     const hideInput = document.getElementById('dashboard-page-hide-unavailable') as HTMLInputElement | null;
 
     const newTitle = (titleInput?.value || DEFAULT_META.title).trim() || DEFAULT_META.title;
     const newIcon = (iconInput?.value || cache.icon || 'fa-table-cells-large').trim();
     const newColumns = Number(columnsInput?.value || 0) || 0;
+    const showUnavailable = !(hideInput?.checked);
 
     cache.title = newTitle;
     cache.icon = newIcon;
@@ -138,8 +135,7 @@ export async function saveDashboardHeader(): Promise<void> {
     cache.preferences = {
         ...DEFAULT_PREFS,
         ...(cache.preferences || {}),
-        layout_mode: layoutInput?.value || cache.preferences?.layout_mode || DEFAULT_PREFS.layout_mode,
-        show_unavailable: !(hideInput?.checked),
+        show_unavailable: showUnavailable,
     };
 
     const pageId = d.getCurrentPageId() || cache.current_page_id || cache.page_id;
@@ -174,6 +170,14 @@ export async function saveDashboardHeader(): Promise<void> {
                 d.syncPreferenceControls();
                 d.renderDashboardPagesList();
                 await d.selectDashboardPage(newId);
+                await apiCall(`/api/dashboard/preferences${dashboardPageQuery(newId)}`, {
+                    method: 'PATCH',
+                    body: {
+                        show_unavailable: showUnavailable,
+                        title: typedTitle,
+                        icon: newIcon,
+                    },
+                }).catch(() => null);
             } else {
                 await d.loadDashboard();
             }
@@ -207,15 +211,14 @@ export async function saveDashboardHeader(): Promise<void> {
             }
         }
 
-        await apiCall('/api/dashboard/preferences', {
+        await apiCall(`/api/dashboard/preferences${dashboardPageQuery(pageId)}`, {
             method: 'PATCH',
             body: {
-                ...DEFAULT_PREFS,
-                ...(cache.preferences || {}),
+                show_unavailable: showUnavailable,
                 title: newTitle,
                 icon: newIcon,
             },
-        }).catch(() => null);
+        });
 
         const defaultInput = document.getElementById('dashboard-page-default-input') as HTMLInputElement | null;
         if (defaultInput) {

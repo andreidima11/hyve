@@ -3,10 +3,22 @@
 import type { DashboardMeta, DashboardPrefs } from '../types/dashboard.js';
 
 export const DEFAULT_PREFS: DashboardPrefs = {
-    layout_mode: 'comfortable',
     show_unavailable: true,
-    filter_mode: 'all',
 };
+
+/** Desktop card grid columns for a page (0 = auto → 4). */
+export function effectivePageColumns(raw: number | null | undefined): number {
+    const n = Number(raw || 0);
+    if (n >= 1 && n <= 4) return n;
+    return 4;
+}
+
+/** Scale widget col_span from the 4-column reference grid to the active page columns. */
+export function scaleWidgetColSpan(col: number, pageCols: number): number {
+    const base = Math.max(1, Math.min(col, 4));
+    if (pageCols >= 4) return base;
+    return Math.max(1, Math.min(pageCols, Math.round((base * pageCols) / 4)));
+}
 
 export const DEFAULT_META: DashboardMeta = {
     title: 'Dashboard',
@@ -32,8 +44,5 @@ export const DASHBOARD_CUSTOM_SELECT_IDS = new Set([
     'dashboard-widget-row-span',
     'dashboard-widget-camera-mode',
     'dashboard-visibility-logic',
-    'dashboard-panel-size-input',
     'dashboard-page-columns',
-    'dashboard-page-layout-mode',
-    'dashboard-page-theme',
 ]);

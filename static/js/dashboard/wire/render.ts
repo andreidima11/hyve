@@ -97,6 +97,7 @@ export function wireDashboardRender(): void {
 
     initDashboardVisibility({
         getEditMode: getDashboardEditMode,
+        getCache: getDashboardCache,
         renderDashboard,
     });
 

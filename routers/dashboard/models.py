@@ -38,9 +38,7 @@ class DashboardToggleBody(BaseModel):
 
 
 class DashboardPreferencesBody(BaseModel):
-    layout_mode: Literal["comfortable", "compact"] = "comfortable"
-    show_unavailable: bool = True
-    filter_mode: Literal["all", "switch", "info", "zigbee2mqtt", "pago", "fusion_solar"] = "all"
+    show_unavailable: bool | None = None
     title: str | None = None
     subtitle: str | None = None
     icon: str | None = None
@@ -58,7 +56,6 @@ class DashboardPageUpdateBody(BaseModel):
     subtitle: str = "Panou control"
     icon: str = _DEFAULT_DASHBOARD_ICON
     columns: int | None = None
-    theme: str | None = None
     parent_page_id: str | None = None
 
 

@@ -8,7 +8,7 @@ from core.env_bootstrap import ensure_env_loaded
 ensure_env_loaded()
 
 CONFIG_FILE = "config.json"
-RELEASE_VERSION = "0.9.9.21"
+RELEASE_VERSION = "0.9.9.22"
 APP_VERSION = RELEASE_VERSION
 _settings_log = logging.getLogger("settings")
 
@@ -165,9 +165,7 @@ DEFAULT_CONFIG = {
     "dashboard": {
         "widgets": [],
         "preferences": {
-            "layout_mode": "comfortable",
-            "show_unavailable": True,
-            "filter_mode": "all"
+            "show_unavailable": True
         }
     },
 

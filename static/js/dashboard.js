@@ -16,7 +16,7 @@ export { removeDashboardWidget } from './dashboard/widget_delete.js';
 export { resetDashboardEditingState } from './dashboard/editing_state.js';
 export { openDashboardWidgetEditor } from './dashboard/widget_editor_bridge.js';
 export { selectDashboardPanelPage } from './dashboard/dashboard_render.js';
-export { saveDashboardPreferences, setDashboardFilter, toggleDashboardEditMode, toggleDashboardLayout, } from './dashboard/dashboard_preferences.js';
+export { saveDashboardPreferences, toggleDashboardEditMode, } from './dashboard/dashboard_preferences.js';
 export { handleDashboardCardClick, handleDashboardCardKeydown, toggleDashboardWidget, } from './dashboard/widget_toggle.js';
 export { closeDashboardEntityPicker, filterDashboardEntityOptions, handleDashboardEntityPickerKeydown, openDashboardEntityPicker, pickDashboardEntityOption, } from './dashboard/entity_picker.js';
 export { initDashboardSidebarNav, openDashboardPageNav } from './dashboard/pages_nav.js';

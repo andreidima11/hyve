@@ -971,14 +971,19 @@ html[data-dashboard-panel-dragging="true"] * {
     transition: none;
 }
 @media (min-width: 640px) {
-    .dashboard-panel__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    #dashboard-grid[data-page-cols] .dashboard-panel__grid,
+    #dashboard-grid[data-page-cols].dashboard-panel__grid,
+    #dashboard-grid.grid[data-page-cols] {
+        grid-template-columns: repeat(var(--page-cols, 4), minmax(0, 1fr));
+    }
 }
-.dashboard-panel[data-size="sm"] .dashboard-panel__grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-@media (min-width: 640px) {
-    .dashboard-panel[data-size="md"] .dashboard-panel__grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+@media (min-width: 1024px) {
+    #dashboard-grid[data-page-cols] .dashboard-panel__grid,
+    #dashboard-grid[data-page-cols].dashboard-panel__grid {
+        grid-template-columns: repeat(var(--page-cols, 4), minmax(0, 1fr));
+    }
+    #dashboard-grid.grid[data-page-cols] {
+        grid-template-columns: repeat(var(--page-cols, 4), minmax(0, 1fr));
     }
 }
 .dashboard-panel__grid--compact {
@@ -1611,6 +1616,10 @@ html[data-dashboard-resizing="true"] * {
     padding: 0;
     border-radius: 50%;
     font-size: 0.7rem;
+}
+
+.hyve-dashboard-card__badge--icon[hidden] {
+    display: none !important;
 }
 
 .hyve-dashboard-card__edit {

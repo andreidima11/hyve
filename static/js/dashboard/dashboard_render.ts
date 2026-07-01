@@ -2,7 +2,7 @@
  * Dashboard grid render — standalone layout, panel sections, and empty states.
  */
 
-import { DEFAULT_PREFS } from './constants.js';
+import { effectivePageColumns } from './constants.js';
 import {
     bindDashboardScreenWatch,
     dashboardElementVisible,
@@ -44,10 +44,13 @@ export function renderDashboard(): void {
 
     const cache = d.getCache();
     const editMode = d.getEditMode();
-    const compact = (cache.preferences || DEFAULT_PREFS).layout_mode === 'compact';
+    const pageCols = effectivePageColumns(cache.columns);
     const panels = Array.isArray(cache.panels) ? cache.panels : [];
     const sectionPanels = panels.filter((panel) => !d.isStandalonePanel(panel));
     const hasGroupedPanels = sectionPanels.length > 0;
+
+    grid.style.setProperty('--page-cols', String(pageCols));
+    grid.setAttribute('data-page-cols', String(pageCols));
 
     if (hasGroupedPanels) {
         grid.className = editMode
@@ -55,9 +58,7 @@ export function renderDashboard(): void {
             : 'dashboard-panels-stack';
         grid.removeAttribute('data-panel-grid');
     } else {
-        const standaloneGridClass = compact
-            ? 'grid dashboard-panel__grid dashboard-panel__grid--compact dashboard-panel__grid--standalone'
-            : 'grid dashboard-panel__grid dashboard-panel__grid--standalone';
+        const standaloneGridClass = 'grid dashboard-panel__grid dashboard-panel__grid--standalone';
         grid.className = editMode
             ? `${standaloneGridClass} dashboard-panel__grid--editing`
             : standaloneGridClass;
@@ -102,7 +103,7 @@ export function renderDashboard(): void {
         return;
     }
 
-    const items = sectionPanels.map((panel, index) => renderPanelSection(panel, compact, index));
+    const items = sectionPanels.map((panel, index) => renderPanelSection(panel, index));
     const addSectionBtn = editMode
         ? `<button type="button" class="dashboard-panel dashboard-panel--add-section" data-dash-action="openPanelCreator" aria-label="${d.escapeHtml(d.t('dashboard.aria.add_section'))}">
                 <i class="fas fa-plus"></i>
@@ -117,7 +118,7 @@ export function renderDashboard(): void {
     try { d.resumeDashboardCameras(); } catch (_) {}
 }
 
-function renderPanelSection(panel: DashboardPanel, compact: boolean, mobileOrderIndex = 0): string {
+function renderPanelSection(panel: DashboardPanel, mobileOrderIndex = 0): string {
     const d = deps();
     const panelId = String(panel.id || '');
     if (!dashboardElementVisible(panel)) return '';
@@ -176,9 +177,7 @@ function renderPanelSection(panel: DashboardPanel, compact: boolean, mobileOrder
         ? `<button type="button" class="dashboard-panel__drag" data-dash-pointer="panelDrag" data-panel-id="${d.escapeHtml(panelId)}" title="${d.escapeHtml(d.t('dashboard.aria.move_section'))}" aria-label="${d.escapeHtml(d.t('dashboard.aria.move_section'))}"><i class="fas fa-grip-vertical"></i></button>`
         : '';
 
-    const gridClass = compact
-        ? 'dashboard-panel__grid dashboard-panel__grid--compact'
-        : 'dashboard-panel__grid';
+    const gridClass = 'dashboard-panel__grid';
     const gridClassFull = editMode
         ? `${gridClass} dashboard-panel__grid--editing`
         : gridClass;

@@ -238,7 +238,9 @@ function editorResultToWidgetBody(
     const body: Record<string, unknown> = {
         type,
         entity_id: entityId,
-        entity_name: String(cfg.entity_name || cfg.title || entityId || '').trim(),
+        entity_name: type === 'label'
+            ? String(cfg.entity_name ?? '').trim()
+            : String(cfg.entity_name || cfg.title || entityId || '').trim(),
         title: String(cfg.title || '').trim(),
         icon: String(cfg.icon || '').trim(),
         source,

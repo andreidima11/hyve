@@ -4,6 +4,18 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.22] — 2026-07
+
+Dashboard page/section editing cleanup, responsive column layout, and tile fixes.
+
+### UI — Dashboard
+- **Change:** Removed the section width picker (Coloană / Dublu / Lat); sections always span the full page width.
+- **Change:** Page column count (1–4, Auto) now drives the card grid on desktop — fewer columns mean wider cards.
+- **Change:** Removed unused page settings: Layout (Comfort/Compact) and Theme.
+- **Fix:** "Ascunde indisponibile" now saves per page and actually hides unavailable cards when enabled.
+- **Fix:** Unavailable icon badge no longer shows on every tile — only when the entity is unavailable.
+- **Fix:** Label cards no longer duplicate the title as subtitle when secondary text is left empty.
+
 ## [0.9.9.21] — 2026-07
 
 Smoother loading states and clearer unavailable tiles.

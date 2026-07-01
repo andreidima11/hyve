@@ -3,11 +3,13 @@
  */
 
 import type {
+    DashboardCache,
     DashboardPanel,
     DashboardVisibilityConfig,
     DashboardVisibilityDeps,
     DashboardWidget,
 } from '../types/dashboard.js';
+import { DEFAULT_PREFS } from './constants.js';
 
 let _deps: DashboardVisibilityDeps | null = null;
 let _screenWatchBound = false;
@@ -45,7 +47,13 @@ export function visibleDashboardWidgets(list: DashboardWidget[] | null | undefin
     const d = deps();
     const widgets = Array.isArray(list) ? list : [];
     if (d.getEditMode()) return widgets;
-    return widgets.filter(dashboardElementVisible);
+    let visible = widgets.filter(dashboardElementVisible);
+    const cache = d.getCache?.() as DashboardCache | undefined;
+    const showUnavailable = cache?.preferences?.show_unavailable ?? DEFAULT_PREFS.show_unavailable;
+    if (showUnavailable === false) {
+        visible = visible.filter((w) => w.available !== false);
+    }
+    return visible;
 }
 
 function hexToRgba(hex: string, alpha: number | undefined): string {

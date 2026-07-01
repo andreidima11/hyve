@@ -463,8 +463,6 @@ async def update_dashboard_page(page_id: str, data: DashboardPageUpdateBody, _: 
     section["icon"] = _normalize_icon(data.icon, _DEFAULT_DASHBOARD_ICON)
     if data.columns is not None:
         section["columns"] = _normalize_page_columns(data.columns)
-    if data.theme is not None:
-        section["theme"] = str(data.theme or "").strip().lower()
     if data.parent_page_id is not None:
         section["parent_page_id"] = str(data.parent_page_id or "").strip()
 
@@ -493,8 +491,6 @@ async def update_dashboard_page(page_id: str, data: DashboardPageUpdateBody, _: 
                     p["subtitle"] = section["subtitle"]
                     p["icon"] = section["icon"]
                     p["columns"] = section["columns"]
-                    if "theme" in section:
-                        p["theme"] = section["theme"] or ""
                     if "parent_page_id" in section:
                         p["parent_page_id"] = section["parent_page_id"] or ""
                     store_pages[idx] = _normalize_page_record(p, idx)
@@ -534,7 +530,7 @@ async def update_dashboard_page(page_id: str, data: DashboardPageUpdateBody, _: 
 
 
 _YAML_EDITABLE_KEYS = {
-    "title", "subtitle", "icon", "columns", "theme",
+    "title", "subtitle", "icon", "columns",
     "parent_page_id", "preferences", "panels",
 }
 
@@ -839,12 +835,10 @@ async def add_dashboard_widget(data: DashboardWidgetBody, page_id: str | None = 
 @router.patch("/preferences")
 async def patch_dashboard_preferences(data: DashboardPreferencesBody, page_id: str | None = None, _: models.User = Depends(auth.get_current_admin)):
     section = _dashboard_section(page_id)
-    section["preferences"] = {
-        **_DEFAULT_PREFS,
-        "layout_mode": data.layout_mode,
-        "show_unavailable": bool(data.show_unavailable),
-        "filter_mode": data.filter_mode,
-    }
+    prefs = {**_DEFAULT_PREFS, **(section.get("preferences") or {})}
+    if data.show_unavailable is not None:
+        prefs["show_unavailable"] = bool(data.show_unavailable)
+    section["preferences"] = prefs
     if data.title is not None:
         section["title"] = (data.title or "Dashboard").strip() or "Dashboard"
     if data.subtitle is not None:

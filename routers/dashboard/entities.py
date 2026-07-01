@@ -261,6 +261,5 @@ def _page_summary(page: dict[str, Any]) -> dict[str, Any]:
         "columns": _normalize_page_columns(page.get("columns")),
         "panel_count": len(panels),
         "widget_count": widget_count,
-        "theme": str(page.get("theme") or ""),
         "parent_page_id": str(page.get("parent_page_id") or ""),
     }

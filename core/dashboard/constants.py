@@ -8,9 +8,7 @@ _SWITCH_DOMAINS = controllable_domains()
 _INFO_DOMAINS = visible_domains() - _SWITCH_DOMAINS
 _VISIBLE_DOMAINS = visible_domains()
 _DEFAULT_PREFS = {
-    "layout_mode": "comfortable",
     "show_unavailable": True,
-    "filter_mode": "all",
 }
 _DEFAULT_PANEL_TITLE = "Panou"
 STANDALONE_PANEL_ID = "__standalone__"

@@ -29,9 +29,7 @@ export { openDashboardWidgetEditor } from './dashboard/widget_editor_bridge.js';
 export { selectDashboardPanelPage } from './dashboard/dashboard_render.js';
 export {
     saveDashboardPreferences,
-    setDashboardFilter,
     toggleDashboardEditMode,
-    toggleDashboardLayout,
 } from './dashboard/dashboard_preferences.js';
 export {
     handleDashboardCardClick,
