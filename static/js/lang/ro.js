@@ -230,6 +230,8 @@ const ro = {
             "rearrange_error": "Eroare la rearanjare",
             "toggle_failed": "Comutarea a eșuat",
             "brightness_failed": "Setarea luminozității a eșuat",
+            "color_failed": "Schimbarea culorii a eșuat",
+            "color_temp_failed": "Schimbarea temperaturii culorii a eșuat",
             "action_failed": "Acțiunea a eșuat",
             "pick_climate_entity": "Alege o entitate climate din picker",
             "pick_entity": "Alege o entitate din listă",

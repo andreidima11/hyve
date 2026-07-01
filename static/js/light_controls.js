@@ -215,6 +215,16 @@ function _syncColorPicker(picker, dispatchChange) {
     }
 }
 function _commitColorControl(hidden) {
+    if (hidden.dataset.dashWidgetId) {
+        const widgetId = String(hidden.dataset.dashWidgetId || '').trim();
+        const hex = String(hidden.value || '').trim();
+        if (widgetId && hex) {
+            void import('./dashboard/widget_actions.js').then((mod) => {
+                mod.sendLightColor(widgetId, hex);
+            });
+        }
+        return;
+    }
     if (hidden.dataset.smarthomeLightInput) {
         commitSmarthomeLightControl(hidden);
         return;

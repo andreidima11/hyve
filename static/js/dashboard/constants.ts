@@ -6,18 +6,15 @@ export const DEFAULT_PREFS: DashboardPrefs = {
     show_unavailable: true,
 };
 
-/** Desktop card grid columns for a page (0 = auto → 4). */
-export function effectivePageColumns(raw: number | null | undefined): number {
+/**
+ * Desktop section columns for a page: how many sections sit side by side.
+ * 0 = auto → follow the number of sections (fallback), clamped to 1..4.
+ */
+export function effectivePageColumns(raw: number | null | undefined, fallback = 4): number {
     const n = Number(raw || 0);
     if (n >= 1 && n <= 4) return n;
-    return 4;
-}
-
-/** Scale widget col_span from the 4-column reference grid to the active page columns. */
-export function scaleWidgetColSpan(col: number, pageCols: number): number {
-    const base = Math.max(1, Math.min(col, 4));
-    if (pageCols >= 4) return base;
-    return Math.max(1, Math.min(pageCols, Math.round((base * pageCols) / 4)));
+    const fb = Math.round(Number(fallback) || 4);
+    return Math.min(Math.max(fb, 1), 4);
 }
 
 export const DEFAULT_META: DashboardMeta = {

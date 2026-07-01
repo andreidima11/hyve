@@ -42,7 +42,9 @@ function _resolveCustomSelectFromOption(target: Element): {
     const menuEl = opt.closest('.dashboard-custom-select__menu') as PortaledSelectMenu | null;
     const dd = (menuEl?.__ownerDd
         || opt.closest(DD_SELECTOR)) as GenericCustomSelectElement | null;
-    if (!dd) return null;
+    // Menus owned by the dashboard enhancer share the same class names but have
+    // no data-target; those handle their own clicks, so don't claim them here.
+    if (!dd || !dd.matches?.(DD_SELECTOR)) return null;
     return { dd, opt: opt as HTMLElement };
 }
 

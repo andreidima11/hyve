@@ -1,7 +1,7 @@
 {
   "id": "light",
   "name": "Light",
-  "description": "Light control with brightness.",
+  "description": "Light with collapsible brightness, color, and temperature controls.",
   "version": "1.0.0",
   "entry": "index.js",
   "styles": [

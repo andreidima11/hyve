@@ -44,12 +44,13 @@ export function renderDashboard(): void {
 
     const cache = d.getCache();
     const editMode = d.getEditMode();
-    const pageCols = effectivePageColumns(cache.columns);
     const panels = Array.isArray(cache.panels) ? cache.panels : [];
     const sectionPanels = panels.filter((panel) => !d.isStandalonePanel(panel));
     const hasGroupedPanels = sectionPanels.length > 0;
+    const pageCols = effectivePageColumns(cache.columns, sectionPanels.length || 4);
 
     grid.style.setProperty('--page-cols', String(pageCols));
+    grid.style.setProperty('--page-cols-md', String(Math.min(pageCols, 2)));
     grid.setAttribute('data-page-cols', String(pageCols));
 
     if (hasGroupedPanels) {

@@ -3,7 +3,6 @@
  */
 
 import { loadScriptOnce } from '../../utils.js';
-import { SECTION_COLS } from '../constants.js';
 import {
     dragResizeState,
     _asHTMLElement,
@@ -140,7 +139,9 @@ export function syncDashboardPanelGridSpans() {
     // Below the free-grid breakpoint sections stack single-column via CSS.
     if (!window.matchMedia('(min-width: 1024px)').matches) return;
 
-    const cols = SECTION_COLS;
+    // The stack's rendered column count follows the page's columns setting
+    // (--page-cols), so pack sections in that space.
+    const cols = Math.max(1, geom.colCount || 1);
     const occupied: boolean[][] = [];
     const isFree = (colStart: number, rowStart: number, colSpan: number, rowSpan: number) => {
         for (let r = rowStart; r < rowStart + rowSpan; r++) {

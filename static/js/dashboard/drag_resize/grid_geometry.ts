@@ -57,10 +57,10 @@ export function _visualColStartForGrid(colStart: number | string, geom: Dashboar
     return Math.max(1, Math.min(normalized, maxCol));
 }
 
-export function _internalColStartForGrid(visualCol: number | string, _geom: DashboardGridGeometry | null | undefined) {
+export function _internalColStartForGrid(visualCol: number | string, geom: DashboardGridGeometry | null | undefined) {
     const parsed = parseInt(String(visualCol), 10);
     const normalized = Number.isFinite(parsed) ? parsed : 1;
-    return Math.max(1, Math.min(normalized, SECTION_COLS));
+    return Math.max(1, Math.min(normalized, geom?.colCount || SECTION_COLS));
 }
 
 /** Compute the (1-indexed) col_start / row_start for the dragged card. */

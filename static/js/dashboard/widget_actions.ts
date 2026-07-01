@@ -99,10 +99,12 @@ export function onDashboardBrightnessInput(event: Event, widgetId: string): void
     const slider = event.target;
     if (!(slider instanceof HTMLInputElement)) return;
     const pct = Number(slider.value);
-    const wrap = slider.closest('.hyve-dashboard-card__brightness') as HTMLElement | null;
+    const wrap = slider.closest('.hyve-dashboard-card__brightness, .hyve-light__slider') as HTMLElement | null;
     if (wrap) wrap.style.setProperty('--brightness-pct', `${pct}%`);
-    const valueEl = wrap?.querySelector('.hyve-dashboard-card__brightness-value');
+    const valueEl = wrap?.querySelector('.hyve-dashboard-card__brightness-value, .hyve-light__brightness-label');
     if (valueEl) valueEl.textContent = `${pct}%`;
+    const live = slider.closest('.hyve-light')?.querySelector('[data-live-value]');
+    if (live && pct > 0) live.textContent = `${pct}%`;
 
     if (_brightnessDebounceTimer) clearTimeout(_brightnessDebounceTimer);
     _brightnessDebounceTimer = setTimeout(() => { void sendBrightness(widgetId, pct); }, 220);
@@ -113,6 +115,103 @@ export function onDashboardBrightnessChange(event: Event, widgetId: string): voi
     const slider = event.target;
     const pct = slider instanceof HTMLInputElement ? Number(slider.value || 0) : 0;
     void sendBrightness(widgetId, pct);
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+    const raw = String(hex || '').replace('#', '').trim();
+    if (!/^[0-9a-f]{6}$/i.test(raw)) return null;
+    return {
+        r: parseInt(raw.slice(0, 2), 16),
+        g: parseInt(raw.slice(2, 4), 16),
+        b: parseInt(raw.slice(4, 6), 16),
+    };
+}
+
+export async function sendLightColor(widgetId: string, hex: string): Promise<void> {
+    const { apiCall, t, showToast, findWidget, tryFastPathForEntities, renderDashboard } = deps();
+    const widget = findWidget(widgetId);
+    if (!widget) return;
+    const rgb = hexToRgb(hex);
+    if (!rgb) return;
+    try {
+        const slug = String(widget.source || 'zigbee2mqtt');
+        const res = await apiCall(`/api/integrations/${encodeURIComponent(slug)}/control`, {
+            method: 'POST',
+            body: {
+                entity_id: widget.entity_id,
+                action: 'set',
+                data: { state: 'ON', color: rgb },
+            },
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(dashApiError((err as { detail?: unknown }).detail, 'dashboard.color_failed'));
+        }
+        widget.current_state = 'on';
+        const attrs = { ...((widget.attributes || {}) as Record<string, unknown>) };
+        attrs.color = { r: rgb.r, g: rgb.g, b: rgb.b };
+        widget.attributes = attrs;
+        if (!tryFastPathForEntities([String(widget.entity_id || '')])) renderDashboard();
+    } catch (e) {
+        const msg = e instanceof Error ? e.message : t('dashboard.color_failed');
+        showToast(msg, 'error');
+    }
+}
+
+let _colorTempDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+async function sendLightColorTemp(widgetId: string, value: number): Promise<void> {
+    const { apiCall, t, showToast, findWidget, tryFastPathForEntities, renderDashboard } = deps();
+    const widget = findWidget(widgetId);
+    if (!widget) return;
+    try {
+        const slug = String(widget.source || 'zigbee2mqtt');
+        const res = await apiCall(`/api/integrations/${encodeURIComponent(slug)}/control`, {
+            method: 'POST',
+            body: {
+                entity_id: widget.entity_id,
+                action: 'set_color_temp',
+                data: { color_temp: value },
+            },
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(dashApiError((err as { detail?: unknown }).detail, 'dashboard.color_temp_failed'));
+        }
+        widget.current_state = 'on';
+        const attrs = { ...((widget.attributes || {}) as Record<string, unknown>) };
+        attrs.color_temp = value;
+        widget.attributes = attrs;
+        if (!tryFastPathForEntities([String(widget.entity_id || '')])) renderDashboard();
+    } catch (e) {
+        const msg = e instanceof Error ? e.message : t('dashboard.color_temp_failed');
+        showToast(msg, 'error');
+    }
+}
+
+export function onDashboardLightColorChange(event: Event, widgetId: string): void {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) return;
+    const hex = String(input.value || '').trim();
+    if (!hex) return;
+    void sendLightColor(widgetId, hex);
+}
+
+export function onDashboardLightColorTempInput(event: Event, widgetId: string): void {
+    const slider = event.target;
+    if (!(slider instanceof HTMLInputElement)) return;
+    const value = Number(slider.value);
+    const label = slider.closest('.hyve-light__control')?.querySelector('[data-color-temp-label]');
+    if (label) label.textContent = String(value);
+    if (_colorTempDebounceTimer) clearTimeout(_colorTempDebounceTimer);
+    _colorTempDebounceTimer = setTimeout(() => { void sendLightColorTemp(widgetId, value); }, 220);
+}
+
+export function onDashboardLightColorTempChange(event: Event, widgetId: string): void {
+    if (_colorTempDebounceTimer) { clearTimeout(_colorTempDebounceTimer); _colorTempDebounceTimer = null; }
+    const slider = event.target;
+    const value = slider instanceof HTMLInputElement ? Number(slider.value || 0) : 0;
+    void sendLightColorTemp(widgetId, value);
 }
 
 function widgetNumberCaps(widget: Record<string, unknown> | null | undefined) {

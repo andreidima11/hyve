@@ -230,6 +230,8 @@ const en = {
             "rearrange_error": "Rearrange error",
             "toggle_failed": "Toggle failed",
             "brightness_failed": "Brightness change failed",
+            "color_failed": "Color change failed",
+            "color_temp_failed": "Color temperature change failed",
             "action_failed": "Action failed",
             "pick_climate_entity": "Choose a climate entity from the picker",
             "pick_entity": "Choose an entity from the list",

@@ -515,12 +515,13 @@
 /* ===== Dashboard sections (HA Sections-style responsive columns) ===== */
 .dashboard-panels-stack {
     display: grid;
-    /* 4-column section grid. The drag/layout JS (SECTION_COLS=4,
-       _syncDashboardPanelGridSpans, _dashboardPanelColSpan) all reason in a
-       4-column space and write --panel-col-start/--panel-col-span /
-       --panel-row-start/--panel-row-span. The CSS below consumes those so a
-       section drop actually moves the section on desktop. */
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    /* Section grid: the page's "columns" setting (--page-cols, set by the
+       renderer) decides how many sections sit side by side on desktop. Each
+       section spans exactly 1 column, so fewer columns = wider sections and
+       wider cards. The drag/layout JS reads the rendered column count and
+       writes --panel-col-start/--panel-col-span / --panel-row-start/
+       --panel-row-span, which the CSS below consumes. */
+    grid-template-columns: repeat(var(--page-cols, 4), minmax(0, 1fr));
     grid-auto-rows: 50px;
     grid-auto-flow: dense;
     align-items: start;
@@ -529,7 +530,7 @@
     position: relative;
 }
 .dashboard-panel {
-    grid-column: span var(--panel-col-span, 2);
+    grid-column: span var(--panel-col-span, 1);
     grid-row: span var(--panel-row-span, 1);
     min-width: 0;
     position: relative;
@@ -555,8 +556,13 @@
 .dashboard-panel[data-climate-menu-open="true"] {
     z-index: 80;
 }
-/* Section width comes from --panel-col-span (sm=1, md=2, wide=4 of the 4-col
-   grid), set inline from the panel size by the renderer. */
+/* Each section spans 1 column of the page's section grid (--page-cols). */
+/* Tablet: cap the section columns at 2 so sections keep a usable width. */
+@media (min-width: 768px) and (max-width: 1023.98px) {
+    .dashboard-panels-stack {
+        grid-template-columns: repeat(var(--page-cols-md, 2), minmax(0, 1fr));
+    }
+}
 
 .dashboard-panels-stack > .hyve-dashboard-card,
 .dashboard-panels-stack > .hyve-dashboard-label {
@@ -970,21 +976,9 @@ html[data-dashboard-panel-dragging="true"] * {
 .dashboard-panel[data-flip-suppress="true"] {
     transition: none;
 }
-@media (min-width: 640px) {
-    #dashboard-grid[data-page-cols] .dashboard-panel__grid,
-    #dashboard-grid[data-page-cols].dashboard-panel__grid,
-    #dashboard-grid.grid[data-page-cols] {
-        grid-template-columns: repeat(var(--page-cols, 4), minmax(0, 1fr));
-    }
-}
-@media (min-width: 1024px) {
-    #dashboard-grid[data-page-cols] .dashboard-panel__grid,
-    #dashboard-grid[data-page-cols].dashboard-panel__grid {
-        grid-template-columns: repeat(var(--page-cols, 4), minmax(0, 1fr));
-    }
-    #dashboard-grid.grid[data-page-cols] {
-        grid-template-columns: repeat(var(--page-cols, 4), minmax(0, 1fr));
-    }
+/* Edit-mode overlay on the section stack: match the page's section columns. */
+.dashboard-panels-stack.dashboard-panel__grid--editing {
+    background-size: calc((100% + 12px) / var(--page-cols, 4)) 62px;
 }
 .dashboard-panel__grid--compact {
     gap: 8px;
@@ -995,7 +989,7 @@ html[data-dashboard-panel-dragging="true"] * {
        section into. _syncDashboardPanelGridSpans resolves overlap-free
        col/row anchors for every section and writes these custom props. */
     .dashboard-panels-stack > .dashboard-panel[data-panel-id] {
-        grid-column: var(--panel-col-start, auto) / span var(--panel-col-span, 2);
+        grid-column: var(--panel-col-start, auto) / span var(--panel-col-span, 1);
         grid-row: var(--panel-row-start, auto) / span var(--panel-row-span, 1);
     }
 }
