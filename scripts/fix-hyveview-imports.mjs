@@ -19,6 +19,8 @@ function walk(dir, fn) {
 const fixImport = (code) => code
     .replace(/from\s*(['"])(?:\.\.\/)+static\/dist\//g, 'from $1/static/dist/')
     .replace(/from\s*(['"])\.\/static\/dist\//g, 'from $1/static/dist/')
+    .replace(/import\s*(['"])(?:\.\.\/)+static\/dist\//g, 'import $1/static/dist/')
+    .replace(/import\s*(['"])\.\/static\/dist\//g, 'import $1/static/dist/')
     // Any lang/index import (relative, absolute, or machine-specific path segments)
     .replace(
         /from\s*(['"])(?:\.\.\/)*[^'"]*\/static\/js\/lang\/index\.js\1/g,
@@ -43,10 +45,12 @@ walk(root, (file) => {
     writeFileSync(file, next);
 });
 
-// Orphan: hyveview/js/utils.js was only needed for custom_selects escapeHtml
+// Orphan copies of shared /static/dist modules — must not live under hyveview/js/
 for (const orphan of [
     join(root, 'js', 'utils.js'),
     join(root, 'js', 'utils.js.map'),
+    join(root, 'js', 'light_controls.js'),
+    join(root, 'js', 'light_controls.js.map'),
 ]) {
     try { unlinkSync(orphan); } catch { /* already gone */ }
 }

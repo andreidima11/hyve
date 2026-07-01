@@ -17,6 +17,7 @@ export default defineConfig({
                 camera_auth: path.join(sharedJs, 'camera_auth.ts'),
                 camera_live: path.join(sharedJs, 'camera_live.ts'),
                 camera_loader: path.join(sharedJs, 'camera_loader.ts'),
+                light_controls: path.join(sharedJs, 'light_controls.ts'),
                 icon_utils: path.join(sharedJs, 'icon_utils.ts'),
                 icon_picker: path.join(sharedJs, 'icon_picker.ts'),
             },

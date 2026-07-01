@@ -17,6 +17,8 @@ const RUNTIME_IMPORTS: Record<string, string> = {
     '../../../js/camera_live.js': '/static/dist/camera_live.js',
     '../../js/camera_loader.js': '/static/dist/camera_loader.js',
     '../../../js/camera_loader.js': '/static/dist/camera_loader.js',
+    '../../js/light_controls.js': '/static/dist/light_controls.js',
+    '../../../js/light_controls.js': '/static/dist/light_controls.js',
     '../../js/icon_utils.js': '/static/dist/icon_utils.js',
     '../../js/icon_picker.js': '/static/dist/icon_picker.js',
 };
@@ -31,6 +33,7 @@ const SHARED_TS = new Set([
     'camera_auth.ts',
     'camera_live.ts',
     'camera_loader.ts',
+    'light_controls.ts',
     'icon_utils.ts',
     'icon_picker.ts',
 ]);

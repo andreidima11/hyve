@@ -4,6 +4,14 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.24] — 2026-07
+
+Hotfix for missing `lang.js` after the light card update.
+
+### Fix
+- **Fix:** Light card no longer bundles a broken copy of `light_controls` under `hyveview/js/` that requested `../static/dist/lang.js` (404). Hyveview now imports `/static/dist/light_controls.js` and `/static/dist/lang.js` at runtime.
+- **Fix:** Shared dist modules normalize `./lang.js` imports to the absolute `/static/dist/lang.js` path after the full JS build.
+
 ## [0.9.9.23] — 2026-07
 
 Dashboard column layout fix, columns dropdown fix, and Mushroom-style light cards.

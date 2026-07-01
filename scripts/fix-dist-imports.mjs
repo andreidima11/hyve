@@ -16,10 +16,12 @@ function walk(dir, fn) {
 }
 
 const fixImport = (code) => code
-    .replace(/from\s*(['"])(?:\.\.\/)+static\/dist\/lang\.js\1/g, 'from $1/static/dist/lang.js')
-    .replace(/from\s*(['"])\.\/static\/dist\/lang\.js\1/g, 'from $1/static/dist/lang.js')
-    .replace(/import\s*(['"])(?:\.\.\/)+static\/dist\/lang\.js\1/g, 'import $1/static/dist/lang.js')
-    .replace(/import\s*(['"])\.\/static\/dist\/lang\.js\1/g, 'import $1/static/dist/lang.js')
+    .replace(/from\s*(['"])(?:\.\.\/)+static\/dist\/lang\.js\1/g, 'from $1/static/dist/lang.js$1')
+    .replace(/from\s*(['"])\.\/static\/dist\/lang\.js\1/g, 'from $1/static/dist/lang.js$1')
+    .replace(/import\s*(['"])(?:\.\.\/)+static\/dist\/lang\.js\1/g, 'import $1/static/dist/lang.js$1')
+    .replace(/import\s*(['"])\.\/static\/dist\/lang\.js\1/g, 'import $1/static/dist/lang.js$1')
+    .replace(/from\s*(['"])\.\/lang\.js\1/g, 'from $1/static/dist/lang.js$1')
+    .replace(/import\s*(['"])\.\/lang\.js\1/g, 'import $1/static/dist/lang.js$1')
     .replace(/from\s*(['"])(?:\.\.\/)+static\/dist\//g, 'from $1/static/dist/');
 
 let changed = 0;
