@@ -4,6 +4,23 @@ All notable changes to Hyve are documented here. Version format: `MAJOR.MINOR.PA
 
 **Releases:** edit this file first, commit, then run `python scripts/publish_release.py` — GitHub release notes are taken from the matching `## [X.Y.Z]` section.
 
+## [0.9.9.26] — 2026-07
+
+Light card polish (collapse, Mushroom mode buttons, instant actions) and a faster Updates page with cached results and reliable changelogs.
+
+### UI — Light card
+- **Change:** Tap on a light card now toggles the light by default (Mushroom-style); double-tap and hold open details. Explicit per-card interaction overrides still win.
+- **Change:** One slider at a time with Mushroom-style mode buttons (brightness / color temperature / color) to switch between them.
+- **Fix:** "Collapse when off" now actually shrinks the card to one grid row (e.g. 4×2 → 4×1) while the light is off, and restores the configured size when turned on. Never collapses in edit mode.
+- **Change:** Sliders and toggles feel instant: brightness, color, and color-temperature changes apply optimistically and roll back with an error toast if the command fails. Incoming stale state no longer snaps a slider back right after you move it.
+- **Change:** Pending toggle pulses the light icon while the command is in flight.
+
+### Updates
+- **Fix:** Release notes (changelogs) now always show — add-on notes are cached at check time and survive restarts; Hyve notes fall back to the local `CHANGELOG.md` when GitHub is unreachable.
+- **Change:** Update-check results are cached: once a check finds an update, the badge and list stay until you install, without re-checking. The page shows "Last check: {time}".
+- **Change:** The Updates page loads instantly — the list endpoint no longer calls GitHub (network happens only on check: manual, scheduled, or at startup) and renders cached data immediately on revisit.
+- **Change:** A background check runs automatically once per session if updates were never checked.
+
 ## [0.9.9.25] — 2026-07
 
 Mushroom-style light cards with working editor options and responsive sliders.

@@ -22,10 +22,11 @@ def test_switch_defaults_to_toggle_on_tap():
     assert resolve_effective_interaction(widget, "double_tap")["action"] == "more_info"
 
 
-def test_light_inline_controls_default_tap_none():
+def test_light_defaults_to_toggle_on_tap():
     widget = {"type": "entity", "entity_id": "light.living", "domain": "light", "renderer": "light"}
-    assert resolve_effective_interaction(widget, "tap")["action"] == "none"
-    assert resolve_effective_interaction(widget, "double_tap")["action"] == "toggle"
+    assert resolve_effective_interaction(widget, "tap")["action"] == "toggle"
+    assert resolve_effective_interaction(widget, "double_tap")["action"] == "more_info"
+    assert resolve_effective_interaction(widget, "hold")["action"] == "more_info"
 
 
 def test_sensor_numeric_defaults_to_history_on_tap():

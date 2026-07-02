@@ -5,6 +5,13 @@
 
 import { dashApiError } from './helpers.js';
 import { hsvToHex } from '../light_controls.js';
+import { DASHBOARD_OPTIMISTIC_GUARD_MS } from './constants.js';
+import { deleteOptimisticGuard, setOptimisticGuard } from './control_state.js';
+import {
+    patchDashboardEntityState,
+    restoreDashboardEntitySnapshot,
+    snapshotDashboardEntityState,
+} from './widget_toggle.js';
 import type { DashboardWidgetActionDeps } from '../types/dashboard.js';
 
 let _deps: DashboardWidgetActionDeps | null = null;
@@ -65,7 +72,7 @@ function scheduleLawnMowerResync(slug: string): void {
 }
 
 async function sendBrightness(widgetId: string, pct: number): Promise<void> {
-    const { apiCall, t, showToast, findWidget } = deps();
+    const { apiCall, t, showToast, findWidget, tryFastPathForEntities, renderDashboard } = deps();
     const widget = findWidget(widgetId);
     if (!widget) return;
     if (_brightnessLastSent.get(widgetId) === pct) return;
@@ -74,6 +81,14 @@ async function sendBrightness(widgetId: string, pct: number): Promise<void> {
     const caps = (attrs.capabilities || {}) as Record<string, unknown>;
     const scale = Number(caps.brightness_scale) || 254;
     const value = Math.round((pct / 100) * scale);
+    const entityId = String(widget.entity_id || '');
+
+    // Optimistic: apply the new state locally right away, roll back on failure.
+    const snapshot = snapshotDashboardEntityState(entityId);
+    const nextState = pct > 0 ? 'on' : 'off';
+    patchDashboardEntityState(entityId, nextState, { brightness: value });
+    setOptimisticGuard(entityId, { state: nextState, until: Date.now() + DASHBOARD_OPTIMISTIC_GUARD_MS });
+    if (!tryFastPathForEntities([entityId])) renderDashboard();
     try {
         const slug = String(widget.source || 'zigbee2mqtt');
         const res = await apiCall(`/api/integrations/${encodeURIComponent(slug)}/control`, {
@@ -88,9 +103,11 @@ async function sendBrightness(widgetId: string, pct: number): Promise<void> {
             const err = await res.json().catch(() => ({}));
             throw new Error(dashApiError((err as { detail?: unknown }).detail, 'dashboard.brightness_failed'));
         }
-        widget.current_state = pct > 0 ? 'on' : 'off';
-        widget.attributes = { ...attrs, brightness: value };
     } catch (e) {
+        _brightnessLastSent.delete(widgetId);
+        deleteOptimisticGuard(entityId);
+        restoreDashboardEntitySnapshot(snapshot);
+        if (!tryFastPathForEntities([entityId])) renderDashboard();
         const msg = e instanceof Error ? e.message : t('dashboard.brightness_failed');
         showToast(msg, 'error');
     }
@@ -134,6 +151,15 @@ export async function sendLightColor(widgetId: string, hex: string): Promise<voi
     if (!widget) return;
     const rgb = hexToRgb(hex);
     if (!rgb) return;
+    const entityId = String(widget.entity_id || '');
+
+    const snapshot = snapshotDashboardEntityState(entityId);
+    patchDashboardEntityState(entityId, 'on', {
+        color: { r: rgb.r, g: rgb.g, b: rgb.b },
+        rgb_color: [rgb.r, rgb.g, rgb.b],
+    });
+    setOptimisticGuard(entityId, { state: 'on', until: Date.now() + DASHBOARD_OPTIMISTIC_GUARD_MS });
+    if (!tryFastPathForEntities([entityId])) renderDashboard();
     try {
         const slug = String(widget.source || 'zigbee2mqtt');
         const res = await apiCall(`/api/integrations/${encodeURIComponent(slug)}/control`, {
@@ -148,12 +174,10 @@ export async function sendLightColor(widgetId: string, hex: string): Promise<voi
             const err = await res.json().catch(() => ({}));
             throw new Error(dashApiError((err as { detail?: unknown }).detail, 'dashboard.color_failed'));
         }
-        widget.current_state = 'on';
-        const attrs = { ...((widget.attributes || {}) as Record<string, unknown>) };
-        attrs.color = { r: rgb.r, g: rgb.g, b: rgb.b };
-        widget.attributes = attrs;
-        if (!tryFastPathForEntities([String(widget.entity_id || '')])) renderDashboard();
     } catch (e) {
+        deleteOptimisticGuard(entityId);
+        restoreDashboardEntitySnapshot(snapshot);
+        if (!tryFastPathForEntities([entityId])) renderDashboard();
         const msg = e instanceof Error ? e.message : t('dashboard.color_failed');
         showToast(msg, 'error');
     }
@@ -165,6 +189,12 @@ async function sendLightColorTemp(widgetId: string, value: number): Promise<void
     const { apiCall, t, showToast, findWidget, tryFastPathForEntities, renderDashboard } = deps();
     const widget = findWidget(widgetId);
     if (!widget) return;
+    const entityId = String(widget.entity_id || '');
+
+    const snapshot = snapshotDashboardEntityState(entityId);
+    patchDashboardEntityState(entityId, 'on', { color_temp: value });
+    setOptimisticGuard(entityId, { state: 'on', until: Date.now() + DASHBOARD_OPTIMISTIC_GUARD_MS });
+    if (!tryFastPathForEntities([entityId])) renderDashboard();
     try {
         const slug = String(widget.source || 'zigbee2mqtt');
         const res = await apiCall(`/api/integrations/${encodeURIComponent(slug)}/control`, {
@@ -179,12 +209,10 @@ async function sendLightColorTemp(widgetId: string, value: number): Promise<void
             const err = await res.json().catch(() => ({}));
             throw new Error(dashApiError((err as { detail?: unknown }).detail, 'dashboard.color_temp_failed'));
         }
-        widget.current_state = 'on';
-        const attrs = { ...((widget.attributes || {}) as Record<string, unknown>) };
-        attrs.color_temp = value;
-        widget.attributes = attrs;
-        if (!tryFastPathForEntities([String(widget.entity_id || '')])) renderDashboard();
     } catch (e) {
+        deleteOptimisticGuard(entityId);
+        restoreDashboardEntitySnapshot(snapshot);
+        if (!tryFastPathForEntities([entityId])) renderDashboard();
         const msg = e instanceof Error ? e.message : t('dashboard.color_temp_failed');
         showToast(msg, 'error');
     }

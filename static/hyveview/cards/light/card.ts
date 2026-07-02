@@ -22,6 +22,20 @@ interface LightCardOptions {
 
 const DEFAULT_LIGHT_ACCENT = '#ff9800';
 
+/** Sticky per-widget choice of which control the single visible slider shows. */
+const _activeModeByWidget = new Map<string, string>();
+
+/** After a local slider interaction, ignore incoming state for this long. */
+const LOCAL_HOLD_MS = 1600;
+
+const MODE_ORDER = ['brightness', 'temp', 'color'] as const;
+
+const MODE_ICONS: Record<string, string> = {
+  brightness: 'fas fa-sun',
+  temp: 'fas fa-temperature-half',
+  color: 'fas fa-palette',
+};
+
 function optionFlag(w: CardWidget, key: string): boolean {
   const cfg = (w.config && typeof w.config === 'object' ? w.config : {}) as Record<string, unknown>;
   const raw = Object.prototype.hasOwnProperty.call(cfg, key) ? cfg[key] : w[key];
@@ -42,6 +56,7 @@ export class HyveviewLightCard extends HyveviewCardBase {
   protected _secondaryEl: HTMLElement | null = null;
   protected _actionsEl: HTMLElement | null = null;
   protected _activeSliders = new Set<string>();
+  protected _localHold = new Map<string, number>();
   protected _renderSig = '';
 
   static meta = {
@@ -145,6 +160,37 @@ export class HyveviewLightCard extends HyveviewCardBase {
     return `${c.brightness}|${c.temp}|${c.color}`;
   }
 
+  _availableModes(w: CardWidget): string[] {
+    const c = this._visibleControls(w);
+    const enabled: Record<string, boolean> = { brightness: c.brightness, temp: c.temp, color: c.color };
+    return MODE_ORDER.filter((mode) => enabled[mode]);
+  }
+
+  _activeMode(w: CardWidget, modes: string[]): string {
+    const wid = String(w.id || '');
+    const remembered = _activeModeByWidget.get(wid) || '';
+    if (remembered && modes.includes(remembered)) return remembered;
+    return modes[0] || '';
+  }
+
+  _setActiveMode(mode: string) {
+    const w = (this._config || {}) as CardWidget;
+    const wid = String(w.id || '');
+    if (wid) _activeModeByWidget.set(wid, mode);
+    this._syncActiveMode(mode);
+  }
+
+  _syncActiveMode(mode: string) {
+    this.querySelectorAll('[data-slider]').forEach((node) => {
+      const el = node as HTMLElement;
+      el.toggleAttribute('hidden', el.dataset.slider !== mode);
+    });
+    this.querySelectorAll('[data-mode]').forEach((node) => {
+      const btn = node as HTMLElement;
+      btn.setAttribute('aria-pressed', btn.dataset.mode === mode ? 'true' : 'false');
+    });
+  }
+
   _render() {
     const w = (this._config || {}) as CardWidget;
     const escape = host.escape;
@@ -200,7 +246,24 @@ export class HyveviewLightCard extends HyveviewCardBase {
           aria-label="${escape(t('entity.render.color') || 'Color')}">
       </div>` : '';
 
-    const hasControls = controls.brightness || controls.temp || controls.color;
+    const modes = this._availableModes(w);
+    const hasControls = modes.length > 0;
+    const activeMode = this._activeMode(w, modes);
+
+    const modeLabels: Record<string, string> = {
+      brightness: t('entity.render.brightness') || 'Brightness',
+      temp: t('entity.render.color_temp') || 'Color temp',
+      color: t('entity.render.color') || 'Color',
+    };
+    const modeButtons = modes.length > 1 ? `
+      <div class="hyve-light__modes" data-modes>
+        ${modes.map((mode) => `
+          <button type="button" class="hyve-light__mode" data-mode="${escAttr(mode)}"
+            aria-pressed="${mode === activeMode ? 'true' : 'false'}"
+            title="${escAttr(modeLabels[mode] || mode)}" aria-label="${escAttr(modeLabels[mode] || mode)}">
+            <i class="${escAttr(MODE_ICONS[mode] || 'fas fa-circle')}" aria-hidden="true"></i>
+          </button>`).join('')}
+      </div>` : '';
 
     this.innerHTML = `
       <div class="hyve-light" style="--light-accent:${escAttr(DEFAULT_LIGHT_ACCENT)}">
@@ -218,6 +281,7 @@ export class HyveviewLightCard extends HyveviewCardBase {
           ${brightnessSlider}
           ${tempSlider}
           ${colorSlider}
+          ${modeButtons}
         </div>` : ''}
       </div>`;
 
@@ -229,13 +293,28 @@ export class HyveviewLightCard extends HyveviewCardBase {
       const input = node as HTMLInputElement;
       const kind = input.dataset.sliderInput || '';
       input.addEventListener('pointerdown', () => { this._activeSliders.add(kind); });
-      const release = () => { this._activeSliders.delete(kind); };
+      const release = () => {
+        this._activeSliders.delete(kind);
+        this._localHold.set(kind, Date.now());
+      };
       input.addEventListener('pointerup', release);
       input.addEventListener('pointercancel', release);
       input.addEventListener('blur', release);
-      input.addEventListener('input', () => this._onLocalSliderInput(kind, input));
+      input.addEventListener('input', () => {
+        this._localHold.set(kind, Date.now());
+        this._onLocalSliderInput(kind, input);
+      });
     });
 
+    this.querySelectorAll('[data-mode]').forEach((node) => {
+      const btn = node as HTMLButtonElement;
+      btn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        this._setActiveMode(btn.dataset.mode || '');
+      });
+    });
+
+    this._syncActiveMode(activeMode);
     this._applyState();
   }
 
@@ -257,6 +336,10 @@ export class HyveviewLightCard extends HyveviewCardBase {
     const input = this.querySelector(`[data-slider-input="${kind}"]`) as HTMLInputElement | null;
     if (!wrap || !input) return;
     if (this._activeSliders.has(kind) || document.activeElement === input) return;
+    // Right after a local drag, ignore (possibly stale) incoming state so the
+    // slider doesn't snap back before the device reports the new value.
+    const heldAt = this._localHold.get(kind) || 0;
+    if (heldAt && Date.now() - heldAt < LOCAL_HOLD_MS) return;
     const min = Number(input.min) || 0;
     const max = Number(input.max) || 100;
     const clamped = Math.max(min, Math.min(max, value));
@@ -326,9 +409,40 @@ export class HyveviewLightCard extends HyveviewCardBase {
         ? host.controlVisuallyPending(w.id) : false;
       article.setAttribute('data-pending', pending ? 'true' : 'false');
       if (w.entity_id) article.setAttribute('data-entity-id', w.entity_id);
+      this._syncCollapse(article, !expanded);
     }
     if (this._actionsEl) {
       this._actionsEl.toggleAttribute('hidden', !expanded);
+    }
+  }
+
+  /** Shrink the card to one grid row while collapsed (e.g. 4x2 → 4x1 when off). */
+  _syncCollapse(article: HTMLElement, collapsed: boolean) {
+    const editMode = article.getAttribute('data-edit') === 'true';
+    const shouldCollapse = collapsed && !editMode;
+    const already = article.getAttribute('data-collapsed') === 'true';
+    if (shouldCollapse === already) return;
+    if (shouldCollapse) {
+      article.dataset.hyveExpandedRow = article.style.gridRow || '';
+      article.dataset.hyveExpandedHr = article.style.getPropertyValue('--hr') || '';
+      const startMatch = (article.style.gridRow || '').match(/^\s*(\d+)\s*\/\s*span\s+\d+\s*$/);
+      article.style.gridRow = startMatch ? `${startMatch[1]} / span 1` : 'span 1';
+      article.style.setProperty('--hr', '1');
+      article.setAttribute('data-collapsed', 'true');
+    } else {
+      if (article.dataset.hyveExpandedRow !== undefined) {
+        article.style.gridRow = article.dataset.hyveExpandedRow;
+        delete article.dataset.hyveExpandedRow;
+      }
+      if (article.dataset.hyveExpandedHr !== undefined) {
+        if (article.dataset.hyveExpandedHr) {
+          article.style.setProperty('--hr', article.dataset.hyveExpandedHr);
+        } else {
+          article.style.removeProperty('--hr');
+        }
+        delete article.dataset.hyveExpandedHr;
+      }
+      article.setAttribute('data-collapsed', 'false');
     }
   }
 }

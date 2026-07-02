@@ -82,8 +82,43 @@
     min-width: 0;
 }
 
-.hyve-dashboard-card--light .hyve-light__actions[hidden] {
+.hyve-dashboard-card--light .hyve-light__actions[hidden],
+.hyve-dashboard-card--light .hyve-light__slider[hidden] {
     display: none !important;
+}
+
+/* ===== Mode switcher (brightness / temp / color) ===== */
+.hyve-dashboard-card--light .hyve-light__modes {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-shrink: 0;
+}
+
+.hyve-dashboard-card--light .hyve-light__mode {
+    width: var(--light-control-height);
+    height: var(--light-control-height);
+    flex-shrink: 0;
+    border: none;
+    border-radius: var(--light-control-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8125rem;
+    cursor: pointer;
+    background: color-mix(in srgb, var(--text-muted, #9e9e9e) 14%, transparent);
+    color: var(--text-muted, #94a3b8);
+    transition: background 0.18s ease, color 0.18s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.hyve-dashboard-card--light .hyve-light__mode:hover {
+    background: color-mix(in srgb, var(--text-muted, #9e9e9e) 24%, transparent);
+}
+
+.hyve-dashboard-card--light .hyve-light__mode[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--light-accent) 22%, transparent);
+    color: var(--light-accent);
 }
 
 /* Edit mode: show the sliders as a preview, but don't fight drag & drop. */
@@ -186,29 +221,36 @@
     background: var(--text-muted, #9e9e9e);
 }
 
+/* ===== Pending (optimistic toggle in flight) ===== */
+.hyve-dashboard-card--light[data-pending="true"] .hyve-light__shape {
+    animation: hyve-dashboard-control-pulse 0.8s ease-in-out infinite alternate;
+}
+
 /* ===== Size responsiveness ===== */
 /* Single-row cards only have room for the header. */
 .hyve-dashboard-card--light[data-dashboard-rows="1"] .hyve-light__actions {
     display: none !important;
 }
 
-.hyve-dashboard-card--light[data-dashboard-rows="1"] .hyve-light__shape {
+.hyve-dashboard-card--light[data-dashboard-rows="1"] .hyve-light__shape,
+.hyve-dashboard-card--light[data-collapsed="true"] .hyve-light__shape {
     width: 2.25rem;
     height: 2.25rem;
     font-size: 0.875rem;
 }
 
-/* Narrow cards: stack the sliders vertically. */
+/* Narrow cards: smaller controls so the slider + mode buttons still fit. */
 @container hyve-light (max-width: 220px) {
+    .hyve-dashboard-card--light .hyve-light {
+        --light-control-height: 36px;
+    }
+
     .hyve-dashboard-card--light .hyve-light__actions {
-        flex-direction: column;
-        align-items: stretch;
         gap: 0.5rem;
     }
 
-    .hyve-dashboard-card--light .hyve-light__slider {
-        flex: 0 0 auto;
-        height: 36px;
+    .hyve-dashboard-card--light .hyve-light__modes {
+        gap: 0.25rem;
     }
 }
 

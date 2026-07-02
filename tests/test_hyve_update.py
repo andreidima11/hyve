@@ -105,7 +105,7 @@ def test_resolve_latest_release_enriches_notes_for_winning_version(monkeypatch):
     assert release["html_url"].endswith("/0.9.7.3")
 
 
-def test_get_status_prefers_enriched_when_update_available(monkeypatch):
+def test_get_status_uses_cached_notes_when_update_available(monkeypatch):
     monkeypatch.setattr(hu, "current_version", lambda: "0.9.9.7")
     monkeypatch.setattr(
         hu,
@@ -113,28 +113,26 @@ def test_get_status_prefers_enriched_when_update_available(monkeypatch):
         {
             "latest": "0.9.9.8",
             "tag": "0.9.9.8",
-            "release_url": "",
-            "release_notes": "",
+            "release_url": "https://github.com/example/hyve/releases/tag/0.9.9.8",
+            "release_notes": "Notes for 0.9.9.8",
+            "notes_version": "0.9.9.8",
             "checked_at": "2026-01-01T00:00:00+00:00",
             "error": None,
         },
     )
-    monkeypatch.setattr(hu, "_artifact_metadata_for_tag", lambda _tag: None)
-    monkeypatch.setattr(
-        hu,
-        "_enrich_release_notes_for_version",
-        lambda v: {
-            "body": f"Notes for {v}",
-            "url": f"https://github.com/example/hyve/releases/tag/{v}",
-        },
-    )
+
+    def _no_network(_tag):
+        raise AssertionError("get_status must not hit the network")
+
+    monkeypatch.setattr(hu, "_artifact_metadata_for_tag", _no_network)
+    monkeypatch.setattr(hu, "_enrich_release_notes_for_version", _no_network)
     status = hu.get_status()
     assert status["update_available"] is True
     assert status["release_notes"] == "Notes for 0.9.9.8"
     assert status["release_url"].endswith("/0.9.9.8")
 
 
-def test_get_status_enriches_empty_release_notes(monkeypatch):
+def test_get_status_falls_back_to_local_changelog(monkeypatch):
     monkeypatch.setattr(hu, "current_version", lambda: "0.9.7.13")
     monkeypatch.setattr(
         hu,
@@ -148,14 +146,10 @@ def test_get_status_enriches_empty_release_notes(monkeypatch):
             "error": None,
         },
     )
-    monkeypatch.setattr(
-        hu,
-        "_enrich_release_notes_for_version",
-        lambda _v: {"body": "Enriched", "url": "https://github.com/org/hyve/releases/tag/0.9.7.13"},
-    )
+    monkeypatch.setattr(hu, "changelog_section", lambda v: f"Local notes {v}")
     status = hu.get_status()
-    assert status["release_notes"] == "Enriched"
-    assert status["release_url"].endswith("/releases/tag/0.9.7.13")
+    assert status["release_notes"] == "Local notes 0.9.7.13"
+    assert status["release_url"].endswith("/releases")
 
 
 def test_enrich_release_notes_for_version_falls_back_to_changelog(monkeypatch, tmp_path):

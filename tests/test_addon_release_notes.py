@@ -58,7 +58,7 @@ def test_addon_release_notes_falls_back_to_project_url(monkeypatch):
     assert notes["url"]
 
 
-def test_addon_update_row_prefers_live_github_body(monkeypatch):
+def test_addon_update_row_uses_cached_notes(monkeypatch):
     from routers import updates as updates_router
 
     addon = {
@@ -73,18 +73,40 @@ def test_addon_update_row_prefers_live_github_body(monkeypatch):
             "installed": True,
             "version": "0.14.0",
             "latest_version": "0.15.0",
-            "release_notes": "",
-            "release_url": "https://frigate.video/",
         },
     }
-    monkeypatch.setattr(
-        registry,
-        "addon_release_notes",
-        lambda _m, _v: {"version": "0.15.0", "body": "### New features", "url": "https://github.com/release"},
+
+    def _no_network(*_args, **_kwargs):
+        raise AssertionError("_addon_update_row must not hit the network")
+
+    monkeypatch.setattr(registry, "addon_release_notes", _no_network)
+    monkeypatch.setitem(
+        updates_router._last_check,
+        "notes",
+        {"frigate": {"body": "### New features", "url": "https://github.com/release"}},
     )
     row = updates_router._addon_update_row(addon)
     assert row["release_notes"] == "### New features"
     assert row["release_url"] == "https://github.com/release"
+
+
+def test_refresh_addon_release_notes_caches_installed_addons(monkeypatch):
+    from routers import updates as updates_router
+
+    addon = {
+        "slug": "frigate",
+        "name": "Frigate",
+        "update_available": True,
+        "state": {"installed": True, "version": "0.14.0", "latest_version": "0.15.0"},
+    }
+    monkeypatch.setattr(updates_router.registry, "list_all", lambda: [addon])
+    monkeypatch.setattr(
+        updates_router.registry,
+        "addon_release_notes",
+        lambda _m, v: {"version": v, "body": f"Notes {v}", "url": "https://github.com/release"},
+    )
+    updates_router._refresh_addon_release_notes()
+    assert updates_router._last_check["notes"]["frigate"]["body"] == "Notes 0.15.0"
 
 
 def test_addon_update_row_falls_back_to_github_releases_url(monkeypatch):

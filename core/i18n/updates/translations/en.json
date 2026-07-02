@@ -75,6 +75,7 @@
   "installing": "Installing... Do not close this page.",
   "restarting": "Restarting...",
   "all_up_to_date": "Everything is up to date.",
+  "last_checked": "Last check: {time}",
   "n_updates_available": "{count} update(s) available.",
   "confirm_update_all": "Update {count} packages? The server will restart.",
   "confirm_update_single": "Update {name}? The server will restart.",

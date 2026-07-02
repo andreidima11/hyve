@@ -13,6 +13,8 @@ import type { AddonUpdateRow, HyveUpdateStatus } from './types.js';
 let _addonUpdatesCache: AddonUpdateRow[] = [];
 let _hyveUpdateCache: HyveUpdateStatus | null = null;
 let _updatesDataLoaded = false;
+let _lastCheckedAt: string | null = null;
+let _autoCheckTriggered = false;
 
 interface ReleaseNotesEntry {
     title: string;
@@ -148,9 +150,14 @@ export async function loadUpdatesPrefsPanel() {
 
 export async function loadUpdatesAddons() {
     _normalizeLegacyLayout();
-    _setListLoading();
+    if (_updatesDataLoaded) {
+        // Instant render from the session cache; refresh silently below.
+        _renderUpdateRows();
+    } else {
+        _setListLoading();
+        _setHyveHint('');
+    }
     _setUpdatesStatus('', 'hidden');
-    _setHyveHint('');
     try {
         const res = await apiCall('/api/updates/addons');
         if (!res.ok) {
@@ -161,15 +168,26 @@ export async function loadUpdatesAddons() {
             hyve?: HyveUpdateStatus;
             addons?: AddonUpdateRow[];
             total_updates?: number;
+            checked_at?: string | null;
+            last_check?: { checked_at?: string | null } | null;
         };
         _hyveUpdateCache = data.hyve || null;
         _addonUpdatesCache = data.addons || [];
+        _lastCheckedAt = data.checked_at || null;
         _updatesDataLoaded = true;
         updateHeaderUpdatesBadge(data.total_updates || 0);
         _renderUpdateRows();
+        _maybeAutoCheck(!!data.last_check?.checked_at);
     } catch (e) {
-        _setListError(escapeHtml(e instanceof Error ? e.message : String(e)));
+        if (!_updatesDataLoaded) _setListError(escapeHtml(e instanceof Error ? e.message : String(e)));
     }
+}
+
+/** Trigger one background check per session when add-ons were never checked. */
+function _maybeAutoCheck(addonsChecked: boolean): void {
+    if (_autoCheckTriggered || addonsChecked) return;
+    _autoCheckTriggered = true;
+    checkAddonUpdates().catch(() => {});
 }
 
 export async function checkAddonUpdates() {
@@ -298,6 +316,14 @@ const _ADDON_COLOR_MAP: Record<string, string> = {
     green: 'text-green-400', emerald: 'text-emerald-400', slate: 'text-slate-400',
     indigo: 'text-indigo-400', rose: 'text-rose-400',
 };
+
+function _lastCheckedLabel(): string {
+    if (!_lastCheckedAt) return '';
+    const d = new Date(_lastCheckedAt);
+    if (isNaN(d.getTime())) return '';
+    const time = d.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+    return t('updates.last_checked', { time });
+}
 
 function _displayVersion(value: unknown): string {
     const raw = String(value ?? '').trim();
@@ -588,12 +614,17 @@ function _renderUpdateRows() {
     if (countEl) {
         if (!_updatesDataLoaded) {
             countEl.textContent = '';
-        } else if (totalItems === 0) {
-            countEl.textContent = t('updates.no_updates_available');
-        } else if (pendingTotal === 0) {
-            countEl.textContent = t('updates.all_up_to_date');
         } else {
-            countEl.textContent = t('updates.n_updates_available', { count: pendingTotal });
+            let text: string;
+            if (totalItems === 0) {
+                text = t('updates.no_updates_available');
+            } else if (pendingTotal === 0) {
+                text = t('updates.all_up_to_date');
+            } else {
+                text = t('updates.n_updates_available', { count: pendingTotal });
+            }
+            const checked = _lastCheckedLabel();
+            countEl.textContent = checked ? `${text} · ${checked}` : text;
         }
     }
 

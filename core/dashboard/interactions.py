@@ -126,6 +126,14 @@ def default_interactions_for_widget(widget: dict[str, Any] | None) -> dict[str, 
         }
 
     if renderer in _INLINE_CONTROL_RENDERERS:
+        # Lights toggle on tap (Mushroom-style); other inline controls keep tap
+        # free for their sliders/selects.
+        if renderer == "light":
+            return {
+                "tap": {"action": "toggle"},
+                "double_tap": {"action": "more_info"},
+                "hold": {"action": "more_info"},
+            }
         return {
             "tap": {"action": "none"},
             "double_tap": {"action": "toggle" if domain in _TOGGLE_DOMAINS or switch_style else "more_info"},

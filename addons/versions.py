@@ -461,17 +461,6 @@ def refresh_addon_versions(slug: str) -> dict:
         if latest is not None and state.get("latest_version") != latest:
             state["latest_version"] = latest
             changed = True
-        note_version = latest or state.get("version")
-        if note_version is not None:
-            notes = addon_release_notes(manifest, str(note_version))
-            body = str(notes.get("body") or "").strip()
-            url = str(notes.get("url") or "").strip()
-            if body and state.get("release_notes") != body:
-                state["release_notes"] = body
-                changed = True
-            if url and state.get("release_url") != url:
-                state["release_url"] = url
-                changed = True
     except Exception as e:
         log.debug("latest version resolve failed for %s: %s", slug, e)
 

@@ -348,26 +348,32 @@ def _git_remote_latest_tag() -> str | None:
 
 
 def get_status() -> dict[str, Any]:
+    """Current update status from the cached last check — never hits the network.
+
+    Fresh data (GitHub release, artifact metadata, release notes) is only
+    fetched by ``check_for_update`` (manual check, scheduler, startup check).
+    This keeps GET endpoints fast and lets the last result act as a cache.
+    """
     cur = current_version()
     err = _last_hyve_check.get("error")
     latest = str(_last_hyve_check.get("latest") or cur)
     update_available = not err and bool(latest and is_newer(latest, cur))
     notes_version = latest if update_available else cur
-    cached_notes = str(_last_hyve_check.get("release_notes") or "")
-    cached_url = str(_last_hyve_check.get("release_url") or "")
-    enriched = _enrich_release_notes_for_version(notes_version)
-    # When an update is pending, prefer fresh notes for the *target* version (GitHub /
-    # CHANGELOG). Stale persisted cache often has empty notes or the previous release.
-    if update_available:
-        release_notes = (enriched.get("body") or "").strip() or cached_notes.strip()
-        release_url = (enriched.get("url") or "").strip() or cached_url.strip()
+    cached_notes = str(_last_hyve_check.get("release_notes") or "").strip()
+    cached_url = str(_last_hyve_check.get("release_url") or "").strip()
+    cached_notes_version = str(
+        _last_hyve_check.get("notes_version") or _last_hyve_check.get("latest") or ""
+    ).strip()
+    cache_matches = bool(cached_notes_version) and cached_notes_version == notes_version
+    release_notes = cached_notes if (cached_notes and cache_matches) else changelog_section(notes_version)
+    if cached_url and cache_matches:
+        release_url = cached_url
     else:
-        release_notes = cached_notes.strip() or (enriched.get("body") or "").strip()
-        release_url = cached_url.strip() or (enriched.get("url") or "").strip()
+        release_url = f"https://github.com/{github_repo()}/releases"
     tag = str(_last_hyve_check.get("tag") or latest)
     artifact_meta = _last_hyve_check.get("artifact_meta")
     if not isinstance(artifact_meta, dict):
-        artifact_meta = _artifact_metadata_for_tag(tag) if tag else None
+        artifact_meta = None
     artifact_available = bool(artifact_meta and artifact_meta.get("artifact_url"))
     git_ok = is_git_install()
     if artifact_available:

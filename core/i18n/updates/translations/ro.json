@@ -75,6 +75,7 @@
   "installing": "Se instalează... Nu închide pagina.",
   "restarting": "Se repornește...",
   "all_up_to_date": "Totul e la zi.",
+  "last_checked": "Ultima verificare: {time}",
   "n_updates_available": "{count} actualizări disponibile.",
   "confirm_update_all": "Actualizezi {count} pachete? Serverul se va reporni.",
   "confirm_update_single": "Actualizezi {name}? Serverul se va reporni.",

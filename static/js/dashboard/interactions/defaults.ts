@@ -51,6 +51,15 @@ export function defaultInteractionsForWidget(widget: DashboardWidgetLike | null 
   }
 
   if (INLINE_CONTROL_RENDERERS.has(renderer)) {
+    // Lights toggle on tap (Mushroom-style); other inline controls keep tap free
+    // for their sliders/selects.
+    if (renderer === 'light') {
+      return {
+        tap: { action: 'toggle' },
+        double_tap: { action: 'more_info' },
+        hold: { action: 'more_info' },
+      };
+    }
     return {
       tap: { action: 'none' },
       double_tap: { action: TOGGLE_DOMAINS.has(domain) || switchStyle ? 'toggle' : 'more_info' },

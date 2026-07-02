@@ -33,8 +33,10 @@ log = logging.getLogger(__name__)
 _ADDON_CHECK_JOB_ID = "hyve_addon_check"
 _HYVE_CHECK_JOB_ID = "hyve_self_check"
 
-# In-memory cache for the last check results (drives the hub badge).
-_last_check: dict[str, Any] = {"outdated": [], "checked_at": None}
+# In-memory cache for the last check results (drives the hub badge and the
+# Updates page). ``notes`` maps slug -> {body, url} so release notes fetched
+# during a check survive restarts and GET requests never hit the network.
+_last_check: dict[str, Any] = {"outdated": [], "notes": {}, "checked_at": None}
 
 
 def _persist_addons_last_check() -> None:
@@ -48,8 +50,10 @@ def _hydrate_addons_last_check() -> None:
     global _last_check
     stored = (settings.CFG.get("updates") or {}).get("addons_last_check")
     if isinstance(stored, dict) and stored.get("checked_at"):
+        notes = stored.get("notes")
         _last_check = {
             "outdated": list(stored.get("outdated") or []),
+            "notes": dict(notes) if isinstance(notes, dict) else {},
             "checked_at": stored.get("checked_at"),
         }
 
@@ -84,36 +88,54 @@ def _refresh_all_addon_versions() -> None:
             log.warning("Failed to refresh versions for %s: %s", slug, e)
 
 
+def _refresh_addon_release_notes() -> None:
+    """Fetch release notes for installed add-ons into ``_last_check['notes']``.
+
+    Blocking (network) — only called from check flows, never from GET routes.
+    """
+    notes: dict[str, dict[str, str]] = {}
+    for addon in registry.list_all():
+        state = addon.get("state") or {}
+        if not state.get("installed"):
+            continue
+        slug = str(addon.get("slug") or "")
+        version_for_notes = (
+            state.get("latest_version") if addon.get("update_available")
+            else state.get("version") or state.get("latest_version")
+        )
+        try:
+            live = registry.addon_release_notes(addon, str(version_for_notes or "") or None)
+            notes[slug] = {
+                "body": str(live.get("body") or "").strip(),
+                "url": str(live.get("url") or "").strip(),
+            }
+        except Exception as exc:
+            log.debug("release notes fetch failed for %s: %s", slug, exc)
+    _last_check["notes"] = notes
+
+
 def _addon_update_row(addon: dict) -> dict[str, Any]:
-    """Build a single add-on row for the updates API."""
+    """Build a single add-on row for the updates API (no network; cached notes)."""
     state = addon.get("state") or {}
     available = bool(addon.get("update_available"))
-    version_for_notes = (
-        state.get("latest_version") if available
-        else state.get("version") or state.get("latest_version")
-    )
-    live = registry.addon_release_notes(addon, str(version_for_notes or "") or None)
-    cached_body = str(state.get("release_notes") or "").strip()
-    cached_url = str(state.get("release_url") or "").strip()
-    release = {
-        "version": str(version_for_notes or ""),
-        "body": str(live.get("body") or cached_body or "").strip(),
-        "url": str(live.get("url") or cached_url or "").strip(),
-    }
+    slug = str(addon.get("slug") or "")
+    cached = _last_check.get("notes") or {}
+    note = cached.get(slug) if isinstance(cached, dict) else None
+    note = note if isinstance(note, dict) else {}
     github_repo = registry._github_repo(addon)
-    release_url = str(release.get("url") or "").strip()
+    release_url = str(note.get("url") or "").strip()
     if not release_url and github_repo:
         release_url = f"https://github.com/{github_repo}/releases"
     return {
-        "slug": addon.get("slug", ""),
-        "name": addon.get("name", addon.get("slug", "")),
+        "slug": slug,
+        "name": addon.get("name", slug),
         "icon": addon.get("icon", "fas fa-puzzle-piece"),
         "color": addon.get("color", "slate"),
         "image": addon.get("image", ""),
         "current": state.get("version") or "",
         "latest": state.get("latest_version") or addon.get("version") or "",
         "update_available": available,
-        "release_notes": release.get("body") or "",
+        "release_notes": str(note.get("body") or "").strip(),
         "release_url": release_url,
         "github_repo": github_repo,
     }
@@ -143,10 +165,6 @@ def _collect_addon_updates() -> list[dict[str, Any]]:
         })
     updates.sort(key=lambda a: a["name"].lower())
     return updates
-
-
-def _hyve_update_count() -> int:
-    return 1 if get_hyve_status().get("update_available") else 0
 
 
 # ---------------------------------------------------------------------------
@@ -180,9 +198,8 @@ async def apply_hyve_updates(request: Request, _: models.User = Depends(_require
 # GET /addons — list installed add-ons with update flags
 # ---------------------------------------------------------------------------
 
-@router.get("/addons")
-async def list_addon_updates(_: models.User = Depends(_require_admin)):
-    """List installed add-ons together with an ``update_available`` flag."""
+def _build_updates_payload() -> dict[str, Any]:
+    """Cached updates snapshot — no network calls, safe for frequent polling."""
     addons: list[dict[str, Any]] = []
     update_count = 0
     for addon in registry.list_all():
@@ -195,13 +212,23 @@ async def list_addon_updates(_: models.User = Depends(_require_admin)):
         addons.append(row)
     addons.sort(key=lambda a: (not a["update_available"], a["name"].lower()))
     hyve = get_hyve_status()
-    total_updates = update_count + _hyve_update_count()
+    total_updates = update_count + (1 if hyve.get("update_available") else 0)
     return {
         "hyve": hyve,
         "addons": addons,
         "total_updates": total_updates,
-        "last_check": _last_check if _last_check["checked_at"] else None,
+        "checked_at": _last_check.get("checked_at") or hyve.get("checked_at"),
+        "last_check": _last_check if _last_check.get("checked_at") else None,
     }
+
+
+@router.get("/addons")
+async def list_addon_updates(_: models.User = Depends(_require_admin)):
+    """List installed add-ons together with an ``update_available`` flag."""
+    import asyncio
+
+    # SQLite state reads per add-on — keep off the event loop.
+    return await asyncio.to_thread(_build_updates_payload)
 
 
 # ---------------------------------------------------------------------------
@@ -215,6 +242,7 @@ async def check_addon_updates(_: models.User = Depends(_require_admin)):
 
     # Live registry lookups (npm/pip) can be slow — keep them off the loop.
     await asyncio.to_thread(_refresh_all_addon_versions)
+    await asyncio.to_thread(_refresh_addon_release_notes)
 
     updates = _collect_addon_updates()
     _last_check["outdated"] = updates
@@ -341,6 +369,7 @@ def _scheduled_addon_check():
 
     log.info("Running scheduled add-on update check...")
     _refresh_all_addon_versions()
+    _refresh_addon_release_notes()
     updates = _collect_addon_updates()
     _last_check["outdated"] = updates
     _last_check["checked_at"] = _dt.datetime.now().isoformat()
